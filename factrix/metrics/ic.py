@@ -31,15 +31,18 @@ from factrix._results import MetricResult
 from factrix._stats.constants import MIN_PERIODS_HARD, MIN_PERIODS_WARN
 from factrix._types import (
     EPSILON,
+    MIN_IC_ASSETS,
     MIN_IC_PERIODS,
 )
 from factrix.inference import NEWEY_WEST, NON_OVERLAPPING, NeweyWest, NonOverlapping
 from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
+    _DROP_STATS_COL,
     TIE_RATIO_WARN_THRESHOLD,
     _check_applicable_inference,
     _enforce_min_floor,
+    _read_drop_stats,
     _short_circuit_output,
     _surface_drop_stats,
     _warn_below_floor,
@@ -121,6 +124,29 @@ def _ic_sample_threshold(self: MetricBase) -> SampleThreshold:
     return SampleThreshold(
         min_periods=inference.min_input_periods(self.forward_periods)
     )
+
+
+def _ic_shortfall_is_asset_driven(ic_df: pl.DataFrame, raw_min: int) -> bool:
+    """True when a thin/empty IC series reflects too few *assets per date*.
+
+    ``compute_ic`` drops any date whose valid (factor, return) cross-section is
+    below ``MIN_IC_ASSETS``, so a series that falls under the periods floor is
+    often an asset-axis problem (few-asset panels such as asset allocation), not
+    a genuine shortage of dates. Naming the failure by its real axis follows the
+    dimension-token grammar used across the drop-rate schema.
+
+    - A readable carrier (thin frame) is asset-driven when the per-date floor
+      dropped dates (``dropped_periods > 0``) and enough raw dates entered
+      (``n_periods_in >= raw_min``) — i.e. the drop, not a short panel, is what
+      pushed the series under the floor.
+    - A fully-dropped (0-row) frame still carrying the ``compute_ic`` drop column
+      means *every* cross-section was dropped by the asset floor. A hand-built
+      empty series carries no such column.
+    """
+    stats = _read_drop_stats(ic_df)
+    if stats is not None:
+        return bool(stats["dropped_periods"] > 0 and stats["n_periods_in"] >= raw_min)
+    return _DROP_STATS_COL in ic_df.columns and ic_df.is_empty()
 
 
 @metric(
@@ -209,6 +235,22 @@ def ic(
     n = len(ic_vals)
     raw_min = inference.min_input_periods(forward_periods)
     if n < raw_min:
+        if _ic_shortfall_is_asset_driven(ic_df, raw_min):
+            return _short_circuit_output(
+                "ic",
+                "insufficient_ic_assets",
+                n_obs=n,
+                n_obs_axis="periods",
+                min_assets_required=MIN_IC_ASSETS,
+                forward_periods=forward_periods,
+                hint=(
+                    "every cross-section has fewer than MIN_IC_ASSETS valid "
+                    "(factor, return) pairs, so no per-date IC survived. IC "
+                    "needs a wide cross-section; for few-asset panels (e.g. "
+                    "asset allocation) use a time-series metric such as "
+                    "directional_hit_rate or ts_quantile_spread."
+                ),
+            )
         return _short_circuit_output(
             "ic",
             "insufficient_ic_periods",

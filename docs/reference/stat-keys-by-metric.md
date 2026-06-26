@@ -85,6 +85,7 @@ contrasts, not a sidecar to a primary value.
 
 - *primary*: `p_value` — `t`-test on the per-date IC series (non-overlapping stride with stride `forward_periods` by default, or Newey-West HAC if configured).
 - *descriptive*: `n_periods`, `forward_periods`, `tie_ratio` (median across dates), `stat_type` (`"t"`), `h0` (`"mu=0"`), `method`.
+- *short-circuit*: `reason` `insufficient_ic_periods` (too few dates) carries `min_required`; `insufficient_ic_assets` (every cross-section below `MIN_IC_ASSETS`, so no per-date IC survived — common on few-asset panels) carries `min_assets_required`.
 
 #### `ic_ir`
 

@@ -126,10 +126,9 @@ class TestSpreadTools:
         # spread to drop — the five-key schema is still recorded on success.
         result = quantile_spread_vw(_spread_panel(), forward_periods=1)
         assert set(DROP_STAT_KEYS) <= set(result.metadata)
-        assert (
-            result.metadata["drop_reason"] == "null spread observations in the series"
-        )
-        assert result.metadata["drop_rate"] >= 0.0
+        # Nothing dropped → drop_reason is null (not the static criterion label).
+        assert result.metadata["drop_rate"] == 0.0
+        assert result.metadata["drop_reason"] is None
 
     def test_k_spread_records_schema(self):
         # k_spread's top-k/bottom-k yields a spread even on thin dates, so the
