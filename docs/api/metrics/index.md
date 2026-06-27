@@ -26,7 +26,36 @@ Reverse index — match your situation to the likely landing page:
 For sample-size guards (when a metric short-circuits to NaN) see
 [Reference § Metric applicability](../../reference/metric-applicability.md).
 
-## Programmatic catalog: `list_metrics()`
+## Programmatic discovery
+
+Three entry points browse the metric surface — pick by how much detail you need:
+
+```mermaid
+flowchart LR
+    MSf["metrics_summary()"]
+    LMf["list_metrics()"]
+    IDf["inspect_data(panel)"]
+
+    MSf -->|"pl.DataFrame<br/>(family, metric, summary)"| Browse["Browse at a glance"]
+    LMf -->|"dict[str, list[MetricSpec]]"| Filter["Filter on cell / aggregation / thresholds"]
+    IDf -->|"usable / degraded / unusable"| Run["What actually runs on this panel"]
+
+    click MSf "#factrix.metrics_summary" "metrics_summary API"
+    click LMf "#factrix.list_metrics" "list_metrics API"
+    click IDf "../inspect-data/" "inspect_data API"
+```
+
+| Function | Returns | Use when |
+|---|---|---|
+| `metrics_summary()` | `pl.DataFrame` — one row per metric: `family`, `metric`, `summary` | You want a readable, at-a-glance catalog. |
+| `list_metrics()` | `dict[str, list[MetricSpec]]` — full specs, family-grouped | You need the full `MetricSpec` to filter programmatically. |
+| `inspect_data(panel)` | `usable` / `degraded` / `unusable` partitions | You need to know which metrics run on a **specific** panel. |
+
+### Browse the catalog: `metrics_summary()`
+
+::: factrix.metrics_summary
+
+### Full specs: `list_metrics()`
 
 ::: factrix.list_metrics
 

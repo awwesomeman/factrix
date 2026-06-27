@@ -1,5 +1,5 @@
 ---
-title: Panel schema
+title: Data schema
 ---
 
 Single-source contract for every `factrix` entry point that consumes a panel. Every dispatch cell `evaluate` runs floors its input schema at the same four columns described here. Per-cell extensions (optional weight / price columns) are listed under [Optional columns](#optional-columns).
@@ -30,6 +30,15 @@ panel = pl.DataFrame({
 ```
 
 The two synthetic dataset generators emit this layout (plus a `price` column) ready for `compute_forward_return`: [`fx.datasets.make_cs_panel`](datasets.md) (cross-sectional) and `fx.datasets.make_event_panel` (event-study).
+
+## Accepted input type: `DataInput`
+
+Every data-consuming entry point annotates its first argument as `DataInput` — an eager `pl.DataFrame` or a `pl.LazyFrame`. A `LazyFrame` is collected internally, so the choice is purely ergonomic; the schema contract above is identical either way.
+
+::: factrix.DataInput
+    options:
+      show_root_toc_entry: false
+      heading_level: 4
 
 ---
 

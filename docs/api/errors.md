@@ -42,7 +42,8 @@ FactrixError                       # base
 ├── IncompatibleAxisError          # (scope, density, metric) is not a legal cell
 ├── IncompatibleInferenceError     # inference= outside the metric's applicable-inference allowlist
 ├── InsufficientSampleError        # T below SampleThreshold on a TIMESERIES/PANEL procedure
-└── UserInputError                 # named-set typo / type mismatch / dataset schema error
+├── UserInputError                 # named-set typo / type mismatch / dataset schema error
+└── CycleError                     # MetricSpec.requires declares a dependency cycle
 ```
 
 | Exception | When you see it | What it carries |
@@ -51,6 +52,7 @@ FactrixError                       # base
 | `IncompatibleInferenceError` | `inference=` outside the metric's `applicable_inference` allowlist | `.func_name`, `.value`, `.applicable` |
 | `InsufficientSampleError` | `T` below the procedure floor | `.actual_periods`, `.required_periods` |
 | `UserInputError` | Unknown metric, column not in data, wrong type | structured `.field`, `.value`, `.candidates`, `.suggestions`, `.expected`, `.docs_url` |
+| `CycleError` | A custom metric's `MetricSpec.requires` forms a dependency cycle | — |
 
 ---
 
@@ -62,7 +64,7 @@ Concrete messages, what triggers them, and where to look for the fix.
 
 | Message hint | Trigger | Fix |
 |---|---|---|
-| `factor_cols 'X' not in data columns` | Typo or wrong column name | Check `data.columns`; pass the actual name to `factor_cols=`. See [Panel schema](panel-schema.md). |
+| `factor_cols 'X' not in data columns` | Typo or wrong column name | Check `data.columns`; pass the actual name to `factor_cols=`. See [Data schema](data-schema.md). |
 | `forward_return column missing` | Forgot the preprocess step | `compute_forward_return(raw, forward_periods=h)` before `evaluate`. See [Preparing data](../guides/preparing-data.md). |
 
 ### Structural and sample failures
@@ -163,6 +165,13 @@ Autodoc anchors for cross-references of the form `[`FactrixError`][factrix.Factr
       heading_level: 4
 
 ::: factrix.InsufficientSampleError
+    options:
+      show_root_toc_entry: false
+      heading_level: 4
+
+### Custom-metric wiring failures
+
+::: factrix.CycleError
     options:
       show_root_toc_entry: false
       heading_level: 4

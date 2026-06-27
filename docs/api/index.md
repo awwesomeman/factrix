@@ -32,6 +32,7 @@ flowchart LR
 
     subgraph Introspection
         LM[list_metrics]
+        MS[metrics_summary]
         ID[inspect_data]
     end
 
@@ -50,6 +51,7 @@ flowchart LR
     PC ==>|survivors| CMP
     BHYH ==>|survivors| CMP
     LM -.->|metric names| EV
+    MS -.->|metric names| EV
 
     click EV "evaluate/" "evaluate API"
     click EVH "evaluate/#factrix.evaluate_horizons" "evaluate_horizons API"
@@ -59,6 +61,7 @@ flowchart LR
     click PC "partial-conjunction/" "partial_conjunction API"
     click BHYH "bhy-hierarchical/" "bhy_hierarchical API"
     click LM "metrics/#factrix.list_metrics" "list_metrics API"
+    click MS "metrics/#factrix.metrics_summary" "metrics_summary API"
     click CMP "compare/" "compare API"
     click ID "inspect-data/" "inspect_data API"
 ```
@@ -89,7 +92,8 @@ Click any node to jump to its API page.
 | Slice exploration (single axis) | `by_slice(data, metric, by="...", factor_col="...")` → `dict[str, EvaluationResult]` |
 | Slice statistical test (date-aligned) | `slice_pairwise_test(df, metric, by="...")` or `slice_joint_test(...)` → pairwise / omnibus test result |
 | Slice statistical test (date-disjoint) | `slice_period_pairwise_test(...)` or `slice_period_joint_test(...)` → pairwise / omnibus across regimes / calendar periods |
-| Metric catalog discovery | `list_metrics()` → family-grouped `dict` of specs |
+| Metric catalog discovery (full specs) | `list_metrics()` → family-grouped `dict` of specs |
+| Metric catalog discovery (browse) | `metrics_summary()` → `pl.DataFrame` of `(family, metric, summary)` |
 | Per-panel applicability | `inspect_data(data)` → `.usable` / `.degraded` / `.unusable` |
 | Multi-factor screening with FDR | `evaluate(...)` → `multi_factor.bhy(list(results.values()), metrics=[...])` |
 | Cross-factor leaderboard | `compare(list(results.values()), metrics=[...])` → `pl.DataFrame` |
@@ -111,7 +115,8 @@ See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surfac
 | [`partial_conjunction`](partial-conjunction.md) | Screening (FDR) | k-of-m partial conjunction screening. | "Factor passes in ≥ k of m contexts." |
 | [`bhy_hierarchical`](bhy-hierarchical.md) | Screening (FDR) | Two-stage hierarchical BHY FDR. | Grouped / nested-context screening. |
 | [`compare`](compare.md) | Descriptive view | Cross-factor leaderboard — stacks evaluation results into a `pl.DataFrame`. | Ranking candidate factors. |
-| [`list_metrics`](metrics/index.md#factrix.list_metrics) | Introspection | Family-grouped catalog of standalone public metrics. | Browsing the metric catalog. |
+| [`list_metrics`](metrics/index.md#factrix.list_metrics) | Introspection | Family-grouped catalog of standalone public metrics, as full `MetricSpec`s. | Programmatic filtering over the metric catalog. |
+| [`metrics_summary`](metrics/index.md#factrix.metrics_summary) | Introspection | One-line-per-metric `pl.DataFrame` (`family`, `metric`, `summary`). | Browsing the metric catalog at a glance. |
 | [`inspect_data`](inspect-data.md) | Introspection | Inspects a panel's applicability metrics. | Pre-flight check on data dimensions. |
 | [`Metrics`](metrics/index.md) | Catalogue | Per-module reference for every public function under `factrix.metrics`. | Calling a standalone metric directly. |
 | [`stats`](stats.md) | Catalogue | Statistical estimators and HAC/bootstrap utilities. | Under-the-hood statistical details. |
@@ -122,7 +127,7 @@ See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surfac
 
 | Page | What it is |
 |---|---|
-| [Panel schema](panel-schema.md) | The four-column input contract every panel-consuming function depends on. |
+| [Data schema](data-schema.md) | The four-column input contract every panel-consuming function depends on. |
 | [`EvaluationResult`](evaluation-results.md) | The bundle result returned by `evaluate`. Includes groups, metric results, and warnings. |
 | [`datasets`](datasets.md) | Synthetic panels for testing and examples. |
 | [`preprocess`](preprocess.md) | Helper functions for preprocessing (e.g. computing forward returns). |
