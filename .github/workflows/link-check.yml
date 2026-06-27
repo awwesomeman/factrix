@@ -1,10 +1,14 @@
 name: link-check
 
 on:
-  # pull_request trigger temporarily disabled while the v0.14.0 rename
-  # collapse (#466, #468, #460) lands ahead of the consolidated docs
-  # sweep (#451). The scheduled daily run still guards main against
-  # link rot; restore the PR trigger once #451 merges.
+  # pull_request trigger held off: the `pr:` job (fail: true) red-builds on
+  # root-relative `/factrix/...` links in the built site (theme assets +
+  # mike version-prefixed internal links). lychee errors on these at the
+  # URL-build stage — before `.lycheeignore` filtering applies — because the
+  # local `site/` tree has no `factrix/` prefix to resolve them against.
+  # These internal links are already validated by `mkdocs build --strict`,
+  # so the daily scheduled run below is sufficient. Restore the PR trigger
+  # once the lychee root-relative false-positive is resolved.
   schedule:
     # Daily at 06:00 UTC (~14:00 Asia/Taipei) — outside GitHub Actions
     # peak hours, runner availability is best.

@@ -10,10 +10,14 @@ on:
       - 'scripts/**'
       - 'examples/**'
       - '.github/workflows/docs-deploy-dev.yml'
-  # pull_request trigger temporarily disabled while the v0.14.0 rename
-  # collapse (#466, #468, #460) lands ahead of the consolidated docs
-  # sweep (#451). Restore once #451 merges and the doc surface is
-  # back in sync with the new public API.
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - 'factrix/**'
+      - 'scripts/**'
+      - 'examples/**'
+      - '.github/workflows/docs-deploy-dev.yml'
   workflow_dispatch:
 
 permissions:
