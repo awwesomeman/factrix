@@ -30,5 +30,5 @@ gh pr create
 - Keep the change scoped and include tests for new metrics, result fields, or API parameters.
 - Run `uv run pytest` locally.
 - Use `cz commit -- -s` for Conventional Commits plus Signed-off-by.
-- During the pre-1.0 line, keep the WHY narrative in the PR description; detailed `CHANGELOG.md` entries resume at `v1.0.0`.
-- For metrics, docs, release flow, hooks, and changelog policy, use the full contributing guide.
+- For metrics, docs, release flow, hooks, changelog policy, and pre-1.0 rules,
+  use the full contributing guide.

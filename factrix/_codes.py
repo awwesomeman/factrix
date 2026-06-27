@@ -1,4 +1,4 @@
-"""v0.5 enum codes for warnings.
+"""Enum codes for structured warnings.
 
 ``WarningCode`` follows the ``*Code`` suffix invariant (§7.5).
 """
@@ -9,11 +9,10 @@ from enum import StrEnum
 
 
 class WarningCode(StrEnum):
-    """Procedure-degradation flags (replaces v3 ``DegradedMode``).
+    """Procedure-degradation flags.
 
-    Each value carries a one-line ``description`` gloss for
-    ``profile.diagnose()`` consumers (review fix UX-4) — pure metadata,
-    StrEnum value identity is unchanged.
+    Each value carries a one-line ``description`` gloss used by API docs,
+    ``MetricResult.warning_codes``, and ``EvaluationResult.warnings``.
     """
 
     UNRELIABLE_SE_SHORT_PERIODS = "unreliable_se_short_periods"

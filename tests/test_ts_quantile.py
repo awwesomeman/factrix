@@ -122,7 +122,7 @@ class TestGateAFactorVariation:
         assert out.metadata["reason"] == "insufficient_factor_variation"
 
     def test_lower_n_groups_passes_when_distinct_allows(self):
-        # 6 distinct values, n_groups=2 → 6 >= 4 passes Gate A.
+        # 6 distinct values with n_groups=2 satisfy the 2 * n_groups floor.
         rng = np.random.default_rng(0)
         T = 200
         f = rng.integers(0, 6, size=T).astype(float)

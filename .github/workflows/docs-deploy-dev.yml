@@ -47,7 +47,8 @@ jobs:
         run: |
           git diff --exit-code -- \
             docs/reference/_generated_metric_matrix.md \
-            docs/development/_generated_registry_cells.md
+            docs/reference/_generated_metric_name_index.md \
+            docs/reference/_generated_warning_codes.md
 
   build-main:
     if: github.event_name != 'pull_request'
@@ -72,4 +73,5 @@ jobs:
         run: |
           git diff --exit-code -- \
             docs/reference/_generated_metric_matrix.md \
-            docs/development/_generated_registry_cells.md
+            docs/reference/_generated_metric_name_index.md \
+            docs/reference/_generated_warning_codes.md

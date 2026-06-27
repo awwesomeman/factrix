@@ -79,9 +79,9 @@ def bhy_adjust(
 
     Args:
         p_values: 1-D array of p-values in [0, 1]. Each must come from
-            the same test family (e.g. all information coefficient (IC) p-values or all CAAR
-            p-values); the ProfileSet wrapper enforces this via the
-            P_VALUE_FIELDS whitelist.
+            the same test family (e.g. all information coefficient (IC)
+            p-values or all CAAR p-values). Public screening helpers enforce
+            family consistency before calling this primitive.
         fdr: Target false discovery rate (FDR) (default 0.05).
         n_tests: Full candidate family size for two-stage screening. If
             caller already pre-filtered from a larger pool (e.g. 1000

@@ -596,10 +596,9 @@ def _pick_event_return_col(data: pl.DataFrame) -> str:
 
     ``abnormal_return`` (cross-sectionally de-meaned return) is preferred
     when present; ``forward_return`` is the fallback for single-asset
-    panels where de-meaning is undefined. Centralized here so EventFactor
-    sessions, EventProfile.from_artifacts, and the build_artifacts
-    pipeline agree on the same choice — diverging would silently route
-    the same Factor call through different series.
+    panels where de-meaning is undefined. Centralized here so event metrics
+    and single-asset sparse diagnostics agree on the same choice — diverging
+    would silently route the same factor through different series.
     """
     return "abnormal_return" if "abnormal_return" in data.columns else "forward_return"
 

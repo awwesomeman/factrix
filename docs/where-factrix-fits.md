@@ -84,7 +84,7 @@ flowchart LR
     DISP -->|individual · dense| CS[IC · FM beta<br/>+ diagnostics]
     DISP -->|individual · sparse| EV[CAAR<br/>+ diagnostics]
     DISP -->|common · dense| CO[ts_beta<br/>+ diagnostics]
-    DISP -->|common · sparse| DUM[ts_beta on dummies<br/>+ diagnostics]
+    DISP -->|common · sparse| DUM[CAAR<br/>+ event diagnostics]
     CS --> RES[EvaluationResult<br/>metrics · warnings · cell]
     EV --> RES
     CO --> RES
@@ -341,7 +341,7 @@ public repo has been dormant since 2021-12.
 **Where factrix wins**
 
 - Open source (Apache-2.0); `pip install factrix` works.
-- Active maintenance and a published changelog cadence.
+- Active maintenance with tagged releases and reviewable PR narratives during the pre-1.0 line.
 - Deflated Sharpe / PSR is on the factrix roadmap and is the
   highest-priority OSS gap; see [§7](#7-honest-weaknesses).
 

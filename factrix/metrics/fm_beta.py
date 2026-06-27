@@ -455,7 +455,7 @@ def pooled_beta(
 
     FM and single-way share the same point estimate under a balanced
     panel but typically disagree on SE; when $\hat\beta$ and FM
-    $\hat\lambda$ have **opposite signs**, ``profile.diagnose()``
+    $\hat\lambda$ have **opposite signs**, a diagnostic
     flags an FM/pooled sign-mismatch — a red flag for misspecification.
 
     Set ``driscoll_kraay=True`` to swap the clustered sandwich for the

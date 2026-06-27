@@ -74,9 +74,9 @@ class TestGateBNoTwoSides:
         assert out.metadata["reason"] == "no_two_sided_factor"
 
 
-class TestGateCMethodBSkip:
+class TestMethodBApplicability:
     def test_signed_binary_skips_method_b(self):
-        # Signed binary {-1, +1} passes Gate B but fails Gate C
+        # Signed binary {-1, +1} is two-sided but cannot identify Method B
         # (each side has 1 unique value → cannot identify a slope).
         rng = np.random.default_rng(0)
         T = 200

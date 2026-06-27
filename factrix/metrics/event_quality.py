@@ -163,7 +163,8 @@ def event_ic(
     triggered events. Direction is already accounted for via sign().
 
     Only meaningful when density values have magnitude variance
-    (not all ±1). Profile auto-skips when variance is absent.
+    (not all ±1). The metric returns a not-applicable result when
+    variance is absent.
 
     Args:
         data: Panel with event density and forward return.

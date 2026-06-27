@@ -93,7 +93,7 @@ Each `factrix/metrics/*.py` module decorates its public callables with
   registered metric.
 - `public_specs()` — visibility-filtered specs (drops `PIPELINE`-role stage-1
   helpers pulled only via `requires`).
-- `list_metrics()` — the public runtime discovery API, grouped by cell.
+- `list_metrics()` — the public runtime discovery API, grouped by metric family.
 
 `@metric`-class registration feeds the index via
 `factrix.metrics._registry.register`. Every introspection / validation path

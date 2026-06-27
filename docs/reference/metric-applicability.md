@@ -13,9 +13,11 @@ where it is in scope, the canonical inferential role it plays in
 that cell, and the sample-size threshold that gates it. Per-metric
 formulae, parameters, and Notes / References live in the
 [Metrics API pages](../api/metrics/index.md); this page is the
-cross-metric overview. For the runtime API that returns the per-cell
-metric list programmatically, see
-[`list_metrics`](../api/metrics/index.md#factrix.list_metrics).
+cross-metric overview. For the runtime API that returns the family-grouped
+metric catalog programmatically, see
+[`list_metrics`](../api/metrics/index.md#factrix.list_metrics); for
+structure-aware per-panel applicability, use
+[`inspect_data`](../api/inspect-data.md).
 
 ## Sample dimensions
 
@@ -97,7 +99,7 @@ Min sample*. `MIN_*` constants resolve to values in the
 | [`mean_r_squared`][factrix.metrics.ts_beta.mean_r_squared] | `N` | `N ≥ 1` |
 | [`ts_beta_sign_consistency`][factrix.metrics.ts_beta.ts_beta_sign_consistency] | `N` | `N ≥ 2` |
 | [`ts_quantile_spread`][factrix.metrics.ts_quantile.ts_quantile_spread] | `T` | `T ≥ MIN_PORTFOLIO_PERIODS_HARD`; factor `n_unique ≥ n_groups × 2` |
-| [`ts_asymmetry`][factrix.metrics.ts_asymmetry.ts_asymmetry] | `T` | factor has both signs (Gate B); each side `n_unique ≥ 2` for method B (Gate C) |
+| [`ts_asymmetry`][factrix.metrics.ts_asymmetry.ts_asymmetry] | `T` | factor has both signs; each side `n_unique ≥ 2` for method B |
 
 ### Spread-series consumers — not cell-bound
 
