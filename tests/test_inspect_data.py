@@ -1,4 +1,4 @@
-"""``fx.inspect_data`` — typed DataInspection + per-metric verdict."""
+"""``fx.inspect_data`` -- typed DataInspection + per-metric verdict."""
 
 from __future__ import annotations
 
@@ -72,6 +72,22 @@ class TestDataPropertiesDetection:
         info = inspect_data(with_nulls)
         assert info.properties.n_pairs == with_nulls.drop_nulls("factor").height
         assert info.properties.n_pairs < raw.height
+
+    def test_sparse_ratio_uses_non_null_factor_denominator(self):
+        raw = fx.datasets.make_cs_panel(n_assets=10, n_dates=10)
+        data = raw.with_columns(
+            pl.when(pl.int_range(0, raw.height) < 60)
+            .then(None)
+            .when(pl.int_range(0, raw.height) < 99)
+            .then(0.0)
+            .otherwise(1.0)
+            .alias("factor")
+        )
+        info = inspect_data(data)
+        assert info.properties.density is fx.FactorDensity.SPARSE
+        assert info.properties.n_pairs == 40
+        assert info.properties.n_events == 1
+        assert math.isclose(info.properties.sparse_ratio, 39 / 40)
 
 
 class TestDataReasoning:
@@ -189,7 +205,7 @@ class TestSampleThresholdGate:
 
 class TestDeclaredPeriodsFloorsVisible:
     """Metrics that gate on a periods floor must declare it on their spec so
-    ``inspect_data`` can pre-flight it — previously these enforced the floor in
+    ``inspect_data`` can pre-flight it -- previously these enforced the floor in
     the body while declaring an empty ``SampleThreshold()``, hiding it from the
     pre-flight verdict.
     """
@@ -202,7 +218,7 @@ class TestDeclaredPeriodsFloorsVisible:
         from factrix.metrics.directional_hit_rate import directional_hit_rate
 
         # directional_hit_rate gates on pooled (date, asset) directional
-        # trials, so its floor lives on the pairs axis — not periods.
+        # trials, so its floor lives on the pairs axis -- not periods.
         st = directional_hit_rate.spec().sample_threshold
         assert st.min_periods is None
         assert st.min_pairs == MIN_DIRECTIONAL_PAIRS_HARD
@@ -210,7 +226,7 @@ class TestDeclaredPeriodsFloorsVisible:
 
     def test_directional_hit_rate_usable_on_wide_short_panel(self):
         # n_periods (7) < MIN_DIRECTIONAL_PAIRS_HARD but n_pairs (7 * 40 = 280)
-        # clears the WARN floor — the pairs-axis pre-flight must not flag it
+        # clears the WARN floor -- the pairs-axis pre-flight must not flag it
         # UNUSABLE the way the old periods-axis floor did.
         info = inspect_data(fx.datasets.make_cs_panel(n_assets=40, n_dates=7))
         da = _by_name(info, "directional_hit_rate")
@@ -250,7 +266,7 @@ class TestDeclaredPeriodsFloorsVisible:
 
 class TestDeclaredEventFloorsVisible:
     """Event-driven metrics must declare their event floor on the spec so
-    ``inspect_data`` can pre-flight it — previously these enforced the floor in
+    ``inspect_data`` can pre-flight it -- previously these enforced the floor in
     the body while declaring an empty ``SampleThreshold()``, hiding it from the
     pre-flight verdict.
     """
@@ -340,14 +356,14 @@ class TestEventAxisPreflight:
 
 class TestContinuousMagnitudePreflight:
     """event_ic declares requires_continuous_magnitude: the pre-flight must
-    block it on a discrete ±k signal, matching its run-time short-circuit."""
+    block it on a discrete +/-k signal, matching its run-time short-circuit."""
 
     def _ternary_event_panel(self):
         raw = fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0)
         return fx.preprocess.compute_forward_return(raw, forward_periods=5)
 
     def _continuous_magnitude_panel(self):
-        # Scale the ±1 events by a random positive magnitude so |factor| varies.
+        # Scale the +/-1 events by a random positive magnitude so |factor| varies.
         import numpy as np
 
         df = self._ternary_event_panel()
@@ -444,7 +460,7 @@ class TestDataLevelWarnings:
         assert "few_assets" in codes
 
     def test_single_asset_event_data_emits_guidance(self):
-        # n_assets=1 event panel ⇒ TIMESERIES + SPARSE: event-axis metrics are
+        # n_assets=1 event panel -- TIMESERIES + SPARSE: event-axis metrics are
         # usable, but the cross-sectional clustering_hhi stays blocked. The
         # data-level warning names it so its absence from `usable` is explained.
         info = inspect_data(
@@ -495,7 +511,7 @@ class TestEventAxisSingleAsset:
         assert any("cell mismatch" in b for b in hhi.blockers)
 
     def test_event_axis_metric_computes_finite_value(self):
-        # applicability is not enough — the primitive must produce a real value
+        # applicability is not enough -- the primitive must produce a real value
         # on single-asset data, not a structure short-circuit.
         panel = fx.preprocess.compute_forward_return(self._panel(), forward_periods=5)
         res = fx.evaluate(
@@ -513,7 +529,7 @@ class TestWarningSourceConvention:
 
     def test_per_metric_warnings_carry_their_metric_name(self):
         # n_periods=25 puts NW-SE metrics in the degraded tier, n_assets=5
-        # trips the cross-section tier — both per-metric warning paths fire.
+        # trips the cross-section tier -- both per-metric warning paths fire.
         info = inspect_data(fx.datasets.make_cs_panel(n_assets=5, n_dates=25))
         emitted = 0
         for m in info.metrics:

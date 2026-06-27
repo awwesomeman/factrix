@@ -1,15 +1,16 @@
-"""factrix.metrics — Independent factor evaluation metrics.
+"""factrix.metrics -- Independent factor evaluation metrics.
 
 All metrics return ``MetricResult`` and can be used standalone.
 
-Grouping below follows the ``Scope × FactorDensity`` cells defined in
-``factrix._axis`` — *not* ``DataStructure`` (which is a derived sample regime,
-``PANEL`` for ``N ≥ 2`` and ``TIMESERIES`` for ``N == 1``). Every
-cell can run in either DataStructure; the dispatch registry handles that.
+Grouping below follows the ``Scope x FactorDensity`` cells defined in
+``factrix._axis`` -- *not* ``DataStructure`` (which is a derived sample regime,
+``PANEL`` for ``N >= 2`` and ``TIMESERIES`` for ``N == 1``). Metrics whose
+registered cell pins ``DataStructure`` only run in that sample regime; the dispatch
+registry rejects cell mismatches before execution.
 Series diagnostics are axis-agnostic and operate on any ``(date, value)``
 series produced upstream.
 
-Individual × Continuous:
+Individual x Continuous:
     compute_ic, ic, ic_ir,
     compute_spread_series, quantile_spread, quantile_spread_vw,
     compute_group_returns, monotonicity, top_concentration,
@@ -17,24 +18,23 @@ Individual × Continuous:
     compute_fm_betas, fm_beta, pooled_beta, fm_beta_sign_consistency,
     spanning_alpha, greedy_forward_selection, k_spread
 
-Individual × Sparse (the ``Common × Sparse`` cell has its own
-broadcast-dummy procedure but reuses these helper metrics — there is
-no separate Common-sparse module set):
+Individual x Sparse / Common x Sparse (scope-agnostic sparse event metrics;
+there is no separate Common-sparse module set):
     compute_caar, caar, bmp_z, event_hit_rate, event_ic,
     compute_mfe_mae, mfe_mae, profit_factor, event_skewness,
     compute_event_returns, event_around_return,
     signal_density, clustering_hhi, corrado_rank
 
-Common × Continuous:
+Common x Continuous:
     compute_ts_betas, ts_beta, mean_r_squared,
     compute_rolling_mean_beta, ts_beta_sign_consistency,
     ts_quantile_spread, ts_asymmetry
 
-Series diagnostics — axis-agnostic on ``(date, value)``:
+Series diagnostics -- axis-agnostic on ``(date, value)``:
     hit_rate, ic_trend, oos_decay
 
 Scope-agnostic (run in either scope; ``cell`` scope is ``None``):
-    directional_hit_rate — small-N robust, Pesaran-Timmermann directional
+    directional_hit_rate -- small-N robust, Pesaran-Timmermann directional
     sibling of ``hit_rate`` (consumes a ``date, asset_id, factor,
     forward_return`` panel rather than a pre-aggregated series)
 """

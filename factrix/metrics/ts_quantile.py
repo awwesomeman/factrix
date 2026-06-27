@@ -6,10 +6,8 @@ mean forward return per bucket. Catches U-shape / inverted-U /
 extreme-only signals that ordinary least squares (OLS) β assumes away (linear) and reports
 pass / fail on as a single slope.
 
-Standalone metric — does not enter the registry. See
-`ARCHITECTURE.md` §"Registry procedure vs standalone metric" for the
-distinction. SPARSE / binary signals are out of scope; the input gate
-redirects to `event_quality` helpers.
+SPARSE / binary signals are out of scope; the input gate redirects to
+`event_quality` helpers.
 
 Notes:
     **Pipeline.** Per-date aggregation to a common ``(_f, _r)`` series
@@ -115,8 +113,8 @@ def ts_quantile_spread(
     References:
         [Newey-West 1987][newey-west-1987]: HAC covariance under-pinning
         the Wald test.
-        [Andrews 1991][andrews-1991]: Bartlett growth rate ``T^(1/3)``
-        used for the default lag.
+        [Newey-West 1994][newey-west-1994]: automatic Bartlett bandwidth
+        used by the default lag resolver.
         [Hansen-Hodrick 1980][hansen-hodrick-1980]: ``forward_periods - 1``
         floor for overlapping returns.
 

@@ -552,7 +552,7 @@ def partial_conjunction(
         min_pass: ``k`` in "k of m". Must be ``>= 2``.
         expand_over: Non-empty tuple of context keys (or
             ``"forward_periods"``) defining the condition axis.
-        n_conditions: Strict-structure declaration. ``None`` lets ``m`` be
+        n_conditions: Strict condition-count declaration. ``None`` lets ``m`` be
             inferred per identity; an ``int`` requires every identity
             to have exactly that many conditions.
         q: Nominal FDR target for the BHY step-up over PC p-values. Must
@@ -564,7 +564,7 @@ def partial_conjunction(
 
     Raises:
         UserInputError: ``min_pass < 2``; ``expand_over`` empty;
-            ``n_conditions < min_pass``; strict-structure mismatch;
+            ``n_conditions < min_pass``; condition-count mismatch;
             identity with fewer than ``min_pass`` conditions; any
             ``_resolve_family`` invariant failure.
     """
@@ -678,8 +678,8 @@ def _partial_conjunction_one(
                 value=n_conditions,
                 expected=(
                     f"factor {factor!r} has {m} condition(s) in data but "
-                    f"n_conditions={n_conditions} declared (strict structure). "
-                    "Pass n_conditions=None for lenient structure, or fix the "
+                    f"n_conditions={n_conditions} declared. "
+                    "Pass n_conditions=None for inferred condition counts, or fix the "
                     f"input so every factor has exactly {n_conditions} "
                     "conditions"
                 ),
@@ -709,12 +709,12 @@ def _partial_conjunction_one(
         m_values = set(n_tests_per_id.values())
         if len(m_values) > 1:
             warnings.warn(
-                "partial_conjunction: lenient structure (n_conditions=None) "
+                "partial_conjunction: inferred condition counts (n_conditions=None) "
                 f"is running with heterogeneous condition counts "
                 f"m={sorted(m_values)} across factors. PC p-values are "
                 "valid marginally but the k/m bar differs per factor. "
                 "For cross-factor comparability pass n_conditions=<int> "
-                "(strict structure) or split the call.",
+                "(fixed condition count) or split the call.",
                 RuntimeWarning,
                 stacklevel=3,
             )
@@ -782,9 +782,7 @@ def bhy_hierarchical(
 
     out: dict[str, HierarchicalBhyResult] = {}
     for spec in metric_list:
-        out[spec] = _bhy_hierarchical_one(
-            results, metric=spec, group=group, q=q_target
-        )
+        out[spec] = _bhy_hierarchical_one(results, metric=spec, group=group, q=q_target)
     return out
 
 

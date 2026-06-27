@@ -79,7 +79,7 @@ info = fx.inspect_data(panel)
 [m.name for m in info.unusable]   # blocked (cell mismatch / sample floor)
 ```
 
-`inspect_data` gives a structure-aware, sample-floor-aware verdict: each
+`inspect_data` gives a cell-aware, sample-floor-aware verdict: each
 `MetricApplicability` carries the metric `name`, its callable class, and
 any `blockers` / `warnings`, accounting for the actual panel shape
 (`n_periods` / `n_assets` / `n_pairs`).

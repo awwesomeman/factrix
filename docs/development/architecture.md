@@ -73,8 +73,8 @@ evaluate-time from `panel["asset_id"].n_unique()` (`factrix._detect_structure`):
 `PANEL` for `N ≥ 2`, `TIMESERIES` for `N = 1`. Each `MetricSpec` declares the
 `(scope, density, structure)` cell it applies to (`None` on an axis = `*`
 wildcard); the DAG executor derives the runtime structure and dispatches each
-requested metric against its cell. A metric inapplicable to the data's **cell**
-(scope / density / structure mismatch) raises under `strict=True` or
+requested metric against its cell. A metric inapplicable to the data's
+**factor cell** (scope / density / data structure axes) raises under `strict=True` or
 short-circuits to a NaN `MetricResult` under `strict=False`. A
 `not_applicable*` **type-routing verdict** — the metric's signal *type* does not
 fit the factor (e.g. a continuous-magnitude metric on a discrete ±k signal), a
@@ -356,7 +356,7 @@ re-collapsed into "raise on anything inapplicable":
 | `not_applicable*` | The metric's signal *type* does not fit this factor (e.g. a continuous-magnitude metric on a discrete ±k signal). The type-routing verdict. | **soft** — NaN + `is_applicable=False`; the applicable metrics in the same call still return |
 | `insufficient_*` | The metric fits but the sample is too thin | **raise** (`UserInputError`) |
 | `no_*` | Missing input column / config | **raise** |
-| structure mismatch | A `cell.structure=PANEL` metric on `TIMESERIES` data (the cell axis above) | **raise** (`IncompatibleAxisError`) |
+| cell mismatch | Requested metric cell (scope / density / data structure) does not match the factor's detected cell | **raise** (`IncompatibleAxisError`) |
 
 Rationale: throwing a mixed battery at a panel and seeing which metrics apply is
 the core type-routed-evaluation workflow; aborting it because one metric's type
@@ -604,7 +604,7 @@ Reached whenever a sparse factor evaluates at N=1 and the requested sparse
 metric's structure is wildcarded — the DAG executor runs it directly on the
 single-asset series (no scope-collapse step; at N=1 the two scopes are
 statistically equivalent). Sparse metrics that require a cross-asset panel, such
-as `clustering_hhi`, still raise / short-circuit on the structure mismatch. The
+as `clustering_hhi`, still raise / short-circuit on the cell mismatch. The
 series is the **full period grid** with
 zero-padding on non-event periods (distinct from the CAAR computation, which
 works on the event-date-only series). Factor magnitudes are

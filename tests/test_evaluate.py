@@ -1,4 +1,4 @@
-"""``fx.evaluate`` dict[str, Metric] API — labels, strict, data-stamped
+"""``fx.evaluate`` dict[str, Metric] API -- labels, strict, data-stamped
 forward_periods + by-value DAG dedup."""
 
 from __future__ import annotations
@@ -8,9 +8,8 @@ import math
 import factrix as fx
 import polars as pl
 import pytest
-from factrix._codes import WarningCode
 from factrix._errors import UserInputError
-from factrix.metrics import clustering_hhi, ic, ic_ir
+from factrix.metrics import caar, clustering_hhi, ic, ic_ir
 
 
 def _panel(n_assets: int = 20, n_dates: int = 80, *, with_price: bool = True):
@@ -120,7 +119,7 @@ class TestByValueDedup:
 
     def test_horizon_injected_from_data_into_every_metric(self):
         # forward_periods is the data's stamped overlap horizon (5 here),
-        # injected into every metric — there is no per-metric override.
+        # injected into every metric -- there is no per-metric override.
         er = fx.evaluate(
             _panel(),
             metrics={
@@ -224,7 +223,7 @@ class TestStrict:
         assert status["reason"] == "insufficient_ic_periods"
 
     def test_strict_true_keeps_not_applicable_without_aborting(self):
-        # A discrete ±k signal makes a continuous-magnitude metric
+        # A discrete +/-k signal makes a continuous-magnitude metric
         # not_applicable; under default strict=True the battery must still
         # return the applicable metric rather than raising on the inapplicable
         # one (type-routing verdict, not a failure).
@@ -247,14 +246,14 @@ class TestStrict:
         assert er.metrics["event_ic"].reason == "not_applicable_discrete_signal"
 
 
-class TestStrictStructureSoftening:
+class TestStrictCellSoftening:
     def _single_asset_panel(self):
         panel = _panel(n_assets=20, n_dates=80)
         first = panel["asset_id"][0]
         return panel.filter(pl.col("asset_id") == first)
 
-    def test_strict_true_raises_on_structure_mismatch(self):
-        with pytest.raises(fx.IncompatibleAxisError, match="structure"):
+    def test_strict_true_raises_on_cell_mismatch(self):
+        with pytest.raises(fx.IncompatibleAxisError, match=r"cell=.*PANEL"):
             fx.evaluate(
                 self._single_asset_panel(),
                 metrics={"ic": ic()},
@@ -271,13 +270,14 @@ class TestStrictStructureSoftening:
             strict=False,
         )["factor"]
         assert math.isnan(er.metrics["ic"].value)
+        assert er.metrics["ic"].metadata["reason"] == "structure_mismatch"
 
     def test_strict_false_short_circuits_without_executing_metric(self):
-        # #631: clustering_hhi does not self-guard structure — on TIMESERIES
+        # #631: clustering_hhi does not self-guard structure on TIMESERIES
         # data it would compute a numerically real (but invalid) value. The
         # pre-flight gate must intercept it under strict=False: NaN value,
-        # structure_mismatch reason (proves the metric never ran), and a
-        # STRUCTURE_MISMATCH warning. p_value is None (no test was run).
+        # structure_mismatch reason (legacy code proving the metric never ran),
+        # and a matching warning. p_value is None (no test was run).
         er = fx.evaluate(
             self._single_asset_panel(),
             metrics={"hhi": clustering_hhi()},
@@ -288,15 +288,18 @@ class TestStrictStructureSoftening:
         m = er.metrics["hhi"]
         assert math.isnan(m.value)
         assert m.metadata["reason"] == "structure_mismatch"
-        assert m.metadata["cell_structure"] == "panel"
+        assert m.metadata["declared_cell"] == "(*, SPARSE, PANEL)"
+        assert m.metadata["detected_cell"] == "(common, dense, timeseries)"
+        assert m.metadata["declared_data_structure"] == "panel"
         assert m.metadata["data_structure"] == "timeseries"
         assert m.p_value is None
-        assert (WarningCode.STRUCTURE_MISMATCH, "hhi") in [
-            (w.code, w.source) for w in er.warnings
-        ]
+        assert (
+            next(w for w in er.warnings if w.source == "hhi").code.value
+            == "structure_mismatch"
+        )
 
     def test_strict_false_mismatch_does_not_block_applicable_metric(self):
-        # A structure-mismatched label is dropped from the DAG; sibling
+        # A cell-mismatched label is dropped from the DAG; sibling
         # applicable metrics in the same call still run, and the returned
         # dict preserves the caller's request order across both.
         panel = _panel(n_assets=20, n_dates=80)  # PANEL data
@@ -311,7 +314,7 @@ class TestStrictStructureSoftening:
         assert list(er.metrics.keys()) == ["hhi", "ic"]
         # On PANEL data neither is mismatched, so ic computes a real value.
         assert not math.isnan(er.metrics["ic"].value)
-        # And on single-asset data only hhi is mismatched.
+        # And on single-asset data both PANEL metrics are mismatched.
         er2 = fx.evaluate(
             single,
             metrics={"hhi": clustering_hhi(), "ic": ic()},
@@ -320,11 +323,72 @@ class TestStrictStructureSoftening:
             strict=False,
         )["factor"]
         assert er2.metrics["hhi"].metadata["reason"] == "structure_mismatch"
+        assert er2.metrics["ic"].metadata["reason"] == "structure_mismatch"
+
+    def test_dense_factor_does_not_run_sparse_event_metric(self):
+        panel = _panel(n_assets=20, n_dates=120)
+        with pytest.raises(fx.IncompatibleAxisError, match="SPARSE"):
+            fx.evaluate(
+                panel,
+                metrics={"caar": caar()},
+                factor_cols=["factor"],
+                forward_periods=5,
+            )
+
+        er = fx.evaluate(
+            panel,
+            metrics={"caar": caar()},
+            factor_cols=["factor"],
+            forward_periods=5,
+            strict=False,
+        )["factor"]
+        assert math.isnan(er.metrics["caar"].value)
+        assert er.metrics["caar"].metadata["reason"] == "structure_mismatch"
+        assert er.metrics["caar"].metadata["data_density"] == "dense"
+        assert er.metrics["caar"].p_value is None
+
+    def test_sparse_factor_does_not_run_dense_ic_metric(self):
+        raw = fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0)
+        panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
+        er = fx.evaluate(
+            panel,
+            metrics={"ic": ic(), "caar": caar()},
+            factor_cols=["factor"],
+            strict=False,
+        )["factor"]
+        assert er.cell[1] is fx.FactorDensity.SPARSE
+        assert er.metrics["ic"].metadata["reason"] == "structure_mismatch"
+        assert er.metrics["caar"].reason is None
+        assert not math.isnan(er.metrics["caar"].value)
+
+    def test_mixed_factor_cells_route_in_separate_groups(self):
+        panel = _panel(n_assets=20, n_dates=120).with_columns(
+            pl.when(pl.int_range(0, pl.len()) % 20 == 0)
+            .then(1.0)
+            .otherwise(0.0)
+            .alias("event_factor")
+        )
+        results = fx.evaluate(
+            panel,
+            metrics={"ic": ic(), "caar": caar()},
+            factor_cols=["factor", "event_factor"],
+            forward_periods=5,
+            strict=False,
+        )
+        dense = results["factor"]
+        sparse = results["event_factor"]
+
+        assert dense.cell[1] is fx.FactorDensity.DENSE
+        assert sparse.cell[1] is fx.FactorDensity.SPARSE
+        assert dense.metrics["caar"].metadata["reason"] == "structure_mismatch"
+        assert not math.isnan(dense.metrics["ic"].value)
+        assert sparse.metrics["ic"].metadata["reason"] == "structure_mismatch"
+        assert not math.isnan(sparse.metrics["caar"].value)
 
 
 class TestEntryConsistency:
     """A metric's sample gating must be identical whether it is called
-    directly or routed through ``evaluate()`` — the declare-once-enforce
+    directly or routed through ``evaluate()`` -- the declare-once-enforce
     contract. The shared helpers read the same declared floor on both paths.
     ``ic_ir`` exercises all three tiers (short-circuit / warn / clean) off a
     single periods floor, with ``evaluate`` computing the same upstream IC.

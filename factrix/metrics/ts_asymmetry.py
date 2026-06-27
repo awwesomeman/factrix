@@ -25,8 +25,6 @@ Applicability checks for conditional means/piecewise slopes:
   values to identify a slope. Below that floor, method B is skipped
   and `metadata["method_b_skipped"]` records the reason.
 
-Standalone metric — does not enter the registry.
-
 Notes:
     **Pipeline.** Per-date aggregation of factor and forward return to
     a common ``(_f, _r)`` series (cross-section step), then NW HAC OLS
@@ -131,7 +129,8 @@ def ts_asymmetry(
     References:
         [Newey-West 1987][newey-west-1987]: HAC covariance underpinning
         the Wald tests for both methods.
-        [Andrews 1991][andrews-1991]: Bartlett growth rate ``T^(1/3)``.
+        [Newey-West 1994][newey-west-1994]: automatic Bartlett bandwidth
+        used by the default lag resolver.
         [Hansen-Hodrick 1980][hansen-hodrick-1980]: ``forward_periods - 1``
         floor for overlapping returns.
 

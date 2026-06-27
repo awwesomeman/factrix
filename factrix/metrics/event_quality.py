@@ -267,8 +267,9 @@ def profit_factor(
         MetricResult with value=profit_factor.
 
     Notes:
-        ``PF = sum(signed_car > 0) / |sum(signed_car < 0)|``. Descriptive
-        only; no formal H0 (the ratio's sampling distribution lacks a
+        ``PF = sum(signed_car_i * 1{signed_car_i > 0}) /
+        |sum(signed_car_i * 1{signed_car_i < 0})|``. Descriptive only;
+        no formal H0 (the ratio's sampling distribution lacks a
         clean closed-form null without distributional assumptions).
         ``PF > 1`` means gross gains exceed gross losses across all
         events; the metric ignores per-event variance.
