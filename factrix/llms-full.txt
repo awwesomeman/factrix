@@ -166,7 +166,7 @@ def evaluate(
 
 - `metrics` accepts a dictionary mapping labels to metric **instances** from `factrix.metrics` (e.g., `{"ic_5d": ic(forward_periods=5, inference=fx.inference.NEWEY_WEST)}`).
 - `factor_cols` accepts a list of column names on `data`.
-- `forward_periods` sets a default horizon (rows) for metrics that leave it at signature default.
+- `forward_periods` is **not** a metric knob — it is the data's single overlap horizon (rows of the time axis). Normally omitted: `compute_forward_return` stamps it on the panel and `evaluate` reads it from there. Pass it only to declare the horizon for a self-attached `forward_return` column that carries no stamp; a value disagreeing with the stamp is rejected. To compare horizons, build one panel per horizon and evaluate each (or use `evaluate_horizons`).
 - `strict` (default `True`) raises an exception on inapplicable metrics; when `False`, inapplicable metrics return `NaN` with warnings.
 
 Under the hood, evaluation is scheduled and executed via `DagExecutor`, which topologically sorts specs and dependencies, raising a `CycleError` if circular dependencies are detected.
@@ -325,14 +325,13 @@ Custom metrics plug into the registry via the `@metric_spec(...)` decorator and 
 
 ```python
 import factrix as fx
-from factrix._metric_index import MetricSpec, cell
+from factrix._metric_index import MetricSpec, Aggregation, cell
 
 @fx.metric_spec(
     MetricSpec(
         name="custom_ic",
         cell=cell(fx.FactorScope.INDIVIDUAL, fx.FactorDensity.DENSE),
-        family="cs-first",
-        inference="NW HAC",
+        aggregation=Aggregation.CS_THEN_TS,
     )
 )
 def custom_ic(panel):
@@ -349,11 +348,13 @@ fx.metrics.register(custom_ic)
 from factrix.preprocess import compute_forward_return
 
 panel = compute_forward_return(
-    df,
+    data,
     forward_periods: int = 5,
+    *,
+    overwrite: bool = False,
 ) -> pl.DataFrame
 ```
-Appends `forward_return` to the DataFrame and drops boundary nulls.
+Appends `forward_return` to the DataFrame, stamps the `forward_periods` horizon onto the panel, and drops boundary nulls. Pass `overwrite=True` to replace an existing `forward_return` column.
 
 ---
 
@@ -388,10 +389,12 @@ Flat warning representation containing:
 
 Dataclass for a single metric's output:
 - `value`: Raw scalar result.
-- `p_value`: Probability value.
-- `n_obs`: Number of observations seen by this metric (single source of truth for sample size).
-- `stat`: Test statistic value.
-- `metadata`: Evaluation metadata dictionary.
+- `p_value`: Two-sided p-value for the metric's hypothesis test.
+- `n_obs`: Effective sample size the estimator actually used (single source of truth for sample size).
+- `n_obs_axis`: The sample dimension `n_obs` counts along (`periods` / `pairs` / `events` / ...), or `None`.
+- `stat`: Test statistic value (t, z, W, chi2, ...), when applicable.
+- `metadata`: Estimator-specific context beyond the top-level fields.
+- `warning_codes`: Per-metric advisory `WarningCode` values raised by this metric.
 - `name`: Metric identifier name.
 
 ---
@@ -408,18 +411,31 @@ All exceptions inherit from `FactrixError`:
 
 ## WarningCode reference
 
+The canonical glosses live in `factrix._codes.WarningCode.description` and are regenerated into `docs/reference/_generated_warning_codes.md`. All 21 codes:
+
 | WarningCode | Description |
 |---|---|
-| `unreliable_se_short_periods` | `n_periods` is below `MIN_PERIODS_WARN=30`; NW HAC SE may be biased. |
+| `unreliable_se_short_periods` | `n_periods` is below the WARN floor (~30, `MIN_PERIODS_WARN` / `MIN_FM_PERIODS_WARN`); NW HAC SE may be biased. |
 | `event_window_overlap` | Adjacent events sit within `forward_periods`; AR windows overlap. |
 | `persistent_regressor` | ADF p > 0.10 on the continuous factor; β may carry Stambaugh bias. |
 | `serial_correlation_detected` | Ljung-Box p < 0.05 on residuals; NW lag may be under-set. |
-| `few_assets` | PANEL cross-asset t-test with `n_assets < MIN_ASSETS_WARN` (30); df=n_assets-1 inflates t_crit; severity in the n_assets metadata. |
-| `sparse_common_few_events` | broadcast dummy has 5..19 events; too thin for asymptotic t. |
-| `sparse_magnitude_weighted` | Sparse factor column is mixed-sign and not a clean ±1 ternary; magnitude-weighted. |
-| `few_events` | event dates < 29; t-stat power is thin. |
-| `borderline_portfolio_periods` | portfolio periods < 19; t_crit is inflated. |
-| `upstream_unavailable` | Downstream consumer skipped due to upstream short-circuit. |
+| `few_assets` | PANEL cross-asset t-test with `n_assets < MIN_ASSETS_WARN` (30); df=n_assets-1 inflates t_crit; severity scales with `n_assets` (read the metadata). |
+| `thin_quantile_groups` | `quantile_spread` left < `MIN_GROUP_ASSETS` (5) assets per bucket; spread can be dominated by individual assets. Advisory only. |
+| `sparse_magnitude_weighted` | Sparse factor is mixed-sign and not a clean ±1 ternary; statistic is magnitude-weighted (Sefcik-Thompson), not textbook signed CAAR. |
+| `few_events` | CAAR significance test with 4..29 event periods; sub-30 series is power-thin for the asymptotic t. |
+| `borderline_portfolio_periods` | `top_concentration` with 3..19 periods; one-sided t-test returned but df=n-1 inflates t_crit. |
+| `few_directional_pairs` | `directional_hit_rate` with 10..29 pooled non-overlapping (date, asset) pairs; PT normal approximation is power-thin below ~30. |
+| `rect_kernel_negative_variance` | Rectangular-kernel HAC variance came out negative (no PSD guarantee); clamped to 0 → SE=0, t=0, p=1.0 (conservative). |
+| `bmp_return_vol_fallback` | `bmp_z` ran without a `price` column; estimation-window vol falls back to lagged rolling std of `forward_return` (coarser proxy). |
+| `upstream_unavailable` | DAG consumer skipped because an upstream producer short-circuited; cause in `metadata['upstream_reason']`. |
+| `metric_unavailable` | Metric short-circuited on its OWN precondition (missing input/config or insufficient sample); cause in `metadata['reason']`. |
+| `structure_mismatch` | Metric's declared cell (scope/density/structure) does not match the detected factor cell; under `strict=False` it short-circuits to NaN. |
+| `cross_factor_density_mismatch` | Factor columns carry inconsistent `FactorDensity` (dense and sparse mixed). |
+| `cross_factor_scope_mismatch` | Factor columns carry inconsistent `FactorScope` (individual and common mixed). |
+| `single_asset_event_data` | Single-asset event data (TIMESERIES + SPARSE, n_assets=1); asset-cross-section metrics (e.g. `clustering_hhi`) stay unusable. |
+| `excessive_period_drops` | An upstream PANEL→SERIES primitive dropped > `DROP_RATE_WARN_THRESHOLD` of dates; counts in `metadata` (`n_periods_in/out`, ...). |
+| `excessive_asset_drops` | An upstream primitive dropped > `DROP_RATE_WARN_THRESHOLD` of assets (e.g. `compute_ts_betas`); counts in `metadata` (`n_assets_in/out`, ...). |
+| `slice_boundary_truncation` | `by_slice` partitioned on a date-axis column while the metric aggregates across dates; each slice sees truncated boundary history. |
 
 ---
 
