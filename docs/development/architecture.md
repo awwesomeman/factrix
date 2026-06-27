@@ -70,10 +70,14 @@ evaluate-time from `panel["asset_id"].n_unique()` (`factrix._detect_structure`):
 `PANEL` for `N ≥ 2`, `TIMESERIES` for `N = 1`. Each `MetricSpec` declares the
 `(scope, density, structure)` cell it applies to (`None` on an axis = `*`
 wildcard); the DAG executor derives the runtime structure and dispatches each
-requested metric against its cell. A metric inapplicable to the data's cell
-raises under `strict=True` or short-circuits to a NaN `MetricResult` under
-`strict=False`. There is no separate routing token and no scope-collapse step
-(see § PANEL / TIMESERIES equivalence).
+requested metric against its cell. A metric inapplicable to the data's **cell**
+(scope / density / structure mismatch) raises under `strict=True` or
+short-circuits to a NaN `MetricResult` under `strict=False`. A
+`not_applicable*` **type-routing verdict** — the metric's signal *type* does not
+fit the factor (e.g. a continuous-magnitude metric on a discrete ±k signal), a
+separate axis from the cell — is soft even under `strict=True` (see § Error UX
+contract → `strict` and applicability). There is no separate routing token and
+no scope-collapse step (see § PANEL / TIMESERIES equivalence).
 
 ---
 
@@ -334,6 +338,29 @@ FactrixError                       # base — all factrix-raised errors
 wrong type). Catch it separately from `IncompatibleAxisError` (axis miswire) and
 `InsufficientSampleError` (data limitation) when those branches need
 different recovery.
+
+### `strict` and applicability
+
+`evaluate(strict=True)` (the default) is loud about a metric that *fits* the
+data but could not produce a value, and silent-by-design about a metric whose
+*type* does not fit. The split is deliberate — applicability is a first-class
+output of type-routed evaluation, not a user error — so it should not be
+re-collapsed into "raise on anything inapplicable":
+
+| `metadata["reason"]` class | Meaning | `strict=True` |
+|---|---|---|
+| `not_applicable*` | The metric's signal *type* does not fit this factor (e.g. a continuous-magnitude metric on a discrete ±k signal). The type-routing verdict. | **soft** — NaN + `is_applicable=False`; the applicable metrics in the same call still return |
+| `insufficient_*` | The metric fits but the sample is too thin | **raise** (`UserInputError`) |
+| `no_*` | Missing input column / config | **raise** |
+| structure mismatch | A `cell.structure=PANEL` metric on `TIMESERIES` data (the cell axis above) | **raise** (`IncompatibleAxisError`) |
+
+Rationale: throwing a mixed battery at a panel and seeing which metrics apply is
+the core type-routed-evaluation workflow; aborting it because one metric's type
+does not fit would discard the applicable results too. The deficiency cases
+(`insufficient_*` / `no_*` / structure) stay loud because there the metric *was*
+the right choice and the data or call is at fault — a NaN slipping silently into
+a research result is the failure mode to avoid. `strict=False` makes *every*
+case soft. Implemented in `_enforce_strict` / `_is_type_routing_reason`.
 
 ### Three required fields
 

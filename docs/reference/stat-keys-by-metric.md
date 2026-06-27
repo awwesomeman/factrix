@@ -70,8 +70,8 @@ contrasts, not a sidecar to a primary value.
 | [`ts_beta`][factrix.metrics.ts_beta.ts_beta] | cross-asset `t` on per-asset β | `p_value` | mean(β) |
 | [`ts_beta_sign_consistency`][factrix.metrics.ts_beta.ts_beta_sign_consistency] | none — descriptive | — | max(p, 1-p) on sign fraction |
 | [`mean_r_squared`][factrix.metrics.ts_beta.mean_r_squared] | none — descriptive | — | mean(R²) |
-| [`ts_asymmetry`][factrix.metrics.ts_asymmetry.ts_asymmetry] | Wald χ² (NW HAC) on slope sum / equality | `p_value` | β_long + β_short |
-| [`ts_quantile_spread`][factrix.metrics.ts_quantile.ts_quantile_spread] | Wald (NW HAC) on bucket β contrast | `p_value` | top − bottom bucket β |
+| [`ts_asymmetry`][factrix.metrics.ts_asymmetry.ts_asymmetry] | Wald F (NW HAC, finite-sample) on slope sum / equality | `p_value` | β_long + β_short |
+| [`ts_quantile_spread`][factrix.metrics.ts_quantile.ts_quantile_spread] | Wald F (NW HAC, finite-sample) on bucket β contrast | `p_value` | top − bottom bucket β |
 | [`turnover`][factrix.metrics.tradability.turnover] | none — descriptive | — | 1 − mean(rank-AC) |
 | [`notional_turnover`][factrix.metrics.tradability.notional_turnover] | none — descriptive | — | replaced fraction |
 | [`breakeven_cost`][factrix.metrics.tradability.breakeven_cost] | none — descriptive | — | breakeven spread (bps) |
@@ -434,10 +434,10 @@ Descriptive symmetric consistency — `value ∈ [0.5, 1.0]`.
 
 Two complementary methods:
 
-- **Method A** (always): Wald χ² on `H₀: β_long + β_short = 0` with
-  NW HAC SE.
+- **Method A** (always): Wald F (finite-sample `F_{r, T−k}`) on
+  `H₀: β_long + β_short = 0` with NW HAC SE.
 - **Method B** (conditional, ≥ 2 distinct values per side):
-  Wald χ² on `H₀: β_pos = β_neg`.
+  Wald F (finite-sample `F_{r, T−k}`) on `H₀: β_pos = β_neg`.
 
 - *primary*: `p_value` — Method A.
 - *secondary-test* (conditional, Method B ran):
@@ -452,8 +452,8 @@ Two complementary methods:
 
 #### `ts_quantile_spread`
 
-- *primary*: `p_value` — Wald `χ²` (NW HAC) on `H₀: β_top = β_bottom`
-  from an OLS fit on bucket dummies.
+- *primary*: `p_value` — Wald F (NW HAC, finite-sample `F_{r, T−k}`) on
+  `H₀: β_top = β_bottom` from an OLS fit on bucket dummies.
 - *secondary-test*: `spearman_rho`, `spearman_p` — small-sample
   Spearman of (bucket-idx, mean-return) for monotonicity diagnostic.
 - *descriptive*: `n_groups`, `n_periods`, `n_distinct_factor`,
