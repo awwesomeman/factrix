@@ -367,3 +367,45 @@ class TestQuantileSpreadInference:
         panel = self._ample_panel()
         with pytest.raises(fx.IncompatibleInferenceError):
             quantile_spread(panel, forward_periods=5, n_groups=5, inference="newey")
+
+
+class TestThinQuantileGroups:
+    """Thin-group advisory: warnings.warn message + structured WarningCode."""
+
+    @staticmethod
+    def _thin_panel():
+        import factrix as fx
+
+        # 8 assets, n_groups=5 → ~1 asset per bucket → thin.
+        raw = fx.datasets.make_cs_panel(n_assets=8, n_dates=200, seed=0)
+        return fx.preprocess.compute_forward_return(raw, forward_periods=5)
+
+    def test_structured_code_present_on_thin_groups(self):
+        import warnings
+
+        from factrix._codes import WarningCode
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            res = quantile_spread(self._thin_panel(), forward_periods=5, n_groups=5)[
+                "factor"
+            ]
+        assert WarningCode.THIN_QUANTILE_GROUPS.value in res.warning_codes
+
+    def test_no_code_on_ample_cross_section(self):
+        import factrix as fx
+        from factrix._codes import WarningCode
+
+        raw = fx.datasets.make_cs_panel(n_assets=80, n_dates=200, seed=1)
+        panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
+        res = quantile_spread(panel, forward_periods=5, n_groups=5)["factor"]
+        assert WarningCode.THIN_QUANTILE_GROUPS.value not in res.warning_codes
+
+    def test_warning_suggests_concrete_n_groups(self):
+        import warnings
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            quantile_spread(self._thin_panel(), forward_periods=5, n_groups=5)
+        msgs = [str(w.message) for w in caught if "assets per group" in str(w.message)]
+        assert msgs and "Reduce n_groups to ~" in msgs[0]

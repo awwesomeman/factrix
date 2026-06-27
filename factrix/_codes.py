@@ -28,6 +28,14 @@ class WarningCode(StrEnum):
     # (n_assets < MIN_ASSETS_WARN); severity is read from the ``n_assets``
     # metadata rather than split across separate tier members.
     FEW_ASSETS = "few_assets"
+    # Fired by ``quantile_spread`` when the median cross-section split into
+    # ``n_groups`` buckets leaves fewer than MIN_GROUP_ASSETS (5) assets per
+    # bucket: each bucket mean rests on a handful of names, so the spread can be
+    # dominated by individual assets. Advisory only — the spread is still
+    # computed. Distinct from FEW_ASSETS (which keys off the absolute
+    # cross-section size driving the inference switch): a wide panel cut into
+    # many buckets can trip this without tripping FEW_ASSETS.
+    THIN_QUANTILE_GROUPS = "thin_quantile_groups"
     # Fired by the (COMMON, SPARSE, PANEL) procedure when the broadcast
     # dummy carries MIN_BROADCAST_EVENTS_HARD ≤ n_events <
     # MIN_BROADCAST_EVENTS_WARN. Per-asset β is identifiable but
@@ -170,6 +178,13 @@ _WARNING_DESCRIPTIONS.update(
         "MIN_ASSETS_WARN (30); df=n_assets-1 inflates t_crit relative to the "
         "asymptotic 1.96 (≈4.30 at n_assets=3, +119%; 5–15% near 30). "
         "Severity scales with n_assets — read the n_assets metadata.",
+        WarningCode.THIN_QUANTILE_GROUPS: "quantile_spread with the median "
+        "cross-section split into n_groups buckets leaving < MIN_GROUP_ASSETS "
+        "(5) assets per bucket; each bucket mean rests on a handful of names so "
+        "the spread can be dominated by individual assets. Advisory only — "
+        "reduce n_groups (the warning suggests a value) or treat the spread as a "
+        "fragile small-cross-section diagnostic. Distinct from few_assets, which "
+        "keys off the absolute cross-section size.",
         WarningCode.SPARSE_COMMON_FEW_EVENTS: "(COMMON, SPARSE, PANEL) broadcast dummy has "
         "MIN_BROADCAST_EVENTS_HARD ≤ n_events < MIN_BROADCAST_EVENTS_WARN "
         "(5..19); per-asset β estimable but cross-event averaging too thin "

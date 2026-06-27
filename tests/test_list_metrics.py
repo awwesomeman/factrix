@@ -281,3 +281,45 @@ class TestOverviewNotRunnable:
                 factor_cols=["alpha"],
                 forward_periods=5,
             )
+
+
+class TestMetricsSummary:
+    def test_columns_and_membership(self) -> None:
+        summary = fx.metrics_summary()
+        assert summary.columns == ["family", "metric", "summary"]
+        metrics = summary["metric"].to_list()
+        # Public metric names appear; pipeline producers (compute_ic) do not.
+        assert "ic" in metrics
+        assert "quantile_spread" in metrics
+        assert "compute_ic" not in metrics
+
+    def test_summary_is_first_docstring_line(self) -> None:
+        from factrix.metrics.ic import ic
+
+        summary = fx.metrics_summary()
+        row = summary.filter(pl.col("metric") == "ic").row(0, named=True)
+        expected = (ic.__doc__ or "").strip().split("\n", 1)[0].strip()
+        assert row["summary"] == expected
+        assert row["family"] == "ic"
+
+    def test_one_row_per_public_spec(self) -> None:
+        assert fx.metrics_summary().height == len(public_specs())
+
+
+class TestMetricFactorySignature:
+    def test_signature_exposes_real_params_not_varargs(self) -> None:
+        import inspect
+
+        from factrix.metrics import ic, quantile_spread
+
+        params = inspect.signature(ic).parameters
+        assert "inference" in params
+        assert "ic_df" in params
+        # The metaclass-shadowed ``(*args, **kwargs)`` must be gone.
+        assert not any(
+            p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD) for p in params.values()
+        )
+        # Dispatch-internal underscore params are hidden.
+        assert (
+            "_precomputed_series" not in inspect.signature(quantile_spread).parameters
+        )

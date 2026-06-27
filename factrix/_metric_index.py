@@ -49,6 +49,8 @@ from factrix._axis import (
 )
 
 if TYPE_CHECKING:
+    import polars as pl
+
     from factrix._inspect import DataProperties
     from factrix.metrics._base import MetricBase
 
@@ -648,3 +650,42 @@ def list_metrics() -> dict[str, list[MetricSpec]]:
         True
     """
     return _metrics_overview()
+
+
+def metrics_summary() -> pl.DataFrame:
+    """Compact one-line-per-metric catalog for discovery.
+
+    The readable companion to :func:`list_metrics`: a ``pl.DataFrame`` with
+    columns ``family`` (concept family / module stem), ``metric`` (the public
+    callable name you import and pass to :func:`factrix.evaluate`), and
+    ``summary`` (the first line of the callable's docstring). Sorted by
+    ``(family, metric)``.
+
+    Use this to *browse* the catalog; reach for :func:`list_metrics` when you
+    need the full ``MetricSpec`` (cell, aggregation, sample thresholds) for
+    programmatic filtering, and :func:`factrix.inspect_data` for which metrics
+    actually run on a given panel.
+
+    Examples:
+        >>> import factrix as fx
+        >>> summary = fx.metrics_summary()
+        >>> summary.columns
+        ['family', 'metric', 'summary']
+        >>> "ic" in summary["metric"].to_list()
+        True
+    """
+    import polars as pl
+
+    from factrix.metrics._registry import REGISTRY
+
+    rows = []
+    for stem, spec in public_specs():
+        cls = REGISTRY.get(spec.name)
+        doc = (cls.__doc__ or "").strip() if cls is not None else ""
+        summary = doc.split("\n", 1)[0].strip()
+        rows.append({"family": stem, "metric": spec.name, "summary": summary})
+    return pl.DataFrame(
+        rows,
+        schema={"family": pl.String, "metric": pl.String, "summary": pl.String},
+        orient="row",
+    )

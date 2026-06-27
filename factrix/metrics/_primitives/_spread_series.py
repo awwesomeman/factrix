@@ -17,6 +17,7 @@ from factrix._axis import (
 from factrix._metric_index import cell
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
+    MIN_GROUP_ASSETS,
     _assign_quantile_groups_batch,
     _median_universe_size,
     _sample_non_overlapping,
@@ -98,13 +99,20 @@ def compute_spread_series(
 
     median_n = _median_universe_size(sampled)
     per_group = median_n // n_groups if n_groups > 0 else 0
-    if per_group < 5:
-        guidance = (
-            "Reduce n_groups, or treat this as a fragile small-cross-section "
-            "diagnostic."
-            if n_groups > 2
-            else "This is already the coarsest long-short split; treat the spread as a fragile small-cross-section diagnostic."
-        )
+    if per_group < MIN_GROUP_ASSETS:
+        if n_groups > 2:
+            # Coarsest split keeping ~5 assets per group (floored at the
+            # long-short minimum of 2): n_groups <= median_n // 5.
+            suggested = max(2, median_n // 5)
+            guidance = (
+                f"Reduce n_groups to ~{suggested} (≈5 assets per group), or "
+                f"treat this as a fragile small-cross-section diagnostic."
+            )
+        else:
+            guidance = (
+                "This is already the coarsest long-short split; treat the "
+                "spread as a fragile small-cross-section diagnostic."
+            )
         warnings.warn(
             f"Median {per_group} assets per group (N={median_n}, "
             f"n_groups={n_groups}). Spread may be dominated by "

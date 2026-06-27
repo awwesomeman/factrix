@@ -154,6 +154,16 @@ def metric(
         )
         cls.__module__ = fn.__module__
 
+        # Expose the implementation's real signature. ``MetricMeta.__call__``
+        # otherwise shadows it with ``(*args, **kwargs)``, leaving editors,
+        # ``help()`` and ``inspect.signature`` with no parameter list. The class
+        # forwards calls to ``fn`` (config or direct-run form), so ``fn``'s
+        # signature is the truthful call surface; underscore-prefixed params are
+        # dispatch internals (e.g. ``_precomputed_series``) and are hidden.
+        cls.__signature__ = sig.replace(  # type: ignore[attr-defined]
+            parameters=[p for p in params if not p.name.startswith("_")]
+        )
+
         # 5. Bake the default-config floor: the constant verbatim, or the
         # resolver applied to a default-built instance. Constructing a default
         # instance is only required for a dynamic floor — those metrics are
