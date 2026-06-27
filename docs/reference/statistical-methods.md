@@ -336,3 +336,37 @@ direction adjustment of [Corrado-Zivney 1992][corrado-zivney-1992]
 for two-sided signed signals — the rank itself is signed by
 $\text{sign}(\text{factor})$ before the cross-event aggregation, not
 the underlying return.
+
+## 6. Known simplifications (deliberately retained)
+
+Two estimators take a documented shortcut over the textbook form. Both are
+intentional and have been reviewed; this section records the trade-off so the
+choice is not re-litigated. Neither is a correctness bug.
+
+### Within-date ICC uses the raw between-group variance
+
+`_estimate_within_date_icc` (feeds the [Kolari-Pynnönen][kolari-pynnonen-2010]
+deflation in `bmp_z` and `directional_hit_rate`) estimates the between-date
+component as $\hat\sigma^2_b = \operatorname{Var}(\bar x_d)$ — the sample
+variance of the per-date means — rather than the one-way random-effects ANOVA
+estimator $(\text{MSB} - \text{MSW}) / \bar n$. Because
+$\mathbb{E}[\operatorname{Var}(\bar x_d)] = \sigma^2_b + \sigma^2_w / \bar n$,
+the raw form is biased **upward**, so the estimated intra-class correlation
+$\hat r$ is biased upward and the KP scale $\sqrt{(1-r)/(1+(n_{\text{eff}}-1)r)}$
+shrinks the $z$ **more** than the ANOVA estimator would. The bias is therefore
+in the **conservative** direction (smaller test statistic, fewer rejections),
+which is why the simpler, always-non-negative estimator is kept.
+
+### HAC mean $t$-tests reference $t_{n-1}$ on the full overlapping sample
+
+The Newey-West / Hansen-Hodrick mean $t$-tests (`factrix._stats.hac`, used by
+`fm_beta`, `ic` under `NEWEY_WEST`, and the spread metrics) reference
+$t_{n-1}$ using the **full** observation count, even though overlap and the
+estimated HAC SE reduce the effective sample. This is slightly
+**anti-conservative** on short series with a high bandwidth. It is retained for
+cross-metric comparability with the other $t$-paths, and the poor-conditioning
+guard (`WarningCode.UNRELIABLE_SE_SHORT_PERIODS`, plus the $n < 5\,\text{lags}$
+check inside the kernel) flags exactly the short/high-bandwidth regime where the
+gap matters. Distinct from the single-restriction NW-HAC **Wald** tests
+(`ts_quantile_spread`, `ts_asymmetry`), which *do* use a finite-sample
+$F_{r,\,T-k}$ reference.
