@@ -10,11 +10,12 @@
 ## Release checklist
 
 - [ ] Version bump ran on `main` (not on a feature branch)
+- [ ] Local release checks passed (`ruff`, format, `mypy`, pytest, doctest, strict docs build, package build)
 - [ ] Pre-1.0: historical release index updated if a GitHub Release will exist
 - [ ] v1.0.0+: CHANGELOG entries polished (Keep-a-Changelog headings, WHY added, breaking-change migration notes)
 - [ ] `pyproject.toml:version` + `factrix/__init__.py:__version__` updated by `cz` (verify the diff)
 - [ ] Annotated tag created and pushed via `git push origin main --follow-tags`
-- [ ] GitHub Release drafted from the tag
+- [ ] GitHub Release created or updated by the tag workflow
 
 ## Notes
 

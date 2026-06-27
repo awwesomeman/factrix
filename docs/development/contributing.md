@@ -69,6 +69,7 @@ uv sync                              # core only (polars, numpy, pandera)
 uv sync --extra dev                  # +pytest, commitizen, etc. (required to write code)
 uv sync --extra jupyter              # +jupyter / jupyterlab / ipywidgets (notebooks)
 uv sync --extra docs                 # +mkdocs-material, mkdocstrings, mike (build the site)
+uv sync --extra dev --extra docs     # local CI / release checks
 ```
 
 The declared extras are `jupyter`, `dev`, `docs`, and `all` (where
@@ -80,7 +81,7 @@ The declared extras are `jupyter`, `dev`, `docs`, and `all` (where
     `all` extra. Use `--all-extras` when you really want every declared extra:
 
     ```bash
-    uv sync --all-extras              # jupyter + dev + docs
+    uv sync --all-extras              # every declared extra
     ```
 
 ### Common environment commands
@@ -162,7 +163,7 @@ uv run pytest tests/test_<file>.py -v   # focus on a single module for fast iter
 
 # 3. Commit (Conventional Commits + interactive generation)
 git add <specific-files>                 # avoid -A
-cz commit -- -s                          # Commitizen produces standard format and appends sign-off
+cz commit                                # Commitizen produces standard format
 
 # 4. Push + open PR
 git push origin feat/redundancy-heatmap
@@ -198,22 +199,8 @@ length and other rules automatically.
 - Body uses `-` bullets, recording only "why" + "what"—do not restate
   the diff; aim for `< 72 chars` per line
 - No AI co-author signature, no emoji, no trailing period
-- Pass `-s` via `cz commit -- -s` to append Signed-off-by
-
-#### Changing the `Signed-off-by` name and email
-
-`git commit -s` reads `user.name` and `user.email` from your Git
-config. To change the signature, run:
-
-```bash
-# project-local only
-git config user.name "Your New Name"
-git config user.email "your-new-email@example.com"
-
-# global (default for all projects)
-git config --global user.name "Your New Name"
-git config --global user.email "your-new-email@example.com"
-```
+- Do not append commit signature trailers unless a future DCO policy explicitly
+  requires them
 
 ---
 
@@ -526,17 +513,31 @@ Before running a release bump (see §9), run this checklist on `main`:
 #    Extend the pattern per release with names retired since the last tag.
 git grep -nE 'q1_q5_spread'
 
-# 2. Full test suite — covers every check listed in §7.1.
+# 2. Sync the release-check toolchain from locked project metadata.
+uv sync --frozen --extra dev --extra docs
+
+# 3. Lint, formatting, and typing — mirrors the CI lint job.
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy factrix
+
+# 4. Full test suite — covers every check listed in §7.1.
 uv run pytest -q
 
-# 3. Strict docs build — surfaces broken nav, links, and generated-file drift.
+# 5. Doctests — mirrors the CI doctest job.
+uv run pytest --doctest-modules factrix/
+
+# 6. Strict docs build — surfaces broken nav, links, and generated-file drift.
 uv run mkdocs build --strict
 
-# 4. Public-surface coverage spot-check (also run by step 2; explicit run
+# 7. Public-surface coverage spot-check (also run by step 4; explicit run
 #    is cheap and isolates failures).
 uv run pytest tests/test_docs_llms.py tests/test_docs_pages.py -q
 
-# 5. Review release-note policy before changelog edits:
+# 8. Package build — mirrors the CI wheel build job.
+uv build --python 3.12
+
+# 9. Review release-note policy before changelog edits:
 #    - section 9 in this file
 #    - the top of CHANGELOG.md
 ```
@@ -913,14 +914,14 @@ PRs and releases are decoupled:
 # 1. On main, ensure latest
 git checkout main && git pull
 
-# 2. Verify CI is green and local pytest passes
-uv run pytest
+# 2. Verify CI is green and local release checks pass
+#    See the release-train drift audit in section 7.3.
 
 # 3. Auto-bump and tag
 # cz derives the level from commits since the last tag (feat=MINOR, fix=PATCH),
 # updates pyproject.toml, and auto-commits + tags. Follow the Pre-1.0 version
 # guide above until v1.0.0.
-cz bump
+uv run cz bump
 
 # 4. If this is v1.0.0 or later, maintain CHANGELOG.md manually (or via
 #    cz bump --changelog) and polish the release section. If polishing after
@@ -928,9 +929,8 @@ cz bump
 git commit --amend --no-edit
 git tag -d v<X.Y.Z> && git tag v<X.Y.Z>
 
-# 5. Push
-git push origin main
-git push origin v<X.Y.Z>
+# 5. Push the release commit and annotated tag
+git push origin main --follow-tags
 
 # 6. Bump the workspace submodule
 cd ~/Desktop/dst/code/factor-analysis

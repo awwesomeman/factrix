@@ -14,13 +14,19 @@ python scripts/setup_dev.py
 uv run pytest
 ```
 
+For release checks, sync the docs toolchain too:
+
+```bash
+uv sync --frozen --extra dev --extra docs
+```
+
 ## Development Cycle
 
 ```bash
 git checkout -b feat/<short-desc>
 # edit, test, commit
 git add <specific-files>
-cz commit -- -s
+cz commit
 git push origin feat/<short-desc>
 gh pr create
 ```
@@ -29,6 +35,8 @@ gh pr create
 
 - Keep the change scoped and include tests for new metrics, result fields, or API parameters.
 - Run `uv run pytest` locally.
-- Use `cz commit -- -s` for Conventional Commits plus Signed-off-by.
+- Use `cz commit` for Conventional Commits.
+- Do not append commit signature trailers unless a future DCO policy explicitly
+  requires them.
 - For metrics, docs, release flow, hooks, changelog policy, and pre-1.0 rules,
   use the full contributing guide.
