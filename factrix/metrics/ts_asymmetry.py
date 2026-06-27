@@ -18,14 +18,12 @@ assumption breaks under `forward_periods > 1`.
   H0: `β_pos = β_neg` — slope on the positive side equals slope on
   the negative side.
 
-Gates for conditional means/piecewise slopes:
-- Gate B (mandatory for either method): factor must have both
+Applicability checks for conditional means/piecewise slopes:
+- Mandatory for either method: factor must have both
   positive and negative observations.
-- Gate C (method B only): each side needs ≥ 2 distinct factor
-  values to identify a slope. Below the gate, method B is skipped
+- Method B only: each side needs ≥ 2 distinct factor
+  values to identify a slope. Below that floor, method B is skipped
   and `metadata["method_b_skipped"]` records the reason.
-
-Standalone metric — does not enter the registry.
 
 Notes:
     **Pipeline.** Per-date aggregation of factor and forward return to
@@ -87,9 +85,9 @@ def ts_asymmetry(
     - ``stat``  = ``value`` / Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) SE
     - ``p_value`` = method-A Wald p (two-sided)
 
-    Method B (Gate C passing) populates ``beta_pos`` / ``beta_neg`` /
-    ``p_wald_slopes``; otherwise ``method_b_skipped`` carries the
-    reason.
+    Method B, when each side has enough distinct values, populates
+    ``beta_pos`` / ``beta_neg`` / ``p_wald_slopes``; otherwise
+    ``method_b_skipped`` carries the reason.
 
     Args:
         data: Long panel; aggregated to per-date ``(_f, _r)`` internally.
@@ -131,7 +129,8 @@ def ts_asymmetry(
     References:
         [Newey-West 1987][newey-west-1987]: HAC covariance underpinning
         the Wald tests for both methods.
-        [Andrews 1991][andrews-1991]: Bartlett growth rate ``T^(1/3)``.
+        [Newey-West 1994][newey-west-1994]: automatic Bartlett bandwidth
+        used by the default lag resolver.
         [Hansen-Hodrick 1980][hansen-hodrick-1980]: ``forward_periods - 1``
         floor for overlapping returns.
 

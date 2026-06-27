@@ -196,7 +196,8 @@ def _build_per_date_panel(
 def _hac_lags(forward_periods: int | None, n_obs: int) -> int:
     """Newey-West Bartlett bandwidth for the slice HAC.
 
-    Defaults to ``floor(T^(1/3))`` but floors at ``forward_periods - 1``:
+    Defaults to the shared ``auto_bartlett(T)`` rule but floors at
+    ``forward_periods - 1``:
     overlapping ``h``-period forward returns make the per-date series
     autocorrelated up to lag ``h - 1`` (MA(h-1) overlap structure), so
     the kernel must cover it or the variance is under-estimated and the
@@ -204,9 +205,9 @@ def _hac_lags(forward_periods: int | None, n_obs: int) -> int:
     horizon — a property of the data, not the metric. Mirrors ``fm_beta``'s
     own NW-lag floor.
     """
-    default = int(np.floor(n_obs ** (1.0 / 3.0)))
-    overlap_floor = forward_periods - 1 if forward_periods else 0
-    return max(default, overlap_floor)
+    from factrix._stats import _resolve_nw_lags
+
+    return _resolve_nw_lags(n_obs, lags=None, forward_periods=forward_periods)
 
 
 def slice_pairwise_test(

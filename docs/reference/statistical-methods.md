@@ -54,18 +54,15 @@ deterministic bandwidth, applied by `ic` (with `NeweyWest` inference), `fm_beta`
 
 The bandwidth rule is:
 
-- For `ic` (with `NeweyWest` inference):
+- For NW HAC metric paths (`ic` with `NeweyWest` inference, `fm_beta`,
+  `pooled_beta`, `ts_quantile_spread`, `ts_asymmetry`, and slice Wald):
   $$
   L = \max\!\left(\text{auto\_bartlett}(T),\; h - 1\right)
   $$
   where $\text{auto\_bartlett}(T) = \max\!\left(1,\; \lfloor 4 \cdot (T/100)^{2/9} \rfloor\right)$ per Newey-West (1994).
-- For other metrics (`fm_beta`, `pooled_beta`, `ts_quantile_spread`, `ts_asymmetry`):
-  $$
-  L = \max\!\left(\lfloor T^{1/3} \rfloor,\; h - 1\right)
-  $$
 
-with $h$ = `forward_periods`. The first term is either the [Newey-West 1994][newey-west-1994] automatic Bartlett bandwidth (for `ic`) or the [Andrews 1991][andrews-1991] optimal Bartlett
-growth rate; the second is the
+with $h$ = `forward_periods`. The first term is the
+[Newey-West 1994][newey-west-1994] automatic Bartlett bandwidth; the second is the
 [Hansen-Hodrick 1980][hansen-hodrick-1980] overlap floor that ensures
 the kernel covers the MA(`h − 1`) structure of overlapping returns.
 factrix takes the maximum so the bandwidth is always at least large
@@ -303,11 +300,12 @@ assumption about the cross-event distribution:
 
 Default for `caar`. Per event date, take the cross-sectional mean of
 $\text{return} \times \text{factor}$ across event rows; the resulting
-CAAR series feeds a downstream NW HAC $t$ on the mean. Specification
-follows [Brown-Warner 1985][brown-warner-1985]; the
-[Hansen-Hodrick 1980][hansen-hodrick-1980] overlap floor in §1
-governs the NW lag when the event window induces overlap. The test is
-correctly sized under no event-induced variance; under variance
+CAAR series is greedily subsampled by `date_ordinal` so consecutive
+kept event dates are at least `forward_periods` calendar periods apart,
+then tested with a standard $t$ on the sampled mean. `n_obs` is the
+non-overlap event-date count, not the raw event count or full calendar
+length. Specification follows [Brown-Warner 1985][brown-warner-1985].
+The test is correctly sized under no event-induced variance; under variance
 inflation around the event date it is mis-specified — the documented
 motivation for switching to the BMP-style estimator below.
 

@@ -138,7 +138,7 @@ title: factrix.metrics.tradability
 
     ---
 
-    Profile-level (not Gates) framing of implementation feasibility.
+    Implementation-feasibility framing, not a factor-quality significance test.
 
     [reference/metric-applicability →](../../reference/metric-applicability.md)
 

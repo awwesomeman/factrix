@@ -60,6 +60,20 @@ def test_pc_empty_results_raises():
         partial_conjunction([], metrics=["ic"], min_pass=2, expand_over=("region",))
 
 
+@pytest.mark.parametrize("q", [0.0, 1.0, -0.1, 1.1, float("nan"), True])
+def test_pc_q_must_be_open_unit_interval(q):
+    make_spec("ic")
+    results = _replicate("alpha_1", [0.01, 0.01], "ic", regions=("US", "EU"))
+    with pytest.raises(UserInputError, match="open interval"):
+        partial_conjunction(
+            results,
+            metrics=["ic"],
+            min_pass=2,
+            expand_over=("region",),
+            q=q,  # type: ignore[arg-type]
+        )
+
+
 def test_pc_list_of_dict_keys_suggests_values():
     make_spec("ic")
     results = {

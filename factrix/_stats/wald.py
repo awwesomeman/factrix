@@ -33,6 +33,7 @@ from __future__ import annotations
 import numpy as np
 from scipy import stats as sp_stats
 
+from factrix._stats.constants import auto_bartlett
 from factrix._types import EPSILON
 
 
@@ -97,7 +98,7 @@ def _nw_hac_vector_mean(
     serial autocovariance within each column AND cross-column
     contemporaneous + lagged covariance via the matrix autocovariances
     ``Γ_j = (1/T) X̃_t' X̃_{t-j}``. Default lag rule
-    ``L = floor(T^(1/3))`` matches ``factrix._stats.hac._newey_west_se``.
+    ``L = auto_bartlett(T)`` matches ``factrix._stats.hac._newey_west_se``.
 
     Caller must pre-handle missing data (drop / interpolate) — joint
     NW HAC requires aligned rows; partial NaN within a row would
@@ -111,7 +112,7 @@ def _nw_hac_vector_mean(
     if n < 2:
         return Y.mean(axis=0) if n else np.zeros(k), np.zeros((k, k))
 
-    L = int(np.floor(n ** (1.0 / 3.0))) if lags is None else lags
+    L = auto_bartlett(n) if lags is None else lags
     L = max(0, min(L, n - 1))
 
     mean = Y.mean(axis=0)
@@ -155,7 +156,7 @@ def _wald_nw_cluster_means(
             "all K slices equal" (K-1 contrasts vs the first):
             ``[[1, -1, 0, …], [1, 0, -1, 0, …], …]``.
         q: Restriction RHS, scalar or ``(r,)``; default 0.
-        lags: Bartlett-kernel bandwidth; ``None`` → ``floor(T^(1/3))``.
+        lags: Bartlett-kernel bandwidth; ``None`` → ``auto_bartlett(T)``.
 
     Returns:
         ``(W, p)`` with the Wald statistic ``W`` and a finite-sample

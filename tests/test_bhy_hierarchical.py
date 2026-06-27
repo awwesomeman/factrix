@@ -80,6 +80,21 @@ def test_empty_input_raises():
         bhy_hierarchical([], metrics=["ic"], group="family", q=0.05)
 
 
+@pytest.mark.parametrize("q", [0.0, 1.0, -0.1, 1.1, float("nan"), True])
+def test_q_must_be_open_unit_interval(q):
+    make_spec("ic")
+    results = _grouped({"a": 0.01, "b": 0.02}, "g1", "ic") + _grouped(
+        {"c": 0.03, "d": 0.04}, "g2", "ic"
+    )
+    with pytest.raises(UserInputError, match="open interval"):
+        bhy_hierarchical(
+            results,
+            metrics=["ic"],
+            group="family",
+            q=q,  # type: ignore[arg-type]
+        )
+
+
 def test_list_of_dict_keys_suggests_values():
     make_spec("ic")
     results = {

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from factrix._stats.constants import auto_bartlett
 from factrix._stats.core import _p_value_from_t, _significance_marker
 from factrix._types import EPSILON
 
@@ -21,15 +22,18 @@ def _resolve_nw_lags(
 ) -> int:
     """Pick Bartlett-kernel bandwidth, honoring the overlap horizon.
 
-    ``max(floor(T^(1/3)), forward_periods - 1)`` when ``forward_periods``
-    is provided; the ``h - 1`` floor is required for consistency when
-    input series carries an MA(h-1) structure from overlapping forward
+    ``max(auto_bartlett(T), forward_periods - 1)`` when ``forward_periods``
+    is provided; the Newey-West (1994) auto rule supplies the default
+    Bartlett bandwidth and the ``h - 1`` floor is required for consistency
+    when input series carries an MA(h-1) structure from overlapping forward
     returns. Clipped to ``n - 1`` so the kernel stays inside the sample.
     """
-    base = int(np.floor(n ** (1 / 3))) if lags is None else lags
+    if n < 2:
+        return 0
+    base = auto_bartlett(n) if lags is None else lags
     if forward_periods is not None:
         base = max(base, max(forward_periods - 1, 0))
-    return min(base, n - 1)
+    return max(0, min(base, n - 1))
 
 
 def _newey_west_se(
@@ -43,7 +47,7 @@ def _newey_west_se(
 
     Args:
         values: 1-D array of time series observations.
-        lags: Number of lags. Defaults to ``floor(T^(1/3))``.
+        lags: Number of lags. Defaults to ``auto_bartlett(T)``.
         forward_periods: Overlap horizon of the input series. When set,
             enforces ``lags >= forward_periods - 1`` — the minimum
             consistent bandwidth for overlapping h-period returns
@@ -85,7 +89,7 @@ def _newey_west_t_test(
     Args:
         values: 1-D array of time series observations.
         lags: Optional explicit Bartlett-kernel bandwidth. ``None`` uses
-            the default ``floor(T^(1/3))`` rule-of-thumb.
+            the Newey-West (1994) ``auto_bartlett(T)`` default.
         forward_periods: Overlap horizon of the series. When set,
             bandwidth is floored at ``forward_periods - 1`` to stay
             consistent under the MA(h-1) overlap structure.

@@ -59,16 +59,17 @@ def _detect_density(raw: Any) -> tuple[FactorDensity, str, float]:
     """Sparsity ratio in ``factor`` ≥ 0.5 → SPARSE, else DENSE.
 
     Returns ``(density, reason, sparsity)`` where ``sparsity`` is the
-    zero-ratio in the factor column.
+    zero-ratio over non-null factor cells.
     """
-    n = len(raw)
+    factor = raw["factor"].drop_nulls()
+    n = len(factor)
     if n == 0:
         return (
             FactorDensity.DENSE,
-            "factor column empty: defaulting to DENSE",
+            "factor column has no non-null cells: defaulting to DENSE",
             math.nan,
         )
-    n_zero = int((raw["factor"] == 0).sum())
+    n_zero = int((factor == 0).sum())
     sparsity = n_zero / n
     density = (
         FactorDensity.SPARSE if sparsity >= _SPARSITY_THRESHOLD else FactorDensity.DENSE

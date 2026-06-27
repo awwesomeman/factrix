@@ -1,4 +1,4 @@
-"""v0.5 enum codes for warnings.
+"""Enum codes for structured warnings.
 
 ``WarningCode`` follows the ``*Code`` suffix invariant (§7.5).
 """
@@ -9,11 +9,10 @@ from enum import StrEnum
 
 
 class WarningCode(StrEnum):
-    """Procedure-degradation flags (replaces v3 ``DegradedMode``).
+    """Procedure-degradation flags.
 
-    Each value carries a one-line ``description`` gloss for
-    ``profile.diagnose()`` consumers (review fix UX-4) — pure metadata,
-    StrEnum value identity is unchanged.
+    Each value carries a one-line ``description`` gloss used by API docs,
+    ``MetricResult.warning_codes``, and ``EvaluationResult.warnings``.
     """
 
     UNRELIABLE_SE_SHORT_PERIODS = "unreliable_se_short_periods"
@@ -36,12 +35,6 @@ class WarningCode(StrEnum):
     # cross-section size driving the inference switch): a wide panel cut into
     # many buckets can trip this without tripping FEW_ASSETS.
     THIN_QUANTILE_GROUPS = "thin_quantile_groups"
-    # Fired by the (COMMON, SPARSE, PANEL) procedure when the broadcast
-    # dummy carries MIN_BROADCAST_EVENTS_HARD ≤ n_events <
-    # MIN_BROADCAST_EVENTS_WARN. Per-asset β is identifiable but
-    # the cross-event averaging is too thin for asymptotic t to be
-    # trusted. Below the HARD floor raises InsufficientSampleError instead.
-    SPARSE_COMMON_FEW_EVENTS = "sparse_common_few_events"
     # Fired when a sparse ``factor`` column carries mixed signs but is
     # not a clean ±1 ternary (e.g. ``{-2.5, 0, +1.3}``). The CAAR /
     # sparse-panel statistic is the magnitude-weighted Sefcik-Thompson
@@ -107,6 +100,11 @@ class WarningCode(StrEnum):
     # not mislabelled as a dependency failure.
     METRIC_UNAVAILABLE = "metric_unavailable"
 
+    # Fired by evaluate(strict=False) when a metric's declared factor cell
+    # (scope / density / data structure) does not match the detected factor
+    # cell. The metric is not executed and short-circuits to NaN.
+    STRUCTURE_MISMATCH = "structure_mismatch"
+
     # Fired by inspect_data when factor columns carry inconsistent axes.
     CROSS_FACTOR_DENSITY_MISMATCH = "cross_factor_density_mismatch"
     CROSS_FACTOR_SCOPE_MISMATCH = "cross_factor_scope_mismatch"
@@ -120,14 +118,6 @@ class WarningCode(StrEnum):
     # from `usable` is explained, not silent. Deliberately does NOT advise
     # adding assets — pooling unrelated names mixes return-generating processes.
     SINGLE_ASSET_EVENT_DATA = "single_asset_event_data"
-
-    # Fired by evaluate(strict=False) when a metric's declared
-    # cell.structure disagrees with the data's structure (e.g. a PANEL
-    # metric requested on TIMESERIES data). The metric is not executed —
-    # it short-circuits to a NaN MetricResult with
-    # metadata["reason"]="structure_mismatch" rather than computing a
-    # numerically real but structurally invalid value.
-    STRUCTURE_MISMATCH = "structure_mismatch"
 
     # Per-axis silent-drop flags. A metric whose upstream primitive silently
     # dropped a large share of its sample at a filter raises the code for the
@@ -185,10 +175,6 @@ _WARNING_DESCRIPTIONS.update(
         "reduce n_groups (the warning suggests a value) or treat the spread as a "
         "fragile small-cross-section diagnostic. Distinct from few_assets, which "
         "keys off the absolute cross-section size.",
-        WarningCode.SPARSE_COMMON_FEW_EVENTS: "(COMMON, SPARSE, PANEL) broadcast dummy has "
-        "MIN_BROADCAST_EVENTS_HARD ≤ n_events < MIN_BROADCAST_EVENTS_WARN "
-        "(5..19); per-asset β estimable but cross-event averaging too thin "
-        "for asymptotic t.",
         WarningCode.SPARSE_MAGNITUDE_WEIGHTED: "Sparse factor column is mixed-sign and not a "
         "clean ±1 ternary; statistic is magnitude-weighted (Sefcik-Thompson) "
         "rather than textbook MacKinlay signed CAAR — apply .sign() before "
@@ -224,6 +210,10 @@ _WARNING_DESCRIPTIONS.update(
         "input column / config, or insufficient sample at its own floor); "
         "the NaN MetricResult's metadata['reason'] carries the specific cause. "
         "Distinct from UPSTREAM_UNAVAILABLE, which flags a dependency failure.",
+        WarningCode.STRUCTURE_MISMATCH: "Metric's declared factor cell "
+        "(scope / density / data structure) does not match the detected factor "
+        "cell; under strict=False the metric short-circuits to NaN instead "
+        "of executing.",
         WarningCode.CROSS_FACTOR_DENSITY_MISMATCH: "Factor columns carry inconsistent FactorDensity (dense and sparse mixed).",
         WarningCode.CROSS_FACTOR_SCOPE_MISMATCH: "Factor columns carry inconsistent FactorScope (individual and common mixed).",
         WarningCode.SINGLE_ASSET_EVENT_DATA: "Single-asset event-shaped data (TIMESERIES + SPARSE, n_assets=1): "
@@ -232,10 +222,6 @@ _WARNING_DESCRIPTIONS.update(
         "same-date event clustering (clustering_hhi) is degenerate at one "
         "event per date — need n_assets>=2 and are unavailable. Do not pool "
         "unrelated assets to clear this; that mixes return-generating processes.",
-        WarningCode.STRUCTURE_MISMATCH: "Metric's declared cell.structure disagrees with the data "
-        "structure (e.g. a PANEL metric on TIMESERIES data); under "
-        "strict=False the metric short-circuits to NaN instead of executing. "
-        "metadata carries cell_structure / data_structure for diagnosis.",
         WarningCode.EXCESSIVE_PERIOD_DROPS: "An upstream PANEL→SERIES primitive dropped more than "
         "DROP_RATE_WARN_THRESHOLD of dates at its cross-sectional filter; the "
         "metric was computed on a shortened sample. Exact counts are in "

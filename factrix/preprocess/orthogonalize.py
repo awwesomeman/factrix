@@ -4,7 +4,7 @@ Per-date cross-sectional ordinary least squares (OLS) regression:
     factor_z = β₁·Size + β₂·Value + β₃·Momentum + Σβ_k·Industry_k + ε
 
 The residual ε replaces the original factor value, so that downstream
-Gates and Profile reflect "pure alpha" net of known risk exposures.
+``evaluate`` / metric calls see the factor net of known risk exposures.
 
 This module is independently usable for any analysis that requires
 "what remains after removing base factor influence."

@@ -163,7 +163,8 @@ def event_ic(
     triggered events. Direction is already accounted for via sign().
 
     Only meaningful when density values have magnitude variance
-    (not all ±1). Profile auto-skips when variance is absent.
+    (not all ±1). The metric returns a not-applicable result when
+    variance is absent.
 
     Args:
         data: Panel with event density and forward return.
@@ -266,8 +267,9 @@ def profit_factor(
         MetricResult with value=profit_factor.
 
     Notes:
-        ``PF = sum(signed_car > 0) / |sum(signed_car < 0)|``. Descriptive
-        only; no formal H0 (the ratio's sampling distribution lacks a
+        ``PF = sum(signed_car_i * 1{signed_car_i > 0}) /
+        |sum(signed_car_i * 1{signed_car_i < 0})|``. Descriptive only;
+        no formal H0 (the ratio's sampling distribution lacks a
         clean closed-form null without distributional assumptions).
         ``PF > 1`` means gross gains exceed gross losses across all
         events; the metric ignores per-event variance.

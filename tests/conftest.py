@@ -1,10 +1,7 @@
 """Shared fixtures for factrix unit tests.
 
-Trimmed to v0.5 surface — Profile-era fixtures (cs_profile_strong /
-cs_profile_weak / cs_profiles_and_artifacts), the auto-use rule
-isolation, and the v0.4 build_artifacts dependency are all gone with
-the v0.4 deletion sweep. v0.5 procedure tests build their own
-synthetic panels locally.
+Tests build synthetic panels locally and no longer depend on legacy
+profile/artifact fixtures or auto-use rule isolation.
 """
 
 from datetime import datetime, timedelta

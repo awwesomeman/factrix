@@ -15,7 +15,7 @@ The **inference** functions are not. Cross-slice testing splits on a statistical
 
 Picking the wrong pair is not a tuning choice — it is the wrong statistical assumption, so the two are **separate, explicitly-named** functions rather than one auto-routing surface.
 
-factrix splits this work into two roles because **slicing the panel** and **testing significance across slices** are different jobs that need different APIs. The legacy regime-specific surface (`by_regime`, `regime_ic`) was removed in v0.12.0 — see the CHANGELOG migration recipe.
+factrix splits this work into two roles because **slicing the panel** and **testing significance across slices** are different jobs that need different APIs. The legacy regime-specific surface (`by_regime`, `regime_ic`) has been removed; use `by_slice` for descriptive per-slice results and the `slice_*_test` functions for calibrated cross-slice inference.
 
 ## The two roles
 

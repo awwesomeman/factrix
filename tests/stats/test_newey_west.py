@@ -8,19 +8,22 @@ from factrix._stats import (
     _newey_west_t_test,
     _resolve_nw_lags,
 )
+from factrix._stats.constants import auto_bartlett
 
 
 class TestResolveNwLags:
     def test_default_rule_of_thumb(self):
-        # np.floor(n^(1/3)) with float arithmetic — 64**(1/3)=3.9999... → 3
         assert _resolve_nw_lags(n=100, lags=None, forward_periods=None) == 4
         assert _resolve_nw_lags(n=30, lags=None, forward_periods=None) == 3
+        assert _resolve_nw_lags(n=200, lags=None, forward_periods=None) == (
+            auto_bartlett(200)
+        )
 
     def test_explicit_lags_passthrough(self):
         assert _resolve_nw_lags(n=100, lags=7, forward_periods=None) == 7
 
     def test_forward_periods_floors_default_lags(self):
-        # floor(100^(1/3)) = 4; forward_periods=6 → floor at 5
+        # auto_bartlett(100) = 4; forward_periods=6 floors at 5.
         assert _resolve_nw_lags(n=100, lags=None, forward_periods=6) == 5
 
     def test_forward_periods_floors_explicit_lags(self):
@@ -36,6 +39,10 @@ class TestResolveNwLags:
         # small sample: lag can't exceed n-1 regardless of forward_periods
         assert _resolve_nw_lags(n=5, lags=None, forward_periods=10) == 4
 
+    def test_short_sample_returns_zero(self):
+        assert _resolve_nw_lags(n=0, lags=None, forward_periods=5) == 0
+        assert _resolve_nw_lags(n=1, lags=None, forward_periods=5) == 0
+
 
 class TestNewyWestTForwardPeriods:
     def test_forward_periods_changes_se(self):
@@ -43,8 +50,7 @@ class TestNewyWestTForwardPeriods:
         rng = np.random.default_rng(42)
         x = np.cumsum(rng.standard_normal(200)) * 0.1 + 0.05
         se_default = _newey_west_se(x)
-        # forward_periods=5 forces larger lags than default floor(200^(1/3))=5,
-        # so with h-1=4, already dominated by default; pick larger h to test.
+        # forward_periods=20 forces larger lags than the auto default.
         se_h20 = _newey_west_se(x, forward_periods=20)
         assert se_h20 > se_default
 

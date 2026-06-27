@@ -12,7 +12,7 @@ Two flavours of turnover co-exist here, measuring different things:
   long-short portfolio.
 
 These are implementation-feasibility indicators, not factor quality
-measures — they belong in Profile, not in Gates.
+or significance tests.
 
 Input for Turnover: DataFrame with ``date, asset_id, factor``.
 Input for Breakeven/Net Spread: pre-computed spread and turnover values.

@@ -35,8 +35,8 @@ Covariance Matrix Estimation." *Review of Economic Studies* 61(4),
 631–653.
 
 Data-adaptive plug-in bandwidth selection. Cited as background;
-factrix uses the simpler Andrews (1991) Bartlett growth rate
-$\lfloor T^{1/3} \rfloor$ floored against the Hansen-Hodrick overlap rule.
+factrix uses its automatic Bartlett rule (`auto_bartlett(T)`) floored against
+the Hansen-Hodrick overlap rule.
 
 ### Andrews (1991)
 [](){ #andrews-1991 }
@@ -45,8 +45,9 @@ Andrews, D. W. K. (1991). "Heteroskedasticity and Autocorrelation
 Consistent Covariance Matrix Estimation." *Econometrica* 59(3),
 817–858.
 
-Optimal Bartlett growth rate $T^{1/3}$; the basis of factrix's default
-NW lag rule.
+Optimal Bartlett growth-rate reference; factrix keeps the citation for HAC
+background, while the default NW lag rule is Newey-West (1994)
+`auto_bartlett(T)`.
 
 ### Andrews & Monahan (1992)
 [](){ #andrews-monahan-1992 }
@@ -423,13 +424,12 @@ the equal-weighted MacKinlay-style CAAR.
 Jaffe, J. F. (1974). "Special Information and Insider Trading."
 *Journal of Business* 47(3), 410–428.
 
-Calendar-time portfolio approach to event studies — recasts
-event-indexed inference onto a calendar grid by forming each
-calendar period's portfolio of all firms with a recent event and
-analysing portfolio returns. Historical anchor for factrix's
-dense-period-grid CAAR HAC t-test, which adapts the calendar-time idea
-by zero-filling non-event dates on the per-event series rather than
-forming a calendar-period portfolio across event firms.
+Calendar-time portfolio approach to event studies — recasts event-indexed
+inference by forming each calendar period's portfolio of all firms with a
+recent event and analysing portfolio returns. Historical background for
+factrix's event-date CAAR aggregation: factrix collapses same-date events to
+one event-date mean, then uses calendar-aware non-overlap sampling rather
+than dense zero-fill HAC.
 
 ### Mandelker (1974)
 [](){ #mandelker-1974 }
@@ -437,12 +437,9 @@ forming a calendar-period portfolio across event firms.
 Mandelker, G. (1974). "Risk and Return: The Case of Merging Firms."
 *Journal of Financial Economics* 1(4), 303–335.
 
-Independent contemporaneous calendar-time portfolio paper; cited
-alongside Jaffe (1974) as the joint origin of the calendar-time
-inference idea that factrix's sparse-panel CAAR adapts (factrix's
-zero-fill densification on the per-event series is a related but
-distinct operation from the original cross-event calendar-portfolio
-construction).
+Independent contemporaneous calendar-time portfolio paper; cited alongside
+Jaffe (1974) as the joint origin of the calendar-time inference idea that
+factrix's sparse-panel CAAR adapts at the event-date aggregation layer.
 
 ### Fama (1998)
 [](){ #fama-1998 }
@@ -454,10 +451,11 @@ Methodological comparison of calendar-time portfolio averaging
 (average abnormal returns / cumulative abnormal returns) against
 buy-and-hold abnormal returns (BHARs), strongly recommending the
 calendar-time approach on the grounds that monthly returns are less
-susceptible to the bad-model problem and that monthly portfolio
-formation automatically absorbs cross-correlations of event-firm
-abnormal returns. The modern reference for the densification
-rationale underlying factrix's sparse-panel CAAR HAC path.
+susceptible to the bad-model problem and that monthly portfolio formation
+automatically absorbs cross-correlations of event-firm abnormal returns.
+Factrix cites this as background for same-date event aggregation and for
+reading clustered event calendars cautiously; the implemented CAAR t-test
+uses calendar-aware non-overlap sampling, not a dense HAC path.
 
 ---
 

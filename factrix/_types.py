@@ -1,11 +1,8 @@
-"""Shared types and constants for the v0.4 metric primitives.
+"""Shared numerical constants and metric-option aliases.
 
-The v0.5 axis enums (``FactorScope`` / ``FactorDensity`` / ``DataStructure``)
-live in :mod:`factrix._axis`. The unified
-single-metric result type (``MetricResult``) lives alongside the other
-result dataclasses in :mod:`factrix._results`. This module keeps only
-the numerical constants and metric-option ``Literal`` aliases shared by
-the ``factrix.metrics.*`` primitives that v0.5 procedures wrap.
+Axis enums live in :mod:`factrix._axis`. Result dataclasses live in
+:mod:`factrix._results`. This module keeps only constants and ``Literal``
+aliases shared by metric primitives.
 """
 
 from __future__ import annotations
@@ -94,8 +91,7 @@ MIN_MONOTONICITY_PERIODS: int = 5
 
 
 # Structural alias used by metric internals to mark "this float is a
-# p-value, not an effect-size". Carried for the metrics surface; the
-# v0.5 profile schema uses ``primary_p: float`` directly.
+# p-value, not an effect-size".
 PValue = NewType("PValue", float)
 
 

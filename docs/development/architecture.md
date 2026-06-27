@@ -11,8 +11,11 @@ Current-state snapshot of the public API surface and internal layout.
 **factrix is a Factor FactorDensity Validator, not a backtest engine.**
 
 The library produces a single canonical p-value (`MetricResult.p_value`) per
-factor per `(scope, density, structure)` cell from the cell's Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC)-corrected
-mainstream metric (information coefficient (IC) / FM-λ / CAAR / TS-β). Realistic execution simulation,
+factor per `(scope, density, structure)` cell from the cell's mainstream
+metric (information coefficient (IC) / FM-λ / CAAR / TS-β). Dense
+time-series mainstream metrics use Newey-West (NW)
+heteroskedasticity-and-autocorrelation-consistent (HAC) inference; CAAR uses
+calendar-aware non-overlap sampling on the event-date series. Realistic execution simulation,
 tradability proxies, and portfolio construction are out of scope — feed
 screened factors into Zipline / Backtrader / `vectorbt` downstream.
 
@@ -70,8 +73,8 @@ evaluate-time from `panel["asset_id"].n_unique()` (`factrix._detect_structure`):
 `PANEL` for `N ≥ 2`, `TIMESERIES` for `N = 1`. Each `MetricSpec` declares the
 `(scope, density, structure)` cell it applies to (`None` on an axis = `*`
 wildcard); the DAG executor derives the runtime structure and dispatches each
-requested metric against its cell. A metric inapplicable to the data's **cell**
-(scope / density / structure mismatch) raises under `strict=True` or
+requested metric against its cell. A metric inapplicable to the data's
+**factor cell** (scope / density / data structure axes) raises under `strict=True` or
 short-circuits to a NaN `MetricResult` under `strict=False`. A
 `not_applicable*` **type-routing verdict** — the metric's signal *type* does not
 fit the factor (e.g. a continuous-magnitude metric on a discrete ±k signal), a
@@ -93,7 +96,7 @@ Each `factrix/metrics/*.py` module decorates its public callables with
   registered metric.
 - `public_specs()` — visibility-filtered specs (drops `PIPELINE`-role stage-1
   helpers pulled only via `requires`).
-- `list_metrics()` — the public runtime discovery API, grouped by cell.
+- `list_metrics()` — the public runtime discovery API, grouped by metric family.
 
 `@metric`-class registration feeds the index via
 `factrix.metrics._registry.register`. Every introspection / validation path
@@ -150,12 +153,14 @@ specs declare `cell.structure = PANEL`, so under `strict=True` evaluate raises
 `MetricResult` with a `reason`. Explicit and user-correctable, never a silent rewrite.
 
 `(*, SPARSE, *) × N=1` is well-defined and runs with **no scope-collapse step**.
-The sparse metrics' cells apply at `N=1`, so the DAG executor runs them directly
-on the single-asset series — there is no scope-collapse step, and no
-sentinel routing both sparse scopes to a shared TIMESERIES procedure. At `N=1`
-the `INDIVIDUAL` / `COMMON` distinction is moot (one asset → no
-scope axis), but that falls out of the derived structure rather than an explicit
-routing token.
+Sparse metrics whose `MetricSpec.cell.structure` is wildcarded (`None`) apply
+at `N=1`, so the DAG executor runs them directly on the single-asset series —
+there is no scope-collapse step, and no sentinel routing both sparse scopes to a
+shared TIMESERIES procedure. At `N=1` the `INDIVIDUAL` / `COMMON` distinction is
+moot (one asset — no scope axis), but that falls out of the derived structure
+rather than an explicit routing token. Sparse metrics that still need an asset
+cross-section, such as `clustering_hhi` (`cell.structure=PANEL`), remain
+unavailable at `N=1`.
 
 ---
 
@@ -212,9 +217,8 @@ Four layers, one grammar:
 - **Calibrated module constants** (SSOT for the literals) —
   `MIN_[<DOMAIN>_]<AXIS>[_<TIER>]`. The `AXIS` token is mandatory
   (`PERIODS`/`ASSETS`/`EVENTS`/`PAIRS`); `DOMAIN` is an optional prefix qualifier
-  (`BROADCAST`, `PORTFOLIO`, `FM`, `IC`) that disambiguates when the *same*
-  axis is gated by a *different* statistic — e.g. CAAR's `MIN_EVENTS_HARD` vs
-  the broadcast-dummy `MIN_BROADCAST_EVENTS_HARD`. `TIER` is `_HARD`
+  (`PORTFOLIO`, `FM`, `IC`) that disambiguates when the *same*
+  axis is gated by a *different* statistic. `TIER` is `_HARD`
   (raise / short-circuit floor) or `_WARN` (degrade floor). **`_HARD` is
   dropped on any axis that never raises** — `MIN_ASSETS_WARN` carries no
   `_HARD` because the cross-asset t-test is defined for `n_assets ≥ 2`
@@ -225,7 +229,7 @@ Four layers, one grammar:
 - **Warning codes** (`factrix/_codes.py`) carry the same axis token so the
   degraded axis is legible from the code alone:
   `UNRELIABLE_SE_SHORT_PERIODS`, `FEW_EVENTS`, `FEW_ASSETS`,
-  `BORDERLINE_PORTFOLIO_PERIODS`, `SPARSE_COMMON_FEW_EVENTS`, and the
+  `BORDERLINE_PORTFOLIO_PERIODS`, and the
   axis-specific drop pair `EXCESSIVE_PERIOD_DROPS` / `EXCESSIVE_ASSET_DROPS`.
 
 Silent-drop diagnostics emit a fixed per-axis metadata schema
@@ -352,7 +356,7 @@ re-collapsed into "raise on anything inapplicable":
 | `not_applicable*` | The metric's signal *type* does not fit this factor (e.g. a continuous-magnitude metric on a discrete ±k signal). The type-routing verdict. | **soft** — NaN + `is_applicable=False`; the applicable metrics in the same call still return |
 | `insufficient_*` | The metric fits but the sample is too thin | **raise** (`UserInputError`) |
 | `no_*` | Missing input column / config | **raise** |
-| structure mismatch | A `cell.structure=PANEL` metric on `TIMESERIES` data (the cell axis above) | **raise** (`IncompatibleAxisError`) |
+| cell mismatch | Requested metric cell (scope / density / data structure) does not match the factor's detected cell | **raise** (`IncompatibleAxisError`) |
 
 Rationale: throwing a mixed battery at a panel and seeing which metrics apply is
 the core type-routed-evaluation workflow; aborting it because one metric's type
@@ -500,25 +504,24 @@ Failure modes:
 ```
 per-event-date mean of signed_car = return × factor      (cross-section step)
                                                        →  event-date-indexed CAAR
-reindex to dense period grid, zero-fill non-event periods   →  n_periods-length CAAR series
-                                                       →  NW HAC t-test on mean(CAAR)   (time-series step)
+calendar-aware non-overlap subsample by date_ordinal        →  independent event-date sample
+                                                       →  OLS t-test on mean(CAAR)      (event-time step)
 ```
 
-The CAAR series is **period-grid-indexed**: `compute_caar` produces an
-event-date-indexed primitive (filter `factor != 0`), which the procedure
-then reindexes against the full panel period set with zero-fill. This is
-the calendar-time portfolio approach (Jaffe 1974, Mandelker 1974; Fama
-1998 §2) — restores the lag rule's "consecutive observations are 1
-period apart" assumption that an event-only series would otherwise
-break. With it, sparse events let zero-padding zero out spurious
-autocovariance terms and clustered events get the real MA(h-1) overlap
-weighted correctly. Pipeline parity with IC / FM / common-sparse PANEL.
+The CAAR series is **event-date-indexed**: `compute_caar` filters to
+`factor != 0`, collapses same-date events to one cross-asset mean, and
+retains each event date's `date_ordinal` on the full panel calendar. The
+`caar` procedure then takes a greedy non-overlap subsample where consecutive
+kept event dates are at least `forward_periods` calendar periods apart. This
+keeps the event-only mean estimator intact while avoiding overlap-induced
+dependence from forward-return windows; dense zero-fill is deliberately not
+used because non-event zeros would dominate the sparse event mean.
 
 Magnitude is preserved as a weight in `signed_car` (no `.sign()` coercion
 at this layer — `compute_caar`'s docstring carries the input-form
-behaviour table). User-facing `MEAN` reports the per-event-date
-mean (the average effect on event days); `n_obs` reflects the dense
-series the t-stat is computed on.
+behaviour table). User-facing `MEAN` reports the per-event-date mean (the
+average effect on event days); `n_obs` reflects the non-overlap event-date
+sample the t-stat is computed on.
 
 Failure modes:
 
@@ -547,34 +550,31 @@ Failure modes:
   under `strict=False`); there is no single-series β fallback. See
   §PANEL/TIMESERIES equivalence.
 
-### `common_sparse` (PANEL) — time-series first
+### `common_sparse` (PANEL) — event-time metrics
 
 ```
-per-asset OLS R_i = α_i + β_i·D over all n_periods dates   (time-series step)
-                                                         →  n_assets-length β vector
-                                                         →  cross-asset t-test on E[β]   (cross-section step)
+broadcast sparse event column `{0, R}` across assets
+       →  same scope-agnostic sparse metrics as individual_sparse
+       →  CAAR / BMP / event diagnostics on the event-time sample
 ```
 
-Same shape as `common_continuous`; the broadcast `D` carries the
-sparse `{0, R}` schema (`R` is unrestricted; `{0, 1}` for a pure
-event flag is the simplest form) and replaces the continuous
-regressor. Factor magnitudes are **preserved** in
-the OLS (no `.sign()` coercion at this layer — distinct from the
-`individual_sparse` PANEL pipeline). Augmented Dickey-Fuller (ADF) persistence diagnostic is skipped
-per I6 (sparse regressors are not unit-root candidates).
+`Common × Sparse` is **not** the `common_continuous` time-series-first
+OLS-β flow. The factor is broadcast across assets, but its sparse `{0, R}`
+shape matches the event-time contract used by `individual_sparse`; the DAG
+therefore dispatches the same sparse metrics (`caar`, `bmp_z`,
+`event_hit_rate`, `clustering_hhi`, etc.) through their registered
+scope-wildcard sparse cells.
 
 Failure modes:
 
-- per-asset `n_periods < MIN_TS_OBS = 20` → asset dropped.
-- `n_assets` cross-section guard same as `common_continuous` (single
-  `FEW_ASSETS`; severity from `n_assets` metadata).
-- Two-tier event-count guard (`factrix/_stats/constants.py`):
-  `n_events < MIN_BROADCAST_EVENTS_HARD = 5` raises `InsufficientSampleError`;
-  `5 ≤ n_events < MIN_BROADCAST_EVENTS_WARN = 20` emits
-  `SPARSE_COMMON_FEW_EVENTS`.
-- Cross-asset SE assumes asset-level independence; under contemporaneous
-  return correlation the standard t over-states significance — Petersen
-  (2009) clustered SE deferred.
+- The same sparse event-count guards as `individual_sparse` apply:
+  `MIN_EVENTS_HARD` hard floor and `MIN_EVENTS_WARN` warning for CAAR.
+- Same-date event clustering is more likely because every asset shares the
+  event date; use `clustering_hhi` and prefer `bmp_z(kolari_pynnonen_adjust=True)`
+  when the HHI is high.
+- Metrics that require a panel asset cross-section, such as
+  `clustering_hhi`, remain unavailable on `N=1` even though most sparse
+  event-axis metrics have `structure=None`.
 
 ### `common_continuous` at N=1 — not supported
 
@@ -583,10 +583,12 @@ test the **cross-asset** distribution of per-asset βs, so they require
 `N ≥ 2`. At `N = 1` the cell (`COMMON, DENSE, PANEL`) does not match the
 derived `TIMESERIES` structure, so `evaluate` raises
 `IncompatibleAxisError` (or NaN + `structure_mismatch` under
-`strict=False`). There is **no** single-series β collapse — for
-single-asset time-series inference use `ic(inference=fx.inference.NEWEY_WEST)`
-(Individual × Continuous) or the scope-agnostic TIMESERIES metrics
-(`hit_rate`, `oos_decay`, `ic_trend`, `directional_hit_rate`).
+`strict=False`). There is **no** single-series beta collapse. For single-asset
+time-series diagnostics, use a metric whose registered cell allows `TIMESERIES`
+(for example `hit_rate`, `oos_decay`, or `ic_trend`) on an explicit
+`(date, value)` series; use `directional_hit_rate` on the long-panel
+`(date, asset_id, factor, forward_return)` shape, or use sparse metrics whose
+structure is wildcarded.
 
 ### `(*, SPARSE, *) × N=1` (TS dummy) — time-series only
 
@@ -598,12 +600,14 @@ single-asset OLS y_t = α + β·D_t + ε on period-dense series   (time-series s
                                                               +  event-window-overlap check
 ```
 
-Reached whenever a sparse factor evaluates at N=1 — the sparse metrics' cells
-apply at TIMESERIES, so the DAG executor runs them directly on the single-asset
-series (no scope-collapse step; at N=1 the two scopes are statistically
-equivalent). The series is the **full period grid** with
-zero-padding on non-event periods (distinct from the PANEL CAAR computation,
-which works on the event-date-only series). Factor magnitudes are
+Reached whenever a sparse factor evaluates at N=1 and the requested sparse
+metric's structure is wildcarded — the DAG executor runs it directly on the
+single-asset series (no scope-collapse step; at N=1 the two scopes are
+statistically equivalent). Sparse metrics that require a cross-asset panel, such
+as `clustering_hhi`, still raise / short-circuit on the cell mismatch. The
+series is the **full period grid** with
+zero-padding on non-event periods (distinct from the CAAR computation, which
+works on the event-date-only series). Factor magnitudes are
 preserved (no `.sign()` coercion at this layer).
 
 Failure modes:
@@ -785,34 +789,35 @@ from disk.
 
 Run: `uv run pytest`
 
-### Docs SSOT strategy — docstring tags drive the matrix
+### Docs SSOT strategy — MetricSpec drives generated tables
 
 `docs/reference/metric-pipelines.md` does not contain a hand-written
-matrix. The matrix is generated at build time from machine-readable
-`Matrix-row:` tags embedded in each `factrix/metrics/*.py` module docstring.
+matrix. The matrix is generated at build time from the same typed
+`MetricSpec` registry that runtime discovery uses.
 
 **How it works:**
 
-- Each public metric module carries one or more `Matrix-row:` lines at the
-  end of its module-level docstring, with five pipe-separated fields:
-  `public_functions | cell_scope | aggregation_order | inference_se | primitives`.
-- `scripts/mkdocs_hooks/gen_metric_matrix.py` (a MkDocs `hooks:` entry) parses every
-  public module with `ast`, extracts the tags, and writes
+- Each public metric callable declares its cell and aggregation through
+  `@metric`, producing a `MetricSpec`.
+- `scripts/mkdocs_hooks/gen_metric_matrix.py` (a MkDocs `hooks:` entry) reads
+  `factrix._metric_index.public_specs()`, groups specs by module / cell /
+  aggregation, and writes
   `docs/reference/_generated_metric_matrix.md` before each docs build.
+- `scripts/mkdocs_hooks/gen_metric_name_index.py` reads the same spec set and
+  writes `docs/reference/_generated_metric_name_index.md`.
 - `metric-pipelines.md` includes the generated file via
   `--8<-- "docs/reference/_generated_metric_matrix.md"` (pymdownx.snippets).
 
 **CI coverage (`tests/test_docs_matrix.py`):**
 
-- Every public metric module has at least one `Matrix-row:` tag.
-- Every tag has exactly 5 pipe-separated fields.
+- Every public metric module registers at least one public `MetricSpec`.
 - `_generated_metric_matrix.md` exists and is non-empty (skipped if absent,
   so CI that only runs pytest without a prior build does not false-positive).
+- The generated matrix and name-index files match the live renderers, catching
+  stale generated docs after registry changes.
 
-**Why docstring tags rather than a pure CI presence guard:** a guard
-that only checks presence/absence of module references leaves drift in
-the five data columns (scope, aggregation order, inference SE,
-primitives) invisible to CI. Making the docstring the single source of
-truth for all six matrix columns closes that gap — adding a module
-without a `Matrix-row:` tag fails the test, and editing the tag
-automatically updates the rendered docs on the next build.
+**Why the registry rather than hand-written tables:** the same source of truth
+now serves runtime discovery (`list_metrics()` / `metrics_summary()`), dispatch
+validation, and the rendered reference tables. Adding or changing a metric in
+one place updates both the API and the docs on the next build, and CI catches
+generated-file drift.

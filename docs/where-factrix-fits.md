@@ -21,9 +21,8 @@ data-generating process:
   Fama-MacBeth (FM), both with Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) standard errors and a
   Hansen-Hodrick lag floor for overlapping forward returns.
 - **Event factors** — Cumulative Average Abnormal Return (CAAR) on
-  the dense event-time period grid, with NW HAC inference and an
-  overlap diagnostic when consecutive events sit within twice the
-  forward horizon.
+  the event-date series with calendar-aware non-overlap inference, plus
+  overlap and clustering diagnostics for crowded event calendars.
 - **Common factors** — a factor whose realisation is shared across
   the cross-section in a given period (Fama-French market / size /
   value, or a macro variable). factrix tests these as a panel
@@ -84,7 +83,7 @@ flowchart LR
     DISP -->|individual · dense| CS[IC · FM beta<br/>+ diagnostics]
     DISP -->|individual · sparse| EV[CAAR<br/>+ diagnostics]
     DISP -->|common · dense| CO[ts_beta<br/>+ diagnostics]
-    DISP -->|common · sparse| DUM[ts_beta on dummies<br/>+ diagnostics]
+    DISP -->|common · sparse| DUM[CAAR<br/>+ event diagnostics]
     CS --> RES[EvaluationResult<br/>metrics · warnings · cell]
     EV --> RES
     CO --> RES
@@ -312,8 +311,8 @@ alpha-quality with a frequently-changing API.
 
 **Where factrix wins**
 
-- factrix integrates event CAAR with NW HAC and an overlap
-  diagnostic on the dense event-time period grid; eventstudy treats
+- factrix integrates event-date CAAR with calendar-aware non-overlap
+  inference plus overlap and clustering diagnostics; eventstudy treats
   events in isolation.
 - Event inference lives in the same `EvaluationResult` shape as CS and
   common-factor inferences; one pipeline screens all three with
@@ -341,7 +340,7 @@ public repo has been dormant since 2021-12.
 **Where factrix wins**
 
 - Open source (Apache-2.0); `pip install factrix` works.
-- Active maintenance and a published changelog cadence.
+- Active maintenance with tagged releases and reviewable PR narratives during the pre-1.0 line.
 - Deflated Sharpe / PSR is on the factrix roadmap and is the
   highest-priority OSS gap; see [§7](#7-honest-weaknesses).
 
@@ -445,7 +444,7 @@ self-defeating once they read the source.
 | Capability | factrix today | Closest peer | Status / roadmap |
 |---|---|---|---|
 | CS IC/IR tear-sheet | yes | alphalens (legacy, pandas) | parity on visualization vocabulary |
-| Event CAAR + HAC | yes | eventstudy (alpha-quality) / linearmodels (manual) | event CAAR with NW HAC out of the box |
+| Event CAAR | yes | eventstudy (alpha-quality) / linearmodels (manual) | event-date CAAR with non-overlap inference out of the box |
 | Macro panel | yes | linearmodels (manual) | packaged macro-factor evaluation surface |
 | Multi-test FDR (BHY) | yes | mlfinlab (commercial-gated) | only OSS implementation post-mlfinlab paywall |
 | NW HAC | yes | linearmodels / arch | depend on `arch`, do not reimplement |

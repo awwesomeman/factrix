@@ -18,7 +18,7 @@ Clone the factrix repo directly, isolated venv, fastest cycle:
 ```bash
 git clone https://github.com/awwesomeman/factrix.git
 cd factrix
-uv sync
+uv sync --extra dev
 uv run pytest        # confirm baseline is green
 ```
 
@@ -29,19 +29,12 @@ research, shortest test cycle.
 ### Mode B — In-workspace development (via submodule)
 
 Edit from the downstream workspace (`factor-analysis`) under
-`external/factorlib/`—you can change factrix and observe the effect in
+`external/factrix/`—you can change factrix and observe the effect in
 a real research notebook simultaneously:
-
-!!! note "Submodule path"
-    The submodule directory name on disk depends on the parent workspace's
-    `.gitmodules` setting; the actual path is currently
-    **`external/factorlib/`**. Once the parent workspace renames the
-    submodule path, it will become `external/factrix/`. Commands below
-    follow the current on-disk path.
 
 ```bash
 cd ~/Desktop/dst/code/factor-analysis
-cd external/factorlib
+cd external/factrix
 # edit factrix source
 uv run pytest
 # back to workspace and run the notebook for end-to-end verification
@@ -76,6 +69,7 @@ uv sync                              # core only (polars, numpy, pandera)
 uv sync --extra dev                  # +pytest, commitizen, etc. (required to write code)
 uv sync --extra jupyter              # +jupyter / jupyterlab / ipywidgets (notebooks)
 uv sync --extra docs                 # +mkdocs-material, mkdocstrings, mike (build the site)
+uv sync --extra dev --extra docs     # local CI / release checks
 ```
 
 The declared extras are `jupyter`, `dev`, `docs`, and `all` (where
@@ -83,12 +77,11 @@ The declared extras are `jupyter`, `dev`, `docs`, and `all` (where
 
 !!! note "`dev` and `docs` are separate from `all`"
     `all` only pulls in the `jupyter` extra — the toolchain (`dev`) and
-    docs-build (`docs`) extras are deliberately kept separate, so
-    `--all-extras` would still need to be paired with them explicitly when
-    you want everything in one shot:
+    docs-build (`docs`) extras are deliberately kept separate from the named
+    `all` extra. Use `--all-extras` when you really want every declared extra:
 
     ```bash
-    uv sync --all-extras --extra dev   # all feature extras + dev tools
+    uv sync --all-extras              # every declared extra
     ```
 
 ### Common environment commands
@@ -114,7 +107,7 @@ from the repo lockfile before testing; if a local environment was
 manually altered and timezone tests fail with missing timezone data,
 resync the environment instead of patching tests.
 
-### Git hooks (pre-push CHANGELOG check)
+### Git hooks
 
 `.githooks/` at the repo root holds version-controlled hook scripts.
 Run once after a fresh clone:
@@ -139,12 +132,12 @@ commit; fix-then-commit, or use `git commit --no-verify` to bypass.
 Scoped to staged files, so commits touching only YAML / Markdown / .txt
 don't trigger.
 
-`pre-push` — when the push includes `chore(release): vX.Y.Z` (i.e. the
-release commit produced by `cz bump`), checks that the `## vX.Y.Z`
-section in `CHANGELOG.md` has ≥ 25 non-blank lines. Below threshold →
-blocks the push, forcing you to add WHY narrative (BREAKING migration,
-behavioural direction, motivation) before pushing. To bypass:
-`git push --no-verify`.
+`pre-push` — for `v1.0.0+` release commits (`chore(release): vX.Y.Z`),
+checks that the `## vX.Y.Z` section in `CHANGELOG.md` has ≥ 25 non-blank
+lines. Below threshold → blocks the push, forcing you to add WHY narrative
+(BREAKING migration, behavioural direction, motivation) before pushing. Pre-1.0
+release commits skip this gate; see the Pre-1.0 version guide in section 9. To
+bypass: `git push --no-verify`.
 
 Adjust the threshold (per-shell):
 
@@ -152,8 +145,7 @@ Adjust the threshold (per-shell):
 CHANGELOG_MIN_LINES=10 git push
 ```
 
-Rationale: see §9 "Release workflow" on the limits of cz's
-auto-CHANGELOG.
+Rationale: see section 9 for release-note and pre-1.0 policy.
 
 ---
 
@@ -171,7 +163,7 @@ uv run pytest tests/test_<file>.py -v   # focus on a single module for fast iter
 
 # 3. Commit (Conventional Commits + interactive generation)
 git add <specific-files>                 # avoid -A
-cz commit -- -s                          # Commitizen produces standard format and appends sign-off
+cz commit                                # Commitizen produces standard format
 
 # 4. Push + open PR
 git push origin feat/redundancy-heatmap
@@ -183,13 +175,8 @@ gh pr merge --squash
 
 !!! warning "Do not run `cz bump` after merge"
     Versions and tags follow the release-train cadence (see §9) — a single
-    release fires after several PRs accumulate. Each PR writes its own
-    changes into the `## [Unreleased]` section of `CHANGELOG.md` (under
-    `### Added` / `### Changed` / `### Fixed` / `### Migration` subsections
-    as applicable); at release time, `cz bump --changelog` freezes that
-    section into the next version heading.
-
-**CHANGELOG formatting**: paragraphs and bullets are not hard-wrapped — each paragraph is one line, each bullet one line. The 72-char wrap convention applies to commit messages, not to CHANGELOG prose; GitHub Release notes treat single newlines as `<br>`, so source-level wrapping leaks into the rendered output. Aligns with Polars / ruff / Pydantic.
+    release fires after several PRs accumulate. Follow the Pre-1.0 version guide
+    in section 9 for pre-1.0 PR narrative and changelog behavior.
 
 ### Branch naming
 
@@ -212,22 +199,8 @@ length and other rules automatically.
 - Body uses `-` bullets, recording only "why" + "what"—do not restate
   the diff; aim for `< 72 chars` per line
 - No AI co-author signature, no emoji, no trailing period
-- Pass `-s` via `cz commit -- -s` to append Signed-off-by
-
-#### Changing the `Signed-off-by` name and email
-
-`git commit -s` reads `user.name` and `user.email` from your Git
-config. To change the signature, run:
-
-```bash
-# project-local only
-git config user.name "Your New Name"
-git config user.email "your-new-email@example.com"
-
-# global (default for all projects)
-git config --global user.name "Your New Name"
-git config --global user.email "your-new-email@example.com"
-```
+- Do not append commit signature trailers unless a future DCO policy explicitly
+  requires them
 
 ---
 
@@ -342,15 +315,14 @@ files auto-update and which need manual maintenance.
 | Source (SSOT) | Docs target | Mechanism |
 |---|---|---|
 | `factrix/**/*.py` docstrings | `:::` directives in `docs/api/**/*.md` | mkdocstrings plugin |
-| `Matrix-row:` in `factrix/metrics/*.py` | `docs/reference/_generated_metric_matrix.md` | hook: `scripts/mkdocs_hooks/gen_metric_matrix.py` |
+| `factrix._metric_index.public_specs()` | `docs/reference/_generated_metric_matrix.md`, `docs/reference/_generated_metric_name_index.md` | hooks: `scripts/mkdocs_hooks/gen_metric_matrix.py`, `scripts/mkdocs_hooks/gen_metric_name_index.py` |
+| `factrix._codes.WarningCode.description` | `docs/reference/_generated_warning_codes.md` | hook: `scripts/mkdocs_hooks/gen_code_descriptions.py` |
 | `factrix/llms*.txt` | site root `llms*.txt` | hook: `scripts/mkdocs_hooks/sync_llms_txt.py` |
 
 #### Docstring `Examples:` — runnable, copy-paste ready
 
-Every user-facing function reachable from the API Reference nav
-(`evaluate`, `inspect_data`, `by_slice`, `slice_pairwise_test`,
-`slice_joint_test`, `multi_factor.{bhy, partial_conjunction,
-bhy_hierarchical}`, `compare`, `list_metrics`) carries an `Examples:` block in its docstring.
+Every page-primary callable reachable from the API Reference nav carries an
+`Examples:` block in its docstring.
 The docstring is the single source of truth — `.md` pages do not
 duplicate runnable examples, only document things the example
 cannot show (output schemas, attribute tables, semantic intent).
@@ -397,13 +369,13 @@ example.
 
 New example convention:
 
-- Write `docs/examples/<name>.md` directly. Match the shape of the two shipping recipes — frontmatter title, narrative blocks (`Factor type` / `Use this when` / `What it tests` / `Output to read`), numbered step sections, fenced code blocks with illustrative outputs in adjacent `text` / `json` fences.
+- Write `docs/examples/<name>.md` directly. Match the shape of the existing recipes — frontmatter title, narrative blocks (`Factor type` / `Use this when` / `What it tests` / `Output to read`), numbered step sections, fenced code blocks with illustrative outputs in adjacent `text` / `json` fences.
 - Do **not** print `fx.__version__` or include trailing `print("<name>: ok")` smoke tests in the code blocks. Outputs in markdown are illustrative literals; pinning a version line invites drift on every release.
 - If interactive execution matters, also commit a parallel `examples/<name>.ipynb`. Link it from the markdown page header (`Runnable notebook: …`). Notebook drift is an independent maintenance debt — markdown wins on disagreement.
 
 ### Docs that still need manual maintenance
 
-- `docs/api/**/*.md` (30 files): each contains a hand-written 2–5 line
+- `docs/api/**/*.md`: each contains a hand-written 2–5 line
   narrative intro plus a `:::` directive; new public metrics require a
   new file plus a `nav:` entry in `mkdocs.yml`
 - `docs/getting-started/`, `docs/guides/`, `docs/development/`, the
@@ -505,7 +477,7 @@ Enforced by tests and CI — a regression fails the PR build.
 
 | Drift class | Enforced by |
 |---|---|
-| Generated docs freshness (metric matrix, registry cells, examples sync) | `tests/test_docs_matrix.py`, `tests/test_docs_registry_cells.py`, plus the `git diff --exit-code` step in `.github/workflows/docs-deploy-dev.yml` |
+| Generated docs freshness (metric matrix, name index, warning-code table) | `tests/test_docs_matrix.py`, plus the `git diff --exit-code` step in `.github/workflows/docs-deploy-dev.yml` |
 | Public-surface mention coverage in `factrix/llms-full.txt` | `tests/test_docs_llms.py` |
 | Public-surface mention coverage across all docs pages | `tests/test_docs_pages.py` |
 | README quickstart end-to-end | `tests/test_readme_quickstart.py` |
@@ -534,27 +506,40 @@ meaning, leave it to release-train review.
 
 ### 7.3 Release-train drift audit
 
-Before running `cz bump --changelog` (see §9), run this checklist on
-`main`:
+Before running a release bump (see §9), run this checklist on `main`:
 
 ```bash
 # 1. Search for known-deprecated symbol names that may have leaked back in.
 #    Extend the pattern per release with names retired since the last tag.
 git grep -nE 'q1_q5_spread'
 
-# 2. Full test suite — covers every check listed in §7.1.
+# 2. Sync the release-check toolchain from locked project metadata.
+uv sync --frozen --extra dev --extra docs
+
+# 3. Lint, formatting, and typing — mirrors the CI lint job.
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy factrix
+
+# 4. Full test suite — covers every check listed in §7.1.
 uv run pytest -q
 
-# 3. Strict docs build — surfaces broken nav, links, and generated-file drift.
+# 5. Doctests — mirrors the CI doctest job.
+uv run pytest --doctest-modules factrix/
+
+# 6. Strict docs build — surfaces broken nav, links, and generated-file drift.
 uv run mkdocs build --strict
 
-# 4. Public-surface coverage spot-check (also run by step 2; explicit run
+# 7. Public-surface coverage spot-check (also run by step 4; explicit run
 #    is cheap and isolates failures).
 uv run pytest tests/test_docs_llms.py tests/test_docs_pages.py -q
 
-# 5. Skim the [Unreleased] CHANGELOG section for stale paths / kwargs
-#    that drifted since the entry was written.
-sed -n '/## \[Unreleased\]/,/^## /p' CHANGELOG.md
+# 8. Package build — mirrors the CI wheel build job.
+uv build --python 3.12
+
+# 9. Review release-note policy before changelog edits:
+#    - section 9 in this file
+#    - the top of CHANGELOG.md
 ```
 
 A failure on any step is a release blocker — fix on `main` (or revert
@@ -572,7 +557,7 @@ For hand-written nested dicts (e.g. per-regime / per-horizon stats), prefer a `T
 
 ### 7.5 Design proposals — use issues, not files
 
-New design proposals go in a **GitHub issue** (label: `design`), not a markdown file under `docs/plans/`. Issues give threaded discussion, edit history, cross-links to PRs / commits, and zero file-maintenance overhead. The `docs/plans/archive/` directory is the frozen pre-v0.10 plan corpus — read-only history; never add to it.
+New design proposals go in a **GitHub issue** (label: `design`), not a markdown file under `docs/plans/`. Issues give threaded discussion, edit history, cross-links to PRs / commits, and zero file-maintenance overhead. The `docs/plans/archive/` directory is the frozen legacy plan corpus — read-only history; never add to it.
 
 Exceptions where a file-form plan still earns its keep:
 
@@ -609,9 +594,8 @@ def clean_panel():
 
 ### New features require tests
 
-A new metric / Profile field / API parameter must come with a matching
-test in the same PR. The PR reviewer (you + Claude, today) should
-block the PR if tests are missing.
+A new metric, `MetricSpec` field, result field, or API parameter must come with
+a matching test in the same PR. Review should block the PR if tests are missing.
 
 ### CI must be green
 
@@ -767,7 +751,8 @@ humans need progressive disclosure; the structural targets are
 mutually exclusive, so both tracks are maintained.
 
 When any of the following ships, sync `factrix/llms*.txt` in the same
-PR (no CI gate):
+PR. CI validates public-symbol coverage and resolvable references; review owns
+ordering, omissions, and agent-UX quality.
 
 - Additions / removals to `factrix/__init__.py` `__all__`
 - Public API signature changes (factory, `evaluate`, `bhy`,
@@ -775,8 +760,14 @@ PR (no CI gate):
 - `WarningCode` additions, renames, or description rewrites
 - DataStructure dispatch rules or canonical data schema changes
 
-PR self-check: run all three code blocks, `uv run mkdocs build
---strict` clean, `tiktoken` cl100k count < 8000.
+PR self-check:
+
+```bash
+uv run pytest tests/test_docs_llms.py tests/test_docs_pages.py -q
+uv run mkdocs build --strict
+```
+
+If the content grows substantially, keep the `cl100k` token count under 8000.
 
 ### Docs callout conventions
 
@@ -819,7 +810,7 @@ Bare `::: factrix.<X>` is the canonical form for page-primary function / datacla
 
 These two sections appear on pages whose primary purpose is to show the reader *how to call the API*. They are content shapes for workflow-oriented pages — not a universal requirement.
 
-- **Expected on callable entry points.** Function pages under `docs/api/` whose page subject is a callable the user invokes directly. Includes the entry-point callables (`evaluate`, `inspect_data`, `bhy`, `partial_conjunction`, `bhy_hierarchical`, `by_slice`, `slice_pairwise_test` / `slice_joint_test`, `compare`, `list_metrics`, `preprocess.compute_forward_return`), and every metric page under `docs/api/metrics/` (each documents one or more callables).
+- **Expected on callable entry points.** Function pages under `docs/api/` whose page subject is a callable the user invokes directly. Includes the entry-point callables listed in the API nav and every metric page under `docs/api/metrics/`.
 - **Not expected** on:
     - Dataclass / container pages (`evaluation-results.md`, which documents `EvaluationResult` / `MetricResult` / `Warning`) — these describe a return type, not a workflow.
     - Reference / taxonomy / hub pages (`errors.md`, `data-schema.md`, `api/index.md`, `multi-horizon.md`, `metrics/index.md`, the cell-grouped metrics index pages) — content shape is a table or a concept, not a call.
@@ -847,22 +838,61 @@ The rule is functional, not lexical — `dispatcher`, `function`, and `wrapper` 
 
 #### Two-register convention: "verb" vs "function" / "entry point"
 
-User-facing surface uses **function** when referring to one specific callable, and **entry point** when referring to the set of public callables (the seven that appear in nav under "Entry points"). Design-issue bodies and RFC comments may keep **verb** as RFC vocabulary — that register is internal to design discussion and does not propagate to user docs. When sweeping prose from a design issue into a guide or docstring, translate `verb` → `function` (or rephrase to name the specific callable) as part of the move.
+User-facing surface uses **function** when referring to one specific callable,
+and **entry point** when referring to the public callables grouped as entry
+points in the API nav. Design-issue bodies and RFC comments may keep **verb** as
+RFC vocabulary — that register is internal to design discussion and does not
+propagate to user docs. When sweeping prose from a design issue into a guide or
+docstring, translate `verb` → `function` (or rephrase to name the specific
+callable) as part of the move.
 
-User-facing surface covers `docs/**/*.md`, README, docstrings, CHANGELOG, **and the error contract** — the structured attributes on `UserInputError` (and any future user-facing exception) belong to the user-facing register. The failing-function slot is named `func_name`, not `verb`, on every error class users can catch and read. The 59 internal source-side raise sites may pass `verb=` as a kwarg until they are swept; the rule is about what the user sees on the caught exception, not what internal source uses to populate it.
+User-facing surface covers `docs/**/*.md`, README, docstrings, CHANGELOG, **and
+the error contract** — the structured attributes on `UserInputError` (and any
+future user-facing exception) belong to the user-facing register. The
+failing-function slot is named `func_name`, not `verb`, on every error class
+users can catch and read. Internal source may use different local variable names
+while populating the error; the rule is about what the user sees on the caught
+exception.
 
 ---
 
 ## 9. Versioning and release (SemVer & Release)
 
-factrix is currently in **pre-1.0** (v0.x.x)—the public API **may
-break in MINOR bumps**. Consumers (e.g. the `factor-analysis`
-workspace) should pin via **git submodule SHA**, not version range,
-until 1.0.0 stabilises.
+factrix is currently in **pre-1.0** (v0.x.x). The operational policy for API
+stability, docs wording, and release notes lives in the Pre-1.0 version guide
+below.
 
 **The project uses Commitizen for fully automated bump and changelog
 generation, paired with the release-train cadence: PRs merge whenever,
 but releases (bump + tag) are scheduled independently.**
+
+### Pre-1.0 version guide
+
+Until `v1.0.0`, treat published docs as a current-state manual, not a
+version-by-version history.
+
+- Public API may break in MINOR bumps. Downstream workspaces should pin by tag
+  or SHA, not SemVer ranges.
+- PR descriptions carry the reviewable WHY / migration narrative. Do not add
+  detailed per-release entries to `CHANGELOG.md` during the pre-1.0 line.
+- `CHANGELOG.md` remains a policy note plus historical GitHub-release index.
+  Do not backfill pre-1.0 entries unless each entry is audited against its tag.
+- From `v1.0.0` onward, resume the maintained `## [Unreleased]` flow and freeze
+  release notes into version headings at release time.
+- Published mkdocs pages and docstrings describe the current public surface.
+  Do not write backward-looking version sentences such as "removed in v0.12.0",
+  "added in v0.13.0", or "since v0.x" in guides, API pages, reference pages, or
+  docstrings.
+- `pre-push` enforces polished `CHANGELOG.md` release sections only for
+  `v1.0.0+` release commits. Pre-1.0 release commits skip that gate.
+
+Exceptions:
+
+- `CHANGELOG.md` may keep its historical release index.
+- This contributing guide may describe the pre-1.0 documentation and release
+  policy itself.
+- Issue / PR text may mention exact historical versions when needed for review
+  or release coordination.
 
 ### Release cadence — release train
 
@@ -878,37 +908,29 @@ PRs and releases are decoupled:
     immediately)
   - A named version is needed for a person / demo
 
-Each PR writes its own WHY narrative into the `## [Unreleased]`
-section of `CHANGELOG.md` (under `### Added` / `### Changed` /
-`### Fixed` / `### Migration` subsections). At release time, no
-narrative reconstruction is needed—`cz bump --changelog` freezes the
-section into the next version heading.
-
 ### Release workflow
 
 ```bash
 # 1. On main, ensure latest
 git checkout main && git pull
 
-# 2. Verify CI is green and local pytest passes
-uv run pytest
+# 2. Verify CI is green and local release checks pass
+#    See the release-train drift audit in section 7.3.
 
 # 3. Auto-bump and tag
 # cz derives the level from commits since the last tag (feat=MINOR, fix=PATCH),
-# renames [Unreleased] to the new version heading, adds a fresh empty
-# [Unreleased], updates pyproject.toml, and auto-commits + tags.
-cz bump --changelog
+# updates pyproject.toml, and auto-commits + tags. Follow the Pre-1.0 version
+# guide above until v1.0.0.
+uv run cz bump
 
-# 4. (Optional) Manually polish the release section — fill in BREAKING
-#    migration / direction / motivation to ≥ 25 non-blank lines, otherwise
-#    the pre-push hook blocks (see §2). After polishing, amend the release
-#    commit and re-tag:
+# 4. If this is v1.0.0 or later, maintain CHANGELOG.md manually (or via
+#    cz bump --changelog) and polish the release section. If polishing after
+#    the release commit, amend and re-tag:
 git commit --amend --no-edit
 git tag -d v<X.Y.Z> && git tag v<X.Y.Z>
 
-# 5. Push
-git push origin main
-git push origin v<X.Y.Z>
+# 5. Push the release commit and annotated tag
+git push origin main --follow-tags
 
 # 6. Bump the workspace submodule
 cd ~/Desktop/dst/code/factor-analysis
@@ -920,13 +942,15 @@ git push
 
 ### CHANGELOG entry convention
 
-- Link via **PR number** (`(#PR)`) — the PR carries the diff / review /
-  discussion that downstream upgraders need when triaging a change.
-  Convention adopted from v0.14.0 onwards.
-- v0.13.0 and earlier entries used issue numbers (some v0.13.0 bullets
-  are mixed because the convention shift landed alongside that
-  release); **do not retroactively rewrite** — historical links still
-  resolve and the rewrite cost is not justified.
+See the Pre-1.0 version guide above for changelog behavior before `v1.0.0`.
+From `v1.0.0` onward, changelog entries should link via **PR number** (`(#PR)`)
+because the PR carries the diff / review / discussion that downstream upgraders
+need when triaging a change.
+
+CHANGELOG paragraphs and bullets are not hard-wrapped: each paragraph is one
+line, and each bullet is one line. The 72-character wrap convention applies to
+commit messages, not to CHANGELOG prose; GitHub Release notes treat single
+newlines as `<br>`, so source-level wrapping leaks into the rendered output.
 
 ### BC change reminders
 
@@ -934,8 +958,9 @@ Example: `q1_q5_spread → long_short_spread` (this rename actually
 occurred in workspace history). This kind of rename is a BC change.
 When using `cz commit`, the developer must select Breaking Change and
 **explicitly write the migration path** in the prompt (old → new
-names, affected fields). This way, downstream workspaces find the
-upgrade guide directly in the auto-generated CHANGELOG.
+names, affected fields). The Pre-1.0 version guide above defines where that
+upgrade text lives before `v1.0.0`; from `v1.0.0` onward, carry it into the
+maintained changelog entry.
 
 ### Workspace pins to tags, not main
 
@@ -954,9 +979,9 @@ workspace bump to the tag.
 Before a new feature or large change, read:
 
 - `docs/development/architecture.md` — current snapshot of the package
-  (positioning, public API, factor types, Profile contract, artifacts,
-  invariants)
-- `CHANGELOG.md` — historical BC changes and caveats
+  (positioning, public API, metric-spec dispatch, result contract, invariants)
+- `CHANGELOG.md` and the Pre-1.0 version guide in this file — release-note
+  policy and historical index expectations
 
 `docs/development/architecture.md` describes the **current state**, not
 the design history. For "why is it designed this way" process records,
@@ -991,9 +1016,9 @@ Self-use repo for the author + AI agents, so there is no issue
 template / discussion board. Decision-record channels:
 
 - **Small changes**: PR description spells out the why and any BC
-- **Large changes / architectural decisions**: add a `spike_*.md`
-  design doc under the workspace repo's `docs/` (matching historical
-  spikes), and reference it from the factrix PR
+- **Large changes / architectural decisions**: open a GitHub design issue
+  (see section 7.5). Use a file-form plan only for the exceptions listed there,
+  and link it from the issue / PR.
 - **Invariant-level rule changes**: update the `Invariants` section in
   `docs/development/architecture.md`
 

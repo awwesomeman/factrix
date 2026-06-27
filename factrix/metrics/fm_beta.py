@@ -111,7 +111,8 @@ def fm_beta(
 
     Args:
         beta_df: DataFrame with ``date, beta`` columns (from compute_fm_betas).
-        newey_west_lags: Number of Newey-West (NW) lags. Defaults to $\lfloor T^{1/3} \rfloor$.
+        newey_west_lags: Number of Newey-West (NW) lags. Defaults to
+            ``auto_bartlett(T)``.
         forward_periods: Overlap horizon of the regression's forward
             return. When set, the NW bandwidth is floored at
             ``forward_periods - 1`` so the kernel is consistent under
@@ -164,17 +165,16 @@ def fm_beta(
         $\overline{\beta} = \mathrm{mean}_t\,\beta_t$;
         $t = \overline{\beta} / \mathrm{SE}_{\mathrm{NW}}(\beta)$
         with kernel lag
-        $L = \max(\lfloor T^{1/3} \rfloor,\, h - 1)$.
+        $L = \max(\mathrm{auto\_bartlett}(T),\, h - 1)$.
         With ``is_estimated_factor=True``, the
         [Shanken (1992)][shanken-1992] single-factor correction scales
         SE by $\sqrt{1 + \overline{\beta}^2 / \sigma^2_f}$.
 
-        factrix uses the [Andrews (1991)][andrews-1991] $T^{1/3}$ bandwidth floored
-        against the Hansen-Hodrick overlap horizon rather than the
-        [Newey-West (1994)][newey-west-1994] data-adaptive plug-in — simpler, deterministic,
-        and adequate at typical research $T$. factrix's simplification
-        of the Shanken variance omits the additive $+\sigma^2_f / T$ term,
-        so the correction is honest only for large $T$.
+        factrix uses the [Newey-West (1994)][newey-west-1994]
+        ``auto_bartlett(T)`` rule floored against the Hansen-Hodrick
+        overlap horizon. factrix's simplification of the Shanken
+        variance omits the additive $+\sigma^2_f / T$ term, so the
+        correction is honest only for large $T$.
 
     References:
         - [Fama & MacBeth (1973)][fama-macbeth-1973]. "Risk, Return, and
@@ -184,9 +184,9 @@ def fm_beta(
           Semi-Definite, Heteroskedasticity and Autocorrelation
           Consistent Covariance Matrix." Econometrica, 55(3), 703–708.
           HAC variance estimator.
-        - [Andrews (1991)][andrews-1991]. "Heteroskedasticity and
-          Autocorrelation Consistent Covariance Matrix Estimation."
-          Econometrica, 59(3), 817–858. Optimal Bartlett growth rate.
+        - [Newey & West (1994)][newey-west-1994]. "Automatic Lag
+          Selection in Covariance Matrix Estimation." Review of Economic
+          Studies, 61(4), 631–653. Default automatic Bartlett bandwidth.
         - [Hansen & Hodrick (1980)][hansen-hodrick-1980]. "Forward
           Exchange Rates as Optimal Predictors of Future Spot Rates."
           Journal of Political Economy, 88(5), 829–853. Overlap horizon
@@ -455,7 +455,7 @@ def pooled_beta(
 
     FM and single-way share the same point estimate under a balanced
     panel but typically disagree on SE; when $\hat\beta$ and FM
-    $\hat\lambda$ have **opposite signs**, ``profile.diagnose()``
+    $\hat\lambda$ have **opposite signs**, a diagnostic
     flags an FM/pooled sign-mismatch — a red flag for misspecification.
 
     Set ``driscoll_kraay=True`` to swap the clustered sandwich for the

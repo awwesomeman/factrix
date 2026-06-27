@@ -49,9 +49,9 @@ title: factrix.metrics.ts_asymmetry
     $r = \alpha + \beta_{\text{pos}} \max(f, 0) + \beta_{\text{neg}}
     \min(f, 0)$ and tests $H_0: \beta_{\text{pos}} = \beta_{\text{neg}}$.
     Distinguishes a magnitude asymmetry (Method A) from a slope
-    asymmetry. Gate C below the cardinality floor records
-    `method_b_skipped` and the reason; Method A already carries the
-    full information for categorical / binary signals.
+    asymmetry. If each side lacks enough distinct values, Method B records
+    `method_b_skipped` and the reason; Method A already carries the full
+    information for categorical / binary signals.
 
 </div>
 
@@ -82,7 +82,7 @@ title: factrix.metrics.ts_asymmetry
     # 0.00088  -0.00067  0.76
     print(out.metadata.get("beta_pos"), out.metadata.get("beta_neg"),
           out.metadata.get("p_wald_slopes"))
-    # 0.00121  -0.00102  0.18   (Method B; ~null if Gate C passed)
+    # 0.00121  -0.00102  0.18   (Method B; ~null if variation is sufficient)
     ```
 
 ## See also
@@ -122,7 +122,7 @@ title: factrix.metrics.ts_asymmetry
 
     ---
 
-    NW HAC SE, Andrews bandwidth, Hansen-Hodrick overlap floor, and
+    NW HAC SE, Newey-West (1994) auto bandwidth, Hansen-Hodrick overlap floor, and
     the Wald-on-linear-restriction framing for both Method A and
     Method B.
 
@@ -141,8 +141,8 @@ title: factrix.metrics.ts_asymmetry
 
     ---
 
-    When this metric applies and the gates (Gate B: two-sided factor;
-    Gate C: $\geq 2$ distinct values per side for Method B).
+    When this metric applies: a two-sided factor, with at least two distinct
+    values per side for Method B.
 
     [reference/metric-applicability →](../../reference/metric-applicability.md)
 

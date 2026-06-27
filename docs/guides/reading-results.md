@@ -70,7 +70,7 @@ FDR screening functions under `fx.multi_factor` (like `bhy()`) return a dictiona
 | `metric_name` | `str` | Name of the metric driving the screen. |
 | `survivors` | `list[EvaluationResult]` | Surviving factor results. |
 | `adj_p` | `np.ndarray` | BHY-adjusted p-values index-aligned with `survivors`. |
-| `q` | `float` | Nominal FDR target passed. |
+| `q` | `float` | Nominal FDR target passed (`0 < q < 1`). |
 | `expand_over` | `tuple[str, ...]` | Keys used to partition the input into independent step-ups. |
 | `n_tests` | `Mapping[tuple, int]` | Family size per bucket. |
 

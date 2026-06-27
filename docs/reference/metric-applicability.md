@@ -13,9 +13,11 @@ where it is in scope, the canonical inferential role it plays in
 that cell, and the sample-size threshold that gates it. Per-metric
 formulae, parameters, and Notes / References live in the
 [Metrics API pages](../api/metrics/index.md); this page is the
-cross-metric overview. For the runtime API that returns the per-cell
-metric list programmatically, see
-[`list_metrics`](../api/metrics/index.md#factrix.list_metrics).
+cross-metric overview. For the runtime API that returns the family-grouped
+metric catalog programmatically, see
+[`list_metrics`](../api/metrics/index.md#factrix.list_metrics); for
+structure-aware per-panel applicability, use
+[`inspect_data`](../api/inspect-data.md).
 
 ## Sample dimensions
 
@@ -97,7 +99,7 @@ Min sample*. `MIN_*` constants resolve to values in the
 | [`mean_r_squared`][factrix.metrics.ts_beta.mean_r_squared] | `N` | `N ≥ 1` |
 | [`ts_beta_sign_consistency`][factrix.metrics.ts_beta.ts_beta_sign_consistency] | `N` | `N ≥ 2` |
 | [`ts_quantile_spread`][factrix.metrics.ts_quantile.ts_quantile_spread] | `T` | `T ≥ MIN_PORTFOLIO_PERIODS_HARD`; factor `n_unique ≥ n_groups × 2` |
-| [`ts_asymmetry`][factrix.metrics.ts_asymmetry.ts_asymmetry] | `T` | factor has both signs (Gate B); each side `n_unique ≥ 2` for method B (Gate C) |
+| [`ts_asymmetry`][factrix.metrics.ts_asymmetry.ts_asymmetry] | `T` | factor has both signs; each side `n_unique ≥ 2` for method B |
 
 ### Spread-series consumers — not cell-bound
 
@@ -134,11 +136,9 @@ below.
 | `MIN_PORTFOLIO_PERIODS_HARD` | 3 | `T/h` | hard | `factrix/_types.py` | `quantile_spread`, `quantile_spread_vw`, `top_concentration`, `ts_quantile_spread`, `ts_asymmetry` |
 | `MIN_PORTFOLIO_PERIODS_WARN` | 20 | `T/h` | warn | `factrix/_types.py` | `top_concentration` only (`quantile_spread` and the `ts_*` siblings are descriptive at the WARN tier and gate on HARD only) |
 | `MIN_MONOTONICITY_PERIODS` | 5 | `T/h` | hard | `factrix/_types.py` | `monotonicity` |
-| `MIN_PERIODS_HARD` | 20 | `T` (TIMESERIES) | hard | `factrix/_stats/constants.py` | TIMESERIES procedures (`individual_continuous` / `common_continuous` at `N == 1`); raises `InsufficientSampleError` |
-| `MIN_PERIODS_WARN` | 30 | `T` (TIMESERIES) | warn | `factrix/_stats/constants.py` | same procedures; tags `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` |
+| `MIN_PERIODS_HARD` | 20 | `T` | hard | `factrix/_stats/constants.py` | Shared hard floor for HAC / time-series inference |
+| `MIN_PERIODS_WARN` | 30 | `T` | warn | `factrix/_stats/constants.py` | Shared warn floor for HAC / time-series inference; tags `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` |
 | `MIN_ASSETS_WARN` | 30 | `N` | warn | `factrix/_stats/constants.py` | PANEL `common_continuous`; tags `WarningCode.FEW_ASSETS` (severity from `n_assets`) |
-| `MIN_BROADCAST_EVENTS_HARD` | 5 | `K` (broadcast dummy) | hard | `factrix/_stats/constants.py` | `(COMMON, SPARSE, None, PANEL)` procedure |
-| `MIN_BROADCAST_EVENTS_WARN` | 20 | `K` (broadcast dummy) | warn | `factrix/_stats/constants.py` | same; tags `WarningCode.SPARSE_COMMON_FEW_EVENTS` |
 | `MIN_FM_PERIODS_HARD` | 4 | `T` (λ series) | hard | `factrix/metrics/fm_beta.py` | `fm_beta`, `fm_beta_sign_consistency` |
 | `MIN_FM_PERIODS_WARN` | 30 | `T` (λ series) | warn | `factrix/metrics/fm_beta.py` | `fm_beta` (Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) over-rejects below); ties to `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` |
 | `MIN_TS_OBS` | 20 | `T` per asset | hard | `factrix/metrics/ts_beta.py` | `compute_ts_betas` (drops assets with `T < 20`); upstream of `ts_beta`, `mean_r_squared`, `ts_beta_sign_consistency` |
@@ -152,10 +152,6 @@ Naming caveats:
   axis only **warns** (small `N` is well-defined statistics, just
   weak), so the `_HARD` convention (which means "raise") would mislead;
   severity scales with `n_assets` rather than splitting into tiers.
-- `MIN_BROADCAST_EVENTS_*` is named after its procedure domain to
-  avoid colliding with `MIN_EVENTS_*` in `_types.py` (CAAR statistic
-  vs broadcast-dummy regression — different gates).
-
 For non-overlapping metrics (`ic`, `caar`, …) the effective floor is
 `_scaled_min_periods(base, forward_periods)` (in
 `factrix.metrics._helpers`), which scales the base constant by the
@@ -311,7 +307,7 @@ the inner event. The chosen mitigation depends on the metric:
 
 | Metric | Behaviour under within-asset overlap |
 |---|---|
-| [`caar`][factrix.metrics.caar.caar] | Per-event-date CS-mean is computed first, then NW HAC is applied to the calendar-time CAAR series. The `forward_periods − 1` floor on the lag (Hansen-Hodrick 1980) absorbs MA(h−1) overlap structure. Within-asset clustering on the same date inflates the per-date variance; the period reindex + HAC handles the time-axis component but not the asset-axis component. |
+| [`caar`][factrix.metrics.caar.caar] | Per-event-date CS-mean is computed first, then a calendar-aware non-overlap subsample keeps event dates at least `forward_periods` calendar periods apart before the t-test. This avoids overlap-induced dependence while preserving the event-only mean; dense zero-fill and NW HAC are not used on this path. Within-asset clustering can still make event rows dependent, so read the vanilla t-test cautiously when event calendars are crowded. |
 | [`bmp_z`][factrix.metrics.caar.bmp_z] | The Kolari-Pynnönen adjustment (`kolari_pynnonen_adjust=True`) corrects the BMP statistic for cross-sectional dependence on the same event date. It does **not** correct same-asset event clustering. |
 | [`event_hit_rate`][factrix.metrics.event_quality.event_hit_rate], [`event_ic`][factrix.metrics.event_quality.event_ic] | Each event row is counted independently; same-asset overlapping events double-contribute to the binomial / Spearman statistic. The null implicitly assumes independence — under heavy clustering the variance is understated. |
 | [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | Same: each `(asset, event_date)` row is independent in the binomial null at every offset. Adjacent-offset hit rates are also serially correlated within the same event (k=6 and k=12 share the t+1 entry price), which the binomial null does not adjust for. |

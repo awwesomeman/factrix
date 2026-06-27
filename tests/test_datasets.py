@@ -1,9 +1,7 @@
 """Tests for factrix.datasets — synthetic panels with calibrated IC.
 
-Trimmed to schema / shape invariants. v0.4 end-to-end tests
-(``preprocess`` → ``evaluate`` round-trips with ``CrossSectionalConfig``
-/ ``EventConfig``) were dropped with the v0.4 deletion sweep; v0.5
-procedure tests carry their own panel synthesis.
+These tests own dataset schema and shape invariants. End-to-end
+``preprocess`` -> ``evaluate`` behavior is covered by procedure-specific tests.
 """
 
 from __future__ import annotations

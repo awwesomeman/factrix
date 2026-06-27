@@ -55,6 +55,30 @@ def _sparse_factor_panel(
     )
 
 
+def _dense_common_panel_with_asset_drops(
+    *, n_assets: int = 40, survivors: int = 6, n_dates: int = 50, seed: int = 0
+) -> pl.DataFrame:
+    """Common-dense factor panel where most assets lack return pairs.
+
+    This keeps the ``COMMON × DENSE × PANEL`` cell valid for ``evaluate()``
+    while still exercising the assets-axis drop warning in ``compute_ts_betas``.
+    """
+    raw = fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=n_dates, seed=seed)
+    panel = fx.preprocess.compute_forward_return(raw, forward_periods=1)
+    common_factor = panel.group_by("date").agg(pl.col("factor").first())
+    keep = panel["asset_id"].unique().sort().gather(range(survivors))
+    return (
+        panel.drop("factor")
+        .join(common_factor, on="date")
+        .with_columns(
+            pl.when(pl.col("asset_id").is_in(keep.implode()))
+            .then(pl.col("forward_return"))
+            .otherwise(None)
+            .alias("forward_return")
+        )
+    )
+
+
 def _full_panel(
     *, n_assets: int = 40, n_dates: int = 50, seed: int = 0
 ) -> pl.DataFrame:
@@ -131,7 +155,7 @@ class TestConsumerWarning:
 
 class TestEvaluateBoundary:
     def test_evaluate_records_drop_warning(self):
-        panel = _sparse_factor_panel()
+        panel = _dense_common_panel_with_asset_drops()
         with pytest.warns(UserWarning, match="of assets dropped"):
             results = fx.evaluate(
                 panel, metrics={"m": ts_beta()}, factor_cols=["factor"]
@@ -145,7 +169,7 @@ class TestEvaluateBoundary:
         assert drop_warn.source == "m"
 
     def test_direct_and_evaluate_metadata_parity(self):
-        panel = _sparse_factor_panel()
+        panel = _dense_common_panel_with_asset_drops()
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             direct = ts_beta(compute_ts_betas(panel)["factor"])

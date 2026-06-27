@@ -4,18 +4,17 @@ title: Standalone metrics
 
 Every metric under `factrix.metrics` can be run either as part of a multi-metric execution plan using [`evaluate()`][factrix.evaluate] or invoked directly as a **standalone metric** helper on a Polars DataFrame.
 
-This guide covers how to call standalone metrics, their input shapes, and how to integrate them into your evaluation workflow.
+This guide covers direct-call mechanics: input shape, return shape, and
+when to prefer `evaluate()` so the DAG can resolve shared dependencies. For
+metric selection by research question, use [Choosing a metric](choosing-metric.md).
 
-## When to use which metric
+## Direct-call shapes
 
-| Analysis Target | Metric | Return Type |
+| Shape | Typical callables | Return shape |
 |---|---|---|
-| Quantile spread & monotonicity | `quantile_spread`, `quantile_spread_vw`, `monotonicity` | `dict[str, MetricResult]` (batchable) |
-| Tradability & cost break-even | `turnover`, `notional_turnover`, `breakeven_cost`, `net_spread` | `MetricResult` |
-| Spanning regression vs existing pool | `spanning_alpha`, `greedy_forward_selection` | `MetricResult` |
-| Event study analysis | `caar`, `bmp_z`, `corrado_rank`, `event_hit_rate`, `clustering_hhi` | `MetricResult` |
-| Event return shape | `mfe_mae`, `event_around_return` | `MetricResult` |
-| Series diagnostics | `oos_decay`, `ic_trend`, `hit_rate` | `MetricResult` |
+| Long panel `(date, asset_id, factor, forward_return)` | `quantile_spread`, `monotonicity`, `directional_hit_rate`, `turnover` | `MetricResult` or `dict[str, MetricResult]` for batchable helpers |
+| Two-column series `(date, value)` | `oos_decay`, `ic_trend`, `hit_rate` | `MetricResult` |
+| Producer output / aligned auxiliary input | `caar`, `spanning_alpha`, `greedy_forward_selection`, `breakeven_cost`, `net_spread` | `MetricResult` |
 
 ---
 
@@ -77,6 +76,9 @@ Instead of calling multiple metrics manually and managing intermediate outputs, 
 import factrix as fx
 from factrix.metrics import ic, quantile_spread, monotonicity
 
+raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=200, seed=42)
+panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
+
 results = fx.evaluate(
     panel,
     metrics={
@@ -98,6 +100,8 @@ print(res.metrics["spread"].value)
 To programmatic inspect the public metrics catalog, use `list_metrics()`:
 
 ```python
+import factrix as fx
+
 overview = fx.list_metrics()
 # Returns dict[family_name, list[MetricSpec]]
 print(overview.keys())
@@ -106,6 +110,12 @@ print(overview.keys())
 To find only the metrics that are statistically applicable to a specific panel's dimensions, use `inspect_data()`:
 
 ```python
+import factrix as fx
+
+raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=200, seed=42)
+panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
+
 inspection = fx.inspect_data(panel)
 usable_metrics = [m.name for m in inspection.usable]
+print(usable_metrics)
 ```

@@ -15,21 +15,10 @@ combines two traits:
 
 Because the event-time column contract is identical to
 `Individual × Sparse`, this cell **reuses the same scope-agnostic sparse
-metrics** — there is no separate Common-sparse module set. The
-dispatcher selects them for any `SPARSE × PANEL` factor regardless of
-scope.
-
-| Metric | Page |
-|---|---|
-| Cumulative average abnormal return — $t$-test or BMP $z$-test | [`caar`](caar.md) |
-| Skewness / hit-rate / win-loss diagnostics on per-event returns | [`event_quality`](event_quality.md) |
-| MFE / MAE order-statistic excursion within an event window | [`mfe_mae`](mfe_mae.md) |
-| Event-window horizon decay | [`event_horizon`](event_horizon.md) |
-| Herfindahl-Hirschman index (HHI) on event dates | [`clustering`](clustering_hhi.md) |
-| Non-parametric Corrado rank test | [`corrado`](corrado_rank.md) |
-
-`caar` carries the abnormal-return significance test; the rest are
-descriptive event-profile diagnostics.
+metrics** — there is no separate Common-sparse module set. Use the
+[Individual sparse](individual-sparse.md) landing page as the metric list;
+the dispatcher selects those same metrics for any sparse factor whose
+registered cell matches the derived data structure.
 
 Because every event shares the same date across assets, this cell is
 especially exposed to event-date clustering — prefer

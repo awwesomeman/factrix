@@ -3,8 +3,8 @@
 Renders a Markdown table to
 ``docs/reference/_generated_metric_name_index.md`` mapping every
 emitted metric name back to its source module, import path, and
-API-page anchor. Driven by the same ``Matrix-row:`` SSOT as
-``gen_metric_matrix.py`` and ``factrix.list_metrics``.
+API-page anchor. Driven by the same ``MetricSpec`` / ``public_specs()``
+SSOT as ``gen_metric_matrix.py`` and ``factrix.list_metrics``.
 
 Closes the asymmetry called out in #125: a consumer holding a
 ``MetricResult`` (in a downstream pipeline, an agent loop, a report

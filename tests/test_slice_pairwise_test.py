@@ -199,7 +199,7 @@ def test_aligned_slices_but_metric_dropped_reports_small_sample() -> None:
 def test_overlap_bandwidth_inflates_variance() -> None:
     """A longer HAC bandwidth (forward_periods overlap) widens the SE on an
     autocorrelated IC series → smaller Wald χ², larger p than the naive
-    ``floor(T^(1/3))`` bandwidth. T=120 → floor=4; forward_periods=12 → 11.
+    auto-bandwidth. T=120 → auto_bartlett=4; forward_periods=12 → 11.
 
     The overlap horizon is a property of the data (the stamp), not a metric
     knob, so the two regimes are two differently-stamped panels.

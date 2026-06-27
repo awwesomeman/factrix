@@ -55,6 +55,14 @@ def test_empty_input_raises():
         bhy([], metrics=["ic"], q=0.05)
 
 
+@pytest.mark.parametrize("q", [0.0, 1.0, -0.1, 1.1, float("nan"), True])
+def test_q_must_be_open_unit_interval(q):
+    make_spec("ic")
+    results = [make_result(factor="f", p=0.01, metric="ic")]
+    with pytest.raises(UserInputError, match="open interval"):
+        bhy(results, metrics=["ic"], q=q)  # type: ignore[arg-type]
+
+
 def test_dict_input_suggests_values():
     make_spec("ic")
     results = {
@@ -283,13 +291,12 @@ def test_adj_p_monotonic_within_bucket():
     ]
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        out = bhy(results, metrics=["ic"], q=1.0)
-    assert len(out["ic"]) == len(p_values)
-    by_factor = dict(
-        zip((r.factor for r in out["ic"].survivors), out["ic"].adj_p, strict=True)
-    )
-    assert by_factor["f0"] <= by_factor["f1"] <= by_factor["f2"]
-    assert np.all(out["ic"].adj_p <= 1.0)
+        out = bhy(results, metrics=["ic"], q=0.99)
+    frame = out["ic"].to_frame()
+    assert frame.height == len(p_values)
+    adj_p = frame["adj_p"].to_numpy()
+    assert adj_p[0] <= adj_p[1] <= adj_p[2]
+    assert np.all(adj_p <= 1.0)
 
 
 def test_bhy_result_repr_and_html():

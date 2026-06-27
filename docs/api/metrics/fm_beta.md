@@ -30,8 +30,8 @@ title: factrix.metrics.fm_beta
     ---
 
     Stage 2 of Fama-MacBeth: $t$-test on $\mathbb{E}[\beta_t] = 0$
-    with Newey-West HAC SE, bandwidth $\max(\lfloor T^{1/3} \rfloor,
-    h-1)$. Default inferential test for the Individual x Continuous
+    with Newey-West HAC SE, bandwidth
+    $\max(\mathrm{auto\_bartlett}(T), h-1)$. Default inferential test for the Individual x Continuous
     cell.
 
 -   __Errors-in-variables correction for estimated signals__
@@ -119,7 +119,7 @@ title: factrix.metrics.fm_beta
 
     ---
 
-    NW HAC SE, Andrews bandwidth, Hansen-Hodrick overlap floor, and the
+    NW HAC SE, Newey-West (1994) auto bandwidth, Hansen-Hodrick overlap floor, and the
     Shanken (1992) single-factor EIV correction.
 
     [reference/statistical-methods →](../../reference/statistical-methods.md)

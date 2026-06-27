@@ -79,6 +79,8 @@ from factrix._inspect import (
     DataProperties,
     MetricApplicability,
     MetricApplicabilityGroup,
+    _detect_density,
+    _detect_scope,
     _detect_structure,
     inspect_data,
 )
@@ -151,11 +153,10 @@ def evaluate(
             rejected. Stamped on every :class:`EvaluationResult` as
             ``forward_periods`` and injected into each metric (surfaced in
             ``result.metrics[label].metadata["forward_periods"]``).
-        strict: When ``True`` (default), raise if a metric that *fits* the
-            data could not produce a value — a data shortage
-            (``insufficient_*``), a missing input / config (``no_*``), or a
-            structure mismatch (a metric whose ``cell.structure`` disagrees
-            with the data, e.g. a PANEL metric on TIMESERIES data). A
+        strict: When ``True`` (default), raise if a metric is incompatible
+            with the factor cell (scope / density / structure) or if a metric
+            that *fits* the data could not produce a value — a data shortage
+            (``insufficient_*``) or a missing input / config (``no_*``). A
             ``not_applicable*`` type-routing verdict (the metric's *type* does
             not fit this factor, e.g. a continuous-magnitude metric on a
             discrete ±k signal) is **not** a strict failure even under
@@ -164,7 +165,7 @@ def evaluate(
             applicable metrics in the same call still return — so a mixed
             battery is not aborted by one inapplicable metric. When
             ``strict=False``, *every* such case (including data shortages and
-            structure mismatches) is kept as a NaN output with attached
+            cell mismatches) is kept as a NaN output with attached
             warnings instead of raising. Config-time / construct-time
             failures always raise.
 
@@ -226,42 +227,50 @@ def evaluate(
     }
     label_params = {label: dict(inst._params()) for label, inst in metrics.items()}
 
-    # Structure pre-flight: a metric whose declared cell.structure disagrees
-    # with the data structure (e.g. a PANEL metric on TIMESERIES data) can
-    # only produce a structurally invalid result. Under strict=True this
-    # raises; under strict=False the metric is *not executed* — it is dropped
-    # from the DAG and surfaces as a NaN short-circuit + warning.
-    mismatches = _structure_mismatches(label_spec, data)
-    if strict and mismatches:
-        _raise_structure_mismatch(mismatches)
-    runnable_spec = {
-        label: spec for label, spec in label_spec.items() if label not in mismatches
-    }
-    runnable_params = {label: label_params[label] for label in runnable_spec}
+    factor_cells = {c: _detect_factor_cell(data, c) for c in cols}
+    cell_groups: dict[tuple[FactorScope, FactorDensity, DataStructure], list[str]] = {}
+    for c in cols:
+        cell_groups.setdefault(factor_cells[c], []).append(c)
 
-    nodes, label_to_node, node_kwargs = _build_nodes(runnable_spec, runnable_params)
-    node_to_label = {nid: label for label, nid in label_to_node.items()}
-
-    executor = DagExecutor(nodes)
-    result_dict = executor.execute(
-        data,
-        cols,
-        scope=FactorScope.INDIVIDUAL,
-        density=FactorDensity.DENSE,
-        forward_periods=fp,
-        kwargs_by_metric=node_kwargs,
-    )
-    return {
-        c: _relabel_result(
-            result_dict[c],
-            label_to_node,
-            node_to_label,
-            strict,
-            ordered_labels=list(label_spec),
-            mismatches=mismatches,
+    results: dict[str, EvaluationResult] = {}
+    for (scope, density, structure), group_cols in cell_groups.items():
+        n_assets = int(data["asset_id"].n_unique())
+        mismatches = _cell_mismatches(
+            label_spec,
+            scope=scope,
+            density=density,
+            structure=structure,
+            n_assets=n_assets,
         )
-        for c in cols
-    }
+        if strict and mismatches:
+            _raise_cell_mismatch(mismatches)
+        runnable_spec = {
+            label: spec for label, spec in label_spec.items() if label not in mismatches
+        }
+        runnable_params = {label: label_params[label] for label in runnable_spec}
+
+        nodes, label_to_node, node_kwargs = _build_nodes(runnable_spec, runnable_params)
+        node_to_label = {nid: label for label, nid in label_to_node.items()}
+
+        executor = DagExecutor(nodes)
+        result_dict = executor.execute(
+            data,
+            group_cols,
+            scope=scope,
+            density=density,
+            forward_periods=fp,
+            kwargs_by_metric=node_kwargs,
+        )
+        for c in group_cols:
+            results[c] = _relabel_result(
+                result_dict[c],
+                label_to_node,
+                node_to_label,
+                strict,
+                ordered_labels=list(label_spec),
+                mismatches=mismatches,
+            )
+    return {c: results[c] for c in cols}
 
 
 def evaluate_horizons(
@@ -688,25 +697,29 @@ def _relabel_result(
     strict: bool,
     *,
     ordered_labels: list[str],
-    mismatches: "dict[str, tuple[DataStructure, DataStructure, int]]",
+    mismatches: "dict[str, tuple[MetricSpec, FactorScope, FactorDensity, DataStructure, int]]",
 ) -> EvaluationResult:
     """Re-key a node-keyed executor result onto the user's labels.
 
-    Structure-mismatched labels never reached the executor; their NaN
-    short-circuit ``MetricResult`` is synthesized here so the returned dict
-    still carries every requested label, in the caller's request order.
+    Cell-mismatched labels never reach the executor; their NaN
+    short-circuit ``MetricResult`` is synthesized here so the returned dict still carries
+    every requested label, in the caller's request order.
     """
     node_outputs = result.metrics
     label_outputs: dict[str, MetricResult] = {}
     mismatch_warnings: list[Warning] = []
     for label in ordered_labels:
         if label in mismatches:
-            cell_structure, data_structure, _ = mismatches[label]
-            label_outputs[label] = _structure_mismatch_output(
-                label, cell_structure, data_structure
+            spec, scope, density, structure, _ = mismatches[label]
+            label_outputs[label] = _cell_mismatch_output(
+                label, spec, scope, density, structure
             )
             mismatch_warnings.append(
-                Warning(code=WarningCode.STRUCTURE_MISMATCH, source=label)
+                Warning(
+                    code=WarningCode.STRUCTURE_MISMATCH,
+                    source=label,
+                    message="metric structure does not match the detected data structure",
+                )
             )
             continue
         out = node_outputs.get(label_to_node[label])
@@ -823,50 +836,55 @@ def _validate_baseline_columns(data: pl.DataFrame) -> None:
     )
 
 
-def _structure_mismatches(
-    label_spec: "dict[str, MetricSpec]", data: pl.DataFrame
-) -> "dict[str, tuple[DataStructure, DataStructure, int]]":
-    """Map each structure-mismatched label to ``(cell, data, n_assets)``.
+def _detect_factor_cell(
+    data: pl.DataFrame, factor_col: str
+) -> tuple[FactorScope, FactorDensity, DataStructure]:
+    temp = data.select("date", "asset_id", pl.col(factor_col).alias("factor"))
+    scope, _ = _detect_scope(temp)
+    density, _, _ = _detect_density(temp)
+    return scope, density, _detect_structure(data)
 
-    DataStructure is the cheap pre-flight gate: panel metrics (IC / FM /
-    quantile_spread) produce only structurally invalid output on
-    single-asset data. A metric with ``cell.structure is None`` is
-    structure-agnostic and never mismatches.
-    """
-    data_structure = _detect_structure(data)
-    n_assets = int(data["asset_id"].n_unique())
+
+def _cell_mismatches(
+    label_spec: "dict[str, MetricSpec]",
+    *,
+    scope: FactorScope,
+    density: FactorDensity,
+    structure: DataStructure,
+    n_assets: int,
+) -> "dict[str, tuple[MetricSpec, FactorScope, FactorDensity, DataStructure, int]]":
+    """Map each cell-incompatible label to the spec and detected cell."""
     return {
-        label: (spec.cell.structure, data_structure, n_assets)
+        label: (spec, scope, density, structure, n_assets)
         for label, spec in label_spec.items()
-        if spec.cell.structure is not None and spec.cell.structure is not data_structure
+        if not spec.cell.matches(scope, density, structure)
     }
 
 
-def _raise_structure_mismatch(
-    mismatches: "dict[str, tuple[DataStructure, DataStructure, int]]",
+def _raise_cell_mismatch(
+    mismatches: "dict[str, tuple[MetricSpec, FactorScope, FactorDensity, DataStructure, int]]",
 ) -> None:
-    """Raise the ``strict=True`` structure-mismatch error (first offender)."""
-    label, (cell_structure, data_structure, n_assets) = next(iter(mismatches.items()))
+    """Raise the ``strict=True`` cell-mismatch error (first offender)."""
+    label, (spec, scope, density, structure, n_assets) = next(iter(mismatches.items()))
     raise IncompatibleAxisError(
-        f"evaluate(): metric {label!r} declares "
-        f"cell.structure={cell_structure.value!r} but data has "
-        f"structure={data_structure.value!r} (n_assets={n_assets}); "
-        f"call fx.inspect_data(data) to see metrics applicable "
-        f"to this data shape, or pass strict=False to keep mismatched "
-        f"metrics as NaN with warnings"
+        f"evaluate(): metric {label!r} declares cell={spec.cell.raw} but "
+        f"data has cell=({scope.value}, {density.value}, {structure.value}) "
+        f"(n_assets={n_assets}); call fx.inspect_data(data) to see metrics "
+        f"applicable to this data shape, or pass strict=False to keep "
+        f"mismatched metrics as NaN with warnings"
     )
 
 
-def _structure_mismatch_output(
+def _cell_mismatch_output(
     label: str,
-    cell_structure: "DataStructure",
-    data_structure: "DataStructure",
+    spec: "MetricSpec",
+    scope: "FactorScope",
+    density: "FactorDensity",
+    structure: "DataStructure",
 ) -> MetricResult:
-    """Canonical NaN short-circuit for a structure-mismatched metric.
+    """Canonical NaN short-circuit for a cell-mismatched metric.
 
-    Marked ``descriptive`` (``p_value=None``) because no test was run — the
-    metric never executed, so it carries no statistic to report and is
-    excluded from downstream BHY rather than counted as a failed test.
+    Marked ``descriptive`` (``p_value=None``) because no test was run.
     """
     from factrix.metrics._helpers import _short_circuit_output
 
@@ -874,8 +892,16 @@ def _structure_mismatch_output(
         label,
         WarningCode.STRUCTURE_MISMATCH.value,
         descriptive=True,
-        cell_structure=cell_structure.value,
-        data_structure=data_structure.value,
+        declared_cell=spec.cell.raw,
+        detected_cell=f"({scope.value}, {density.value}, {structure.value})",
+        declared_scope=None if spec.cell.scope is None else spec.cell.scope.value,
+        declared_density=None if spec.cell.density is None else spec.cell.density.value,
+        declared_data_structure=None
+        if spec.cell.structure is None
+        else spec.cell.structure.value,
+        data_scope=scope.value,
+        data_density=density.value,
+        data_structure=structure.value,
     )
 
 

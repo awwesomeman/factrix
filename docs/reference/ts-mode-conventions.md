@@ -28,10 +28,13 @@ coefficient bias, which HAC does not address. Stage 2 cross-asset
 inference handles whatever residual time-axis structure leaks through
 the β distribution.
 
-Operational tip: if overlap-induced SE inflation is the binding
-concern, prefer `ic(inference=fx.inference.NEWEY_WEST)` on the same series (Individual ×
-Continuous cell) where the HAC adjustment is the canonical
-inferential primitive.
+Operational tip: if overlap-induced SE inflation is the binding concern on a
+**cross-sectionally varying** factor, use the `Individual × Continuous` IC
+pipeline (`ic(inference=fx.inference.NEWEY_WEST)`), where HAC adjustment is the
+canonical inferential primitive. A broadcast `Common × Continuous` factor cannot
+be rescued by IC: it has no per-date cross-sectional rank dispersion, so it
+belongs in the `ts_beta` family and should be interpreted with the stage-1
+plain-SE caveat here.
 
 ## No persistence diagnostic on this family
 

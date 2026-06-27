@@ -8,8 +8,6 @@ standalone metrics live in which cell" and drives:
 - :func:`factrix.list_metrics` — runtime metric discovery API
 - ``scripts/mkdocs_hooks/gen_metric_matrix.py`` — docs matrix table
 - ``scripts/mkdocs_hooks/gen_metric_name_index.py`` — docs name index
-- ``scripts/mkdocs_hooks/gen_evaluate_metric_table.py`` — dispatch table
-- ``tests/test_docs_matrix.py`` — coverage + invariant tests
 
 Consumers iterate via :func:`public_specs` (visibility-filtered) or
 :func:`_all_specs` (everything, internal). Derived fields use the

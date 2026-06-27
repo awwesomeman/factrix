@@ -1,19 +1,4 @@
-"""Coverage tests: ``@metric`` registrations in ``factrix/metrics/`` modules.
-
-Validates that:
-1. Every public metric module (non-underscore ``*.py``) registers at
-   least one ``@metric`` class, yielding a non-empty spec tuple of
-   :class:`~factrix._metric_index.MetricSpec` instances.
-2. ``docs/reference/_generated_metric_matrix.md`` exists and is
-   non-empty (only meaningful after a build; skipped if the file is
-   absent).
-3. Each registered spec's name matches the literal in
-   ``MetricResult(name=...)`` inside the declaring module.
-4. The generated docs-name-index file matches the live renderer
-   output (drift guard).
-5. The generated evaluate-metric table file matches the live renderer
-   output (drift guard).
-"""
+"""Docs and metric-registry consistency tests."""
 
 from __future__ import annotations
 
@@ -25,9 +10,6 @@ import pytest
 METRICS_DIR = pathlib.Path("factrix/metrics")
 GENERATED_MATRIX = pathlib.Path("docs/reference/_generated_metric_matrix.md")
 GENERATED_NAME_INDEX = pathlib.Path("docs/reference/_generated_metric_name_index.md")
-GENERATED_EVALUATE_METRIC = pathlib.Path(
-    "docs/reference/_generated_evaluate_metric_table.md"
-)
 
 
 def _public_metric_modules() -> set[str]:
@@ -145,39 +127,5 @@ def test_generated_name_index_matches_renderer() -> None:
     assert actual == expected, (
         f"{GENERATED_NAME_INDEX} is stale — re-run "
         "'python scripts/mkdocs_hooks/gen_metric_name_index.py' "
-        "(or 'mkdocs build') to regenerate."
-    )
-
-
-def test_generated_evaluate_metric_table_matches_renderer() -> None:
-    """Generated evaluate-metric table must match what the renderer produces.
-
-    Drift guard: catches a stale checked-in file that no longer
-    reflects ``_DISPATCH_REGISTRY`` (e.g. a cell was added but mkdocs
-    wasn't rerun before commit).
-    """
-    if not GENERATED_EVALUATE_METRIC.exists():
-        pytest.skip(
-            f"{GENERATED_EVALUATE_METRIC} not found — run "
-            "'python scripts/mkdocs_hooks/gen_evaluate_metric_table.py' "
-            "or 'mkdocs build' first."
-        )
-    from factrix._metric_index import import_path_for, public_specs
-    from factrix._registry import _DISPATCH_REGISTRY
-    from scripts.mkdocs_hooks.gen_evaluate_metric_table import (
-        _TABLE_HEADER,
-        _render_row,
-    )
-
-    import_path_by_name = {
-        spec.name: import_path_for(stem) for stem, spec in public_specs()
-    }
-    expected = _TABLE_HEADER + "".join(
-        _render_row(e, import_path_by_name) for e in _DISPATCH_REGISTRY.values()
-    )
-    actual = GENERATED_EVALUATE_METRIC.read_text(encoding="utf-8")
-    assert actual == expected, (
-        f"{GENERATED_EVALUATE_METRIC} is stale — re-run "
-        "'python scripts/mkdocs_hooks/gen_evaluate_metric_table.py' "
         "(or 'mkdocs build') to regenerate."
     )

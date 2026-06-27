@@ -5,7 +5,7 @@ title: Guides
 Step-by-step guides for common factrix workflows:
 
 - **Raw data to a four-column factrix panel (sort order, frequency alignment, missing data)** — [Preparing data](preparing-data.md)
-- **Picking information coefficient (IC) vs FM (the individual dense cell)** — [Information coefficient vs Fama-MacBeth](choosing-metric.md)  
+- **Picking the right metric for your research question** — [Choosing a metric](choosing-metric.md)
 - **Data structure dispatch (PANEL ↔ TIMESERIES) and the N=1 special path** — [Panel vs timeseries](panel-timeseries.md)
 - **Reading EvaluationResult, MetricResult, and FDR results** — [Reading results](reading-results.md)
 - **False Discovery Rate (FDR) control across a factor batch (BHY / partial conjunction / hierarchical)** — [BHY FDR screening](../api/bhy.md)
