@@ -1152,6 +1152,12 @@ def _event_signal_is_discrete(
     return bool(np.ptp(abs_signal) < EPSILON)
 
 
+# Below this many assets per quantile bucket, each bucket mean rests on a
+# handful of names and the spread can be dominated by individual assets — the
+# threshold for the thin-group advisory (warning + WarningCode.THIN_QUANTILE_GROUPS).
+MIN_GROUP_ASSETS = 5
+
+
 def _median_universe_size(data: pl.DataFrame) -> int:
     """Median number of unique assets per date."""
     return int(
@@ -1159,6 +1165,19 @@ def _median_universe_size(data: pl.DataFrame) -> int:
         .agg(pl.col("asset_id").n_unique().alias("n"))["n"]
         .median()  # type: ignore[arg-type]
     )
+
+
+def _is_thin_quantile_groups(sampled: pl.DataFrame, n_groups: int) -> bool:
+    """True when the median cross-section split into ``n_groups`` buckets leaves
+    fewer than :data:`MIN_GROUP_ASSETS` assets per bucket.
+
+    Single source for the thin-group condition shared by the spread primitive's
+    advisory ``warnings.warn`` and the consumer's structured
+    ``WarningCode.THIN_QUANTILE_GROUPS`` (dual-channel, same threshold).
+    """
+    if n_groups <= 0:
+        return False
+    return _median_universe_size(sampled) // n_groups < MIN_GROUP_ASSETS
 
 
 def _signed_car(

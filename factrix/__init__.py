@@ -87,6 +87,7 @@ from factrix._metric_index import (
     SampleThreshold,
     list_metrics,
     metric_spec,
+    metrics_summary,
     spec_by_name,
 )
 from factrix._results import (
@@ -890,6 +891,7 @@ __all__ = [
     "SampleThreshold",
     "inspect_data",
     "list_metrics",
+    "metrics_summary",
     # Slicing dispatcher + cross-slice inference functions
     "by_slice",
     "slice_joint_test",

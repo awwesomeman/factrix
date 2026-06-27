@@ -305,6 +305,17 @@ def list_metrics() -> dict[str, list[MetricSpec]]:
 ```
 Returns a catalog of public specs grouped by module family.
 
+### `metrics_summary`
+
+```python
+def metrics_summary() -> pl.DataFrame:
+```
+Compact discovery companion to `list_metrics`: a `pl.DataFrame` of
+`(family, metric, summary)` — the concept family, the public callable name, and
+the first line of its docstring. Use it to browse the catalog; reach for
+`list_metrics` when you need the full `MetricSpec`, and `inspect_data` for which
+metrics run on a given panel.
+
 ---
 
 ### Third-party metric registration

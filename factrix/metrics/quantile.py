@@ -26,6 +26,7 @@ from factrix._axis import (
     FactorDensity,
     FactorScope,
 )
+from factrix._codes import WarningCode
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_t, _significance_marker
@@ -41,6 +42,7 @@ from factrix.metrics._helpers import (
     _check_applicable_inference,
     _compute_tie_ratio,
     _enforce_scaled_floor,
+    _is_thin_quantile_groups,
     _lag_within_asset,
     _no_signal_zero_variance,
     _sample_non_overlapping,
@@ -329,6 +331,10 @@ def _quantile_spread_from_series(
         **sig_extra,
     }
     warning_codes = list(sig_codes)
+    # Structured twin of the spread primitive's thin-group advisory: surface the
+    # same condition on warning_codes so result-only inspection sees it.
+    if _is_thin_quantile_groups(sampled, n_groups):
+        warning_codes.append(WarningCode.THIN_QUANTILE_GROUPS.value)
     _surface_null_drop(
         n_periods_in=series.height,
         n_periods_out=n,
