@@ -1,0 +1,5289 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Polars-native factor signal validation toolkit for quantitative finance">
+      
+      
+      
+        <link rel="canonical" href="https://awwesomeman.github.io/factrix/latest/where-factrix-fits/">
+      
+      
+        <link rel="prev" href="../getting-started/concepts/">
+      
+      
+        <link rel="next" href="../reference/statistical-methods/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/factrix_icon_light.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Where factrix fits - factrix</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../stylesheets/nav.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#1-what-factrix-is" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="factrix" class="md-header__button md-logo" aria-label="factrix" data-md-component="logo">
+      
+  <img src="../assets/factrix_icon_light.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            factrix
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Where factrix fits
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/awwesomeman/factrix" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    awwesomeman/factrix
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href=".." class="md-tabs__link">
+          
+  
+  
+  Get started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../getting-started/concepts/" class="md-tabs__link">
+          
+  
+  
+  User guide
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../api/" class="md-tabs__link">
+          
+  
+  
+  API reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../development/architecture/" class="md-tabs__link">
+          
+  
+  
+  Development
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../development/changelog/" class="md-tabs__link">
+          
+  
+  
+  Release notes
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="factrix" class="md-nav__button md-logo" aria-label="factrix" data-md-component="logo">
+      
+  <img src="../assets/factrix_icon_light.png" alt="logo">
+
+    </a>
+    factrix
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/awwesomeman/factrix" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    awwesomeman/factrix
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Get started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Get started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2_1" id="__nav_2_1_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_1_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Concepts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Where factrix fits
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Where factrix fits
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-what-factrix-is" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. What factrix is
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-where-factrix-sits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Where factrix sits
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Where factrix sits">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-ecosystem-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Ecosystem pipeline
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-factrix-internals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 factrix internals
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-out-of-scope-use-these-libraries-instead" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Out of scope (use these libraries instead)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Out of scope (use these libraries instead)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-rationale-for-the-controversial-rows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 Rationale for the controversial rows
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-same-purpose-peers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Same-purpose peers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Same-purpose peers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-alphalens-reloaded" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 alphalens-reloaded
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-qlib-factor-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 qlib factor layer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-linearmodels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 linearmodels
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#44-alphaeval" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.4 AlphaEval
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#45-eventstudy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.5 eventstudy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#46-mlfinlab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.6 mlfinlab
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-adjacent-tools-and-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Adjacent tools and integration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Adjacent tools and integration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-per-tool-role" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Per-tool role
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-integration-sketches" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 Integration sketches
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-when-factrix-is-not-the-right-tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. When factrix is NOT the right tool
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-honest-weaknesses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Honest weaknesses
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. Honest weaknesses">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#71-capability-matrix-and-roadmap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.1 Capability matrix and roadmap
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#72-non-capability-weaknesses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.2 Non-capability weaknesses
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-citations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Citations
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/statistical-methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Statistical methods
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/ts-mode-conventions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Timeseries-mode conventions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_2" id="__nav_2_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How-to
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    How-to
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/preparing-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Preparing data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/choosing-metric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Choosing a metric
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/panel-timeseries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Panel vs timeseries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/reading-results/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reading results
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/allocation-experiment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Allocation-style experiments
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/large-scale-evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Large-scale evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/slice-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Slice analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/standalone-metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Standalone metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/custom-metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_3" id="__nav_2_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/multi_factor_screening/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-factor screening
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/stock_factor_evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stock factor evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_4" id="__nav_2_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference tables
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference tables
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/metric-applicability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metrics applicability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/stat-keys-by-metric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stat keys
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/warning-codes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Warning codes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/metric-pipelines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metrics pipelines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/bibliography/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bibliography
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/data-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data schema
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Entry points
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Entry points
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3_1" id="__nav_3_3_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Core
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/evaluate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    evaluate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/multi-horizon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    evaluate_horizons
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/inspect-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    inspect_data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3_2" id="__nav_3_3_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Slicing
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Slicing
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/by-slice/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    by_slice
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/slice-test/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    slice_pairwise_test / slice_joint_test
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3_3" id="__nav_3_3_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-factor
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Multi-factor
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/multi-factor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/bhy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bhy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/partial-conjunction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    partial_conjunction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/bhy-hierarchical/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bhy_hierarchical
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3_4" id="__nav_3_3_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Discovery
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Discovery
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metric-spec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    metric_spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3_5" id="__nav_3_3_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diagnostics
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Diagnostics
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/compare/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    compare
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Results
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Results
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/evaluation-results/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    EvaluationResult
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Errors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metrics
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Metrics
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_5_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_5_2" id="__nav_3_5_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual continuous
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_5_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Individual continuous
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metrics/individual-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metrics/ic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ic
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metrics/fm_beta/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    fama_macbeth
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metrics/quantile/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    quantile
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metrics/k_spread/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    k_spread
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metrics/monotonicity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    monotonicity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metrics/concentration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    concentration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metrics/tradability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    tradability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metrics/spanning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    spanning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_5_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_5_3" id="__nav_3_5_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual sparse
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_5_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Individual sparse
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metrics/individual-sparse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metrics/caar/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    caar
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metrics/event_quality/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    event_quality
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metrics/event_horizon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    event_horizon
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metrics/mfe_mae/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    mfe_mae
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metrics/clustering_hhi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    clustering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metrics/corrado_rank/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    corrado
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_5_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_5_4" id="__nav_3_5_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common sparse
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_5_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Common sparse
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metrics/common-sparse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_5_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_5_5" id="__nav_3_5_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common continuous
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_5_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Common continuous
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metrics/common-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metrics/ts_beta/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ts_beta
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metrics/ts_quantile/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ts_quantile
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metrics/ts_asymmetry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ts_asymmetry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_5_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_5_6" id="__nav_3_5_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Series diagnostics
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_5_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Series diagnostics
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metrics/series-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metrics/hit_rate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    hit_rate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metrics/directional_hit_rate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    directional_hit_rate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metrics/trend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    trend
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metrics/oos_decay/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    oos
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Supporting modules
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Supporting modules
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/stats/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    stats
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/datasets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    datasets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/preprocess/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    preprocess
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Development
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/design-notes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release notes
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Release notes
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-what-factrix-is" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. What factrix is
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-where-factrix-sits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Where factrix sits
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Where factrix sits">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-ecosystem-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Ecosystem pipeline
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-factrix-internals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 factrix internals
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-out-of-scope-use-these-libraries-instead" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Out of scope (use these libraries instead)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Out of scope (use these libraries instead)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-rationale-for-the-controversial-rows" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 Rationale for the controversial rows
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-same-purpose-peers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Same-purpose peers
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Same-purpose peers">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-alphalens-reloaded" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 alphalens-reloaded
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-qlib-factor-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 qlib factor layer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-linearmodels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 linearmodels
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#44-alphaeval" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.4 AlphaEval
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#45-eventstudy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.5 eventstudy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#46-mlfinlab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.6 mlfinlab
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-adjacent-tools-and-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Adjacent tools and integration
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Adjacent tools and integration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-per-tool-role" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Per-tool role
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-integration-sketches" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 Integration sketches
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-when-factrix-is-not-the-right-tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. When factrix is NOT the right tool
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-honest-weaknesses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Honest weaknesses
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. Honest weaknesses">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#71-capability-matrix-and-roadmap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.1 Capability matrix and roadmap
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#72-non-capability-weaknesses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.2 Non-capability weaknesses
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-citations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Citations
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+      
+        
+  
+  
+    
+    
+      
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../getting-started/concepts/" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    User guide
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../getting-started/concepts/" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Concepts
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/awwesomeman/factrix/edit/main/docs/where-factrix-fits.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+  <h1>Where factrix fits</h1>
+
+<p>This page expands the design philosophy, walks through the pipeline
+and internals, draws scope boundaries, compares against same-purpose
+peers, shows adjacent-tool integration, and discloses honest
+weaknesses.</p>
+<h2 id="1-what-factrix-is">1. What factrix is<a class="headerlink" href="#1-what-factrix-is" title="Permanent link">&para;</a></h2>
+<p>factrix is a <strong>factor inference surface</strong>: given a candidate factor and
+a forward return, it answers <em>is the predictive power real?</em> and
+returns a structured profile of evidence — rather than applying one
+uniform formula to every factor.</p>
+<p>Three factor types each get a mainstream test fitted to their
+data-generating process:</p>
+<ul>
+<li><strong>Cross-sectional factors</strong> — Information Coefficient (IC) and
+  Fama-MacBeth (FM), both with Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) standard errors and a
+  Hansen-Hodrick lag floor for overlapping forward returns.</li>
+<li><strong>Event factors</strong> — Cumulative Average Abnormal Return (CAAR) on
+  the event-date series with calendar-aware non-overlap inference, plus
+  overlap and clustering diagnostics for crowded event calendars.</li>
+<li><strong>Common factors</strong> — a factor whose realisation is shared across
+  the cross-section in a given period (Fama-French market / size /
+  value, or a macro variable). factrix tests these as a panel
+  exposure across the asset cross-section (<span class="arithmatex">\(N \ge 2\)</span>); a single asset
+  has no cross-section to aggregate over, so these metrics raise on
+  <span class="arithmatex">\(N=1\)</span> data.</li>
+</ul>
+<p>Each type also runs a multi-metric <em>diagnostic battery</em> — never
+collapsed into a single score. This is a deliberate design choice,
+not an oversight. A composite score becomes its own optimisation
+target the moment it ships (Goodhart 1984), and weighted aggregation
+across heterogeneous nulls implicitly prices each null
+(DeMiguel-Garlappi-Uppal 2009; Harvey 2017). See
+<a href="../development/design-notes/#1-no-composite-factor-score">design notes §1</a>
+and
+<a href="../development/design-notes/#7-per-metric-registered-procedures-rather-than-a-unified-test">§7</a>
+for the full citation chain.</p>
+<h2 id="2-where-factrix-sits">2. Where factrix sits<a class="headerlink" href="#2-where-factrix-sits" title="Permanent link">&para;</a></h2>
+<h3 id="21-ecosystem-pipeline">2.1 Ecosystem pipeline<a class="headerlink" href="#21-ecosystem-pipeline" title="Permanent link">&para;</a></h3>
+<p>factrix is <strong>Stage 1</strong> of a multi-stage workflow. It is not a
+competitor to portfolio construction, backtesting, or execution
+tools — it sits upstream of them and produces the input they assume.</p>
+<pre class="mermaid"><code>flowchart LR
+    DATA[Raw data] --&gt; CONSTR[Factor construction&lt;br/&gt;zipline Pipeline · self-roll]
+    CONSTR --&gt; FX[&lt;b&gt;factrix inference&lt;/b&gt;&lt;br/&gt;Stage 1 — kill fakes]
+    FX --&gt; PORT[Strategy construction&lt;br/&gt;skfolio · PyPortfolioOpt · riskfolio-lib]
+    PORT --&gt; BT[Backtest&lt;br/&gt;vectorbt · zipline-reloaded · bt]
+    BT --&gt; LIVE[Live trading&lt;br/&gt;lumibot · nautilus_trader]
+    classDef here fill:#3670A0,color:#fff,stroke:#234060,stroke-width:2px;
+    class FX here</code></pre>
+<h3 id="22-factrix-internals">2.2 factrix internals<a class="headerlink" href="#22-factrix-internals" title="Permanent link">&para;</a></h3>
+<p>Inside factrix the call graph is small. Long-format <code>data</code> (the
+<code>(date, asset_id, factor, forward_return)</code> floor) plus a
+<code>metrics={label: metric()}</code> dict and <code>factor_cols</code> enter <code>evaluate()</code>.
+Each metric instance carries a <code>MetricSpec</code> whose <code>cell</code>
+(<code>FactorScope</code> × <code>FactorDensity</code> × <code>DataStructure</code>) decides whether it
+applies to the detected data shape; the DAG executor runs batchable
+stage-1 producers once across the factor batch and per-factor consumers
+once per factor, and returns a <code>list[EvaluationResult]</code> — one per
+factor, each holding a read-only <code>Mapping[str, MetricResult]</code> of
+per-metric outputs plus a flat <code>list[Warning]</code>. The list flows into
+<code>multi_factor.bhy(results, metrics=[...])</code> for cross-test false
+discovery rate (FDR) control, which returns the surviving factors.</p>
+<pre class="mermaid"><code>flowchart LR
+    DATA[Long data&lt;br/&gt;date · asset_id · factor · forward_return] --&gt; EVAL[evaluate&lt;br/&gt;metrics · factor_cols]
+    METRICS[metrics dict&lt;br/&gt;label → metric instance] --&gt; EVAL
+    EVAL --&gt; DISP{Cell-routed&lt;br/&gt;applicability}
+    DISP --&gt;|individual · dense| CS[IC · FM beta&lt;br/&gt;+ diagnostics]
+    DISP --&gt;|individual · sparse| EV[CAAR&lt;br/&gt;+ diagnostics]
+    DISP --&gt;|common · dense| CO[ts_beta&lt;br/&gt;+ diagnostics]
+    DISP --&gt;|common · sparse| DUM[CAAR&lt;br/&gt;+ event diagnostics]
+    CS --&gt; RES[EvaluationResult&lt;br/&gt;metrics · warnings · cell]
+    EV --&gt; RES
+    CO --&gt; RES
+    DUM --&gt; RES
+    RES --&gt; BHY[multi_factor.bhy&lt;br/&gt;FDR within family]
+    BHY --&gt; SURV[Surviving factors]</code></pre>
+<p>The dispatch arrow is the single line that distinguishes factrix
+from peers that apply one uniform formula across factor types
+(see <a href="#4-same-purpose-peers">§4</a>). For the field-order walk of the
+<code>EvaluationResult</code> shown in the graph — <code>metrics</code>, <code>warnings</code>, <code>cell</code>,
+and the rest — see <a href="../guides/reading-results/">Reading results</a>.</p>
+<h2 id="3-out-of-scope-use-these-libraries-instead">3. Out of scope (use these libraries instead)<a class="headerlink" href="#3-out-of-scope-use-these-libraries-instead" title="Permanent link">&para;</a></h2>
+<p>What factrix deliberately does <strong>not</strong> do, and the canonical tool for
+each. This is a commitment, not a TODO. To expand factrix scope,
+update
+<a href="../development/architecture/#invariants">ARCHITECTURE.md Invariants</a>
+first.</p>
+<table>
+<thead>
+<tr>
+<th>Out of scope</th>
+<th>Use instead</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Portfolio optimisation (MVO / HRP / risk parity)</td>
+<td><a href="https://skfolio.org/">skfolio</a>, <a href="https://github.com/robertmartin8/PyPortfolioOpt">PyPortfolioOpt</a>, <a href="https://github.com/dcajasn/Riskfolio-Lib">riskfolio-lib</a>, cvxpy</td>
+</tr>
+<tr>
+<td>ML signal layer</td>
+<td>xgboost + shap</td>
+</tr>
+<tr>
+<td>Regime detection methodology (HMM / threshold)</td>
+<td><a href="https://hmmlearn.readthedocs.io/">hmmlearn</a>, self-roll</td>
+</tr>
+<tr>
+<td>Structural break detection (Chow / Bai-Perron)</td>
+<td><a href="https://centre-borelli.github.io/ruptures-docs/">ruptures</a></td>
+</tr>
+<tr>
+<td>GARCH / wild-bootstrap SE</td>
+<td><a href="https://github.com/bashtage/arch">arch</a></td>
+</tr>
+<tr>
+<td>Persistent-predictor auto-correction (IVX / Stambaugh)</td>
+<td><a href="https://github.com/bashtage/arch">arch</a>, R <code>ivx</code> (factrix flags via augmented Dickey-Fuller (ADF); does not auto-correct)</td>
+</tr>
+<tr>
+<td>Backtest / execution / slippage / margin</td>
+<td><a href="https://github.com/polakowo/vectorbt">vectorbt</a>, <a href="https://github.com/pmorissette/bt">bt</a>, <a href="https://github.com/stefan-jansen/zipline-reloaded">zipline-reloaded</a>, backtrader</td>
+</tr>
+<tr>
+<td>Intraday / HFT (tick-level)</td>
+<td>dedicated tooling</td>
+</tr>
+<tr>
+<td>Cross-factor signal combiner</td>
+<td>self-roll, scikit-learn</td>
+</tr>
+<tr>
+<td>Composite factor scoring across dimensions</td>
+<td><a href="https://github.com/LeoDingggg/AlphaEval">AlphaEval</a> (different design philosophy — see <a href="#44-alphaeval">§4.4</a>)</td>
+</tr>
+<tr>
+<td>Deflated / probabilistic / Haircut Sharpe</td>
+<td><a href="https://github.com/hudson-and-thames/mlfinlab">mlfinlab</a> (commercial); roadmap gap for factrix — see <a href="#7-honest-weaknesses">§7</a></td>
+</tr>
+<tr>
+<td>Cross-sectional factor <em>construction</em> DSL</td>
+<td><a href="https://github.com/stefan-jansen/zipline-reloaded">zipline-reloaded Pipeline</a>; factrix consumes Pipeline output</td>
+</tr>
+<tr>
+<td>Returns-level tear-sheet (downstream of factrix)</td>
+<td><a href="https://github.com/stefan-jansen/pyfolio-reloaded">pyfolio-reloaded</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="31-rationale-for-the-controversial-rows">3.1 Rationale for the controversial rows<a class="headerlink" href="#31-rationale-for-the-controversial-rows" title="Permanent link">&para;</a></h3>
+<p>Three rows surprise readers most often. Their rationale is anchored
+in design notes rather than restated here.</p>
+<p><strong>Composite factor scoring</strong> — rejected for the reason a single
+weighted score becomes its own target the instant it ships
+(Goodhart 1984), and weighted aggregation across heterogeneous
+nulls implicitly prices each null without disclosing the price.
+factrix exposes per-metric pass/fail and keeps the user in the
+inference loop. See
+<a href="../development/design-notes/#1-no-composite-factor-score">design notes §1</a>.</p>
+<p><strong>ML signal layer</strong> — out of scope as a deliberate boundary. The
+signal-generation problem is well served by xgboost + shap, and
+folding model fit into factrix would change the page's hero claim
+from "inference on a hypothesised factor" to "inference on a fitted
+model" — those need different statistical machinery (cross-validation
+schemes, leakage tests). qlib already covers the integrated
+pipeline; we leave that branch to qlib.</p>
+<p><strong>Persistent-predictor flagging only, not auto-correction</strong> —
+when the cross-sectional or time-series predictor is highly
+persistent (ADF p &gt; 0.10), factrix raises
+<code>PERSISTENT_REGRESSOR</code> and notes that the β estimate may carry
+Stambaugh (1999) bias. It does not silently swap in IVX
+(Phillips-Magdalinos), Stambaugh-correction, or sign-restricted
+inference, because the right correction depends on the
+researcher's economic prior — IVX assumes a near-unit-root
+predictor; Stambaugh requires a specified innovation-correlation
+sign. Auto-correcting would mask the modelling choice. Reach for
+<a href="https://github.com/bashtage/arch">arch</a> or R <code>ivx</code> when the flag
+fires.</p>
+<h2 id="4-same-purpose-peers">4. Same-purpose peers<a class="headerlink" href="#4-same-purpose-peers" title="Permanent link">&para;</a></h2>
+<p>Six peers occupy the <em>factor-evaluation / hypothesis-test</em> space.
+Each subsection follows the same shape: positioning, where the peer
+wins, where factrix wins, and the user profile that should pick the
+peer instead. Code side-by-side snippets are not included here yet;
+they will land once the migration examples are validated against the
+same input panel both ways.</p>
+<h3 id="41-alphalens-reloaded">4.1 alphalens-reloaded<a class="headerlink" href="#41-alphalens-reloaded" title="Permanent link">&para;</a></h3>
+<p><strong>Positioning</strong> — alphalens-reloaded is the canonical pandas
+tear-sheet for cross-sectional factors; the <code>get_clean_factor_and_
+forward_returns</code> → <code>create_full_tear_sheet</code> flow is the vocabulary
+most working quants recognise on sight. factrix targets the same
+<em>hypothesis-test</em> slot but extends past CS-only and past
+pandas-bound performance.</p>
+<p><strong>Where alphalens wins</strong></p>
+<ul>
+<li>Tear-sheet vocabulary every quant recognises; fastest path to a
+  publishable chart pack from a notebook.</li>
+<li>pandas-native — drops into existing notebooks without a polars
+  conversion step.</li>
+<li>Six years of community examples and Stack Overflow answers.</li>
+</ul>
+<p><strong>Where factrix wins</strong></p>
+<ul>
+<li>IC inference uses NW HAC with a Hansen-Hodrick lag floor for
+  overlapping forward returns; alphalens applies a naive
+  <code>scipy.stats.ttest_1samp</code> on the IC time series (<a href="https://github.com/stefan-jansen/alphalens-reloaded">source</a>),
+  which is biased when forward windows overlap.</li>
+<li>Multiple-testing correction (Benjamini-Hochberg-Yekutieli (BHY)) is built into the screening
+  surface; alphalens has no batch-level FDR control by design.</li>
+<li>Type-routed dispatch — alphalens is CS-only by design; factrix
+  also covers event and common-factor hypotheses without the user
+  re-implementing the test machinery.</li>
+</ul>
+<p><strong>When to pick alphalens instead</strong> — you have a single CS factor,
+your existing toolchain is pandas-only, and the tear-sheet
+vocabulary matters more than the inference rigour.</p>
+<h3 id="42-qlib-factor-layer">4.2 qlib factor layer<a class="headerlink" href="#42-qlib-factor-layer" title="Permanent link">&para;</a></h3>
+<p><strong>Positioning</strong> — qlib is a full alpha → model → backtest → live
+platform. Its factor-evaluation surface (<code>qlib.contrib.eva.alpha</code>)
+is a thin utility under that platform, not the product.</p>
+<p><strong>Where qlib wins</strong></p>
+<ul>
+<li>Industrial-scale data layer with caching and an integrated
+  backtest engine — pick qlib when you want one tool for the whole
+  pipeline.</li>
+<li>Alpha158 / Alpha360 baselines and RD-Agent integration give an
+  ML-first research workflow.</li>
+<li>Largest active community among peers in this list.</li>
+</ul>
+<p><strong>Where factrix wins</strong></p>
+<ul>
+<li>qlib's <code>calc_ic</code> / <code>calc_all_ic</code> apply uniform IC + Rank-IC
+  across <strong>every</strong> factor regardless of type (<a href="https://github.com/microsoft/qlib/blob/main/qlib/contrib/eva/alpha.py">source</a>).
+  factrix dispatches IC, FM, CAAR, or ts-β by factor type.</li>
+<li>factrix is decoupled from any data store, signal-mining DSL, or
+  backtest engine. You can drop it into an existing pipeline; qlib
+  expects you to adopt its data layout.</li>
+<li>factrix ships per-metric NW HAC, BHY FDR, and persistent-predictor
+  flagging as first-class outputs of <code>evaluate()</code>; in qlib these
+  live in scattered helper functions or are absent.</li>
+</ul>
+<p><strong>When to pick qlib instead</strong> — you want one integrated platform
+covering data → factor → ML model → backtest → live, and the
+opinionated qlib data store is acceptable.</p>
+<h3 id="43-linearmodels">4.3 linearmodels<a class="headerlink" href="#43-linearmodels" title="Permanent link">&para;</a></h3>
+<p><strong>Positioning</strong> — linearmodels (Kevin Sheppard, statsmodels core)
+is the reference Python implementation of panel econometrics:
+HAC kernels (Bartlett / Parzen / QS with auto-bandwidth),
+clustered SE, and a correctly-implemented Fama-MacBeth
+second-stage SE. It is a primitive, not a framework.</p>
+<p><strong>Where linearmodels wins</strong></p>
+<ul>
+<li>Best-in-class HAC and clustered SE coverage; correct FM
+  second-stage variance (most homebrew loops are wrong by a
+  constant factor).</li>
+<li>Maintained by an econometrics-credible author with frequent
+  releases.</li>
+</ul>
+<p><strong>Where factrix wins</strong></p>
+<ul>
+<li>linearmodels is a panel-econometrics toolkit; it has no factor
+  tear-sheet, no IC surface, no event-study path, no batch
+  multiple-testing layer. The user must already have a panel and
+  know which test to run.</li>
+<li>factrix uses <code>arch</code> for HAC kernels (Kevin Sheppard maintains
+  both <code>arch</code> and <code>linearmodels</code>; their HAC implementations are
+  functionally equivalent) and treats FM as one routed metric
+  among several. You are not asked to assemble the workflow.</li>
+</ul>
+<p><strong>When to pick linearmodels instead</strong> — you only need correct
+Fama-MacBeth standard errors on a panel you have already
+constructed, and you do not need IC, CAAR, BHY, or any of the
+inference surfaces.</p>
+<h3 id="44-alphaeval">4.4 AlphaEval<a class="headerlink" href="#44-alphaeval" title="Permanent link">&para;</a></h3>
+<p><strong>Positioning</strong> — AlphaEval (<a href="https://github.com/LeoDingggg/AlphaEval">repo</a>)
+is a <em>post-processing ranker for formula-mined alphas</em>: input
+qlib expression-DSL formulas, compose them via <code>WeightCalculator</code>,
+score the composite across five dimensions including an
+OpenAI-LLM-as-judge for "financial logic". Its target user mines
+1000 GP/GA formulas and needs to rank them.</p>
+<p>This is the design path factrix considered and rejected with
+literature backing — see
+<a href="../development/design-notes/#1-no-composite-factor-score">design notes §1</a>
+and
+<a href="../development/design-notes/#7-per-metric-registered-procedures-rather-than-a-unified-test">§7</a>.</p>
+<p><strong>Where AlphaEval wins</strong></p>
+<ul>
+<li>Purpose-built for formula-mining workflows; LLM-judged
+  "financial logic" dimension is unique.</li>
+<li>Composite ranker is the right tool when the input is a <em>pool</em>
+  of mined alphas rather than a small set of hypothesised
+  factors.</li>
+</ul>
+<p><strong>Where factrix wins</strong></p>
+<ul>
+<li>factrix evaluates one factor (or batch with FDR) against an
+  explicit null and surfaces per-metric pass/fail rather than a
+  weighted scalar. The two libraries answer different questions.</li>
+<li>Composite scoring becomes its own optimisation target the
+  moment it ships (Goodhart 1984); per-metric inference keeps the
+  null distributions distinct.</li>
+</ul>
+<p><strong>When to pick AlphaEval instead</strong> — you mine formula alphas
+with GP/GA and need to rank thousands by an aggregate score for
+downstream selection.</p>
+<h3 id="45-eventstudy">4.5 eventstudy<a class="headerlink" href="#45-eventstudy" title="Permanent link">&para;</a></h3>
+<p><strong>Positioning</strong> — <code>eventstudy</code> is the only dedicated event-study
+Python package. It implements the standard parametric / BMP /
+Patell tests on event windows. The package self-describes as
+alpha-quality with a frequently-changing API.</p>
+<p><strong>Where eventstudy wins</strong></p>
+<ul>
+<li>BMP / Patell standardised tests for event-window inference are
+  shipped with vocabulary that matches MacKinlay (1997).</li>
+</ul>
+<p><strong>Where factrix wins</strong></p>
+<ul>
+<li>factrix integrates event-date CAAR with calendar-aware non-overlap
+  inference plus overlap and clustering diagnostics; eventstudy treats
+  events in isolation.</li>
+<li>Event inference lives in the same <code>EvaluationResult</code> shape as CS and
+  common-factor inferences; one pipeline screens all three with
+  shared FDR control.</li>
+</ul>
+<p><strong>When to pick eventstudy instead</strong> — you only do M&amp;A or
+earnings event studies in isolation and do not need integration
+with cross-sectional or macro work.</p>
+<h3 id="46-mlfinlab">4.6 mlfinlab<a class="headerlink" href="#46-mlfinlab" title="Permanent link">&para;</a></h3>
+<p><strong>Positioning</strong> — mlfinlab is the López de Prado reference
+implementation of deflated / probabilistic / Haircut Sharpe,
+PBO via combinatorial CV, BHY-adjusted p-values, and a
+structural-break suite (Chow / CUSUM / SADF). It went
+commercial in 2022; the public PyPI package was removed and the
+public repo has been dormant since 2021-12.</p>
+<p><strong>Where mlfinlab wins</strong></p>
+<ul>
+<li>The only library shipping deflated / probabilistic / Haircut
+  Sharpe end-to-end. If your firm has the licence, this is the
+  shortest path to those metrics.</li>
+</ul>
+<p><strong>Where factrix wins</strong></p>
+<ul>
+<li>Open source (Apache-2.0); <code>pip install factrix</code> works.</li>
+<li>Active maintenance with tagged releases and reviewable PR narratives during the pre-1.0 line.</li>
+<li>Deflated Sharpe / PSR is on the factrix roadmap and is the
+  highest-priority OSS gap; see <a href="#7-honest-weaknesses">§7</a>.</li>
+</ul>
+<p><strong>When to pick mlfinlab instead</strong> — your firm pays for the
+licence and you need deflated Sharpe today.</p>
+<h2 id="5-adjacent-tools-and-integration">5. Adjacent tools and integration<a class="headerlink" href="#5-adjacent-tools-and-integration" title="Permanent link">&para;</a></h2>
+<p>The tools below are not peers; they sit upstream, downstream, or
+underneath factrix. The point of this section is to make the
+integration surface explicit so factrix reads as a citizen of the
+ecosystem rather than a walled garden.</p>
+<h3 id="51-per-tool-role">5.1 Per-tool role<a class="headerlink" href="#51-per-tool-role" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Role relative to factrix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/stefan-jansen/zipline-reloaded">zipline-reloaded Pipeline</a></td>
+<td>Upstream CS factor <em>construction</em> DSL; factrix consumes Pipeline output</td>
+</tr>
+<tr>
+<td><a href="https://github.com/bashtage/arch">arch</a></td>
+<td>Reference HAC kernel implementation; factrix depends on it, does not reimplement</td>
+</tr>
+<tr>
+<td><a href="https://www.statsmodels.org/">statsmodels</a></td>
+<td>General econometrics primitives (regression / time-series); used internally</td>
+</tr>
+<tr>
+<td><a href="https://github.com/stefan-jansen/empyrical-reloaded">empyrical-reloaded</a></td>
+<td>Low-level return-stat primitives (Sharpe, Sortino, drawdown); dependency layer</td>
+</tr>
+<tr>
+<td><a href="https://github.com/stefan-jansen/pyfolio-reloaded">pyfolio-reloaded</a></td>
+<td>Downstream returns-level tear-sheet; consumes strategy P&amp;L, not factor signal</td>
+</tr>
+<tr>
+<td><a href="https://github.com/polakowo/vectorbt">vectorbt</a></td>
+<td>Stage 3 parameter-grid backtest engine; pairs with factrix BHY for honest workflow</td>
+</tr>
+<tr>
+<td><a href="https://skfolio.org/">skfolio</a> / <a href="https://github.com/robertmartin8/PyPortfolioOpt">PyPortfolioOpt</a> / <a href="https://github.com/dcajasn/Riskfolio-Lib">riskfolio-lib</a></td>
+<td>Stage 2 strategy construction (portfolio optimisation); consume factrix-validated factors as input</td>
+</tr>
+</tbody>
+</table>
+<h3 id="52-integration-sketches">5.2 Integration sketches<a class="headerlink" href="#52-integration-sketches" title="Permanent link">&para;</a></h3>
+<p>Stage 1 → factrix: zipline Pipeline outputs a pandas MultiIndex
+<code>(date, asset)</code>, which converts to the polars panel factrix
+expects in two lines.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">polars</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pl</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">factrix</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fx</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">factrix.preprocess</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_forward_return</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1"># zipline_out: pandas DataFrame with MultiIndex (date, asset),</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># columns include the factor value and the realised return.</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">panel</span> <span class="o">=</span> <span class="n">pl</span><span class="o">.</span><span class="n">from_pandas</span><span class="p">(</span><span class="n">zipline_out</span><span class="o">.</span><span class="n">reset_index</span><span class="p">())</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">panel</span> <span class="o">=</span> <span class="n">compute_forward_return</span><span class="p">(</span><span class="n">panel</span><span class="p">,</span> <span class="n">forward_periods</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="kn">from</span><span class="w"> </span><span class="nn">factrix.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">ic</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">results</span> <span class="o">=</span> <span class="n">fx</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">panel</span><span class="p">,</span> <span class="n">factor_cols</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;factor&quot;</span><span class="p">],</span> <span class="n">metrics</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;ic&quot;</span><span class="p">:</span> <span class="n">ic</span><span class="p">()})</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">ic_p</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;factor&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">metrics</span><span class="p">[</span><span class="s2">&quot;ic&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">p_value</span>
+</span></code></pre></div>
+<p>factrix → Stage 2: surviving factors after BHY feed a portfolio
+optimiser.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">factrix</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fx</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">factrix.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">ic</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Each panel carries its factor under a distinct column name</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="c1"># (&quot;momentum_12&quot; / &quot;value&quot; / ...); evaluate stamps each result&#39;s</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="c1"># `factor` from factor_cols so identities stay unique without manual surgery.</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">panels</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">res</span> <span class="o">=</span> <span class="n">fx</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">factor_cols</span><span class="o">=</span><span class="p">[</span><span class="n">name</span><span class="p">],</span> <span class="n">metrics</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;ic&quot;</span><span class="p">:</span> <span class="n">ic</span><span class="p">()})</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="n">results</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="n">bhy_ic</span> <span class="o">=</span> <span class="n">fx</span><span class="o">.</span><span class="n">multi_factor</span><span class="o">.</span><span class="n">bhy</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;ic&quot;</span><span class="p">],</span> <span class="n">q</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)[</span><span class="s2">&quot;ic&quot;</span><span class="p">]</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="c1"># bhy_ic.survivors is a list[EvaluationResult]; pass the underlying factor</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="c1"># panels to skfolio / PyPortfolioOpt / riskfolio-lib as Stage 2 input</span>
+</span></code></pre></div>
+<p>The integration story matters because it answers the implicit
+"what do I do with the inference" question — factrix is an
+intermediate stage, not an endpoint.</p>
+<h2 id="6-when-factrix-is-not-the-right-tool">6. When factrix is NOT the right tool<a class="headerlink" href="#6-when-factrix-is-not-the-right-tool" title="Permanent link">&para;</a></h2>
+<p>If you are not at the inference / screening stage, factrix is the
+wrong tool. The chart below routes you to the canonical
+alternative for each adjacent stage. Construction (upstream) is
+intentionally not branched: readers reach this chart asking
+<em>given I have a factor, what do I do next</em>, not <em>how do I build
+one</em>.</p>
+<pre class="mermaid"><code>flowchart TD
+    A[What stage of the alpha pipeline?] --&gt; F[Inference / screening on a factor]
+    A --&gt; W[Optimise weights for trusted factors]
+    A --&gt; E[Backtest or deploy a strategy]
+    A --&gt; R[Returns-level tear-sheet on a P&amp;L series]
+    F --&gt; FX[&lt;b&gt;factrix&lt;/b&gt;]
+    W --&gt; WX[skfolio · PyPortfolioOpt · riskfolio-lib]
+    E --&gt; EX[zipline-reloaded · backtrader · bt · vectorbt · nautilus_trader]
+    R --&gt; RX[pyfolio-reloaded · QuantStats]</code></pre>
+<h2 id="7-honest-weaknesses">7. Honest weaknesses<a class="headerlink" href="#7-honest-weaknesses" title="Permanent link">&para;</a></h2>
+<p>This section is the disclosure surface. It is meant to be cited
+verbatim by skeptical readers — soft-pedalling the gaps would be
+self-defeating once they read the source.</p>
+<h3 id="71-capability-matrix-and-roadmap">7.1 Capability matrix and roadmap<a class="headerlink" href="#71-capability-matrix-and-roadmap" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Capability</th>
+<th>factrix today</th>
+<th>Closest peer</th>
+<th>Status / roadmap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CS IC/IR tear-sheet</td>
+<td>yes</td>
+<td>alphalens (legacy, pandas)</td>
+<td>parity on visualization vocabulary</td>
+</tr>
+<tr>
+<td>Event CAAR</td>
+<td>yes</td>
+<td>eventstudy (alpha-quality) / linearmodels (manual)</td>
+<td>event-date CAAR with non-overlap inference out of the box</td>
+</tr>
+<tr>
+<td>Macro panel</td>
+<td>yes</td>
+<td>linearmodels (manual)</td>
+<td>packaged macro-factor evaluation surface</td>
+</tr>
+<tr>
+<td>Multi-test FDR (BHY)</td>
+<td>yes</td>
+<td>mlfinlab (commercial-gated)</td>
+<td>only OSS implementation post-mlfinlab paywall</td>
+</tr>
+<tr>
+<td>NW HAC</td>
+<td>yes</td>
+<td>linearmodels / arch</td>
+<td>depend on <code>arch</code>, do not reimplement</td>
+</tr>
+<tr>
+<td>Type-routed mainstream metric (CS / Event / Macro)</td>
+<td>yes</td>
+<td>none</td>
+<td>factrix's core differentiation</td>
+</tr>
+<tr>
+<td><strong>Deflated Sharpe / PSR / PBO</strong></td>
+<td><strong>no</strong></td>
+<td>mlfinlab (commercial-gated)</td>
+<td><strong>roadmap priority</strong> — most painful OSS gap</td>
+</tr>
+<tr>
+<td>ML pipeline integration</td>
+<td>no (out of scope)</td>
+<td>qlib</td>
+<td>document interop; leave to qlib</td>
+</tr>
+<tr>
+<td>Live trading / execution</td>
+<td>no (out of scope)</td>
+<td>lumibot / nautilus_trader</td>
+<td>document boundary; leave out</td>
+</tr>
+</tbody>
+</table>
+<h3 id="72-non-capability-weaknesses">7.2 Non-capability weaknesses<a class="headerlink" href="#72-non-capability-weaknesses" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Smaller community</strong> compared with alphalens / qlib — factrix is a newer
+  project with fewer Stack Overflow answers. Expect to read source
+  for edge cases that alphalens has been asked about for six years.</li>
+<li><strong>No published replication of a canonical anomaly study yet</strong> —
+  a factor-zoo skeptic will ask whether factrix's conclusions agree
+  with the published record on a known-good factor. That
+  replication is on the roadmap and is a credibility gap until it
+  ships.</li>
+</ul>
+<h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
+<p>If this page resolved the fit question and you want to run factrix:</p>
+<ul>
+<li><a href="../getting-started/quickstart/">Quickstart</a> — 30-second example from a raw panel to a <code>p_value</code> readout.</li>
+<li><a href="../getting-started/concepts/">Concepts</a> — the three-axis taxonomy and the metric dispatch underneath the routing examples above.</li>
+<li><a href="../guides/choosing-metric/">Choosing a metric</a> — research-question to metric mapping for the five scenarios in §2.</li>
+</ul>
+<p>If you want to compare factrix to a specific peer before installing, the <a href="#4-same-purpose-peers">§4 same-purpose peers</a> table is the densest summary on this page.</p>
+<h2 id="8-citations">8. Citations<a class="headerlink" href="#8-citations" title="Permanent link">&para;</a></h2>
+<p>The methodological choices on this page anchor in the following
+sources. The full bibliography lives in
+<a href="../reference/bibliography/">reference/bibliography.md</a>; this
+section names the most load-bearing ones.</p>
+<ul>
+<li><a href="../reference/bibliography/#goodhart-1984"><strong>Goodhart (1984)</strong></a> —
+  <em>Monetary Theory and Practice</em>. Origin of the Goodhart's-law
+  argument used by design-notes §1.</li>
+<li><a href="../reference/bibliography/#demiguel-garlappi-uppal-2009"><strong>DeMiguel, Garlappi &amp; Uppal (2009)</strong></a> —
+  "Optimal versus naive diversification." <em>Review of Financial
+  Studies</em>. Equal-weight beats optimised under estimation error;
+  cited in the no-composite position.</li>
+<li><a href="../reference/bibliography/#harvey-2017"><strong>Harvey (2017)</strong></a> —
+  "Presidential address: The scientific outlook in financial
+  economics." <em>Journal of Finance</em>. Argues for pre-registered
+  per-metric audit trails over unified statistics.</li>
+<li><strong>Bailey &amp; López de Prado (2014)</strong> — "The Deflated Sharpe
+  Ratio." <em>Journal of Portfolio Management</em>. Roadmap target for
+  the §7 PSR row. (Not yet in bibliography; will land alongside
+  the Deflated-Sharpe roadmap work.)</li>
+<li><a href="../reference/bibliography/#harvey-liu-zhu-2016"><strong>Harvey, Liu &amp; Zhu (2016)</strong></a> —
+  "…and the cross-section of expected returns." <em>Review of
+  Financial Studies</em>. Multiple-testing inflation in the factor
+  zoo; motivates BHY.</li>
+<li><a href="../reference/bibliography/#hou-xue-zhang-2020"><strong>Hou, Xue &amp; Zhang (2020)</strong></a> —
+  "Replicating anomalies." <em>Review of Financial Studies</em>. The
+  replication context for the §7.2 weakness disclosure.</li>
+<li><a href="../reference/bibliography/#brown-warner-1985"><strong>Brown &amp; Warner (1985)</strong></a> —
+  "Using daily stock returns: The case of event studies."
+  <em>Journal of Financial Economics</em>. The canonical event-study
+  reference behind CAAR.</li>
+<li><a href="../reference/bibliography/#mackinlay-1997"><strong>MacKinlay (1997)</strong></a> —
+  "Event studies in economics and finance." <em>Journal of
+  Economic Literature</em>. Vocabulary used in
+  <a href="#1-what-factrix-is">§1</a> and <a href="#45-eventstudy">§4.5</a>.</li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "navigation.path", "search.suggest", "search.highlight", "content.code.copy", "content.action.edit", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+        <script src="../javascripts/copy-strip-pycon.js"></script>
+      
+    
+  </body>
+</html>
