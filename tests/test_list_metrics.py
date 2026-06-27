@@ -40,13 +40,12 @@ def _names_for_cell(scope: FactorScope, density: FactorDensity) -> set[str]:
 
 
 # Cell-canonical primaries: SSOT moved to the auto-generated dispatch
-# table at the top of metric-applicability.md, whose tuple keys
-# are dispatch-keyed and broader than authoring scope (e.g. ts_beta
-# dispatches on (COMMON, SPARSE, *, PANEL) but its Matrix-row authoring
-# cell is (COMMON, DENSE, *, PANEL); list_metrics returns the
-# authoring set). Inject primaries by their authoring cell rather than
-# parse the dispatch table — adding a primary requires updating one
-# literal here, the same cadence as updating Matrix-row tags.
+# table at the top of metric-applicability.md. Some public metrics have
+# wildcard cells in the registry (for example caar applies to both sparse
+# scopes), while this test needs the user-facing cell groups shown in the docs.
+# Inject primaries by their documented cell rather than parsing the table —
+# adding a primary requires updating one literal here, the same cadence as
+# updating the registered specs.
 _PRIMARY_METRIC_CELLS: dict[str, list[tuple[FactorScope, FactorDensity]]] = {
     "ic": [(FactorScope.INDIVIDUAL, FactorDensity.DENSE)],
     "fm_beta": [(FactorScope.INDIVIDUAL, FactorDensity.DENSE)],
@@ -61,7 +60,7 @@ _PRIMARY_METRIC_CELLS: dict[str, list[tuple[FactorScope, FactorDensity]]] = {
 _CELL_HEADING_MAP: dict[str, list[tuple[FactorScope, FactorDensity]]] = {
     "Individual × Continuous": [(FactorScope.INDIVIDUAL, FactorDensity.DENSE)],
     "Common × Continuous": [(FactorScope.COMMON, FactorDensity.DENSE)],
-    # Matrix-row tags use ``(*, SPARSE, *, PANEL)``: wildcard scope.
+    # Sparse specs use wildcard scope.
     "Individual × Sparse": [
         (FactorScope.INDIVIDUAL, FactorDensity.SPARSE),
         (FactorScope.COMMON, FactorDensity.SPARSE),

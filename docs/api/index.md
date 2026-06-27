@@ -54,7 +54,7 @@ flowchart LR
     MS -.->|metric names| EV
 
     click EV "evaluate/" "evaluate API"
-    click EVH "evaluate/#factrix.evaluate_horizons" "evaluate_horizons API"
+    click EVH "multi-horizon/" "evaluate_horizons API"
     click BS "by-slice/" "by_slice API"
     click ST "slice-test/" "slice tests — cross-sectional + period-disjoint API"
     click BHY "multi-factor/" "bhy API"
@@ -107,7 +107,7 @@ See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surfac
 | Page | Category | What it is | When to read |
 |---|---|---|---|
 | [`evaluate`](evaluate.md) | Inference (per factor) | Single dispatch entry — runs the registered metrics on a panel and returns the evaluation results. | Running an analysis. |
-| [`evaluate_horizons`](evaluate.md#factrix.evaluate_horizons) | Inference (per factor) | Sweep `evaluate` across several overlap horizons of one raw panel. | Multi-horizon analysis / sweeping. |
+| [`evaluate_horizons`](multi-horizon.md) | Inference (per factor) | Sweep `evaluate` across several overlap horizons of one raw panel. | Multi-horizon analysis / sweeping. |
 | [`by_slice`](by-slice.md) | Descriptive view | Partition a panel on a column and run `evaluate` per slice; returns `dict[str, EvaluationResult]`. | Per-slice metric exploration. |
 | [`slice_*_test` family](slice-test.md) | Inference (across slices) | `slice_pairwise_test` / `slice_joint_test` (date-aligned) and `slice_period_pairwise_test` / `slice_period_joint_test` (date-disjoint regimes): pairwise / omnibus tests over slice families. | Testing whether slice means differ. |
 | [`multi_factor`](multi-factor.md) | Screening (FDR) | Module-level overview of collection-level FDR functions. | Multi-factor FDR screening overview. |
@@ -115,7 +115,7 @@ See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surfac
 | [`partial_conjunction`](partial-conjunction.md) | Screening (FDR) | k-of-m partial conjunction screening. | "Factor passes in ≥ k of m contexts." |
 | [`bhy_hierarchical`](bhy-hierarchical.md) | Screening (FDR) | Two-stage hierarchical BHY FDR. | Grouped / nested-context screening. |
 | [`compare`](compare.md) | Descriptive view | Cross-factor leaderboard — stacks evaluation results into a `pl.DataFrame`. | Ranking candidate factors. |
-| [`list_metrics`](metrics/index.md#factrix.list_metrics) | Introspection | Family-grouped catalog of standalone public metrics, as full `MetricSpec`s. | Programmatic filtering over the metric catalog. |
+| [`list_metrics`](metrics/index.md#factrix.list_metrics) | Introspection | Family-grouped catalog of public metric specs. | Programmatic browsing over the metric catalog. |
 | [`metrics_summary`](metrics/index.md#factrix.metrics_summary) | Introspection | One-line-per-metric `pl.DataFrame` (`family`, `metric`, `summary`). | Browsing the metric catalog at a glance. |
 | [`inspect_data`](inspect-data.md) | Introspection | Inspects a panel's applicability metrics. | Pre-flight check on data dimensions. |
 | [`Metrics`](metrics/index.md) | Catalogue | Per-module reference for every public function under `factrix.metrics`. | Calling a standalone metric directly. |

@@ -139,12 +139,12 @@ commit; fix-then-commit, or use `git commit --no-verify` to bypass.
 Scoped to staged files, so commits touching only YAML / Markdown / .txt
 don't trigger.
 
-`pre-push` — when the push includes `chore(release): vX.Y.Z` (i.e. the
-release commit produced by `cz bump`), checks that the `## vX.Y.Z`
-section in `CHANGELOG.md` has ≥ 25 non-blank lines. Below threshold →
-blocks the push, forcing you to add WHY narrative (BREAKING migration,
-behavioural direction, motivation) before pushing. To bypass:
-`git push --no-verify`.
+`pre-push` — for `v1.0.0+` release commits (`chore(release): vX.Y.Z`),
+checks that the `## vX.Y.Z` section in `CHANGELOG.md` has ≥ 25 non-blank
+lines. Below threshold → blocks the push, forcing you to add WHY narrative
+(BREAKING migration, behavioural direction, motivation) before pushing. Pre-1.0
+release commits skip this check because detailed changelog entries are
+intentionally not maintained. To bypass: `git push --no-verify`.
 
 Adjust the threshold (per-shell):
 
@@ -152,8 +152,7 @@ Adjust the threshold (per-shell):
 CHANGELOG_MIN_LINES=10 git push
 ```
 
-Rationale: see §9 "Release workflow" on the limits of cz's
-auto-CHANGELOG.
+Rationale: see §9 "Release workflow" on the v1.0+ release-note policy.
 
 ---
 
@@ -183,11 +182,9 @@ gh pr merge --squash
 
 !!! warning "Do not run `cz bump` after merge"
     Versions and tags follow the release-train cadence (see §9) — a single
-    release fires after several PRs accumulate. Each PR writes its own
-    changes into the `## [Unreleased]` section of `CHANGELOG.md` (under
-    `### Added` / `### Changed` / `### Fixed` / `### Migration` subsections
-    as applicable); at release time, `cz bump --changelog` freezes that
-    section into the next version heading.
+    release fires after several PRs accumulate. During the pre-1.0 line,
+    detailed changelog entries are not maintained; keep the PR description as
+    the reviewable WHY narrative instead.
 
 **CHANGELOG formatting**: paragraphs and bullets are not hard-wrapped — each paragraph is one line, each bullet one line. The 72-char wrap convention applies to commit messages, not to CHANGELOG prose; GitHub Release notes treat single newlines as `<br>`, so source-level wrapping leaks into the rendered output. Aligns with Polars / ruff / Pydantic.
 
@@ -342,7 +339,7 @@ files auto-update and which need manual maintenance.
 | Source (SSOT) | Docs target | Mechanism |
 |---|---|---|
 | `factrix/**/*.py` docstrings | `:::` directives in `docs/api/**/*.md` | mkdocstrings plugin |
-| `Matrix-row:` in `factrix/metrics/*.py` | `docs/reference/_generated_metric_matrix.md` | hook: `scripts/mkdocs_hooks/gen_metric_matrix.py` |
+| `factrix._metric_index.public_specs()` | `docs/reference/_generated_metric_matrix.md`, `docs/reference/_generated_metric_name_index.md` | hooks: `scripts/mkdocs_hooks/gen_metric_matrix.py`, `scripts/mkdocs_hooks/gen_metric_name_index.py` |
 | `factrix/llms*.txt` | site root `llms*.txt` | hook: `scripts/mkdocs_hooks/sync_llms_txt.py` |
 
 #### Docstring `Examples:` — runnable, copy-paste ready
@@ -534,8 +531,7 @@ meaning, leave it to release-train review.
 
 ### 7.3 Release-train drift audit
 
-Before running `cz bump --changelog` (see §9), run this checklist on
-`main`:
+Before running a release bump (see §9), run this checklist on `main`:
 
 ```bash
 # 1. Search for known-deprecated symbol names that may have leaked back in.
@@ -552,9 +548,9 @@ uv run mkdocs build --strict
 #    is cheap and isolates failures).
 uv run pytest tests/test_docs_llms.py tests/test_docs_pages.py -q
 
-# 5. Skim the [Unreleased] CHANGELOG section for stale paths / kwargs
-#    that drifted since the entry was written.
-sed -n '/## \[Unreleased\]/,/^## /p' CHANGELOG.md
+# 5. Skim the changelog policy so release notes do not accidentally
+#    reintroduce reconstructed pre-1.0 history.
+sed -n '1,80p' CHANGELOG.md
 ```
 
 A failure on any step is a release blocker — fix on `main` (or revert
@@ -878,11 +874,12 @@ PRs and releases are decoupled:
     immediately)
   - A named version is needed for a person / demo
 
-Each PR writes its own WHY narrative into the `## [Unreleased]`
-section of `CHANGELOG.md` (under `### Added` / `### Changed` /
-`### Fixed` / `### Migration` subsections). At release time, no
-narrative reconstruction is needed—`cz bump --changelog` freezes the
-section into the next version heading.
+During the pre-1.0 line, `CHANGELOG.md` intentionally does not carry detailed
+per-release notes. Keep each PR's WHY narrative in the PR description. When the
+project reaches `v1.0.0`, resume the standard `## [Unreleased]` flow: each PR
+writes a concise entry under `### Added` / `### Changed` / `### Fixed` /
+`### Migration`, and release time freezes that section into the next version
+heading.
 
 ### Release workflow
 
@@ -895,14 +892,14 @@ uv run pytest
 
 # 3. Auto-bump and tag
 # cz derives the level from commits since the last tag (feat=MINOR, fix=PATCH),
-# renames [Unreleased] to the new version heading, adds a fresh empty
-# [Unreleased], updates pyproject.toml, and auto-commits + tags.
-cz bump --changelog
+# updates pyproject.toml, and auto-commits + tags. During pre-1.0, do not
+# generate detailed changelog entries from incomplete history.
+cz bump
 
-# 4. (Optional) Manually polish the release section — fill in BREAKING
-#    migration / direction / motivation to ≥ 25 non-blank lines, otherwise
-#    the pre-push hook blocks (see §2). After polishing, amend the release
-#    commit and re-tag:
+# 4. If this is v1.0.0 or later, maintain CHANGELOG.md manually (or via
+#    cz bump --changelog) and polish the release section. During pre-1.0, keep
+#    CHANGELOG.md as the policy + historical GitHub-release index only. If
+#    polishing after the release commit, amend and re-tag:
 git commit --amend --no-edit
 git tag -d v<X.Y.Z> && git tag v<X.Y.Z>
 
@@ -920,13 +917,15 @@ git push
 
 ### CHANGELOG entry convention
 
-- Link via **PR number** (`(#PR)`) — the PR carries the diff / review /
-  discussion that downstream upgraders need when triaging a change.
-  Convention adopted from v0.14.0 onwards.
-- v0.13.0 and earlier entries used issue numbers (some v0.13.0 bullets
-  are mixed because the convention shift landed alongside that
-  release); **do not retroactively rewrite** — historical links still
-  resolve and the rewrite cost is not justified.
+- Detailed entries are intentionally not maintained during the pre-1.0
+  development line. The rapid `v0.x` history had incomplete and
+  reconstructed notes, so `CHANGELOG.md` keeps only a historical
+  GitHub-release index.
+  Do not backfill those releases unless you are prepared to audit each entry
+  against the corresponding tag.
+- From `v1.0.0` onward, changelog entries should link via **PR number**
+  (`(#PR)`) because the PR carries the diff / review / discussion that
+  downstream upgraders need when triaging a change.
 
 ### BC change reminders
 
@@ -956,7 +955,8 @@ Before a new feature or large change, read:
 - `docs/development/architecture.md` — current snapshot of the package
   (positioning, public API, factor types, Profile contract, artifacts,
   invariants)
-- `CHANGELOG.md` — historical BC changes and caveats
+- `CHANGELOG.md` — changelog policy and historical pre-1.0 GitHub-release
+  index; detailed maintained release notes start at `v1.0.0`
 
 `docs/development/architecture.md` describes the **current state**, not
 the design history. For "why is it designed this way" process records,

@@ -28,6 +28,8 @@ See the [API reference landing](api/index.md) for the function-flow graph, edge 
 
 | If you want | Go to |
 |---|---|
+| **Prepare your own data** | [Preparing data](guides/preparing-data.md) |
+| **Pick the right metric** | [Choosing a metric](guides/choosing-metric.md) |
 | **Install and run a smoke test** | [Installation](getting-started/install.md) · [Quickstart](getting-started/quickstart.md) |
 | **Understand the three-axis design** (scope / signal / metric) | [Concepts](getting-started/concepts.md) |
 | **Compare factrix against alphalens / qlib / peers** | [Where factrix fits](where-factrix-fits.md) |

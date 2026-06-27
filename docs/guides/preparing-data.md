@@ -163,7 +163,7 @@ Three responsibilities sit upstream of `compute_forward_return`:
 | NaN / inf in `price` | `compute_forward_return` drops rows whose computed `forward_return` is not finite (`null`, `NaN`, `+inf`, or `-inf`). Tail rows where `t + 1 + N` runs off the end of the series are dropped by the same filter. | If a daily NaN reflects a true gap (suspended trading, holiday), the drop is correct. If imputable (forward-fill from previous close), impute before calling. |
 | `forward_periods <= 0`, non-`int`, or `bool` | Raises [`UserInputError`](../api/errors.md); the horizon must be a positive integer row count. | Pass an explicit row horizon such as `1`, `5`, or `20`. |
 | Horizon too long / no finite returns after filtering | Raises [`UserInputError`](../api/errors.md) instead of returning an empty panel. | Shorten the horizon, extend the panel, or clean price values before calling. |
-| Single-asset panel (N = 1) | `DataStructure` auto-switches to `TIMESERIES`. `individual_continuous` at N = 1 raises [`IncompatibleAxisError`](../api/errors.md). | Use a `*_sparse` or `common_*` metric instead. |
+| Single-asset panel (N = 1) | `DataStructure` auto-switches to `TIMESERIES`. Dense PANEL metrics (`individual_continuous` and `common_continuous`) raise [`IncompatibleAxisError`](../api/errors.md). | Use a sparse metric whose cell allows `TIMESERIES`, or a scope-agnostic series diagnostic. |
 | T < `MIN_PERIODS_HARD` (= 20) periods | Raises [`InsufficientSampleError`](../api/errors.md); procedures never silently produce a result on under-sample data. | Extend the window or accept the procedure's refusal. |
 
 ## 6. Sparse and event signals

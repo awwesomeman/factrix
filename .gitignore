@@ -41,9 +41,9 @@ out/
 # Lock files (managed by uv)
 # uv.lock is committed for reproducibility
 
-# Claude Code local settings
+# AI tool local settings
 .claude/
-
+AGENTS.md
 # MkDocs build output
 site/
 

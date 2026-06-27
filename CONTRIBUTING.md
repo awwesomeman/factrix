@@ -1,6 +1,8 @@
 # Contributing to factrix
 
-Quick-start guide. Full contributing reference: **[docs/development/contributing](https://awwesomeman.github.io/factrix/latest/development/contributing/)**.
+GitHub-facing quick start. Canonical policy:
+[docs/development/contributing.md](docs/development/contributing.md)
+([published](https://awwesomeman.github.io/factrix/latest/development/contributing/)).
 
 ## Setup
 
@@ -8,37 +10,25 @@ Quick-start guide. Full contributing reference: **[docs/development/contributing
 git clone https://github.com/awwesomeman/factrix.git
 cd factrix
 uv sync --extra dev
-python scripts/setup_dev.py   # activate .githooks/ (per-clone, idempotent)
-uv run pytest                 # must be all green before committing
+python scripts/setup_dev.py
+uv run pytest
 ```
 
-## Development cycle
+## Development Cycle
 
 ```bash
 git checkout -b feat/<short-desc>
-# edit → test → commit
+# edit, test, commit
 git add <specific-files>
-cz commit -- -s           # Conventional Commits + Signed-off-by
+cz commit -- -s
 git push origin feat/<short-desc>
 gh pr create
 ```
 
-## Adding a Metric
+## Before Opening a PR
 
-When adding or developing a new metric to `factrix`, follow these rules:
-
-1. **Stamping and Registration**:
-   - Use the `@metric` decorator from `factrix.metrics` to define a function-based `MetricBase` subclass. This automatically handles registration under the hood.
-   - Alternatively, for lower-level or third-party callables, apply the `@metric_spec(MetricSpec(...))` decorator and register the metric explicitly using `factrix.metrics.register(fn)`. Do not use old string annotations or informal tags.
-2. **Required Fields**:
-   - Define a `cell` defining the scope and density axes (e.g. using `cell(FactorScope.INDIVIDUAL, FactorDensity.DENSE)`).
-   - Configure execution metadata including `aggregation`, `test_method`, `se_method`, and any dependency `requires` mapping.
-
-## Rules
-
-- Commit messages via `cz commit`; description < 50 chars; no emoji; no AI co-author.
-- Every new metric, result field, or API parameter needs a matching test in the same PR.
-- Add WHY narrative to `CHANGELOG.md § [Unreleased]` in each PR; version bumps happen on release-train cadence, not per-PR.
-- `uv run pytest` must be green before pushing.
-
-For architecture decisions, submodule workflow, and release process → see the [full contributing guide](https://awwesomeman.github.io/factrix/latest/development/contributing/).
+- Keep the change scoped and include tests for new metrics, result fields, or API parameters.
+- Run `uv run pytest` locally.
+- Use `cz commit -- -s` for Conventional Commits plus Signed-off-by.
+- During the pre-1.0 line, keep the WHY narrative in the PR description; detailed `CHANGELOG.md` entries resume at `v1.0.0`.
+- For metrics, docs, release flow, hooks, and changelog policy, use the full contributing guide.

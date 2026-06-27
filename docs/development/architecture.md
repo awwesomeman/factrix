@@ -150,12 +150,14 @@ specs declare `cell.structure = PANEL`, so under `strict=True` evaluate raises
 `MetricResult` with a `reason`. Explicit and user-correctable, never a silent rewrite.
 
 `(*, SPARSE, *) × N=1` is well-defined and runs with **no scope-collapse step**.
-The sparse metrics' cells apply at `N=1`, so the DAG executor runs them directly
-on the single-asset series — there is no scope-collapse step, and no
-sentinel routing both sparse scopes to a shared TIMESERIES procedure. At `N=1`
-the `INDIVIDUAL` / `COMMON` distinction is moot (one asset → no
-scope axis), but that falls out of the derived structure rather than an explicit
-routing token.
+Sparse metrics whose `MetricSpec.cell.structure` is wildcarded (`None`) apply
+at `N=1`, so the DAG executor runs them directly on the single-asset series —
+there is no scope-collapse step, and no sentinel routing both sparse scopes to a
+shared TIMESERIES procedure. At `N=1` the `INDIVIDUAL` / `COMMON` distinction is
+moot (one asset — no scope axis), but that falls out of the derived structure
+rather than an explicit routing token. Sparse metrics that still need an asset
+cross-section, such as `clustering_hhi` (`cell.structure=PANEL`), remain
+unavailable at `N=1`.
 
 ---
 
@@ -583,10 +585,12 @@ test the **cross-asset** distribution of per-asset βs, so they require
 `N ≥ 2`. At `N = 1` the cell (`COMMON, DENSE, PANEL`) does not match the
 derived `TIMESERIES` structure, so `evaluate` raises
 `IncompatibleAxisError` (or NaN + `structure_mismatch` under
-`strict=False`). There is **no** single-series β collapse — for
-single-asset time-series inference use `ic(inference=fx.inference.NEWEY_WEST)`
-(Individual × Continuous) or the scope-agnostic TIMESERIES metrics
-(`hit_rate`, `oos_decay`, `ic_trend`, `directional_hit_rate`).
+`strict=False`). There is **no** single-series beta collapse. For single-asset
+time-series diagnostics, use a metric whose registered cell allows `TIMESERIES`
+(for example `hit_rate`, `oos_decay`, or `ic_trend`) on an explicit
+`(date, value)` series; use `directional_hit_rate` on the long-panel
+`(date, asset_id, factor, forward_return)` shape, or use sparse metrics whose
+structure is wildcarded.
 
 ### `(*, SPARSE, *) × N=1` (TS dummy) — time-series only
 
@@ -598,10 +602,12 @@ single-asset OLS y_t = α + β·D_t + ε on period-dense series   (time-series s
                                                               +  event-window-overlap check
 ```
 
-Reached whenever a sparse factor evaluates at N=1 — the sparse metrics' cells
-apply at TIMESERIES, so the DAG executor runs them directly on the single-asset
-series (no scope-collapse step; at N=1 the two scopes are statistically
-equivalent). The series is the **full period grid** with
+Reached whenever a sparse factor evaluates at N=1 and the requested sparse
+metric's structure is wildcarded — the DAG executor runs it directly on the
+single-asset series (no scope-collapse step; at N=1 the two scopes are
+statistically equivalent). Sparse metrics that require a cross-asset panel, such
+as `clustering_hhi`, still raise / short-circuit on the structure mismatch. The
+series is the **full period grid** with
 zero-padding on non-event periods (distinct from the PANEL CAAR computation,
 which works on the event-date-only series). Factor magnitudes are
 preserved (no `.sign()` coercion at this layer).
@@ -785,34 +791,35 @@ from disk.
 
 Run: `uv run pytest`
 
-### Docs SSOT strategy — docstring tags drive the matrix
+### Docs SSOT strategy — MetricSpec drives generated tables
 
 `docs/reference/metric-pipelines.md` does not contain a hand-written
-matrix. The matrix is generated at build time from machine-readable
-`Matrix-row:` tags embedded in each `factrix/metrics/*.py` module docstring.
+matrix. The matrix is generated at build time from the same typed
+`MetricSpec` registry that runtime discovery uses.
 
 **How it works:**
 
-- Each public metric module carries one or more `Matrix-row:` lines at the
-  end of its module-level docstring, with five pipe-separated fields:
-  `public_functions | cell_scope | aggregation_order | inference_se | primitives`.
-- `scripts/mkdocs_hooks/gen_metric_matrix.py` (a MkDocs `hooks:` entry) parses every
-  public module with `ast`, extracts the tags, and writes
+- Each public metric callable declares its cell and aggregation through
+  `@metric`, producing a `MetricSpec`.
+- `scripts/mkdocs_hooks/gen_metric_matrix.py` (a MkDocs `hooks:` entry) reads
+  `factrix._metric_index.public_specs()`, groups specs by module / cell /
+  aggregation, and writes
   `docs/reference/_generated_metric_matrix.md` before each docs build.
+- `scripts/mkdocs_hooks/gen_metric_name_index.py` reads the same spec set and
+  writes `docs/reference/_generated_metric_name_index.md`.
 - `metric-pipelines.md` includes the generated file via
   `--8<-- "docs/reference/_generated_metric_matrix.md"` (pymdownx.snippets).
 
 **CI coverage (`tests/test_docs_matrix.py`):**
 
-- Every public metric module has at least one `Matrix-row:` tag.
-- Every tag has exactly 5 pipe-separated fields.
+- Every public metric module registers at least one public `MetricSpec`.
 - `_generated_metric_matrix.md` exists and is non-empty (skipped if absent,
   so CI that only runs pytest without a prior build does not false-positive).
+- The generated matrix and name-index files match the live renderers, catching
+  stale generated docs after registry changes.
 
-**Why docstring tags rather than a pure CI presence guard:** a guard
-that only checks presence/absence of module references leaves drift in
-the five data columns (scope, aggregation order, inference SE,
-primitives) invisible to CI. Making the docstring the single source of
-truth for all six matrix columns closes that gap — adding a module
-without a `Matrix-row:` tag fails the test, and editing the tag
-automatically updates the rendered docs on the next build.
+**Why the registry rather than hand-written tables:** the same source of truth
+now serves runtime discovery (`list_metrics()` / `metrics_summary()`), dispatch
+validation, and the rendered reference tables. Adding or changing a metric in
+one place updates both the API and the docs on the next build, and CI catches
+generated-file drift.

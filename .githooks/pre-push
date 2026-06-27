@@ -3,10 +3,10 @@
 # strict build when the push touches docs-relevant paths + mypy
 # when the push touches factrix/ source.
 #
-# When the push includes a ``chore(release): vX.Y.Z`` commit, the
-# corresponding ``## vX.Y.Z`` section in CHANGELOG.md (as committed
-# at that release) must have at least CHANGELOG_MIN_LINES non-blank
-# lines.
+# When the push includes a ``chore(release): vX.Y.Z`` commit for v1.0.0 or
+# later, the corresponding ``## vX.Y.Z`` section in CHANGELOG.md (as committed
+# at that release) must have at least CHANGELOG_MIN_LINES non-blank lines.
+# Pre-1.0 releases intentionally do not maintain detailed changelog entries.
 #
 # When the push touches any path that mkdocs cares about
 # (``docs/`` / ``mkdocs.yml`` / ``factrix/`` / ``scripts/`` /
@@ -23,9 +23,9 @@
 # push, not once per commit. Bypass any gate with ``git push
 # --no-verify`` when you really mean it.
 #
-# Threshold rationale (CHANGELOG): cz auto-generated section is ~17
-# lines; a polished BREAKING release runs 50+. 25 is the cliff between
-# "just bullets" and "has WHY narrative".
+# Threshold rationale (CHANGELOG): for v1.0.0+ releases, cz auto-generated
+# sections are usually thin; 25 is the cliff between "just bullets" and "has
+# WHY narrative".
 
 set -euo pipefail
 
@@ -56,12 +56,17 @@ while read -r local_ref local_sha remote_ref remote_sha; do
         case "$subject" in
             "chore(release): v"[0-9]*)
                 version=${subject##*: }  # e.g. "v0.4.0"
+                major=${version#v}
+                major=${major%%.*}
+                if [ "$major" -eq 0 ]; then
+                    continue
+                fi
                 # WHY: ``|| true`` keeps a missing-CHANGELOG (or any
                 # other pipeline failure under ``pipefail``) from
                 # crashing the hook — empty section just lands as 0
                 # lines below and trips the threshold cleanly.
-                section=$({ git show "$sha:$CHANGELOG" 2>/dev/null | awk -v v="## $version " '
-                    $0 ~ "^"v {flag=1; next}
+                section=$({ git show "$sha:$CHANGELOG" 2>/dev/null | awk -v version="$version" '
+                    $0 ~ "^## " version "([[:space:]]|$)" {flag=1; next}
                     flag && /^## v[0-9]/ {exit}
                     flag {print}
                 '; } || true)
