@@ -35,6 +35,7 @@ import polars as pl
 from factrix._axis import DataStructure, FactorDensity, FactorScope, SpecRole
 from factrix._codes import WarningCode
 from factrix._data_input import _BASELINE_COLUMNS, _OPTIONAL_COLUMNS
+from factrix._errors import FactrixError
 from factrix._metric_index import MetricSpec
 from factrix._results import (
     EvaluationResult,
@@ -61,8 +62,12 @@ def _project_factor(data: pl.DataFrame, col: str) -> pl.DataFrame:
     return data.select(cols)
 
 
-class CycleError(ValueError):
-    """Raised when ``MetricSpec.requires`` declares a dependency cycle."""
+class CycleError(FactrixError):
+    """Raised when ``MetricSpec.requires`` declares a dependency cycle.
+
+    A :class:`FactrixError`, so ``except factrix.FactrixError`` catches it
+    alongside every other library-raised failure.
+    """
 
 
 @dataclasses.dataclass(frozen=True)
