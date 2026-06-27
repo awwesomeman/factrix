@@ -32,7 +32,7 @@ title: factrix.metrics.ts_beta
     Stage 1 of the Black-Jensen-Scholes aggregation: per-asset OLS
     $R_{i,t} = \alpha_i + \beta_i \cdot F_t + \varepsilon$ over each
     asset's full sample. Pre-step for `ts_beta` / `mean_r_squared` /
-    `ts_beta_sign_consistency`. Assets with fewer than `MIN_TS_OBS`
+    `ts_beta_sign_consistency`. Assets with fewer than `MIN_TS_PERIODS`
     rows or a singular design are dropped.
 
 -   __Cross-asset mean-$\beta$ significance__
@@ -159,7 +159,7 @@ title: factrix.metrics.ts_beta
     ---
 
     When this metric applies and the sample-size guards that gate it
-    (`MIN_TS_OBS`, $N \geq 3$ for cross-asset $t$, $N \geq 2$ for sign
+    (`MIN_TS_PERIODS`, $N \geq 3$ for cross-asset $t$, $N \geq 2$ for sign
     consistency).
 
     [reference/metric-applicability →](../../reference/metric-applicability.md)

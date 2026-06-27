@@ -542,7 +542,7 @@ per-asset OLS R_i = α_i + β_i·F over all n_periods dates   (time-series step)
 
 Failure modes:
 
-- per-asset `n_periods < MIN_TS_OBS = 20` → asset dropped.
+- per-asset `n_periods < MIN_TS_PERIODS = 20` → asset dropped.
 - `n_assets < MIN_ASSETS_WARN = 30` → `WarningCode.FEW_ASSETS` (still runs; severity scales with `n_assets`).
 - `n_assets = 1` → no asset cross-section to aggregate the per-asset βs
   over. The cell declares `cell.structure = PANEL`, so `evaluate` raises
@@ -753,7 +753,7 @@ factrix/
 ├── stats/                   # public estimator surface (newey_west, hansen_hodrick, driscoll_kraay, gmm, ...)
 ├── estimators/              # lowercase estimator callables
 ├── metrics/                 # @metric callables (ic, fm_beta, ts_beta, caar, ...) + _registry
-│                            # per-cell thresholds (MIN_FM_PERIODS_HARD/WARN, MIN_TS_OBS) live
+│                            # per-cell thresholds (MIN_FM_PERIODS_HARD/WARN, MIN_TS_PERIODS) live
 │                            # alongside the metrics that enforce them
 ├── slicing/                 # by_slice + slice_pairwise_test / slice_joint_test
 ├── preprocess/              # compute_forward_return / normalize / orthogonalize
