@@ -21,6 +21,7 @@ import warnings
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from numbers import Real
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -77,6 +78,28 @@ def _validate_metric_list(value: Any, *, func_name: str, field: str) -> list[str
                 docs_path=anchor,
             )
     return list(value)
+
+
+def _validate_q(value: Any, *, func_name: str) -> float:
+    """Validate the nominal FDR target shared by screening procedures."""
+    if isinstance(value, bool) or not isinstance(value, Real):
+        raise UserInputError(
+            func_name=func_name,
+            field="q",
+            value=value,
+            expected="float in the open interval (0, 1)",
+            docs_path=f"api/{func_name}#q",
+        )
+    q = float(value)
+    if not np.isfinite(q) or not 0.0 < q < 1.0:
+        raise UserInputError(
+            func_name=func_name,
+            field="q",
+            value=value,
+            expected="float in the open interval (0, 1)",
+            docs_path=f"api/{func_name}#q",
+        )
+    return q
 
 
 def _require_non_empty_results(
@@ -178,7 +201,7 @@ class _FdrResultBase:
         entries: Every tested :class:`EvaluationResult`, in input order.
         adj_p_all: BHY-adjusted p-value aligned with ``entries``; ``NaN``
             for an entry dropped before the family formed (data shortage).
-        q: Nominal FDR target.
+        q: Nominal FDR target; must satisfy ``0 < q < 1``.
         n_tests: Per-bucket / per-identity family size keyed by tuple.
     """
 
@@ -421,7 +444,8 @@ def bhy(
             the input into independent BHY step-up buckets. Built-in
             field ``"forward_periods"`` is read off the result;
             other keys are looked up on ``result.context``.
-        q: Nominal FDR target. Default ``0.05``.
+        q: Nominal FDR target. Must satisfy ``0 < q < 1``.
+            Default ``0.05``.
 
     Returns:
         ``dict[str, BhyResult]`` keyed by ``label``.
@@ -440,6 +464,7 @@ def bhy(
             singletons (BHY on n=1 provides no FDR correction).
     """
     metric_list = _validate_metric_list(metrics, func_name="bhy", field="metrics")
+    q_target = _validate_q(q, func_name="bhy")
     _require_non_empty_results(results, func_name="bhy")
     expand_over_tuple = tuple(expand_over)
 
@@ -481,7 +506,7 @@ def bhy(
             metric_name=spec,
             entries=[e.result for e in entries],
             adj_p_all=adj_p_all,
-            q=q,
+            q=q_target,
             expand_over=expand_over_tuple,
             n_tests=n_tests,
         )
@@ -530,7 +555,8 @@ def partial_conjunction(
         n_conditions: Strict-structure declaration. ``None`` lets ``m`` be
             inferred per identity; an ``int`` requires every identity
             to have exactly that many conditions.
-        q: Nominal FDR target for the BHY step-up over PC p-values.
+        q: Nominal FDR target for the BHY step-up over PC p-values. Must
+            satisfy ``0 < q < 1``.
 
     Returns:
         ``dict[str, PartialConjunctionResult]`` keyed by
@@ -545,6 +571,7 @@ def partial_conjunction(
     metric_list = _validate_metric_list(
         metrics, func_name="partial_conjunction", field="metrics"
     )
+    q_target = _validate_q(q, func_name="partial_conjunction")
     _require_non_empty_results(results, func_name="partial_conjunction")
 
     if min_pass < 2:
@@ -604,7 +631,7 @@ def partial_conjunction(
             min_pass=min_pass,
             expand_over=expand_over_tuple,
             n_conditions=n_conditions,
-            q=q,
+            q=q_target,
         )
     return out
 
@@ -729,7 +756,8 @@ def bhy_hierarchical(
         metrics: ``list[str]`` — one hierarchical screen per
             metric; return dict keyed by ``label``.
         group: Single key naming the group axis.
-        q: Nominal FDR target shared by both layers.
+        q: Nominal FDR target shared by both layers. Must satisfy
+            ``0 < q < 1``.
 
     Returns:
         ``dict[str, HierarchicalBhyResult]`` keyed by ``label``.
@@ -749,11 +777,14 @@ def bhy_hierarchical(
     metric_list = _validate_metric_list(
         metrics, func_name="bhy_hierarchical", field="metrics"
     )
+    q_target = _validate_q(q, func_name="bhy_hierarchical")
     _require_non_empty_results(results, func_name="bhy_hierarchical")
 
     out: dict[str, HierarchicalBhyResult] = {}
     for spec in metric_list:
-        out[spec] = _bhy_hierarchical_one(results, metric=spec, group=group, q=q)
+        out[spec] = _bhy_hierarchical_one(
+            results, metric=spec, group=group, q=q_target
+        )
     return out
 
 

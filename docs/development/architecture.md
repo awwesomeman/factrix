@@ -11,8 +11,11 @@ Current-state snapshot of the public API surface and internal layout.
 **factrix is a Factor FactorDensity Validator, not a backtest engine.**
 
 The library produces a single canonical p-value (`MetricResult.p_value`) per
-factor per `(scope, density, structure)` cell from the cell's Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC)-corrected
-mainstream metric (information coefficient (IC) / FM-λ / CAAR / TS-β). Realistic execution simulation,
+factor per `(scope, density, structure)` cell from the cell's mainstream
+metric (information coefficient (IC) / FM-λ / CAAR / TS-β). Dense
+time-series mainstream metrics use Newey-West (NW)
+heteroskedasticity-and-autocorrelation-consistent (HAC) inference; CAAR uses
+calendar-aware non-overlap sampling on the event-date series. Realistic execution simulation,
 tradability proxies, and portfolio construction are out of scope — feed
 screened factors into Zipline / Backtrader / `vectorbt` downstream.
 
@@ -214,9 +217,8 @@ Four layers, one grammar:
 - **Calibrated module constants** (SSOT for the literals) —
   `MIN_[<DOMAIN>_]<AXIS>[_<TIER>]`. The `AXIS` token is mandatory
   (`PERIODS`/`ASSETS`/`EVENTS`/`PAIRS`); `DOMAIN` is an optional prefix qualifier
-  (`BROADCAST`, `PORTFOLIO`, `FM`, `IC`) that disambiguates when the *same*
-  axis is gated by a *different* statistic — e.g. CAAR's `MIN_EVENTS_HARD` vs
-  the broadcast-dummy `MIN_BROADCAST_EVENTS_HARD`. `TIER` is `_HARD`
+  (`PORTFOLIO`, `FM`, `IC`) that disambiguates when the *same*
+  axis is gated by a *different* statistic. `TIER` is `_HARD`
   (raise / short-circuit floor) or `_WARN` (degrade floor). **`_HARD` is
   dropped on any axis that never raises** — `MIN_ASSETS_WARN` carries no
   `_HARD` because the cross-asset t-test is defined for `n_assets ≥ 2`
@@ -227,7 +229,7 @@ Four layers, one grammar:
 - **Warning codes** (`factrix/_codes.py`) carry the same axis token so the
   degraded axis is legible from the code alone:
   `UNRELIABLE_SE_SHORT_PERIODS`, `FEW_EVENTS`, `FEW_ASSETS`,
-  `BORDERLINE_PORTFOLIO_PERIODS`, `SPARSE_COMMON_FEW_EVENTS`, and the
+  `BORDERLINE_PORTFOLIO_PERIODS`, and the
   axis-specific drop pair `EXCESSIVE_PERIOD_DROPS` / `EXCESSIVE_ASSET_DROPS`.
 
 Silent-drop diagnostics emit a fixed per-axis metadata schema
@@ -502,25 +504,24 @@ Failure modes:
 ```
 per-event-date mean of signed_car = return × factor      (cross-section step)
                                                        →  event-date-indexed CAAR
-reindex to dense period grid, zero-fill non-event periods   →  n_periods-length CAAR series
-                                                       →  NW HAC t-test on mean(CAAR)   (time-series step)
+calendar-aware non-overlap subsample by date_ordinal        →  independent event-date sample
+                                                       →  OLS t-test on mean(CAAR)      (event-time step)
 ```
 
-The CAAR series is **period-grid-indexed**: `compute_caar` produces an
-event-date-indexed primitive (filter `factor != 0`), which the procedure
-then reindexes against the full panel period set with zero-fill. This is
-the calendar-time portfolio approach (Jaffe 1974, Mandelker 1974; Fama
-1998 §2) — restores the lag rule's "consecutive observations are 1
-period apart" assumption that an event-only series would otherwise
-break. With it, sparse events let zero-padding zero out spurious
-autocovariance terms and clustered events get the real MA(h-1) overlap
-weighted correctly. Pipeline parity with IC / FM / common-sparse PANEL.
+The CAAR series is **event-date-indexed**: `compute_caar` filters to
+`factor != 0`, collapses same-date events to one cross-asset mean, and
+retains each event date's `date_ordinal` on the full panel calendar. The
+`caar` procedure then takes a greedy non-overlap subsample where consecutive
+kept event dates are at least `forward_periods` calendar periods apart. This
+keeps the event-only mean estimator intact while avoiding overlap-induced
+dependence from forward-return windows; dense zero-fill is deliberately not
+used because non-event zeros would dominate the sparse event mean.
 
 Magnitude is preserved as a weight in `signed_car` (no `.sign()` coercion
 at this layer — `compute_caar`'s docstring carries the input-form
-behaviour table). User-facing `MEAN` reports the per-event-date
-mean (the average effect on event days); `n_obs` reflects the dense
-series the t-stat is computed on.
+behaviour table). User-facing `MEAN` reports the per-event-date mean (the
+average effect on event days); `n_obs` reflects the non-overlap event-date
+sample the t-stat is computed on.
 
 Failure modes:
 
@@ -549,34 +550,31 @@ Failure modes:
   under `strict=False`); there is no single-series β fallback. See
   §PANEL/TIMESERIES equivalence.
 
-### `common_sparse` (PANEL) — time-series first
+### `common_sparse` (PANEL) — event-time metrics
 
 ```
-per-asset OLS R_i = α_i + β_i·D over all n_periods dates   (time-series step)
-                                                         →  n_assets-length β vector
-                                                         →  cross-asset t-test on E[β]   (cross-section step)
+broadcast sparse event column `{0, R}` across assets
+       →  same scope-agnostic sparse metrics as individual_sparse
+       →  CAAR / BMP / event diagnostics on the event-time sample
 ```
 
-Same shape as `common_continuous`; the broadcast `D` carries the
-sparse `{0, R}` schema (`R` is unrestricted; `{0, 1}` for a pure
-event flag is the simplest form) and replaces the continuous
-regressor. Factor magnitudes are **preserved** in
-the OLS (no `.sign()` coercion at this layer — distinct from the
-`individual_sparse` PANEL pipeline). Augmented Dickey-Fuller (ADF) persistence diagnostic is skipped
-per I6 (sparse regressors are not unit-root candidates).
+`Common × Sparse` is **not** the `common_continuous` time-series-first
+OLS-β flow. The factor is broadcast across assets, but its sparse `{0, R}`
+shape matches the event-time contract used by `individual_sparse`; the DAG
+therefore dispatches the same sparse metrics (`caar`, `bmp_z`,
+`event_hit_rate`, `clustering_hhi`, etc.) through their registered
+scope-wildcard sparse cells.
 
 Failure modes:
 
-- per-asset `n_periods < MIN_TS_OBS = 20` → asset dropped.
-- `n_assets` cross-section guard same as `common_continuous` (single
-  `FEW_ASSETS`; severity from `n_assets` metadata).
-- Two-tier event-count guard (`factrix/_stats/constants.py`):
-  `n_events < MIN_BROADCAST_EVENTS_HARD = 5` raises `InsufficientSampleError`;
-  `5 ≤ n_events < MIN_BROADCAST_EVENTS_WARN = 20` emits
-  `SPARSE_COMMON_FEW_EVENTS`.
-- Cross-asset SE assumes asset-level independence; under contemporaneous
-  return correlation the standard t over-states significance — Petersen
-  (2009) clustered SE deferred.
+- The same sparse event-count guards as `individual_sparse` apply:
+  `MIN_EVENTS_HARD` hard floor and `MIN_EVENTS_WARN` warning for CAAR.
+- Same-date event clustering is more likely because every asset shares the
+  event date; use `clustering_hhi` and prefer `bmp_z(kolari_pynnonen_adjust=True)`
+  when the HHI is high.
+- Metrics that require a panel asset cross-section, such as
+  `clustering_hhi`, remain unavailable on `N=1` even though most sparse
+  event-axis metrics have `structure=None`.
 
 ### `common_continuous` at N=1 — not supported
 
@@ -608,8 +606,8 @@ single-asset series (no scope-collapse step; at N=1 the two scopes are
 statistically equivalent). Sparse metrics that require a cross-asset panel, such
 as `clustering_hhi`, still raise / short-circuit on the structure mismatch. The
 series is the **full period grid** with
-zero-padding on non-event periods (distinct from the PANEL CAAR computation,
-which works on the event-date-only series). Factor magnitudes are
+zero-padding on non-event periods (distinct from the CAAR computation, which
+works on the event-date-only series). Factor magnitudes are
 preserved (no `.sign()` coercion at this layer).
 
 Failure modes:

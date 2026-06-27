@@ -61,7 +61,7 @@ jobs:
       - name: Extract CHANGELOG section
         run: |
           python3 - <<'PYEOF'
-          import re, os, sys
+          import re, os
           tag = os.environ["GITHUB_REF_NAME"]          # e.g. "v0.8.0"
           version = tag.lstrip("v")                    # e.g. "0.8.0"
           with open("CHANGELOG.md") as f:
@@ -69,11 +69,17 @@ jobs:
           # Matches "## v0.8.0 (2026-05-07)" style headings (no brackets, with date).
           pattern = rf"(?m)^## v{re.escape(version)} [^\n]+\n(.*?)(?=^## v[0-9]|\Z)"
           match = re.search(pattern, content, re.DOTALL)
-          if not match:
-              print(f"No CHANGELOG section found for v{version}", file=sys.stderr)
-              sys.exit(1)
+          if match:
+              notes = match.group(1).strip()
+          else:
+              notes = (
+                  f"{tag}\n\n"
+                  "Detailed pre-1.0 changelog entries are not maintained. "
+                  "See CHANGELOG.md for the release index and policy note, "
+                  "and use the tag diff / merged PRs for exact changes."
+              )
           with open("/tmp/release_notes.md", "w") as f:
-              f.write(match.group(1).strip())
+              f.write(notes)
           PYEOF
 
       - name: Download dist artifacts

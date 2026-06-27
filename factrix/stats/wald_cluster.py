@@ -39,7 +39,7 @@ class WaldNWCluster:
 
     Constructor takes no arguments in this release; the Bartlett-kernel
     bandwidth is resolved by ``_wald_nw_cluster_means``
-    (``floor(T^(1/3))`` default, floored at ``forward_periods - 1`` by
+    (``auto_bartlett(T)`` default, floored at ``forward_periods - 1`` by
     the slice tests to cover overlapping-return autocorrelation).
     """
 

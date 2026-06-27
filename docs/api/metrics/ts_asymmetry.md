@@ -122,7 +122,7 @@ title: factrix.metrics.ts_asymmetry
 
     ---
 
-    NW HAC SE, Andrews bandwidth, Hansen-Hodrick overlap floor, and
+    NW HAC SE, Newey-West (1994) auto bandwidth, Hansen-Hodrick overlap floor, and
     the Wald-on-linear-restriction framing for both Method A and
     Method B.
 

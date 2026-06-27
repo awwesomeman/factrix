@@ -35,12 +35,6 @@ class WarningCode(StrEnum):
     # cross-section size driving the inference switch): a wide panel cut into
     # many buckets can trip this without tripping FEW_ASSETS.
     THIN_QUANTILE_GROUPS = "thin_quantile_groups"
-    # Fired by the (COMMON, SPARSE, PANEL) procedure when the broadcast
-    # dummy carries MIN_BROADCAST_EVENTS_HARD ≤ n_events <
-    # MIN_BROADCAST_EVENTS_WARN. Per-asset β is identifiable but
-    # the cross-event averaging is too thin for asymptotic t to be
-    # trusted. Below the HARD floor raises InsufficientSampleError instead.
-    SPARSE_COMMON_FEW_EVENTS = "sparse_common_few_events"
     # Fired when a sparse ``factor`` column carries mixed signs but is
     # not a clean ±1 ternary (e.g. ``{-2.5, 0, +1.3}``). The CAAR /
     # sparse-panel statistic is the magnitude-weighted Sefcik-Thompson
@@ -184,10 +178,6 @@ _WARNING_DESCRIPTIONS.update(
         "reduce n_groups (the warning suggests a value) or treat the spread as a "
         "fragile small-cross-section diagnostic. Distinct from few_assets, which "
         "keys off the absolute cross-section size.",
-        WarningCode.SPARSE_COMMON_FEW_EVENTS: "(COMMON, SPARSE, PANEL) broadcast dummy has "
-        "MIN_BROADCAST_EVENTS_HARD ≤ n_events < MIN_BROADCAST_EVENTS_WARN "
-        "(5..19); per-asset β estimable but cross-event averaging too thin "
-        "for asymptotic t.",
         WarningCode.SPARSE_MAGNITUDE_WEIGHTED: "Sparse factor column is mixed-sign and not a "
         "clean ±1 ternary; statistic is magnitude-weighted (Sefcik-Thompson) "
         "rather than textbook MacKinlay signed CAAR — apply .sign() before "
