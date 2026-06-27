@@ -25,6 +25,13 @@ from __future__ import annotations
 import polars as pl
 
 type DataInput = pl.DataFrame | pl.LazyFrame
+"""Accepted panel input type for every data-consuming entry point.
+
+Either an eager ``pl.DataFrame`` or a ``pl.LazyFrame`` carrying the panel
+schema (see [Data schema](../api/data-schema.md)). A ``LazyFrame`` is
+collected internally, so passing one is purely an ergonomic convenience —
+the validation and dispatch contract is identical.
+"""
 
 # Canonical input-data schema — single source of truth shared by evaluate's
 # baseline validation and the DAG executor's per-factor projection.

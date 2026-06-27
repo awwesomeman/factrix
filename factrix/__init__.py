@@ -896,9 +896,8 @@ __all__ = [
     "IncompatibleInferenceError",
     "InsufficientSampleError",
     "UserInputError",
-    # Result + dispatch
     "CycleError",
-    "DagExecutor",
+    # Result + dispatch
     "EvaluationResult",
     "MetricResult",
     "DataInput",

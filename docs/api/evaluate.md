@@ -3,7 +3,7 @@ title: factrix.evaluate
 ---
 
 > **Input contract** — the panel must satisfy the four-column floor
-> documented in [Panel schema](panel-schema.md).
+> documented in [Data schema](data-schema.md).
 
 ::: factrix.evaluate
 
@@ -166,7 +166,7 @@ derivation are automatically resolved at dispatch time.
 
     [Read the guide →](multi-factor.md)
 
--   __Panel schema__
+-   __Data schema__
 
     ---
 
@@ -174,7 +174,7 @@ derivation are automatically resolved at dispatch time.
     (`date`, `asset_id`, `factor`, `forward_return`), dtype semantics,
     and optional columns that activate extra metrics.
 
-    [Read the schema →](panel-schema.md)
+    [Read the schema →](data-schema.md)
 
 </div>
 

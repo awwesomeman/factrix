@@ -173,7 +173,7 @@ nav:
           - Bibliography: reference/bibliography.md
   - API reference:
       - Overview: api/index.md
-      - Panel schema: api/panel-schema.md
+      - Data schema: api/data-schema.md
       - Entry points:
           - Core:
               - evaluate: api/evaluate.md

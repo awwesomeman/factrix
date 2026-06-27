@@ -131,7 +131,7 @@ or generic "alpha score" / "predictor". The procedure-level
 `INPUT_SCHEMA` consumes a column literally named `factor`; pass
 `evaluate(..., factor_cols=["alpha"])` to use a differently-named
 column without renaming the panel first
-([Panel schema](../api/panel-schema.md)).
+([Data schema](../api/data-schema.md)).
 
 ### `forward_return`
 

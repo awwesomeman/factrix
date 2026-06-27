@@ -5,7 +5,7 @@ title: Preparing data
 The reader-flow from a raw price / signal dataset to a
 `(date, asset_id, factor, forward_return)` panel that
 [`evaluate`](../api/evaluate.md) consumes. For the column-level four-column
-contract, see [Panel schema](../api/panel-schema.md); this page is the
+contract, see [Data schema](../api/data-schema.md); this page is the
 task-oriented walk-through.
 
 ## At a glance
@@ -136,7 +136,7 @@ results = fx.evaluate(
 )
 ```
 
-See [Panel schema](../api/panel-schema.md) for details on column names.
+See [Data schema](../api/data-schema.md) for details on column names.
 
 ## 4. Frequency alignment is the caller's job
 
@@ -186,7 +186,7 @@ for the contract.
 
 ## See also
 
-- [Panel schema](../api/panel-schema.md) — column-level four-column contract and dtype rules.
+- [Data schema](../api/data-schema.md) — column-level four-column contract and dtype rules.
 - [`compute_forward_return`](../api/preprocess.md) — symbol reference.
 - [Quickstart](../getting-started/quickstart.md) — minimal end-to-end, uses `datasets.make_cs_panel` to skip steps 1-3.
 - [Concepts](../getting-started/concepts.md) — three-axis taxonomy (scope / signal / metric / mode).
