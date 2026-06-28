@@ -223,7 +223,10 @@ class TestICStageOneFeasibility:
             assert verdict.usable is False
             assert any("MIN_IC_ASSETS_HARD=2" in b for b in verdict.blockers)
 
-        assert _by_name(info, "fm_beta").usable is True
+        for name in ("fm_beta", "fm_beta_sign_consistency"):
+            verdict = _by_name(info, name)
+            assert verdict.usable is False
+            assert any("MIN_FM_ASSETS_HARD=3" in b for b in verdict.blockers)
 
     def test_ic_family_uses_pairwise_complete_assets_not_raw_asset_count(self):
         raw = compute_forward_return(
@@ -246,6 +249,13 @@ class TestICStageOneFeasibility:
             assert verdict.blockers == []
             assert "few_assets" in [w.code.value for w in verdict.warnings]
             assert any("MIN_IC_ASSETS_WARN=10" in w.message for w in verdict.warnings)
+
+        for name in ("fm_beta", "fm_beta_sign_consistency"):
+            verdict = _by_name(info, name)
+            assert verdict.usable is True
+            assert verdict.blockers == []
+            assert "few_assets" in [w.code.value for w in verdict.warnings]
+            assert any("MIN_FM_ASSETS_WARN=10" in w.message for w in verdict.warnings)
 
     def test_ic_family_period_floor_uses_surviving_ic_series_length(self):
         raw = compute_forward_return(

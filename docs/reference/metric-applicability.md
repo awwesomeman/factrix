@@ -143,6 +143,8 @@ below.
 | `MIN_PERIODS_HARD` | 20 | `T` | hard | `factrix/_stats/constants.py` | Shared hard floor for HAC / time-series inference |
 | `MIN_PERIODS_WARN` | 30 | `T` | warn | `factrix/_stats/constants.py` | Shared warn floor for HAC / time-series inference; tags `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` |
 | `MIN_ASSETS_WARN` | 30 | `N` | warn | `factrix/_stats/constants.py` | PANEL `common_continuous`; tags `WarningCode.FEW_ASSETS` (severity from `n_assets`) |
+| `MIN_FM_ASSETS_HARD` | 3 | per-date `N` | hard | `factrix/metrics/_primitives/_fm_betas.py` | `compute_fm_betas` (drops dates with pairwise-complete `N < 3`) -> consumed by `fm_beta`, `fm_beta_sign_consistency` |
+| `MIN_FM_ASSETS_WARN` | 10 | per-date `N` | warn | `factrix/metrics/_primitives/_fm_betas.py` | `fm_beta`, `fm_beta_sign_consistency`, `inspect_data`; tags `WarningCode.FEW_ASSETS` when retained FM dates have `N < 10` |
 | `MIN_FM_PERIODS_HARD` | 4 | `T` (λ series) | hard | `factrix/metrics/fm_beta.py` | `fm_beta`, `fm_beta_sign_consistency` |
 | `MIN_FM_PERIODS_WARN` | 30 | `T` (λ series) | warn | `factrix/metrics/fm_beta.py` | `fm_beta` (Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) over-rejects below); ties to `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` |
 | `MIN_TS_PERIODS_HARD` | 20 | `T` per asset | hard | `factrix/metrics/_primitives/_ts_betas.py` | `compute_ts_betas` (drops assets with `T < 20`); upstream of `ts_beta`, `mean_r_squared`, `ts_beta_sign_consistency` |
@@ -155,6 +157,10 @@ Naming caveats:
   surface `WarningCode.FEW_ASSETS`. Both are distinct from the
   panel-wide `N` cross-asset guard, which lives solely on
   `MIN_ASSETS_WARN`.
+- `MIN_FM_ASSETS_HARD` (3) gates the **per-date** pairwise-complete
+  asset count for FM per-date OLS. `MIN_FM_ASSETS_WARN` (10) mirrors the
+  IC thin-cross-section tier: dates still run, but `fm_beta` /
+  `fm_beta_sign_consistency` surface `WarningCode.FEW_ASSETS`.
 - `MIN_ASSETS_WARN = 30` is a single warn floor (no `_HARD`) — the `N`
   axis only **warns** (small `N` is well-defined statistics, just
   weak), so the `_HARD` convention (which means "raise") would mislead;

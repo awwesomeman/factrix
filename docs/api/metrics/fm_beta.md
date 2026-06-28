@@ -81,6 +81,7 @@ title: factrix.metrics.fm_beta
     panel = compute_forward_return(raw, forward_periods=5)
 
     beta_df = compute_fm_betas(panel)["factor"]
+    # beta_df columns: date, beta, n_assets
     print(beta_df.head())
     # ┌────────────┬───────────┐
     # │ date       ┆ beta      │

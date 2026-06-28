@@ -164,10 +164,12 @@ _WARNING_DESCRIPTIONS.update(
         WarningCode.EVENT_WINDOW_OVERLAP: "Adjacent events sit within forward_periods; AR windows overlap.",
         WarningCode.PERSISTENT_REGRESSOR: "ADF p > 0.10 on the continuous factor; β may carry Stambaugh bias.",
         WarningCode.SERIAL_CORRELATION_DETECTED: "Ljung-Box p < 0.05 on residuals; NW lag may be under-set.",
-        WarningCode.FEW_ASSETS: "PANEL cross-asset t-test with n_assets < "
-        "MIN_ASSETS_WARN (30); df=n_assets-1 inflates t_crit relative to the "
-        "asymptotic 1.96 (≈4.30 at n_assets=3, +119%; 5–15% near 30). "
-        "Severity scales with n_assets — read the n_assets metadata.",
+        WarningCode.FEW_ASSETS: "Cross-section asset count is below the "
+        "relevant WARN floor (panel-wide MIN_ASSETS_WARN=30, per-date "
+        "MIN_IC_ASSETS_WARN=10, or per-date MIN_FM_ASSETS_WARN=10). The "
+        "statistic is returned, but small n_assets inflates critical values or "
+        "leaves minimal residual degrees of freedom. Severity scales with "
+        "n_assets; read the relevant n_assets metadata.",
         WarningCode.THIN_QUANTILE_GROUPS: "quantile_spread with the median "
         "cross-section split into n_groups buckets leaving < MIN_GROUP_ASSETS "
         "(5) assets per bucket; each bucket mean rests on a handful of names so "

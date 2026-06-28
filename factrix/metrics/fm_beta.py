@@ -1,7 +1,7 @@
 r"""Fama-MacBeth regression — the mainstream metric for the
 ``Individual × Continuous`` cell.
 
-``compute_fm_betas``: per-date cross-sectional ordinary least squares (OLS) → ``{factor: (date, beta) DataFrame}``.
+``compute_fm_betas``: per-date cross-sectional ordinary least squares (OLS) → ``{factor: (date, beta, n_assets) DataFrame}``.
 ``fm_beta``: Newey-West t-test on the beta series.
 ``pooled_beta``: pooled OLS with clustered SE by date.
 ``fm_beta_sign_consistency``: fraction of periods with correct beta sign.
@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import math
 import warnings
+from typing import cast
 
 import numpy as np
 import polars as pl
@@ -54,6 +55,7 @@ from factrix.metrics._helpers import (
 )
 from factrix.metrics._metric_capabilities import per_date_series_rename
 from factrix.metrics._primitives import compute_fm_betas
+from factrix.metrics._primitives._fm_betas import MIN_FM_ASSETS_WARN
 
 __all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
     "fm_beta",
@@ -84,6 +86,42 @@ per_date_series = per_date_series_rename("beta")
 MIN_FM_PERIODS_HARD: int = 4
 MIN_FM_PERIODS_WARN: int = 30
 
+
+def _min_fm_assets(beta_df: pl.DataFrame) -> int | None:
+    """Minimum per-date FM cross-section size carried by ``compute_fm_betas``."""
+    if "n_assets" not in beta_df.columns:
+        return None
+    min_assets = beta_df["n_assets"].min()
+    return None if min_assets is None else cast(int, min_assets)
+
+
+def _surface_fm_asset_warning(
+    beta_df: pl.DataFrame,
+    metric_name: str,
+    metadata: dict,
+    warning_codes: list[str],
+) -> None:
+    """Surface thin per-date FM cross-sections without blocking the result."""
+    min_assets_per_period = _min_fm_assets(beta_df)
+    if min_assets_per_period is None:
+        return
+    metadata["min_assets_per_period"] = min_assets_per_period
+    metadata["warn_assets_per_period"] = MIN_FM_ASSETS_WARN
+    if min_assets_per_period >= MIN_FM_ASSETS_WARN:
+        return
+    warnings.warn(
+        f"{metric_name}: min_assets_per_period={min_assets_per_period} below "
+        f"MIN_FM_ASSETS_WARN={MIN_FM_ASSETS_WARN}; per-date FM beta is "
+        "computable but the cross-section is thin. value is returned but read "
+        "it cautiously.",
+        UserWarning,
+        stacklevel=2,
+    )
+    code = WarningCode.FEW_ASSETS.value
+    if code not in warning_codes:
+        warning_codes.append(code)
+
+
 # ---------------------------------------------------------------------------
 # Fama-MacBeth significance (parallel to ic())
 # ---------------------------------------------------------------------------
@@ -110,7 +148,8 @@ def fm_beta(
     r"""Newey-West t-test on FM beta series. $H_0: \mathrm{mean}(\beta) = 0$.
 
     Args:
-        beta_df: DataFrame with ``date, beta`` columns (from compute_fm_betas).
+        beta_df: DataFrame with ``date, beta`` columns, plus optional
+            ``n_assets`` from compute_fm_betas for thin-cross-section warnings.
         newey_west_lags: Number of Newey-West (NW) lags. Defaults to
             ``auto_bartlett(T)``.
         forward_periods: Overlap horizon of the regression's forward
@@ -292,6 +331,7 @@ def fm_beta(
             p_final = p_shanken
             t = t_shanken
 
+    _surface_fm_asset_warning(beta_df, "fm_beta", metadata, warning_codes)
     _surface_drop_stats(beta_df, "fm_beta", metadata, warning_codes)
     return MetricResult(
         p_value=p_final,
@@ -808,6 +848,12 @@ def fm_beta_sign_consistency(
         "n_periods": n,
     }
     warning_codes: list[str] = []
+    _surface_fm_asset_warning(
+        beta_df,
+        "fm_beta_sign_consistency",
+        metadata,
+        warning_codes,
+    )
     _surface_drop_stats(beta_df, "fm_beta_sign_consistency", metadata, warning_codes)
     return MetricResult(
         value=consistent,

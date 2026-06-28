@@ -37,6 +37,10 @@ from factrix._data_input import _FORWARD_PERIODS_COL
 from factrix._metric_index import MetricSpec, public_specs
 from factrix._results import Warning
 from factrix._types import MIN_IC_ASSETS_HARD, MIN_IC_ASSETS_WARN
+from factrix.metrics._primitives._fm_betas import (
+    MIN_FM_ASSETS_HARD,
+    MIN_FM_ASSETS_WARN,
+)
 
 if TYPE_CHECKING:
     from factrix.metrics._base import MetricBase
@@ -197,6 +201,15 @@ class MetricApplicability:
 @dataclass(frozen=True, slots=True)
 class _ICStage1Profile:
     """Pre-flight shape of the IC series after ``compute_ic``'s date filter."""
+
+    n_periods: int
+    min_assets_per_period: int
+    max_assets_per_period: int
+
+
+@dataclass(frozen=True, slots=True)
+class _FMStage1Profile:
+    """Pre-flight shape of the FM beta series after per-date OLS filters."""
 
     n_periods: int
     min_assets_per_period: int
@@ -552,6 +565,7 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
     # matching the ``factor != 0`` filter the event-driven metrics apply.
     n_events = int(data.filter(pl.col(first_col) != 0).height)
     ic_stage1_profile = _compute_ic_stage1_profile(data, first_col)
+    fm_stage1_profile = _compute_fm_stage1_profile(data, first_col)
 
     structure_reason = (
         f"n_assets={n_assets} → "
@@ -628,6 +642,7 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
             properties,
             signal_discrete,
             ic_stage1_profile=ic_stage1_profile,
+            fm_stage1_profile=fm_stage1_profile,
         )
         for _, spec in public_specs()
     ]
@@ -684,12 +699,14 @@ def _evaluate_applicability(
     properties: DataProperties,
     signal_discrete: bool,
     ic_stage1_profile: _ICStage1Profile | None = None,
+    fm_stage1_profile: _FMStage1Profile | None = None,
 ) -> MetricApplicability:
     from factrix.metrics._registry import REGISTRY
 
     blockers: list[str] = []
     warnings: list[Warning] = []
     uses_compute_ic = _requires_compute_ic(spec)
+    uses_compute_fm_betas = _requires_compute_fm_betas(spec)
 
     if not spec.cell.matches(
         properties.scope, properties.density, properties.structure
@@ -733,6 +750,38 @@ def _evaluate_applicability(
                             f"{ic_stage1_profile.min_assets_per_period} "
                             f"< MIN_IC_ASSETS_WARN={MIN_IC_ASSETS_WARN}: "
                             "IC cross-sections are computable but thin"
+                        ),
+                    )
+                )
+
+    if uses_compute_fm_betas and fm_stage1_profile is not None:
+        if fm_stage1_profile.max_assets_per_period < MIN_FM_ASSETS_HARD:
+            blockers.append(
+                f"n_assets_per_period_max={fm_stage1_profile.max_assets_per_period} "
+                f"< MIN_FM_ASSETS_HARD={MIN_FM_ASSETS_HARD}: compute_fm_betas would "
+                "drop every date before this metric runs"
+            )
+            skip_period_floor = True
+        elif fm_stage1_profile.n_periods == 0:
+            blockers.append(
+                "no non-degenerate per-date FM cross-section survived "
+                "compute_fm_betas before this metric runs"
+            )
+            skip_period_floor = True
+        else:
+            threshold_properties = replace(
+                threshold_properties, n_periods=fm_stage1_profile.n_periods
+            )
+            if fm_stage1_profile.min_assets_per_period < MIN_FM_ASSETS_WARN:
+                warnings.append(
+                    Warning(
+                        code=WarningCode.FEW_ASSETS,
+                        source=spec.name,
+                        message=(
+                            "n_assets_per_period_min="
+                            f"{fm_stage1_profile.min_assets_per_period} "
+                            f"< MIN_FM_ASSETS_WARN={MIN_FM_ASSETS_WARN}: "
+                            "FM cross-sections are computable but thin"
                         ),
                     )
                 )
@@ -792,6 +841,16 @@ def _requires_compute_ic(spec: MetricSpec) -> bool:
     )
 
 
+def _requires_compute_fm_betas(spec: MetricSpec) -> bool:
+    """True when a metric consumes the ``compute_fm_betas`` stage-1 output."""
+    return any(
+        getattr(producer, "__name__", "") == "compute_fm_betas"
+        and getattr(producer, "__module__", "")
+        == "factrix.metrics._primitives._fm_betas"
+        for producer in spec.requires.values()
+    )
+
+
 def _compute_ic_stage1_profile(data: Any, factor_col: str) -> _ICStage1Profile | None:
     """Mirror ``compute_ic``'s per-date pairwise-complete asset gate."""
     if "forward_return" not in data.columns:
@@ -820,6 +879,47 @@ def _compute_ic_stage1_profile(data: Any, factor_col: str) -> _ICStage1Profile |
     min_surviving_assets = surviving_counts.min()
     return _ICStage1Profile(
         n_periods=int((counts >= MIN_IC_ASSETS_HARD).sum()),
+        min_assets_per_period=(
+            0 if min_surviving_assets is None else int(min_surviving_assets)
+        ),
+        max_assets_per_period=0 if max_assets is None else int(max_assets),
+    )
+
+
+def _compute_fm_stage1_profile(data: Any, factor_col: str) -> _FMStage1Profile | None:
+    """Mirror ``compute_fm_betas``'s per-date OLS asset and variance gates."""
+    if "forward_return" not in data.columns:
+        return None
+    if data.is_empty():
+        return _FMStage1Profile(
+            n_periods=0,
+            min_assets_per_period=0,
+            max_assets_per_period=0,
+        )
+
+    valid_pair = (
+        pl.col(factor_col).is_not_null() & pl.col("forward_return").is_not_null()
+    )
+    per_date = data.group_by("date").agg(
+        valid_pair.sum().alias("n_assets"),
+        pl.col(factor_col).filter(valid_pair).var().alias("factor_var"),
+    )
+    if per_date.is_empty():
+        return _FMStage1Profile(
+            n_periods=0,
+            min_assets_per_period=0,
+            max_assets_per_period=0,
+        )
+
+    counts = per_date["n_assets"]
+    max_assets = counts.max()
+    surviving = per_date.filter(
+        (pl.col("n_assets") >= MIN_FM_ASSETS_HARD) & (pl.col("factor_var") > 0)
+    )
+    surviving_counts = surviving["n_assets"]
+    min_surviving_assets = surviving_counts.min()
+    return _FMStage1Profile(
+        n_periods=surviving.height,
         min_assets_per_period=(
             0 if min_surviving_assets is None else int(min_surviving_assets)
         ),

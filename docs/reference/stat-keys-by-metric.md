@@ -106,7 +106,9 @@ is emitted.
 - *secondary-test* (conditional, Shanken applied):
   `p_value_uncorrected`, `stat_uncorrected`.
 - *descriptive*: `n_periods`, `newey_west_lags`, `forward_periods`,
-  `is_estimated_factor`, `warning_codes` (conditional).
+  `is_estimated_factor`, `warning_codes` (conditional),
+  `min_assets_per_period` / `warn_assets_per_period` when the upstream
+  FM beta series carries per-date asset counts.
 - *descriptive* (conditional, Shanken applied): `shanken_c`,
   `shanken_factor_return_var`, `shanken_factor_return_var_source`.
 - *descriptive* (conditional, σ²_f ≈ 0): `shanken_correction` =
@@ -138,7 +140,9 @@ is emitted.
 
 Descriptive; no test.
 
-- *descriptive*: `expected_sign`, `n_periods`.
+- *descriptive*: `expected_sign`, `n_periods`,
+  `min_assets_per_period` / `warn_assets_per_period` when the upstream
+  FM beta series carries per-date asset counts.
 
 ### `caar` family (`factrix.metrics.caar`)
 

@@ -21,6 +21,7 @@ from factrix.metrics._helpers import _attach_drop_stats
 # Two parameters (intercept + slope) leave one residual degree of freedom
 # at three observations.
 MIN_FM_ASSETS_HARD: int = 3
+MIN_FM_ASSETS_WARN: int = 10
 
 
 @metric(
@@ -60,12 +61,14 @@ def compute_fm_betas(
 
     Returns:
         Dict mapping each factor name to a DataFrame with columns
-        ``date, beta`` sorted by date, plus an internal ``_drop_stats``
-        diagnostic struct column. A date is emitted only when it has
-        at least ``MIN_FM_ASSETS_HARD`` complete ``(factor, return)`` pairs and
-        a non-degenerate cross-sectional spread; dates with zero factor
-        variance (no identifiable slope) are dropped. ``_drop_stats``
-        records the per-factor aggregate drop count.
+        ``date, beta, n_assets`` sorted by date, plus an internal
+        ``_drop_stats`` diagnostic struct column. A date is emitted only
+        when it has at least ``MIN_FM_ASSETS_HARD`` complete
+        ``(factor, return)`` pairs and a non-degenerate cross-sectional
+        spread; dates with zero factor variance (no identifiable slope)
+        are dropped. Dates below ``MIN_FM_ASSETS_WARN`` survive but are
+        surfaced by downstream FM consumers as thin-cross-section warnings.
+        ``_drop_stats`` records the per-factor aggregate drop count.
     """
     cols = list(factor_cols)
     if not cols:
@@ -112,7 +115,7 @@ def compute_fm_betas(
             )
             .filter(pl.col("_cnt") >= MIN_FM_ASSETS_HARD)
             .drop_nulls("beta")
-            .select("date", "beta"),
+            .select("date", "beta", pl.col("_cnt").alias("n_assets")),
             n_in=n_periods_in,
             drop_reason=drop_reason,
         )

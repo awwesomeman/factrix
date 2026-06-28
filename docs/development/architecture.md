@@ -283,6 +283,9 @@ internally by the primitives that procedures wrap:
   slope `Cov_t(x, y) / Var_t(x)` is computed batched across factors (one
   `group_by("date").agg`), so degenerate (zero-variance) dates are dropped rather
   than assigned an arbitrary least-norm slope.
+  `MIN_FM_ASSETS_WARN = 10` preserves those computable 3..9-asset dates
+  while surfacing `WarningCode.FEW_ASSETS` from FM consumers and
+  `inspect_data`.
 
 ### Inflation cost at low `n_assets`
 
@@ -499,8 +502,10 @@ per-date OLS R = α + β·FactorDensity across n_assets   (cross-section step)
 
 Failure modes:
 
-- per-date `n_assets` < 3 → date dropped (`if len(y) < 3: continue`).
-- per-date `n_assets` small but ≥ 3 → df = `n_assets` − 2 minimal, β unstable.
+- per-date `n_assets` < 3 → `MIN_FM_ASSETS_HARD` drops that date.
+- per-date `3 <= n_assets < 10` → FM beta is returned with
+  `WarningCode.FEW_ASSETS` keyed to `MIN_FM_ASSETS_WARN` because
+  df = `n_assets` - 2 is minimal.
 - `n_periods < MIN_FM_PERIODS_HARD = 4` → short-circuit to insufficient
   (math floor — NW HAC `t` undefined below).
 - `MIN_FM_PERIODS_HARD ≤ n_periods < MIN_FM_PERIODS_WARN = 30` → returns
