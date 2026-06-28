@@ -22,13 +22,18 @@ from factrix._axis import (
     Aggregation,
     DataStructure,
     FactorDensity,
+    FactorScope,
     InputShape,
 )
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import _adf, _p_value_from_t
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _enforce_min_floor, _surface_null_drop
+from factrix.metrics._helpers import (
+    _enforce_min_floor,
+    _resolve_series_value_col,
+    _surface_null_drop,
+)
 from factrix.metrics.ic import compute_ic
 
 __all__ = [
@@ -37,7 +42,9 @@ __all__ = [
 
 
 @metric(
-    cell=cell(None, FactorDensity.DENSE, structure=DataStructure.TIMESERIES),
+    cell=cell(
+        FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
+    ),
     aggregation=Aggregation.TS_ONLY,
     input_shape=InputShape.SERIES,
     requires={"series": compute_ic},
@@ -127,6 +134,7 @@ def ic_trend(
         >>> result.name == ""
         True
     """
+    value_col = _resolve_series_value_col(series, value_col)
     if adf_threshold is not None and not (0.0 < adf_threshold < 1.0):
         raise ValueError(
             f"adf_threshold must be a probability in (0, 1) or None, "

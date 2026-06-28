@@ -9,7 +9,15 @@ import factrix as fx
 import polars as pl
 import pytest
 from factrix._errors import UserInputError
-from factrix.metrics import caar, clustering_hhi, ic, ic_ir
+from factrix.metrics import (
+    caar,
+    clustering_hhi,
+    hit_rate,
+    ic,
+    ic_ir,
+    ic_trend,
+    oos_decay,
+)
 
 
 def _panel(n_assets: int = 20, n_dates: int = 80, *, with_price: bool = True):
@@ -324,6 +332,47 @@ class TestStrictCellSoftening:
         )["factor"]
         assert er2.metrics["hhi"].metadata["reason"] == "structure_mismatch"
         assert er2.metrics["ic"].metadata["reason"] == "structure_mismatch"
+
+    def test_series_diagnostics_do_not_run_on_single_asset_dense_panel(self):
+        single = self._single_asset_panel()
+        info = fx.inspect_data(single, factor_cols=["factor"])
+        verdicts = {m.name: m for m in info.metrics}
+        for name in ("hit_rate", "oos_decay", "ic_trend"):
+            assert verdicts[name].usable is False
+            assert any("cell mismatch" in b for b in verdicts[name].blockers)
+
+        er = fx.evaluate(
+            single,
+            metrics={
+                "hit_rate": hit_rate(),
+                "oos_decay": oos_decay(),
+                "ic_trend": ic_trend(),
+            },
+            factor_cols=["factor"],
+            forward_periods=5,
+            strict=False,
+        )["factor"]
+
+        for name in ("hit_rate", "oos_decay", "ic_trend"):
+            out = er.metrics[name]
+            assert math.isnan(out.value)
+            assert out.metadata["reason"] == "structure_mismatch"
+
+    def test_series_diagnostics_run_on_panel_ic_series(self):
+        er = fx.evaluate(
+            _panel(n_assets=20, n_dates=120),
+            metrics={
+                "hit_rate": hit_rate(),
+                "oos_decay": oos_decay(),
+                "ic_trend": ic_trend(),
+            },
+            factor_cols=["factor"],
+            forward_periods=5,
+        )["factor"]
+
+        assert not math.isnan(er.metrics["hit_rate"].value)
+        assert not math.isnan(er.metrics["oos_decay"].value)
+        assert not math.isnan(er.metrics["ic_trend"].value)
 
     def test_dense_factor_does_not_run_sparse_event_metric(self):
         panel = _panel(n_assets=20, n_dates=120)

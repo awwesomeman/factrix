@@ -18,8 +18,8 @@ title: factrix.metrics.hit_rate
 
     ---
 
-    `hit_rate` is a `(*, CONTINUOUS, *, TIMESERIES)` diagnostic — input
-    is a 1-D series with `(date, value)`, not the raw panel. Typical
+    `hit_rate` is a standalone series diagnostic — input is a 1-D series
+    with `(date, value)`, not the raw panel. Typical
     pipes: per-date information coefficient (IC) from `compute_ic`, quantile spread from
     `compute_spread_series`, or any other factor-mimicking-portfolio
     return series. Reports the fraction of periods with `value > 0`

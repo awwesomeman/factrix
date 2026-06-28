@@ -118,9 +118,11 @@ print("Survivors:", [p.factor for p in ic_screen.survivors])
 A single-asset panel (`n_assets == 1`) resolves to `DataStructure.TIMESERIES`.
 `Common × Continuous` metrics (`ts_beta`, `ts_quantile_spread`, `ts_asymmetry`)
 are `PANEL` and need `N >= 2` — they raise `IncompatibleAxisError` at `N == 1`.
-Single-asset data is served by `(*, SPARSE, *)` metrics, the two-column
-TIMESERIES diagnostics (`hit_rate`, `oos_decay`, `ic_trend`), and panel-input
-metrics whose structure is wildcarded, such as `directional_hit_rate`.
+Single-asset data is served by `(*, SPARSE, *)` metrics and panel-input metrics
+whose structure is wildcarded, such as `directional_hit_rate`. Two-column
+diagnostics (`hit_rate`, `oos_decay`, `ic_trend`) remain standalone
+`(date, value)` tools; in `evaluate()` they layer on panel IC series, not raw
+single-asset dense panels.
 
 ```python
 import factrix as fx

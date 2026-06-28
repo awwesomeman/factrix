@@ -19,6 +19,7 @@ from factrix._axis import (
     Aggregation,
     DataStructure,
     FactorDensity,
+    FactorScope,
     InputShape,
 )
 from factrix._metric_index import cell
@@ -32,6 +33,7 @@ from factrix._types import MIN_SERIES_PERIODS_HARD
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _enforce_scaled_floor,
+    _resolve_series_value_col,
     _sample_non_overlapping,
     _scaled_periods_threshold,
     _short_circuit_output,
@@ -69,7 +71,9 @@ def per_date_series(series: pl.DataFrame) -> pl.DataFrame:
 
 
 @metric(
-    cell=cell(None, FactorDensity.DENSE, structure=DataStructure.TIMESERIES),
+    cell=cell(
+        FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
+    ),
     aggregation=Aggregation.TS_ONLY,
     input_shape=InputShape.SERIES,
     requires={"series": compute_ic},
@@ -124,6 +128,7 @@ def hit_rate(
         >>> result.name == ""
         True
     """
+    value_col = _resolve_series_value_col(series, value_col)
     # Primary periods gate: raw date count vs the stride-scaled floor, matching
     # inspect_data pre-flight (raw_n vs MIN_SERIES_PERIODS_HARD * forward_periods).
     sc = _enforce_scaled_floor(
