@@ -30,6 +30,9 @@ Common x Continuous:
     compute_rolling_mean_beta, ts_beta_sign_consistency,
     ts_quantile_spread, ts_asymmetry
 
+Single-asset x Continuous:
+    predictive_beta -- TIMESERIES dense predictive regression with NW HAC
+
 Series diagnostics -- axis-agnostic on ``(date, value)``:
     hit_rate, ic_trend, oos_decay
 
@@ -76,6 +79,7 @@ from factrix.metrics.mfe_mae import (
 )
 from factrix.metrics.monotonicity import monotonicity
 from factrix.metrics.oos_decay import oos_decay
+from factrix.metrics.predictive_beta import predictive_beta
 from factrix.metrics.quantile import (
     quantile_spread,
     quantile_spread_vw,
@@ -123,6 +127,7 @@ __all__ = [
     "notional_turnover",
     "pooled_beta",
     "profit_factor",
+    "predictive_beta",
     "quantile_spread",
     "quantile_spread_vw",
     "signal_density",

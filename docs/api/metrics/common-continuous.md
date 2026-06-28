@@ -22,10 +22,11 @@ $\beta_i$, so they need $N \ge 2$ assets. At `N == 1` there is no
 cross-section: the cell is `PANEL`, so `evaluate` raises
 `IncompatibleAxisError` (or returns NaN + `structure_mismatch` under
 `strict=False`) rather than running. For single-asset time-series
-questions use the two-column series diagnostics (`hit_rate`,
-`oos_decay`, `ic_trend`) on an explicit `(date, value)` series, or
-the panel-input `directional_hit_rate` on
-`(date, asset_id, factor, forward_return)`.
+questions use [`predictive_beta`](predictive_beta.md) for the direct
+dense predictive-regression slope, the panel-input `directional_hit_rate`
+on `(date, asset_id, factor, forward_return)` for directional skill, or
+the two-column series diagnostics (`hit_rate`, `oos_decay`, `ic_trend`) on
+an explicit `(date, value)` series.
 
 The `Common × Sparse` cell swaps this continuous regressor for a
 `{0, R}` broadcast event dummy (`R` unrestricted; `{0, 1}` for a pure

@@ -101,6 +101,12 @@ Min sample*. `MIN_*` constants resolve to values in the
 | [`ts_quantile_spread`][factrix.metrics.ts_quantile.ts_quantile_spread] | `T` | `T ≥ MIN_PORTFOLIO_PERIODS_HARD`; factor `n_unique ≥ n_groups × 2` |
 | [`ts_asymmetry`][factrix.metrics.ts_asymmetry.ts_asymmetry] | `T` | factor has both signs; each side `n_unique ≥ 2` for method B |
 
+### Single-asset dense — Cell: Timeseries × Continuous
+
+| Metric | Sample axis | Min sample |
+|---|---|---|
+| [`predictive_beta`][factrix.metrics.predictive_beta.predictive_beta] | `T` | `T ≥ MIN_PERIODS_HARD`; warn if `T < MIN_PERIODS_WARN` |
+
 ### Spread-series consumers — not cell-bound
 
 | Metric | Sample axis | Min sample |

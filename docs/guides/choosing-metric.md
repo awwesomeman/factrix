@@ -15,6 +15,7 @@ output.
 | Whether an event signal produces abnormal returns | [`caar`](../api/metrics/caar.md) | Mainstream event-time significance test for sparse factors. |
 | Whether event-study inference is sensitive to variance or ranking assumptions | [`bmp_z`](../api/metrics/caar.md), [`corrado_rank`](../api/metrics/corrado_rank.md) | Robustness checks for event-induced variance and non-normal returns. |
 | Whether a market-wide time-series factor is priced across assets | [`ts_beta`](../api/metrics/ts_beta.md) | Cross-asset test on per-asset beta estimates; requires `N >= 2`. |
+| Whether a single-asset dense signal predicts forward returns | [`predictive_beta`](../api/metrics/predictive_beta.md) | Direct `forward_return ~ factor` slope with Newey-West HAC inference; requires `N == 1`. |
 | Whether a common macro factor separates assets with opposite beta signs | [`ts_beta`](../api/metrics/ts_beta.md), [`ts_beta_sign_consistency`](../api/metrics/ts_beta.md#factrix.metrics.ts_beta.ts_beta_sign_consistency) | Read the beta profile, sign split, and explanatory power before turning it into an allocation rule. |
 | Whether a small allocation universe has a fixed-count long-short edge | [`k_spread`](../api/metrics/k_spread.md), [`directional_hit_rate`](../api/metrics/directional_hit_rate.md) | Supplementary small-N diagnostics when quantile buckets are too thin; not a replacement for the canonical IC/FM p-value family. |
 | Whether a signal is tradable after turnover / cost pressure | [`tradability`](../api/metrics/tradability.md), [`concentration`](../api/metrics/concentration.md) | Descriptive diagnostics around implementation pressure. |
@@ -49,9 +50,10 @@ Both metrics evaluate individual, continuous factors (`FactorScope.INDIVIDUAL` a
 For common macro factors, `ts_beta` is the average exposure test. Inspect
 `metadata["beta_std"]`, `metadata["median_beta"]`,
 `ts_beta_sign_consistency`, and `mean_r_squared` when assets may load with
-opposite signs. For small individual dense panels, use `k_spread` and
-`directional_hit_rate` as supplementary reads alongside IC / FM, not as a new
-screening family.
+opposite signs. For one-asset dense data, use `predictive_beta` for the
+HAC-corrected magnitude slope and `directional_hit_rate` for sign prediction.
+For small individual dense panels, use `k_spread` and `directional_hit_rate`
+as supplementary reads alongside IC / FM, not as a new screening family.
 
 ---
 

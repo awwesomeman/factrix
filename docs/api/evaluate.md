@@ -51,11 +51,12 @@ title: factrix.evaluate
     `Common × Continuous` (`ts_beta`, `ts_quantile`, `ts_asymmetry`) —
     raises `IncompatibleAxisError` (or NaN + `structure_mismatch` under
     `strict=False`). Single-asset data runs through the same entry point
-    with sparse metrics whose cell wildcard allows `TIMESERIES` and
-    panel-input wildcard metrics such as `directional_hit_rate`. Two-column
-    diagnostics (`hit_rate`, `oos_decay`, `ic_trend`) are standalone
-    `(date, value)` tools; in `evaluate()` they layer on panel IC series,
-    not raw single-asset dense panels.
+    with `predictive_beta` for dense predictive-regression slopes, sparse
+    metrics whose cell wildcard allows `TIMESERIES`, and panel-input wildcard
+    metrics such as `directional_hit_rate`. Two-column diagnostics
+    (`hit_rate`, `oos_decay`, `ic_trend`) are standalone `(date, value)`
+    tools; in `evaluate()` they layer on panel IC series, not raw
+    single-asset dense panels.
 
 </div>
 
