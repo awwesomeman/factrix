@@ -251,6 +251,13 @@ would let the gate, the report, and the estimate silently disagree.
 
 ### Backing constants
 
+User-facing `@metric` decorators must spell out `sample_threshold=...`.
+Use a non-empty `SampleThreshold` when `inspect_data()` can pre-flight a
+runtime sample gate; use `SampleThreshold()` when the lack of a static
+panel-shape floor is deliberate. Primitive producers under
+`factrix/metrics/_primitives/` may omit the decorator field because consumers
+surface the user-facing threshold or drop statistics.
+
 `factrix/_stats/constants.py`:
 
 - `MIN_PERIODS_HARD = 20`, `MIN_PERIODS_WARN = 30` — the two-tier `n_periods` thresholds.

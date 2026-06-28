@@ -224,6 +224,9 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricResult:
     input_shape=InputShape.PANEL,
     output_shape=OutputShape.SERIES,
     role=SpecRole.PIPELINE,
+    # Pipeline producer: window-specific eligibility is enforced in-body; no
+    # static panel-shape floor can pre-flight how many rolling dates survive.
+    sample_threshold=SampleThreshold(),
 )
 def compute_rolling_mean_beta(
     data: pl.DataFrame,
