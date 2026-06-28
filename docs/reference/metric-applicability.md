@@ -108,14 +108,19 @@ Min sample*. `MIN_*` constants resolve to values in the
 | [`spanning_alpha`][factrix.metrics.spanning.spanning_alpha] | `T` | aligned spread series |
 | [`greedy_forward_selection`][factrix.metrics.spanning.greedy_forward_selection] | `T` | as `spanning_alpha` |
 
-### Series-tools — not cell-bound
+### IC-series diagnostics — Cell: Individual × Continuous
 
 | Metric | Sample axis | Min sample |
 |---|---|---|
 | [`hit_rate`][factrix.metrics.hit_rate.hit_rate] | series length | `T ≥ MIN_SERIES_PERIODS_HARD` |
-| [`directional_hit_rate`][factrix.metrics.directional_hit_rate.directional_hit_rate] | pooled `(date, asset)` signs | non-overlapping obs `≥ MIN_DIRECTIONAL_PAIRS_HARD`; warn if below `MIN_DIRECTIONAL_PAIRS_WARN` |
 | [`ic_trend`][factrix.metrics.trend.ic_trend] | `T` | `T ≥ 10` (literal floor) |
 | [`oos_decay`][factrix.metrics.oos_decay.oos_decay] | `T` | `T ≥ 2 × MIN_OOS_PERIODS_HARD` |
+
+### Directional sign diagnostics — not cell-bound
+
+| Metric | Sample axis | Min sample |
+|---|---|---|
+| [`directional_hit_rate`][factrix.metrics.directional_hit_rate.directional_hit_rate] | pooled `(date, asset)` signs | non-overlapping obs `≥ MIN_DIRECTIONAL_PAIRS_HARD`; warn if below `MIN_DIRECTIONAL_PAIRS_WARN` |
 
 ## Sample-size constants
 [](){ #sample-size-constants }

@@ -69,11 +69,11 @@ _CELL_HEADING_MAP: dict[str, list[tuple[FactorScope, FactorDensity]]] = {
 }
 
 # Not-cell-bound family-name → cells. Spread-series consumers operate on
-# the Individual × Continuous quantile spread output; series-tools are
-# wildcard-scope, ``(*, DENSE, *, TIMESERIES)``.
+# the Individual × Continuous quantile spread output; directional sign
+# diagnostics are wildcard-scope dense metrics.
 _NOT_CELL_BOUND_MAP: dict[str, list[tuple[FactorScope, FactorDensity]]] = {
     "Spread-series consumers": [(FactorScope.INDIVIDUAL, FactorDensity.DENSE)],
-    "Series-tools": [
+    "Directional sign diagnostics": [
         (FactorScope.INDIVIDUAL, FactorDensity.DENSE),
         (FactorScope.COMMON, FactorDensity.DENSE),
     ],

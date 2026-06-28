@@ -18,8 +18,8 @@ title: factrix.metrics.trend
 
     ---
 
-    `ic_trend` is a `(*, CONTINUOUS, *, TIMESERIES)` diagnostic — input
-    is a 1-D `(date, value)` series, typically the per-date IC from
+    `ic_trend` is a standalone series diagnostic — input is a 1-D
+    `(date, value)` series, typically the per-date IC from
     `compute_ic`. Slope $\approx 0$ = stable; slope significantly $< 0$
     = decaying (crowding / alpha erosion in the Lou-Polk 2022 sense);
     slope significantly $> 0$ = improving.

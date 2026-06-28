@@ -604,11 +604,11 @@ test the **cross-asset** distribution of per-asset βs, so they require
 derived `TIMESERIES` structure, so `evaluate` raises
 `IncompatibleAxisError` (or NaN + `structure_mismatch` under
 `strict=False`). There is **no** single-series beta collapse. For single-asset
-time-series diagnostics, use a metric whose registered cell allows `TIMESERIES`
-(for example `hit_rate`, `oos_decay`, or `ic_trend`) on an explicit
-`(date, value)` series; use `directional_hit_rate` on the long-panel
-`(date, asset_id, factor, forward_return)` shape, or use sparse metrics whose
-structure is wildcarded.
+dense directional diagnostics, use `directional_hit_rate` on the long-panel
+`(date, asset_id, factor, forward_return)` shape. Two-column diagnostics
+(`hit_rate`, `oos_decay`, `ic_trend`) remain standalone `(date, value)` tools;
+their `evaluate()` path layers on panel IC series, not raw single-asset dense
+panels. Sparse metrics whose structure is wildcarded remain available at N=1.
 
 ### `(*, SPARSE, *) × N=1` (TS dummy) — time-series only
 

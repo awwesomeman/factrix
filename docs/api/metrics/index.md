@@ -100,9 +100,10 @@ but their registered structure is `PANEL`; at `N == 1` they raise
 `IncompatibleAxisError` (or return NaN with `structure_mismatch` under
 `strict=False`) rather than silently switching to a single-series beta.
 Single-asset workflows use sparse metrics whose cell wildcard allows
-`TIMESERIES`, two-column series diagnostics such as `hit_rate` /
-`oos_decay` / `ic_trend`, or panel-input wildcard metrics such as
-`directional_hit_rate`.
+`TIMESERIES` or panel-input wildcard metrics such as `directional_hit_rate`.
+Two-column diagnostics such as `hit_rate` / `oos_decay` / `ic_trend` are
+standalone `(date, value)` tools; in `evaluate()` they layer on panel IC
+series, not raw single-asset dense panels.
 
 See [Concepts](../../getting-started/concepts.md) for the full
 three-axis design and how metrics map to cells.
@@ -119,10 +120,11 @@ modules plus a fourth axis-agnostic group**:
 | `Common × Sparse` | **Common sparse** | A market-wide event dummy broadcast across `N` assets, with the `{0, R}` sparse signal shape. Evaluated through the same scope-agnostic event-time metrics as Individual sparse (CAAR significance plus event diagnostics) — not the time-series-first OLS-β flow. |
 | `Common × Dense` | **Common continuous** | Single time series broadcast across assets (VIX, USD index, …). |
 
-**Series diagnostics** (`hit_rate`, `trend`, `oos_decay`) are axis-agnostic —
-they operate on any `(date, value)` series produced by the upstream
-cell metrics and are not bound to a specific cell. `directional_hit_rate`
-lives near them because it is also a sign diagnostic, but it is panel-input:
+**Series diagnostics** (`hit_rate`, `trend`, `oos_decay`) are standalone
+axis-agnostic helpers on `(date, value)` inputs. Their `evaluate()` path is
+the panel IC-series path (`compute_ic` → diagnostic), so their registered
+cell reflects that producer contract. `directional_hit_rate` lives near them
+because it is also a sign diagnostic, but it is panel-input:
 `(date, asset_id, factor, forward_return)`. Distinct from
 `DataStructure.TIMESERIES`, which is the dispatch regime for `n_assets == 1`.
 

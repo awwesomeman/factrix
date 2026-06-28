@@ -1094,6 +1094,20 @@ def _surface_null_drop(
         warning_codes.append(code)
 
 
+def _resolve_series_value_col(
+    series: pl.DataFrame,
+    value_col: str,
+    *,
+    fallback_col: str = "ic",
+) -> str:
+    """Resolve the scalar column for direct and DAG-produced series inputs."""
+    if value_col in series.columns:
+        return value_col
+    if value_col == "value" and fallback_col in series.columns:
+        return fallback_col
+    return value_col
+
+
 def _is_sparse_magnitude_weighted(
     data: pl.DataFrame,
     factor_col: str = "factor",

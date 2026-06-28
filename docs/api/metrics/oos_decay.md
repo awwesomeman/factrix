@@ -26,8 +26,8 @@ title: factrix.metrics.oos_decay
 
     ---
 
-    `oos_decay` is a `(*, CONTINUOUS, *, TIMESERIES)`
-    diagnostic — input is a 1-D `(date, value)` series, typically information coefficient (IC)
+    `oos_decay` is a standalone series diagnostic — input is a 1-D
+    `(date, value)` series, typically information coefficient (IC)
     from `compute_ic`, spread from `compute_spread_series`, or any
     other factor-mimicking-portfolio return series. Reports
     $|\mathrm{mean}_{\text{OOS}}| / |\mathrm{mean}_{\text{IS}}|$ across
