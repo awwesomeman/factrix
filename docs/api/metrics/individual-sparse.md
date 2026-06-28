@@ -10,6 +10,12 @@ or any magnitude). Common forms: `{0, 1}` for a pure event flag, or
 `{0, R}` for any real-valued magnitude; both flow through (see
 [`caar`](caar.md) for the input-form table).
 
+The non-zero sign is interpreted as the **expected return direction**.
+For raw event taxonomies such as `hike=+1` / `cut=-1`, map the event type into
+an asset-specific bullish/bearish signal before running sparse metrics. If a
+hike is expected to hurt duration assets but help a currency basket, the two
+asset groups should receive opposite factor signs on the same policy date.
+
 | Metric | Page |
 |---|---|
 | Cumulative average abnormal return — $t$-test or BMP $z$-test | [`caar`](caar.md) |

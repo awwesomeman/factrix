@@ -21,7 +21,7 @@ market-cap tier, ADV bucket all share the same dispatcher.
 - `data` — a raw long-format panel, the **same input contract as
   `evaluate`** (`date, asset_id, <factor_col>, forward_return`), with the
   slicing column `by` already present.
-- `metric` — a metric **instance** (`ic()`, `caar(forward_periods=5)`),
+- `metric` — a metric **instance** (`ic()`, `caar()`),
   consistent with `evaluate(metrics={...})`. The bare class (`ic`) is
   rejected.
 - `by` — the partition column.

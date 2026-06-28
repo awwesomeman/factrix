@@ -126,6 +126,41 @@ available, but expect `WarningCode.FEW_ASSETS` on thin cross-sections. The
 small-N spread and directional diagnostics are supplementary; they do not
 replace the canonical p-value family for screening.
 
+## Country-level momentum
+
+Country equity, rates, FX, or commodity momentum is usually an
+asset-specific dense signal: each asset has its own score on each date. Keep it
+in the `Individual × Dense` cell and read a small set of complementary
+diagnostics:
+
+```python
+from factrix.metrics import directional_hit_rate, fm_beta, k_spread
+
+country_panel = panel.rename({"factor": "country_momentum"})
+
+country = fx.evaluate(
+    country_panel,
+    metrics={
+        "fm": fm_beta(),
+        "spread": k_spread(k=2),
+        "direction": directional_hit_rate(),
+    },
+    factor_cols=["country_momentum"],
+    forward_periods=5,
+    strict=False,
+)
+
+result = country["country_momentum"]
+print(result.metrics["fm"].value, result.metrics["fm"].p_value)
+print(result.metrics["spread"].value, result.metrics["spread"].p_value)
+print(result.metrics["direction"].value, result.metrics["direction"].p_value)
+```
+
+`fm_beta` keeps the economic unit of the signal, `k_spread` gives a
+fixed-count long-short read when the asset universe is small, and
+`directional_hit_rate` checks whether the signal gets the sign right. Treat the
+three as factor diagnostics, not as a completed allocation rule.
+
 ## Common macro factors and heterogeneous betas
 
 Common factors such as growth surprises, inflation shocks, VIX, DXY, or policy
@@ -183,6 +218,130 @@ This remains a factor diagnostic. If the beta vector suggests a long-equity /
 short-duration rotation, convert that insight into weights, risk budgets,
 rebalance rules, and transaction-cost assumptions in a downstream portfolio or
 backtest layer.
+
+## Mapped policy event factors
+
+Sparse event factors use their non-zero sign as the expected return direction.
+That is not always the raw event type. A central-bank hike can be bearish for
+duration-sensitive assets, bullish for a currency basket, and neutral for some
+commodities. Encode the factor after that mapping, then run the sparse metrics.
+
+```python
+from factrix.metrics import caar, clustering_hhi, event_hit_rate, profit_factor
+from factrix.metrics.caar import compute_caar
+
+dates = (
+    panel.select("date")
+    .unique()
+    .sort("date")
+    .with_row_index("t")
+    .with_columns(
+        pl.when(pl.col("t") % 5 == 0)
+        .then(1.0)      # raw hike
+        .when(pl.col("t") % 11 == 0)
+        .then(-1.0)     # raw cut
+        .otherwise(0.0)
+        .alias("policy_event_type")
+    )
+    .select("date", "policy_event_type")
+)
+asset_map = (
+    panel.select("asset_id")
+    .unique()
+    .sort("asset_id")
+    .with_row_index("i")
+    .with_columns(
+        pl.when(pl.col("i") % 3 == 0)
+        .then(-1.0)     # hike expected to hurt this asset group
+        .otherwise(1.0)
+        .alias("policy_expected_direction")
+    )
+    .select("asset_id", "policy_expected_direction")
+)
+
+policy_panel = (
+    panel.join(dates, on="date")
+    .join(asset_map, on="asset_id")
+    .with_columns(
+        (pl.col("policy_event_type") * pl.col("policy_expected_direction"))
+        .alias("policy_signal")
+    )
+)
+
+hit = event_hit_rate(policy_panel, factor_col="policy_signal")
+pf = profit_factor(policy_panel, factor_col="policy_signal")
+caar_series = compute_caar(policy_panel, factor_col="policy_signal")
+caar_out = caar(caar_series, forward_periods=5)
+crowding = clustering_hhi(policy_panel, factor_col="policy_signal")
+
+print(hit.value, hit.p_value)
+print(pf.value)
+print(
+    caar_out.metadata["total_events"],
+    caar_out.metadata["n_event_periods"],
+    caar_out.metadata["n_event_periods_sampled"],
+)
+print(crowding.value, crowding.metadata["hhi_normalized"])
+```
+
+Read the counts in that order:
+
+| Count | Meaning |
+|---|---|
+| `total_events` | Non-zero `(date, asset_id)` event rows behind the study |
+| `n_event_periods` | Distinct event dates after same-date events are collapsed into one CAAR observation |
+| `n_event_periods_sampled` | Event dates kept by the non-overlap sampler used for the `caar` t-test |
+
+`event_hit_rate` and `profit_factor` use `sign(policy_signal)`, so they answer
+whether the mapped direction was right. `caar` preserves magnitude in
+`forward_return * policy_signal`; use a clean `{0, -1, +1}` signal when you want
+signed CAAR rather than magnitude-weighted CAAR.
+
+## Regime workflow
+
+factrix does not infer regimes. Attach labels upstream, then choose the
+descriptive or inferential path deliberately:
+
+```python
+from factrix import by_slice, slice_period_pairwise_test
+
+regime_labels = macro.with_columns(
+    pl.when(pl.col("macro_growth") >= 0)
+    .then(pl.lit("growth_up"))
+    .otherwise(pl.lit("growth_down"))
+    .alias("regime")
+).select("date", "regime")
+
+regime_panel = policy_panel.join(regime_labels, on="date")
+
+per_regime = by_slice(
+    regime_panel,
+    caar(),
+    by="regime",
+    factor_col="policy_signal",
+    strict=False,
+)
+
+pairs = slice_period_pairwise_test(
+    regime_panel,
+    caar(),
+    by="regime",
+    factor_col="policy_signal",
+    rng_seed=7,
+)
+print(pairs)
+```
+
+Use `by_slice` for per-regime result tables. Use
+`slice_period_pairwise_test` / `slice_period_joint_test` when regimes are
+date-disjoint and you need a calibrated cross-regime contrast. Do not compare
+two per-regime p-values and call that a regime difference.
+
+Date-axis slicing can truncate history for metrics that look across dates
+(`ts_beta`, event windows, rolling/OOS diagnostics). `by_slice` emits
+`WarningCode.SLICE_BOUNDARY_TRUNCATION` for those cases. For pure per-date
+metrics such as IC / FM, a date-axis split is closer to a normal period
+decomposition.
 
 ## Multi-factor screens
 

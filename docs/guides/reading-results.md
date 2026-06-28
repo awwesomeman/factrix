@@ -52,6 +52,12 @@ For a specific metric `key`, `result.metrics[key]` exposes:
 - **`warning_codes`**: Advisory warnings attached by the metric (e.g. `FEW_EVENTS`).
 - **`metadata`**: Tool-specific context.
 
+For CAAR event studies, distinguish raw events from the effective test sample:
+`metadata["total_events"]` is the raw non-zero event-row count,
+`metadata["n_event_periods"]` is the number of event dates after same-date
+events are collapsed, and `metadata["n_event_periods_sampled"]` is the
+non-overlapping event-date sample used for the headline `p_value`.
+
 ### 4. Warnings and Execution Plan
 
 - **`warnings`**: Flat list of `Warning` objects. A per-metric warning carries `source == metric_name`; a panel-level warning carries `source is None`.
