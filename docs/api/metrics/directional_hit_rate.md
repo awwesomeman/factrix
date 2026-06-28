@@ -94,7 +94,7 @@ title: factrix.metrics.directional_hit_rate
     ---
 
     When this metric applies and the sample-size guard that gates it
-    (`MIN_IC_ASSETS` floor on the non-overlapping pooled signs).
+    (`MIN_DIRECTIONAL_PAIRS_HARD` floor on the non-overlapping pooled signs).
 
     [reference/metric-applicability →](../../reference/metric-applicability.md)
 

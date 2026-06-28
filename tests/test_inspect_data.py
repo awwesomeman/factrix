@@ -206,15 +206,22 @@ class TestSampleThresholdGate:
 
 class TestICStageOneFeasibility:
     def test_ic_family_blocked_when_cross_section_never_reaches_ic_floor(self):
-        data = compute_forward_return(
-            fx.datasets.make_cs_panel(n_assets=8, n_dates=120), forward_periods=3
+        raw = compute_forward_return(
+            fx.datasets.make_cs_panel(n_assets=20, n_dates=120), forward_periods=3
+        )
+        keepers = raw["asset_id"].unique().sort().head(1).to_list()
+        data = raw.with_columns(
+            pl.when(pl.col("asset_id").is_in(keepers))
+            .then(pl.col("factor"))
+            .otherwise(None)
+            .alias("factor")
         )
         info = inspect_data(data)
 
         for name in ("ic", "ic_ir"):
             verdict = _by_name(info, name)
             assert verdict.usable is False
-            assert any("MIN_IC_ASSETS=10" in b for b in verdict.blockers)
+            assert any("MIN_IC_ASSETS_HARD=2" in b for b in verdict.blockers)
 
         assert _by_name(info, "fm_beta").usable is True
 
@@ -235,15 +242,17 @@ class TestICStageOneFeasibility:
 
         for name in ("ic", "ic_ir"):
             verdict = _by_name(info, name)
-            assert verdict.usable is False
-            assert any("n_assets_per_period_max=8" in b for b in verdict.blockers)
+            assert verdict.usable is True
+            assert verdict.blockers == []
+            assert "few_assets" in [w.code.value for w in verdict.warnings]
+            assert any("MIN_IC_ASSETS_WARN=10" in w.message for w in verdict.warnings)
 
     def test_ic_family_period_floor_uses_surviving_ic_series_length(self):
         raw = compute_forward_return(
             fx.datasets.make_cs_panel(n_assets=20, n_dates=40), forward_periods=3
         )
         full_width_cutoff = raw["date"].unique().sort()[14]
-        keepers = raw["asset_id"].unique().sort().head(8).to_list()
+        keepers = raw["asset_id"].unique().sort().head(1).to_list()
         data = raw.with_columns(
             pl.when(
                 (pl.col("date") <= full_width_cutoff)

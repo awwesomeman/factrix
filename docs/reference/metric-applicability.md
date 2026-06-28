@@ -49,7 +49,7 @@ Min sample*. `MIN_*` constants resolve to values in the
 
 | Metric | Sample axis | Min sample |
 |---|---|---|
-| [`ic_ir`][factrix.metrics.ic.ic_ir] | `T` | `T ≥ MIN_IC_ASSETS` |
+| [`ic_ir`][factrix.metrics.ic.ic_ir] | `T` | `T ≥ MIN_PERIODS_HARD`; warn if `T < MIN_PERIODS_WARN` |
 
 ### FM family — Cell: Individual × Continuous
 
@@ -112,8 +112,8 @@ Min sample*. `MIN_*` constants resolve to values in the
 
 | Metric | Sample axis | Min sample |
 |---|---|---|
-| [`hit_rate`][factrix.metrics.hit_rate.hit_rate] | series length | `T ≥ MIN_IC_ASSETS` |
-| [`directional_hit_rate`][factrix.metrics.directional_hit_rate.directional_hit_rate] | pooled `(date, asset)` signs | non-overlapping obs `≥ MIN_IC_ASSETS` |
+| [`hit_rate`][factrix.metrics.hit_rate.hit_rate] | series length | `T ≥ MIN_IC_PERIODS` |
+| [`directional_hit_rate`][factrix.metrics.directional_hit_rate.directional_hit_rate] | pooled `(date, asset)` signs | non-overlapping obs `≥ MIN_DIRECTIONAL_PAIRS_HARD`; warn if below `MIN_DIRECTIONAL_PAIRS_WARN` |
 | [`ic_trend`][factrix.metrics.trend.ic_trend] | `T` | `T ≥ 10` (literal floor) |
 | [`oos_decay`][factrix.metrics.oos_decay.oos_decay] | `T` | `T ≥ 2 × MIN_OOS_PERIODS` |
 
@@ -129,7 +129,11 @@ below.
 
 | Constant | Value | Axis | Tier | Source module | Used by |
 |---|---|---|---|---|---|
-| `MIN_IC_ASSETS` | 10 | per-date `N` | hard | `factrix/_types.py` | `compute_ic` (drops dates with `N < 10`) → consumed by `ic`, `ic_ir`, `hit_rate` |
+| `MIN_IC_ASSETS_HARD` | 2 | per-date `N` | hard | `factrix/_types.py` | `compute_ic` (drops dates with pairwise-complete `N < 2`) → consumed by `ic`, `ic_ir` |
+| `MIN_IC_ASSETS_WARN` | 10 | per-date `N` | warn | `factrix/_types.py` | `ic`, `ic_ir`, `inspect_data`; tags `WarningCode.FEW_ASSETS` when retained IC dates have `N < 10` |
+| `MIN_IC_PERIODS` | 10 | `T` | hard | `factrix/_types.py` | `ic` post-stride sampled IC series and `hit_rate` |
+| `MIN_DIRECTIONAL_PAIRS_HARD` | 10 | pooled pairs | hard | `factrix/_types.py` | `directional_hit_rate` |
+| `MIN_DIRECTIONAL_PAIRS_WARN` | 30 | pooled pairs | warn | `factrix/_types.py` | `directional_hit_rate`; tags `WarningCode.FEW_DIRECTIONAL_PAIRS` |
 | `MIN_EVENTS_HARD` | 4 | `K` (event count) | hard | `factrix/_types.py` | `caar`, `bmp_z`, `event_hit_rate`, `event_ic`, `profit_factor`, `event_skewness`, `event_around_return`, `mfe_mae`, `clustering_hhi`, `corrado_rank` |
 | `MIN_EVENTS_WARN` | 30 | `K` | warn | `factrix/_types.py` | `caar` only (Brown-Warner literature floor; descriptive event-quality metrics use HARD only) |
 | `MIN_OOS_PERIODS` | 5 | `T` (per split) | hard | `factrix/_types.py` | `oos_decay` (effective floor `T ≥ 2 × MIN_OOS_PERIODS = 10`) |
@@ -145,9 +149,12 @@ below.
 
 Naming caveats:
 
-- `MIN_IC_ASSETS` (10) gates the **per-date** asset count for
-  IC (dates below it are dropped); it is distinct from the panel-wide
-  `N` cross-asset guard, which lives solely on `MIN_ASSETS_WARN`.
+- `MIN_IC_ASSETS_HARD` (2) gates the **per-date** pairwise-complete
+  asset count for IC (dates below it are dropped). `MIN_IC_ASSETS_WARN`
+  (10) is the reliability floor: dates still run, but `ic` / `ic_ir`
+  surface `WarningCode.FEW_ASSETS`. Both are distinct from the
+  panel-wide `N` cross-asset guard, which lives solely on
+  `MIN_ASSETS_WARN`.
 - `MIN_ASSETS_WARN = 30` is a single warn floor (no `_HARD`) — the `N`
   axis only **warns** (small `N` is well-defined statistics, just
   weak), so the `_HARD` convention (which means "raise") would mislead;

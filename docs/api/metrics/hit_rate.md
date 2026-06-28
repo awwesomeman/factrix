@@ -121,7 +121,7 @@ title: factrix.metrics.hit_rate
     ---
 
     When this metric applies and the sample-size guards that gate it
-    (`MIN_IC_ASSETS` floor on the sampled series).
+    (`MIN_IC_PERIODS` floor on the sampled series).
 
     [reference/metric-applicability →](../../reference/metric-applicability.md)
 

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import math
 import warnings as _warnings
+from typing import cast
 
 import polars as pl
 
@@ -31,7 +32,8 @@ from factrix._results import MetricResult
 from factrix._stats.constants import MIN_PERIODS_HARD, MIN_PERIODS_WARN
 from factrix._types import (
     EPSILON,
-    MIN_IC_ASSETS,
+    MIN_IC_ASSETS_HARD,
+    MIN_IC_ASSETS_WARN,
     MIN_IC_PERIODS,
 )
 from factrix.inference import NEWEY_WEST, NON_OVERLAPPING, NeweyWest, NonOverlapping
@@ -63,11 +65,9 @@ _IC_CELL = cell(
 
 # Slice-test contract: IC is per-date Spearman rank
 # correlation, not a bucketed metric — slice tests never need to
-# downscale `n_groups`. The min-cross-section-per-date constraint
-# (Spearman ρ asymptotic distribution requires ≥ 30 obs per date,
-# Hollander-Wolfe-Chicken §8.6) lives in the procedure as
-# `MIN_IC_ASSETS` short-circuit, parallel to (not exposed
-# via) this attribute.
+# downscale `n_groups`. The min-cross-section-per-date hard constraint lives in
+# ``compute_ic`` as ``MIN_IC_ASSETS_HARD``; the reliability floor is surfaced by
+# consumers as ``MIN_IC_ASSETS_WARN`` / ``FEW_ASSETS``.
 min_assets_per_group: int | None = None
 per_date_series = per_date_series_rename("ic")
 
@@ -112,6 +112,40 @@ def _warn_if_high_ic_tie_ratio(ic_df: pl.DataFrame, metric_name: str) -> float:
     return med
 
 
+def _min_ic_assets(ic_df: pl.DataFrame) -> int | None:
+    """Minimum surviving per-date valid-pair asset count, if available."""
+    if "n_assets" not in ic_df.columns or ic_df.is_empty():
+        return None
+    min_assets = ic_df["n_assets"].min()
+    return None if min_assets is None else cast(int, min_assets)
+
+
+def _warn_if_few_ic_assets(
+    ic_df: pl.DataFrame,
+    metric_name: str,
+    metadata: dict[str, object],
+    warning_codes: list[str],
+) -> None:
+    """Surface retained-but-thin IC cross-sections as a soft warning."""
+    min_assets_per_period = _min_ic_assets(ic_df)
+    if min_assets_per_period is None:
+        return
+    metadata["min_assets_per_period"] = min_assets_per_period
+    metadata["warn_assets_per_period"] = MIN_IC_ASSETS_WARN
+    if min_assets_per_period >= MIN_IC_ASSETS_WARN:
+        return
+    _warnings.warn(
+        f"{metric_name}: min_assets_per_period={min_assets_per_period} below "
+        f"MIN_IC_ASSETS_WARN={MIN_IC_ASSETS_WARN}; per-date IC is computable "
+        "but the cross-section is thin. value is returned but read it cautiously.",
+        UserWarning,
+        stacklevel=2,
+    )
+    code = WarningCode.FEW_ASSETS.value
+    if code not in warning_codes:
+        warning_codes.append(code)
+
+
 def _ic_sample_threshold(self: MetricBase) -> SampleThreshold:
     """Dynamic periods floor for ``ic``: the inference method's minimum input
     length, which scales with ``forward_periods`` (non-overlapping stride) or
@@ -130,7 +164,7 @@ def _ic_shortfall_is_asset_driven(ic_df: pl.DataFrame, raw_min: int) -> bool:
     """True when a thin/empty IC series reflects too few *assets per date*.
 
     ``compute_ic`` drops any date whose valid (factor, return) cross-section is
-    below ``MIN_IC_ASSETS``, so a series that falls under the periods floor is
+    below ``MIN_IC_ASSETS_HARD``, so a series that falls under the periods floor is
     often an asset-axis problem (few-asset panels such as asset allocation), not
     a genuine shortage of dates. Naming the failure by its real axis follows the
     dimension-token grammar used across the drop-rate schema.
@@ -241,10 +275,10 @@ def ic(
                 "insufficient_ic_assets",
                 n_obs=n,
                 n_obs_axis="periods",
-                min_assets_required=MIN_IC_ASSETS,
+                min_assets_required=MIN_IC_ASSETS_HARD,
                 forward_periods=forward_periods,
                 hint=(
-                    "every cross-section has fewer than MIN_IC_ASSETS valid "
+                    "every cross-section has fewer than MIN_IC_ASSETS_HARD valid "
                     "(factor, return) pairs, so no per-date IC survived. IC "
                     "needs a wide cross-section; for few-asset panels (e.g. "
                     "asset allocation) use a time-series metric such as "
@@ -285,6 +319,7 @@ def ic(
         "tie_ratio": median_tie,
     }
     warning_codes: list[str] = []
+    _warn_if_few_ic_assets(ic_df, "ic", metadata, warning_codes)
     _surface_drop_stats(ic_df, "ic", metadata, warning_codes)
     # Surface the inference method's own soft-floor signals (e.g. a thin
     # post-stride sample tripping UNRELIABLE_SE_SHORT_PERIODS); de-dup so a
@@ -395,6 +430,7 @@ def ic_ir(
         "n_periods": n,
         "tie_ratio": median_tie,
     }
+    _warn_if_few_ic_assets(ic_df, "ic_ir", metadata, warning_codes)
     _surface_drop_stats(ic_df, "ic_ir", metadata, warning_codes)
     return MetricResult(
         value=ratio,

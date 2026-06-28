@@ -38,16 +38,19 @@ MAD_CONSISTENCY_CONSTANT: float = 1.4826
 # (e.g. an ``_ASSETS`` floor must not gate a series length); introduce a
 # separate ``_PERIODS`` constant even when the calibrated value coincides.
 
-# Per-date minimum asset count below which ``compute_ic`` drops the date
-# (cross-sectional axis). Spearman ρ needs ≥ this many names per date for
-# its asymptotic distribution to hold.
-MIN_IC_ASSETS: int = 10
+# Two-tier per-date asset-count guard for ``compute_ic`` (cross-sectional
+# axis). ``MIN_IC_ASSETS_HARD`` is the true computability floor: Spearman IC is
+# undefined below two pairwise-complete names. ``MIN_IC_ASSETS_WARN`` preserves
+# the legacy reliability floor; dates in ``[HARD, WARN)`` are retained but
+# surfaced as thin cross-sections by IC consumers and ``inspect_data``.
+MIN_IC_ASSETS_HARD: int = 2
+MIN_IC_ASSETS_WARN: int = 10
 
 # Minimum IC time-series length (periods axis) for a reliable mean / sign
 # test on the per-date IC series: the post-stride sample in ``ic()``, the
 # series-length floor in ``hit_rate``, and the raw-period base in the
 # non-overlapping inference floor all key off this "≥10 independent draws"
-# rule. Distinct axis from ``MIN_IC_ASSETS`` despite the shared value — do
+# rule. Distinct axis from ``MIN_IC_ASSETS_WARN`` despite the shared value — do
 # not collapse.
 MIN_IC_PERIODS: int = 10
 

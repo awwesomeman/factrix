@@ -36,7 +36,7 @@ from factrix._codes import WarningCode, cross_section_tier
 from factrix._data_input import _FORWARD_PERIODS_COL
 from factrix._metric_index import MetricSpec, public_specs
 from factrix._results import Warning
-from factrix._types import MIN_IC_ASSETS
+from factrix._types import MIN_IC_ASSETS_HARD, MIN_IC_ASSETS_WARN
 
 if TYPE_CHECKING:
     from factrix.metrics._base import MetricBase
@@ -199,6 +199,7 @@ class _ICStage1Profile:
     """Pre-flight shape of the IC series after ``compute_ic``'s date filter."""
 
     n_periods: int
+    min_assets_per_period: int
     max_assets_per_period: int
 
 
@@ -711,10 +712,10 @@ def _evaluate_applicability(
     threshold_properties = properties
     skip_period_floor = False
     if uses_compute_ic and ic_stage1_profile is not None:
-        if ic_stage1_profile.max_assets_per_period < MIN_IC_ASSETS:
+        if ic_stage1_profile.max_assets_per_period < MIN_IC_ASSETS_HARD:
             blockers.append(
                 f"n_assets_per_period_max={ic_stage1_profile.max_assets_per_period} "
-                f"< MIN_IC_ASSETS={MIN_IC_ASSETS}: compute_ic would drop every "
+                f"< MIN_IC_ASSETS_HARD={MIN_IC_ASSETS_HARD}: compute_ic would drop every "
                 "date before this metric runs"
             )
             skip_period_floor = True
@@ -722,6 +723,19 @@ def _evaluate_applicability(
             threshold_properties = replace(
                 properties, n_periods=ic_stage1_profile.n_periods
             )
+            if ic_stage1_profile.min_assets_per_period < MIN_IC_ASSETS_WARN:
+                warnings.append(
+                    Warning(
+                        code=WarningCode.FEW_ASSETS,
+                        source=spec.name,
+                        message=(
+                            "n_assets_per_period_min="
+                            f"{ic_stage1_profile.min_assets_per_period} "
+                            f"< MIN_IC_ASSETS_WARN={MIN_IC_ASSETS_WARN}: "
+                            "IC cross-sections are computable but thin"
+                        ),
+                    )
+                )
 
     floor = spec.sample_threshold
     for av in floor.iter_verdicts(threshold_properties):
@@ -783,19 +797,32 @@ def _compute_ic_stage1_profile(data: Any, factor_col: str) -> _ICStage1Profile |
     if "forward_return" not in data.columns:
         return None
     if data.is_empty():
-        return _ICStage1Profile(n_periods=0, max_assets_per_period=0)
+        return _ICStage1Profile(
+            n_periods=0,
+            min_assets_per_period=0,
+            max_assets_per_period=0,
+        )
 
     valid_pair = (
         pl.col(factor_col).is_not_null() & pl.col("forward_return").is_not_null()
     )
     per_date = data.group_by("date").agg(valid_pair.sum().alias("n_assets"))
     if per_date.is_empty():
-        return _ICStage1Profile(n_periods=0, max_assets_per_period=0)
+        return _ICStage1Profile(
+            n_periods=0,
+            min_assets_per_period=0,
+            max_assets_per_period=0,
+        )
 
     counts = per_date["n_assets"]
     max_assets = counts.max()
+    surviving_counts = counts.filter(counts >= MIN_IC_ASSETS_HARD)
+    min_surviving_assets = surviving_counts.min()
     return _ICStage1Profile(
-        n_periods=int((counts >= MIN_IC_ASSETS).sum()),
+        n_periods=int((counts >= MIN_IC_ASSETS_HARD).sum()),
+        min_assets_per_period=(
+            0 if min_surviving_assets is None else int(min_surviving_assets)
+        ),
         max_assets_per_period=0 if max_assets is None else int(max_assets),
     )
 

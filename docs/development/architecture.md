@@ -244,7 +244,7 @@ observations after pairwise null-drop, not the raw row count. `forward_return`
 is null-clean before it reaches a metric, but factor nulls are not dropped
 upstream and are normal in real research, so a cross-sectional reduction counts
 the **valid `(factor, return)` cross-section per date**: `compute_fm_betas`
-(`MIN_FM_ASSETS`) and `compute_ic` (`MIN_IC_ASSETS`) both gate on that
+(`MIN_FM_ASSETS`) and `compute_ic` (`MIN_IC_ASSETS_HARD`) both gate on that
 pairwise-complete count, dropping a date with many names but a factor defined
 for few rather than leaking a high-variance estimate. Counting null-padded rows
 would let the gate, the report, and the estimate silently disagree.
@@ -262,13 +262,14 @@ would let the gate, the report, and the estimate silently disagree.
 - Hansen-Hodrick (1980) overlap floor: `max(auto_bartlett(T), forward_periods - 1)` —
   ensures NW lag covers MA(h-1) structure from overlapping forward returns.
 
-`factrix/_types.py` and the metric primitives keep the older per-metric thresholds used
+`factrix/_types.py` and the metric primitives keep the per-metric thresholds used
 internally by the primitives that procedures wrap:
 
-- `MIN_IC_ASSETS = 10` — `compute_ic` drops dates with fewer than 10 complete
-  `(factor, return)` pairs (the participating cross-section the per-date Spearman
-  ρ is estimated on, mirroring `MIN_FM_ASSETS`); at fewer than 10 every date is
-  dropped and the IC procedure short-circuits to NaN.
+- `MIN_IC_ASSETS_HARD = 2`, `MIN_IC_ASSETS_WARN = 10` — `compute_ic` drops
+  only dates with fewer than 2 complete `(factor, return)` pairs, the true
+  computability floor for a per-date Spearman IC. Dates with 2..9 complete
+  pairs are retained, and IC consumers / `inspect_data` surface
+  `WarningCode.FEW_ASSETS` because the cross-section is statistically thin.
 - `MIN_EVENTS_HARD = 4`, `MIN_EVENTS_WARN = 30` — two-tier sparse-cell
   event-count floor. `n < HARD` short-circuits the CAAR / event-quality
   primitives; `HARD ≤ n < WARN` emits `WarningCode.FEW_EVENTS`.
@@ -479,7 +480,10 @@ per-date Spearman across n_assets         (cross-section step)
 
 Failure modes:
 
-- `n_assets` < 10 → `MIN_IC_ASSETS` drops every date → output is NaN.
+- per-date pairwise-complete `n_assets` < 2 → `MIN_IC_ASSETS_HARD` drops that
+  date; if every date drops, output is NaN with `insufficient_ic_assets`.
+- per-date pairwise-complete `2 ≤ n_assets < 10` → IC is returned with
+  `WarningCode.FEW_ASSETS` keyed to `MIN_IC_ASSETS_WARN`.
 
 ### `individual_continuous(FM)` — cross-section first
 
@@ -747,7 +751,7 @@ factrix/
 ├── adapt.py                 # column-name adapter → factrix canonical names
 ├── _logging.py              # shared loggers
 ├── _ols.py                  # shared OLS helpers (spanning metrics + orthogonalize preprocess)
-├── _types.py                # shared constants: EPSILON, DDOF, MIN_IC_ASSETS,
+├── _types.py                # shared constants: EPSILON, DDOF, MIN_IC_ASSETS_HARD/WARN,
 │                            #   MIN_EVENTS_HARD/WARN, MIN_OOS_PERIODS, MIN_PORTFOLIO_PERIODS_HARD/WARN, ...
 ├── _stats/                  # numerics: hac, bootstrap, unit_root, wald, gmm, ols, diagnostics, constants
 ├── stats/                   # public estimator surface (newey_west, hansen_hodrick, driscoll_kraay, gmm, ...)
