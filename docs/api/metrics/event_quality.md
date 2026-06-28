@@ -54,7 +54,7 @@ title: factrix.metrics.event_quality
     `profit_factor` reports $\sum\text{gains} / |\sum\text{losses}|$ as
     a descriptive gross ratio; `event_skewness` reports the Fisher-
     corrected skewness of the `signed_car` distribution with a
-    D'Agostino test when $N \geq 20$. Useful for screening
+    D'Agostino test when `n_events >= 20`. Useful for screening
     fat-right-tail vs symmetric event payoffs.
 
 -   __Firing frequency__
@@ -100,7 +100,7 @@ title: factrix.metrics.event_quality
 
     sk = event_skewness(panel)
     print(sk.value, sk.stat)
-    # 0.42  4.10   (approximate; stat is D'Agostino z when N >= 20)
+    # 0.42  4.10   (approximate; stat is D'Agostino z when n_events >= 20)
 
     pf = profit_factor(panel)
     print(pf.value, pf.metadata["n_wins"], pf.metadata["n_losses"])

@@ -55,7 +55,7 @@ class TestComputeForwardReturn:
         assert b_ret < 0
 
     def test_divided_by_periods(self):
-        """forward_return = (price[t+1+N]/price[t+1] - 1) / N."""
+        """forward_return = (price[t+1+forward_periods]/price[t+1] - 1) / forward_periods."""
         df = _make_price_data()
         # Asset A: price 100 → 121 over 2 periods → raw return 0.21
         # Per-period: 0.21 / 2 = 0.105

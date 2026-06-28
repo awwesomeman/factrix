@@ -58,6 +58,12 @@ An evaluation cell is defined by three orthogonal axes:
 |------|--------|-------------|
 | **FactorScope** | `INDIVIDUAL` / `COMMON` | Does each asset have its own factor value (e.g. P/E ratio), or do all assets share one value (e.g. VIX index)? |
 | **FactorDensity** | `DENSE` / `SPARSE` | Is the signal a continuous numeric exposure, or a sparse event trigger (non-events are zero; event magnitude is a real number)? |
-| **DataStructure** | `PANEL` / `TIMESERIES` | Derived from the asset count at evaluate-time: `PANEL` for $N \ge 2$, and `TIMESERIES` for $N == 1$. |
+| **DataStructure** | `PANEL` / `TIMESERIES` | Derived from the asset count at evaluate-time: `PANEL` for `n_assets >= 2`, and `TIMESERIES` for `n_assets == 1`. |
 
-A metric's cell declares which `DataStructure` it applies to. A `PANEL`-cell metric needs a cross-section, so on $N=1$ data — `Individual × Continuous` (`ic`, `fm`) or `Common × Continuous` (`ts_beta`) — `evaluate` raises `IncompatibleAxisError` (or returns NaN + `structure_mismatch` under `strict=False`). Single-asset dense data uses `predictive_beta` for the direct HAC predictive-regression slope and `directional_hit_rate` for sign prediction. Single-asset sparse data is served by `(*, SPARSE, *)` metrics. Two-column diagnostics (`hit_rate`, `oos_decay`, `ic_trend`) remain standalone `(date, value)` tools, and in `evaluate()` they are layered on panel IC series rather than raw single-asset dense panels.
+`SPARSE` is a zero-encoded event contract, not a generic discrete-factor
+label. The detector counts explicit `0` values over non-null factor cells:
+nulls are missing values, not non-events. If missing upstream rows should
+mean "no event", fill them to `0`; if the research question is event-study
+shaped, map the event-of-interest into `{0, R}` before using sparse metrics.
+
+A metric's cell declares which `DataStructure` it applies to. A `PANEL`-cell metric needs a cross-section, so on `n_assets == 1` data — `Individual × Continuous` (`ic`, `fm`) or `Common × Continuous` (`ts_beta`) — `evaluate` raises `IncompatibleAxisError` (or returns NaN + `structure_mismatch` under `strict=False`). Single-asset dense data uses `predictive_beta` for the direct HAC predictive-regression slope and `directional_hit_rate` for sign prediction. Single-asset sparse data is served by `(*, SPARSE, *)` metrics. Two-column diagnostics (`hit_rate`, `oos_decay`, `ic_trend`) remain standalone `(date, value)` tools, and in `evaluate()` they are layered on panel IC series rather than raw single-asset dense panels.

@@ -91,12 +91,12 @@ factrix has **two orthogonal classifications**:
 | | Describes | Set by | Values |
 |---|---|---|---|
 | **Cell** (`Scope × FactorDensity`) | What kind of factor it is | The user, via metrics selection | `Individual` / `Common`; `Dense` / `Sparse` |
-| **DataStructure** | Sample regime | Derived from `N` at evaluate-time | `PANEL` (`N ≥ 2`) / `TIMESERIES` (`N == 1`) |
+| **DataStructure** | Sample regime | Derived from asset count (`n_assets`) at evaluate-time | `PANEL` (`n_assets >= 2`) / `TIMESERIES` (`n_assets == 1`) |
 
 **This page groups metrics by *cell*, not by DataStructure.** A metric's
 registered `MetricSpec` still decides whether it can run on the derived
 structure. `Common × Dense` metrics live under **Common continuous** below,
-but their registered structure is `PANEL`; at `N == 1` they raise
+but their registered structure is `PANEL`; at `n_assets == 1` they raise
 `IncompatibleAxisError` (or return NaN with `structure_mismatch` under
 `strict=False`) rather than silently switching to a single-series beta.
 Single-asset dense workflows use `predictive_beta` for direct
@@ -118,11 +118,11 @@ modules plus a fourth axis-agnostic group**:
 |---|---|---|
 | `Individual × Dense` | **Individual continuous** | Both `IC` and `FM` inferential metrics live in this cell; ancillary metrics (`quantile`, `monotonicity`, `concentration`, `tradability`, `spanning`) are shared across both. |
 | `Individual × Sparse` | **Individual sparse** | Per-event tests on `(date, asset_id, factor)` with sparse `{0, R}` schema (zero on non-event entries; `R` is any real magnitude, `{0, 1}` is the simplest form). Domain shorthand: *event signal*. |
-| `Common × Sparse` | **Common sparse** | A market-wide event dummy broadcast across `N` assets, with the `{0, R}` sparse signal shape. Evaluated through the same scope-agnostic event-time metrics as Individual sparse (CAAR significance plus event diagnostics) — not the time-series-first OLS-β flow. |
+| `Common × Sparse` | **Common sparse** | A market-wide event dummy broadcast across `n_assets` assets, with the `{0, R}` sparse signal shape. Evaluated through the same scope-agnostic event-time metrics as Individual sparse (CAAR significance plus event diagnostics) — not the time-series-first OLS-β flow. |
 | `Common × Dense` | **Common continuous** | Single time series broadcast across assets (VIX, USD index, …). |
 
 **Single-asset dense** (`predictive_beta`) is the explicit
-`DataStructure.TIMESERIES` path for `N == 1`: it runs a direct
+`DataStructure.TIMESERIES` path for `n_assets == 1`: it runs a direct
 `forward_return ~ factor` predictive regression with Newey-West HAC
 inference. It is deliberately separate from `ts_beta`, whose estimand is
 the cross-asset mean of per-asset betas.
@@ -134,6 +134,20 @@ cell reflects that producer contract. `directional_hit_rate` lives near them
 because it is also a sign diagnostic, but it is panel-input:
 `(date, asset_id, factor, forward_return)`. Distinct from
 `DataStructure.TIMESERIES`, which is the dispatch regime for `n_assets == 1`.
+
+**Sparse single-asset workflows** stay in the event-density model. `{0, R}` and
+`{-R, 0, +R}` columns route to CAAR / BMP / event-quality metrics, preserving
+event semantics rather than becoming a time-series beta. Always-in-market
+`{-1, +1}` columns are dense directional signals because they have no non-event
+zero state.
+
+**What stays out of `evaluate()`**: strategy return metrics (Sharpe, Sortino,
+max drawdown, Calmar, annualized return), execution-cost metrics (slippage,
+market impact, borrow cost, liquidity capacity), threshold sweeps that select
+the best entry/exit cutoff, and walk-forward optimization. Those require a
+trading rule, portfolio weights, execution assumptions, or model-selection
+discipline. factrix evaluates factor density; feed screened factors into a
+backtest or execution simulator downstream.
 
 ## How to read a metric page
 

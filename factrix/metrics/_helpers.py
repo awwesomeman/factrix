@@ -782,7 +782,7 @@ def _assign_quantile_groups(
             # Denominator is the per-date *non-null* factor count, not the row
             # count: a null factor gets a null rank (it never lands in a bucket),
             # so counting it would shrink every quantile width and leave the top
-            # bucket unreachable (max rank / N < 1).
+            # bucket unreachable (max rank / n_assets < 1).
             pl.col(factor_col).count().over("date").alias("_n"),
         )
         .with_columns(

@@ -3,7 +3,7 @@ title: Common continuous
 ---
 
 Metrics for the `Common × Continuous` cell — one time-series factor
-broadcast across `N` assets (a market-wide signal: VIX, USD index, oil,
+broadcast across `n_assets` assets (a market-wide signal: VIX, USD index, oil,
 sentiment). Aggregation is **time-series first**: per-asset ordinary least squares (OLS) $\beta$
 over all dates, then a cross-asset $t$ on the mean of the per-asset
 betas.
@@ -18,7 +18,7 @@ betas.
 `ts_asymmetry` are descriptive profile diagnostics.
 
 These metrics test the **cross-asset** distribution of per-asset
-$\beta_i$, so they need $N \ge 2$ assets. At `N == 1` there is no
+$\beta_i$, so they need `n_assets >= 2`. At `n_assets == 1` there is no
 cross-section: the cell is `PANEL`, so `evaluate` raises
 `IncompatibleAxisError` (or returns NaN + `structure_mismatch` under
 `strict=False`) rather than running. For single-asset time-series

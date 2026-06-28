@@ -35,7 +35,7 @@ title: factrix.metrics.directional_hit_rate
     from the marginal up/down frequencies of both the prediction and the
     realisation. A factor that is simply long a persistently-rising
     market is therefore not credited with skill — the correct framing for
-    small, sign-imbalanced samples (the `N < 30` allocation regime).
+    small, sign-imbalanced samples (the `n_assets < 30` allocation regime).
 
 -   __One-sided, non-overlap sampled__
 

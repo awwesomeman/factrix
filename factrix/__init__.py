@@ -79,9 +79,11 @@ from factrix._inspect import (
     DataProperties,
     MetricApplicability,
     MetricApplicabilityGroup,
+    _allows_sparse_event_override,
     _detect_density,
     _detect_scope,
     _detect_structure,
+    _frequent_event_signal_message,
     inspect_data,
 )
 from factrix._metric_index import (
@@ -228,12 +230,35 @@ def evaluate(
     label_params = {label: dict(inst._params()) for label, inst in metrics.items()}
 
     factor_cells = {c: _detect_factor_cell(data, c) for c in cols}
-    cell_groups: dict[tuple[FactorScope, FactorDensity, DataStructure], list[str]] = {}
+    factor_sparse_ratios = {c: _detect_factor_sparse_ratio(data, c) for c in cols}
+    cell_groups: dict[
+        tuple[FactorScope, FactorDensity, DataStructure, bool, float], list[str]
+    ] = {}
     for c in cols:
-        cell_groups.setdefault(factor_cells[c], []).append(c)
+        scope, density, structure = factor_cells[c]
+        allow_sparse_event_override = _allows_sparse_event_override(
+            density, factor_sparse_ratios[c]
+        )
+        sparse_ratio_key = factor_sparse_ratios[c] if allow_sparse_event_override else 0.0
+        cell_groups.setdefault(
+            (
+                scope,
+                density,
+                structure,
+                allow_sparse_event_override,
+                sparse_ratio_key,
+            ),
+            [],
+        ).append(c)
 
     results: dict[str, EvaluationResult] = {}
-    for (scope, density, structure), group_cols in cell_groups.items():
+    for (
+        scope,
+        density,
+        structure,
+        allow_sparse_event_override,
+        sparse_ratio,
+    ), group_cols in cell_groups.items():
         n_assets = int(data["asset_id"].n_unique())
         mismatches = _cell_mismatches(
             label_spec,
@@ -241,9 +266,18 @@ def evaluate(
             density=density,
             structure=structure,
             n_assets=n_assets,
+            allow_sparse_event_override=allow_sparse_event_override,
         )
         if strict and mismatches:
             _raise_cell_mismatch(mismatches)
+        compatibility_warnings = _cell_compatibility_warnings(
+            label_spec,
+            scope=scope,
+            density=density,
+            structure=structure,
+            sparse_ratio=sparse_ratio,
+            allow_sparse_event_override=allow_sparse_event_override,
+        )
         runnable_spec = {
             label: spec for label, spec in label_spec.items() if label not in mismatches
         }
@@ -269,6 +303,7 @@ def evaluate(
                 strict,
                 ordered_labels=list(label_spec),
                 mismatches=mismatches,
+                compatibility_warnings=compatibility_warnings,
             )
     return {c: results[c] for c in cols}
 
@@ -339,9 +374,9 @@ def evaluate_horizons(
 
     Notes:
         Comparability across horizons is a *scale* alignment, not a free
-        lunch: ``compute_forward_return`` divides by ``N`` so rank-IC is
+        lunch: ``compute_forward_return`` divides by ``forward_periods`` so rank-IC is
         directly comparable across horizons, but signed-return-mean metrics
-        carry a compounding bias that grows with ``N`` (see
+        carry a compounding bias that grows with ``forward_periods`` (see
         :func:`factrix.preprocess.compute_forward_return` Notes). Treat a
         cross-horizon sweep of signed-mean metrics as descriptive.
 
@@ -550,9 +585,9 @@ def _resolve_forward_periods(data: pl.DataFrame, declared: int | None) -> int:
         value=None,
         expected=(
             "the data's overlap horizon. Either build forward_return via "
-            "factrix.preprocess.compute_forward_return(data, forward_periods=N) "
+            "factrix.preprocess.compute_forward_return(data, forward_periods=<forward_periods>) "
             "(which stamps the horizon), or, for a self-attached forward_return "
-            "column, declare it once with evaluate(..., forward_periods=N)."
+            "column, declare it once with evaluate(..., forward_periods=<forward_periods>)."
         ),
         docs_path="api/evaluate#forward_periods",
     )
@@ -698,6 +733,7 @@ def _relabel_result(
     *,
     ordered_labels: list[str],
     mismatches: "dict[str, tuple[MetricSpec, FactorScope, FactorDensity, DataStructure, int]]",
+    compatibility_warnings: list[Warning],
 ) -> EvaluationResult:
     """Re-key a node-keyed executor result onto the user's labels.
 
@@ -714,11 +750,15 @@ def _relabel_result(
             label_outputs[label] = _cell_mismatch_output(
                 label, spec, scope, density, structure
             )
+            guidance = _sparse_event_mismatch_guidance(spec, density)
+            message = "metric structure does not match the detected data structure"
+            if guidance is not None:
+                message = f"{message}. {guidance}"
             mismatch_warnings.append(
                 Warning(
                     code=WarningCode.STRUCTURE_MISMATCH,
                     source=label,
-                    message="metric structure does not match the detected data structure",
+                    message=message,
                 )
             )
             continue
@@ -734,6 +774,7 @@ def _relabel_result(
         for w in result.warnings
     ]
     warnings.extend(mismatch_warnings)
+    warnings.extend(compatibility_warnings)
     return dataclasses.replace(
         result,
         metrics=MappingProxyType(label_outputs),
@@ -820,7 +861,7 @@ def _validate_baseline_columns(data: pl.DataFrame) -> None:
         hint = (
             ". Attach forward_return:\n"
             "    data = factrix.preprocess.compute_forward_return("
-            "data, forward_periods=<N>)"
+            "data, forward_periods=<forward_periods>)"
         )
     else:
         hint = ""
@@ -845,6 +886,12 @@ def _detect_factor_cell(
     return scope, density, _detect_structure(data)
 
 
+def _detect_factor_sparse_ratio(data: pl.DataFrame, factor_col: str) -> float:
+    temp = data.select("date", "asset_id", pl.col(factor_col).alias("factor"))
+    _, _, sparse_ratio = _detect_density(temp)
+    return sparse_ratio
+
+
 def _cell_mismatches(
     label_spec: "dict[str, MetricSpec]",
     *,
@@ -852,13 +899,79 @@ def _cell_mismatches(
     density: FactorDensity,
     structure: DataStructure,
     n_assets: int,
+    allow_sparse_event_override: bool,
 ) -> "dict[str, tuple[MetricSpec, FactorScope, FactorDensity, DataStructure, int]]":
     """Map each cell-incompatible label to the spec and detected cell."""
     return {
         label: (spec, scope, density, structure, n_assets)
         for label, spec in label_spec.items()
-        if not spec.cell.matches(scope, density, structure)
+        if not _cell_matches_or_sparse_event_override(
+            spec,
+            scope=scope,
+            density=density,
+            structure=structure,
+            allow_sparse_event_override=allow_sparse_event_override,
+        )
     }
+
+
+def _cell_matches_or_sparse_event_override(
+    spec: "MetricSpec",
+    *,
+    scope: FactorScope,
+    density: FactorDensity,
+    structure: DataStructure,
+    allow_sparse_event_override: bool,
+) -> bool:
+    if spec.cell.matches(scope, density, structure):
+        return True
+    return (
+        allow_sparse_event_override
+        and spec.cell.density is FactorDensity.SPARSE
+        and spec.cell.matches(scope, FactorDensity.SPARSE, structure)
+    )
+
+
+def _cell_compatibility_warnings(
+    label_spec: "dict[str, MetricSpec]",
+    *,
+    scope: FactorScope,
+    density: FactorDensity,
+    structure: DataStructure,
+    sparse_ratio: float,
+    allow_sparse_event_override: bool,
+) -> list[Warning]:
+    if not allow_sparse_event_override:
+        return []
+    warnings: list[Warning] = []
+    for label, spec in label_spec.items():
+        if spec.cell.matches(scope, density, structure):
+            continue
+        if (
+            spec.cell.density is FactorDensity.SPARSE
+            and spec.cell.matches(scope, FactorDensity.SPARSE, structure)
+        ):
+            warnings.append(
+                Warning(
+                    code=WarningCode.FREQUENT_EVENT_SIGNAL,
+                    source=label,
+                    message=_frequent_event_signal_message(sparse_ratio),
+                )
+            )
+    return warnings
+
+
+def _sparse_event_mismatch_guidance(
+    spec: "MetricSpec", density: FactorDensity
+) -> str | None:
+    if spec.cell.density is FactorDensity.SPARSE and density is FactorDensity.DENSE:
+        return (
+            "Sparse event metrics require explicit zero non-event rows "
+            "({0, R} or {-R, 0, +R}); transform dense signals before calling "
+            "them. Always-in-market states such as {-1, +1} should stay on "
+            "dense / directional metrics."
+        )
+    return None
 
 
 def _raise_cell_mismatch(
@@ -866,12 +979,14 @@ def _raise_cell_mismatch(
 ) -> None:
     """Raise the ``strict=True`` cell-mismatch error (first offender)."""
     label, (spec, scope, density, structure, n_assets) = next(iter(mismatches.items()))
+    guidance = _sparse_event_mismatch_guidance(spec, density)
+    guidance_text = "" if guidance is None else f"; {guidance}"
     raise IncompatibleAxisError(
         f"evaluate(): metric {label!r} declares cell={spec.cell.raw} but "
         f"data has cell=({scope.value}, {density.value}, {structure.value}) "
         f"(n_assets={n_assets}); call fx.inspect_data(data) to see metrics "
         f"applicable to this data shape, or pass strict=False to keep "
-        f"mismatched metrics as NaN with warnings"
+        f"mismatched metrics as NaN with warnings{guidance_text}"
     )
 
 
@@ -888,6 +1003,8 @@ def _cell_mismatch_output(
     """
     from factrix.metrics._helpers import _short_circuit_output
 
+    guidance = _sparse_event_mismatch_guidance(spec, density)
+    guidance_metadata = {} if guidance is None else {"guidance": guidance}
     return _short_circuit_output(
         label,
         WarningCode.STRUCTURE_MISMATCH.value,
@@ -902,6 +1019,7 @@ def _cell_mismatch_output(
         data_scope=scope.value,
         data_density=density.value,
         data_structure=structure.value,
+        **guidance_metadata,
     )
 
 

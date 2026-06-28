@@ -179,7 +179,7 @@ def test_raises_when_dates_dont_align() -> None:
 
 
 def test_aligned_slices_but_metric_dropped_reports_small_sample() -> None:
-    """Date-aligned slices whose tiny cross-sections (N < MIN_IC_ASSETS_HARD) make
+    """Date-aligned slices whose tiny cross-sections (n_assets < MIN_IC_ASSETS_HARD) make
     every per-date IC drop must blame the thin universe, not call the
     partition date-disjoint."""
     df = build_labelled_raw_panel(

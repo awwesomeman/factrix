@@ -161,9 +161,12 @@ def make_cs_panel(
     daily_ret = rng.standard_normal((n_dates, n_assets)) * sigmas
     prices = 100.0 * np.cumprod(1.0 + daily_ret, axis=0)
 
-    N = signal_horizon
-    last_valid = n_dates - N - 1
-    fr = (prices[1 + N : 1 + N + last_valid] / prices[1 : 1 + last_valid] - 1.0) / N
+    last_valid = n_dates - signal_horizon - 1
+    fr = (
+        prices[1 + signal_horizon : 1 + signal_horizon + last_valid]
+        / prices[1 : 1 + last_valid]
+        - 1.0
+    ) / signal_horizon
 
     rho = float(np.clip(ic_target, -0.99, 0.99))
     noise = rng.standard_normal((n_dates, n_assets))

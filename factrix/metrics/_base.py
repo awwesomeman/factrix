@@ -98,7 +98,7 @@ class MetricMeta(type):
                     f"{name!r} is no longer a metric parameter — it is the "
                     f"panel's overlap horizon, read from the data. Set it once "
                     f"via factrix.preprocess.compute_forward_return(data, "
-                    f"forward_periods=N); evaluate reads it from there."
+                    f"forward_periods=<forward_periods>); evaluate reads it from there."
                 ),
                 docs_path="api/evaluate#forward_periods",
             )

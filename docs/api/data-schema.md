@@ -10,10 +10,15 @@ Single-source contract for every `factrix` entry point that consumes a panel. Ev
 |---|---|---|
 | `date` | `Date` (preferred) or `Datetime` | Observation timestamp. Sorted ascending per asset. Frequency-agnostic — factrix shifts rows, never calendar time. |
 | `asset_id` | `Utf8` / `Categorical` | Cross-section identifier. Identical for COMMON-scope factors (`df.group_by("date").agg(pl.col("factor").n_unique() == 1).all()` is `True`). |
-| `factor` | `Float64` | The signal value. Continuous: real-valued (z-score, IC-rankable). Sparse: `{0, R}` event trigger — `0` for non-events, arbitrary real magnitude otherwise; expect ≥ 50% zeros. |
+| `factor` | `Float64` | The signal value. Dense: real-valued exposure (z-score, IC-rankable). Sparse: zero-encoded `{0, R}` event trigger, where `0` marks non-events. |
 | `forward_return` | `Float64` | Look-ahead return over the horizon used at evaluate time. Attach via [`compute_forward_return`](preprocess.md) so the horizon is explicit and aligned with `forward_periods`. |
 
 The minimal panel is therefore long-format `(date, asset_id, factor, forward_return)`. A 3-row preview:
+
+For sparse factors, null factor cells are missing values, not non-events, and
+are excluded from sparse-ratio detection. Fill missing values to `0` only when
+that is the intended event contract; see
+[Sparse and event signals](../guides/preparing-data.md#7-sparse-and-event-signals).
 
 ```python
 import polars as pl

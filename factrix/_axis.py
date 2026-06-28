@@ -5,11 +5,12 @@ Two orthogonal user-facing axes describe an analysis cell:
 - ``FactorScope`` — does the factor vary per-asset (``INDIVIDUAL``) or
   carry a single value broadcast to every asset (``COMMON``)?
 - ``FactorDensity`` — continuous numeric exposure (``DENSE``) vs.
-  ``{0, R}`` event triggers (``SPARSE`` — zero on non-event entries,
-  arbitrary real magnitude otherwise; canonical example ``{-1, 0, +1}``)?
+  zero-encoded event triggers (``SPARSE``): ``0`` is the explicit
+  non-event state, and any non-zero real value is an event magnitude
+  / direction (canonical example ``{-1, 0, +1}``)?
 
 ``DataStructure`` is the third axis used by registry keys / dispatch but is not
-user-set: it is derived from ``N`` at evaluate-time and surfaced as the
+user-set: it is derived from ``n_assets`` at evaluate-time and surfaced as the
 third position of ``EvaluationResult.cell`` for downstream pattern-match.
 
 Metric-spec structural enums (``Aggregation``, ``SpecRole``,
@@ -33,7 +34,10 @@ class FactorDensity(StrEnum):
     """Continuous numeric exposure vs. ``{0, R}`` sparse event trigger.
 
     Sparse columns are zero on non-event entries with arbitrary real
-    magnitude otherwise (canonical example ``{-1, 0, +1}``).
+    magnitude otherwise (canonical example ``{-1, 0, +1}``). This is
+    a zero-value encoding contract, not a generic "low-cardinality"
+    or "categorical" detector: always-in-market ``{-1, +1}`` stays
+    dense because it has no explicit non-event zero state.
     """
 
     DENSE = "dense"
@@ -41,10 +45,10 @@ class FactorDensity(StrEnum):
 
 
 class DataStructure(StrEnum):
-    """Sample regime, derived from ``N`` at evaluate-time.
+    """Sample regime, derived from ``n_assets`` at evaluate-time.
 
-    ``PANEL``      — ``N >= 2`` (multi-asset / multi-event panel).
-    ``TIMESERIES`` — ``N == 1`` (single-asset time series).
+    ``PANEL``      — ``n_assets >= 2`` (multi-asset / multi-event panel).
+    ``TIMESERIES`` — ``n_assets == 1`` (single-asset time series).
     """
 
     PANEL = "panel"

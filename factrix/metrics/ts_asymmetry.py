@@ -1,7 +1,7 @@
 """Long-side / short-side asymmetry test.
 
-Diagnostic for the `(COMMON, DENSE, PANEL)` cell (needs `N >= 2`
-assets; raises at `N == 1`). Ordinary least squares (OLS) β reports a single slope and assumes the response is
+Diagnostic for the `(COMMON, DENSE, PANEL)` cell (needs `n_assets >= 2`
+assets; raises at `n_assets == 1`). Ordinary least squares (OLS) β reports a single slope and assumes the response is
 symmetric around zero — `β > 0` could be "rises more on positive
 factor" *or* "falls less on negative factor", and a strategy team
 needs to know which.

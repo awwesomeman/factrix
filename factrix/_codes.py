@@ -21,9 +21,9 @@ class WarningCode(StrEnum):
     # persistent-regressor flag, §5.2 / §7.3). Not raised for SPARSE.
     PERSISTENT_REGRESSOR = "persistent_regressor"
     SERIAL_CORRELATION_DETECTED = "serial_correlation_detected"
-    # Single cross-asset N guard for PANEL common_continuous: the cross-asset
-    # t-test on E[β] runs for any N≥2 (this axis never raises) but its t_crit
-    # inflates as N shrinks. One code flags the whole thin regime
+    # Single cross-asset n_assets guard for PANEL common_continuous: the cross-asset
+    # t-test on E[β] runs for any n_assets >= 2 (this axis never raises) but its t_crit
+    # inflates as n_assets shrinks. One code flags the whole thin regime
     # (n_assets < MIN_ASSETS_WARN); severity is read from the ``n_assets``
     # metadata rather than split across separate tier members.
     FEW_ASSETS = "few_assets"
@@ -104,6 +104,19 @@ class WarningCode(StrEnum):
     # (scope / density / data structure) does not match the detected factor
     # cell. The metric is not executed and short-circuits to NaN.
     STRUCTURE_MISMATCH = "structure_mismatch"
+
+    # Fired by inspect_data when a DENSE factor has very few distinct
+    # non-null values (e.g. {-1, +1} or small regime scores). Low cardinality
+    # alone is not an event contract: sparse routing still requires an
+    # explicit zero non-event state and enough zero rows to clear the sparse
+    # ratio threshold. Advisory only; the factor remains DENSE.
+    LOW_CARDINALITY_DENSE_SIGNAL = "low_cardinality_dense_signal"
+
+    # Fired when a sparse event metric is explicitly run on a factor with
+    # zero-valued rows but sparse_ratio below the automatic SPARSE routing
+    # threshold. The metric treats those zeros as non-events; callers should
+    # confirm that the zero values encode the intended event contract.
+    FREQUENT_EVENT_SIGNAL = "frequent_event_signal"
 
     # Fired by inspect_data when factor columns carry inconsistent axes.
     CROSS_FACTOR_DENSITY_MISMATCH = "cross_factor_density_mismatch"
@@ -216,6 +229,17 @@ _WARNING_DESCRIPTIONS.update(
         "(scope / density / data structure) does not match the detected factor "
         "cell; under strict=False the metric short-circuits to NaN instead "
         "of executing.",
+        WarningCode.LOW_CARDINALITY_DENSE_SIGNAL: "Dense factor has few distinct "
+        "non-null values but no sparse event contract. Sparse event metrics "
+        "require explicit zero non-event rows ({0, R} or {-R, 0, +R}) and a "
+        "sparse_ratio above the routing threshold; always-in-market states "
+        "such as {-1, +1} stay dense and should use dense / directional metrics.",
+        WarningCode.FREQUENT_EVENT_SIGNAL: "Sparse event metric explicitly ran "
+        "on a factor with zero-valued rows but sparse_ratio below the "
+        "automatic SPARSE routing threshold. The metric treats zeros as "
+        "non-events; confirm that zero encodes the intended event contract. "
+        "Events are frequent, so read event-study inference cautiously and "
+        "inspect clustering / overlap diagnostics.",
         WarningCode.CROSS_FACTOR_DENSITY_MISMATCH: "Factor columns carry inconsistent FactorDensity (dense and sparse mixed).",
         WarningCode.CROSS_FACTOR_SCOPE_MISMATCH: "Factor columns carry inconsistent FactorScope (individual and common mixed).",
         WarningCode.SINGLE_ASSET_EVENT_DATA: "Single-asset event-shaped data (TIMESERIES + SPARSE, n_assets=1): "
@@ -250,15 +274,15 @@ _WARNING_DESCRIPTIONS.update(
 
 
 def cross_section_tier(n_assets: int) -> WarningCode | None:
-    """Map an inference-stage cross-asset N to the appropriate warning code.
+    """Map an inference-stage cross-asset ``n_assets`` to the appropriate warning code.
 
-    The argument is the **inference-stage** N — the count of assets
+    The argument is the **inference-stage** ``n_assets`` — the count of assets
     actually entering the cross-asset test, not the panel-union
     ``n_assets`` surface field. For ``(COMMON, *, None,
     PANEL)`` cells the two differ: ``compute_ts_betas`` drops assets
     with fewer than ``MIN_TS_PERIODS_HARD`` non-null observations, so the union
     can be materially larger than the post-filter count that drives
-    ``primary_p``'s ``dof = N - 1``. Callers (``suggest_config``,
+    ``primary_p``'s ``dof = n_assets - 1``. Callers (``suggest_config``,
     ``_compute_common_panel``) therefore pre-filter before calling.
 
     A single :attr:`WarningCode.FEW_ASSETS` flags the whole thin regime

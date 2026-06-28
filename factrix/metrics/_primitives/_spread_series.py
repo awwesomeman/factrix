@@ -56,7 +56,7 @@ def compute_spread_series(
         factor_cols: Factor column names to score. All factors run in a
             single polars query (one ``with_columns`` + one
             ``group_by("date").agg(...)`` + one ``collect``) regardless
-            of N. The N=1 case is just the general path specialised —
+            of ``n_assets``. The ``n_assets == 1`` case is just the general path specialised —
             no fast/slow path divergence.
         return_col: Forward-return column shared across factors.
         tie_policy: See ``_assign_quantile_groups``. ``"ordinal"`` (default)
@@ -114,7 +114,7 @@ def compute_spread_series(
                 "spread as a fragile small-cross-section diagnostic."
             )
         warnings.warn(
-            f"Median {per_group} assets per group (N={median_n}, "
+            f"Median {per_group} assets per group (n_assets={median_n}, "
             f"n_groups={n_groups}). Spread may be dominated by "
             f"individual assets. {guidance}",
             UserWarning,

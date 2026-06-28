@@ -18,7 +18,7 @@ Notes:
     frequencies of both the prediction and the realisation, so a factor
     that is simply long a persistently-rising market is not credited with
     skill. This makes it the appropriate directional test for small,
-    sign-imbalanced samples (the N < 30 allocation regime). The headline
+    sign-imbalanced samples (the `n_assets < 30` allocation regime). The headline
     ``value`` is itself a hit rate — the fraction of correctly-signed
     calls — hence the shared ``hit_rate`` name.
 """

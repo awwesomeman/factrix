@@ -24,15 +24,15 @@ structure-aware per-panel applicability, use
 factrix expresses sample size on three axes (see
 [Concepts](../getting-started/concepts.md) for cell taxonomy):
 
-- `N` — assets in the panel (`asset_id` unique count).
+- `n_assets` — assets in the panel (`asset_id` unique count).
 - `T` — date count (`date` unique count).
 - `K` — non-zero event count for `Sparse` factors
   (`filter(factor != 0).height`).
 - `T/h` — non-overlapping date count given
   `forward_periods = h`.
 
-`DataStructure` is derived from `N` at evaluate-time: `PANEL` for `N ≥ 2`,
-`TIMESERIES` for `N == 1`. Each metric's `MetricSpec` declares the cell it
+`DataStructure` is derived from `n_assets` at evaluate-time: `PANEL` for
+`n_assets >= 2`, `TIMESERIES` for `n_assets == 1`. Each metric's `MetricSpec` declares the cell it
 applies to; the metric's applicability does not change across structures, only
 the sample axis that constrains it.
 
@@ -55,17 +55,17 @@ Min sample*. `MIN_*` constants resolve to values in the
 
 | Metric | Sample axis | Min sample |
 |---|---|---|
-| [`pooled_beta`][factrix.metrics.fm_beta.pooled_beta] | `N × T` | `N ≥ 10`, effective clusters `G ≥ 3` |
+| [`pooled_beta`][factrix.metrics.fm_beta.pooled_beta] | `n_assets × T` | `n_assets >= 10`, effective clusters `G >= 3` |
 | [`fm_beta_sign_consistency`][factrix.metrics.fm_beta.fm_beta_sign_consistency] | `T` (β series) | `T ≥ MIN_FM_PERIODS_HARD` |
 
 ### Quantile / Monotonicity / Concentration — Cell: Individual × Continuous
 
 | Metric | Sample axis | Min sample |
 |---|---|---|
-| [`quantile_spread`][factrix.metrics.quantile.quantile_spread] | `T/h` | `T/h ≥ MIN_PORTFOLIO_PERIODS_HARD`; per-date `N ≥ n_groups` |
+| [`quantile_spread`][factrix.metrics.quantile.quantile_spread] | `T/h` | `T/h >= MIN_PORTFOLIO_PERIODS_HARD`; per-date `n_assets >= n_groups` |
 | [`quantile_spread_vw`][factrix.metrics.quantile.quantile_spread_vw] | `T/h` | as `quantile_spread` |
-| [`k_spread`][factrix.metrics.k_spread.k_spread] | `T/h` | `T/h ≥ MIN_PORTFOLIO_PERIODS_HARD`; per-date `N ≥ 2·k` |
-| [`monotonicity`][factrix.metrics.monotonicity.monotonicity] | `T/h` | per-date `N ≥ n_groups`; series `≥ MIN_MONOTONICITY_PERIODS_HARD` |
+| [`k_spread`][factrix.metrics.k_spread.k_spread] | `T/h` | `T/h >= MIN_PORTFOLIO_PERIODS_HARD`; per-date `n_assets >= 2 * k` |
+| [`monotonicity`][factrix.metrics.monotonicity.monotonicity] | `T/h` | per-date `n_assets >= n_groups`; series `>= MIN_MONOTONICITY_PERIODS_HARD` |
 | [`top_concentration`][factrix.metrics.concentration.top_concentration] | `T/h` | `T/h ≥ MIN_PORTFOLIO_PERIODS_HARD`; warn if `T/h < MIN_PORTFOLIO_PERIODS_WARN` |
 
 ### Tradability — Cell: Individual × Continuous
@@ -89,15 +89,15 @@ Min sample*. `MIN_*` constants resolve to values in the
 | [`signal_density`][factrix.metrics.event_quality.signal_density] | `K` | `K ≥ 2` |
 | [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | per-offset `K` | `K ≥ MIN_EVENTS_HARD` |
 | [`mfe_mae`][factrix.metrics.mfe_mae.mfe_mae] | `K` | `K ≥ MIN_EVENTS_HARD`; `price` column required |
-| [`clustering_hhi`][factrix.metrics.clustering_hhi.clustering_hhi] | `K`, `N` | `N ≥ 2`; `K ≥ MIN_EVENTS_HARD` |
+| [`clustering_hhi`][factrix.metrics.clustering_hhi.clustering_hhi] | `K`, `n_assets` | `n_assets >= 2`; `K >= MIN_EVENTS_HARD` |
 | [`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank] | `K` × estimation window | `K ≥ MIN_EVENTS_HARD`; per-asset `T ≥ 30` |
 
 ### TS-β family — Cell: Common × Continuous
 
 | Metric | Sample axis | Min sample |
 |---|---|---|
-| [`mean_r_squared`][factrix.metrics.ts_beta.mean_r_squared] | `N` | `N ≥ 1` |
-| [`ts_beta_sign_consistency`][factrix.metrics.ts_beta.ts_beta_sign_consistency] | `N` | `N ≥ 2` |
+| [`mean_r_squared`][factrix.metrics.ts_beta.mean_r_squared] | `n_assets` | `n_assets >= 1` |
+| [`ts_beta_sign_consistency`][factrix.metrics.ts_beta.ts_beta_sign_consistency] | `n_assets` | `n_assets >= 2` |
 | [`ts_quantile_spread`][factrix.metrics.ts_quantile.ts_quantile_spread] | `T` | `T ≥ MIN_PORTFOLIO_PERIODS_HARD`; factor `n_unique ≥ n_groups × 2` |
 | [`ts_asymmetry`][factrix.metrics.ts_asymmetry.ts_asymmetry] | `T` | factor has both signs; each side `n_unique ≥ 2` for method B |
 
@@ -140,8 +140,8 @@ below.
 
 | Constant | Value | Axis | Tier | Source module | Used by |
 |---|---|---|---|---|---|
-| `MIN_IC_ASSETS_HARD` | 2 | per-date `N` | hard | `factrix/_types.py` | `compute_ic` (drops dates with pairwise-complete `N < 2`) → consumed by `ic`, `ic_ir` |
-| `MIN_IC_ASSETS_WARN` | 10 | per-date `N` | warn | `factrix/_types.py` | `ic`, `ic_ir`, `inspect_data`; tags `WarningCode.FEW_ASSETS` when retained IC dates have `N < 10` |
+| `MIN_IC_ASSETS_HARD` | 2 | per-date `n_assets` | hard | `factrix/_types.py` | `compute_ic` (drops dates with pairwise-complete `n_assets < 2`) → consumed by `ic`, `ic_ir` |
+| `MIN_IC_ASSETS_WARN` | 10 | per-date `n_assets` | warn | `factrix/_types.py` | `ic`, `ic_ir`, `inspect_data`; tags `WarningCode.FEW_ASSETS` when retained IC dates have `n_assets < 10` |
 | `MIN_SERIES_PERIODS_HARD` | 10 | `T` | hard | `factrix/_types.py` | `ic` post-stride sampled IC series, `hit_rate`, and series-mean non-overlap pre-flight |
 | `MIN_DIRECTIONAL_PAIRS_HARD` | 10 | pooled pairs | hard | `factrix/_types.py` | `directional_hit_rate` |
 | `MIN_DIRECTIONAL_PAIRS_WARN` | 30 | pooled pairs | warn | `factrix/_types.py` | `directional_hit_rate`; tags `WarningCode.FEW_DIRECTIONAL_PAIRS` |
@@ -153,9 +153,9 @@ below.
 | `MIN_MONOTONICITY_PERIODS_HARD` | 5 | `T/h` | hard | `factrix/_types.py` | `monotonicity` |
 | `MIN_PERIODS_HARD` | 20 | `T` | hard | `factrix/_stats/constants.py` | Shared hard floor for HAC / time-series inference |
 | `MIN_PERIODS_WARN` | 30 | `T` | warn | `factrix/_stats/constants.py` | Shared warn floor for HAC / time-series inference; tags `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` |
-| `MIN_ASSETS_WARN` | 30 | `N` | warn | `factrix/_stats/constants.py` | PANEL `common_continuous`; tags `WarningCode.FEW_ASSETS` (severity from `n_assets`) |
-| `MIN_FM_ASSETS_HARD` | 3 | per-date `N` | hard | `factrix/metrics/_primitives/_fm_betas.py` | `compute_fm_betas` (drops dates with pairwise-complete `N < 3`) -> consumed by `fm_beta`, `fm_beta_sign_consistency` |
-| `MIN_FM_ASSETS_WARN` | 10 | per-date `N` | warn | `factrix/metrics/_primitives/_fm_betas.py` | `fm_beta`, `fm_beta_sign_consistency`, `inspect_data`; tags `WarningCode.FEW_ASSETS` when retained FM dates have `N < 10` |
+| `MIN_ASSETS_WARN` | 30 | `n_assets` | warn | `factrix/_stats/constants.py` | PANEL `common_continuous`; tags `WarningCode.FEW_ASSETS` (severity from `n_assets`) |
+| `MIN_FM_ASSETS_HARD` | 3 | per-date `n_assets` | hard | `factrix/metrics/_primitives/_fm_betas.py` | `compute_fm_betas` (drops dates with pairwise-complete `n_assets < 3`) -> consumed by `fm_beta`, `fm_beta_sign_consistency` |
+| `MIN_FM_ASSETS_WARN` | 10 | per-date `n_assets` | warn | `factrix/metrics/_primitives/_fm_betas.py` | `fm_beta`, `fm_beta_sign_consistency`, `inspect_data`; tags `WarningCode.FEW_ASSETS` when retained FM dates have `n_assets < 10` |
 | `MIN_FM_PERIODS_HARD` | 4 | `T` (λ series) | hard | `factrix/metrics/fm_beta.py` | `fm_beta`, `fm_beta_sign_consistency` |
 | `MIN_FM_PERIODS_WARN` | 30 | `T` (λ series) | warn | `factrix/metrics/fm_beta.py` | `fm_beta` (Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) over-rejects below); ties to `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` |
 | `MIN_TS_PERIODS_HARD` | 20 | `T` per asset | hard | `factrix/metrics/_primitives/_ts_betas.py` | `compute_ts_betas` (drops assets with `T < 20`); upstream of `ts_beta`, `mean_r_squared`, `ts_beta_sign_consistency` |
@@ -166,14 +166,14 @@ Naming caveats:
   asset count for IC (dates below it are dropped). `MIN_IC_ASSETS_WARN`
   (10) is the reliability floor: dates still run, but `ic` / `ic_ir`
   surface `WarningCode.FEW_ASSETS`. Both are distinct from the
-  panel-wide `N` cross-asset guard, which lives solely on
+  panel-wide `n_assets` cross-asset guard, which lives solely on
   `MIN_ASSETS_WARN`.
 - `MIN_FM_ASSETS_HARD` (3) gates the **per-date** pairwise-complete
   asset count for FM per-date OLS. `MIN_FM_ASSETS_WARN` (10) mirrors the
   IC thin-cross-section tier: dates still run, but `fm_beta` /
   `fm_beta_sign_consistency` surface `WarningCode.FEW_ASSETS`.
-- `MIN_ASSETS_WARN = 30` is a single warn floor (no `_HARD`) — the `N`
-  axis only **warns** (small `N` is well-defined statistics, just
+- `MIN_ASSETS_WARN = 30` is a single warn floor (no `_HARD`) — the `n_assets`
+  axis only **warns** (small `n_assets` is well-defined statistics, just
   weak), so the `_HARD` convention (which means "raise") would mislead;
   severity scales with `n_assets` rather than splitting into tiers.
 For non-overlapping metrics (`ic`, `caar`, …) the effective floor is
@@ -250,7 +250,7 @@ keyed to the tier the input falls below:
   `WarningCode.UPSTREAM_UNAVAILABLE`, rather than being run on missing
   data.
 
-Structural errors (wrong cell, missing column, `N == 1` on a metric
+Structural errors (wrong cell, missing column, `n_assets == 1` on a metric
 whose `MetricSpec` cell requires `PANEL`) raise
 [`FactrixError`][factrix.FactrixError] (e.g. `IncompatibleAxisError`)
 under `strict=True` rather than short-circuiting.

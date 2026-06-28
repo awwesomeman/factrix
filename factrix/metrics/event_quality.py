@@ -350,11 +350,11 @@ def event_skewness(
     Notes:
         ``skew = m_3 / m_2^(3/2)`` (Fisher, bias-corrected via
         ``scipy.stats.skew(bias=False)``); D'Agostino skew test gives
-        ``z`` with ``H0: skew = 0`` when ``N >= 20``. Below 20 events,
+        ``z`` with ``H0: skew = 0`` when ``n_events >= 20``. Below 20 events,
         the test is not produced (``stat=None``) but the descriptive
         skewness is still returned.
 
-        factrix gates the inference branch at ``N >= 20`` because the
+        factrix gates the inference branch at ``n_events >= 20`` because the
         D'Agostino-Pearson normal approximation degrades sharply on
         small samples; reporting an unreliable z would invite
         false-positive significance.

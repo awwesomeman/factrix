@@ -462,15 +462,15 @@ def breakeven_cost(
     (which is rank-stability, not position-change).
 
     Time-scale alignment: ``gross_spread`` from ``quantile_spread`` is
-    per-period (forward_return is divided by N upstream), but ``turnover``
-    is per-rebalance (one rotation every N periods). Multiplying spread
+    per-period (forward_return is divided by ``forward_periods`` upstream), but ``turnover``
+    is per-rebalance (one rotation every ``forward_periods`` periods). Multiplying spread
     by ``forward_periods`` puts both sides on the per-rebalance scale
     before solving net=0 — without it, breakeven is understated by N×.
 
     Args:
         gross_spread: Per-period mean long-short spread.
         turnover: Notional turnover ∈ [0, 1] from ``notional_turnover()``.
-        forward_periods: Holding period N matching the upstream
+        forward_periods: Holding period matching the upstream
             ``compute_forward_return`` and ``notional_turnover`` stride.
 
     Returns:
@@ -554,7 +554,7 @@ def net_spread(
     when available.
 
     Time-scale alignment: ``gross_spread`` is per-period (forward_return
-    is divided by N upstream) but ``2 × cost × turnover`` is the cost paid
+    is divided by ``forward_periods`` upstream) but ``2 × cost × turnover`` is the cost paid
     once per N-period rebalance. Dividing by ``forward_periods`` amortises
     that cost back to per-period. Without it, net is over-charged by N×
     and any factor with h ≥ 2 is artificially killed.
@@ -568,7 +568,7 @@ def net_spread(
         gross_spread: Per-period mean long-short spread.
         turnover: Notional turnover ∈ [0, 1] from ``notional_turnover()``.
         estimated_cost_bps: Estimated single-leg trading cost in bps.
-        forward_periods: Holding period N matching the upstream
+        forward_periods: Holding period matching the upstream
             ``compute_forward_return`` and ``notional_turnover`` stride.
 
     Returns:

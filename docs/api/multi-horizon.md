@@ -90,9 +90,9 @@ survivors = bhy_ic.survivors
 adj_p = bhy_ic.adj_p
 ```
 
-Cross-horizon comparability is a scale alignment only: the `÷N` in
+Cross-horizon comparability is a scale alignment only: the `/ forward_periods` in
 `compute_forward_return` makes rank-IC comparable across horizons, but
-signed-return-mean metrics carry a compounding bias that grows with `N`
+signed-return-mean metrics carry a compounding bias that grows with `forward_periods`
 (see [`compute_forward_return`](preprocess.md)).
 
 [bhy]: multi-factor.md

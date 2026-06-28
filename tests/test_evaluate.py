@@ -376,13 +376,16 @@ class TestStrictCellSoftening:
 
     def test_dense_factor_does_not_run_sparse_event_metric(self):
         panel = _panel(n_assets=20, n_dates=120)
-        with pytest.raises(fx.IncompatibleAxisError, match="SPARSE"):
+        with pytest.raises(fx.IncompatibleAxisError) as exc:
             fx.evaluate(
                 panel,
                 metrics={"caar": caar()},
                 factor_cols=["factor"],
                 forward_periods=5,
             )
+        msg = str(exc.value)
+        assert "SPARSE" in msg
+        assert "zero non-event" in msg
 
         er = fx.evaluate(
             panel,
@@ -394,7 +397,34 @@ class TestStrictCellSoftening:
         assert math.isnan(er.metrics["caar"].value)
         assert er.metrics["caar"].metadata["reason"] == "structure_mismatch"
         assert er.metrics["caar"].metadata["data_density"] == "dense"
+        assert "zero non-event" in er.metrics["caar"].metadata["guidance"]
+        assert "zero non-event" in next(
+            w.message for w in er.warnings if w.source == "caar"
+        )
         assert er.metrics["caar"].p_value is None
+
+    def test_explicit_sparse_metric_runs_on_low_zero_ratio_event_signal(self):
+        panel = _panel(n_assets=20, n_dates=220).with_columns(
+            pl.when(pl.int_range(0, pl.len()) % 5 < 2)
+            .then(0.0)
+            .otherwise(1.0)
+            .alias("factor")
+        )
+
+        er = fx.evaluate(
+            panel,
+            metrics={"caar": caar()},
+            factor_cols=["factor"],
+            forward_periods=5,
+        )["factor"]
+
+        assert er.cell[1] is fx.FactorDensity.DENSE
+        assert not math.isnan(er.metrics["caar"].value)
+        warn = next(
+            w for w in er.warnings if w.code is fx.WarningCode.FREQUENT_EVENT_SIGNAL
+        )
+        assert warn.source == "caar"
+        assert "sparse_ratio=0.40" in warn.message
 
     def test_sparse_factor_does_not_run_dense_ic_metric(self):
         raw = fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0)

@@ -118,7 +118,7 @@ panel = compute_forward_return(raw, forward_periods=5)
 The function computes a **per-period normalized** forward return:
 
 ```
-forward_return[t] = (price[t + 1 + N] / price[t + 1] - 1) / N
+forward_return[t] = (price[t + 1 + forward_periods] / price[t + 1] - 1) / forward_periods
 ```
 
 Three things to know about this formula:
@@ -126,9 +126,9 @@ Three things to know about this formula:
 - **Entry at `t + 1`, not `t`** — the function assumes you trade on
   the bar *after* the signal is observed, preserving a strict
   signal-then-trade causal boundary.
-- **Exit at `t + 1 + N`** — the holding horizon spans `N` rows of the
-  asset's own date series, where `N = forward_periods`.
-- **Divided by `N`** — returns are normalized to a per-period basis,
+- **Exit at `t + 1 + forward_periods`** — the holding horizon spans
+  `forward_periods` rows of the asset's own date series.
+- **Divided by `forward_periods`** — returns are normalized to a per-period basis,
   so `forward_periods=5` and `forward_periods=20` are directly
   comparable. This differs from the cumulative-return convention used
   by qlib (`Ref($close, -N)/$close - 1`) and alphalens.
@@ -246,10 +246,10 @@ Three responsibilities sit upstream of `compute_forward_return`:
 | Source | factrix behaviour | Caller action |
 |---|---|---|
 | NaN in `factor` | Not auto-imputed; flows through to the procedure, where it depresses `n_obs` and may trip sample-size guards. | Drop or impute before optional factor preprocessing or `compute_forward_return`. |
-| NaN / inf in `price` | `compute_forward_return` drops rows whose computed `forward_return` is not finite (`null`, `NaN`, `+inf`, or `-inf`). Tail rows where `t + 1 + N` runs off the end of the series are dropped by the same filter. | If a daily NaN reflects a true gap (suspended trading, holiday), the drop is correct. If imputable (forward-fill from previous close), impute before calling. |
+| NaN / inf in `price` | `compute_forward_return` drops rows whose computed `forward_return` is not finite (`null`, `NaN`, `+inf`, or `-inf`). Tail rows where `t + 1 + forward_periods` runs off the end of the series are dropped by the same filter. | If a daily NaN reflects a true gap (suspended trading, holiday), the drop is correct. If imputable (forward-fill from previous close), impute before calling. |
 | `forward_periods <= 0`, non-`int`, or `bool` | Raises [`UserInputError`](../api/errors.md); the horizon must be a positive integer row count. | Pass an explicit row horizon such as `1`, `5`, or `20`. |
 | Horizon too long / no finite returns after filtering | Raises [`UserInputError`](../api/errors.md) instead of returning an empty panel. | Shorten the horizon, extend the panel, or clean price values before calling. |
-| Single-asset panel (N = 1) | `DataStructure` auto-switches to `TIMESERIES`. Dense PANEL metrics (`individual_continuous` and `common_continuous`) raise [`IncompatibleAxisError`](../api/errors.md). | Use `predictive_beta` for dense predictive-regression slope inference, `directional_hit_rate` for sign prediction, or a sparse metric whose cell allows `TIMESERIES`. |
+| Single-asset panel (`n_assets == 1`) | `DataStructure` auto-switches to `TIMESERIES`. Dense PANEL metrics (`individual_continuous` and `common_continuous`) raise [`IncompatibleAxisError`](../api/errors.md). | Use `predictive_beta` for dense predictive-regression slope inference, `directional_hit_rate` for sign prediction, or a sparse metric whose cell allows `TIMESERIES`. |
 | T < `MIN_PERIODS_HARD` (= 20) periods | Raises [`InsufficientSampleError`](../api/errors.md); procedures never silently produce a result on under-sample data. | Extend the window or accept the procedure's refusal. |
 
 ## 7. Sparse and event signals
@@ -263,12 +263,58 @@ flags, FOMC dummies, event magnitudes — the `factor` column is the
   negative, or any magnitude). Common forms: `{0, 1}` for a pure
   event flag and `{0, R}` for an event carrying signed or unsigned
   magnitude.
-- expect ≥ 50% zeros.
+- expect >=50% zeros for automatic sparse routing.
+
+The sparse detector is intentionally zero-value based. `null` means
+"missing / unavailable factor value" and is excluded from the
+`sparse_ratio` denominator; it is not treated as a non-event. If a
+missing upstream value should mean "no event", fill it to `0` before
+calling `inspect_data()` or `evaluate()`. If you want to run sparse
+event metrics on a continuous exposure, transform the event-of-interest
+upstream into an explicit event column, for example:
+
+```python
+event_panel = panel.with_columns(
+    pl.when(pl.col("factor").abs() > 2.0)
+    .then(pl.col("factor"))
+    .otherwise(0.0)
+    .alias("factor")
+)
+```
+
+If a regime label defines the event-of-interest, use the same contract:
+
+```python
+regime_event_panel = panel.with_columns(
+    pl.when(pl.col("macro_regime") == "stress")
+    .then(1.0)
+    .otherwise(0.0)
+    .alias("factor")
+)
+```
 
 Sort and forward-return attachment are identical to step 2-3; the
 dispatch routes sparse signals to event-study procedures (`caar`,
-`ts_beta` on dummies). See [Concepts](../getting-started/concepts.md)
-for the contract.
+`bmp_z`, `event_ic`, `event_hit_rate`, `profit_factor`, and related
+event diagnostics). These remain available on single-asset data when
+the metric's cell allows `DataStructure.TIMESERIES`; metrics that need
+an asset cross-section still refuse `n_assets == 1`.
+
+When a factor has zero-valued rows intended as non-events but fewer than
+50% zeros, `inspect_data` keeps automatic discovery on the dense side
+and marks sparse event metrics as degraded rather than unusable. If the
+user explicitly requests a sparse metric such as `caar`, `evaluate()`
+runs it with a `frequent_event_signal` warning; this is a frequent-event
+design, so inspect clustering and event-window overlap before trusting
+borderline p-values.
+
+Always-in-market `{-1, +1}` signals are dense directional signals, not
+sparse events: there is no non-event zero state. Route them through
+`predictive_beta` for single-asset dense slope inference and
+`directional_hit_rate` for sign prediction. Low-cardinality dense
+signals such as `{-1, +1}` or regime scores remain dense; `inspect_data`
+emits an advisory instead of rerouting them to sparse event metrics. See
+[Concepts](../getting-started/concepts.md) for the axis contract.
 
 ## See also
 

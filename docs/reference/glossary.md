@@ -69,6 +69,11 @@ Factor is non-zero only on event dates and zero elsewhere; the panel
 encodes a discrete event arrival process. The general schema is
 `{0, R}` where `R` is any real value (positive, negative, or any
 magnitude); the simplest form is `{0, 1}` for a pure event flag.
+Null factor cells are missing values, not non-events; fill them to
+`0` only when that is the intended event contract. The automatic
+SPARSE detector is zero-ratio based, but an explicit sparse metric can
+still run below the routing threshold with a `frequent_event_signal`
+warning when zero non-event rows are present.
 See `compute_caar`'s input-form table for the resulting estimator
 distinction.
 
@@ -85,8 +90,8 @@ distinction.
 
 DataStructure is **derived from data** at evaluate-time, not configured:
 
-- `N ≥ 2` → `PANEL`.
-- `N == 1` → `TIMESERIES`.
+- `n_assets >= 2` → `PANEL`.
+- `n_assets == 1` → `TIMESERIES`.
 
 ### `PANEL`
 
@@ -137,11 +142,11 @@ column without renaming the panel first
 ### `forward_return`
 
 The forward return column consumed by every dispatch cell. factrix's
-`compute_forward_return(df, forward_periods=N)` produces a
+`compute_forward_return(df, forward_periods=forward_periods)` produces a
 **per-period** return with **`t+1` entry**:
 
 ```
-forward_return[t] = (price[t+1+N] / price[t+1] − 1) / N
+forward_return[t] = (price[t+1+forward_periods] / price[t+1] − 1) / forward_periods
 ```
 
 Two non-textbook choices to internalize:
@@ -150,16 +155,16 @@ Two non-textbook choices to internalize:
   and including `price[t]`, so trading at `price[t]` would assume
   same-bar execution. Entry at `t+1` enforces a causal boundary and
   cleanly separates the return window from the BMP estimation window.
-- **Divided by `N`**: result is expressed per period rather than as
-  the cumulative `N`-period return, so factor evaluations at
+- **Divided by `forward_periods`**: result is expressed per period rather than as
+  the cumulative `forward_periods`-period return, so factor evaluations at
   different `forward_periods` are directly comparable. If you need
-  the cumulative `N`-period number, multiply by `N`.
+  the cumulative `forward_periods`-period number, multiply by `forward_periods`.
 
 Only simple returns are implemented; no log-return option. factrix
 takes `forward_return` as input rather than computing it inside
 `evaluate()` — attach it with
 [`compute_forward_return`](../api/preprocess.md) before dispatch so
-the horizon `N` is explicit and aligned with the
+the `forward_periods` horizon is explicit and aligned with the
 `forward_periods` passed to `evaluate()`.
 
 Distinct from "spot return" (contemporaneous one-period return) and
