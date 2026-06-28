@@ -369,7 +369,7 @@ def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricResult:
     ``fm_beta.fm_beta_sign_consistency`` this is **direction-agnostic**
     — it does not require a prior on the factor's expected sign.
 
-    Requires N ≥ 2: a single β is trivially "100% consistent with
+    Requires ``n_assets >= 2``: a single β is trivially "100% consistent with
     itself" (the max collapses to 1.0 for any nonzero β), which would
     read as strong evidence on a dashboard but carries zero information.
     Short-circuits to NaN in that case so the degenerate value never
@@ -380,7 +380,7 @@ def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricResult:
         Direction-agnostic: returns 1 when all assets have positive
         beta or all negative.
 
-        factrix gates this metric at ``N >= 2`` so a single-asset
+        factrix gates this metric at ``n_assets >= 2`` so a single-asset
         ``max(pos, 1-pos) = 1.0`` cannot leak into downstream
         inference as spurious "perfect agreement". Pair with
         ``fm_beta.fm_beta_sign_consistency`` when a directional prior

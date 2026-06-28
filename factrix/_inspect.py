@@ -19,6 +19,14 @@ exposing ``usable`` / ``warnings`` / ``blockers``. The flat
 ``list[MetricApplicability]`` on :class:`DataInspection.metrics` is
 the single source of truth; the ``usable`` / ``degraded`` /
 ``unusable`` properties expose it as a mutually exclusive partition.
+
+Sparse detection is zero-value based. Null factor cells mean "missing
+factor value" and are excluded from the sparse-ratio denominator; they
+are not imputed to non-events. Callers that want missing upstream rows
+to mean "no event" should fill them to ``0`` before inspection. Callers
+that want to run sparse event metrics on a continuous exposure or regime
+label should transform the event-of-interest upstream into an explicit
+``{0, R}`` event column.
 """
 
 from __future__ import annotations
@@ -46,6 +54,7 @@ if TYPE_CHECKING:
     from factrix.metrics._base import MetricBase
 
 _SPARSITY_THRESHOLD: float = 0.5
+_LOW_CARDINALITY_DENSE_UNIQUE_MAX: int = 5
 _INSPECT_RESERVED: frozenset[str] = frozenset(
     {"date", "asset_id", "forward_return", "price", _FORWARD_PERIODS_COL}
 )
@@ -61,10 +70,15 @@ def _detect_structure(data: Any) -> DataStructure:
 
 
 def _detect_density(raw: Any) -> tuple[FactorDensity, str, float]:
-    """Sparsity ratio in ``factor`` ≥ 0.5 → SPARSE, else DENSE.
+    """Sparsity ratio in ``factor`` >= 0.5 -> SPARSE, else DENSE.
 
     Returns ``(density, reason, sparsity)`` where ``sparsity`` is the
-    zero-ratio over non-null factor cells.
+    zero-ratio over non-null factor cells. The rule is intentionally
+    zero-value based: ``0`` is the explicit non-event state for sparse
+    event metrics, while null means missing and is dropped from the
+    denominator. Low-cardinality non-zero states such as ``{-1, +1}``
+    or regime scores do not become sparse unless the caller encodes an
+    explicit zero non-event state.
     """
     factor = raw["factor"].drop_nulls()
     n = len(factor)
@@ -86,13 +100,41 @@ def _detect_density(raw: Any) -> tuple[FactorDensity, str, float]:
     return density, reason, sparsity
 
 
+def _sparse_event_encoding_guidance() -> str:
+    return (
+        "sparse event metrics require explicit zero non-event rows "
+        "({0, R} or {-R, 0, +R}); transform dense signals before using "
+        "sparse metrics, or keep always-in-market {-1, +1} states on "
+        "dense / directional metrics"
+    )
+
+
+def _allows_sparse_event_override(density: FactorDensity, sparse_ratio: float) -> bool:
+    return (
+        density is FactorDensity.DENSE
+        and not math.isnan(sparse_ratio)
+        and 0.0 < sparse_ratio < _SPARSITY_THRESHOLD
+    )
+
+
+def _frequent_event_signal_message(sparse_ratio: float) -> str:
+    return (
+        f"factor has zero-valued rows and sparse_ratio={sparse_ratio:.2f}, "
+        f"below the automatic SPARSE routing threshold {_SPARSITY_THRESHOLD:.2f}. "
+        f"Explicit sparse event metrics treat zeros as non-events; confirm "
+        f"that zero encodes the intended event contract. Events are frequent, "
+        f"so read event-study inference cautiously and inspect clustering / "
+        f"overlap diagnostics."
+    )
+
+
 def _detect_scope(raw: Any) -> tuple[FactorScope, str]:
     """COMMON if factor is constant per date across assets, else INDIVIDUAL."""
     n_assets = int(raw["asset_id"].n_unique())
     if n_assets <= 1:
         return (
             FactorScope.COMMON,
-            f"n_assets = {n_assets}: scope axis trivially COMMON at N=1",
+            f"n_assets = {n_assets}: scope axis trivially COMMON at n_assets == 1",
         )
     per_date_unique = raw.group_by("date").agg(
         pl.col("factor").n_unique().alias("n_unique_per_date")
@@ -564,6 +606,7 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
     # Event sample: non-zero factor cells (nulls compare false, so excluded),
     # matching the ``factor != 0`` filter the event-driven metrics apply.
     n_events = int(data.filter(pl.col(first_col) != 0).height)
+    n_unique_factor = int(data[first_col].drop_nulls().n_unique())
     ic_stage1_profile = _compute_ic_stage1_profile(data, first_col)
     fm_stage1_profile = _compute_fm_stage1_profile(data, first_col)
 
@@ -587,6 +630,13 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
     )
 
     data_warnings = _data_level_warnings(properties)
+    data_warnings.extend(
+        _dense_factor_advisory_warnings(
+            properties,
+            factor_col=first_col,
+            n_unique_factor=n_unique_factor,
+        )
+    )
 
     # Cross-factor consistency checks
     if len(cols) > 1:
@@ -711,12 +761,37 @@ def _evaluate_applicability(
     if not spec.cell.matches(
         properties.scope, properties.density, properties.structure
     ):
-        blockers.append(
-            f"cell mismatch: spec={spec.cell.raw}, panel="
-            f"({properties.scope.value.upper()}, "
-            f"{properties.density.value.upper()}, "
-            f"*, {properties.structure.value.upper()})"
-        )
+        if (
+            spec.cell.density is FactorDensity.SPARSE
+            and _allows_sparse_event_override(
+                properties.density, properties.sparse_ratio
+            )
+            and spec.cell.matches(
+                properties.scope,
+                FactorDensity.SPARSE,
+                properties.structure,
+            )
+        ):
+            warnings.append(
+                Warning(
+                    code=WarningCode.FREQUENT_EVENT_SIGNAL,
+                    source=spec.name,
+                    message=_frequent_event_signal_message(properties.sparse_ratio),
+                )
+            )
+        else:
+            blocker = (
+                f"cell mismatch: spec={spec.cell.raw}, panel="
+                f"({properties.scope.value.upper()}, "
+                f"{properties.density.value.upper()}, "
+                f"*, {properties.structure.value.upper()})"
+            )
+            if (
+                spec.cell.density is FactorDensity.SPARSE
+                and properties.density is FactorDensity.DENSE
+            ):
+                blocker = f"{blocker}; {_sparse_event_encoding_guidance()}"
+            blockers.append(blocker)
 
     if spec.requires_continuous_magnitude and signal_discrete:
         blockers.append(
@@ -948,3 +1023,36 @@ def _data_level_warnings(properties: DataProperties) -> list[Warning]:
         if tier is not None:
             warnings.append(Warning(code=tier, source=None, message=tier.description))
     return warnings
+
+
+def _dense_factor_advisory_warnings(
+    properties: DataProperties,
+    *,
+    factor_col: str,
+    n_unique_factor: int,
+) -> list[Warning]:
+    if (
+        properties.density is not FactorDensity.DENSE
+        or n_unique_factor == 0
+        or n_unique_factor > _LOW_CARDINALITY_DENSE_UNIQUE_MAX
+    ):
+        return []
+    code = WarningCode.LOW_CARDINALITY_DENSE_SIGNAL
+    if _allows_sparse_event_override(properties.density, properties.sparse_ratio):
+        code = WarningCode.FREQUENT_EVENT_SIGNAL
+        return [
+            Warning(
+                code=code,
+                source=None,
+                message=_frequent_event_signal_message(properties.sparse_ratio),
+            )
+        ]
+    message = (
+        f"factor column {factor_col!r} has {n_unique_factor} distinct non-null "
+        f"values and is routed as DENSE because sparse routing requires "
+        f"sparse_ratio >= {_SPARSITY_THRESHOLD:.2f} with explicit zero "
+        f"non-event rows. Treat {{-1, +1}} / regime-score signals as dense; "
+        f"if this is an event study, encode non-events as 0 before using "
+        f"sparse metrics."
+    )
+    return [Warning(code=code, source=None, message=message)]

@@ -1,6 +1,6 @@
 """Preprocessing Step 1-3: forward return computation and adjustment.
 
-Step 1 — Forward Return: (price[t+1+N] / price[t+1] - 1) / N
+Step 1 — Forward Return: (price[t+1+forward_periods] / price[t+1] - 1) / forward_periods
 Step 2 — Winsorize Forward Return: per-date percentile clip
 Step 3 — Abnormal Return: forward_return - cross-sectional mean
 
@@ -71,9 +71,9 @@ def compute_forward_return(
 ) -> pl.DataFrame:
     """Step 1: Compute per-period forward return per asset.
 
-    ``forward_return = (price[t+1+N] / price[t+1] - 1) / N``
+    ``forward_return = (price[t+1+forward_periods] / price[t+1] - 1) / forward_periods``
 
-    Entry at t+1 (next bar after density), exit at t+1+N.
+    Entry at t+1 (next bar after density), exit at t+1+forward_periods.
 
     WHY t+1 entry: The density at t is computed using data up to and
     including price[t]. Using price[t] as both density input and entry
@@ -85,7 +85,7 @@ def compute_forward_return(
     estimation window in event studies (BMP test), eliminating the
     need for ad-hoc shift corrections.
 
-    Dividing by N normalizes returns to a per-period basis, making
+    Dividing by ``forward_periods`` normalizes returns to a per-period basis, making
     different forward_periods directly comparable on a scale basis
     (see Notes for the scope boundary).
 
@@ -121,7 +121,7 @@ def compute_forward_return(
         are dropped.
 
     Notes:
-        The ``÷N`` per-period normalization is a *scale* choice with
+        The ``/ forward_periods`` per-period normalization is a *scale* choice with
         three caveats the caller should know:
 
         1. **Arithmetic, not summed-log-return.** This is the
@@ -131,10 +131,10 @@ def compute_forward_return(
            linear-additive across horizons by construction).
         2. **Compounding bias.** Compounding at the arithmetic mean
            is an upward-biased estimator of cumulative wealth; the
-           bias grows with ``N`` and per-bar return variance.
+           bias grows with ``forward_periods`` and per-bar return variance.
            Negligible for rank-based information coefficient (IC); not negligible for
-           signed-return mean and t-tests at large ``N``.
-        3. **Scale, not inference.** ``÷N`` aligns the *scale* across
+           signed-return mean and t-tests at large ``forward_periods``.
+        3. **Scale, not inference.** ``/ forward_periods`` aligns the *scale* across
            horizons — it does *not* address the inference problem.
            Overlap is handled by heteroskedasticity-and-autocorrelation-consistent (HAC) (see
            :class:`factrix.inference.NeweyWest`); across-horizon

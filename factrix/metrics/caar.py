@@ -398,10 +398,11 @@ def bmp_z(
                 "_daily_ret"
             )
         )
-        # WHY: forward_return = (price[t+1+N]/price[t+1] - 1) / N has
-        # std ≈ σ_daily / sqrt(N). Scale estimation vol to match.
+        # WHY: forward_return = (price[t+1+forward_periods]/price[t+1] - 1)
+        # / forward_periods has std ≈ σ_daily / sqrt(forward_periods).
+        # Scale estimation vol to match.
         vol_scale = 1.0 / np.sqrt(forward_periods)
-        # Price daily returns at [t-N+1, t] precede the event window (t, t+h],
+        # Price daily returns at [t-forward_periods+1, t] precede the event window (t, t+h],
         # so no extra lag is needed.
         vol_lag = 0
     else:

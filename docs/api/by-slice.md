@@ -93,7 +93,7 @@ sample-size differences across slices are visible directly.
 
 `by_slice` performs **no cross-slice statistical inference**. It returns
 the per-slice results and stops. Per-slice t-stats / SE are computed on
-that slice alone (different `N`, different autocorrelation structure per
+that slice alone (different `n_periods` / `n_assets`, different autocorrelation structure per
 slice) and are **not** directly comparable — picking the top slice by
 t-stat is not a defensible selection rule. A generic cross-slice test
 (Benjamini-Hochberg-Yekutieli (BHY) adjustment, Sharpe-diff Wald,

@@ -49,7 +49,7 @@ def compute_fm_betas(
 
     so the whole panel is scored in one polars query (one
     ``group_by("date").agg(...)`` + one ``collect``) across all factors,
-    with no per-date Python loop — the N=1 case is just the general path
+    with no per-date Python loop — the ``n_assets == 1`` case is just the general path
     specialised.
 
     Args:

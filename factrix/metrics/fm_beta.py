@@ -511,7 +511,7 @@ def pooled_beta(
     ``method`` string). ``driscoll_kraay=True`` is mutually exclusive
     with ``two_way_cluster_col`` (raises ``ValueError``).
 
-    Short-circuits when $N < 10$ (no regression), returns ``stat=None``
+    Short-circuits when ``n_obs < 10`` (no regression), returns ``stat=None``
     with $p=1.0$ when the effective $G < 3$ (SE undefined with < 3
     clusters) — or, on the DK path, when fewer than 3 distinct periods
     leave the cross-sectional HAC undefined.

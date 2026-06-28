@@ -4,7 +4,7 @@ All metrics return ``MetricResult`` and can be used standalone.
 
 Grouping below follows the ``Scope x FactorDensity`` cells defined in
 ``factrix._axis`` -- *not* ``DataStructure`` (which is a derived sample regime,
-``PANEL`` for ``N >= 2`` and ``TIMESERIES`` for ``N == 1``). Metrics whose
+``PANEL`` for ``n_assets >= 2`` and ``TIMESERIES`` for ``n_assets == 1``). Metrics whose
 registered cell pins ``DataStructure`` only run in that sample regime; the dispatch
 registry rejects cell mismatches before execution.
 Series diagnostics are axis-agnostic and operate on any ``(date, value)``

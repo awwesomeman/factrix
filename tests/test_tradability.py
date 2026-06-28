@@ -224,8 +224,8 @@ class TestBreakevenCost:
     def test_forward_periods_scales_breakeven(self):
         """gross is per-period, turnover per-rebalance: breakeven scales by N.
 
-        Halving the per-period spread but holding for N=2 should give the
-        same breakeven as the N=1 baseline — the trader earns the spread
+        Halving the per-period spread but holding for forward_periods=2 should give the
+        same breakeven as the forward_periods=1 baseline — the trader earns the spread
         twice before paying the once-per-rebalance cost.
         """
         baseline = breakeven_cost(0.10, 0.5, forward_periods=1).value

@@ -90,6 +90,47 @@ class TestDataPropertiesDetection:
         assert info.properties.n_events == 1
         assert math.isclose(info.properties.sparse_ratio, 39 / 40)
 
+    def test_low_cardinality_dense_signal_warns_without_sparse_routing(self):
+        raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=80)
+        data = raw.with_columns(
+            pl.when(pl.col("factor") >= 0).then(1.0).otherwise(-1.0).alias("factor")
+        )
+        info = inspect_data(data)
+
+        assert info.properties.density is fx.FactorDensity.DENSE
+        assert info.properties.sparse_ratio == 0.0
+        warn = [
+            w
+            for w in info.warnings
+            if w.code is fx.WarningCode.LOW_CARDINALITY_DENSE_SIGNAL
+        ]
+        assert len(warn) == 1
+        assert warn[0].source is None
+        assert "{-1, +1}" in warn[0].message
+        assert "non-events as 0" in warn[0].message
+
+    def test_low_zero_ratio_event_signal_warns_but_keeps_sparse_metrics_runnable(
+        self,
+    ):
+        raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=80)
+        data = raw.with_columns(
+            pl.when(pl.int_range(0, pl.len()) % 5 < 2)
+            .then(0.0)
+            .otherwise(1.0)
+            .alias("factor")
+        )
+        info = inspect_data(data)
+        caar = _by_name(info, "caar")
+
+        assert info.properties.density is fx.FactorDensity.DENSE
+        assert math.isclose(info.properties.sparse_ratio, 0.4)
+        assert caar.usable is True
+        assert caar.blockers == []
+        assert caar in info.degraded
+        assert any(
+            w.code is fx.WarningCode.FREQUENT_EVENT_SIGNAL for w in caar.warnings
+        )
+
 
 class TestDataReasoning:
     def test_three_axis_fields_populated(self):
@@ -112,6 +153,7 @@ class TestCellMatchGate:
         caar = _by_name(info, "caar")
         assert caar.usable is False
         assert any("cell mismatch" in b for b in caar.blockers)
+        assert any("zero non-event" in b for b in caar.blockers)
 
     def test_only_public_specs_appear(self):
         info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=80))

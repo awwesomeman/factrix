@@ -17,15 +17,15 @@ Time-series length `n_periods` and asset count `n_assets` are gated **independen
 | Axis | Hard block | Soft warning | Clean |
 |---|---|---|---|
 | `n_periods` (T) | T < 20 → `InsufficientSampleError` | 20 ≤ T < 30 → `UNRELIABLE_SE_SHORT_PERIODS` | T ≥ 30 |
-| `n_assets` (N) | none | N < 30 → `FEW_ASSETS` (severity scales with N) | N ≥ 30 |
+| `n_assets` | none | `n_assets < 30` → `FEW_ASSETS` (severity scales with `n_assets`) | `n_assets >= 30` |
 
-`n_assets` is never hard-blocked because the cross-asset t-test on E[β] is mathematically well-defined for N ≥ 2 — only its statistical power degrades. A hard block would force users to choose between "can't run" and "don't know there's a problem"; the warning provides the result while surfacing the issue.
+`n_assets` is never hard-blocked because the cross-asset t-test on E[β] is mathematically well-defined for `n_assets >= 2` — only its statistical power degrades. A hard block would force users to choose between "can't run" and "don't know there's a problem"; the warning provides the result while surfacing the issue.
 
-### Behaviour matrix by density and N
+### Behaviour matrix by density and `n_assets`
 
-| Density / Scope | N=1 | N=2..9 | N=10..29 | N≥30 |
+| Density / Scope | `n_assets == 1` | `n_assets = 2..9` | `n_assets = 10..29` | `n_assets >= 30` |
 |---|---|---|---|---|
-| `INDIVIDUAL` × `DENSE` (IC) | raises `UserInputError` or `IncompatibleAxisError` | runs with `FEW_ASSETS` if pairwise-complete per-date N is 2..9; dates with N < 2 are dropped | normal IC; panel-level thin-N warnings may still apply | normal PANEL |
+| `INDIVIDUAL` × `DENSE` (IC) | raises `UserInputError` or `IncompatibleAxisError` | runs with `FEW_ASSETS` if pairwise-complete per-date `n_assets` is 2..9; dates with `n_assets < 2` are dropped | normal IC; panel-level thin-`n_assets` warnings may still apply | normal PANEL |
 | `INDIVIDUAL` × `DENSE` (FM) | raises `UserInputError` or `IncompatibleAxisError` | per-date guard; low df | normal PANEL | normal PANEL |
 | `COMMON` × `DENSE` | raises `IncompatibleAxisError` (no cross-section) | emits `FEW_ASSETS` | emits `FEW_ASSETS` | normal PANEL |
 | `INDIVIDUAL` × `SPARSE` / `COMMON` × `SPARSE` | TIMESERIES sparse path; no scope-collapse step | normal PANEL CAAR | normal PANEL CAAR | normal PANEL CAAR |
@@ -40,4 +40,4 @@ The same insufficient-sample condition surfaces differently depending on `strict
 
 ## Aggregation order
 
-PANEL procedures split into **cross-section first** (`cs-first` — `individual` density metrics like IC / FM, sparse CAAR) and **time-series first** (`ts-first` — `common` density metrics). The order determines small-sample failure modes. At N=1 the PANEL dense metrics raise: `common_continuous` (`ts_beta`) has no asset cross-section to aggregate the per-asset βs over, and `individual_continuous` (IC / FM) has no cross-section to rank/regress within — both declare `cell.structure = PANEL`, so `evaluate` raises `IncompatibleAxisError`. Single-asset dense workflows use `predictive_beta` for the direct HAC predictive-regression slope and `directional_hit_rate` for sign prediction. Single-asset sparse workflows are served by sparse metrics whose cell wildcard allows `TIMESERIES`. Two-column diagnostics such as `hit_rate` / `oos_decay` / `ic_trend` are standalone `(date, value)` tools; in `evaluate()` they layer on panel IC series rather than raw single-asset dense panels.
+PANEL procedures split into **cross-section first** (`cs-first` — `individual` density metrics like IC / FM, sparse CAAR) and **time-series first** (`ts-first` — `common` density metrics). The order determines small-sample failure modes. At `n_assets == 1` the PANEL dense metrics raise: `common_continuous` (`ts_beta`) has no asset cross-section to aggregate the per-asset βs over, and `individual_continuous` (IC / FM) has no cross-section to rank/regress within — both declare `cell.structure = PANEL`, so `evaluate` raises `IncompatibleAxisError`. Single-asset dense workflows use `predictive_beta` for the direct HAC predictive-regression slope and `directional_hit_rate` for sign prediction. Single-asset sparse workflows are served by sparse metrics whose cell wildcard allows `TIMESERIES`. Two-column diagnostics such as `hit_rate` / `oos_decay` / `ic_trend` are standalone `(date, value)` tools; in `evaluate()` they layer on panel IC series rather than raw single-asset dense panels.

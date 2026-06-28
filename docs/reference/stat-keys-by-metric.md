@@ -234,7 +234,7 @@ variance (e.g. binary {-1, +1}).
 - *primary* (conditional, N ≥ 20): `p_value` — D'Agostino skew `z`.
 - *descriptive*: `n_events`.
 
-When `N < 20`, `MetricResult.stat = None` and `p_value` / `stat_type`
+When `n_events < 20`, `MetricResult.stat = None` and `p_value` / `stat_type`
 / `h0` / `method` are omitted — the metric reports the Fisher
 skewness in `value` only.
 

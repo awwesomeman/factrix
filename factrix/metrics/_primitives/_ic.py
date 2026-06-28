@@ -42,7 +42,7 @@ def compute_ic(
         factor_cols: Factor column names to score. All factors run in a
             single polars query (one ``with_columns`` + one
             ``group_by("date").agg(...)`` + one ``collect``) regardless
-            of N. The N=1 case is just the general path specialised —
+            of ``n_assets``. The ``n_assets == 1`` case is just the general path specialised —
             no fast/slow path divergence.
         return_col: Forward-return column shared across factors.
 

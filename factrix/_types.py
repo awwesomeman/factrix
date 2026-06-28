@@ -31,7 +31,7 @@ MAD_CONSISTENCY_CONSTANT: float = 1.4826
 #
 # Naming grammar: ``MIN_[<DOMAIN>_]<AXIS>[_<TIER>]``. The AXIS token is
 # mandatory and names the axis the threshold guards:
-#   ``ASSETS``  — cross-sectional asset count (N per date)
+#   ``ASSETS``  — cross-sectional asset count (n_assets per date)
 #   ``PERIODS`` — time-series length (T, number of dates / draws)
 #   ``EVENTS``  — event-date count
 # A constant for one axis must never be reused as a threshold on another

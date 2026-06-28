@@ -89,7 +89,7 @@ def monotonicity(
     Args:
         data: Panel with ``date, asset_id, factor, forward_return``.
         n_groups: Number of quantile groups (default 10 for Taiwan ~2000 stocks).
-            Use 5 for N < 1000, 3 for N < 200.
+            Use 5 for ``n_assets < 1000``, 3 for ``n_assets < 200``.
         tie_policy: Bucketing tie-break policy, see ``_assign_quantile_groups``.
 
     Returns:

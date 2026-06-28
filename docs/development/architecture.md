@@ -70,7 +70,7 @@ for their values and orthogonality.
 
 `DataStructure` is the fourth axis but is **not user-facing** — it is derived at
 evaluate-time from `panel["asset_id"].n_unique()` (`factrix._detect_structure`):
-`PANEL` for `N ≥ 2`, `TIMESERIES` for `N = 1`. Each `MetricSpec` declares the
+`PANEL` for `n_assets >= 2`, `TIMESERIES` for `n_assets == 1`. Each `MetricSpec` declares the
 `(scope, density, structure)` cell it applies to (`None` on an axis = `*`
 wildcard); the DAG executor derives the runtime structure and dispatches each
 requested metric against its cell. A metric inapplicable to the data's
@@ -146,21 +146,21 @@ Dispatch runs through the DAG executor
 
 Both structures produce real `MetricResult.p_value` values — neither is degraded.
 
-`(INDIVIDUAL, DENSE, *) × N=1` is mathematically undefined (no
+`(INDIVIDUAL, DENSE, *) × n_assets == 1` is mathematically undefined (no
 cross-sectional dispersion → IC and per-date ordinary least squares (OLS) undefined). The IC / FM
 specs declare `cell.structure = PANEL`, so under `strict=True` evaluate raises
 `IncompatibleAxisError`; under `strict=False` the metric short-circuits to a NaN
 `MetricResult` with a `reason`. Explicit and user-correctable, never a silent rewrite.
 
-`(*, SPARSE, *) × N=1` is well-defined and runs with **no scope-collapse step**.
+`(*, SPARSE, *) × n_assets == 1` is well-defined and runs with **no scope-collapse step**.
 Sparse metrics whose `MetricSpec.cell.structure` is wildcarded (`None`) apply
-at `N=1`, so the DAG executor runs them directly on the single-asset series —
+at `n_assets == 1`, so the DAG executor runs them directly on the single-asset series —
 there is no scope-collapse step, and no sentinel routing both sparse scopes to a
-shared TIMESERIES procedure. At `N=1` the `INDIVIDUAL` / `COMMON` distinction is
+shared TIMESERIES procedure. At `n_assets == 1` the `INDIVIDUAL` / `COMMON` distinction is
 moot (one asset — no scope axis), but that falls out of the derived structure
 rather than an explicit routing token. Sparse metrics that still need an asset
 cross-section, such as `clustering_hhi` (`cell.structure=PANEL`), remain
-unavailable at `N=1`.
+unavailable at `n_assets == 1`.
 
 ---
 
@@ -200,7 +200,7 @@ identifiers must use an axis token, with two deliberate registers/exceptions:
 | Axis token | Dimension |
 |------------|-----------|
 | `periods`  | time-series length (T; number of dates / draws) |
-| `assets`   | cross-sectional asset count (N per date) |
+| `assets`   | cross-sectional asset count (`n_assets` per date) |
 | `pairs`    | complete `(factor, return)` pairs (FM cross-section) |
 | `events`   | event-date count |
 
@@ -446,7 +446,7 @@ sweep.
 ## Procedure pipelines
 
 The mainstream-metric pipelines differ in **aggregation order** — which axis is
-collapsed first determines small-sample failure modes and the N=1 behaviour. The
+collapsed first determines small-sample failure modes and the `n_assets == 1` behaviour. The
 cell a factor dispatches to determines which pipeline runs.
 
 The two universal `n_periods` floors apply to every panel/timeseries pipeline
@@ -593,14 +593,14 @@ Failure modes:
   event date; use `clustering_hhi` and prefer `bmp_z(kolari_pynnonen_adjust=True)`
   when the HHI is high.
 - Metrics that require a panel asset cross-section, such as
-  `clustering_hhi`, remain unavailable on `N=1` even though most sparse
+  `clustering_hhi`, remain unavailable on `n_assets == 1` even though most sparse
   event-axis metrics have `structure=None`.
 
-### `common_continuous` at N=1 — not supported
+### `common_continuous` at `n_assets == 1` — not supported
 
 `common_continuous` metrics (`ts_beta`, `ts_quantile`, `ts_asymmetry`)
 test the **cross-asset** distribution of per-asset βs, so they require
-`N ≥ 2`. At `N = 1` the cell (`COMMON, DENSE, PANEL`) does not match the
+`n_assets >= 2`. At `n_assets == 1` the cell (`COMMON, DENSE, PANEL`) does not match the
 derived `TIMESERIES` structure, so `evaluate` raises
 `IncompatibleAxisError` (or NaN + `structure_mismatch` under
 `strict=False`). There is **no** single-series beta collapse inside
@@ -612,9 +612,9 @@ inference. For single-asset dense directional diagnostics, use
 `(date, asset_id, factor, forward_return)` shape. Two-column diagnostics
 (`hit_rate`, `oos_decay`, `ic_trend`) remain standalone `(date, value)` tools;
 their `evaluate()` path layers on panel IC series, not raw single-asset dense
-panels. Sparse metrics whose structure is wildcarded remain available at N=1.
+panels. Sparse metrics whose structure is wildcarded remain available at `n_assets == 1`.
 
-### `(*, SPARSE, *) × N=1` (TS dummy) — time-series only
+### `(*, SPARSE, *) × n_assets == 1` (TS dummy) — time-series only
 
 ```
 single-asset OLS y_t = α + β·D_t + ε on period-dense series   (time-series step)
@@ -624,9 +624,9 @@ single-asset OLS y_t = α + β·D_t + ε on period-dense series   (time-series s
                                                               +  event-window-overlap check
 ```
 
-Reached whenever a sparse factor evaluates at N=1 and the requested sparse
+Reached whenever a sparse factor evaluates at `n_assets == 1` and the requested sparse
 metric's structure is wildcarded — the DAG executor runs it directly on the
-single-asset series (no scope-collapse step; at N=1 the two scopes are
+single-asset series (no scope-collapse step; at `n_assets == 1` the two scopes are
 statistically equivalent). Sparse metrics that require a cross-asset panel, such
 as `clustering_hhi`, still raise / short-circuit on the cell mismatch. The
 series is the **full period grid** with

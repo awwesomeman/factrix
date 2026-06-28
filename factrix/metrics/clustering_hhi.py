@@ -5,7 +5,7 @@ underlying the CAAR t-test is violated, potentially inflating the
 test statistic. The Herfindahl-Hirschman Index (HHI) on event dates
 quantifies this concentration.
 
-Only meaningful for multi-asset panels (N > 1). For single-asset
+Only meaningful for multi-asset panels (n_assets > 1). For single-asset
 event studies, clustering across assets is not applicable.
 
 Notes:

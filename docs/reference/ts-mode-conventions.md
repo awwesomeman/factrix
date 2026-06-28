@@ -6,8 +6,8 @@ title: Timeseries-mode conventions
     For the `DataStructure.PANEL` vs `DataStructure.TIMESERIES` dispatch concept and sample-guard contract, see [Panel vs timeseries](../guides/panel-timeseries.md). For the statistical disciplines (heteroskedasticity-and-autocorrelation-consistent (HAC) SE, augmented Dickey-Fuller (ADF) / Stambaugh, non-overlap default) that the rules below build on, see [Statistical methods](statistical-methods.md). This page documents the per-asset (stage-1) time-series conventions of the `Common × Continuous` metrics.
 
 `Common × Continuous` metrics (`ts_beta`, `ts_quantile`, `ts_asymmetry`
-and their variants) are **PANEL** metrics: they need `N ≥ 2` assets and
-raise `IncompatibleAxisError` at `N = 1` (there is no single-asset
+and their variants) are **PANEL** metrics: they need `n_assets >= 2` and
+raise `IncompatibleAxisError` at `n_assets == 1` (there is no single-asset
 mode). This page documents the conventions that govern their **stage-1
 per-asset time-series regressions** — run inside `compute_ts_betas` —
 which are not visible from the per-metric API page. Each metric page

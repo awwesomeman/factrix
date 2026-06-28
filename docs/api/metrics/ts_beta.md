@@ -189,7 +189,7 @@ portfolio/backtest layer.
     ---
 
     When this metric applies and the sample-size guards that gate it
-    (`MIN_TS_PERIODS_HARD`, $N \geq 3$ for cross-asset $t$, $N \geq 2$ for sign
+    (`MIN_TS_PERIODS_HARD`, `n_assets >= 3` for cross-asset t-stat, `n_assets >= 2` for sign
     consistency).
 
     [reference/metric-applicability →](../../reference/metric-applicability.md)

@@ -46,7 +46,7 @@ title: factrix.evaluate
 
     ---
 
-    At `N == 1` there is no cross-section, so any `DENSE` metric whose
+    At `n_assets == 1` there is no cross-section, so any `DENSE` metric whose
     cell is `PANEL` — `Individual × Continuous` (`ic`, `fm`) **and**
     `Common × Continuous` (`ts_beta`, `ts_quantile`, `ts_asymmetry`) —
     raises `IncompatibleAxisError` (or NaN + `structure_mismatch` under
@@ -190,7 +190,7 @@ derivation are automatically resolved at dispatch time.
 
     ---
 
-    The `N == 1` dispatch rules and SE conventions for the per-asset
+    The `n_assets == 1` dispatch rules and SE conventions for the per-asset
     time-series stage.
 
     [reference/ts-mode-conventions →](../reference/ts-mode-conventions.md)

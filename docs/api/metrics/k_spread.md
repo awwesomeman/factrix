@@ -21,9 +21,9 @@ title: factrix.metrics.k_spread
     `k_spread` is the fixed-**count** long-short spread: per non-overlapping
     date it longs the `k` highest-factor names and shorts the `k` lowest,
     then tests the spread across time. Quintile bucketing (`quantile_spread`,
-    `n_groups=5`) degrades when `N < 30` — each bucket holds only a few names
+    `n_groups=5`) degrades when `n_assets < 30` — each bucket holds only a few names
     and the breakpoints are unstable. Fixing the count `k` keeps each leg's
-    composition stable regardless of `N`. Both name the selection convention,
+    composition stable regardless of `n_assets`. Both name the selection convention,
     not a leg: `quantile_spread` (fraction) ↔ `k_spread` (count).
 
 -   __Cross-sectional dispersion reported alongside__
@@ -57,7 +57,7 @@ title: factrix.metrics.k_spread
 
 ## Worked example — fixed-K spread on a small universe
 
-!!! example "k_spread on N=20"
+!!! example "k_spread on n_assets=20"
 
     ```python
     import factrix as fx

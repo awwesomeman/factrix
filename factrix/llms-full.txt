@@ -23,7 +23,7 @@ An evaluation cell is defined by three orthogonal axes that specify the dataset 
 
 **FactorDensity** — the value type:
 - `DENSE` — continuous numeric exposure (e.g., returns, z-scores, raw fundamentals).
-- `SPARSE` — event trigger: zero on non-event entries, real-valued magnitude otherwise (e.g., event flags, regime dummies).
+- `SPARSE` — zero-encoded event trigger: `0` on non-event entries, real-valued magnitude otherwise (e.g., event flags, event-shaped regime dummies). Null factor cells are missing values, not non-events; fill nulls to `0` only when that is the research contract.
 
 **DataStructure** — derived at evaluate-time from the asset count:
 - `PANEL` — `n_assets >= 2`
@@ -117,13 +117,19 @@ print("Survivors:", [p.factor for p in ic_screen.survivors])
 
 A single-asset panel (`n_assets == 1`) resolves to `DataStructure.TIMESERIES`.
 `Common × Continuous` metrics (`ts_beta`, `ts_quantile_spread`, `ts_asymmetry`)
-are `PANEL` and need `N >= 2` — they raise `IncompatibleAxisError` at `N == 1`.
+are `PANEL` and need `n_assets >= 2` — they raise `IncompatibleAxisError` at
+`n_assets == 1`.
 Single-asset dense data uses `predictive_beta` for the direct HAC predictive
 regression slope and `directional_hit_rate` for sign prediction. Single-asset
 sparse data is served by `(*, SPARSE, *)` metrics whose cell allows
 `TIMESERIES`. Two-column diagnostics (`hit_rate`, `oos_decay`, `ic_trend`)
 remain standalone `(date, value)` tools; in `evaluate()` they layer on panel IC
 series, not raw single-asset dense panels.
+Always-in-market `{-1, +1}` signals are dense directional signals, not sparse
+events; sparse event signals need a non-event zero state (`{0, R}`).
+If that zero state exists but zeros are <50% of non-null cells, automatic
+routing stays dense; explicitly requested sparse metrics still run with a
+`frequent_event_signal` warning.
 
 ```python
 import factrix as fx
@@ -197,7 +203,7 @@ Thin sweep that runs `evaluate` across several overlap horizons of one **raw** p
 - `data` is a raw price panel (`date`, `asset_id`, `price`, factor columns). Only forward-return is computed; winsorize / abnormal-return are out of scope.
 - `forward_periods` is a non-empty `list[int]` of distinct positive horizons (e.g. `[5, 20, 60]`); duplicates and non-positive values are rejected.
 - Returns a flat `list[EvaluationResult]` grouped by horizon then `factor_cols` order — one entry per `(factor, forward_periods)`. The list feeds straight into `compare(...)` and `bhy(..., expand_over=("forward_periods",))`, which partitions each horizon into its own step-up family.
-- Comparability across horizons is a scale alignment (the `÷N` in `compute_forward_return` makes rank-IC comparable); signed-return-mean metrics carry a compounding bias that grows with `N`, so treat those sweeps as descriptive.
+- Comparability across horizons is a scale alignment (the `/ forward_periods` in `compute_forward_return` makes rank-IC comparable); signed-return-mean metrics carry a compounding bias that grows with `forward_periods`, so treat those sweeps as descriptive.
 
 ---
 
@@ -415,7 +421,7 @@ All exceptions inherit from `FactrixError`:
 
 ## WarningCode reference
 
-The canonical glosses live in `factrix._codes.WarningCode.description` and are regenerated into `docs/reference/_generated_warning_codes.md`. All 21 codes:
+The canonical glosses live in `factrix._codes.WarningCode.description` and are regenerated into `docs/reference/_generated_warning_codes.md`. All 23 codes:
 
 | WarningCode | Description |
 |---|---|
@@ -434,6 +440,8 @@ The canonical glosses live in `factrix._codes.WarningCode.description` and are r
 | `upstream_unavailable` | DAG consumer skipped because an upstream producer short-circuited; cause in `metadata['upstream_reason']`. |
 | `metric_unavailable` | Metric short-circuited on its OWN precondition (missing input/config or insufficient sample); cause in `metadata['reason']`. |
 | `structure_mismatch` | Metric's declared cell (scope/density/structure) does not match the detected factor cell; under `strict=False` it short-circuits to NaN. |
+| `low_cardinality_dense_signal` | Dense factor has few distinct values but no sparse event contract; sparse event metrics require explicit zero non-event rows. |
+| `frequent_event_signal` | Explicit sparse event metric ran on a factor with zero non-event rows but <50% zeros; event-time inference should be read cautiously. |
 | `cross_factor_density_mismatch` | Factor columns carry inconsistent `FactorDensity` (dense and sparse mixed). |
 | `cross_factor_scope_mismatch` | Factor columns carry inconsistent `FactorScope` (individual and common mixed). |
 | `single_asset_event_data` | Single-asset event data (TIMESERIES + SPARSE, n_assets=1); asset-cross-section metrics (e.g. `clustering_hhi`) stay unusable. |

@@ -17,7 +17,7 @@ Null hypothesis $\mathbb{E}[\text{IC}] = 0$ — the factor has no rank-based pre
 ## Use this when
 
 - Factor varies across assets at each date (per-stock signal, e.g. momentum, value, quality).
-- Cross-section is wide ($N \ge 30$ for clean inference).
+- Cross-section is wide (`n_assets >= 30` for clean inference).
 - Time series is at least 30 periods ($T < 20$ is hard-blocked).
 
 ## 1. Setup
@@ -40,7 +40,7 @@ raw = fx.datasets.make_cs_panel(
     seed=2024,
 )
 panel = compute_forward_return(raw, forward_periods=5)
-print(f"panel shape={panel.shape}  N={panel['asset_id'].n_unique()}")
+print(f"panel shape={panel.shape}  n_assets={panel['asset_id'].n_unique()}")
 ```
 
 ## 3. Evaluate

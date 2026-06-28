@@ -12,13 +12,13 @@ Notes:
     **Output.** Mean spread, with the per-date cross-sectional return
     dispersion reported alongside.
 
-    The small-N counterpart of
+    The small-`n_assets` counterpart of
     :func:`~factrix.metrics.quantile.quantile_spread`. Quantile bucketing
-    (``n_groups=5`` ⇒ quintiles) degrades when ``N < 30``: each bucket
+    (``n_groups=5`` ⇒ quintiles) degrades when ``n_assets < 30``: each bucket
     holds only a handful of names, so the spread is dominated by
     individual assets and the quintile breakpoints are unstable. Fixing
     the **count** ``k`` per leg keeps each leg's composition stable
-    regardless of ``N``, and the metric reports the contemporaneous
+    regardless of ``n_assets``, and the metric reports the contemporaneous
     cross-sectional dispersion so the spread can be read relative to the
     typical spread of returns that period.
 """
@@ -186,9 +186,9 @@ def k_spread(
         mean per-date cross-sectional standard deviation of returns.
 
     Notes:
-        Per qualifying date $t$ (universe size $N_t \geq 2k$), with
+        Per qualifying date ``t`` (universe size ``n_assets_t >= 2 * k``), with
         $\mathrm{top}_k$ / $\mathrm{bot}_k$ the names ranked $1..k$ /
-        $N_t-k+1..N_t$ by factor:
+        ``n_assets_t - k + 1 .. n_assets_t`` by factor:
 
         $$\text{spread}_t = \frac1k \sum_{i \in \mathrm{top}_k} r_{i,t}
         - \frac1k \sum_{i \in \mathrm{bot}_k} r_{i,t}.$$
