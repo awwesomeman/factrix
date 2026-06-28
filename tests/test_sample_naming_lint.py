@@ -56,3 +56,26 @@ def test_sample_constant_naming_lint() -> None:
         "MIN_[<DOMAIN>_]<AXIS>[_<TIER>] with AXIS in "
         "{PERIODS, ASSETS, EVENTS, PAIRS}:\n  " + "\n  ".join(violations)
     )
+
+
+def test_user_facing_metrics_declare_sample_threshold() -> None:
+    """Lint FX004: public metric decorators make pre-flight policy explicit."""
+    violations: list[str] = []
+    for path in sorted((PACKAGE_DIR / "metrics").glob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in tree.body:
+            if not isinstance(node, ast.FunctionDef):
+                continue
+            for decorator in node.decorator_list:
+                if not (
+                    isinstance(decorator, ast.Call)
+                    and getattr(decorator.func, "id", "") == "metric"
+                ):
+                    continue
+                if not any(kw.arg == "sample_threshold" for kw in decorator.keywords):
+                    violations.append(f"{path}:{node.lineno}: {node.name}")
+    assert not violations, (
+        "FX004: user-facing @metric decorators must explicitly declare "
+        "sample_threshold=...; use SampleThreshold() for deliberate no-op "
+        "pre-flight floors:\n  " + "\n  ".join(violations)
+    )
