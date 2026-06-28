@@ -251,6 +251,13 @@ abnormal-return definitions, estimation windows, and overlap
 conventions diverge from each other by design. Surfacing the contracts
 here so each metric page can reference one canonical definition.
 
+For sparse event factors, the non-zero sign encodes the **expected return
+direction**. It is not necessarily the raw event type. A raw taxonomy such as
+`hike=+1` / `cut=-1` should be mapped into the asset's expected bullish/bearish
+direction before entering the metrics. Magnitude may carry event strength for
+metrics that preserve magnitude, but the sign should already mean "positive
+return expected" vs "negative return expected".
+
 ### Abnormal-return definition per metric
 
 factrix follows MacKinlay (1997) event-window vocabulary but each

@@ -13,6 +13,12 @@ combines two traits:
 2. **Common scope**: the same value is broadcast to every asset on an
    event date rather than varying cross-sectionally.
 
+The non-zero sign still means expected return direction. A raw policy-event
+dummy is `Common × Sparse` only when the same signed interpretation applies to
+every asset. If the raw event needs asset-specific bullish/bearish mapping,
+create the mapped signal first; the resulting factor may become
+`Individual × Sparse` because values differ by asset on the same date.
+
 Because the event-time column contract is identical to
 `Individual × Sparse`, this cell **reuses the same scope-agnostic sparse
 metrics** — there is no separate Common-sparse module set. Use the

@@ -70,6 +70,31 @@ title: factrix.metrics.caar
 | Mean-CAAR significance, deterministic non-overlap subsample   | `caar`         |
 | Variance-robust event-induced significance (BMP standardised $z$) | `bmp_z`     |
 
+## Event counts
+
+`compute_caar` collapses same-date event rows before the `caar` test runs.
+The event-study path therefore exposes these related counts:
+
+| Field | Where to read it | Meaning |
+|---|---|---|
+| `n_events` | `compute_caar(...).select("date", "n_events")` | Raw event rows collapsed into each event date |
+| `total_events` | `caar(...).metadata["total_events"]` | Sum of raw non-zero event rows behind the study |
+| `n_event_periods` | `caar(...).metadata["n_event_periods"]` | Distinct event dates in the CAAR series |
+| `n_event_periods_sampled` | `caar(...).metadata["n_event_periods_sampled"]` | Event dates kept by the calendar-aware non-overlap sampler used for the t-test |
+
+`MetricResult.n_obs` equals `n_event_periods_sampled`, because that is the
+sample entering the headline `p_value`. A large gap between `total_events` and
+`n_event_periods` means events cluster on the same dates. A large gap between
+`n_event_periods` and `n_event_periods_sampled` means the forward-return
+windows overlap heavily, so the non-overlap sampler thins the effective test
+sample.
+
+For asset-allocation policy events, make sure the sparse factor sign encodes
+the expected return direction, not just the raw event type. If `+1` means
+"central-bank hike" but hikes are bearish for one asset group and bullish for
+another, map the raw event into an asset-specific expected-return signal before
+calling `compute_caar`, `event_hit_rate`, or `profit_factor`.
+
 ## Worked example — per-event-date CAAR then mean significance
 
 !!! example "compute_caar → caar on a synthetic event panel"
