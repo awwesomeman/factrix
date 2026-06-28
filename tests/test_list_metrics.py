@@ -60,6 +60,10 @@ _PRIMARY_METRIC_CELLS: dict[str, list[tuple[FactorScope, FactorDensity]]] = {
 _CELL_HEADING_MAP: dict[str, list[tuple[FactorScope, FactorDensity]]] = {
     "Individual × Continuous": [(FactorScope.INDIVIDUAL, FactorDensity.DENSE)],
     "Common × Continuous": [(FactorScope.COMMON, FactorDensity.DENSE)],
+    "Timeseries × Continuous": [
+        (FactorScope.INDIVIDUAL, FactorDensity.DENSE),
+        (FactorScope.COMMON, FactorDensity.DENSE),
+    ],
     # Sparse specs use wildcard scope.
     "Individual × Sparse": [
         (FactorScope.INDIVIDUAL, FactorDensity.SPARSE),

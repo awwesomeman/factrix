@@ -10,6 +10,10 @@ cell produced the series.
 !!! warning "Not the same as `DataStructure.TIMESERIES`"
     `DataStructure.TIMESERIES` is the dispatch structure for `n_assets == 1` (set on `EvaluationResult.cell`); the metrics on this page run on a `(date, value)` series regardless of which structure produced it.
 
+For the single-asset dense `evaluate()` path, use
+[`predictive_beta`](predictive_beta.md). It consumes the long panel directly and
+tests the predictive-regression slope with Newey-West HAC inference.
+
 | Metric | Page |
 |---|---|
 | Out-of-sample decay across multiple splits | [`oos`](oos_decay.md) |

@@ -603,8 +603,12 @@ test the **cross-asset** distribution of per-asset βs, so they require
 `N ≥ 2`. At `N = 1` the cell (`COMMON, DENSE, PANEL`) does not match the
 derived `TIMESERIES` structure, so `evaluate` raises
 `IncompatibleAxisError` (or NaN + `structure_mismatch` under
-`strict=False`). There is **no** single-series beta collapse. For single-asset
-dense directional diagnostics, use `directional_hit_rate` on the long-panel
+`strict=False`). There is **no** single-series beta collapse inside
+`ts_beta`; use `predictive_beta` for the explicit single-asset dense
+predictive regression
+`forward_return_t = alpha + beta * factor_t + epsilon_t` with Newey-West HAC
+inference. For single-asset dense directional diagnostics, use
+`directional_hit_rate` on the long-panel
 `(date, asset_id, factor, forward_return)` shape. Two-column diagnostics
 (`hit_rate`, `oos_decay`, `ic_trend`) remain standalone `(date, value)` tools;
 their `evaluate()` path layers on panel IC series, not raw single-asset dense

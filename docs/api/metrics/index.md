@@ -99,11 +99,12 @@ structure. `Common × Dense` metrics live under **Common continuous** below,
 but their registered structure is `PANEL`; at `N == 1` they raise
 `IncompatibleAxisError` (or return NaN with `structure_mismatch` under
 `strict=False`) rather than silently switching to a single-series beta.
-Single-asset workflows use sparse metrics whose cell wildcard allows
-`TIMESERIES` or panel-input wildcard metrics such as `directional_hit_rate`.
-Two-column diagnostics such as `hit_rate` / `oos_decay` / `ic_trend` are
-standalone `(date, value)` tools; in `evaluate()` they layer on panel IC
-series, not raw single-asset dense panels.
+Single-asset dense workflows use `predictive_beta` for direct
+predictive-regression slope inference and `directional_hit_rate` for sign
+prediction. Single-asset sparse workflows use sparse metrics whose cell
+wildcard allows `TIMESERIES`. Two-column diagnostics such as `hit_rate` /
+`oos_decay` / `ic_trend` are standalone `(date, value)` tools; in
+`evaluate()` they layer on panel IC series, not raw single-asset dense panels.
 
 See [Concepts](../../getting-started/concepts.md) for the full
 three-axis design and how metrics map to cells.
@@ -119,6 +120,12 @@ modules plus a fourth axis-agnostic group**:
 | `Individual × Sparse` | **Individual sparse** | Per-event tests on `(date, asset_id, factor)` with sparse `{0, R}` schema (zero on non-event entries; `R` is any real magnitude, `{0, 1}` is the simplest form). Domain shorthand: *event signal*. |
 | `Common × Sparse` | **Common sparse** | A market-wide event dummy broadcast across `N` assets, with the `{0, R}` sparse signal shape. Evaluated through the same scope-agnostic event-time metrics as Individual sparse (CAAR significance plus event diagnostics) — not the time-series-first OLS-β flow. |
 | `Common × Dense` | **Common continuous** | Single time series broadcast across assets (VIX, USD index, …). |
+
+**Single-asset dense** (`predictive_beta`) is the explicit
+`DataStructure.TIMESERIES` path for `N == 1`: it runs a direct
+`forward_return ~ factor` predictive regression with Newey-West HAC
+inference. It is deliberately separate from `ts_beta`, whose estimand is
+the cross-asset mean of per-asset betas.
 
 **Series diagnostics** (`hit_rate`, `trend`, `oos_decay`) are standalone
 axis-agnostic helpers on `(date, value)` inputs. Their `evaluate()` path is

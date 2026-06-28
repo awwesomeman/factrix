@@ -167,7 +167,7 @@ print("survivors =", [(r.factor, r.forward_periods) for r in bhy_ic.survivors])
 import numpy as np
 import polars as pl
 from datetime import datetime, timedelta
-from factrix.metrics import directional_hit_rate
+from factrix.metrics import predictive_beta
 
 # Build a one-asset panel by hand (the cross-section generators need N >= 2).
 rng    = np.random.default_rng(7)
@@ -183,15 +183,15 @@ single_asset_data = pl.DataFrame({
 data = fx.preprocess.compute_forward_return(single_asset_data, forward_periods=5)
 
 # A single-asset panel auto-resolves the structure axis to
-# DataStructure.TIMESERIES (N == 1); a structure-agnostic metric such as
-# directional_hit_rate runs unchanged through the same entry point.
+# DataStructure.TIMESERIES (N == 1); predictive_beta is the explicit
+# dense single-asset predictive-regression metric.
 results = fx.evaluate(
     data,
-    metrics={"dir_hit": directional_hit_rate()},
+    metrics={"beta": predictive_beta()},
     factor_cols=["macro_factor"],
     forward_periods=5,
 )
-print(results["macro_factor"].metrics["dir_hit"].value)
+print(results["macro_factor"].metrics["beta"].value)
 ```
 
 ## Documentation

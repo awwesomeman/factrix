@@ -14,6 +14,7 @@
 | [`metrics.mfe_mae`][factrix.metrics.mfe_mae] | `(*, SPARSE, *)` | event_time |
 | [`metrics.monotonicity`][factrix.metrics.monotonicity] | `(INDIVIDUAL, DENSE, PANEL)` | cs_then_ts |
 | [`metrics.oos_decay`][factrix.metrics.oos_decay] | `(INDIVIDUAL, DENSE, PANEL)` | ts_only |
+| [`metrics.predictive_beta`][factrix.metrics.predictive_beta] | `(*, DENSE, TIMESERIES)` | ts_only |
 | [`metrics.quantile`][factrix.metrics.quantile] | `(INDIVIDUAL, DENSE, PANEL)` | cs_then_ts |
 | [`metrics.spanning`][factrix.metrics.spanning] | `factor-return-series consumer (post-PANEL pipeline)` | ts_only |
 | [`metrics.tradability`][factrix.metrics.tradability] | `(INDIVIDUAL, DENSE, PANEL)` | cs_then_ts |

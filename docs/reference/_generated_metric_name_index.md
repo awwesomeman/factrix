@@ -25,6 +25,7 @@
 | `notional_turnover` | [`factrix.metrics.tradability`][factrix.metrics.tradability] | [`notional_turnover`](../api/metrics/tradability.md#factrix.metrics.tradability.notional_turnover) |
 | `oos_decay` | [`factrix.metrics.oos_decay`][factrix.metrics.oos_decay] | [`oos_decay`](../api/metrics/oos_decay.md#factrix.metrics.oos_decay.oos_decay) |
 | `pooled_beta` | [`factrix.metrics.fm_beta`][factrix.metrics.fm_beta] | [`pooled_beta`](../api/metrics/fm_beta.md#factrix.metrics.fm_beta.pooled_beta) |
+| `predictive_beta` | [`factrix.metrics.predictive_beta`][factrix.metrics.predictive_beta] | [`predictive_beta`](../api/metrics/predictive_beta.md#factrix.metrics.predictive_beta.predictive_beta) |
 | `profit_factor` | [`factrix.metrics.event_quality`][factrix.metrics.event_quality] | [`profit_factor`](../api/metrics/event_quality.md#factrix.metrics.event_quality.profit_factor) |
 | `quantile_spread` | [`factrix.metrics.quantile`][factrix.metrics.quantile] | [`quantile_spread`](../api/metrics/quantile.md#factrix.metrics.quantile.quantile_spread) |
 | `quantile_spread_vw` | [`factrix.metrics.quantile`][factrix.metrics.quantile] | [`quantile_spread_vw`](../api/metrics/quantile.md#factrix.metrics.quantile.quantile_spread_vw) |

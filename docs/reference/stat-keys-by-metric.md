@@ -67,6 +67,7 @@ contrasts, not a sidecar to a primary value.
 | [`spanning_alpha`][factrix.metrics.spanning.spanning_alpha] | OLS `t` on α | `p_value` | spanning α |
 | [`greedy_forward_selection`][factrix.metrics.spanning.greedy_forward_selection] | none — selection meta | — | (NaN; results in metadata) |
 | [`ic_trend`][factrix.metrics.trend.ic_trend] | Theil-Sen slope `t` (CI-based) | `p_value` | Theil-Sen slope |
+| [`predictive_beta`][factrix.metrics.predictive_beta.predictive_beta] | Newey-West HAC `t` on single-asset predictive slope | `p_value` | predictive beta |
 | [`ts_beta`][factrix.metrics.ts_beta.ts_beta] | cross-asset `t` on per-asset β | `p_value` | mean(β) |
 | [`ts_beta_sign_consistency`][factrix.metrics.ts_beta.ts_beta_sign_consistency] | none — descriptive | — | max(p, 1-p) on sign fraction |
 | [`mean_r_squared`][factrix.metrics.ts_beta.mean_r_squared] | none — descriptive | — | mean(R²) |
@@ -412,6 +413,21 @@ is the slope-`t` derived from the rank-based confidence interval.
   `ci_excludes_zero`, `intercept`.
 - *descriptive* (conditional, augmented Dickey-Fuller (ADF) run): `adf_stat`, `adf_p`,
   `unit_root_suspected`.
+
+### `predictive_beta` (`factrix.metrics.predictive_beta`)
+
+#### `predictive_beta`
+
+Single-asset dense predictive regression. `MetricResult.value` is the
+slope in `forward_return ~ factor`; `MetricResult.stat` is the
+Newey-West HAC `t` statistic for `H0: beta = 0`.
+
+- *primary*: `p_value` — two-sided HAC slope test.
+- *descriptive*: `n_periods`, `newey_west_lags`, `forward_periods`,
+  `alpha`, `r_squared`, `factor_std`.
+- *short-circuit*: `reason` `insufficient_predictive_periods`,
+  `degenerate_factor_variance`, `no_factor_column`, or
+  `no_return_column`.
 
 ### `ts_beta` (`factrix.metrics.ts_beta`)
 
