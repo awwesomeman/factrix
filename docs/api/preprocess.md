@@ -14,6 +14,22 @@ cleaning (`winsorize_forward_return`, `compute_abnormal_return`), factor
 normalization (`mad_winsorize`, `cross_sectional_zscore`), and
 orthogonalization against base factors (`orthogonalize_factor`).
 
+## Column adaptation
+
+Use `adapt` when the input is already a long panel but carries vendor- or
+project-specific column names such as `trade_date`, `ticker`, or `close_adj`.
+It renames those columns to factrix's canonical `date`, `asset_id`, `price`,
+and optional OHLCV names before `compute_forward_return`. It does not reshape
+data, construct factors, or compute returns.
+
+`adapt` preserves Polars eager/lazy inputs, converts pandas input to Polars,
+and leaves unrelated columns such as factors, industries, market caps, or
+regime labels unchanged. Optional `fill_forward` is a raw-OHLCV convenience:
+it maps non-finite numeric values to null and forward-fills per asset before
+forward returns are computed.
+
+::: factrix.adapt.adapt
+
 ## Forward return
 
 `compute_forward_return` accepts `forward_periods` as a positive `int`
