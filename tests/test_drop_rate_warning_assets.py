@@ -105,7 +105,7 @@ class TestSchema:
         assert stats["n_assets_out"] == 6
         assert stats["dropped_assets"] == 34
         assert stats["drop_rate"] == pytest.approx(34 / 40)
-        assert "MIN_TS_PERIODS" in stats["drop_reason"]
+        assert "MIN_TS_PERIODS_HARD" in stats["drop_reason"]
 
     def test_full_panel_reports_zero_drop(self):
         stats = _read_drop_stats(compute_ts_betas(_full_panel())["factor"])

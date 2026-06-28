@@ -244,7 +244,7 @@ observations after pairwise null-drop, not the raw row count. `forward_return`
 is null-clean before it reaches a metric, but factor nulls are not dropped
 upstream and are normal in real research, so a cross-sectional reduction counts
 the **valid `(factor, return)` cross-section per date**: `compute_fm_betas`
-(`MIN_FM_ASSETS`) and `compute_ic` (`MIN_IC_ASSETS`) both gate on that
+(`MIN_FM_ASSETS_HARD`) and `compute_ic` (`MIN_IC_ASSETS_HARD`) both gate on that
 pairwise-complete count, dropping a date with many names but a factor defined
 for few rather than leaking a high-variance estimate. Counting null-padded rows
 would let the gate, the report, and the estimate silently disagree.
@@ -262,22 +262,30 @@ would let the gate, the report, and the estimate silently disagree.
 - Hansen-Hodrick (1980) overlap floor: `max(auto_bartlett(T), forward_periods - 1)` —
   ensures NW lag covers MA(h-1) structure from overlapping forward returns.
 
-`factrix/_types.py` and the metric primitives keep the older per-metric thresholds used
+`factrix/_types.py` and the metric primitives keep the per-metric thresholds used
 internally by the primitives that procedures wrap:
 
-- `MIN_IC_ASSETS = 10` — `compute_ic` drops dates with fewer than 10 complete
-  `(factor, return)` pairs (the participating cross-section the per-date Spearman
-  ρ is estimated on, mirroring `MIN_FM_ASSETS`); at fewer than 10 every date is
-  dropped and the IC procedure short-circuits to NaN.
+- `MIN_IC_ASSETS_HARD = 2`, `MIN_IC_ASSETS_WARN = 10` — `compute_ic` drops
+  only dates with fewer than 2 complete `(factor, return)` pairs, the true
+  computability floor for a per-date Spearman IC. Dates with 2..9 complete
+  pairs are retained, and IC consumers / `inspect_data` surface
+  `WarningCode.FEW_ASSETS` because the cross-section is statistically thin.
+- `MIN_SERIES_PERIODS_HARD = 10` — shared periods-axis floor for
+  non-overlapping series diagnostics (`ic` post-stride mean test, `hit_rate`,
+  and the series-mean non-overlap pre-flight). It is intentionally not
+  IC-named because the same 10-draw floor applies outside IC.
 - `MIN_EVENTS_HARD = 4`, `MIN_EVENTS_WARN = 30` — two-tier sparse-cell
   event-count floor. `n < HARD` short-circuits the CAAR / event-quality
   primitives; `HARD ≤ n < WARN` emits `WarningCode.FEW_EVENTS`.
-- `MIN_FM_ASSETS = 3` (`factrix/metrics/_primitives/_fm_betas.py`) — `compute_fm_betas`
+- `MIN_FM_ASSETS_HARD = 3` (`factrix/metrics/_primitives/_fm_betas.py`) — `compute_fm_betas`
   emits a date only with ≥ 3 complete
   `(factor, return)` pairs and non-zero cross-sectional variance; the closed-form
   slope `Cov_t(x, y) / Var_t(x)` is computed batched across factors (one
   `group_by("date").agg`), so degenerate (zero-variance) dates are dropped rather
   than assigned an arbitrary least-norm slope.
+  `MIN_FM_ASSETS_WARN = 10` preserves those computable 3..9-asset dates
+  while surfacing `WarningCode.FEW_ASSETS` from FM consumers and
+  `inspect_data`.
 
 ### Inflation cost at low `n_assets`
 
@@ -479,7 +487,10 @@ per-date Spearman across n_assets         (cross-section step)
 
 Failure modes:
 
-- `n_assets` < 10 → `MIN_IC_ASSETS` drops every date → output is NaN.
+- per-date pairwise-complete `n_assets` < 2 → `MIN_IC_ASSETS_HARD` drops that
+  date; if every date drops, output is NaN with `insufficient_ic_assets`.
+- per-date pairwise-complete `2 ≤ n_assets < 10` → IC is returned with
+  `WarningCode.FEW_ASSETS` keyed to `MIN_IC_ASSETS_WARN`.
 
 ### `individual_continuous(FM)` — cross-section first
 
@@ -491,8 +502,10 @@ per-date OLS R = α + β·FactorDensity across n_assets   (cross-section step)
 
 Failure modes:
 
-- per-date `n_assets` < 3 → date dropped (`if len(y) < 3: continue`).
-- per-date `n_assets` small but ≥ 3 → df = `n_assets` − 2 minimal, β unstable.
+- per-date `n_assets` < 3 → `MIN_FM_ASSETS_HARD` drops that date.
+- per-date `3 <= n_assets < 10` → FM beta is returned with
+  `WarningCode.FEW_ASSETS` keyed to `MIN_FM_ASSETS_WARN` because
+  df = `n_assets` - 2 is minimal.
 - `n_periods < MIN_FM_PERIODS_HARD = 4` → short-circuit to insufficient
   (math floor — NW HAC `t` undefined below).
 - `MIN_FM_PERIODS_HARD ≤ n_periods < MIN_FM_PERIODS_WARN = 30` → returns
@@ -542,7 +555,7 @@ per-asset OLS R_i = α_i + β_i·F over all n_periods dates   (time-series step)
 
 Failure modes:
 
-- per-asset `n_periods < MIN_TS_PERIODS = 20` → asset dropped.
+- per-asset `n_periods < MIN_TS_PERIODS_HARD = 20` → asset dropped.
 - `n_assets < MIN_ASSETS_WARN = 30` → `WarningCode.FEW_ASSETS` (still runs; severity scales with `n_assets`).
 - `n_assets = 1` → no asset cross-section to aggregate the per-asset βs
   over. The cell declares `cell.structure = PANEL`, so `evaluate` raises
@@ -747,13 +760,14 @@ factrix/
 ├── adapt.py                 # column-name adapter → factrix canonical names
 ├── _logging.py              # shared loggers
 ├── _ols.py                  # shared OLS helpers (spanning metrics + orthogonalize preprocess)
-├── _types.py                # shared constants: EPSILON, DDOF, MIN_IC_ASSETS,
-│                            #   MIN_EVENTS_HARD/WARN, MIN_OOS_PERIODS, MIN_PORTFOLIO_PERIODS_HARD/WARN, ...
+├── _types.py                # shared constants: EPSILON, DDOF, MIN_IC_ASSETS_HARD/WARN,
+│                            #   MIN_SERIES_PERIODS_HARD, MIN_EVENTS_HARD/WARN,
+│                            #   MIN_OOS_PERIODS_HARD, MIN_PORTFOLIO_PERIODS_HARD/WARN, ...
 ├── _stats/                  # numerics: hac, bootstrap, unit_root, wald, gmm, ols, diagnostics, constants
 ├── stats/                   # public estimator surface (newey_west, hansen_hodrick, driscoll_kraay, gmm, ...)
 ├── estimators/              # lowercase estimator callables
 ├── metrics/                 # @metric callables (ic, fm_beta, ts_beta, caar, ...) + _registry
-│                            # per-cell thresholds (MIN_FM_PERIODS_HARD/WARN, MIN_TS_PERIODS) live
+│                            # per-cell thresholds (MIN_FM_PERIODS_HARD/WARN, MIN_TS_PERIODS_HARD) live
 │                            # alongside the metrics that enforce them
 ├── slicing/                 # by_slice + slice_pairwise_test / slice_joint_test
 ├── preprocess/              # compute_forward_return / normalize / orthogonalize

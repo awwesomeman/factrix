@@ -38,18 +38,18 @@ MAD_CONSISTENCY_CONSTANT: float = 1.4826
 # (e.g. an ``_ASSETS`` floor must not gate a series length); introduce a
 # separate ``_PERIODS`` constant even when the calibrated value coincides.
 
-# Per-date minimum asset count below which ``compute_ic`` drops the date
-# (cross-sectional axis). Spearman ρ needs ≥ this many names per date for
-# its asymptotic distribution to hold.
-MIN_IC_ASSETS: int = 10
+# Two-tier per-date asset-count guard for ``compute_ic`` (cross-sectional
+# axis). ``MIN_IC_ASSETS_HARD`` is the true computability floor: Spearman IC is
+# undefined below two pairwise-complete names. ``MIN_IC_ASSETS_WARN`` preserves
+# the legacy reliability floor; dates in ``[HARD, WARN)`` are retained but
+# surfaced as thin cross-sections by IC consumers and ``inspect_data``.
+MIN_IC_ASSETS_HARD: int = 2
+MIN_IC_ASSETS_WARN: int = 10
 
-# Minimum IC time-series length (periods axis) for a reliable mean / sign
-# test on the per-date IC series: the post-stride sample in ``ic()``, the
-# series-length floor in ``hit_rate``, and the raw-period base in the
-# non-overlapping inference floor all key off this "≥10 independent draws"
-# rule. Distinct axis from ``MIN_IC_ASSETS`` despite the shared value — do
-# not collapse.
-MIN_IC_PERIODS: int = 10
+# Minimum sampled series length (periods axis) for sign / mean diagnostics on
+# non-overlapping series. Used by IC's post-stride series test, hit_rate's
+# binomial sign-count test, and the raw-period base in series-mean inference.
+MIN_SERIES_PERIODS_HARD: int = 10
 
 # Two-tier guard for ``directional_hit_rate`` on its ``pairs`` axis — the
 # pooled non-overlapping (date, asset) directional trials the
@@ -60,7 +60,7 @@ MIN_IC_PERIODS: int = 10
 # with ``WarningCode.FEW_DIRECTIONAL_PAIRS`` — the normal approximation to
 # S_n is honest only near ~30 pooled trials (the same asymptotic-honesty
 # convention as ``MIN_EVENTS_WARN`` / ``MIN_ASSETS_WARN``). Pairs axis, own
-# literals — must not alias ``MIN_IC_PERIODS`` (periods axis).
+# literals — must not alias ``MIN_SERIES_PERIODS_HARD`` (periods axis).
 MIN_DIRECTIONAL_PAIRS_HARD: int = 10
 MIN_DIRECTIONAL_PAIRS_WARN: int = 30
 
@@ -76,7 +76,7 @@ MIN_DIRECTIONAL_PAIRS_WARN: int = 30
 MIN_EVENTS_HARD: int = 4
 MIN_EVENTS_WARN: int = 30
 
-MIN_OOS_PERIODS: int = 5
+MIN_OOS_PERIODS_HARD: int = 5
 
 # Two-tier portfolio-period guard for portfolio-level inference (top
 # concentration t-test). ``n < MIN_PORTFOLIO_PERIODS_HARD`` short-circuits
@@ -87,7 +87,7 @@ MIN_OOS_PERIODS: int = 5
 MIN_PORTFOLIO_PERIODS_HARD: int = 3
 MIN_PORTFOLIO_PERIODS_WARN: int = 20
 
-MIN_MONOTONICITY_PERIODS: int = 5
+MIN_MONOTONICITY_PERIODS_HARD: int = 5
 
 
 # Structural alias used by metric internals to mark "this float is a

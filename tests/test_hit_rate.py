@@ -36,7 +36,7 @@ class TestComputeHitRate:
         assert abs(result.stat) < 0.5
 
     def test_insufficient_data(self):
-        series = _make_series([0.01] * 5)  # < MIN_IC_PERIODS=10
+        series = _make_series([0.01] * 5)  # < MIN_SERIES_PERIODS_HARD=10
         result = hit_rate(series, forward_periods=1)
         assert math.isnan(result.value)
         assert result.p_value is None or result.p_value >= 0.10

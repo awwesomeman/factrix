@@ -67,7 +67,7 @@ distinguishes them:
 - **Date-aligned but metric-dropped** — the slices *do* share dates, but
   the per-slice metric dropped most of its per-date values, so the joined
   panel still collapses below two rows. The usual cause is too few assets
-  per slice (e.g. `ic` drops any date below `MIN_IC_ASSETS`); a `sector`
+  per slice (e.g. `ic` drops any date below `MIN_IC_ASSETS_HARD`); a `sector`
   cut with thin cross-sections triggers it. The message reports the raw
   shared-date count and blames the thin universe — widen each slice's
   asset universe or use a coarser partition.

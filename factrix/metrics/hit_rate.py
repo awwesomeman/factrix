@@ -28,7 +28,7 @@ from factrix._stats import (
     _binomial_test_method_name,
     _binomial_two_sided_p,
 )
-from factrix._types import MIN_IC_PERIODS
+from factrix._types import MIN_SERIES_PERIODS_HARD
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _enforce_scaled_floor,
@@ -75,8 +75,8 @@ def per_date_series(series: pl.DataFrame) -> pl.DataFrame:
     requires={"series": compute_ic},
     # Periods floor scales with the non-overlap stride: the binomial runs on the
     # ``raw_n / forward_periods`` sampled dates, so pre-flight and the in-body
-    # gate share ``MIN_IC_PERIODS`` + ``_scaled_min_periods``.
-    sample_threshold=_scaled_periods_threshold(MIN_IC_PERIODS),
+    # gate share ``MIN_SERIES_PERIODS_HARD`` + ``_scaled_min_periods``.
+    sample_threshold=_scaled_periods_threshold(MIN_SERIES_PERIODS_HARD),
 )
 def hit_rate(
     series: pl.DataFrame,
@@ -125,11 +125,11 @@ def hit_rate(
         True
     """
     # Primary periods gate: raw date count vs the stride-scaled floor, matching
-    # inspect_data pre-flight (raw_n vs MIN_IC_PERIODS * forward_periods).
+    # inspect_data pre-flight (raw_n vs MIN_SERIES_PERIODS_HARD * forward_periods).
     sc = _enforce_scaled_floor(
         "hit_rate",
         series["date"].n_unique(),
-        MIN_IC_PERIODS,
+        MIN_SERIES_PERIODS_HARD,
         forward_periods,
         "insufficient_hit_rate_samples",
     )
@@ -142,13 +142,13 @@ def hit_rate(
     # Secondary degeneracy guard: null-drop can leave the sampled series below
     # the effective floor even when the raw panel cleared it; the binomial
     # divides by ``n``, so refuse rather than divide a near-empty sample.
-    if n < MIN_IC_PERIODS:
+    if n < MIN_SERIES_PERIODS_HARD:
         return _short_circuit_output(
             "hit_rate",
             "insufficient_hit_rate_samples",
             n_obs=n,
             n_obs_axis="periods",
-            min_required=MIN_IC_PERIODS,
+            min_required=MIN_SERIES_PERIODS_HARD,
         )
 
     hits = int((vals > 0).sum())

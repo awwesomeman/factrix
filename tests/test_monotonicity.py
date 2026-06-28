@@ -8,7 +8,7 @@ from factrix.metrics.monotonicity import monotonicity
 
 class TestComputeMonotonicity:
     def test_perfect_monotonic(self, noisy_panel):
-        # WHY: tiny_panel only has 3 dates, < MIN_MONOTONICITY_PERIODS after sampling
+        # WHY: tiny_panel only has 3 dates, < MIN_MONOTONICITY_PERIODS_HARD after sampling
         # Use noisy_panel (20 dates × 30 assets) with perfect factor-return alignment
         import polars as pl
 
@@ -44,7 +44,7 @@ class TestComputeMonotonicity:
             }
         ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = monotonicity(df, forward_periods=1, n_groups=5)["factor"]
-        # Only 1 date < MIN_MONOTONICITY_PERIODS=5
+        # Only 1 date < MIN_MONOTONICITY_PERIODS_HARD=5
         assert math.isnan(result.value)
         assert result.p_value is None or result.p_value >= 0.10
 

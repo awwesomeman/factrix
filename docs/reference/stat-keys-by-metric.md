@@ -84,15 +84,17 @@ contrasts, not a sidecar to a primary value.
 #### `ic`
 
 - *primary*: `p_value` — `t`-test on the per-date IC series (non-overlapping stride with stride `forward_periods` by default, or Newey-West HAC if configured).
-- *descriptive*: `n_periods`, `forward_periods`, `tie_ratio` (median across dates), `stat_type` (`"t"`), `h0` (`"mu=0"`), `method`.
-- *short-circuit*: `reason` `insufficient_ic_periods` (too few dates) carries `min_required`; `insufficient_ic_assets` (every cross-section below `MIN_IC_ASSETS`, so no per-date IC survived — common on few-asset panels) carries `min_assets_required`.
+- *descriptive*: `n_periods`, `forward_periods`, `tie_ratio` (median across dates), `min_assets_per_period` / `warn_assets_per_period` when the upstream IC series carries per-date asset counts, `stat_type` (`"t"`), `h0` (`"mu=0"`), `method`.
+- *warning*: `WarningCode.FEW_ASSETS` when retained per-date IC cross-sections are below `MIN_IC_ASSETS_WARN`.
+- *short-circuit*: `reason` `insufficient_ic_periods` (too few dates) carries `min_required`; `insufficient_ic_assets` (every cross-section below `MIN_IC_ASSETS_HARD`, so no per-date IC survived — common on one-valid-pair panels) carries `min_assets_required`.
 
 #### `ic_ir`
 
 Descriptive metric — `MetricResult.stat` is `None` and no `p_value`
 is emitted.
 
-- *descriptive*: `mean_ic`, `std_ic`, `n_periods`, `tie_ratio`.
+- *descriptive*: `mean_ic`, `std_ic`, `n_periods`, `tie_ratio`, `min_assets_per_period` / `warn_assets_per_period` when the upstream IC series carries per-date asset counts.
+- *warning*: `WarningCode.FEW_ASSETS` when retained per-date IC cross-sections are below `MIN_IC_ASSETS_WARN`.
 
 ### `fm_beta` family (`factrix.metrics.fm_beta`)
 
@@ -104,7 +106,9 @@ is emitted.
 - *secondary-test* (conditional, Shanken applied):
   `p_value_uncorrected`, `stat_uncorrected`.
 - *descriptive*: `n_periods`, `newey_west_lags`, `forward_periods`,
-  `is_estimated_factor`, `warning_codes` (conditional).
+  `is_estimated_factor`, `warning_codes` (conditional),
+  `min_assets_per_period` / `warn_assets_per_period` when the upstream
+  FM beta series carries per-date asset counts.
 - *descriptive* (conditional, Shanken applied): `shanken_c`,
   `shanken_factor_return_var`, `shanken_factor_return_var_source`.
 - *descriptive* (conditional, σ²_f ≈ 0): `shanken_correction` =
@@ -136,7 +140,9 @@ is emitted.
 
 Descriptive; no test.
 
-- *descriptive*: `expected_sign`, `n_periods`.
+- *descriptive*: `expected_sign`, `n_periods`,
+  `min_assets_per_period` / `warn_assets_per_period` when the upstream
+  FM beta series carries per-date asset counts.
 
 ### `caar` family (`factrix.metrics.caar`)
 

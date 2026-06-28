@@ -25,7 +25,7 @@ Time-series length `n_periods` and asset count `n_assets` are gated **independen
 
 | Density / Scope | N=1 | N=2..9 | N=10..29 | N≥30 |
 |---|---|---|---|---|
-| `INDIVIDUAL` × `DENSE` (IC) | raises `UserInputError` or `IncompatibleAxisError` | all dates dropped (MIN_IC_ASSETS=10) → NaN | normal PANEL | normal PANEL |
+| `INDIVIDUAL` × `DENSE` (IC) | raises `UserInputError` or `IncompatibleAxisError` | runs with `FEW_ASSETS` if pairwise-complete per-date N is 2..9; dates with N < 2 are dropped | normal IC; panel-level thin-N warnings may still apply | normal PANEL |
 | `INDIVIDUAL` × `DENSE` (FM) | raises `UserInputError` or `IncompatibleAxisError` | per-date guard; low df | normal PANEL | normal PANEL |
 | `COMMON` × `DENSE` | raises `IncompatibleAxisError` (no cross-section) | emits `FEW_ASSETS` | emits `FEW_ASSETS` | normal PANEL |
 | `INDIVIDUAL` × `SPARSE` / `COMMON` × `SPARSE` | TIMESERIES sparse path; no scope-collapse step | normal PANEL CAAR | normal PANEL CAAR | normal PANEL CAAR |

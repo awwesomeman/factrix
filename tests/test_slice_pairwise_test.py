@@ -179,7 +179,7 @@ def test_raises_when_dates_dont_align() -> None:
 
 
 def test_aligned_slices_but_metric_dropped_reports_small_sample() -> None:
-    """Date-aligned slices whose tiny cross-sections (N < MIN_IC_ASSETS) make
+    """Date-aligned slices whose tiny cross-sections (N < MIN_IC_ASSETS_HARD) make
     every per-date IC drop must blame the thin universe, not call the
     partition date-disjoint."""
     df = build_labelled_raw_panel(
@@ -187,7 +187,7 @@ def test_aligned_slices_but_metric_dropped_reports_small_sample() -> None:
         seed=14,
         signal={"a": 0.1, "b": 0.1},
         label_col="universe",
-        n_assets=5,
+        n_assets=1,
     )
     with pytest.raises(ValueError, match="too few assets") as exc:
         slice_pairwise_test(df, ic(), by="universe", factor_col="factor")

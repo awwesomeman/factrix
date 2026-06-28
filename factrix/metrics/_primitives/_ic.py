@@ -14,7 +14,7 @@ from factrix._axis import (
     SpecRole,
 )
 from factrix._metric_index import cell
-from factrix._types import MIN_IC_ASSETS
+from factrix._types import MIN_IC_ASSETS_HARD
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import _attach_drop_stats
 
@@ -48,9 +48,11 @@ def compute_ic(
 
     Returns:
         Dict mapping each factor name to a DataFrame with columns
-        ``date, ic, tie_ratio`` sorted by date, plus an internal
+        ``date, ic, tie_ratio, n_assets`` sorted by date, plus an internal
         ``_drop_stats`` diagnostic struct column. Dates with fewer than
-        ``MIN_IC_ASSETS`` assets are dropped; ``_drop_stats``
+        ``MIN_IC_ASSETS_HARD`` assets are dropped; dates below
+        ``MIN_IC_ASSETS_WARN`` survive but are surfaced by downstream IC
+        consumers as thin-cross-section warnings. ``_drop_stats``
         records how many were dropped (the aggregate drop-rate schema).
         ``tie_ratio`` is the per-date factor tie density
         $1 - n_{\mathrm{unique}} / n$ in $[0, 1]$.
@@ -85,7 +87,7 @@ def compute_ic(
         )
     # The effective cross-section is the per-date *valid-pair* count: the IC ρ is
     # estimated on the complete (factor, return) names only, so that same count —
-    # not the raw row count — is what gates the date (``MIN_IC_ASSETS``) and
+    # not the raw row count — is what gates the date (``MIN_IC_ASSETS_HARD``) and
     # denominates the tie ratio. Counting null-factor names would let a thin
     # cross-section (e.g. a factor defined for 8 of 200 names) clear the floor and
     # leak a high-variance IC into the series. The count is therefore per factor
@@ -94,7 +96,7 @@ def compute_ic(
     agg_exprs: list[pl.Expr] = []
     for f in cols:
         valid = pl.col(f).is_not_null() & pl.col(return_col).is_not_null()
-        agg_exprs.append(valid.sum().alias(f"_n__{f}"))
+        agg_exprs.append(valid.sum().alias(f"_n_assets__{f}"))
         agg_exprs.append(
             pl.corr(f"_rank__{f}", f"_rank_return__{f}").alias(f"_ic__{f}")
         )
@@ -113,14 +115,15 @@ def compute_ic(
         .sort("date")
     ).collect()
     n_periods_in = grouped.height
-    drop_reason = f"n_assets below MIN_IC_ASSETS ({MIN_IC_ASSETS})"
+    drop_reason = f"n_assets below MIN_IC_ASSETS_HARD ({MIN_IC_ASSETS_HARD})"
 
     return {
         f: _attach_drop_stats(
-            grouped.filter(pl.col(f"_n__{f}") >= MIN_IC_ASSETS).select(
+            grouped.filter(pl.col(f"_n_assets__{f}") >= MIN_IC_ASSETS_HARD).select(
                 pl.col("date"),
                 pl.col(f"_ic__{f}").alias("ic"),
                 pl.col(f"_tie__{f}").alias("tie_ratio"),
+                pl.col(f"_n_assets__{f}").alias("n_assets"),
             ),
             n_in=n_periods_in,
             drop_reason=drop_reason,

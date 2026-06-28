@@ -7,12 +7,13 @@ batch element equals the corresponding list-of-one call).
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import numpy as np
 import polars as pl
 import pytest
-from factrix.metrics.fm_beta import compute_fm_betas
+from factrix._codes import WarningCode
+from factrix.metrics.fm_beta import compute_fm_betas, fm_beta, fm_beta_sign_consistency
 
 
 def _lstsq_betas(df: pl.DataFrame, factor_col: str = "factor") -> dict:
@@ -40,8 +41,8 @@ class TestComputeFMBetas:
     def test_output_schema(self, noisy_panel):
         df = compute_fm_betas(noisy_panel)["factor"]
         # ``_drop_stats`` is an internal diagnostic struct column appended by
-        # the primitive; the public series columns are ``date, beta``.
-        assert df.columns == ["date", "beta", "_drop_stats"]
+        # the primitive; the public series columns are ``date, beta, n_assets``.
+        assert df.columns == ["date", "beta", "n_assets", "_drop_stats"]
         assert df["date"].is_sorted()
 
     def test_closed_form_value(self, tiny_panel):
@@ -59,7 +60,7 @@ class TestComputeFMBetas:
             assert beta == pytest.approx(ref[dt], abs=1e-12)
 
     def test_drops_dates_below_min_obs(self):
-        # date d0 has 2 assets (below MIN_FM_ASSETS=3), d1 has 4.
+        # date d0 has 2 assets (below MIN_FM_ASSETS_HARD=3), d1 has 4.
         rows = [
             {
                 "date": datetime(2024, 1, 1),
@@ -84,6 +85,7 @@ class TestComputeFMBetas:
         ]
         df = compute_fm_betas(pl.DataFrame(rows))["factor"]
         assert df["date"].to_list() == [datetime(2024, 1, 2)]
+        assert df["n_assets"].to_list() == [4]
 
     def test_drops_zero_variance_dates(self):
         # date d0: factor constant → no identifiable slope, dropped.
@@ -159,6 +161,42 @@ class TestComputeFMBetas:
         df = compute_fm_betas(pl.DataFrame(rows))["factor"]
         assert df.height == 1
         assert df["beta"][0] == pytest.approx(1e4, rel=1e-9)
+
+
+class TestFMBetaConsumers:
+    @staticmethod
+    def _thin_beta_df(n_dates: int = 35, n_assets: int = 8) -> pl.DataFrame:
+        rows = []
+        for d in range(n_dates):
+            date = datetime(2024, 1, 1) + timedelta(days=d)
+            for i in range(n_assets):
+                factor = float(i + 1)
+                rows.append(
+                    {
+                        "date": date,
+                        "asset_id": f"A{i}",
+                        "factor": factor,
+                        "forward_return": 0.01 * factor,
+                    }
+                )
+        panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        return compute_fm_betas(panel)["factor"]
+
+    def test_few_assets_warns_without_blocking(self):
+        beta_df = self._thin_beta_df()
+        with pytest.warns(UserWarning, match="MIN_FM_ASSETS_WARN"):
+            result = fm_beta(beta_df)
+        assert not np.isnan(result.value)
+        assert WarningCode.FEW_ASSETS.value in result.warning_codes
+        assert result.metadata["min_assets_per_period"] == 8
+        assert result.metadata["warn_assets_per_period"] == 10
+
+    def test_sign_consistency_surfaces_few_assets(self):
+        beta_df = self._thin_beta_df()
+        with pytest.warns(UserWarning, match="MIN_FM_ASSETS_WARN"):
+            result = fm_beta_sign_consistency(beta_df)
+        assert not np.isnan(result.value)
+        assert WarningCode.FEW_ASSETS.value in result.warning_codes
 
 
 class TestComputeFMBetasBatch:

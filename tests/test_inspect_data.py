@@ -12,6 +12,7 @@ from factrix._inspect import (
     MetricApplicability,
     inspect_data,
 )
+from factrix.preprocess import compute_forward_return
 
 
 def _single_asset_data(n_dates: int = 80) -> pl.DataFrame:
@@ -203,6 +204,84 @@ class TestSampleThresholdGate:
         assert turnover.warnings == []
 
 
+class TestICStageOneFeasibility:
+    def test_ic_family_blocked_when_cross_section_never_reaches_ic_floor(self):
+        raw = compute_forward_return(
+            fx.datasets.make_cs_panel(n_assets=20, n_dates=120), forward_periods=3
+        )
+        keepers = raw["asset_id"].unique().sort().head(1).to_list()
+        data = raw.with_columns(
+            pl.when(pl.col("asset_id").is_in(keepers))
+            .then(pl.col("factor"))
+            .otherwise(None)
+            .alias("factor")
+        )
+        info = inspect_data(data)
+
+        for name in ("ic", "ic_ir"):
+            verdict = _by_name(info, name)
+            assert verdict.usable is False
+            assert any("MIN_IC_ASSETS_HARD=2" in b for b in verdict.blockers)
+
+        for name in ("fm_beta", "fm_beta_sign_consistency"):
+            verdict = _by_name(info, name)
+            assert verdict.usable is False
+            assert any("MIN_FM_ASSETS_HARD=3" in b for b in verdict.blockers)
+
+    def test_ic_family_uses_pairwise_complete_assets_not_raw_asset_count(self):
+        raw = compute_forward_return(
+            fx.datasets.make_cs_panel(n_assets=20, n_dates=120), forward_periods=3
+        )
+        keepers = raw["asset_id"].unique().sort().head(8).to_list()
+        data = raw.with_columns(
+            pl.when(pl.col("asset_id").is_in(keepers))
+            .then(pl.col("factor"))
+            .otherwise(None)
+            .alias("factor")
+        )
+
+        info = inspect_data(data)
+        assert info.properties.n_assets == 20
+
+        for name in ("ic", "ic_ir"):
+            verdict = _by_name(info, name)
+            assert verdict.usable is True
+            assert verdict.blockers == []
+            assert "few_assets" in [w.code.value for w in verdict.warnings]
+            assert any("MIN_IC_ASSETS_WARN=10" in w.message for w in verdict.warnings)
+
+        for name in ("fm_beta", "fm_beta_sign_consistency"):
+            verdict = _by_name(info, name)
+            assert verdict.usable is True
+            assert verdict.blockers == []
+            assert "few_assets" in [w.code.value for w in verdict.warnings]
+            assert any("MIN_FM_ASSETS_WARN=10" in w.message for w in verdict.warnings)
+
+    def test_ic_family_period_floor_uses_surviving_ic_series_length(self):
+        raw = compute_forward_return(
+            fx.datasets.make_cs_panel(n_assets=20, n_dates=40), forward_periods=3
+        )
+        full_width_cutoff = raw["date"].unique().sort()[14]
+        keepers = raw["asset_id"].unique().sort().head(1).to_list()
+        data = raw.with_columns(
+            pl.when(
+                (pl.col("date") <= full_width_cutoff)
+                | pl.col("asset_id").is_in(keepers)
+            )
+            .then(pl.col("factor"))
+            .otherwise(None)
+            .alias("factor")
+        )
+
+        info = inspect_data(data)
+        ic_ir = _by_name(info, "ic_ir")
+
+        assert info.properties.n_periods == raw["date"].n_unique()
+        assert ic_ir.usable is False
+        assert any("n_periods=15 < min_periods=20" in b for b in ic_ir.blockers)
+        assert not any("MIN_IC_ASSETS" in b for b in ic_ir.blockers)
+
+
 class TestDeclaredPeriodsFloorsVisible:
     """Metrics that gate on a periods floor must declare it on their spec so
     ``inspect_data`` can pre-flight it -- previously these enforced the floor in
@@ -249,11 +328,11 @@ class TestDeclaredPeriodsFloorsVisible:
 
     def test_pooled_beta_declares_periods_floors_alongside_pairs(self):
         from factrix._stats.constants import MIN_PERIODS_WARN
-        from factrix.metrics.fm_beta import _MIN_DK_PERIODS, pooled_beta
+        from factrix.metrics.fm_beta import _MIN_DK_PERIODS_HARD, pooled_beta
 
         st = pooled_beta.spec().sample_threshold
         assert st.min_pairs == 10
-        assert st.min_periods == _MIN_DK_PERIODS
+        assert st.min_periods == _MIN_DK_PERIODS_HARD
         assert st.warn_periods == MIN_PERIODS_WARN
 
     def test_turnover_declares_dynamic_periods_floor(self):

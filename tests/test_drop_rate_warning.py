@@ -25,11 +25,11 @@ from factrix.metrics.ic import compute_ic, ic, ic_ir
 
 
 def _thinned_panel(
-    *, n_dates: int = 300, full: int = 40, thin: int = 4, seed: int = 0
+    *, n_dates: int = 300, full: int = 40, thin: int = 1, seed: int = 0
 ) -> pl.DataFrame:
     """Panel where every other date is thinned to ``thin`` assets.
 
-    ``thin`` < ``MIN_IC_ASSETS`` (10), so the thinned dates are dropped
+    ``thin`` < ``MIN_IC_ASSETS_HARD`` (2), so the thinned dates are dropped
     by ``compute_ic`` — yielding a ~50% period drop with enough survivors to
     clear the consumers' own sample floors.
     """
@@ -68,15 +68,15 @@ class TestSchema:
             stats["n_periods_out"] == stats["n_periods_in"] - stats["dropped_periods"]
         )
         assert stats["drop_rate"] == pytest.approx(0.5, abs=0.02)
-        assert "MIN_IC_ASSETS" in stats["drop_reason"]
+        assert "MIN_IC_ASSETS_HARD" in stats["drop_reason"]
 
     def test_compute_fm_betas_attaches_drop_stats(self):
-        # Thin below MIN_FM_ASSETS (3): thinned dates carry a single asset.
+        # Thin below MIN_FM_ASSETS_HARD (3): thinned dates carry a single asset.
         stats = _read_drop_stats(compute_fm_betas(_thinned_panel(thin=1))["factor"])
         assert stats is not None
         assert set(stats) == set(DROP_STAT_KEYS)
         assert stats["drop_rate"] > DROP_RATE_WARN_THRESHOLD
-        assert "MIN_FM_ASSETS" in stats["drop_reason"]
+        assert "MIN_FM_ASSETS_HARD" in stats["drop_reason"]
 
     def test_full_panel_reports_zero_drop(self):
         stats = _read_drop_stats(compute_ic(_full_panel())["factor"])
@@ -90,7 +90,7 @@ class TestSchema:
         stats = _read_drop_stats(compute_ic(_thinned_panel())["factor"])
         assert stats is not None
         assert stats["dropped_periods"] > 0
-        assert "MIN_IC_ASSETS" in stats["drop_reason"]
+        assert "MIN_IC_ASSETS_HARD" in stats["drop_reason"]
 
     def test_hand_built_series_has_no_stats(self):
         # A series without the primitive's diagnostic column reads as None.
@@ -128,8 +128,15 @@ class TestConsumerWarning:
     def test_full_drop_defers_to_short_circuit(self):
         # Every date below the IC floor → empty IC series → consumer
         # short-circuits and must NOT emit a drop-rate warning (no double-warn).
-        raw = fx.datasets.make_cs_panel(n_assets=4, n_dates=300, seed=0)
+        raw = fx.datasets.make_cs_panel(n_assets=2, n_dates=300, seed=0)
         panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
+        keep_asset = panel["asset_id"].unique().sort()[0]
+        panel = panel.with_columns(
+            pl.when(pl.col("asset_id") == keep_asset)
+            .then(pl.col("factor"))
+            .otherwise(None)
+            .alias("factor")
+        )
         ic_df = compute_ic(panel)["factor"]
         assert ic_df.height == 0
         with warnings.catch_warnings():

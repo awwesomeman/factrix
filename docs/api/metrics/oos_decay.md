@@ -13,7 +13,7 @@ title: factrix.metrics.oos_decay
 !!! info "Descriptive only — no formal $H_0$"
     `oos_decay` emits a survival ratio + sign-flip detail;
     no `p_value` is attached and `stat` is `None`. A $t$-test at the
-    `MIN_OOS_PERIODS` floor would have power $\approx 0$ and would
+    `MIN_OOS_PERIODS_HARD` floor would have power $\approx 0$ and would
     invite mis-reading the diagnostic as a significance test. Callers
     routing this output into Benjamini-Hochberg-Yekutieli (BHY) / gate logic must read `status`
     (`"PASS"` / `"VETOED"`) and `sign_flipped`, not a probability.
@@ -126,7 +126,7 @@ title: factrix.metrics.oos_decay
     ---
 
     When this metric applies and the sample-size guards that gate it
-    (`MIN_OOS_PERIODS * 2` floor; per-split `MIN_OOS_PERIODS` on each
+    (`MIN_OOS_PERIODS_HARD * 2` floor; per-split `MIN_OOS_PERIODS_HARD` on each
     side).
 
     [reference/metric-applicability →](../../reference/metric-applicability.md)

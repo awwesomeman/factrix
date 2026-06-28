@@ -26,8 +26,8 @@ class TestComputeIC:
             assert ic_val == pytest.approx(-1.0)
 
     def test_drops_small_dates(self):
-        """Dates with < MIN_IC_ASSETS assets should be excluded."""
-        # 3 assets < MIN_IC_ASSETS=10
+        """Dates with < MIN_IC_ASSETS_HARD assets should be excluded."""
+        # 1 asset < MIN_IC_ASSETS_HARD=2.
         dates = [datetime(2024, 1, 1)]
         rows = [
             {
@@ -36,7 +36,7 @@ class TestComputeIC:
                 "factor": float(i),
                 "forward_return": float(i) * 0.01,
             }
-            for i in range(3)
+            for i in range(1)
         ]
         df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = compute_ic(df)["factor"]
@@ -44,12 +44,11 @@ class TestComputeIC:
 
     def test_gate_counts_valid_pairs_not_rows(self):
         """The cross-section floor gates on the per-date *valid-pair* count, not
-        the raw row count: a date with many names but a factor defined for only a
-        few must be dropped (its IC is estimated on those few), and the tie_ratio
-        is denominated by the valid count.
+        the raw row count: a date with many names but only one valid pair must
+        be dropped because its IC is undefined.
         """
         n = 30
-        factor = [float(i) if i < 6 else None for i in range(n)]  # 6 valid < 10
+        factor = [0.0 if i == 0 else None for i in range(n)]  # 1 valid < hard floor
         df = pl.DataFrame(
             {
                 "date": [datetime(2024, 1, 1)] * n,
@@ -58,8 +57,25 @@ class TestComputeIC:
                 "forward_return": [float(i) * 0.01 for i in range(n)],
             }
         ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        # 6 valid pairs < MIN_IC_ASSETS=10 → the date is dropped even though 30 rows.
+        # 1 valid pair < MIN_IC_ASSETS_HARD=2: the date is dropped even though
+        # the raw row count is 30.
         assert len(compute_ic(df)["factor"]) == 0
+
+    def test_warn_band_dates_are_retained_with_n_assets(self):
+        """Dates in [MIN_IC_ASSETS_HARD, MIN_IC_ASSETS_WARN) are computable."""
+        n = 30
+        factor = [float(i) if i < 6 else None for i in range(n)]
+        df = pl.DataFrame(
+            {
+                "date": [datetime(2024, 1, 1)] * n,
+                "asset_id": [f"A{i}" for i in range(n)],
+                "factor": factor,
+                "forward_return": [float(i) * 0.01 for i in range(n)],
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        result = compute_ic(df)["factor"]
+        assert result.height == 1
+        assert result["n_assets"][0] == 6
 
     def test_tie_ratio_denominated_by_valid_pairs(self):
         """tie_ratio uses the non-null factor count as denominator, so null
@@ -111,8 +127,8 @@ class TestComputeIC:
     def test_output_schema(self, noisy_panel):
         result = compute_ic(noisy_panel)["factor"]
         # ``_drop_stats`` is an internal diagnostic struct column appended by
-        # the primitive; the public series columns are ``date, ic, tie_ratio``.
-        assert result.columns == ["date", "ic", "tie_ratio", "_drop_stats"]
+        # the primitive; ``n_assets`` carries the per-date valid-pair count.
+        assert result.columns == ["date", "ic", "tie_ratio", "n_assets", "_drop_stats"]
         assert result["date"].dtype == pl.Datetime("ms")
 
     def test_tie_ratio_zero_on_unique_factor(self, noisy_panel):
@@ -267,18 +283,21 @@ class TestIC:
         # Genuine date shortfall (no compute_ic carrier) → periods-axis reason.
         assert result.metadata["reason"] == "insufficient_ic_periods"
 
-    def test_few_assets_reports_asset_axis_reason(self):
-        # 8 assets < MIN_IC_ASSETS=10 on every date, but plenty of dates: every
-        # cross-section is dropped, so the shortfall is asset-driven, not a date
-        # shortage. The reason must name the asset axis (dimension-token grammar).
+    def test_few_assets_warns_without_blocking(self):
+        # 8 assets clears MIN_IC_ASSETS_HARD=2 but falls below
+        # MIN_IC_ASSETS_WARN=10: the IC is computable and returned with an
+        # asset-axis warning instead of a hard short-circuit.
         import factrix as fx
+        from factrix._codes import WarningCode
 
         raw = fx.datasets.make_cs_panel(n_assets=8, n_dates=120, seed=0)
         panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
-        result = ic(compute_ic(panel)["factor"], forward_periods=5)
-        assert math.isnan(result.value)
-        assert result.metadata["reason"] == "insufficient_ic_assets"
-        assert result.metadata["min_assets_required"] == 10
+        with pytest.warns(UserWarning, match="MIN_IC_ASSETS_WARN"):
+            result = ic(compute_ic(panel)["factor"], forward_periods=5)
+        assert not math.isnan(result.value)
+        assert WarningCode.FEW_ASSETS.value in result.warning_codes
+        assert result.metadata["min_assets_per_period"] == 8
+        assert result.metadata["warn_assets_per_period"] == 10
 
 
 class TestICIR:
@@ -346,7 +365,7 @@ class TestICInferenceWarningPropagation:
     def test_thin_non_overlap_surfaces_warning(self):
         from factrix._codes import WarningCode
 
-        # forward_periods=1 => n_sampled == n == 25: clears MIN_IC_PERIODS (10)
+        # forward_periods=1 => n_sampled == n == 25: clears MIN_SERIES_PERIODS_HARD (10)
         # so no short-circuit, but below MIN_PERIODS_WARN (30) so the
         # non-overlapping inference flags UNRELIABLE_SE_SHORT_PERIODS.
         result = ic(self._ic_series(25), forward_periods=1)
