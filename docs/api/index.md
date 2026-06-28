@@ -8,7 +8,11 @@ Reference for every public symbol exported from `factrix`.
 
 ```mermaid
 flowchart LR
-    P[data]
+    R[raw data]
+    AD[adapt]
+    C["canonical raw panel<br/>date / asset_id / price / factors"]
+    FR[compute_forward_return]
+    P["evaluation panel<br/>date / asset_id / factor / forward_return"]
 
     subgraph PerFactor["Inference · per factor"]
         EV[evaluate]
@@ -36,8 +40,12 @@ flowchart LR
         ID[inspect_data]
     end
 
+    R -.-> AD
+    AD -.-> C
+    C -.-> FR
+    FR -.-> P
     P ==> EV
-    P ==> EVH
+    C ==> EVH
     P -.-> BS
     P -.-> ST
     P -.-> ID
@@ -53,6 +61,8 @@ flowchart LR
     LM -.->|metric names| EV
     MS -.->|metric names| EV
 
+    click AD "preprocess/#factrix.adapt.adapt" "adapt API"
+    click FR "preprocess/#factrix.preprocess.compute_forward_return" "compute_forward_return API"
     click EV "evaluate/" "evaluate API"
     click EVH "multi-horizon/" "evaluate_horizons API"
     click BS "by-slice/" "by_slice API"
@@ -75,6 +85,13 @@ Click any node to jump to its API page.
     - `bhy` / `partial_conjunction` / `bhy_hierarchical` consume `evaluate` outputs as `list[EvaluationResult]` (via `list(results.values())`).
 - **Dashed `-.->` — suggested workflow.** The source is data-derived, but the target's signature differs in shape.
 
+`adapt(...)` is optional when the source already uses factrix's canonical names,
+but it is the documented bridge from vendor column names to `date`, `asset_id`,
+`price`, and optional OHLCV canonicals.
+For fixed-horizon `evaluate`, attach `forward_return` with
+`compute_forward_return`; `evaluate_horizons` performs that step internally
+for each requested horizon.
+
 **Inference vs screening** (the two test-bearing stages above):
 
 - **Inference** produces the primary statistical test — a *p*-value — for a **single** hypothesis. `evaluate` / `evaluate_horizons` do this **per factor** ("tests one factor"); the `slice_*_test` family does it **across slices** of one factor (sector, size, market regime). Neither corrects for testing more than one thing.
@@ -87,6 +104,7 @@ Click any node to jump to its API page.
 
 | Goal | Pipeline |
 |---|---|
+| Bring external data into factrix's schema | `adapt(raw, date=..., asset_id=..., price=...)` -> canonical column names |
 | Single-factor/multi-factor inference | `evaluate(data, metrics=...)` → `dict[str, EvaluationResult]` |
 | Multi-horizon sweep | `evaluate_horizons(data, metrics=..., forward_periods=[...])` → `list[EvaluationResult]` |
 | Slice exploration (single axis) | `by_slice(data, metric, by="...", factor_col="...")` → `dict[str, EvaluationResult]` |
@@ -130,7 +148,7 @@ See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surfac
 | [Data schema](data-schema.md) | The four-column input contract every panel-consuming function depends on. |
 | [`EvaluationResult`](evaluation-results.md) | The bundle result returned by `evaluate`. Includes groups, metric results, and warnings. |
 | [`datasets`](datasets.md) | Synthetic panels for testing and examples. |
-| [`preprocess`](preprocess.md) | Helper functions for preprocessing (e.g. computing forward returns). |
+| [`adapt`](preprocess.md#factrix.adapt.adapt) / [`preprocess`](preprocess.md) | Column-name adaptation plus helpers for preprocessing (e.g. computing forward returns). |
 
 ## Naming convention
 

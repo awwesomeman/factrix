@@ -12,10 +12,11 @@ task-oriented walk-through.
 
 | Step | What you do | Function | Output added |
 |---|---|---|---|
-| 1 | Reshape raw inputs to long format with `price` | manual / Polars ops | `(date, asset_id, price, factor)` |
+| 1 | Reshape raw inputs to long format with `price` and canonical names | manual / Polars ops, [`adapt`](../api/preprocess.md#factrix.adapt.adapt) | `(date, asset_id, price, factor)` |
 | 2 | Ensure regular spacing per asset on the time axis | manual / Polars ops | spacing-regular panel |
 | 3 | Attach forward return | [`compute_forward_return`](../api/preprocess.md) | adds `forward_return` |
-| 4 | (Optional) drop / impute NaN, align frequencies | manual | clean panel |
+| 4 | (Optional) normalize / residualize factor values | [`mad_winsorize`](../api/preprocess.md#factrix.preprocess.mad_winsorize), [`cross_sectional_zscore`](../api/preprocess.md#factrix.preprocess.cross_sectional_zscore), [`orthogonalize_factor`](../api/preprocess.md#factrix.preprocess.orthogonalize_factor) | processed factor column |
+| 5 | (Optional) drop / impute NaN, align frequencies | manual | clean panel |
 
 !!! tip "Screening many factors at once?"
     A panel wide enough to hold 100–1000+ candidate columns can exhaust
@@ -28,6 +29,23 @@ task-oriented walk-through.
 factrix expects **long-format** panel data — one row per
 `(date, asset_id)` pair. Wide-format (one column per asset) is not
 accepted by any entry point.
+
+If your panel is already long but uses source-specific names, adapt the
+column names first:
+
+```python
+from factrix.adapt import adapt
+
+raw = adapt(
+    vendor_df,
+    date="trade_date",
+    asset_id="ticker",
+    price="close_adj",
+)
+```
+
+`adapt` only maps names to factrix canonicals; it does not pivot wide data,
+construct factor values, or attach `forward_return`.
 
 [`compute_forward_return`](../api/preprocess.md) computes the
 look-ahead return from a `price` column; the factor column is a
@@ -87,7 +105,7 @@ gaps = raw.sort(["asset_id", "date"]).with_columns(
 ```
 
 If the panel is sparse by design (event series, irregular trading
-days), see step 5 on sparse signals.
+days), see step 7 on sparse signals.
 
 ## 3. Attach forward return
 
@@ -118,7 +136,7 @@ Three things to know about this formula:
 The horizon counts **rows of the asset's own date series**, not
 calendar days. `forward_periods=5` on a daily panel is a
 five-trading-day lookahead; on a monthly panel it is five months.
-Frequency is the user's responsibility — see step 4.
+Frequency is the user's responsibility — see step 5.
 
 The `forward_periods` you pass here must match the
 `forward_periods` you later pass to `evaluate`. Bind the custom factor
@@ -138,7 +156,75 @@ results = fx.evaluate(
 
 See [Data schema](../api/data-schema.md) for details on column names.
 
-## 4. Frequency alignment is the caller's job
+## 4. Optional factor preprocessing
+
+`evaluate()` does not normalize factor values implicitly. That is deliberate:
+factor scale and sign are part of the research hypothesis, especially for beta,
+spread, event, and concentration diagnostics. If the analysis needs
+cross-sectional clipping or standardization, do it explicitly with the
+preprocessing helpers and then pass the processed column through `factor_cols`.
+The helpers can run before or after `compute_forward_return`; the example below
+processes the signal first, then attaches forward returns.
+
+For a single dense cross-sectional factor:
+
+```python
+import factrix as fx
+from factrix.metrics import ic
+from factrix.preprocess import compute_forward_return
+from factrix.preprocess import cross_sectional_zscore, mad_winsorize
+
+raw = mad_winsorize(raw, factor_col="momentum", n_mad=3.0)
+raw = cross_sectional_zscore(raw, factor_col="momentum")
+panel = compute_forward_return(raw, forward_periods=5)
+
+results = fx.evaluate(
+    panel,
+    metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)},
+    factor_cols=["factor_zscore"],
+    forward_periods=5,
+)
+```
+
+`mad_winsorize` clips the selected factor in place within each date.
+`cross_sectional_zscore` appends `factor_zscore`; it does not overwrite the
+original column. For multiple candidate factors, run the helper per column and
+rename `factor_zscore` to a factor-specific name before processing the next
+one.
+
+If the factor should be neutralized against known exposures, first standardize
+it, then pass a `(date, asset_id, factor)` frame plus the base exposure columns
+to `orthogonalize_factor`. Use the returned residual factor as the column you
+evaluate.
+
+```python
+import polars as pl
+from factrix.preprocess import orthogonalize_factor
+
+factor_df = raw.select(
+    "date",
+    "asset_id",
+    pl.col("factor_zscore").alias("factor"),
+)
+base = raw.select("date", "asset_id", "size", "value")
+ortho = orthogonalize_factor(factor_df, base, base_cols=["size", "value"])
+
+raw = raw.join(
+    ortho.data.select(
+        "date",
+        "asset_id",
+        pl.col("factor").alias("momentum_ortho"),
+    ),
+    on=["date", "asset_id"],
+)
+```
+
+These helpers are usually for dense cross-sectional factor research. Sparse
+event flags, macro dummies, and signed event magnitudes should normally keep
+their original sign / event semantics unless the research design explicitly
+calls for a transformed signal.
+
+## 5. Frequency alignment is the caller's job
 
 factrix is calendar-agnostic — it shifts rows, not calendar time.
 Three responsibilities sit upstream of `compute_forward_return`:
@@ -155,18 +241,18 @@ Three responsibilities sit upstream of `compute_forward_return`:
   the same date axis the panel uses; mismatched labels propagate
   silently into `by_slice` and screening calls.
 
-## 5. Missing data
+## 6. Missing data
 
 | Source | factrix behaviour | Caller action |
 |---|---|---|
-| NaN in `factor` | Not auto-imputed; flows through to the procedure, where it depresses `n_obs` and may trip sample-size guards. | Drop or impute before `compute_forward_return`. |
+| NaN in `factor` | Not auto-imputed; flows through to the procedure, where it depresses `n_obs` and may trip sample-size guards. | Drop or impute before optional factor preprocessing or `compute_forward_return`. |
 | NaN / inf in `price` | `compute_forward_return` drops rows whose computed `forward_return` is not finite (`null`, `NaN`, `+inf`, or `-inf`). Tail rows where `t + 1 + N` runs off the end of the series are dropped by the same filter. | If a daily NaN reflects a true gap (suspended trading, holiday), the drop is correct. If imputable (forward-fill from previous close), impute before calling. |
 | `forward_periods <= 0`, non-`int`, or `bool` | Raises [`UserInputError`](../api/errors.md); the horizon must be a positive integer row count. | Pass an explicit row horizon such as `1`, `5`, or `20`. |
 | Horizon too long / no finite returns after filtering | Raises [`UserInputError`](../api/errors.md) instead of returning an empty panel. | Shorten the horizon, extend the panel, or clean price values before calling. |
 | Single-asset panel (N = 1) | `DataStructure` auto-switches to `TIMESERIES`. Dense PANEL metrics (`individual_continuous` and `common_continuous`) raise [`IncompatibleAxisError`](../api/errors.md). | Use a sparse metric whose cell allows `TIMESERIES`, or a scope-agnostic series diagnostic. |
 | T < `MIN_PERIODS_HARD` (= 20) periods | Raises [`InsufficientSampleError`](../api/errors.md); procedures never silently produce a result on under-sample data. | Extend the window or accept the procedure's refusal. |
 
-## 6. Sparse and event signals
+## 7. Sparse and event signals
 
 For `(INDIVIDUAL, SPARSE)` or `(COMMON, SPARSE)` factors — buy/sell
 flags, FOMC dummies, event magnitudes — the `factor` column is the
@@ -187,6 +273,7 @@ for the contract.
 ## See also
 
 - [Data schema](../api/data-schema.md) — column-level four-column contract and dtype rules.
+- [`adapt`](../api/preprocess.md#factrix.adapt.adapt) — column-name adapter for external long-format panels.
 - [`compute_forward_return`](../api/preprocess.md) — symbol reference.
 - [Quickstart](../getting-started/quickstart.md) — minimal end-to-end, uses `datasets.make_cs_panel` to skip steps 1-3.
 - [Concepts](../getting-started/concepts.md) — three-axis taxonomy (scope / signal / metric / mode).
