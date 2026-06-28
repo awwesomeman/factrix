@@ -254,7 +254,7 @@ def cross_section_tier(n_assets: int) -> WarningCode | None:
     actually entering the cross-asset test, not the panel-union
     ``n_assets`` surface field. For ``(COMMON, *, None,
     PANEL)`` cells the two differ: ``compute_ts_betas`` drops assets
-    with fewer than ``MIN_TS_PERIODS`` non-null observations, so the union
+    with fewer than ``MIN_TS_PERIODS_HARD`` non-null observations, so the union
     can be materially larger than the post-filter count that drives
     ``primary_p``'s ``dof = N - 1``. Callers (``suggest_config``,
     ``_compute_common_panel``) therefore pre-filter before calling.

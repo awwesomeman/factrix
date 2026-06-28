@@ -28,7 +28,7 @@ from factrix._axis import (
 )
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
-from factrix._types import EPSILON, MIN_OOS_PERIODS
+from factrix._types import EPSILON, MIN_OOS_PERIODS_HARD
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import _enforce_min_floor, _surface_null_drop
 from factrix.metrics.ic import compute_ic
@@ -45,7 +45,7 @@ GateStatus = Literal["PASS", "VETOED"]
     aggregation=Aggregation.TS_ONLY,
     input_shape=InputShape.SERIES,
     requires={"series": compute_ic},
-    sample_threshold=SampleThreshold(min_periods=MIN_OOS_PERIODS * 2),
+    sample_threshold=SampleThreshold(min_periods=MIN_OOS_PERIODS_HARD * 2),
 )
 def oos_decay(
     series: pl.DataFrame,
@@ -71,7 +71,7 @@ def oos_decay(
 
         - ``value``: survival ratio (NaN on short-circuit)
         - ``stat``: ``None`` — descriptive only (no hypothesis test
-        attached; a t-stat at ``MIN_OOS_PERIODS = 5`` would have power
+        attached; a t-stat at ``MIN_OOS_PERIODS_HARD = 5`` would have power
         ~ 0 and would invite mis-reading the diagnostic as a
         significance test)
         - ``metadata``:
@@ -141,7 +141,7 @@ def oos_decay(
     is_vals = vals[:split_idx]
     oos_vals = vals[split_idx:]
 
-    # `n >= MIN_OOS_PERIODS * 2` and `0 < is_ratio < 1` guarantee both
+    # `n >= MIN_OOS_PERIODS_HARD * 2` and `0 < is_ratio < 1` guarantee both
     # slices are non-empty, so polars mean() returns a numeric.
     mean_is = float(is_vals.mean())  # type: ignore[arg-type]
     mean_oos = float(oos_vals.mean())  # type: ignore[arg-type]

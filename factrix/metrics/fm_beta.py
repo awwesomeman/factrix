@@ -332,7 +332,7 @@ def _cluster_meat(
 # sums form a length-T_periods series, and a Bartlett HAC on fewer than 3
 # periods cannot estimate even a single autocovariance — the same `< 3`
 # floor the clustered path applies to its cluster count.
-_MIN_DK_PERIODS: int = 3
+_MIN_DK_PERIODS_HARD: int = 3
 
 
 def _pooled_beta_driscoll_kraay(
@@ -352,7 +352,7 @@ def _pooled_beta_driscoll_kraay(
     (``factrix._stats.hac._driscoll_kraay_cov``): per-observation scores summed
     cross-sectionally per period, Bartlett-HAC'd over the period series,
     sandwiched with ``(X'X)⁻¹``. ``df = T_periods - 1``. Short-circuits
-    with ``stat=None`` / ``p=1.0`` below ``_MIN_DK_PERIODS`` periods (HAC
+    with ``stat=None`` / ``p=1.0`` below ``_MIN_DK_PERIODS_HARD`` periods (HAC
     undefined), mirroring the clustered ``G < 3`` guard.
     """
     if two_way_cluster_col is not None:
@@ -377,7 +377,7 @@ def _pooled_beta_driscoll_kraay(
         )
 
     n_periods = int(dk_meta["n_periods"])
-    if n_periods < _MIN_DK_PERIODS:
+    if n_periods < _MIN_DK_PERIODS_HARD:
         return MetricResult(
             p_value=1.0,
             value=slope,
@@ -387,7 +387,7 @@ def _pooled_beta_driscoll_kraay(
             metadata={
                 "reason": "insufficient_periods",
                 "n_periods": n_periods,
-                "min_required": _MIN_DK_PERIODS,
+                "min_required": _MIN_DK_PERIODS_HARD,
             },
         )
 
@@ -432,7 +432,7 @@ def _pooled_beta_driscoll_kraay(
     aggregation=Aggregation.CS_THEN_TS,
     sample_threshold=SampleThreshold(
         min_pairs=10,
-        min_periods=_MIN_DK_PERIODS,
+        min_periods=_MIN_DK_PERIODS_HARD,
         warn_periods=MIN_PERIODS_WARN,
     ),
 )

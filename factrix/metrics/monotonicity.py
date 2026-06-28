@@ -31,7 +31,7 @@ from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_t
 from factrix._types import (
     DDOF,
-    MIN_MONOTONICITY_PERIODS,
+    MIN_MONOTONICITY_PERIODS_HARD,
 )
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
@@ -66,9 +66,9 @@ min_assets_per_group: int | None = 50
     batchable=True,
     # Periods floor scales with the non-overlap stride (see ``quantile``): the
     # per-date Spearman series is sub-sampled at ``forward_periods``, so
-    # pre-flight and the in-body gate share ``MIN_MONOTONICITY_PERIODS`` +
+    # pre-flight and the in-body gate share ``MIN_MONOTONICITY_PERIODS_HARD`` +
     # ``_scaled_min_periods``.
-    sample_threshold=_scaled_periods_threshold(MIN_MONOTONICITY_PERIODS),
+    sample_threshold=_scaled_periods_threshold(MIN_MONOTONICITY_PERIODS_HARD),
 )
 def monotonicity(
     data: pl.DataFrame,
@@ -191,7 +191,7 @@ def monotonicity(
         sc = _enforce_scaled_floor(
             "monotonicity",
             n_raw_periods,
-            MIN_MONOTONICITY_PERIODS,
+            MIN_MONOTONICITY_PERIODS_HARD,
             forward_periods,
             "insufficient_monotonicity_periods",
             n_groups=n_groups,

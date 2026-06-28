@@ -71,12 +71,12 @@ class TestSchema:
         assert "MIN_IC_ASSETS_HARD" in stats["drop_reason"]
 
     def test_compute_fm_betas_attaches_drop_stats(self):
-        # Thin below MIN_FM_ASSETS (3): thinned dates carry a single asset.
+        # Thin below MIN_FM_ASSETS_HARD (3): thinned dates carry a single asset.
         stats = _read_drop_stats(compute_fm_betas(_thinned_panel(thin=1))["factor"])
         assert stats is not None
         assert set(stats) == set(DROP_STAT_KEYS)
         assert stats["drop_rate"] > DROP_RATE_WARN_THRESHOLD
-        assert "MIN_FM_ASSETS" in stats["drop_reason"]
+        assert "MIN_FM_ASSETS_HARD" in stats["drop_reason"]
 
     def test_full_panel_reports_zero_drop(self):
         stats = _read_drop_stats(compute_ic(_full_panel())["factor"])

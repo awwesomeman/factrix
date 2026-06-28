@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from factrix._codes import WarningCode
 from factrix._stats.constants import MIN_PERIODS_HARD, MIN_PERIODS_WARN
-from factrix._types import MIN_IC_PERIODS
+from factrix._types import MIN_SERIES_PERIODS_HARD
 from factrix.inference._base import InferenceResult
 
 if TYPE_CHECKING:
@@ -64,7 +64,7 @@ class NonOverlapping:
 
     def min_input_periods(self, forward_periods: int) -> int:
         """Minimum input series length (periods): need ``base · h`` rows to land ``base`` after striding."""
-        return MIN_IC_PERIODS * max(forward_periods, 1)
+        return MIN_SERIES_PERIODS_HARD * max(forward_periods, 1)
 
     def compute(
         self, data: pl.DataFrame, *, value_col: str, forward_periods: int

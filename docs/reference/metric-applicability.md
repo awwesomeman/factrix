@@ -65,7 +65,7 @@ Min sample*. `MIN_*` constants resolve to values in the
 | [`quantile_spread`][factrix.metrics.quantile.quantile_spread] | `T/h` | `T/h ≥ MIN_PORTFOLIO_PERIODS_HARD`; per-date `N ≥ n_groups` |
 | [`quantile_spread_vw`][factrix.metrics.quantile.quantile_spread_vw] | `T/h` | as `quantile_spread` |
 | [`k_spread`][factrix.metrics.k_spread.k_spread] | `T/h` | `T/h ≥ MIN_PORTFOLIO_PERIODS_HARD`; per-date `N ≥ 2·k` |
-| [`monotonicity`][factrix.metrics.monotonicity.monotonicity] | `T/h` | per-date `N ≥ n_groups`; series `≥ MIN_MONOTONICITY_PERIODS` |
+| [`monotonicity`][factrix.metrics.monotonicity.monotonicity] | `T/h` | per-date `N ≥ n_groups`; series `≥ MIN_MONOTONICITY_PERIODS_HARD` |
 | [`top_concentration`][factrix.metrics.concentration.top_concentration] | `T/h` | `T/h ≥ MIN_PORTFOLIO_PERIODS_HARD`; warn if `T/h < MIN_PORTFOLIO_PERIODS_WARN` |
 
 ### Tradability — Cell: Individual × Continuous
@@ -112,10 +112,10 @@ Min sample*. `MIN_*` constants resolve to values in the
 
 | Metric | Sample axis | Min sample |
 |---|---|---|
-| [`hit_rate`][factrix.metrics.hit_rate.hit_rate] | series length | `T ≥ MIN_IC_PERIODS` |
+| [`hit_rate`][factrix.metrics.hit_rate.hit_rate] | series length | `T ≥ MIN_SERIES_PERIODS_HARD` |
 | [`directional_hit_rate`][factrix.metrics.directional_hit_rate.directional_hit_rate] | pooled `(date, asset)` signs | non-overlapping obs `≥ MIN_DIRECTIONAL_PAIRS_HARD`; warn if below `MIN_DIRECTIONAL_PAIRS_WARN` |
 | [`ic_trend`][factrix.metrics.trend.ic_trend] | `T` | `T ≥ 10` (literal floor) |
-| [`oos_decay`][factrix.metrics.oos_decay.oos_decay] | `T` | `T ≥ 2 × MIN_OOS_PERIODS` |
+| [`oos_decay`][factrix.metrics.oos_decay.oos_decay] | `T` | `T ≥ 2 × MIN_OOS_PERIODS_HARD` |
 
 ## Sample-size constants
 [](){ #sample-size-constants }
@@ -131,21 +131,21 @@ below.
 |---|---|---|---|---|---|
 | `MIN_IC_ASSETS_HARD` | 2 | per-date `N` | hard | `factrix/_types.py` | `compute_ic` (drops dates with pairwise-complete `N < 2`) → consumed by `ic`, `ic_ir` |
 | `MIN_IC_ASSETS_WARN` | 10 | per-date `N` | warn | `factrix/_types.py` | `ic`, `ic_ir`, `inspect_data`; tags `WarningCode.FEW_ASSETS` when retained IC dates have `N < 10` |
-| `MIN_IC_PERIODS` | 10 | `T` | hard | `factrix/_types.py` | `ic` post-stride sampled IC series and `hit_rate` |
+| `MIN_SERIES_PERIODS_HARD` | 10 | `T` | hard | `factrix/_types.py` | `ic` post-stride sampled IC series, `hit_rate`, and series-mean non-overlap pre-flight |
 | `MIN_DIRECTIONAL_PAIRS_HARD` | 10 | pooled pairs | hard | `factrix/_types.py` | `directional_hit_rate` |
 | `MIN_DIRECTIONAL_PAIRS_WARN` | 30 | pooled pairs | warn | `factrix/_types.py` | `directional_hit_rate`; tags `WarningCode.FEW_DIRECTIONAL_PAIRS` |
 | `MIN_EVENTS_HARD` | 4 | `K` (event count) | hard | `factrix/_types.py` | `caar`, `bmp_z`, `event_hit_rate`, `event_ic`, `profit_factor`, `event_skewness`, `event_around_return`, `mfe_mae`, `clustering_hhi`, `corrado_rank` |
 | `MIN_EVENTS_WARN` | 30 | `K` | warn | `factrix/_types.py` | `caar` only (Brown-Warner literature floor; descriptive event-quality metrics use HARD only) |
-| `MIN_OOS_PERIODS` | 5 | `T` (per split) | hard | `factrix/_types.py` | `oos_decay` (effective floor `T ≥ 2 × MIN_OOS_PERIODS = 10`) |
+| `MIN_OOS_PERIODS_HARD` | 5 | `T` (per split) | hard | `factrix/_types.py` | `oos_decay` (effective floor `T ≥ 2 × MIN_OOS_PERIODS_HARD = 10`) |
 | `MIN_PORTFOLIO_PERIODS_HARD` | 3 | `T/h` | hard | `factrix/_types.py` | `quantile_spread`, `quantile_spread_vw`, `top_concentration`, `ts_quantile_spread`, `ts_asymmetry` |
 | `MIN_PORTFOLIO_PERIODS_WARN` | 20 | `T/h` | warn | `factrix/_types.py` | `top_concentration` only (`quantile_spread` and the `ts_*` siblings are descriptive at the WARN tier and gate on HARD only) |
-| `MIN_MONOTONICITY_PERIODS` | 5 | `T/h` | hard | `factrix/_types.py` | `monotonicity` |
+| `MIN_MONOTONICITY_PERIODS_HARD` | 5 | `T/h` | hard | `factrix/_types.py` | `monotonicity` |
 | `MIN_PERIODS_HARD` | 20 | `T` | hard | `factrix/_stats/constants.py` | Shared hard floor for HAC / time-series inference |
 | `MIN_PERIODS_WARN` | 30 | `T` | warn | `factrix/_stats/constants.py` | Shared warn floor for HAC / time-series inference; tags `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` |
 | `MIN_ASSETS_WARN` | 30 | `N` | warn | `factrix/_stats/constants.py` | PANEL `common_continuous`; tags `WarningCode.FEW_ASSETS` (severity from `n_assets`) |
 | `MIN_FM_PERIODS_HARD` | 4 | `T` (λ series) | hard | `factrix/metrics/fm_beta.py` | `fm_beta`, `fm_beta_sign_consistency` |
 | `MIN_FM_PERIODS_WARN` | 30 | `T` (λ series) | warn | `factrix/metrics/fm_beta.py` | `fm_beta` (Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) over-rejects below); ties to `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` |
-| `MIN_TS_PERIODS` | 20 | `T` per asset | hard | `factrix/metrics/_primitives/_ts_betas.py` | `compute_ts_betas` (drops assets with `T < 20`); upstream of `ts_beta`, `mean_r_squared`, `ts_beta_sign_consistency` |
+| `MIN_TS_PERIODS_HARD` | 20 | `T` per asset | hard | `factrix/metrics/_primitives/_ts_betas.py` | `compute_ts_betas` (drops assets with `T < 20`); upstream of `ts_beta`, `mean_r_squared`, `ts_beta_sign_consistency` |
 
 Naming caveats:
 
@@ -206,7 +206,7 @@ A few specific caveats worth flagging:
   in `top_concentration` and `ts_quantile_spread`. Below 3 there is
   no spread / concentration t to compute; in `[3, 20)` the metric
   returns the stat with `WarningCode.BORDERLINE_PORTFOLIO_PERIODS`.
-  **`MIN_OOS_PERIODS = 5`** in `oos_decay` remains
+  **`MIN_OOS_PERIODS_HARD = 5`** in `oos_decay` remains
   single-tier — the metric is now descriptive-only (no `p_value` in
   metadata), so a literature power floor is moot. Treat its output as
   descriptive; the formal inference reading should rely on the

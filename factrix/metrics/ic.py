@@ -34,7 +34,7 @@ from factrix._types import (
     EPSILON,
     MIN_IC_ASSETS_HARD,
     MIN_IC_ASSETS_WARN,
-    MIN_IC_PERIODS,
+    MIN_SERIES_PERIODS_HARD,
 )
 from factrix.inference import NEWEY_WEST, NON_OVERLAPPING, NeweyWest, NonOverlapping
 from factrix.metrics._base import MetricBase
@@ -299,13 +299,13 @@ def ic(
     # Stride-based methods report a post-sampling count; guard on the
     # effective sample so a coarse stride cannot silently test ~nothing.
     n_sampled = result.metadata.get("n_obs_sampled")
-    if n_sampled is not None and n_sampled < MIN_IC_PERIODS:
+    if n_sampled is not None and n_sampled < MIN_SERIES_PERIODS_HARD:
         return _short_circuit_output(
             "ic",
             "insufficient_sampled_ic_periods",
             n_obs=int(n_sampled),
             n_obs_axis="periods",
-            min_required=MIN_IC_PERIODS,
+            min_required=MIN_SERIES_PERIODS_HARD,
             forward_periods=forward_periods,
         )
 

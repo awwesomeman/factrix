@@ -23,7 +23,7 @@ class TestOOSDecay:
 
         import polars as pl
 
-        # Only 6 rows — below MIN_OOS_PERIODS * 2 = 10
+        # Only 6 rows — below MIN_OOS_PERIODS_HARD * 2 = 10
         dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(6)]
         series = pl.DataFrame({"date": dates, "value": [0.01] * 6}).with_columns(
             pl.col("date").cast(pl.Datetime("ms"))

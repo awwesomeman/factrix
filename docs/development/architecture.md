@@ -244,7 +244,7 @@ observations after pairwise null-drop, not the raw row count. `forward_return`
 is null-clean before it reaches a metric, but factor nulls are not dropped
 upstream and are normal in real research, so a cross-sectional reduction counts
 the **valid `(factor, return)` cross-section per date**: `compute_fm_betas`
-(`MIN_FM_ASSETS`) and `compute_ic` (`MIN_IC_ASSETS_HARD`) both gate on that
+(`MIN_FM_ASSETS_HARD`) and `compute_ic` (`MIN_IC_ASSETS_HARD`) both gate on that
 pairwise-complete count, dropping a date with many names but a factor defined
 for few rather than leaking a high-variance estimate. Counting null-padded rows
 would let the gate, the report, and the estimate silently disagree.
@@ -270,10 +270,14 @@ internally by the primitives that procedures wrap:
   computability floor for a per-date Spearman IC. Dates with 2..9 complete
   pairs are retained, and IC consumers / `inspect_data` surface
   `WarningCode.FEW_ASSETS` because the cross-section is statistically thin.
+- `MIN_SERIES_PERIODS_HARD = 10` — shared periods-axis floor for
+  non-overlapping series diagnostics (`ic` post-stride mean test, `hit_rate`,
+  and the series-mean non-overlap pre-flight). It is intentionally not
+  IC-named because the same 10-draw floor applies outside IC.
 - `MIN_EVENTS_HARD = 4`, `MIN_EVENTS_WARN = 30` — two-tier sparse-cell
   event-count floor. `n < HARD` short-circuits the CAAR / event-quality
   primitives; `HARD ≤ n < WARN` emits `WarningCode.FEW_EVENTS`.
-- `MIN_FM_ASSETS = 3` (`factrix/metrics/_primitives/_fm_betas.py`) — `compute_fm_betas`
+- `MIN_FM_ASSETS_HARD = 3` (`factrix/metrics/_primitives/_fm_betas.py`) — `compute_fm_betas`
   emits a date only with ≥ 3 complete
   `(factor, return)` pairs and non-zero cross-sectional variance; the closed-form
   slope `Cov_t(x, y) / Var_t(x)` is computed batched across factors (one
@@ -546,7 +550,7 @@ per-asset OLS R_i = α_i + β_i·F over all n_periods dates   (time-series step)
 
 Failure modes:
 
-- per-asset `n_periods < MIN_TS_PERIODS = 20` → asset dropped.
+- per-asset `n_periods < MIN_TS_PERIODS_HARD = 20` → asset dropped.
 - `n_assets < MIN_ASSETS_WARN = 30` → `WarningCode.FEW_ASSETS` (still runs; severity scales with `n_assets`).
 - `n_assets = 1` → no asset cross-section to aggregate the per-asset βs
   over. The cell declares `cell.structure = PANEL`, so `evaluate` raises
@@ -752,12 +756,13 @@ factrix/
 ├── _logging.py              # shared loggers
 ├── _ols.py                  # shared OLS helpers (spanning metrics + orthogonalize preprocess)
 ├── _types.py                # shared constants: EPSILON, DDOF, MIN_IC_ASSETS_HARD/WARN,
-│                            #   MIN_EVENTS_HARD/WARN, MIN_OOS_PERIODS, MIN_PORTFOLIO_PERIODS_HARD/WARN, ...
+│                            #   MIN_SERIES_PERIODS_HARD, MIN_EVENTS_HARD/WARN,
+│                            #   MIN_OOS_PERIODS_HARD, MIN_PORTFOLIO_PERIODS_HARD/WARN, ...
 ├── _stats/                  # numerics: hac, bootstrap, unit_root, wald, gmm, ols, diagnostics, constants
 ├── stats/                   # public estimator surface (newey_west, hansen_hodrick, driscoll_kraay, gmm, ...)
 ├── estimators/              # lowercase estimator callables
 ├── metrics/                 # @metric callables (ic, fm_beta, ts_beta, caar, ...) + _registry
-│                            # per-cell thresholds (MIN_FM_PERIODS_HARD/WARN, MIN_TS_PERIODS) live
+│                            # per-cell thresholds (MIN_FM_PERIODS_HARD/WARN, MIN_TS_PERIODS_HARD) live
 │                            # alongside the metrics that enforce them
 ├── slicing/                 # by_slice + slice_pairwise_test / slice_joint_test
 ├── preprocess/              # compute_forward_return / normalize / orthogonalize

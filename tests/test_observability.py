@@ -37,7 +37,7 @@ def test_metric_logger_short_circuit(caplog):
     # Set level to INFO
     logging.getLogger("factrix.metric.ic").setLevel(logging.INFO)
 
-    # Create too thin dataset to force short-circuit (less than MIN_IC_PERIODS * 5 = 150 dates)
+    # Create too thin dataset to force short-circuit (less than MIN_SERIES_PERIODS_HARD * 5).
     raw = fx.datasets.make_cs_panel(n_assets=15, n_dates=10, seed=0)
     data = fx.preprocess.compute_forward_return(raw, forward_periods=5)
 

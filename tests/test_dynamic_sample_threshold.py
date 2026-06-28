@@ -14,7 +14,7 @@ from __future__ import annotations
 import factrix as fx
 import pytest
 from factrix._inspect import DataInspection, inspect_data
-from factrix._types import MIN_IC_PERIODS
+from factrix._types import MIN_SERIES_PERIODS_HARD
 from factrix.metrics._registry import REGISTRY
 from factrix.metrics.ic import ic
 
@@ -28,9 +28,9 @@ def _by_name(info: DataInspection, name: str):
 
 class TestHookResolution:
     def test_spec_resolves_dynamic_floor_from_default_params(self):
-        # ic default forward_periods=5, non-overlapping → MIN_IC_PERIODS * 5.
+        # ic default forward_periods=5, non-overlapping → MIN_SERIES_PERIODS_HARD * 5.
         st = ic.spec().sample_threshold
-        assert st.min_periods == MIN_IC_PERIODS * 5
+        assert st.min_periods == MIN_SERIES_PERIODS_HARD * 5
 
     def test_forward_periods_is_not_a_metric_param(self):
         # forward_periods is the data's overlap horizon, not a per-metric knob:
@@ -64,7 +64,7 @@ class TestHookResolution:
 
 class TestInspectDataPreflight:
     def test_dynamic_floor_gates_short_panel(self):
-        # forward_periods=5 default needs MIN_IC_PERIODS*5 = 50 input periods;
+        # forward_periods=5 default needs MIN_SERIES_PERIODS_HARD*5 = 50 input periods;
         # 30 dates is short, so inspect_data now flags ic unusable — the floor
         # that used to be invisible at pre-flight.
         short = fx.datasets.make_cs_panel(n_assets=40, n_dates=30, seed=0)
@@ -111,9 +111,9 @@ def _scalar(result):
 # and per-call kwargs.
 def _build_stride_sampled_cases():
     from factrix._types import (
-        MIN_IC_PERIODS,
-        MIN_MONOTONICITY_PERIODS,
+        MIN_MONOTONICITY_PERIODS_HARD,
         MIN_PORTFOLIO_PERIODS_HARD,
+        MIN_SERIES_PERIODS_HARD,
     )
     from factrix.metrics.concentration import top_concentration
     from factrix.metrics.hit_rate import hit_rate
@@ -138,8 +138,8 @@ def _build_stride_sampled_cases():
             _cs_panel,
             {},
         ),
-        ("monotonicity", monotonicity, MIN_MONOTONICITY_PERIODS, _cs_panel, {}),
-        ("hit_rate", hit_rate, MIN_IC_PERIODS, _hit_rate_series, {}),
+        ("monotonicity", monotonicity, MIN_MONOTONICITY_PERIODS_HARD, _cs_panel, {}),
+        ("hit_rate", hit_rate, MIN_SERIES_PERIODS_HARD, _hit_rate_series, {}),
     ]
 
 

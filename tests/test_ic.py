@@ -365,7 +365,7 @@ class TestICInferenceWarningPropagation:
     def test_thin_non_overlap_surfaces_warning(self):
         from factrix._codes import WarningCode
 
-        # forward_periods=1 => n_sampled == n == 25: clears MIN_IC_PERIODS (10)
+        # forward_periods=1 => n_sampled == n == 25: clears MIN_SERIES_PERIODS_HARD (10)
         # so no short-circuit, but below MIN_PERIODS_WARN (30) so the
         # non-overlapping inference flags UNRELIABLE_SE_SHORT_PERIODS.
         result = ic(self._ic_series(25), forward_periods=1)

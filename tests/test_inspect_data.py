@@ -318,11 +318,11 @@ class TestDeclaredPeriodsFloorsVisible:
 
     def test_pooled_beta_declares_periods_floors_alongside_pairs(self):
         from factrix._stats.constants import MIN_PERIODS_WARN
-        from factrix.metrics.fm_beta import _MIN_DK_PERIODS, pooled_beta
+        from factrix.metrics.fm_beta import _MIN_DK_PERIODS_HARD, pooled_beta
 
         st = pooled_beta.spec().sample_threshold
         assert st.min_pairs == 10
-        assert st.min_periods == _MIN_DK_PERIODS
+        assert st.min_periods == _MIN_DK_PERIODS_HARD
         assert st.warn_periods == MIN_PERIODS_WARN
 
     def test_turnover_declares_dynamic_periods_floor(self):
