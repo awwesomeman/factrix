@@ -44,7 +44,8 @@ print(result.metrics["spread"].value, result.metrics["spread"].p_value)
 
 `ic` asks whether the rank relation is statistically different from zero.
 `quantile_spread` asks whether a simple top-minus-bottom portfolio spread is
-positive on average.
+positive on average. In small allocation universes, add `k_spread`: it keeps
+each leg at a fixed name count instead of forcing unstable quantile buckets.
 
 ## Build a simple allocation proxy
 
@@ -88,21 +89,100 @@ borrow constraints, no capacity model, and no weight optimization.
 
 ## Small universes
 
-If the universe is small, reduce the number of groups. With only five assets,
-`n_groups=5` means one asset per bucket, so the spread is dominated by
-individual names. `n_groups=2` is the coarsest useful long-short split.
+If the universe is small, reduce the number of groups or use the fixed-count
+spread. With only five assets, `n_groups=5` means one asset per bucket, so the
+spread is dominated by individual names. `n_groups=2` is the coarsest useful
+long-short split, while `k_spread(k=1)` / `k_spread(k=2)` states the leg size
+directly.
 
 ```python
+from factrix.metrics import k_spread
+
 series = compute_spread_series(
     panel,
     factor_cols=["factor"],
     forward_periods=5,
     n_groups=2,
 )["factor"]
+
+spread_metric = k_spread(panel, forward_periods=5, k=2)
+print(spread_metric.value, spread_metric.p_value, spread_metric.metadata["method"])
 ```
 
-When `n_groups=2` is still too thin, treat the result as a fragile
-small-cross-section diagnostic rather than a portfolio claim.
+When even `k=1` is too noisy, treat the result as a fragile
+small-cross-section diagnostic rather than a portfolio claim. Pair it with
+`directional_hit_rate` when the question is "does the signal get the direction
+right?" rather than "does a long-short spread clear zero?"
+
+```python
+from factrix.metrics import directional_hit_rate
+
+hit = directional_hit_rate(panel, forward_periods=5)
+print(hit.value, hit.p_value, hit.metadata["p_expected"])
+```
+
+For 5-20 asset panels, read IC / FM output as the canonical inference layer when
+available, but expect `WarningCode.FEW_ASSETS` on thin cross-sections. The
+small-N spread and directional diagnostics are supplementary; they do not
+replace the canonical p-value family for screening.
+
+## Common macro factors and heterogeneous betas
+
+Common factors such as growth surprises, inflation shocks, VIX, DXY, or policy
+expectations are shared across assets on a date. A single average beta can hide
+rotation value: equities may load positively while duration or gold loads
+negatively, leaving `ts_beta` close to zero even though the factor separates the
+asset classes.
+
+Use the beta profile before reading the average-beta test:
+
+```python
+import polars as pl
+from factrix.metrics import mean_r_squared, ts_beta, ts_beta_sign_consistency
+from factrix.metrics import ts_quantile_spread
+from factrix.metrics.ts_beta import compute_ts_betas
+
+macro = (
+    panel.select("date")
+    .unique()
+    .sort("date")
+    .with_row_index("t")
+    .with_columns((pl.col("t").cast(pl.Float64) / 20.0).sin().alias("macro_growth"))
+    .select("date", "macro_growth")
+)
+macro_panel = panel.join(macro, on="date")
+betas_df = compute_ts_betas(macro_panel, factor_cols=["macro_growth"])["macro_growth"]
+
+avg_beta = ts_beta(betas_df)
+r2 = mean_r_squared(betas_df)
+signs = ts_beta_sign_consistency(betas_df)
+spread = ts_quantile_spread(
+    macro_panel,
+    factor_col="macro_growth",
+    forward_periods=5,
+    n_groups=3,
+)
+
+print(avg_beta.value, avg_beta.p_value)
+print(avg_beta.metadata["beta_std"], avg_beta.metadata["median_beta"])
+print(r2.value, signs.value, signs.metadata["fraction_positive"])
+print(spread.value, spread.p_value)
+```
+
+Read the pieces together:
+
+| Question | Diagnostic |
+|---|---|
+| Is the average exposure different from zero? | `ts_beta.value`, `ts_beta.p_value` |
+| Are asset betas dispersed enough for rotation? | `ts_beta.metadata["beta_std"]`, `compute_ts_betas(...)[factor]["beta"]` |
+| Does one sign dominate, or do signs split by asset class? | `ts_beta_sign_consistency.value`, `metadata["fraction_positive"]` |
+| Does the factor explain individual asset returns? | `mean_r_squared.value`, `metadata["median_r_squared"]` |
+| Is the common factor nonlinear or extreme-state driven? | `ts_quantile_spread` |
+
+This remains a factor diagnostic. If the beta vector suggests a long-equity /
+short-duration rotation, convert that insight into weights, risk budgets,
+rebalance rules, and transaction-cost assumptions in a downstream portfolio or
+backtest layer.
 
 ## Multi-factor screens
 

@@ -44,6 +44,9 @@ title: factrix.metrics.ts_beta
     Cross-asset iid $t$ is used because the per-asset betas come from
     non-overlapping time-series fits and are approximately independent
     unless a strong latent common factor links them.
+    `metadata["beta_std"]` and `metadata["median_beta"]` are reported so
+    asset-allocation users can see whether offsetting positive and negative
+    betas are cancelling the average.
 
 -   __Explanatory power across the cross-section__
 
@@ -55,6 +58,15 @@ title: factrix.metrics.ts_beta
     its cross-asset mean $\beta$ looks nonzero; large mean-vs-median
     gaps say the factor explains a small subset of assets rather than
     the cross-section as a whole.
+
+-   __Heterogeneous allocation rotations__
+
+    ---
+
+    A common macro factor can separate asset classes even when its average
+    beta is close to zero. Pair `compute_ts_betas` with
+    `ts_beta_sign_consistency` and inspect the beta vector when equities,
+    duration, commodities, or currencies may load with opposite signs.
 
 -   __Rolling-window stability__
 
@@ -76,6 +88,24 @@ title: factrix.metrics.ts_beta
 | Average explanatory power $\overline{R^2}$ across assets                | `mean_r_squared`                  |
 | Direction-agnostic sign agreement on per-asset $\beta$                  | `ts_beta_sign_consistency`        |
 | Rolling cross-asset mean $\beta$ series for trend / out-of-sample (OOS) pipes | `compute_rolling_mean_beta`       |
+
+## Allocation reading
+
+For asset-allocation panels, read `ts_beta` as the average exposure test, not
+as the whole common-factor story. A non-significant mean beta can still sit on
+top of a useful rotation profile when one group of assets has positive beta and
+another has negative beta.
+
+| Signal in the output | What to inspect |
+|---|---|
+| Mean beta is near zero, but the factor seems economically relevant | `ts_beta.metadata["beta_std"]`, `compute_ts_betas(...)[factor]["beta"]` |
+| Betas split between positive and negative assets | `ts_beta_sign_consistency.value`, `metadata["fraction_positive"]` |
+| A few assets drive the common-factor fit | `mean_r_squared.value`, `metadata["median_r_squared"]` |
+| The factor matters only in high / low states | [`ts_quantile_spread`](ts_quantile.md) |
+
+These are diagnostics for factor validation. Turning the beta profile into
+weights, hedges, leverage, or rebalance rules belongs in the downstream
+portfolio/backtest layer.
 
 ## Worked example — per-asset TS betas then cross-asset $t$
 
