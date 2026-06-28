@@ -15,6 +15,8 @@ output.
 | Whether an event signal produces abnormal returns | [`caar`](../api/metrics/caar.md) | Mainstream event-time significance test for sparse factors. |
 | Whether event-study inference is sensitive to variance or ranking assumptions | [`bmp_z`](../api/metrics/caar.md), [`corrado_rank`](../api/metrics/corrado_rank.md) | Robustness checks for event-induced variance and non-normal returns. |
 | Whether a market-wide time-series factor is priced across assets | [`ts_beta`](../api/metrics/ts_beta.md) | Cross-asset test on per-asset beta estimates; requires `N >= 2`. |
+| Whether a common macro factor separates assets with opposite beta signs | [`ts_beta`](../api/metrics/ts_beta.md), [`ts_beta_sign_consistency`](../api/metrics/ts_beta.md#factrix.metrics.ts_beta.ts_beta_sign_consistency) | Read the beta profile, sign split, and explanatory power before turning it into an allocation rule. |
+| Whether a small allocation universe has a fixed-count long-short edge | [`k_spread`](../api/metrics/k_spread.md), [`directional_hit_rate`](../api/metrics/directional_hit_rate.md) | Supplementary small-N diagnostics when quantile buckets are too thin; not a replacement for the canonical IC/FM p-value family. |
 | Whether a signal is tradable after turnover / cost pressure | [`tradability`](../api/metrics/tradability.md), [`concentration`](../api/metrics/concentration.md) | Descriptive diagnostics around implementation pressure. |
 | Whether a result decays, trends, or keeps the right sign over time | [`oos_decay`](../api/metrics/oos_decay.md), [`ic_trend`](../api/metrics/trend.md), [`hit_rate`](../api/metrics/hit_rate.md) | Series diagnostics layered on top of a cell's primary result. |
 
@@ -37,10 +39,19 @@ Both metrics evaluate individual, continuous factors (`FactorScope.INDIVIDUAL` a
 | **Statistical Method** | Per-date Spearman rank correlation $\rho_t$ → Newey-West HAC $t$-test on $\mathbb{E}[\rho_t]$. | Per-date cross-sectional OLS regression slope $\lambda_t$ → Newey-West HAC $t$-test on $\mathbb{E}[\lambda_t]$. |
 | **Robustness** | Extremely robust to outliers (rank-based). | Sensitive to outliers and extreme values (OLS-based). |
 | **Economic Interpretation** | Rank-ordering capability (signal quality). | Return premium per unit of factor exposure. |
-| **Sample Sensitivity** | Drops dates with fewer than 10 assets. | Requires at least 3 assets per date but can be unstable at low $N$. |
+| **Sample Sensitivity** | Drops dates with fewer than 2 complete pairs; warns when retained dates have fewer than 10 assets. | Drops dates with fewer than 3 complete pairs; warns when retained dates have fewer than 10 assets. |
 
 - **Use IC** (`ic`) when you are building a ranking-based stock selection strategy.
 - **Use FM** (`fm_beta`) when you need to estimate risk premia or require an economically interpretable slope premium.
+
+## Allocation panels
+
+For common macro factors, `ts_beta` is the average exposure test. Inspect
+`metadata["beta_std"]`, `metadata["median_beta"]`,
+`ts_beta_sign_consistency`, and `mean_r_squared` when assets may load with
+opposite signs. For small individual dense panels, use `k_spread` and
+`directional_hit_rate` as supplementary reads alongside IC / FM, not as a new
+screening family.
 
 ---
 
