@@ -26,7 +26,7 @@ from __future__ import annotations
 import html
 import math
 from collections.abc import Sequence
-from dataclasses import MISSING, dataclass, field, fields
+from dataclasses import MISSING, dataclass, field, fields, replace
 from typing import TYPE_CHECKING, Any
 
 import polars as pl
@@ -36,6 +36,7 @@ from factrix._codes import WarningCode, cross_section_tier
 from factrix._data_input import _FORWARD_PERIODS_COL
 from factrix._metric_index import MetricSpec, public_specs
 from factrix._results import Warning
+from factrix._types import MIN_IC_ASSETS
 
 if TYPE_CHECKING:
     from factrix.metrics._base import MetricBase
@@ -191,6 +192,14 @@ class MetricApplicability:
     usable: bool
     warnings: list[Warning] = field(default_factory=list)
     blockers: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True, slots=True)
+class _ICStage1Profile:
+    """Pre-flight shape of the IC series after ``compute_ic``'s date filter."""
+
+    n_periods: int
+    max_assets_per_period: int
 
 
 def _default_constructible(metric: Any) -> bool:
@@ -541,6 +550,7 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
     # Event sample: non-zero factor cells (nulls compare false, so excluded),
     # matching the ``factor != 0`` filter the event-driven metrics apply.
     n_events = int(data.filter(pl.col(first_col) != 0).height)
+    ic_stage1_profile = _compute_ic_stage1_profile(data, first_col)
 
     structure_reason = (
         f"n_assets={n_assets} → "
@@ -612,7 +622,12 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
     signal_discrete = _event_signal_is_discrete(data, first_col)
 
     metrics = [
-        _evaluate_applicability(spec, properties, signal_discrete)
+        _evaluate_applicability(
+            spec,
+            properties,
+            signal_discrete,
+            ic_stage1_profile=ic_stage1_profile,
+        )
         for _, spec in public_specs()
     ]
     data_warnings.extend(_single_asset_event_warning(properties, metrics))
@@ -664,12 +679,16 @@ def _single_asset_event_warning(
 
 
 def _evaluate_applicability(
-    spec: MetricSpec, properties: DataProperties, signal_discrete: bool
+    spec: MetricSpec,
+    properties: DataProperties,
+    signal_discrete: bool,
+    ic_stage1_profile: _ICStage1Profile | None = None,
 ) -> MetricApplicability:
     from factrix.metrics._registry import REGISTRY
 
     blockers: list[str] = []
     warnings: list[Warning] = []
+    uses_compute_ic = _requires_compute_ic(spec)
 
     if not spec.cell.matches(
         properties.scope, properties.density, properties.structure
@@ -689,8 +708,25 @@ def _evaluate_applicability(
             "not_applicable_discrete_signal at run time"
         )
 
+    threshold_properties = properties
+    skip_period_floor = False
+    if uses_compute_ic and ic_stage1_profile is not None:
+        if ic_stage1_profile.max_assets_per_period < MIN_IC_ASSETS:
+            blockers.append(
+                f"n_assets_per_period_max={ic_stage1_profile.max_assets_per_period} "
+                f"< MIN_IC_ASSETS={MIN_IC_ASSETS}: compute_ic would drop every "
+                "date before this metric runs"
+            )
+            skip_period_floor = True
+        else:
+            threshold_properties = replace(
+                properties, n_periods=ic_stage1_profile.n_periods
+            )
+
     floor = spec.sample_threshold
-    for av in floor.iter_verdicts(properties):
+    for av in floor.iter_verdicts(threshold_properties):
+        if skip_period_floor and av.axis == "periods":
+            continue
         if av.tier is Tier.UNUSABLE:
             blockers.append(f"n_{av.axis}={av.n} < min_{av.axis}={av.floor}")
         elif av.tier is Tier.DEGRADED:
@@ -730,6 +766,37 @@ def _evaluate_applicability(
         usable=not blockers,
         warnings=warnings,
         blockers=blockers,
+    )
+
+
+def _requires_compute_ic(spec: MetricSpec) -> bool:
+    """True when a metric consumes the ``compute_ic`` stage-1 output."""
+    return any(
+        getattr(producer, "__name__", "") == "compute_ic"
+        and getattr(producer, "__module__", "") == "factrix.metrics._primitives._ic"
+        for producer in spec.requires.values()
+    )
+
+
+def _compute_ic_stage1_profile(data: Any, factor_col: str) -> _ICStage1Profile | None:
+    """Mirror ``compute_ic``'s per-date pairwise-complete asset gate."""
+    if "forward_return" not in data.columns:
+        return None
+    if data.is_empty():
+        return _ICStage1Profile(n_periods=0, max_assets_per_period=0)
+
+    valid_pair = (
+        pl.col(factor_col).is_not_null() & pl.col("forward_return").is_not_null()
+    )
+    per_date = data.group_by("date").agg(valid_pair.sum().alias("n_assets"))
+    if per_date.is_empty():
+        return _ICStage1Profile(n_periods=0, max_assets_per_period=0)
+
+    counts = per_date["n_assets"]
+    max_assets = counts.max()
+    return _ICStage1Profile(
+        n_periods=int((counts >= MIN_IC_ASSETS).sum()),
+        max_assets_per_period=0 if max_assets is None else int(max_assets),
     )
 
 

@@ -12,6 +12,7 @@ from factrix._inspect import (
     MetricApplicability,
     inspect_data,
 )
+from factrix.preprocess import compute_forward_return
 
 
 def _single_asset_data(n_dates: int = 80) -> pl.DataFrame:
@@ -201,6 +202,65 @@ class TestSampleThresholdGate:
         # turnover declares no sample_threshold (cell match only); cell matches, so usable
         assert turnover.usable is True
         assert turnover.warnings == []
+
+
+class TestICStageOneFeasibility:
+    def test_ic_family_blocked_when_cross_section_never_reaches_ic_floor(self):
+        data = compute_forward_return(
+            fx.datasets.make_cs_panel(n_assets=8, n_dates=120), forward_periods=3
+        )
+        info = inspect_data(data)
+
+        for name in ("ic", "ic_ir"):
+            verdict = _by_name(info, name)
+            assert verdict.usable is False
+            assert any("MIN_IC_ASSETS=10" in b for b in verdict.blockers)
+
+        assert _by_name(info, "fm_beta").usable is True
+
+    def test_ic_family_uses_pairwise_complete_assets_not_raw_asset_count(self):
+        raw = compute_forward_return(
+            fx.datasets.make_cs_panel(n_assets=20, n_dates=120), forward_periods=3
+        )
+        keepers = raw["asset_id"].unique().sort().head(8).to_list()
+        data = raw.with_columns(
+            pl.when(pl.col("asset_id").is_in(keepers))
+            .then(pl.col("factor"))
+            .otherwise(None)
+            .alias("factor")
+        )
+
+        info = inspect_data(data)
+        assert info.properties.n_assets == 20
+
+        for name in ("ic", "ic_ir"):
+            verdict = _by_name(info, name)
+            assert verdict.usable is False
+            assert any("n_assets_per_period_max=8" in b for b in verdict.blockers)
+
+    def test_ic_family_period_floor_uses_surviving_ic_series_length(self):
+        raw = compute_forward_return(
+            fx.datasets.make_cs_panel(n_assets=20, n_dates=40), forward_periods=3
+        )
+        full_width_cutoff = raw["date"].unique().sort()[14]
+        keepers = raw["asset_id"].unique().sort().head(8).to_list()
+        data = raw.with_columns(
+            pl.when(
+                (pl.col("date") <= full_width_cutoff)
+                | pl.col("asset_id").is_in(keepers)
+            )
+            .then(pl.col("factor"))
+            .otherwise(None)
+            .alias("factor")
+        )
+
+        info = inspect_data(data)
+        ic_ir = _by_name(info, "ic_ir")
+
+        assert info.properties.n_periods == raw["date"].n_unique()
+        assert ic_ir.usable is False
+        assert any("n_periods=15 < min_periods=20" in b for b in ic_ir.blockers)
+        assert not any("MIN_IC_ASSETS" in b for b in ic_ir.blockers)
 
 
 class TestDeclaredPeriodsFloorsVisible:
