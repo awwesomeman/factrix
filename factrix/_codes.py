@@ -231,7 +231,7 @@ _WARNING_DESCRIPTIONS.update(
         "of executing.",
         WarningCode.LOW_CARDINALITY_DENSE_SIGNAL: "Dense factor has few distinct "
         "non-null values but no sparse event contract. Sparse event metrics "
-        "require explicit zero non-event rows ({0, R} or {-R, 0, +R}) and a "
+        "require the {0, R} zero-value event contract and a "
         "sparse_ratio above the routing threshold; always-in-market states "
         "such as {-1, +1} stay dense and should use dense / directional metrics.",
         WarningCode.FREQUENT_EVENT_SIGNAL: "Sparse event metric explicitly ran "

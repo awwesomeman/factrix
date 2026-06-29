@@ -44,7 +44,7 @@ is no non-event zero state. Treat them as dense directional signals: use
 | Signal / question | Metric family | Contract |
 |---|---|---|
 | `{0, 1}` event flag | `caar`, `bmp_z`, event diagnostics | Non-zero rows are event observations; sign is positive by construction. |
-| `{0, R}` or `{-R, 0, +R}` event magnitude | `caar`, `bmp_z` | `forward_return * factor`; magnitude is preserved in the abnormal-return estimate. |
+| `{0, R}` event magnitude (`R` may be signed) | `caar`, `bmp_z` | `forward_return * factor`; magnitude is preserved in the abnormal-return estimate. |
 | Does event size rank realized event payoff? | `event_ic` | Spearman correlation between `abs(factor)` and `signed_car`, where `signed_car = forward_return * sign(factor)`. |
 | Was the event direction right? | `event_hit_rate`, `profit_factor`, `event_skewness` | Uses `signed_car`; mostly sign diagnostics, not magnitude-weighted CAAR. |
 

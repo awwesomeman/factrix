@@ -6,8 +6,8 @@ Two orthogonal user-facing axes describe an analysis cell:
   carry a single value broadcast to every asset (``COMMON``)?
 - ``FactorDensity`` — continuous numeric exposure (``DENSE``) vs.
   zero-encoded event triggers (``SPARSE``): ``0`` is the explicit
-  non-event state, and any non-zero real value is an event magnitude
-  / direction (canonical example ``{-1, 0, +1}``)?
+  non-event state, and any non-zero real value ``R`` is an event
+  magnitude / direction.
 
 ``DataStructure`` is the third axis used by registry keys / dispatch but is not
 user-set: it is derived from ``n_assets`` at evaluate-time and surfaced as the
@@ -34,7 +34,7 @@ class FactorDensity(StrEnum):
     """Continuous numeric exposure vs. ``{0, R}`` sparse event trigger.
 
     Sparse columns are zero on non-event entries with arbitrary real
-    magnitude otherwise (canonical example ``{-1, 0, +1}``). This is
+    magnitude otherwise (``{0, R}``, with ``R`` allowed to be signed). This is
     a zero-value encoding contract, not a generic "low-cardinality"
     or "categorical" detector: always-in-market ``{-1, +1}`` stays
     dense because it has no explicit non-event zero state.

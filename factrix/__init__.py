@@ -967,7 +967,7 @@ def _sparse_event_mismatch_guidance(
     if spec.cell.density is FactorDensity.SPARSE and density is FactorDensity.DENSE:
         return (
             "Sparse event metrics require explicit zero non-event rows "
-            "({0, R} or {-R, 0, +R}); transform dense signals before calling "
+            "under the {0, R} event contract; transform dense signals before calling "
             "them. Always-in-market states such as {-1, +1} should stay on "
             "dense / directional metrics."
         )
