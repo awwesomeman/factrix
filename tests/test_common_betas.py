@@ -311,6 +311,12 @@ class TestCommonBetaProfile:
             result.metadata["spread_status"] == "requires_positive_and_negative_betas"
         )
 
+    def test_single_asset_profile_marks_dispersion_undefined(self):
+        betas = pl.DataFrame({"asset_id": ["A"], "beta": [0.10]})
+        result = common_beta_profile(betas)
+        assert result.metadata["n_assets"] == 1
+        assert np.isnan(result.metadata["beta_std"])
+
     def test_empty_beta_table_short_circuits_descriptively(self):
         betas = pl.DataFrame(
             {

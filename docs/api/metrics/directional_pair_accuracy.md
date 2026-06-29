@@ -38,8 +38,10 @@ title: factrix.metrics.directional_pair_accuracy
     ---
 
     The metric returns no `p_value`: same-date asset pairs share shocks, so a
-    naive binomial test over all pairs would overstate precision. Use it as a
-    targeted allocation diagnostic alongside the first-pass IC / FM evidence.
+    naive binomial test over all pairs would overstate precision. `value` is the
+    pooled comparable-pair accuracy; `metadata["mean_per_date_accuracy"]` keeps
+    the unweighted per-date read for unbalanced panels. Use it as a targeted
+    allocation diagnostic alongside the first-pass IC / FM evidence.
 
 </div>
 
