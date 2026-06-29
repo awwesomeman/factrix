@@ -2,8 +2,10 @@
 title: factrix.evaluate
 ---
 
-> **Input contract** — the panel must satisfy the four-column floor
-> documented in [Data schema](data-schema.md).
+> **Input contracts:** `evaluate` consumes an evaluation panel with the
+> four-column floor documented in [Data schema](data-schema.md).
+> `evaluate_horizons` consumes a raw canonical panel with `price` and factor
+> columns, then computes `forward_return` internally for each horizon.
 
 ::: factrix.evaluate
 
@@ -174,9 +176,9 @@ derivation are automatically resolved at dispatch time.
 
     ---
 
-    New to the input contract? Start here for the four-column floor
-    (`date`, `asset_id`, `factor`, `forward_return`), dtype semantics,
-    and optional columns that activate extra metrics.
+    New to the fixed-horizon input contract? Start here for the evaluation
+    panel floor (`date`, `asset_id`, `factor`, `forward_return`), dtype
+    semantics, and optional columns that activate extra metrics.
 
     [Read the schema →](data-schema.md)
 
