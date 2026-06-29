@@ -66,18 +66,6 @@ Both metrics evaluate individual, continuous factors (`FactorScope.INDIVIDUAL` a
 - **Use IC** (`ic`) when you are building a ranking-based stock selection strategy.
 - **Use FM** (`fm_beta`) when you need to estimate risk premia or require an economically interpretable slope premium.
 
-## Allocation panels
-
-For common macro factors, `common_beta` is the average exposure test. Inspect
-`metadata["beta_std"]`, `metadata["median_beta"]`,
-`common_beta_sign_consistency`, and `common_beta_r_squared` when assets may load with
-opposite signs. For one-asset dense data, use `predictive_beta` for the
-HAC-corrected magnitude slope and `directional_hit_rate` for sign prediction.
-For small individual dense panels, use `k_spread` and `directional_hit_rate`
-as supplementary reads alongside IC / FM, not as a new screening family.
-
----
-
 ## Evaluating and comparing metrics
 
 To evaluate both IC and Fama-MacBeth on a candidate factor panel, pass both metric instances to `fx.evaluate()`:
