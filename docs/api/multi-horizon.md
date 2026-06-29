@@ -32,7 +32,7 @@ automatically.
 ## Recipes
 
 [`evaluate_horizons`](evaluate.md) is the convenience entry for both
-recipes: it rebuilds the panel with
+recipes: it rebuilds an evaluation panel from the raw input with
 [`compute_forward_return`](preprocess.md) per horizon, runs
 [`evaluate`](evaluate.md) at each, and flattens to a single
 `list[EvaluationResult]` — one entry per `(factor, forward_periods)`,
@@ -52,8 +52,10 @@ import factrix as fx
 import polars as pl
 from factrix.metrics import ic
 
+raw = fx.datasets.make_cs_panel(n_assets=80, n_dates=240)
+
 results = fx.evaluate_horizons(
-    panel,  # raw panel — no forward_return attached
+    raw,  # no forward_return attached
     metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)},
     factor_cols=["mom_12_1"],
     forward_periods=[1, 5, 10, 20],
@@ -72,8 +74,10 @@ the BHY null per horizon so the step-up threshold is correct.
 import factrix as fx
 from factrix.metrics import ic
 
+raw = fx.datasets.make_cs_panel(n_assets=80, n_dates=240)
+
 results = fx.evaluate_horizons(
-    panel,  # raw panel — no forward_return attached
+    raw,  # no forward_return attached
     metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)},
     factor_cols=["mom_12_1"],
     forward_periods=[1, 5, 10, 20],
