@@ -6,31 +6,11 @@ This guide helps you choose the first metric to run, then points to the
 reference tables that answer whether your data can run it and how to read the
 output.
 
-## Start from the research question
-
-| If you want to know... | Start with | Why |
-|---|---|---|
-| Whether an equity-style factor rank-orders future returns | [`ic`](../api/metrics/ic.md) | Rank-based, robust default for `Individual × Continuous` factors. |
-| The return premium per unit of factor exposure | [`fm_beta`](../api/metrics/fm_beta.md) | Per-date cross-sectional slope with an economic unit. |
-| Whether an event signal produces abnormal returns | [`caar`](../api/metrics/caar.md) | Mainstream event-time significance test for sparse factors. |
-| Whether event-study inference is sensitive to variance or ranking assumptions | [`bmp_z`](../api/metrics/caar.md), [`corrado_rank`](../api/metrics/corrado_rank.md) | Robustness checks for event-induced variance and non-normal returns. |
-| Whether a market-wide time-series factor is priced across assets | [`common_beta`](../api/metrics/common_beta.md) | Cross-asset test on per-asset beta estimates; requires `n_assets >= 2`. |
-| Whether a single-asset dense signal predicts forward returns | [`predictive_beta`](../api/metrics/predictive_beta.md) | Direct `forward_return ~ factor` slope with Newey-West HAC inference; requires `n_assets == 1`. |
-| Whether a common macro factor separates assets with opposite beta signs | [`common_beta`](../api/metrics/common_beta.md), [`common_beta_sign_consistency`](../api/metrics/common_beta.md#factrix.metrics.common_beta.common_beta_sign_consistency) | Read the beta profile, sign split, and explanatory power before turning it into an allocation rule. |
-| Whether a small allocation universe has a fixed-count long-short edge | [`k_spread`](../api/metrics/k_spread.md), [`directional_hit_rate`](../api/metrics/directional_hit_rate.md) | Supplementary small-N diagnostics when quantile buckets are too thin; not a replacement for the canonical IC/FM p-value family. |
-| Whether a signal is tradable after turnover / cost pressure | [`tradability`](../api/metrics/tradability.md), [`concentration`](../api/metrics/concentration.md) | Descriptive diagnostics around implementation pressure. |
-| Whether a result decays, trends, or keeps the right sign over time | [`oos_decay`](../api/metrics/oos_decay.md), [`ic_trend`](../api/metrics/trend.md), [`positive_rate`](../api/metrics/positive_rate.md) | Series diagnostics layered on top of a cell's primary result. |
-
-Then use the cross-reference pages by task:
-
-| Question | Reference |
-|---|---|
-| Can my data run this metric? | [Metric applicability](../reference/metric-applicability.md) |
-| How is the metric computed? | [Metric pipelines](../reference/metric-pipelines.md) |
-| Which `MetricResult` fields and metadata keys matter? | [Stat keys by metric](../reference/stat-keys-by-metric.md) |
-| Which metrics apply to my specific panel? | [`inspect_data`](../api/inspect-data.md) |
-
 ## First-pass metrics vs diagnostics
+
+Start from the research question. The first-pass metric is the conventional
+headline read for that question; diagnostics add shape, robustness, and
+implementation context.
 
 factrix uses "mainstream" and "supplementary" as a usage convention, not
 as a registry tier. This mirrors the way quant research usually separates a
@@ -43,28 +23,40 @@ it as targeted evidence unless you deliberately make it the tested family. If
 you screen many factors or many diagnostic variants, define that family up
 front and apply multiple-testing control deliberately.
 
-| Research question | Usually first-pass | Usually diagnostic |
-|---|---|---|
-| Rank-ordering in a cross-section | [`ic`](../api/metrics/ic.md) | `ic_ir`, `monotonicity`, [`k_spread`](../api/metrics/k_spread.md), [`directional_hit_rate`](../api/metrics/directional_hit_rate.md) |
-| Exposure premium in a cross-section | [`fm_beta`](../api/metrics/fm_beta.md) | `pooled_beta`, `fm_beta_sign_consistency`, [`k_spread`](../api/metrics/k_spread.md) |
-| Sparse event effect | [`caar`](../api/metrics/caar.md) | `bmp_z`, `corrado_rank`, `event_hit_rate`, `profit_factor`, `clustering_hhi` |
-| Common macro exposure | [`common_beta`](../api/metrics/common_beta.md) | `common_beta_r_squared`, `common_beta_sign_consistency`, beta-profile diagnostics |
-| Single-asset dense prediction | [`predictive_beta`](../api/metrics/predictive_beta.md) | [`directional_hit_rate`](../api/metrics/directional_hit_rate.md), plus trend / out-of-sample diagnostics on derived `(date, value)` series |
+| Research question | Usually first-pass | Useful diagnostics | Why |
+|---|---|---|---|
+| Rank-ordering in a cross-section | [`ic`](../api/metrics/ic.md) | `ic_ir`, `monotonicity`, [`k_spread`](../api/metrics/k_spread.md), [`directional_hit_rate`](../api/metrics/directional_hit_rate.md) | `ic` is the rank-based default for `Individual x Continuous`; diagnostics check concentration, spread shape, and sign skill. |
+| Exposure premium in a cross-section | [`fm_beta`](../api/metrics/fm_beta.md) | `pooled_beta`, `fm_beta_sign_consistency`, [`k_spread`](../api/metrics/k_spread.md) | `fm_beta` keeps the economic unit of exposure; diagnostics show pooled fit, sign stability, and small-universe spread. |
+| Sparse event effect | [`caar`](../api/metrics/caar.md) | `bmp_z`, `corrado_rank`, `event_hit_rate`, `profit_factor`, `clustering_hhi` | `caar` is the event-time headline test; diagnostics check variance assumptions, ranks, hit quality, payoff asymmetry, and event clustering. |
+| Common macro exposure | [`common_beta`](../api/metrics/common_beta.md) | `common_beta_r_squared`, `common_beta_sign_consistency`, `compute_common_betas(...)[factor]` | `common_beta` tests average per-asset beta; diagnostics reveal whether offsetting positive and negative betas hide a rotation profile. |
+| Single-asset dense prediction | [`predictive_beta`](../api/metrics/predictive_beta.md) | [`directional_hit_rate`](../api/metrics/directional_hit_rate.md), plus trend / out-of-sample diagnostics on derived `(date, value)` series | `predictive_beta` tests the HAC predictive-regression slope; diagnostics check sign prediction and stability after deriving a series. |
+| Tradability / implementation pressure | No headline test | [`tradability`](../api/metrics/tradability.md), [`concentration`](../api/metrics/concentration.md), turnover / cost diagnostics | These are descriptive checks around implementation pressure, not a replacement for the factor's headline inference. |
+
+Then use the cross-reference pages by task:
+
+| Question | Reference |
+|---|---|
+| Can my data run this metric? | [Metric applicability](../reference/metric-applicability.md) |
+| How is the metric computed? | [Metric pipelines](../reference/metric-pipelines.md) |
+| Which `MetricResult` fields and metadata keys matter? | [Stat keys by metric](../reference/stat-keys-by-metric.md) |
+| Which metrics apply to my specific panel? | [`inspect_data`](../api/inspect-data.md) |
 
 ## Information coefficient (IC) vs Fama-MacBeth (FM)
 
-Both metrics evaluate individual, continuous factors (`FactorScope.INDIVIDUAL` and `FactorDensity.DENSE` cells), but they answer different research questions:
+Both metrics evaluate individual, continuous factors (`FactorScope.INDIVIDUAL`
+and `FactorDensity.DENSE` cells), but they answer different research questions:
 
-| Feature | Information Coefficient (IC) | Fama-MacBeth (FM) |
+| Feature | Information coefficient (IC) | Fama-MacBeth (FM) |
 |---|---|---|
-| **Research Question** | Does the factor consistently rank-order future returns? | What is the return premium per unit of factor exposure? |
-| **Statistical Method** | Per-date Spearman rank correlation $\rho_t$ → Newey-West HAC $t$-test on $\mathbb{E}[\rho_t]$. | Per-date cross-sectional OLS regression slope $\lambda_t$ → Newey-West HAC $t$-test on $\mathbb{E}[\lambda_t]$. |
-| **Robustness** | Extremely robust to outliers (rank-based). | Sensitive to outliers and extreme values (OLS-based). |
-| **Economic Interpretation** | Rank-ordering capability (signal quality). | Return premium per unit of factor exposure. |
-| **Sample Sensitivity** | Drops dates with fewer than 2 complete pairs; warns when retained dates have fewer than 10 assets. | Drops dates with fewer than 3 complete pairs; warns when retained dates have fewer than 10 assets. |
+| Research question | Does the factor consistently rank-order future returns? | What is the return premium per unit of factor exposure? |
+| Statistical method | Per-date Spearman rank correlation, then Newey-West HAC t-test on the mean IC. | Per-date cross-sectional OLS regression slope, then Newey-West HAC t-test on the mean slope. |
+| Robustness | Rank-based and robust to outliers. | OLS-based and more sensitive to outliers and extreme values. |
+| Economic interpretation | Rank-ordering capability. | Return premium per unit of factor exposure. |
+| Sample sensitivity | Drops dates with fewer than 2 complete pairs; warns when retained dates have fewer than 10 assets. | Drops dates with fewer than 3 complete pairs; warns when retained dates have fewer than 10 assets. |
 
-- **Use IC** (`ic`) when you are building a ranking-based stock selection strategy.
-- **Use FM** (`fm_beta`) when you need to estimate risk premia or require an economically interpretable slope premium.
+- Use `ic` when you are building a ranking-based stock selection strategy.
+- Use `fm_beta` when you need to estimate risk premia or require an
+  economically interpretable slope premium.
 
 ## Evaluating and comparing metrics
 
