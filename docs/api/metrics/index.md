@@ -41,6 +41,28 @@ flowchart LR
 
 ::: factrix.metrics_summary
 
+On Windows legacy consoles, Unicode table borders or symbols in docstring
+summaries may fail to render. The discovery object is a normal Polars
+`DataFrame`, so use an ASCII or records path when browsing interactively:
+
+```python
+import polars as pl
+import factrix as fx
+
+with pl.Config(ascii_tables=True):
+    print(fx.metrics_summary())
+
+# Or avoid console table formatting entirely:
+records = fx.metrics_summary().to_dicts()
+```
+
+In PowerShell, running Python in UTF-8 mode is also safe:
+
+```powershell
+$env:PYTHONUTF8 = "1"
+python -c "import factrix as fx; print(fx.metrics_summary())"
+```
+
 ### Full specs: `list_metrics()`
 
 ::: factrix.list_metrics

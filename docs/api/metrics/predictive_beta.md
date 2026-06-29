@@ -39,6 +39,17 @@ title: factrix.metrics.predictive_beta
     so overlapping forward-return windows do not understate standard
     errors.
 
+-   __Persistent predictor diagnostic__
+
+    ---
+
+    The metric also runs a lightweight ADF check on the factor series.
+    When `adf_p` exceeds `adf_threshold`, metadata sets
+    `unit_root_suspected=True` and the result carries
+    `WarningCode.PERSISTENT_REGRESSOR`. The beta is still returned; the
+    warning tells you to read the slope as a persistent-regressor risk,
+    not as an automatically corrected estimate.
+
 </div>
 
 ## Worked example
@@ -65,5 +76,5 @@ title: factrix.metrics.predictive_beta
         forward_periods=5,
     )["factor"].metrics["predictive_beta"]
 
-    print(out.value, out.stat, out.p_value)
+    print(out.value, out.stat, out.p_value, out.metadata["unit_root_suspected"])
     ```

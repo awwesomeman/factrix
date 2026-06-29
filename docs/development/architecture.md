@@ -94,8 +94,10 @@ Each `factrix/metrics/*.py` module decorates its public callables with
   = `*` wildcard on any axis.
 - `spec_by_name() -> dict[str, MetricSpec]` — name → spec lookup across every
   registered metric.
-- `public_specs()` — visibility-filtered specs (drops `PIPELINE`-role stage-1
-  helpers pulled only via `requires`).
+- `public_specs()` — visibility-filtered `(family, MetricSpec)` pairs (drops
+  `PIPELINE`-role stage-1 helpers pulled only via `requires`). The family is
+  the declaring module stem; callers that only need specs should iterate
+  `for _, spec in public_specs()`.
 - `list_metrics()` — the public runtime discovery API, grouped by metric family.
 
 `@metric`-class registration feeds the index via

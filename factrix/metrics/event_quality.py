@@ -274,9 +274,10 @@ def profit_factor(
         ``PF > 1`` means gross gains exceed gross losses across all
         events; the metric ignores per-event variance.
 
-        factrix returns ``0.0`` rather than infinity when total losses
-        are below ``EPSILON`` so downstream aggregators do not propagate
-        non-finite floats.
+        When gains are positive and losses are zero, factrix returns
+        ``inf``: the gross gain/loss ratio is unbounded, not zero. When
+        both gains and losses are zero, the ratio is undefined and the
+        metric returns ``NaN`` with ``metadata["profit_factor_status"]``.
 
     Examples:
         >>> import factrix as fx
@@ -304,7 +305,17 @@ def profit_factor(
     gains = float(np.sum(signed[signed > 0]))
     losses = float(np.abs(np.sum(signed[signed < 0])))
 
-    pf = gains / losses if losses > EPSILON else 0.0
+    no_gains = gains <= EPSILON
+    no_losses = losses <= EPSILON
+    if no_losses and no_gains:
+        pf = float("nan")
+        status = "undefined_no_gains_or_losses"
+    elif no_losses:
+        pf = float("inf")
+        status = "unbounded_no_losses"
+    else:
+        pf = gains / losses
+        status = "finite"
 
     return MetricResult(
         value=pf,
@@ -316,6 +327,9 @@ def profit_factor(
             "n_events": n,
             "n_wins": int(np.sum(signed > 0)),
             "n_losses": int(np.sum(signed < 0)),
+            "no_gains": no_gains,
+            "no_losses": no_losses,
+            "profit_factor_status": status,
         },
     )
 

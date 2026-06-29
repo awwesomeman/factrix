@@ -21,15 +21,24 @@ structure-aware per-panel applicability, use
 
 ## Sample dimensions
 
-factrix expresses sample size on three axes (see
-[Concepts](../getting-started/concepts.md) for cell taxonomy):
+factrix expresses sample-size gates on four sample axes (see
+[Concepts](../getting-started/concepts.md) for cell taxonomy and
+[Architecture](../development/architecture.md#sample-guards) for the naming
+grammar):
 
-- `n_assets` — assets in the panel (`asset_id` unique count).
-- `T` — date count (`date` unique count).
-- `K` — non-zero event count for `Sparse` factors
-  (`filter(factor != 0).height`).
-- `T/h` — non-overlapping date count given
-  `forward_periods = h`.
+- `assets` / `n_assets` — assets in the panel (`asset_id` unique count), or
+  the pairwise-complete per-date asset count for IC / FM primitives.
+- `periods` / `T` — date count (`date` unique count), reported in runtime
+  metadata as `n_periods`.
+- `pairs` / `n_pairs` — complete `(date, asset)` observations, or
+  metric-specific comparable pairs such as directional trials.
+- `events` / `K` — non-zero event count for `Sparse` factors
+  (`filter(factor != 0).height`) or event-date count where the metric collapses
+  same-date events.
+
+Derived effective counts such as `T/h` are not independent axes. They are
+period-axis counts after a horizon / non-overlap stride (`forward_periods = h`)
+has reduced the usable date sample.
 
 `DataStructure` is derived from `n_assets` at evaluate-time: `PANEL` for
 `n_assets >= 2`, `TIMESERIES` for `n_assets == 1`. Each metric's `MetricSpec` declares the cell it

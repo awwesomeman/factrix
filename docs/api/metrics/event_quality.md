@@ -52,7 +52,10 @@ title: factrix.metrics.event_quality
     ---
 
     `profit_factor` reports $\sum\text{gains} / |\sum\text{losses}|$ as
-    a descriptive gross ratio; `event_skewness` reports the Fisher-
+    a descriptive gross ratio. If gains are positive and losses are zero,
+    the ratio is unbounded (`value = inf`, `profit_factor_status =
+    "unbounded_no_losses"`); if both are zero, the ratio is undefined
+    (`value = NaN`). `event_skewness` reports the Fisher-
     corrected skewness of the `signed_car` distribution with a
     D'Agostino test when `n_events >= 20`. Useful for screening
     fat-right-tail vs symmetric event payoffs.

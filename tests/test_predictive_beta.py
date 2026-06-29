@@ -39,6 +39,38 @@ class TestPredictiveBetaStatistic:
         assert result.n_obs_axis == "periods"
         assert result.metadata["h0"] == "beta=0"
         assert result.metadata["newey_west_lags"] == _resolve_nw_lags(240, None, 5)
+        assert result.metadata["unit_root_suspected"] is False
+        assert WarningCode.PERSISTENT_REGRESSOR.value not in result.warning_codes
+
+    def test_persistent_factor_sets_adf_warning(self) -> None:
+        rng = np.random.default_rng(42)
+        x = np.cumsum(rng.normal(size=240))
+        y = 0.05 * x + rng.normal(size=240)
+
+        result = predictive_beta(_ts_panel(x, y), forward_periods=1)
+
+        assert result.metadata["adf_p"] > 0.10
+        assert result.metadata["unit_root_suspected"] is True
+        assert WarningCode.PERSISTENT_REGRESSOR.value in result.warning_codes
+
+    def test_adf_threshold_none_disables_persistence_check(self) -> None:
+        rng = np.random.default_rng(0)
+        result = predictive_beta(
+            _ts_panel(rng.normal(size=120), rng.normal(size=120)),
+            forward_periods=1,
+            adf_threshold=None,
+        )
+        assert "adf_stat" not in result.metadata
+        assert "adf_p" not in result.metadata
+        assert "unit_root_suspected" not in result.metadata
+
+    def test_adf_threshold_out_of_range_raises(self) -> None:
+        rng = np.random.default_rng(0)
+        with pytest.raises(ValueError, match="adf_threshold"):
+            predictive_beta(
+                _ts_panel(rng.normal(size=120), rng.normal(size=120)),
+                adf_threshold=1.0,
+            )
 
     def test_independent_factor_not_significant(self) -> None:
         rng = np.random.default_rng(2)

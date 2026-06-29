@@ -21,7 +21,7 @@ from factrix._axis import Aggregation, DataStructure, FactorDensity, InputShape
 from factrix._codes import WarningCode
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
-from factrix._stats import _ols_nw_slope_t, _resolve_nw_lags
+from factrix._stats import _adf, _ols_nw_slope_t, _resolve_nw_lags
 from factrix._stats.constants import MIN_PERIODS_HARD, MIN_PERIODS_WARN
 from factrix._types import DDOF, EPSILON
 from factrix.metrics._decorators import metric
@@ -48,6 +48,7 @@ def predictive_beta(
     *,
     newey_west_lags: int | None = None,
     forward_periods: int = 5,
+    adf_threshold: float | None = 0.10,
     factor_col: str = "factor",
     return_col: str = "forward_return",
 ) -> MetricResult:
@@ -67,6 +68,8 @@ def predictive_beta(
             project default bandwidth.
         forward_periods: Forward-return horizon injected by ``evaluate`` from
             the panel metadata; standalone calls may pass it directly.
+        adf_threshold: Augmented Dickey-Fuller p-value above which the
+            factor is flagged as persistent. ``None`` disables the check.
         factor_col: Predictor column.
         return_col: Forward-return column.
 
@@ -80,6 +83,11 @@ def predictive_beta(
         metric. ``predictive_beta`` is the explicit TIMESERIES dense metric
         for a single asset.
     """
+    if adf_threshold is not None and not (0.0 < adf_threshold < 1.0):
+        raise ValueError(
+            f"adf_threshold must be a probability in (0, 1) or None, "
+            f"got {adf_threshold!r}"
+        )
     if factor_col not in data.columns:
         return _short_circuit_output(
             "predictive_beta",
@@ -128,7 +136,21 @@ def predictive_beta(
     ss_tot = float(np.dot(y_c, y_c))
     r_squared = 0.0 if ss_tot < EPSILON else max(0.0, 1.0 - ss_res / ss_tot)
 
+    adf_metadata: dict[str, float | bool] = {}
+    unit_root_suspected = False
+    if adf_threshold is not None:
+        adf_stat, adf_p = _adf(x)
+        unit_root_suspected = adf_p > adf_threshold
+        adf_metadata = {
+            "adf_stat": adf_stat,
+            "adf_p": adf_p,
+            "adf_threshold": adf_threshold,
+            "unit_root_suspected": unit_root_suspected,
+        }
+
     warning_codes: list[str] = []
+    if unit_root_suspected:
+        warning_codes.append(WarningCode.PERSISTENT_REGRESSOR.value)
     warn_code = _warn_below_floor(
         predictive_beta,
         n,
@@ -158,5 +180,6 @@ def predictive_beta(
             "alpha": alpha,
             "r_squared": r_squared,
             "factor_std": x_std,
+            **adf_metadata,
         },
     )

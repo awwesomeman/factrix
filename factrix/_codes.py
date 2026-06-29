@@ -17,8 +17,9 @@ class WarningCode(StrEnum):
 
     UNRELIABLE_SE_SHORT_PERIODS = "unreliable_se_short_periods"
     EVENT_WINDOW_OVERLAP = "event_window_overlap"
-    # Fired when ADF p > 0.1 on a DENSE factor (Stambaugh-style
-    # persistent-regressor flag, §5.2 / §7.3). Not raised for SPARSE.
+    # Fired when ADF p exceeds the configured threshold on a DENSE factor
+    # (Stambaugh-style persistent-regressor flag, section 5.2 / 7.3).
+    # Not raised for SPARSE.
     PERSISTENT_REGRESSOR = "persistent_regressor"
     SERIAL_CORRELATION_DETECTED = "serial_correlation_detected"
     # Single cross-asset n_assets guard for PANEL common_continuous: the cross-asset
@@ -183,7 +184,7 @@ _WARNING_DESCRIPTIONS.update(
         "Reused across panel time-series guards (MIN_PERIODS_WARN) and "
         "primitive inference (MIN_FM_PERIODS_WARN); both default to 30.",
         WarningCode.EVENT_WINDOW_OVERLAP: "Adjacent events sit within forward_periods; AR windows overlap.",
-        WarningCode.PERSISTENT_REGRESSOR: "ADF p > 0.10 on the continuous factor; β may carry Stambaugh bias.",
+        WarningCode.PERSISTENT_REGRESSOR: "ADF p exceeds the configured threshold on the continuous factor; beta may carry Stambaugh bias.",
         WarningCode.SERIAL_CORRELATION_DETECTED: "Ljung-Box p < 0.05 on residuals; NW lag may be under-set.",
         WarningCode.FEW_ASSETS: "Cross-section asset count is below the "
         "relevant WARN floor (panel-wide MIN_ASSETS_WARN=30, per-date "

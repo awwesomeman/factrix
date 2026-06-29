@@ -355,6 +355,18 @@ class TestDeclaredPeriodsFloorsVisible:
         assert da.usable is True
         assert da.warnings == []
 
+    def test_directional_hit_rate_blocks_one_sided_factor_sign(self):
+        raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=80)
+        data = raw.with_columns((pl.col("factor").abs() + 0.1).alias("factor"))
+
+        info = inspect_data(data)
+        da = _by_name(info, "directional_hit_rate")
+
+        assert da.usable is False
+        assert da in info.unusable
+        assert any("one-sided directional signal" in b for b in da.blockers)
+        assert any("degenerate_directional_variance" in b for b in da.blockers)
+
     def test_top_concentration_declares_periods_floors(self):
         from factrix._types import (
             MIN_PORTFOLIO_PERIODS_HARD,
