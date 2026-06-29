@@ -103,7 +103,7 @@ def _detect_density(raw: Any) -> tuple[FactorDensity, str, float]:
 def _sparse_event_encoding_guidance() -> str:
     return (
         "sparse event metrics require explicit zero non-event rows "
-        "({0, R} or {-R, 0, +R}); transform dense signals before using "
+        "under the {0, R} event contract; transform dense signals before using "
         "sparse metrics, or keep always-in-market {-1, +1} states on "
         "dense / directional metrics"
     )

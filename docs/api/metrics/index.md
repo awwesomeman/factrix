@@ -135,9 +135,10 @@ because it is also a sign diagnostic, but it is panel-input:
 `(date, asset_id, factor, forward_return)`. Distinct from
 `DataStructure.TIMESERIES`, which is the dispatch regime for `n_assets == 1`.
 
-**Sparse single-asset workflows** stay in the event-density model. `{0, R}` and
-`{-R, 0, +R}` columns route to CAAR / BMP / event-quality metrics, preserving
-event semantics rather than becoming a time-series beta. Always-in-market
+**Sparse single-asset workflows** stay in the event-density model. `{0, R}`
+columns route to CAAR / BMP / event-quality metrics, preserving event
+semantics rather than becoming a time-series beta. `R` may be signed; the
+required distinction is the zero non-event state. Always-in-market
 `{-1, +1}` columns are dense directional signals because they have no non-event
 zero state.
 

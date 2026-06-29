@@ -12,7 +12,7 @@ def _read(path: str) -> str:
 def test_sparse_event_docs_cover_single_asset_and_magnitude_contracts() -> None:
     text = _read("docs/api/metrics/individual-sparse.md")
     assert "At `n_assets == 1`, sparse factors still use the event-density path" in text
-    assert "`{-R, 0, +R}` event magnitude" in text
+    assert "`{0, R}` event magnitude (`R` may be signed)" in text
     assert "signed_car = forward_return * sign(factor)" in text
     assert "Always-in-market `{-1, +1}` signals are not sparse event signals" in text
 

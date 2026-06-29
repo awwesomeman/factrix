@@ -197,7 +197,7 @@ def make_event_panel(
     seed: int = 42,
     start_date: str = _DEFAULT_START,
 ) -> pl.DataFrame:
-    """Synthetic event-density panel — sparse ``{-R, 0, +R}`` schema.
+    """Synthetic event-density panel — sparse ``{0, R}`` schema.
 
     Construction:
         1. Baseline returns as in ``make_cs_panel``.
@@ -224,8 +224,8 @@ def make_event_panel(
             asset per date).
         event_magnitude: Magnitude of the event signal.
         event_magnitude_jitter: Relative half-width for continuous event
-            magnitudes. ``0.0`` emits ternary ``{-R, 0, +R}``; positive
-            values make ``event_ic`` usable by giving ``|factor|`` variation.
+            magnitudes. ``0.0`` emits ``{0, R}`` with signed ``R``;
+            positive values make ``event_ic`` usable by giving ``|factor|`` variation.
         post_event_drift_bps: Total drift in basis points injected
             across the ``signal_horizon`` bars of the forward-return
             window (bars ``t+2 .. t+1+H``).
@@ -241,8 +241,8 @@ def make_event_panel(
 
     Returns:
         Long DataFrame with ``date, asset_id, price, factor``. Factor
-        is ``Float64`` with values in ``{-R, 0.0, +R}`` when
-        ``event_magnitude_jitter=0``. Attach
+        is ``Float64`` with sparse ``{0, R}`` values, where ``R`` may be
+        signed, when ``event_magnitude_jitter=0``. Attach
         ``forward_return`` (e.g. via
         ``factrix.preprocess.compute_forward_return``) before
         passing to ``fx.evaluate``.
@@ -433,8 +433,8 @@ def make_multi_factor_event_panel(
     """Synthetic multi-factor event-density panel.
 
     Each of ``n_factors`` factor columns is independently sampled as a sparse
-    matrix with values in ``{-R, 0, +R}`` where ``R = event_magnitude`` when
-    ``event_magnitude_jitter=0``; positive jitter emits continuous magnitudes.
+    ``{0, R}`` matrix where ``R`` may be signed and ``|R| = event_magnitude``
+    when ``event_magnitude_jitter=0``; positive jitter emits continuous magnitudes.
     Post-event drift from all factors accumulates into the shared underlying
     asset returns.
 
