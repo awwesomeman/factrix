@@ -223,9 +223,7 @@ class TestProfitFactor:
         n = len(returns)
         return pl.DataFrame(
             {
-                "date": [
-                    datetime(2020, 1, 1) + timedelta(days=i) for i in range(n)
-                ],
+                "date": [datetime(2020, 1, 1) + timedelta(days=i) for i in range(n)],
                 "asset_id": ["A"] * n,
                 "factor": [1.0] * n,
                 "forward_return": returns,
@@ -260,10 +258,7 @@ class TestProfitFactor:
         assert math.isnan(result.value)
         assert result.metadata["no_gains"] is True
         assert result.metadata["no_losses"] is True
-        assert (
-            result.metadata["profit_factor_status"]
-            == "undefined_no_gains_or_losses"
-        )
+        assert result.metadata["profit_factor_status"] == "undefined_no_gains_or_losses"
 
     def test_mixed_events_return_finite_ratio(self):
         result = profit_factor(self._event_outcomes([0.03, -0.01, 0.02, -0.04]))
