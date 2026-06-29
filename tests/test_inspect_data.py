@@ -786,7 +786,10 @@ class TestMetricApplicabilityGroup:
             if m.name in {"breakeven_cost", "net_spread"}
         }
         assert set(scalar_blocked) == {"breakeven_cost", "net_spread"}
-        assert all("scalar input utility" in blockers[0] for blockers in scalar_blocked.values())
+        assert all(
+            "scalar input utility" in blockers[0]
+            for blockers in scalar_blocked.values()
+        )
 
     def test_slice_preserves_type(self):
         info = self._info()
