@@ -11,6 +11,7 @@ betas.
 | Metric | Page |
 |---|---|
 | Cross-asset $t$ on per-asset $\beta_i$ (BJS aggregation) | [`common_beta`](common_beta.md) |
+| Positive / negative / neutral profile of per-asset $\beta_i$ | [`common_beta`](common_beta.md) |
 | Spread between top- and bottom-bucket assets sorted by $\beta_i$ | [`common_quantile`](common_quantile.md) |
 | Sign-asymmetric slopes (positive vs negative regimes) | [`common_asymmetry`](common_asymmetry.md) |
 

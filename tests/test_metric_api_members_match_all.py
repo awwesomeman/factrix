@@ -37,6 +37,8 @@ METRIC_MODULES = [
     "spanning",
     "tradability",
     "trend",
+    "directional_hit_rate",
+    "directional_pair_accuracy",
     "common_asymmetry",
     "common_beta",
     "common_quantile",

@@ -7,6 +7,7 @@ title: factrix.metrics.common_beta
       show_root_members_full_path: true
       members:
         - common_beta
+        - common_beta_profile
         - common_beta_r_squared
         - common_beta_sign_consistency
         - compute_rolling_common_beta
@@ -31,9 +32,10 @@ title: factrix.metrics.common_beta
 
     Stage 1 of the Black-Jensen-Scholes aggregation: per-asset OLS
     $R_{i,t} = \alpha_i + \beta_i \cdot F_t + \varepsilon$ over each
-    asset's full sample. Pre-step for `common_beta` / `common_beta_r_squared` /
-    `common_beta_sign_consistency`. Assets with fewer than `MIN_COMMON_BETA_PERIODS_HARD`
-    rows or a singular design are dropped.
+    asset's full sample. Pre-step for `common_beta`, `common_beta_profile`,
+    `common_beta_r_squared`, and `common_beta_sign_consistency`. Assets with
+    fewer than `MIN_COMMON_BETA_PERIODS_HARD` rows or a singular design are
+    dropped.
 
 -   __Cross-asset mean-$\beta$ significance__
 
@@ -41,9 +43,9 @@ title: factrix.metrics.common_beta
 
     Stage 2 of BJS: $t = \overline{\beta} / (\mathrm{std}(\beta) /
     \sqrt{N})$ with $H_0: \mathbb{E}[\beta] = 0$ across assets.
-    Cross-asset iid $t$ is used because the per-asset betas come from
-    non-overlapping time-series fits and are approximately independent
-    unless a strong latent common factor links them.
+    Cross-asset iid $t$ is used because the headline null is over the
+    cross-asset beta distribution, not the per-asset time-series slope SEs. A
+    strong latent common factor can still link betas across assets.
     `metadata["beta_std"]` and `metadata["median_beta"]` are reported so
     asset-allocation users can see whether offsetting positive and negative
     betas are cancelling the average.
@@ -59,13 +61,13 @@ title: factrix.metrics.common_beta
     gaps say the factor explains a small subset of assets rather than
     the cross-section as a whole.
 
--   __Heterogeneous allocation rotations__
+-   __Heterogeneous beta profiles__
 
     ---
 
     A common macro factor can separate asset classes even when its average
     beta is close to zero. Pair `compute_common_betas` with
-    `common_beta_sign_consistency` and inspect the beta vector when equities,
+    `common_beta_profile` and `common_beta_sign_consistency` when equities,
     duration, commodities, or currencies may load with opposite signs.
 
 -   __Rolling-window stability__
@@ -85,6 +87,7 @@ title: factrix.metrics.common_beta
 |-------------------------------------------------------------------------|-----------------------------------|
 | Per-asset TS beta table for downstream inspection / slicing             | `compute_common_betas`                |
 | Mean-$\beta$ significance across assets (Stage 2 of BJS)                | `common_beta`                         |
+| Positive / negative / neutral beta profile and sign spread              | `common_beta_profile`                 |
 | Average explanatory power $\overline{R^2}$ across assets                | `common_beta_r_squared`                  |
 | Direction-agnostic sign agreement on per-asset $\beta$                  | `common_beta_sign_consistency`        |
 | Rolling cross-asset mean $\beta$ series for trend / out-of-sample (OOS) pipes | `compute_rolling_common_beta`       |
@@ -98,14 +101,54 @@ another has negative beta.
 
 | Signal in the output | What to inspect |
 |---|---|
-| Mean beta is near zero, but the factor seems economically relevant | `common_beta.metadata["beta_std"]`, `compute_common_betas(...)[factor]["beta"]` |
-| Betas split between positive and negative assets | `common_beta_sign_consistency.value`, `metadata["fraction_positive"]` |
+| Mean beta is near zero, but the factor seems economically relevant | `common_beta_profile.metadata["beta_std"]`, `compute_common_betas(...)[factor]["beta"]` |
+| Betas split between positive and negative assets | `common_beta_profile.metadata["n_positive_beta"]`, `metadata["n_negative_beta"]`, `metadata["positive_minus_negative_beta_spread"]` |
 | A few assets drive the common-factor fit | `common_beta_r_squared.value`, `metadata["median_r_squared"]` |
 | The factor matters only in high / low states | [`common_quantile_spread`](common_quantile.md) |
 
 These are diagnostics for factor validation. Turning the beta profile into
 weights, hedges, leverage, or rebalance rules belongs in the downstream
 portfolio/backtest layer.
+
+## Group-aware beta profile
+
+`common_beta_profile` summarizes the whole beta vector. When the research
+question is about asset classes, regions, or sectors, join user-supplied labels
+to the `compute_common_betas(...)[factor]` table and summarize the same sign
+and dispersion fields by group. Missing labels should be named explicitly
+rather than silently dropped. For the allocation workflow around this profile,
+see [Allocation-style experiments](../../guides/allocation-experiment.md#common-macro-factors-and-heterogeneous-betas).
+
+```python
+import polars as pl
+from factrix.metrics.common_beta import compute_common_betas
+
+betas_df = compute_common_betas(panel, factor_cols=["macro_growth"])["macro_growth"]
+
+asset_groups = pl.DataFrame(
+    {
+        "asset_id": ["A00", "A01", "A02"],
+        "asset_group": ["equity", "duration", "commodity"],
+    }
+)
+
+grouped = (
+    betas_df.join(asset_groups, on="asset_id", how="left")
+    .with_columns(pl.col("asset_group").fill_null("__missing_group__"))
+    .group_by("asset_group")
+    .agg(
+        pl.len().alias("n_assets"),
+        (pl.col("beta") > 0).sum().alias("n_positive_beta"),
+        (pl.col("beta") < 0).sum().alias("n_negative_beta"),
+        pl.col("beta").mean().alias("beta_mean"),
+        pl.col("beta").std().alias("beta_std"),
+        pl.col("beta").abs().mean().alias("abs_beta_mean"),
+    )
+)
+```
+
+The grouped table is a diagnostic read of beta heterogeneity, not a portfolio
+allocation rule.
 
 ## Worked example — per-asset TS betas then cross-asset $t$
 

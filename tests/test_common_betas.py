@@ -17,7 +17,7 @@ from factrix.metrics._primitives._common_betas import (
     MIN_COMMON_BETA_PERIODS_HARD,
     compute_common_betas,
 )
-from factrix.metrics.common_beta import compute_rolling_common_beta
+from factrix.metrics.common_beta import common_beta_profile, compute_rolling_common_beta
 
 _OUT_COLS = ["asset_id", "beta", "alpha", "t_stat", "r_squared", "n_obs"]
 
@@ -264,3 +264,68 @@ class TestRollingMeanBeta:
             _rolling_mean_beta_reference(df, window=30)["value"].to_numpy(),
             atol=1e-9,
         )
+
+
+class TestCommonBetaProfile:
+    def test_reports_sign_counts_and_spread(self):
+        betas = pl.DataFrame(
+            {
+                "asset_id": ["A", "B", "C", "D", "E"],
+                "beta": [-2.0, -1.0, 0.0, 1.0, 2.0],
+            }
+        )
+        result = common_beta_profile(betas)
+        assert result.p_value is None
+        assert result.stat is None
+        assert result.value == pytest.approx(3.0)
+        assert result.n_obs_axis == "assets"
+        assert result.metadata["n_positive_beta"] == 2
+        assert result.metadata["n_negative_beta"] == 2
+        assert result.metadata["n_neutral_beta"] == 1
+        assert result.metadata["positive_beta_mean"] == pytest.approx(1.5)
+        assert result.metadata["negative_beta_mean"] == pytest.approx(-1.5)
+        assert result.metadata["positive_minus_negative_beta_spread"] == pytest.approx(
+            3.0
+        )
+
+    def test_near_zero_betas_are_neutral(self):
+        betas = pl.DataFrame(
+            {
+                "asset_id": ["A", "B", "C", "D"],
+                "beta": [-0.10, 0.0, 0.01, 0.20],
+            }
+        )
+        result = common_beta_profile(betas, neutral_epsilon=0.05)
+        assert result.metadata["n_positive_beta"] == 1
+        assert result.metadata["n_negative_beta"] == 1
+        assert result.metadata["n_neutral_beta"] == 2
+        assert result.value == pytest.approx(0.30)
+
+    def test_one_sided_profile_keeps_counts_without_spread(self):
+        betas = pl.DataFrame({"asset_id": ["A", "B"], "beta": [0.10, 0.20]})
+        result = common_beta_profile(betas)
+        assert np.isnan(result.value)
+        assert result.metadata["n_positive_beta"] == 2
+        assert result.metadata["n_negative_beta"] == 0
+        assert (
+            result.metadata["spread_status"] == "requires_positive_and_negative_betas"
+        )
+
+    def test_empty_beta_table_short_circuits_descriptively(self):
+        betas = pl.DataFrame(
+            {
+                "asset_id": pl.Series([], dtype=pl.String),
+                "beta": pl.Series([], dtype=pl.Float64),
+            }
+        )
+        result = common_beta_profile(betas)
+        assert np.isnan(result.value)
+        assert result.p_value is None
+        assert result.metadata["reason"] == "no_asset_beta_observations"
+
+    def test_negative_neutral_epsilon_rejected(self):
+        with pytest.raises(ValueError, match="neutral_epsilon"):
+            common_beta_profile(
+                pl.DataFrame({"asset_id": ["A"], "beta": [0.1]}),
+                neutral_epsilon=-0.1,
+            )

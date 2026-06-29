@@ -65,6 +65,7 @@ Min sample*. `MIN_*` constants resolve to values in the
 | [`quantile_spread`][factrix.metrics.quantile.quantile_spread] | `T/h` | `T/h >= MIN_PORTFOLIO_PERIODS_HARD`; per-date `n_assets >= n_groups` |
 | [`quantile_spread_vw`][factrix.metrics.quantile.quantile_spread_vw] | `T/h` | as `quantile_spread` |
 | [`k_spread`][factrix.metrics.k_spread.k_spread] | `T/h` | `T/h >= MIN_PORTFOLIO_PERIODS_HARD`; per-date `n_assets >= 2 * k` |
+| [`directional_pair_accuracy`][factrix.metrics.directional_pair_accuracy.directional_pair_accuracy] | comparable within-date asset pairs | non-overlapping pairs `>= MIN_PAIR_ACCURACY_PAIRS_HARD`; warn if below `MIN_PAIR_ACCURACY_PAIRS_WARN` |
 | [`monotonicity`][factrix.metrics.monotonicity.monotonicity] | `T/h` | per-date `n_assets >= n_groups`; series `>= MIN_MONOTONICITY_PERIODS_HARD` |
 | [`top_concentration`][factrix.metrics.concentration.top_concentration] | `T/h` | `T/h ≥ MIN_PORTFOLIO_PERIODS_HARD`; warn if `T/h < MIN_PORTFOLIO_PERIODS_WARN` |
 
@@ -96,6 +97,7 @@ Min sample*. `MIN_*` constants resolve to values in the
 
 | Metric | Sample axis | Min sample |
 |---|---|---|
+| [`common_beta_profile`][factrix.metrics.common_beta.common_beta_profile] | `n_assets` | `n_assets >= 1` |
 | [`common_beta_r_squared`][factrix.metrics.common_beta.common_beta_r_squared] | `n_assets` | `n_assets >= 1` |
 | [`common_beta_sign_consistency`][factrix.metrics.common_beta.common_beta_sign_consistency] | `n_assets` | `n_assets >= 2` |
 | [`common_quantile_spread`][factrix.metrics.common_quantile.common_quantile_spread] | `T` | `T ≥ MIN_PORTFOLIO_PERIODS_HARD`; factor `n_unique ≥ n_groups × 2` |
@@ -145,6 +147,8 @@ below.
 | `MIN_SERIES_PERIODS_HARD` | 10 | `T` | hard | `factrix/_types.py` | `ic` post-stride sampled IC series, `positive_rate`, and series-mean non-overlap pre-flight |
 | `MIN_DIRECTIONAL_PAIRS_HARD` | 10 | pooled pairs | hard | `factrix/_types.py` | `directional_hit_rate` |
 | `MIN_DIRECTIONAL_PAIRS_WARN` | 30 | pooled pairs | warn | `factrix/_types.py` | `directional_hit_rate`; tags `WarningCode.FEW_DIRECTIONAL_PAIRS` |
+| `MIN_PAIR_ACCURACY_PAIRS_HARD` | 10 | comparable asset pairs | hard | `factrix/_types.py` | `directional_pair_accuracy` |
+| `MIN_PAIR_ACCURACY_PAIRS_WARN` | 30 | comparable asset pairs | warn | `factrix/_types.py` | `directional_pair_accuracy`; tags `WarningCode.FEW_ORDERING_PAIRS` |
 | `MIN_EVENTS_HARD` | 4 | `K` (event count) | hard | `factrix/_types.py` | `caar`, `bmp_z`, `event_hit_rate`, `event_ic`, `profit_factor`, `event_skewness`, `event_around_return`, `mfe_mae`, `clustering_hhi`, `corrado_rank` |
 | `MIN_EVENTS_WARN` | 30 | `K` | warn | `factrix/_types.py` | `caar` only (Brown-Warner literature floor; descriptive event-quality metrics use HARD only) |
 | `MIN_OOS_PERIODS_HARD` | 5 | `T` (per split) | hard | `factrix/_types.py` | `oos_decay` (effective floor `T ≥ 2 × MIN_OOS_PERIODS_HARD = 10`) |
@@ -158,7 +162,7 @@ below.
 | `MIN_FM_ASSETS_WARN` | 10 | per-date `n_assets` | warn | `factrix/metrics/_primitives/_fm_betas.py` | `fm_beta`, `fm_beta_sign_consistency`, `inspect_data`; tags `WarningCode.FEW_ASSETS` when retained FM dates have `n_assets < 10` |
 | `MIN_FM_PERIODS_HARD` | 4 | `T` (λ series) | hard | `factrix/metrics/fm_beta.py` | `fm_beta`, `fm_beta_sign_consistency` |
 | `MIN_FM_PERIODS_WARN` | 30 | `T` (λ series) | warn | `factrix/metrics/fm_beta.py` | `fm_beta` (Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) over-rejects below); ties to `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` |
-| `MIN_COMMON_BETA_PERIODS_HARD` | 20 | `T` per asset | hard | `factrix/metrics/_primitives/_common_betas.py` | `compute_common_betas` (drops assets with `T < 20`); upstream of `common_beta`, `common_beta_r_squared`, `common_beta_sign_consistency` |
+| `MIN_COMMON_BETA_PERIODS_HARD` | 20 | `T` per asset | hard | `factrix/metrics/_primitives/_common_betas.py` | `compute_common_betas` (drops assets with `T < 20`); upstream of `common_beta`, `common_beta_profile`, `common_beta_r_squared`, `common_beta_sign_consistency` |
 
 Naming caveats:
 

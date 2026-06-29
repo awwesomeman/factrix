@@ -64,6 +64,15 @@ MIN_SERIES_PERIODS_HARD: int = 10
 MIN_DIRECTIONAL_PAIRS_HARD: int = 10
 MIN_DIRECTIONAL_PAIRS_WARN: int = 30
 
+# Two-tier guard for ``directional_pair_accuracy`` on its ``pairs`` axis: the
+# pooled non-overlapping within-date asset pairs whose factor and return
+# differences are both non-tied. The metric is descriptive (no p-value), but a
+# handful of comparable pairs still makes the per-date ordering read fragile.
+# Keep a separate constant from ``MIN_DIRECTIONAL_PAIRS_*`` because those guard
+# sign trials, while these guard cross-sectional ordering pairs.
+MIN_PAIR_ACCURACY_PAIRS_HARD: int = 10
+MIN_PAIR_ACCURACY_PAIRS_WARN: int = 30
+
 # Two-tier event-count guard for CAAR / Brown-Warner-family tests.
 # ``n < MIN_EVENTS_HARD`` short-circuits to NaN MetricResult (math floor —
 # below 4 events the per-event-date series cannot support a meaningful

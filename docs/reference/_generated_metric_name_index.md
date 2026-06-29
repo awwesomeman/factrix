@@ -6,11 +6,13 @@
 | `clustering_hhi` | [`factrix.metrics.clustering_hhi`][factrix.metrics.clustering_hhi] | [`clustering_hhi`](../api/metrics/clustering_hhi.md#factrix.metrics.clustering_hhi.clustering_hhi) |
 | `common_asymmetry` | [`factrix.metrics.common_asymmetry`][factrix.metrics.common_asymmetry] | [`common_asymmetry`](../api/metrics/common_asymmetry.md#factrix.metrics.common_asymmetry.common_asymmetry) |
 | `common_beta` | [`factrix.metrics.common_beta`][factrix.metrics.common_beta] | [`common_beta`](../api/metrics/common_beta.md#factrix.metrics.common_beta.common_beta) |
+| `common_beta_profile` | [`factrix.metrics.common_beta`][factrix.metrics.common_beta] | [`common_beta_profile`](../api/metrics/common_beta.md#factrix.metrics.common_beta.common_beta_profile) |
 | `common_beta_r_squared` | [`factrix.metrics.common_beta`][factrix.metrics.common_beta] | [`common_beta_r_squared`](../api/metrics/common_beta.md#factrix.metrics.common_beta.common_beta_r_squared) |
 | `common_beta_sign_consistency` | [`factrix.metrics.common_beta`][factrix.metrics.common_beta] | [`common_beta_sign_consistency`](../api/metrics/common_beta.md#factrix.metrics.common_beta.common_beta_sign_consistency) |
 | `common_quantile_spread` | [`factrix.metrics.common_quantile`][factrix.metrics.common_quantile] | [`common_quantile_spread`](../api/metrics/common_quantile.md#factrix.metrics.common_quantile.common_quantile_spread) |
 | `corrado_rank` | [`factrix.metrics.corrado_rank`][factrix.metrics.corrado_rank] | [`corrado_rank`](../api/metrics/corrado_rank.md#factrix.metrics.corrado_rank.corrado_rank) |
 | `directional_hit_rate` | [`factrix.metrics.directional_hit_rate`][factrix.metrics.directional_hit_rate] | [`directional_hit_rate`](../api/metrics/directional_hit_rate.md#factrix.metrics.directional_hit_rate.directional_hit_rate) |
+| `directional_pair_accuracy` | [`factrix.metrics.directional_pair_accuracy`][factrix.metrics.directional_pair_accuracy] | [`directional_pair_accuracy`](../api/metrics/directional_pair_accuracy.md#factrix.metrics.directional_pair_accuracy.directional_pair_accuracy) |
 | `event_around_return` | [`factrix.metrics.event_horizon`][factrix.metrics.event_horizon] | [`event_around_return`](../api/metrics/event_horizon.md#factrix.metrics.event_horizon.event_around_return) |
 | `event_hit_rate` | [`factrix.metrics.event_quality`][factrix.metrics.event_quality] | [`event_hit_rate`](../api/metrics/event_quality.md#factrix.metrics.event_quality.event_hit_rate) |
 | `event_ic` | [`factrix.metrics.event_quality`][factrix.metrics.event_quality] | [`event_ic`](../api/metrics/event_quality.md#factrix.metrics.event_quality.event_ic) |
