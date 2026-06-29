@@ -80,7 +80,7 @@ def _lstsq_reference(
     return pl.DataFrame(rows).sort("asset_id")
 
 
-class TestComputeTSBetas:
+class TestComputeCommonBetas:
     def test_returns_dict_keyed_by_factor(self):
         panel = _common_factor_panel(5, 40, seed=0)
         result = compute_common_betas(panel)
@@ -154,7 +154,7 @@ class TestComputeTSBetas:
         assert got["beta"][0] == pytest.approx(beta_aligned, abs=1e-10)
 
 
-class TestComputeTSBetasBatch:
+class TestComputeCommonBetasBatch:
     def test_multi_factor_matches_list_of_one(self):
         panel = _common_factor_panel(20, 80, seed=6)
         rng = np.random.default_rng(7)

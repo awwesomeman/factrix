@@ -47,11 +47,15 @@ __all__ = [
     "compute_rolling_common_beta",
 ]
 
-_TSB_CELL = cell(FactorScope.COMMON, FactorDensity.DENSE, structure=DataStructure.PANEL)
+_COMMON_BETA_CELL = cell(
+    FactorScope.COMMON,
+    FactorDensity.DENSE,
+    structure=DataStructure.PANEL,
+)
 
 
 @metric(
-    cell=_TSB_CELL,
+    cell=_COMMON_BETA_CELL,
     aggregation=Aggregation.TS_THEN_CS,
     input_shape=InputShape.SERIES,
     requires={"common_betas_df": compute_common_betas},
@@ -140,7 +144,7 @@ def common_beta(common_betas_df: pl.DataFrame) -> MetricResult:
 
 
 @metric(
-    cell=_TSB_CELL,
+    cell=_COMMON_BETA_CELL,
     aggregation=Aggregation.TS_THEN_CS,
     input_shape=InputShape.SERIES,
     requires={"common_betas_df": compute_common_betas},
@@ -223,7 +227,7 @@ def common_beta_r_squared(common_betas_df: pl.DataFrame) -> MetricResult:
 
 
 @metric(
-    cell=_TSB_CELL,
+    cell=_COMMON_BETA_CELL,
     aggregation=Aggregation.TS_THEN_CS,
     input_shape=InputShape.PANEL,
     output_shape=OutputShape.SERIES,
@@ -359,7 +363,7 @@ def compute_rolling_common_beta(
 
 
 @metric(
-    cell=_TSB_CELL,
+    cell=_COMMON_BETA_CELL,
     aggregation=Aggregation.TS_THEN_CS,
     input_shape=InputShape.SERIES,
     requires={"common_betas_df": compute_common_betas},

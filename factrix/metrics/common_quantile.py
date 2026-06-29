@@ -106,7 +106,7 @@ def common_quantile_spread(
         buckets is reported alongside.
 
         factrix uses NW HAC + Wald rather than Welch t for cross-method
-        comparability with ``common_asymmetry`` / ``common_beta_t_nw`` and
+        comparability with ``common_asymmetry`` / ``common_beta`` and
         because ``forward_periods > 1`` breaks the iid assumption Welch
         relies on.
 

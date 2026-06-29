@@ -40,7 +40,7 @@ title: factrix.metrics.tradability
 
     ---
 
-    `turnover` — $1 - \overline{\rho}$ on per-date rank
+    `rank_turnover` — $1 - \overline{\rho}$ on per-date rank
     autocorrelation, optionally restricted to the top/bottom-$q$
     tail union. Use for stability rankings across factors;
     **not** for cost arithmetic.
@@ -74,7 +74,7 @@ title: factrix.metrics.tradability
 | Breakeven trading cost in bps, given a gross spread and $\tau$                  | `breakeven_cost`     |
 | Net per-period spread after a venue-specific cost estimate                      | `net_spread`         |
 
-## Worked example — turnover then breakeven and net spread
+## Worked example — notional turnover then breakeven and net spread
 
 !!! example "quantile_spread → notional_turnover → breakeven_cost / net_spread"
 
