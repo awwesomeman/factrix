@@ -9,7 +9,7 @@ needs to know which.
 Two methods, both fit by OLS with Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) covariance and
 tested by a finite-sample Wald F so cross-method p-values stay comparable and the
 overlapping-forward-return autocorrelation is handled the same way
-as `common_beta_t_nw`. Welch t is intentionally avoided — its iid
+as `common_beta`. Welch t is intentionally avoided — its iid
 assumption breaks under `forward_periods > 1`.
 
 - Method A (conditional means): `r = β_long·I(f>0) + β_short·I(f<0)

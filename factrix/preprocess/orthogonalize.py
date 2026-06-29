@@ -29,7 +29,7 @@ class OrthogonalizeResult:
 
     data: pl.DataFrame
     mean_betas: dict[str, float] = field(default_factory=dict)
-    common_beta_r_squared: float = 0.0
+    mean_r_squared: float = 0.0
     n_dates: int = 0
     coverage: float = 0.0
     n_base: int = 0
@@ -56,7 +56,7 @@ def orthogonalize_factor(
         OrthogonalizeResult with: ``data`` (factor_df with ``factor_col``
         replaced by the residual and ``factor_pre_ortho`` preserving the
         original value), ``mean_betas`` (average beta per base factor
-        across dates), and ``common_beta_r_squared`` (average R² across dates).
+        across dates), and ``mean_r_squared`` (average R² across dates).
 
     Examples:
         >>> import factrix as fx
@@ -75,7 +75,7 @@ def orthogonalize_factor(
         >>> result = orthogonalize_factor(factor_df, base, base_cols=["size"])
         >>> "factor_pre_ortho" in result.data.columns
         True
-        >>> isinstance(result.common_beta_r_squared, float)
+        >>> isinstance(result.mean_r_squared, float)
         True
     """
     if base_cols is None:
@@ -188,7 +188,7 @@ def orthogonalize_factor(
     return OrthogonalizeResult(
         data=result,
         mean_betas=mean_betas,
-        common_beta_r_squared=mean_r2,
+        mean_r_squared=mean_r2,
         n_dates=n_dates,
         coverage=(n_ortho / n_total) if n_total else 0.0,
         n_base=n_base,
