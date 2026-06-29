@@ -722,6 +722,12 @@ metrics in `factrix/metrics/*.py`. Both kinds register a `MetricSpec` via
 `evaluate()` runs exactly the metrics the caller passes either way. Choosing
 which kind to add:
 
+This is the developer-facing counterpart to the user guide's
+[First-pass metrics vs diagnostics](../guides/choosing-metric.md#first-pass-metrics-vs-diagnostics)
+section. It maps to primary specifications vs robustness / diagnostic reads in
+quant research, but it deliberately does not introduce a `MetricSpec` field or a
+`list_metrics()` filter.
+
 | Kind | Intent | Definition | How callers reach it |
 |------|--------|------------|----------------------|
 | **Mainstream metric** | the headline mean-significance test for a cell | The conventional PASS/FAIL test for a `(scope, density, structure)` cell (IC / FM / CAAR / TS-β) | passed into `evaluate(metrics=...)`; its `MetricResult.p_value` is what the screening verbs read |

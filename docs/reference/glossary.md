@@ -129,6 +129,8 @@ metric (mainstream or supplementary) carries its own
 `p_value` is the one the FDR screening verbs read for a cell. Other
 metrics applicable to the same cell are supplementary / diagnostic and
 are run alongside it via [`list_metrics`](../api/metrics/index.md#factrix.list_metrics).
+For practical selection guidance, see
+[Choosing a metric: First-pass metrics vs diagnostics](../guides/choosing-metric.md#first-pass-metrics-vs-diagnostics).
 
 ### `factor`
 
