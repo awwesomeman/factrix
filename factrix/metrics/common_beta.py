@@ -74,10 +74,13 @@ def common_beta(common_betas_df: pl.DataFrame) -> MetricResult:
         sample cross-sectional std with ``ddof=1``.
 
         factrix uses an iid cross-asset t at this stage rather than a
-        clustered/heteroskedasticity-and-autocorrelation-consistent (HAC) variant: per-asset betas come from non-overlapping
-        time-series fits in ``compute_common_betas``, so the betas are
-        approximately independent across assets unless a strong
-        latent common factor links them.
+        clustered/heteroskedasticity-and-autocorrelation-consistent (HAC)
+        variant: the headline null is over the cross-asset beta distribution,
+        not the per-asset time-series slope estimates. The upstream
+        ``compute_common_betas`` fits each asset on its full pairwise-complete
+        forward-return series; when ``forward_periods > 1`` those returns may
+        overlap, but only the resulting beta vector enters this cross-asset
+        test. A strong latent common factor can still link betas across assets.
 
     References:
         [Black-Jensen-Scholes 1972][black-jensen-scholes-1972]:

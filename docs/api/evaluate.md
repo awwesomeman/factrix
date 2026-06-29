@@ -142,7 +142,7 @@ results_caar = fx.evaluate(
 )
 
 # 3. Common × Continuous (e.g. Time-Series Beta)
-resulcommon_beta = fx.evaluate(
+results_common_beta = fx.evaluate(
     data,
     metrics={"common_beta": common_beta()},
     factor_cols=["macro_factor"],

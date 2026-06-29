@@ -72,8 +72,8 @@ for their values and orthogonality.
 evaluate-time from `panel["asset_id"].n_unique()` (`factrix._detect_structure`):
 `PANEL` for `n_assets >= 2`, `TIMESERIES` for `n_assets == 1`. Each `MetricSpec` declares the
 `(scope, density, structure)` cell it applies to (`None` on an axis = `*`
-wildcard); the DAG executor derives the runtime structure and dispatches each
-requested metric against its cell. A metric inapplicable to the data's
+wildcard); the DAG executor derives the runtime structure and normally
+dispatches each requested metric by cell match. A metric inapplicable to the data's
 **factor cell** (scope / density / data structure axes) raises under `strict=True` or
 short-circuits to a NaN `MetricResult` under `strict=False`. A
 `not_applicable*` **type-routing verdict** — the metric's signal *type* does not
@@ -105,6 +105,17 @@ reads this index — no parallel rule table.
 Adding a metric decorates one callable with `@metric`; the DAG executor picks
 it up by cell match.
 
+**Explicit sparse-event override.** One narrow exception preserves the event
+contract for frequent `{0, R}` signals: when a factor is detected as `DENSE`
+only because its zero ratio is below the automatic sparse threshold
+(`0 < sparse_ratio < 0.5`), an explicitly requested `SPARSE` metric may run if
+the same `(scope, structure)` cell would otherwise match. The result's
+`EvaluationResult.cell` still records the detected data cell (`DENSE`), and the
+metric/result warnings include `WarningCode.FREQUENT_EVENT_SIGNAL`. This is an
+explicit-call escape hatch for frequent event studies, not a discovery default:
+`inspect_data().usable` excludes the warned metric and places it in
+`degraded`, so bulk discovery flows do not silently cross the density axis.
+
 ---
 
 ## EvaluationResult dataclass contract
@@ -130,7 +141,10 @@ One unified `EvaluationResult` is returned by `evaluate` — no per-cell subclas
 Dispatch runs through the DAG executor
 (`factrix._dag.DagExecutor`) on a closed `list[MetricSpec]`.
 
-- `cell` is the `(scope, density, structure)` tuple of the dispatched cell.
+- `cell` is the detected factor cell `(scope, density, structure)` for this
+  result group. Under the explicit sparse-event override, this remains the
+  detected `DENSE` cell even though the requested sparse metric is allowed to
+  run with a `FREQUENT_EVENT_SIGNAL` warning.
 - Per-metric outputs live in `metrics`, a read-only `Mapping[str, MetricResult]`
   (`MappingProxyType`) mapping each label to its `MetricResult`. Screening verbs read each result's
   `MetricResult.p_value` — by convention the mainstream metric's.
@@ -371,7 +385,7 @@ re-collapsed into "raise on anything inapplicable":
 | `not_applicable*` | The metric's signal *type* does not fit this factor (e.g. a continuous-magnitude metric on a discrete ±k signal). The type-routing verdict. | **soft** — NaN + `is_applicable=False`; the applicable metrics in the same call still return |
 | `insufficient_*` | The metric fits but the sample is too thin | **raise** (`UserInputError`) |
 | `no_*` | Missing input column / config | **raise** |
-| cell mismatch | Requested metric cell (scope / density / data structure) does not match the factor's detected cell | **raise** (`IncompatibleAxisError`) |
+| cell mismatch | Requested metric cell (scope / density / data structure) does not match the factor's detected cell | **raise** (`IncompatibleAxisError`), except for the explicit sparse-event override described in MetricSpec SSOT dispatch |
 
 Rationale: throwing a mixed battery at a panel and seeing which metrics apply is
 the core type-routed-evaluation workflow; aborting it because one metric's type
