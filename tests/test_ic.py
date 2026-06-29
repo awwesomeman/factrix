@@ -458,13 +458,13 @@ class TestApplicableInferenceDiscovery:
 
     def test_singleton_inference_metric_returns_none(self):
         from factrix.metrics._metric_capabilities import resolve_applicable_inference
-        from factrix.metrics.hit_rate import hit_rate
+        from factrix.metrics.positive_rate import positive_rate
         from factrix.metrics.quantile import quantile_spread_vw
 
         # quantile_spread_vw shares its module with quantile_spread but has no
-        # inference= knob; hit_rate is in a module with no allowlist at all.
+        # inference= knob; positive_rate is in a module with no allowlist at all.
         assert resolve_applicable_inference(quantile_spread_vw) is None
-        assert resolve_applicable_inference(hit_rate) is None
+        assert resolve_applicable_inference(positive_rate) is None
 
 
 class TestICDispatch:

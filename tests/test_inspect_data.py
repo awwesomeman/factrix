@@ -238,12 +238,13 @@ class TestSampleThresholdGate:
         assert verdict.usable is True
         assert any("n_pairs" in w.message for w in verdict.warnings)
 
-    def test_metric_without_sample_threshold_only_cell_checked(self):
-        info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=15))
-        turnover = _by_name(info, "turnover")
-        # turnover declares no sample_threshold (cell match only); cell matches, so usable
-        assert turnover.usable is True
-        assert turnover.warnings == []
+    def test_rank_turnover_below_dynamic_floor_unusable(self):
+        raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=7)
+        dates = raw.select("date").unique().sort("date").head(2)
+        info = inspect_data(raw.join(dates, on="date", how="inner"))
+        rank_turnover = _by_name(info, "rank_turnover")
+        assert rank_turnover.usable is False
+        assert any("min_periods" in b for b in rank_turnover.blockers)
 
 
 class TestICStageOneFeasibility:
@@ -377,12 +378,15 @@ class TestDeclaredPeriodsFloorsVisible:
         assert st.min_periods == _MIN_DK_PERIODS_HARD
         assert st.warn_periods == MIN_PERIODS_WARN
 
-    def test_turnover_declares_dynamic_periods_floor(self):
-        from factrix.metrics.tradability import _turnover_min_dates, turnover
+    def test_rank_turnover_declares_dynamic_periods_floor(self):
+        from factrix.metrics.tradability import (
+            _rank_turnover_min_dates,
+            rank_turnover,
+        )
 
         # Hook resolves against the default config (forward_periods=1).
-        st = turnover.spec().sample_threshold
-        assert st.min_periods == _turnover_min_dates(1)
+        st = rank_turnover.spec().sample_threshold
+        assert st.min_periods == _rank_turnover_min_dates(1)
 
 
 class TestDeclaredEventFloorsVisible:

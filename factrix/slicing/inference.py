@@ -231,7 +231,7 @@ def slice_pairwise_test(
             forward_return``). Must contain ``by``; compose it upstream
             if needed.
         metric: A metric **instance** whose module declares
-            ``per_date_series`` (``ic()`` / ``fm_beta()`` / ``hit_rate()``).
+            ``per_date_series`` (``ic()`` / ``fm_beta()`` / ``positive_rate()``).
             The bare class is rejected.
         by: Column whose values define the slice partition.
         factor_col: The single factor column to score per slice.

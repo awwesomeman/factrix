@@ -70,10 +70,10 @@ def by_slice(
     history. For **date-axis** partitions (year, regime; the value varies
     within an asset over time) a metric whose aggregation looks across
     dates — rolling-window betas, per-asset time-series regressions, event
-    windows (``ts_beta``, ``mfe_mae``, ``oos_decay``, …) — sees truncated
+    windows (``common_beta``, ``mfe_mae``, ``oos_decay``, …) — sees truncated
     history at slice boundaries, so its per-slice value differs from the
     full-sample value decomposed by period. Per-date metrics (``ic``,
-    ``fm_beta``, ``quantile``, ``hit_rate``) are unaffected. A
+    ``fm_beta``, ``quantile``, ``positive_rate``) are unaffected. A
     :class:`~factrix._codes.WarningCode.SLICE_BOUNDARY_TRUNCATION` warning
     is emitted when a cross-date metric is sliced on a date axis.
 

@@ -1,4 +1,4 @@
-"""Hit rate computation for any time-indexed series.
+"""Positive-rate computation for any time-indexed series.
 
 Notes:
     **Pipeline.** Time-series only, sampled non-overlapping on a 1-D
@@ -42,10 +42,10 @@ from factrix.metrics._helpers import (
 from factrix.metrics.ic import compute_ic
 
 __all__ = [
-    "hit_rate",
+    "positive_rate",
 ]
 
-# Slice-test contract: hit_rate operates on a pre-aggregated per-date
+# Slice-test contract: positive_rate operates on a pre-aggregated per-date
 # series (no cross-section bucket pass), so slice tests skip the
 # `n_groups` downscale step. Per-date minimum (if any) is the
 # responsibility of the upstream metric that produced the series.
@@ -82,19 +82,19 @@ def per_date_series(series: pl.DataFrame) -> pl.DataFrame:
     # gate share ``MIN_SERIES_PERIODS_HARD`` + ``_scaled_min_periods``.
     sample_threshold=_scaled_periods_threshold(MIN_SERIES_PERIODS_HARD),
 )
-def hit_rate(
+def positive_rate(
     series: pl.DataFrame,
     value_col: str = "value",
     forward_periods: int = 5,
 ) -> MetricResult:
-    """Hit rate = proportion of periods where value > 0.
+    """Positive rate = proportion of periods where value > 0.
 
     Args:
         series: DataFrame with ``date`` and ``value_col``.
         forward_periods: Sampling interval for non-overlapping dates.
 
     Returns:
-        MetricResult with value = hit rate (0.0-1.0).
+        MetricResult with value = positive rate (0.0-1.0).
 
     Notes:
         ``rate = (#{t : value_t > 0}) / n`` on a non-overlapping subsample
@@ -118,13 +118,13 @@ def hit_rate(
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
         >>> from factrix.metrics.ic import compute_ic
-        >>> from factrix.metrics.hit_rate import hit_rate
+        >>> from factrix.metrics.positive_rate import positive_rate
         >>> panel = compute_forward_return(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
         >>> series = compute_ic(panel)["factor"].rename({"ic": "value"}).select("date", "value")
-        >>> result = hit_rate(series, forward_periods=5)
+        >>> result = positive_rate(series, forward_periods=5)
         >>> result.name == ""
         True
     """
@@ -132,11 +132,11 @@ def hit_rate(
     # Primary periods gate: raw date count vs the stride-scaled floor, matching
     # inspect_data pre-flight (raw_n vs MIN_SERIES_PERIODS_HARD * forward_periods).
     sc = _enforce_scaled_floor(
-        "hit_rate",
+        "positive_rate",
         series["date"].n_unique(),
         MIN_SERIES_PERIODS_HARD,
         forward_periods,
-        "insufficient_hit_rate_samples",
+        "insufficient_positive_rate_samples",
     )
     if sc is not None:
         return sc
@@ -149,8 +149,8 @@ def hit_rate(
     # divides by ``n``, so refuse rather than divide a near-empty sample.
     if n < MIN_SERIES_PERIODS_HARD:
         return _short_circuit_output(
-            "hit_rate",
-            "insufficient_hit_rate_samples",
+            "positive_rate",
+            "insufficient_positive_rate_samples",
             n_obs=n,
             n_obs_axis="periods",
             min_required=MIN_SERIES_PERIODS_HARD,
@@ -182,7 +182,7 @@ def hit_rate(
         n_periods_in=len(sampled),
         n_periods_out=n,
         drop_reason="null value observations in the series",
-        metric_name="hit_rate",
+        metric_name="positive_rate",
         metadata=metadata,
         warning_codes=warning_codes,
     )

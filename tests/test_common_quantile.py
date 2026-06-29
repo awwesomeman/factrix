@@ -1,4 +1,4 @@
-"""Tests for ``factrix.metrics.ts_quantile_spread``."""
+"""Tests for ``factrix.metrics.common_quantile_spread``."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import warnings
 import numpy as np
 import polars as pl
 import pytest
-from factrix.metrics import ts_quantile_spread
+from factrix.metrics import common_quantile_spread
 
 
 def _series_panel(
@@ -31,7 +31,7 @@ class TestLinearDgp:
         T = 600
         f = rng.standard_normal(T)
         r = 0.10 * f + rng.standard_normal(T) * 0.5
-        out = ts_quantile_spread(_series_panel(f, r), n_groups=5)
+        out = common_quantile_spread(_series_panel(f, r), n_groups=5)
         assert out.value > 0
         assert out.p_value < 0.05
         assert out.metadata["spearman_rho"] > 0.5
@@ -46,7 +46,7 @@ class TestLinearDgp:
         T, n_groups = 30, 5
         f = rng.standard_normal(T)
         r = 0.10 * f + rng.standard_normal(T) * 0.5
-        out = ts_quantile_spread(_series_panel(f, r), n_groups=n_groups)
+        out = common_quantile_spread(_series_panel(f, r), n_groups=n_groups)
         expected = float(2 * sp_stats.t.sf(abs(out.stat), T - n_groups))
         assert out.p_value == pytest.approx(expected)
 
@@ -55,7 +55,7 @@ class TestLinearDgp:
         T = 600
         f = rng.standard_normal(T)
         r = 0.10 * f + rng.standard_normal(T) * 0.5
-        out = ts_quantile_spread(_series_panel(f, r), n_groups=5)
+        out = common_quantile_spread(_series_panel(f, r), n_groups=5)
         buckets = out.metadata["buckets"]
         assert buckets[-1]["mean_return"] > buckets[0]["mean_return"]
         # All five buckets accounted for, sums to T
@@ -74,7 +74,7 @@ class TestNullDgp:
             rng = np.random.default_rng(seed)
             f = rng.standard_normal(T)
             r = rng.standard_normal(T) * 0.5
-            out = ts_quantile_spread(_series_panel(f, r), n_groups=5)
+            out = common_quantile_spread(_series_panel(f, r), n_groups=5)
             if out.p_value < 0.05:
                 rejects += 1
         rate = rejects / n_trials
@@ -95,7 +95,7 @@ class TestNonLinearDgp:
         T = 800
         f = rng.standard_normal(T)
         r = 0.30 * (f * f) + rng.standard_normal(T) * 0.4
-        out = ts_quantile_spread(_series_panel(f, r), n_groups=5)
+        out = common_quantile_spread(_series_panel(f, r), n_groups=5)
         means = [b["mean_return"] for b in out.metadata["buckets"]]
         # Extremes higher than middle bucket
         assert means[0] > means[2]
@@ -108,7 +108,7 @@ class TestGateAFactorVariation:
         T = 200
         f = rng.choice([0.0, 1.0], size=T)
         r = rng.standard_normal(T)
-        out = ts_quantile_spread(_series_panel(f, r), n_groups=5)
+        out = common_quantile_spread(_series_panel(f, r), n_groups=5)
         assert out.metadata["reason"] == "insufficient_factor_variation"
         assert out.metadata["n_distinct"] == 2
         assert "event_quality" in out.metadata["hint"]
@@ -118,7 +118,7 @@ class TestGateAFactorVariation:
         T = 200
         f = rng.choice([-1.0, 0.0, 1.0], size=T)
         r = rng.standard_normal(T)
-        out = ts_quantile_spread(_series_panel(f, r), n_groups=5)
+        out = common_quantile_spread(_series_panel(f, r), n_groups=5)
         assert out.metadata["reason"] == "insufficient_factor_variation"
 
     def test_lower_n_groups_passes_when_distinct_allows(self):
@@ -127,7 +127,7 @@ class TestGateAFactorVariation:
         T = 200
         f = rng.integers(0, 6, size=T).astype(float)
         r = rng.standard_normal(T)
-        out = ts_quantile_spread(_series_panel(f, r), n_groups=2)
+        out = common_quantile_spread(_series_panel(f, r), n_groups=2)
         assert "reason" not in out.metadata or out.metadata.get("reason") is None
 
 
@@ -138,7 +138,7 @@ class TestSampleFloor:
         T = 2
         f = rng.standard_normal(T)
         r = rng.standard_normal(T)
-        out = ts_quantile_spread(_series_panel(f, r), n_groups=5)
+        out = common_quantile_spread(_series_panel(f, r), n_groups=5)
         assert out.metadata["reason"] == "insufficient_portfolio_periods"
 
 
@@ -150,7 +150,7 @@ class TestPerBucketWarning:
         f = rng.standard_normal(T)
         r = rng.standard_normal(T)
         with pytest.warns(UserWarning, match="periods per bucket"):
-            ts_quantile_spread(_series_panel(f, r), n_groups=5)
+            common_quantile_spread(_series_panel(f, r), n_groups=5)
 
     def test_fat_buckets_silent(self):
         rng = np.random.default_rng(0)
@@ -159,7 +159,7 @@ class TestPerBucketWarning:
         r = rng.standard_normal(T)
         with warnings.catch_warnings():
             warnings.simplefilter("error")
-            ts_quantile_spread(_series_panel(f, r), n_groups=5)
+            common_quantile_spread(_series_panel(f, r), n_groups=5)
 
 
 class TestMissingColumns:
@@ -167,12 +167,12 @@ class TestMissingColumns:
         df = pl.DataFrame(
             {"asset_id": [0, 0], "factor": [1.0, 2.0], "forward_return": [0.1, 0.2]}
         )
-        out = ts_quantile_spread(df)
+        out = common_quantile_spread(df)
         assert out.metadata["reason"] == "no_date_column"
 
     def test_missing_factor_short_circuits(self):
         df = pl.DataFrame(
             {"date": [0, 1], "asset_id": [0, 0], "forward_return": [0.1, 0.2]}
         )
-        out = ts_quantile_spread(df)
+        out = common_quantile_spread(df)
         assert out.metadata["reason"] == "no_factor_column"

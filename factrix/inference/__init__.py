@@ -30,11 +30,11 @@ design, not an omission:
   event axis; a different inference family from the series-mean one.
 - **Cross-sectional regression aggregates** (``fm_beta`` family) —
   Fama-MacBeth / Driscoll-Kraay SE built into the estimator.
-- **Per-asset time-series** (``ts_beta``) — its own SE.
+- **Per-asset time-series** (``common_beta``) — its own SE.
 - **Fixed-distribution tests** (``directional_hit_rate`` is
-  Pesaran-Timmermann, ``hit_rate`` is a binomial) — no SE to choose.
+  Pesaran-Timmermann, ``positive_rate`` is a binomial) — no SE to choose.
 - **Descriptive diagnostics** (``oos_decay``, ``concentration``,
-  ``trend`` = Theil-Sen, ``ts_asymmetry``) — no single headline H0, or an
+  ``trend`` = Theil-Sen, ``common_asymmetry``) — no single headline H0, or an
   estimator-specific CI.
 
 Closed-union policy

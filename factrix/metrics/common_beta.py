@@ -4,10 +4,10 @@ macro_common factors (VIX, gold, USD index) are a single time series
 shared across all assets. Per-asset time-series regression measures
 each asset's sensitivity (β) to the common factor.
 
-``compute_ts_betas``: per-asset full-sample TS regression → ``{factor: per-asset DataFrame}``.
-``ts_beta``: cross-sectional test on the β distribution.
-``mean_r_squared``: average explanatory power across assets.
-``compute_rolling_mean_beta``: rolling window mean β for stability analysis.
+``compute_common_betas``: per-asset full-sample TS regression → ``{factor: per-asset DataFrame}``.
+``common_beta``: cross-sectional test on the β distribution.
+``common_beta_r_squared``: average explanatory power across assets.
+``compute_rolling_common_beta``: rolling window mean β for stability analysis.
 
 Notes:
     **Pipeline.** Per-asset full-sample ordinary least squares (OLS) β (time-series step), then
@@ -38,13 +38,13 @@ from factrix._stats import (
 from factrix._types import DDOF
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import _enforce_min_floor, _surface_drop_stats
-from factrix.metrics._primitives import compute_ts_betas
+from factrix.metrics._primitives import compute_common_betas
 
-__all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
-    "ts_beta",
-    "mean_r_squared",
-    "ts_beta_sign_consistency",
-    "compute_rolling_mean_beta",
+__all__ = [
+    "common_beta",
+    "common_beta_r_squared",
+    "common_beta_sign_consistency",
+    "compute_rolling_common_beta",
 ]
 
 _TSB_CELL = cell(FactorScope.COMMON, FactorDensity.DENSE, structure=DataStructure.PANEL)
@@ -54,10 +54,10 @@ _TSB_CELL = cell(FactorScope.COMMON, FactorDensity.DENSE, structure=DataStructur
     cell=_TSB_CELL,
     aggregation=Aggregation.TS_THEN_CS,
     input_shape=InputShape.SERIES,
-    requires={"ts_betas_df": compute_ts_betas},
+    requires={"common_betas_df": compute_common_betas},
     sample_threshold=SampleThreshold(min_assets=3),
 )
-def ts_beta(ts_betas_df: pl.DataFrame) -> MetricResult:
+def common_beta(common_betas_df: pl.DataFrame) -> MetricResult:
     r"""Test $H_0: \mathrm{mean}(\beta) = 0$ across assets.
 
     Uses the cross-sectional distribution of per-asset betas.
@@ -71,7 +71,7 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricResult:
 
         factrix uses an iid cross-asset t at this stage rather than a
         clustered/heteroskedasticity-and-autocorrelation-consistent (HAC) variant: per-asset betas come from non-overlapping
-        time-series fits in ``compute_ts_betas``, so the betas are
+        time-series fits in ``compute_common_betas``, so the betas are
         approximately independent across assets unless a strong
         latent common factor links them.
 
@@ -83,24 +83,26 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricResult:
         intercept test BJS run on assets sorted into beta deciles.
 
     Examples:
-        Chain from :func:`compute_ts_betas` output:
+        Chain from :func:`compute_common_betas` output:
 
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
-        >>> from factrix.metrics.ts_beta import compute_ts_betas, ts_beta
+        >>> from factrix.metrics.common_beta import compute_common_betas, common_beta
         >>> panel = compute_forward_return(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> ts_betas_df = compute_ts_betas(panel)["factor"]
-        >>> result = ts_beta(ts_betas_df)
+        >>> common_betas_df = compute_common_betas(panel)["factor"]
+        >>> result = common_beta(common_betas_df)
         >>> result.name == ""
         True
     """
-    betas = ts_betas_df["beta"].drop_nulls().to_numpy()
+    betas = common_betas_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
 
-    sc = _enforce_min_floor(ts_beta, "ts_beta", n, "insufficient_assets", axis="assets")
+    sc = _enforce_min_floor(
+        common_beta, "common_beta", n, "insufficient_assets", axis="assets"
+    )
     if sc is not None:
         return sc
 
@@ -118,7 +120,9 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricResult:
         "median_beta": float(np.median(betas)),
     }
     warning_codes: list[str] = []
-    _surface_drop_stats(ts_betas_df, "ts_beta", metadata, warning_codes, axis="assets")
+    _surface_drop_stats(
+        common_betas_df, "common_beta", metadata, warning_codes, axis="assets"
+    )
     return MetricResult(
         p_value=p,
         value=mean_b,
@@ -139,15 +143,15 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricResult:
     cell=_TSB_CELL,
     aggregation=Aggregation.TS_THEN_CS,
     input_shape=InputShape.SERIES,
-    requires={"ts_betas_df": compute_ts_betas},
+    requires={"common_betas_df": compute_common_betas},
     sample_threshold=SampleThreshold(min_assets=1),
 )
-def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricResult:
+def common_beta_r_squared(common_betas_df: pl.DataFrame) -> MetricResult:
     r"""Average $R^2$ across per-asset TS regressions — ``value`` $= \mathrm{mean}_i R^2_i$.
 
     $R^2_i$ comes from asset $i$'s regression
     $R_{i,t} = \alpha_i + \beta_i \cdot F_t + \varepsilon$ (computed
-    upstream in ``compute_ts_betas``). Metadata carries
+    upstream in ``compute_common_betas``). Metadata carries
     ``median_r_squared`` as well — useful when a few high-$R^2$ assets
     pull the mean. Low values ($< 0.05$) indicate the factor is too
     weak or noisy to drive individual-asset returns even when its
@@ -158,7 +162,7 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricResult:
     Notes:
         ``value`` $= \mathrm{mean}_i R^2_i$ and ``median_r_squared``
         $= \mathrm{median}_i R^2_i$ on the per-asset ordinary least squares (OLS) fits from
-        ``compute_ts_betas``. Pure descriptive statistic — no formal
+        ``compute_common_betas``. Pure descriptive statistic — no formal
         $H_0$.
 
         factrix reports both mean and median because a few high-$R^2$
@@ -167,26 +171,26 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricResult:
         cross-section as a whole.
 
     Examples:
-        Chain from :func:`compute_ts_betas` output:
+        Chain from :func:`compute_common_betas` output:
 
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
-        >>> from factrix.metrics.ts_beta import compute_ts_betas, mean_r_squared
+        >>> from factrix.metrics.common_beta import compute_common_betas, common_beta_r_squared
         >>> panel = compute_forward_return(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> ts_betas_df = compute_ts_betas(panel)["factor"]
-        >>> result = mean_r_squared(ts_betas_df)
+        >>> common_betas_df = compute_common_betas(panel)["factor"]
+        >>> result = common_beta_r_squared(common_betas_df)
         >>> result.name == ""
         True
     """
-    r2_vals = ts_betas_df["r_squared"].drop_nulls().to_numpy()
+    r2_vals = common_betas_df["r_squared"].drop_nulls().to_numpy()
     n = len(r2_vals)
 
     sc = _enforce_min_floor(
-        mean_r_squared,
-        "mean_r_squared",
+        common_beta_r_squared,
+        "common_beta_r_squared",
         n,
         "no_asset_r_squared_observations",
         axis="assets",
@@ -202,7 +206,7 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricResult:
     }
     warning_codes: list[str] = []
     _surface_drop_stats(
-        ts_betas_df, "mean_r_squared", metadata, warning_codes, axis="assets"
+        common_betas_df, "common_beta_r_squared", metadata, warning_codes, axis="assets"
     )
     return MetricResult(
         value=float(np.mean(r2_vals)),
@@ -228,7 +232,7 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricResult:
     # static panel-shape floor can pre-flight how many rolling dates survive.
     sample_threshold=SampleThreshold(),
 )
-def compute_rolling_mean_beta(
+def compute_rolling_common_beta(
     data: pl.DataFrame,
     *,
     window: int = 60,
@@ -267,12 +271,12 @@ def compute_rolling_mean_beta(
     Examples:
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
-        >>> from factrix.metrics.ts_beta import compute_rolling_mean_beta
+        >>> from factrix.metrics.common_beta import compute_rolling_common_beta
         >>> panel = compute_forward_return(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> rolling = compute_rolling_mean_beta(panel, window=60)
+        >>> rolling = compute_rolling_common_beta(panel, window=60)
         >>> set(rolling.columns) >= {"date", "value"}
         True
     """
@@ -358,10 +362,10 @@ def compute_rolling_mean_beta(
     cell=_TSB_CELL,
     aggregation=Aggregation.TS_THEN_CS,
     input_shape=InputShape.SERIES,
-    requires={"ts_betas_df": compute_ts_betas},
+    requires={"common_betas_df": compute_common_betas},
     sample_threshold=SampleThreshold(min_assets=2),
 )
-def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricResult:
+def common_beta_sign_consistency(common_betas_df: pl.DataFrame) -> MetricResult:
     """Symmetric sign-agreement across per-asset βs — `value = max(pos, 1−pos)` where `pos = mean_i 1{β_i > 0}`.
 
     Range [0.5, 1.0]: 0.5 = βs evenly split (no directional consensus);
@@ -387,28 +391,28 @@ def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricResult:
         is available.
 
     Examples:
-        Chain from :func:`compute_ts_betas` output:
+        Chain from :func:`compute_common_betas` output:
 
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
-        >>> from factrix.metrics.ts_beta import (
-        ...     compute_ts_betas,
-        ...     ts_beta_sign_consistency,
+        >>> from factrix.metrics.common_beta import (
+        ...     compute_common_betas,
+        ...     common_beta_sign_consistency,
         ... )
         >>> panel = compute_forward_return(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> ts_betas_df = compute_ts_betas(panel)["factor"]
-        >>> result = ts_beta_sign_consistency(ts_betas_df)
+        >>> common_betas_df = compute_common_betas(panel)["factor"]
+        >>> result = common_beta_sign_consistency(common_betas_df)
         >>> result.name == ""
         True
     """
-    betas = ts_betas_df["beta"].drop_nulls().to_numpy()
+    betas = common_betas_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
     sc = _enforce_min_floor(
-        ts_beta_sign_consistency,
-        "ts_beta_sign_consistency",
+        common_beta_sign_consistency,
+        "common_beta_sign_consistency",
         n,
         "insufficient_assets_for_sign_consistency",
         axis="assets",
@@ -425,7 +429,11 @@ def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricResult:
     }
     warning_codes: list[str] = []
     _surface_drop_stats(
-        ts_betas_df, "ts_beta_sign_consistency", metadata, warning_codes, axis="assets"
+        common_betas_df,
+        "common_beta_sign_consistency",
+        metadata,
+        warning_codes,
+        axis="assets",
     )
     return MetricResult(
         value=consistency,

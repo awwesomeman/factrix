@@ -18,7 +18,7 @@ tests the predictive-regression slope with Newey-West HAC inference.
 |---|---|
 | Out-of-sample decay across multiple splits | [`oos`](oos_decay.md) |
 | Theil-Sen monotonic trend with augmented Dickey-Fuller (ADF) persistence flag | [`trend`](trend.md) |
-| Sign-consistency / hit rate of the series | [`hit_rate`](hit_rate.md) |
+| Sign-consistency / hit rate of the series | [`positive_rate`](positive_rate.md) |
 
 All three are descriptive robustness diagnostics. Use them against the IC series from [`ic.compute_ic`](ic.md), the CAAR series from [`caar.compute_caar`](caar.md), or any externally constructed `(date, value)` DataFrame to layer decay, drift, and sign-stability checks on top of the cell's inferential test.
 

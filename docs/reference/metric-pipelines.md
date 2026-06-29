@@ -16,7 +16,7 @@ follows.
 
 The matrix lists **all** metric modules — both the metrics
 [`evaluate()`](../api/evaluate.md) runs for each cell
-(`ic`, `fm_beta`, `caar`, `ts_beta`)
+(`ic`, `fm_beta`, `caar`, `common_beta`)
 and the standalone helpers users can call directly on their declared input
 shape (`quantile`, `monotonicity`, `tradability`, `clustering`, `corrado`, …).
 The [`list_metrics`](../api/metrics/index.md#factrix.list_metrics) runtime API

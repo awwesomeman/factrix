@@ -1,10 +1,10 @@
-"""Aggregate drop-rate warning — assets axis (``compute_ts_betas``).
+"""Aggregate drop-rate warning — assets axis (``compute_common_betas``).
 
-``compute_ts_betas`` silently drops assets at its per-asset filter (insufficient
+``compute_common_betas`` silently drops assets at its per-asset filter (insufficient
 history, zero factor variation, or no complete pairs). It records the canonical
 drop-stat schema on the assets axis (``n_assets_*`` / ``dropped_assets``); its
-three cross-asset consumers (``ts_beta`` / ``mean_r_squared`` /
-``ts_beta_sign_consistency``) copy the schema into ``MetricResult.metadata`` and
+three cross-asset consumers (``common_beta`` / ``common_beta_r_squared`` /
+``common_beta_sign_consistency``) copy the schema into ``MetricResult.metadata`` and
 emit one aggregate ``UserWarning`` (plus a ``WarningCode.EXCESSIVE_ASSET_DROPS``)
 when ``drop_rate`` clears the threshold. This is the assets-axis sibling of the
 periods-axis path in ``test_drop_rate_warning.py``.
@@ -23,15 +23,15 @@ from factrix.metrics._helpers import (
     _drop_stat_keys,
     _read_drop_stats,
 )
-from factrix.metrics.ts_beta import (
-    compute_ts_betas,
-    mean_r_squared,
-    ts_beta,
-    ts_beta_sign_consistency,
+from factrix.metrics.common_beta import (
+    common_beta,
+    common_beta_r_squared,
+    common_beta_sign_consistency,
+    compute_common_betas,
 )
 
 _ASSET_KEYS = _drop_stat_keys("assets")
-_CONSUMERS = (ts_beta, mean_r_squared, ts_beta_sign_consistency)
+_CONSUMERS = (common_beta, common_beta_r_squared, common_beta_sign_consistency)
 
 
 def _sparse_factor_panel(
@@ -40,7 +40,7 @@ def _sparse_factor_panel(
     """Panel where only ``survivors`` assets carry a time-varying factor.
 
     The remaining assets get a constant-zero factor → zero time-variation → null
-    slope → dropped by ``compute_ts_betas``. ``survivors`` clears the consumers'
+    slope → dropped by ``compute_common_betas``. ``survivors`` clears the consumers'
     ``min_assets`` floors while the drop rate (``1 - survivors/n_assets``) sits
     well above ``DROP_RATE_WARN_THRESHOLD``.
     """
@@ -61,7 +61,7 @@ def _dense_common_panel_with_asset_drops(
     """Common-dense factor panel where most assets lack return pairs.
 
     This keeps the ``COMMON × DENSE × PANEL`` cell valid for ``evaluate()``
-    while still exercising the assets-axis drop warning in ``compute_ts_betas``.
+    while still exercising the assets-axis drop warning in ``compute_common_betas``.
     """
     raw = fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=n_dates, seed=seed)
     panel = fx.preprocess.compute_forward_return(raw, forward_periods=1)
@@ -96,8 +96,8 @@ class TestSchema:
             "drop_reason",
         )
 
-    def test_compute_ts_betas_attaches_drop_stats(self):
-        stats = _read_drop_stats(compute_ts_betas(_sparse_factor_panel())["factor"])
+    def test_compute_common_betas_attaches_drop_stats(self):
+        stats = _read_drop_stats(compute_common_betas(_sparse_factor_panel())["factor"])
         assert stats is not None
         assert set(stats) == set(_ASSET_KEYS)
         # 40 assets in, 6 survive → 34 dropped for zero factor variation.
@@ -105,23 +105,23 @@ class TestSchema:
         assert stats["n_assets_out"] == 6
         assert stats["dropped_assets"] == 34
         assert stats["drop_rate"] == pytest.approx(34 / 40)
-        assert "MIN_TS_PERIODS_HARD" in stats["drop_reason"]
+        assert "MIN_COMMON_BETA_PERIODS_HARD" in stats["drop_reason"]
 
     def test_full_panel_reports_zero_drop(self):
-        stats = _read_drop_stats(compute_ts_betas(_full_panel())["factor"])
+        stats = _read_drop_stats(compute_common_betas(_full_panel())["factor"])
         assert stats is not None
         assert stats["dropped_assets"] == 0
         assert stats["drop_rate"] == 0.0
 
     def test_hand_built_frame_has_no_stats(self):
-        bare = compute_ts_betas(_full_panel())["factor"].select("asset_id", "beta")
+        bare = compute_common_betas(_full_panel())["factor"].select("asset_id", "beta")
         assert _read_drop_stats(bare) is None
 
 
 class TestConsumerWarning:
     @pytest.mark.parametrize("metric_fn", _CONSUMERS)
     def test_high_drop_rate_warns_and_codes(self, metric_fn):
-        betas_df = compute_ts_betas(_sparse_factor_panel())["factor"]
+        betas_df = compute_common_betas(_sparse_factor_panel())["factor"]
         with pytest.warns(UserWarning, match="of assets dropped"):
             result = metric_fn(betas_df)
         assert WarningCode.EXCESSIVE_ASSET_DROPS.value in result.warning_codes
@@ -131,7 +131,7 @@ class TestConsumerWarning:
 
     @pytest.mark.parametrize("metric_fn", _CONSUMERS)
     def test_low_drop_rate_no_warn_but_keys_present(self, metric_fn):
-        betas_df = compute_ts_betas(_full_panel())["factor"]
+        betas_df = compute_common_betas(_full_panel())["factor"]
         with warnings.catch_warnings():
             warnings.simplefilter("error")
             result = metric_fn(betas_df)
@@ -143,11 +143,11 @@ class TestConsumerWarning:
         # Every asset's factor is zeroed → all slopes null → empty betas frame →
         # the consumer short-circuits and must NOT emit a drop-rate warning.
         panel = _sparse_factor_panel(survivors=0)
-        betas_df = compute_ts_betas(panel)["factor"]
+        betas_df = compute_common_betas(panel)["factor"]
         assert betas_df.height == 0
         with warnings.catch_warnings():
             warnings.simplefilter("error")
-            result = ts_beta(betas_df)
+            result = common_beta(betas_df)
         assert result.value != result.value  # NaN short-circuit
         assert "reason" in result.metadata
         assert WarningCode.EXCESSIVE_ASSET_DROPS.value not in result.warning_codes
@@ -158,7 +158,7 @@ class TestEvaluateBoundary:
         panel = _dense_common_panel_with_asset_drops()
         with pytest.warns(UserWarning, match="of assets dropped"):
             results = fx.evaluate(
-                panel, metrics={"m": ts_beta()}, factor_cols=["factor"]
+                panel, metrics={"m": common_beta()}, factor_cols=["factor"]
             )
         er = results["factor"]
         codes = [w.code for w in er.warnings]
@@ -172,9 +172,9 @@ class TestEvaluateBoundary:
         panel = _dense_common_panel_with_asset_drops()
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            direct = ts_beta(compute_ts_betas(panel)["factor"])
+            direct = common_beta(compute_common_betas(panel)["factor"])
             results = fx.evaluate(
-                panel, metrics={"m": ts_beta()}, factor_cols=["factor"]
+                panel, metrics={"m": common_beta()}, factor_cols=["factor"]
             )
         via_eval = results["factor"].metrics["m"]
         for key in _ASSET_KEYS:

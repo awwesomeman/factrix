@@ -1,12 +1,12 @@
 ---
-title: factrix.metrics.hit_rate
+title: factrix.metrics.positive_rate
 ---
 
-::: factrix.metrics.hit_rate
+::: factrix.metrics.positive_rate
     options:
       show_root_members_full_path: true
       members:
-        - hit_rate
+        - positive_rate
 
 <hr>
 
@@ -18,7 +18,7 @@ title: factrix.metrics.hit_rate
 
     ---
 
-    `hit_rate` is a standalone series diagnostic — input is a 1-D series
+    `positive_rate` is a standalone series diagnostic — input is a 1-D series
     with `(date, value)`, not the raw panel. Typical
     pipes: per-date information coefficient (IC) from `compute_ic`, quantile spread from
     `compute_spread_series`, or any other factor-mimicking-portfolio
@@ -49,17 +49,17 @@ title: factrix.metrics.hit_rate
 
 | Goal                                                                       | Function           |
 |----------------------------------------------------------------------------|--------------------|
-| Hit-rate significance vs $p = 0.5$ on a `(date, value)` series             | `hit_rate`         |
+| Hit-rate significance vs $p = 0.5$ on a `(date, value)` series             | `positive_rate`         |
 | Per-date hit indicator (`value > 0` cast to float) for slice-test plumbing | `per_date_series`  |
 
-## Worked example — IC series fed into hit_rate
+## Worked example — IC series fed into positive_rate
 
-!!! example "compute_ic → hit_rate"
+!!! example "compute_ic → positive_rate"
 
     ```python
     import factrix as fx
     from factrix.metrics.ic import compute_ic
-    from factrix.metrics.hit_rate import hit_rate
+    from factrix.metrics.positive_rate import positive_rate
     from factrix.preprocess import compute_forward_return
 
     raw   = fx.datasets.make_cs_panel(
@@ -70,7 +70,7 @@ title: factrix.metrics.hit_rate
     # The series diagnostic consumes (date, value); the value column on
     # the compute_ic output is named ``ic``.
     ic_df = compute_ic(panel)["factor"]
-    out   = hit_rate(ic_df, value_col="ic", forward_periods=5)
+    out   = positive_rate(ic_df, value_col="ic", forward_periods=5)
     print(out.value, out.stat, out.p_value, out.metadata["method"])
     # 0.62  19  0.011   exact-binomial   (approximate)
     ```

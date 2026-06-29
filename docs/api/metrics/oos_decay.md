@@ -103,7 +103,7 @@ title: factrix.metrics.oos_decay
 
     [api/metrics/ic →](ic.md)
 
--   __`hit_rate` / `trend`__
+-   __`positive_rate` / `trend`__
 
     ---
 
@@ -111,7 +111,7 @@ title: factrix.metrics.oos_decay
     significance and slope detection. Pair with `oos` when both
     in-sample magnitude and out-of-sample persistence matter.
 
-    [api/metrics/hit_rate →](hit_rate.md)
+    [api/metrics/positive_rate →](positive_rate.md)
 
 -   __`by_slice`__
 

@@ -12,8 +12,8 @@ metric selection by research question, use [Choosing a metric](choosing-metric.m
 
 | Shape | Typical callables | Return shape |
 |---|---|---|
-| Long panel `(date, asset_id, factor, forward_return)` | `quantile_spread`, `monotonicity`, `directional_hit_rate`, `turnover` | `MetricResult` or `dict[str, MetricResult]` for batchable helpers |
-| Two-column series `(date, value)` | `oos_decay`, `ic_trend`, `hit_rate` | `MetricResult` |
+| Long panel `(date, asset_id, factor, forward_return)` | `quantile_spread`, `monotonicity`, `directional_hit_rate`, `rank_turnover` | `MetricResult` or `dict[str, MetricResult]` for batchable helpers |
+| Two-column series `(date, value)` | `oos_decay`, `ic_trend`, `positive_rate` | `MetricResult` |
 | Producer output / aligned auxiliary input | `caar`, `spanning_alpha`, `greedy_forward_selection`, `breakeven_cost`, `net_spread` | `MetricResult` |
 
 ---
@@ -44,7 +44,7 @@ print(factor_spread.p_value)  # Non-overlapping t-test p-value
 
 ### Series diagnostics
 
-Diagnostics like `hit_rate`, `ic_trend`, and `oos_decay` take a two-column time-series DataFrame of `(date, value)` (such as a series of per-date ICs generated upstream).
+Diagnostics like `positive_rate`, `ic_trend`, and `oos_decay` take a two-column time-series DataFrame of `(date, value)` (such as a series of per-date ICs generated upstream).
 
 ```python
 import numpy as np

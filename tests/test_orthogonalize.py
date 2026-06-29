@@ -83,4 +83,4 @@ class TestOrthogonalizeFactor:
         ortho = orthogonalize_factor(factor_df, base_df)
         assert ortho.mean_betas["size"] == pytest.approx(0.5, abs=0.1)
         assert ortho.mean_betas["value"] == pytest.approx(0.3, abs=0.1)
-        assert ortho.mean_r_squared > 0.5
+        assert ortho.common_beta_r_squared > 0.5

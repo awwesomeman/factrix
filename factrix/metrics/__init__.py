@@ -14,7 +14,7 @@ Individual x Continuous:
     compute_ic, ic, ic_ir,
     compute_spread_series, quantile_spread, quantile_spread_vw,
     compute_group_returns, monotonicity, top_concentration,
-    turnover, notional_turnover, breakeven_cost, net_spread,
+    rank_turnover, notional_turnover, breakeven_cost, net_spread,
     compute_fm_betas, fm_beta, pooled_beta, fm_beta_sign_consistency,
     spanning_alpha, greedy_forward_selection, k_spread
 
@@ -26,19 +26,19 @@ there is no separate Common-sparse module set):
     signal_density, clustering_hhi, corrado_rank
 
 Common x Continuous:
-    compute_ts_betas, ts_beta, mean_r_squared,
-    compute_rolling_mean_beta, ts_beta_sign_consistency,
-    ts_quantile_spread, ts_asymmetry
+    compute_common_betas, common_beta, common_beta_r_squared,
+    compute_rolling_common_beta, common_beta_sign_consistency,
+    common_quantile_spread, common_asymmetry
 
 Single-asset x Continuous:
     predictive_beta -- TIMESERIES dense predictive regression with NW HAC
 
 Series diagnostics -- axis-agnostic on ``(date, value)``:
-    hit_rate, ic_trend, oos_decay
+    positive_rate, ic_trend, oos_decay
 
 Scope-agnostic (run in either scope; ``cell`` scope is ``None``):
     directional_hit_rate -- small-N robust, Pesaran-Timmermann directional
-    sibling of ``hit_rate`` (consumes a ``date, asset_id, factor,
+    sibling of ``positive_rate`` (consumes a ``date, asset_id, factor,
     forward_return`` panel rather than a pre-aggregated series)
 """
 
@@ -50,6 +50,13 @@ from factrix.metrics.caar import (
     caar,
 )
 from factrix.metrics.clustering_hhi import clustering_hhi
+from factrix.metrics.common_asymmetry import common_asymmetry
+from factrix.metrics.common_beta import (
+    common_beta,
+    common_beta_r_squared,
+    common_beta_sign_consistency,
+)
+from factrix.metrics.common_quantile import common_quantile_spread
 from factrix.metrics.concentration import top_concentration
 from factrix.metrics.corrado_rank import corrado_rank
 from factrix.metrics.directional_hit_rate import directional_hit_rate
@@ -68,7 +75,6 @@ from factrix.metrics.fm_beta import (
     fm_beta_sign_consistency,
     pooled_beta,
 )
-from factrix.metrics.hit_rate import hit_rate
 from factrix.metrics.ic import (
     ic,
     ic_ir,
@@ -79,6 +85,7 @@ from factrix.metrics.mfe_mae import (
 )
 from factrix.metrics.monotonicity import monotonicity
 from factrix.metrics.oos_decay import oos_decay
+from factrix.metrics.positive_rate import positive_rate
 from factrix.metrics.predictive_beta import predictive_beta
 from factrix.metrics.quantile import (
     quantile_spread,
@@ -89,16 +96,9 @@ from factrix.metrics.tradability import (
     breakeven_cost,
     net_spread,
     notional_turnover,
-    turnover,
+    rank_turnover,
 )
 from factrix.metrics.trend import ic_trend
-from factrix.metrics.ts_asymmetry import ts_asymmetry
-from factrix.metrics.ts_beta import (
-    mean_r_squared,
-    ts_beta,
-    ts_beta_sign_consistency,
-)
-from factrix.metrics.ts_quantile import ts_quantile_spread
 
 __all__ = [
     "fm_beta_sign_consistency",
@@ -114,12 +114,12 @@ __all__ = [
     "event_skewness",
     "fm_beta",
     "greedy_forward_selection",
-    "hit_rate",
+    "positive_rate",
     "ic",
     "ic_ir",
     "ic_trend",
     "k_spread",
-    "mean_r_squared",
+    "common_beta_r_squared",
     "mfe_mae",
     "monotonicity",
     "oos_decay",
@@ -133,11 +133,11 @@ __all__ = [
     "signal_density",
     "spanning_alpha",
     "top_concentration",
-    "ts_asymmetry",
-    "ts_beta",
-    "ts_beta_sign_consistency",
-    "ts_quantile_spread",
-    "turnover",
+    "common_asymmetry",
+    "common_beta",
+    "common_beta_sign_consistency",
+    "common_quantile_spread",
+    "rank_turnover",
     # Third-party registration
     "metric_spec",
     "register",

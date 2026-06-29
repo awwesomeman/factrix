@@ -7,9 +7,9 @@ sample. Each now records the same canonical five-key schema (via
 ``UserWarning`` + ``WarningCode.EXCESSIVE_PERIOD_DROPS`` when the null-drop rate
 clears ``DROP_RATE_WARN_THRESHOLD``.
 
-Scope: the period-axis null-droppers — ``hit_rate``, ``oos_decay``,
+Scope: the period-axis null-droppers — ``positive_rate``, ``oos_decay``,
 ``ic_trend`` (IC series) and ``quantile_spread`` / ``quantile_spread_vw`` /
-``k_spread`` (spread series). Asset-axis (``ts_beta``) and event-axis
+``k_spread`` (spread series). Asset-axis (``common_beta``) and event-axis
 (``caar`` / ``mfe_mae``) consumers are out of the ``n_periods_*`` schema.
 """
 
@@ -24,9 +24,9 @@ import polars as pl
 import pytest
 from factrix._codes import WarningCode
 from factrix.metrics._helpers import DROP_RATE_WARN_THRESHOLD, DROP_STAT_KEYS
-from factrix.metrics.hit_rate import hit_rate
 from factrix.metrics.k_spread import k_spread
 from factrix.metrics.oos_decay import oos_decay
+from factrix.metrics.positive_rate import positive_rate
 from factrix.metrics.quantile import quantile_spread, quantile_spread_vw
 from factrix.metrics.trend import ic_trend
 
@@ -69,25 +69,37 @@ def _spread_panel(*, n_dates: int = 200, thin: int = 3, full: int = 50, seed: in
 class TestICSeriesTools:
     @pytest.mark.parametrize(
         ("fn", "name"),
-        [(hit_rate, "hit_rate"), (oos_decay, "oos_decay"), (ic_trend, "ic_trend")],
+        [
+            (positive_rate, "positive_rate"),
+            (oos_decay, "oos_decay"),
+            (ic_trend, "ic_trend"),
+        ],
     )
     def test_high_null_drop_warns(self, fn, name):
         series = _ic_series(null_every=3)  # ~1/3 null
         with pytest.warns(UserWarning, match="of periods dropped"):
-            result = fn(series) if name != "hit_rate" else fn(series, forward_periods=1)
+            result = (
+                fn(series) if name != "positive_rate" else fn(series, forward_periods=1)
+            )
         assert EXCESSIVE in result.warning_codes
         assert result.metadata["drop_rate"] > DROP_RATE_WARN_THRESHOLD
         assert set(DROP_STAT_KEYS) <= set(result.metadata)
 
     @pytest.mark.parametrize(
         ("fn", "name"),
-        [(hit_rate, "hit_rate"), (oos_decay, "oos_decay"), (ic_trend, "ic_trend")],
+        [
+            (positive_rate, "positive_rate"),
+            (oos_decay, "oos_decay"),
+            (ic_trend, "ic_trend"),
+        ],
     )
     def test_no_null_drop_no_warn_but_keys_present(self, fn, name):
         series = _ic_series(null_every=None)  # no nulls
         with warnings.catch_warnings():
             warnings.simplefilter("error")
-            result = fn(series) if name != "hit_rate" else fn(series, forward_periods=1)
+            result = (
+                fn(series) if name != "positive_rate" else fn(series, forward_periods=1)
+            )
         assert EXCESSIVE not in result.warning_codes
         assert result.metadata["drop_rate"] == 0.0
         assert result.metadata["dropped_periods"] == 0

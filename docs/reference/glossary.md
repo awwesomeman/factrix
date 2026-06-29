@@ -120,7 +120,7 @@ specific contracts that apply when factrix routes here.
 ### mainstream metric
 
 The headline mean-significance test conventionally used for a
-`(scope, density, structure)` cell — `ic`, `fm_beta`, `caar`, `ts_beta`,
+`(scope, density, structure)` cell — `ic`, `fm_beta`, `caar`, `common_beta`,
 or `predictive_beta` for the single-asset dense TIMESERIES cell. It is an
 authoring convention, not a code-enforced tier:
 `evaluate()` runs exactly the metrics the caller passes, and every

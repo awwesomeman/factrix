@@ -1,11 +1,11 @@
-"""Tests for factrix.metrics.hit_rate."""
+"""Tests for factrix.metrics.positive_rate."""
 
 import math
 from datetime import datetime, timedelta
 
 import polars as pl
 import pytest
-from factrix.metrics.hit_rate import hit_rate
+from factrix.metrics.positive_rate import positive_rate
 
 
 def _make_series(values: list[float]) -> pl.DataFrame:
@@ -15,29 +15,29 @@ def _make_series(values: list[float]) -> pl.DataFrame:
     )
 
 
-class TestComputeHitRate:
+class TestComputePositiveRate:
     def test_all_positive(self):
         series = _make_series([0.01] * 20)
-        result = hit_rate(series, forward_periods=1)
+        result = positive_rate(series, forward_periods=1)
         assert result.value == pytest.approx(1.0)
         assert result.stat > 0
 
     def test_all_negative(self):
         series = _make_series([-0.01] * 20)
-        result = hit_rate(series, forward_periods=1)
+        result = positive_rate(series, forward_periods=1)
         assert result.value == pytest.approx(0.0)
         assert result.stat < 0
 
     def test_half_and_half(self):
         values = [0.01] * 10 + [-0.01] * 10
         series = _make_series(values)
-        result = hit_rate(series, forward_periods=1)
+        result = positive_rate(series, forward_periods=1)
         assert result.value == pytest.approx(0.5)
         assert abs(result.stat) < 0.5
 
     def test_insufficient_data(self):
         series = _make_series([0.01] * 5)  # < MIN_SERIES_PERIODS_HARD=10
-        result = hit_rate(series, forward_periods=1)
+        result = positive_rate(series, forward_periods=1)
         assert math.isnan(result.value)
         assert result.p_value is None or result.p_value >= 0.10
 
@@ -46,12 +46,12 @@ class TestComputeHitRate:
         # 2 * 0.5**15 ≈ 6.1e-5, whereas the normal approx gives ≈ 6.3e-5
         # for z = √15. Any difference confirms the exact branch.
         series = _make_series([0.01] * 15)
-        result = hit_rate(series, forward_periods=1)
+        result = positive_rate(series, forward_periods=1)
         assert result.metadata["method"] == "binomial exact test"
         # Exact p for 15/15 successes under H₀: p=0.5 is 2 * 0.5**15.
         assert result.p_value == pytest.approx(2 * 0.5**15)
 
     def test_large_n_uses_normal_approximation(self):
         series = _make_series([0.01] * 100 + [-0.01] * 100)
-        result = hit_rate(series, forward_periods=1)
+        result = positive_rate(series, forward_periods=1)
         assert result.metadata["method"] == "binomial score test (normal approximation)"

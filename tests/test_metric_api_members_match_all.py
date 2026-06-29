@@ -28,7 +28,7 @@ METRIC_MODULES = [
     "event_horizon",
     "event_quality",
     "fm_beta",
-    "hit_rate",
+    "positive_rate",
     "ic",
     "mfe_mae",
     "monotonicity",
@@ -37,9 +37,9 @@ METRIC_MODULES = [
     "spanning",
     "tradability",
     "trend",
-    "ts_asymmetry",
-    "ts_beta",
-    "ts_quantile",
+    "common_asymmetry",
+    "common_beta",
+    "common_quantile",
 ]
 
 _MEMBERS_BLOCK = re.compile(r"members:\n((?: +- \w+\n)+)")

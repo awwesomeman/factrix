@@ -14,12 +14,12 @@ title: factrix.metrics.directional_hit_rate
 
 <div class="grid cards" markdown>
 
--   __Small-N robust sibling of `hit_rate`__
+-   __Small-N robust sibling of `positive_rate`__
 
     ---
 
     `directional_hit_rate` is the `(*, DENSE, *)` directional counterpart
-    of `hit_rate`. Where `hit_rate` runs a naive binomial against
+    of `positive_rate`. Where `positive_rate` runs a naive binomial against
     $p = 0.5$ on a single `(date, value)` series, this metric consumes
     the raw panel `(date, asset_id, factor, forward_return)` and tests
     whether `sign(factor)` predicts `sign(forward_return)`. The headline
@@ -54,7 +54,7 @@ title: factrix.metrics.directional_hit_rate
 
 | Goal                                                                  | Function               |
 |-----------------------------------------------------------------------|------------------------|
-| Sign-significance of a `(date, value)` series vs $p = 0.5$            | `hit_rate`             |
+| Sign-significance of a `(date, value)` series vs $p = 0.5$            | `positive_rate`             |
 | Directional skill of a factor in small, sign-imbalanced samples      | `directional_hit_rate` |
 
 ## Worked example — directional skill on a panel
@@ -80,14 +80,14 @@ title: factrix.metrics.directional_hit_rate
 
 <div class="grid cards" markdown>
 
--   __`hit_rate`__
+-   __`positive_rate`__
 
     ---
 
     The series-diagnostic sibling: binomial significance of a single
     `(date, value)` series against $p = 0.5$.
 
-    [api/metrics/hit_rate →](hit_rate.md)
+    [api/metrics/positive_rate →](positive_rate.md)
 
 -   __Metric applicability reference__
 

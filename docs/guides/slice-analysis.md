@@ -22,7 +22,7 @@ factrix splits this work into two roles because **slicing the panel** and **test
 | Role | Function | What it does | What it does not do |
 |---|---|---|---|
 | Dispatcher | [`by_slice(data, metric, *, by, factor_col)`](../api/by-slice.md) | Partitions a raw panel on an existing column and runs `evaluate` per slice; returns `dict[str, EvaluationResult]` (same shape as `evaluate`, keyed by slice) | **No cross-slice statistical test** |
-| Inference (date-aligned) | [`slice_pairwise_test`](../api/slice-test.md) / [`slice_joint_test`](../api/slice-test.md) | Cross-sectional pairwise contrasts (joint NW-HAC Wald χ² + Holm) or omnibus χ² that all slice means are equal | Only accepts metrics with a `per_date_series` capability (`ic`, `fm_beta`, `hit_rate`); requires slices to share dates |
+| Inference (date-aligned) | [`slice_pairwise_test`](../api/slice-test.md) / [`slice_joint_test`](../api/slice-test.md) | Cross-sectional pairwise contrasts (joint NW-HAC Wald χ² + Holm) or omnibus χ² that all slice means are equal | Only accepts metrics with a `per_date_series` capability (`ic`, `fm_beta`, `positive_rate`); requires slices to share dates |
 | Inference (date-disjoint) | [`slice_period_pairwise_test`](../api/slice-test.md) / [`slice_period_joint_test`](../api/slice-test.md) | Independent-sample pairwise contrasts (bootstrap + Romano-Wolf, or analytic HAC + Holm) / block-diagonal omnibus χ² for regime / calendar-period splits | Same `per_date_series` requirement; treats each slice as an independent sample |
 
 **Use the dispatcher when:** you want raw per-slice numbers, or you want to compose your own cross-slice test.
@@ -45,7 +45,7 @@ A single dispatcher carrying a single built-in cross-slice test would silently o
 - **Information coefficient (IC), Fama-MacBeth λ** — mean-zero per-date series → joint Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) over the per-date K-vector panel is the natural Wald object (`slice_pairwise_test` default).
 - **Sharpe** — variance-stabilised difference (Memmel 2003 / Ledoit-Wolf) is needed; not currently exposed as a slice function.
 - **CAAR** — per-slice event clustering interacts with pooled-vs-split SE choice; needs a bespoke reconciliation.
-- **Turnover, hit_rate, monotonicity ρ** — for `hit_rate` the `per_date_series` path applies; for the rest cross-slice differences remain descriptive.
+- **Turnover, positive_rate, monotonicity ρ** — for `positive_rate` the `per_date_series` path applies; for the rest cross-slice differences remain descriptive.
 
 `by_slice` therefore returns the raw per-slice `EvaluationResult`s without a cross-slice aggregate. For inferential contrasts on the supported metric families, reach for the slice-test function pair.
 

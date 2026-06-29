@@ -22,11 +22,11 @@ title: factrix.metrics.predictive_beta
     one-asset panel. It fits `forward_return ~ factor` and tests whether
     the slope differs from zero.
 
--   __Not a `ts_beta` fallback__
+-   __Not a `common_beta` fallback__
 
     ---
 
-    `ts_beta` tests the cross-asset mean of per-asset betas and remains
+    `common_beta` tests the cross-asset mean of per-asset betas and remains
     `PANEL`-only. `predictive_beta` is the explicit single-series
     predictive regression.
 

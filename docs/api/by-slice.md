@@ -43,10 +43,10 @@ own rows. The consequence depends on the slicing axis:
 - **Date-axis partition** (year, regime; the value varies within an asset
   over time): a metric whose aggregation looks across dates —
   rolling-window betas, per-asset time-series regressions, event windows
-  (`ts_beta`, `mfe_mae`, `oos_decay`) — sees **truncated history** at
+  (`common_beta`, `mfe_mae`, `oos_decay`) — sees **truncated history** at
   slice boundaries, so its per-slice value differs from the full-sample
   value decomposed by period. Per-date metrics (`ic`, `fm_beta`,
-  `quantile`, `hit_rate`) are unaffected.
+  `quantile`, `positive_rate`) are unaffected.
 
 `by_slice` emits a `WarningCode.SLICE_BOUNDARY_TRUNCATION` warning when a
 cross-date metric is sliced on a date axis. If you want the full-sample
@@ -100,7 +100,7 @@ t-stat is not a defensible selection rule. A generic cross-slice test
 paired-difference Newey-West (NW), etc.) cannot be applied honestly across
 the metric matrix — the appropriate test depends on the metric family.
 For metrics that expose a `per_date_series` capability (`ic`, `fm_beta`,
-`hit_rate`),
+`positive_rate`),
 [`slice_pairwise_test`](slice-test.md#factrix.slice_pairwise_test) /
 [`slice_joint_test`](slice-test.md#factrix.slice_joint_test) provide
 cross-slice contrasts with joint-heteroskedasticity-and-autocorrelation-consistent

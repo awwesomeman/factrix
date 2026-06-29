@@ -195,7 +195,7 @@ class TestVisibility:
             "compute_fm_betas",
             "compute_mfe_mae",
             "compute_event_returns",
-            "compute_ts_betas",
+            "compute_common_betas",
             "compute_spread_series",
             "compute_group_returns",
         )
@@ -209,7 +209,7 @@ class TestBatchable:
         for name in (
             "compute_ic",
             "compute_fm_betas",
-            "compute_ts_betas",
+            "compute_common_betas",
             "quantile_spread",
             "monotonicity",
         ):
@@ -217,7 +217,7 @@ class TestBatchable:
 
     def test_non_batchable_specs(self) -> None:
         specs = spec_by_name()
-        for name in ("top_concentration", "turnover"):
+        for name in ("top_concentration", "rank_turnover"):
             assert specs[name].batchable is False, name
 
 
@@ -238,12 +238,17 @@ class TestRequires:
         for name in ("fm_beta", "fm_beta_sign_consistency"):
             assert specs[name].requires["beta_df"].__name__ == "compute_fm_betas", name
 
-    def test_ts_beta_consumers_require_compute_ts_betas(self) -> None:
+    def test_common_beta_consumers_require_compute_common_betas(self) -> None:
         specs = spec_by_name()
-        for name in ("ts_beta", "mean_r_squared", "ts_beta_sign_consistency"):
-            assert specs[name].requires["ts_betas_df"].__name__ == "compute_ts_betas", (
-                name
-            )
+        for name in (
+            "common_beta",
+            "common_beta_r_squared",
+            "common_beta_sign_consistency",
+        ):
+            assert (
+                specs[name].requires["common_betas_df"].__name__
+                == "compute_common_betas"
+            ), name
 
     def test_mfe_mae_consumer_requires_compute_mfe_mae(self) -> None:
         specs = spec_by_name()

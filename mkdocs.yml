@@ -217,12 +217,12 @@ nav:
               - Overview: api/metrics/common-sparse.md
           - Common continuous:
               - Overview: api/metrics/common-continuous.md
-              - ts_beta: api/metrics/ts_beta.md
-              - ts_quantile: api/metrics/ts_quantile.md
-              - ts_asymmetry: api/metrics/ts_asymmetry.md
+              - common_beta: api/metrics/common_beta.md
+              - common_quantile: api/metrics/common_quantile.md
+              - common_asymmetry: api/metrics/common_asymmetry.md
           - Series diagnostics:
               - Overview: api/metrics/series-tools.md
-              - hit_rate: api/metrics/hit_rate.md
+              - positive_rate: api/metrics/positive_rate.md
               - directional_hit_rate: api/metrics/directional_hit_rate.md
               - predictive_beta: api/metrics/predictive_beta.md
               - trend: api/metrics/trend.md

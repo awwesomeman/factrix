@@ -1,10 +1,10 @@
-"""Tests for ``factrix.metrics.ts_asymmetry``."""
+"""Tests for ``factrix.metrics.common_asymmetry``."""
 
 from __future__ import annotations
 
 import numpy as np
 import polars as pl
-from factrix.metrics import ts_asymmetry
+from factrix.metrics import common_asymmetry
 
 
 def _series_panel(
@@ -29,7 +29,7 @@ class TestSymmetricDgp:
         T = 600
         f = rng.standard_normal(T)
         r = 0.05 * f + rng.standard_normal(T) * 0.5
-        out = ts_asymmetry(_series_panel(f, r), forward_periods=1)
+        out = common_asymmetry(_series_panel(f, r), forward_periods=1)
         # H0: β_long + β_short = 0; under symmetric DGP we should not reject.
         assert out.p_value > 0.05
         # Method B should run (continuous f → both sides have variation).
@@ -45,7 +45,7 @@ class TestAsymmetricDgp:
         T = 800
         f = rng.standard_normal(T)
         r = 0.20 * np.maximum(f, 0) + rng.standard_normal(T) * 0.4
-        out = ts_asymmetry(_series_panel(f, r), forward_periods=1)
+        out = common_asymmetry(_series_panel(f, r), forward_periods=1)
         assert out.value > 0
         assert out.p_value < 0.05
         assert out.metadata["beta_long"] > out.metadata["beta_short"]
@@ -61,7 +61,7 @@ class TestGateBNoTwoSides:
         T = 200
         f = rng.uniform(0, 1, size=T)
         r = rng.standard_normal(T)
-        out = ts_asymmetry(_series_panel(f, r))
+        out = common_asymmetry(_series_panel(f, r))
         assert out.metadata["reason"] == "no_two_sided_factor"
         assert out.metadata["n_neg"] == 0
         assert "event_quality" in out.metadata["hint"]
@@ -70,7 +70,7 @@ class TestGateBNoTwoSides:
         T = 200
         f = np.zeros(T)
         r = np.random.default_rng(0).standard_normal(T)
-        out = ts_asymmetry(_series_panel(f, r))
+        out = common_asymmetry(_series_panel(f, r))
         assert out.metadata["reason"] == "no_two_sided_factor"
 
 
@@ -82,7 +82,7 @@ class TestMethodBApplicability:
         T = 200
         f = rng.choice([-1.0, 1.0], size=T)
         r = 0.10 * f + rng.standard_normal(T) * 0.5
-        out = ts_asymmetry(_series_panel(f, r), forward_periods=1)
+        out = common_asymmetry(_series_panel(f, r), forward_periods=1)
         assert "p_wald_slopes" not in out.metadata
         assert "method_b_skipped" in out.metadata
         # Method A still ran.
@@ -95,7 +95,7 @@ class TestMethodBApplicability:
         T = 300
         f = rng.choice([-1.0, 0.0, 1.0], size=T)
         r = 0.10 * f + rng.standard_normal(T) * 0.5
-        out = ts_asymmetry(_series_panel(f, r), forward_periods=1)
+        out = common_asymmetry(_series_panel(f, r), forward_periods=1)
         assert "method_b_skipped" in out.metadata
         # n_zero accounted for and zero column added to design.
         assert out.metadata["n_zero"] > 0
@@ -109,7 +109,7 @@ class TestSampleFloor:
         rng = np.random.default_rng(0)
         f = rng.standard_normal(T)
         r = rng.standard_normal(T)
-        out = ts_asymmetry(_series_panel(f, r))
+        out = common_asymmetry(_series_panel(f, r))
         assert out.metadata["reason"] == "insufficient_portfolio_periods"
 
 
@@ -124,7 +124,7 @@ class TestRatioDiagnostic:
             + 0.15 * np.minimum(f, 0)
             + rng.standard_normal(T) * 0.3
         )
-        out = ts_asymmetry(_series_panel(f, r), forward_periods=1)
+        out = common_asymmetry(_series_panel(f, r), forward_periods=1)
         assert out.metadata["abs_short_over_long"] > 1.0
 
 
@@ -133,5 +133,5 @@ class TestMissingColumns:
         df = pl.DataFrame(
             {"asset_id": [0, 0], "factor": [1.0, -1.0], "forward_return": [0.1, 0.2]}
         )
-        out = ts_asymmetry(df)
+        out = common_asymmetry(df)
         assert out.metadata["reason"] == "no_date_column"

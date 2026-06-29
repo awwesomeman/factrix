@@ -82,7 +82,7 @@ flowchart LR
     EVAL --> DISP{Cell-routed<br/>applicability}
     DISP -->|individual · dense| CS[IC · FM beta<br/>+ diagnostics]
     DISP -->|individual · sparse| EV[CAAR<br/>+ diagnostics]
-    DISP -->|common · dense| CO[ts_beta<br/>+ diagnostics]
+    DISP -->|common · dense| CO[common_beta<br/>+ diagnostics]
     DISP -->|common · sparse| DUM[CAAR<br/>+ event diagnostics]
     CS --> RES[EvaluationResult<br/>metrics · warnings · cell]
     EV --> RES

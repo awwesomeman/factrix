@@ -136,7 +136,7 @@ class WarningCode(StrEnum):
     # dropped a large share of its sample at a filter raises the code for the
     # dropped axis: PERIOD_DROPS for the time axis (e.g. compute_ic dropping
     # dates with n_assets below the per-date floor), ASSET_DROPS for the
-    # cross-section (e.g. compute_ts_betas dropping assets with insufficient
+    # cross-section (e.g. compute_common_betas dropping assets with insufficient
     # history or zero factor variance). The code is dimension-specific by
     # design — a reader resolves the dropped axis from the code alone, not by
     # digging into metadata (the dimension-naming grammar shared with
@@ -255,7 +255,7 @@ _WARNING_DESCRIPTIONS.update(
         "drop_rate / drop_reason).",
         WarningCode.EXCESSIVE_ASSET_DROPS: "An upstream primitive dropped more than "
         "DROP_RATE_WARN_THRESHOLD of assets at its per-asset filter (e.g. "
-        "compute_ts_betas dropping assets with insufficient history or zero "
+        "compute_common_betas dropping assets with insufficient history or zero "
         "factor variance); the cross-asset aggregate was computed on a shortened "
         "sample. Exact counts are in MetricResult.metadata (n_assets_in / "
         "n_assets_out / dropped_assets / drop_rate / drop_reason).",
@@ -279,8 +279,8 @@ def cross_section_tier(n_assets: int) -> WarningCode | None:
     The argument is the **inference-stage** ``n_assets`` — the count of assets
     actually entering the cross-asset test, not the panel-union
     ``n_assets`` surface field. For ``(COMMON, *, None,
-    PANEL)`` cells the two differ: ``compute_ts_betas`` drops assets
-    with fewer than ``MIN_TS_PERIODS_HARD`` non-null observations, so the union
+    PANEL)`` cells the two differ: ``compute_common_betas`` drops assets
+    with fewer than ``MIN_COMMON_BETA_PERIODS_HARD`` non-null observations, so the union
     can be materially larger than the post-filter count that drives
     ``primary_p``'s ``dof = n_assets - 1``. Callers (``suggest_config``,
     ``_compute_common_panel``) therefore pre-filter before calling.

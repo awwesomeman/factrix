@@ -45,7 +45,7 @@ from factrix.metrics._helpers import (
 )
 
 __all__ = [
-    "ts_quantile_spread",
+    "common_quantile_spread",
 ]
 
 
@@ -54,7 +54,7 @@ __all__ = [
     aggregation=Aggregation.CS_THEN_TS,
     sample_threshold=SampleThreshold(min_periods=MIN_PORTFOLIO_PERIODS_HARD),
 )
-def ts_quantile_spread(
+def common_quantile_spread(
     data: pl.DataFrame,
     *,
     factor_col: str = "factor",
@@ -106,7 +106,7 @@ def ts_quantile_spread(
         buckets is reported alongside.
 
         factrix uses NW HAC + Wald rather than Welch t for cross-method
-        comparability with ``ts_asymmetry`` / ``ts_beta_t_nw`` and
+        comparability with ``common_asymmetry`` / ``common_beta_t_nw`` and
         because ``forward_periods > 1`` breaks the iid assumption Welch
         relies on.
 
@@ -121,24 +121,24 @@ def ts_quantile_spread(
     Examples:
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
-        >>> from factrix.metrics.ts_quantile import ts_quantile_spread
+        >>> from factrix.metrics.common_quantile import common_quantile_spread
         >>> panel = compute_forward_return(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> result = ts_quantile_spread(panel, n_groups=5)
+        >>> result = common_quantile_spread(panel, n_groups=5)
         >>> result.name == ""
         True
     """
     if "date" not in data.columns:
         return _short_circuit_output(
-            "ts_quantile_spread",
+            "common_quantile_spread",
             "no_date_column",
         )
     for col in (factor_col, return_col):
         if col not in data.columns:
             return _short_circuit_output(
-                "ts_quantile_spread",
+                "common_quantile_spread",
                 f"no_{col}_column",
             )
 
@@ -150,8 +150,8 @@ def ts_quantile_spread(
     n_periods = len(per_date)
 
     sc = _enforce_min_floor(
-        ts_quantile_spread,
-        "ts_quantile_spread",
+        common_quantile_spread,
+        "common_quantile_spread",
         n_periods,
         "insufficient_portfolio_periods",
         n_groups=n_groups,
@@ -162,7 +162,7 @@ def ts_quantile_spread(
     n_distinct = int(per_date["_f"].n_unique())
     if n_distinct < n_groups * 2:
         return _short_circuit_output(
-            "ts_quantile_spread",
+            "common_quantile_spread",
             "insufficient_factor_variation",
             n_distinct=n_distinct,
             n_groups=n_groups,
@@ -178,7 +178,7 @@ def ts_quantile_spread(
     per_bucket_periods = n_periods // n_groups
     if per_bucket_periods < 5:
         warnings.warn(
-            f"ts_quantile_spread: median {per_bucket_periods} periods per "
+            f"common_quantile_spread: median {per_bucket_periods} periods per "
             f"bucket (T={n_periods}, n_groups={n_groups}). Each bucket mean "
             f"sits on a thin sample; consider reducing n_groups.",
             UserWarning,

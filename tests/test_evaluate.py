@@ -12,11 +12,11 @@ from factrix._errors import UserInputError
 from factrix.metrics import (
     caar,
     clustering_hhi,
-    hit_rate,
     ic,
     ic_ir,
     ic_trend,
     oos_decay,
+    positive_rate,
 )
 
 
@@ -337,14 +337,14 @@ class TestStrictCellSoftening:
         single = self._single_asset_panel()
         info = fx.inspect_data(single, factor_cols=["factor"])
         verdicts = {m.name: m for m in info.metrics}
-        for name in ("hit_rate", "oos_decay", "ic_trend"):
+        for name in ("positive_rate", "oos_decay", "ic_trend"):
             assert verdicts[name].usable is False
             assert any("cell mismatch" in b for b in verdicts[name].blockers)
 
         er = fx.evaluate(
             single,
             metrics={
-                "hit_rate": hit_rate(),
+                "positive_rate": positive_rate(),
                 "oos_decay": oos_decay(),
                 "ic_trend": ic_trend(),
             },
@@ -353,7 +353,7 @@ class TestStrictCellSoftening:
             strict=False,
         )["factor"]
 
-        for name in ("hit_rate", "oos_decay", "ic_trend"):
+        for name in ("positive_rate", "oos_decay", "ic_trend"):
             out = er.metrics[name]
             assert math.isnan(out.value)
             assert out.metadata["reason"] == "structure_mismatch"
@@ -362,7 +362,7 @@ class TestStrictCellSoftening:
         er = fx.evaluate(
             _panel(n_assets=20, n_dates=120),
             metrics={
-                "hit_rate": hit_rate(),
+                "positive_rate": positive_rate(),
                 "oos_decay": oos_decay(),
                 "ic_trend": ic_trend(),
             },
@@ -370,7 +370,7 @@ class TestStrictCellSoftening:
             forward_periods=5,
         )["factor"]
 
-        assert not math.isnan(er.metrics["hit_rate"].value)
+        assert not math.isnan(er.metrics["positive_rate"].value)
         assert not math.isnan(er.metrics["oos_decay"].value)
         assert not math.isnan(er.metrics["ic_trend"].value)
 

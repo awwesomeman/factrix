@@ -737,7 +737,7 @@ source, not restated here. Format:
 5. Paper citations under a `References:` block (optional; only complex
    methods need it, simple diagnostics don't)
 
-Examples (inline formula): `ts_beta.ts_beta_sign_consistency`
+Examples (inline formula): `common_beta.common_beta_sign_consistency`
 Examples (Formula block): `fm_beta.pooled_beta`,
 `_helpers._sample_non_overlapping`
 
@@ -1002,7 +1002,7 @@ are fine as-is.
 2. **One concept, many estimators → every variant carries a method
    token.** When the same quantity is computed by different methods,
    each metric name must include its method (`fm_beta_sign_consistency`
-   vs `ts_beta_sign_consistency`, `fm_beta` vs `ts_beta` vs
+   vs `common_beta_sign_consistency`, `fm_beta` vs `common_beta` vs
    `pooled_beta`). A bare name with no token is ambiguous about which
    estimator it is. Conversely, a family prefix (`event_`, `ts_`) is
    only warranted when a bare-name sibling exists or the prefix names

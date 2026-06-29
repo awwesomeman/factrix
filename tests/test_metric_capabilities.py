@@ -6,7 +6,7 @@ import datetime as dt
 
 import polars as pl
 import pytest
-from factrix.metrics import fm_beta, hit_rate, ic, monotonicity
+from factrix.metrics import fm_beta, ic, monotonicity, positive_rate
 from factrix.metrics._metric_capabilities import (
     resolve_min_assets_per_group,
     resolve_per_date_series,
@@ -33,7 +33,7 @@ def test_resolve_per_date_series_fama_macbeth_shape() -> None:
 
 def test_resolve_per_date_series_hit_rate_binary_cast() -> None:
     series = pl.DataFrame({"date": _dates(4), "ic": [0.5, -0.1, 0.0, 1.2]})
-    out = resolve_per_date_series(hit_rate)(series)
+    out = resolve_per_date_series(positive_rate)(series)
     assert out.columns == ["date", "value"]
     assert out["value"].to_list() == [1.0, 0.0, 0.0, 1.0]
 
@@ -49,7 +49,7 @@ def test_resolve_per_date_series_raises_for_ineligible_metric() -> None:
 def test_resolve_min_assets_per_group_passthrough() -> None:
     assert resolve_min_assets_per_group(ic) is None
     assert resolve_min_assets_per_group(fm_beta) is None
-    assert resolve_min_assets_per_group(hit_rate) is None
+    assert resolve_min_assets_per_group(positive_rate) is None
     assert resolve_min_assets_per_group(monotonicity) == 50
 
 

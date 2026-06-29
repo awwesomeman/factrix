@@ -11,7 +11,7 @@ import pytest
 from factrix._codes import WarningCode
 from factrix._types import MIN_DIRECTIONAL_PAIRS_HARD, MIN_DIRECTIONAL_PAIRS_WARN
 from factrix.metrics.directional_hit_rate import directional_hit_rate
-from factrix.metrics.hit_rate import hit_rate
+from factrix.metrics.positive_rate import positive_rate
 
 
 def _ts_panel(x: np.ndarray, y: np.ndarray) -> pl.DataFrame:
@@ -99,7 +99,7 @@ class TestDivergenceFromHitRate:
                 "value": (np.sign(x) == np.sign(y)).astype(float),
             }
         )
-        naive = hit_rate(agree, forward_periods=1)
+        naive = positive_rate(agree, forward_periods=1)
 
         # Naive binomial sees a high hit rate and calls it significant;
         # PT, conditioning on the imbalanced marginals, does not.

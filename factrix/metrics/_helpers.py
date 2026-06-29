@@ -1043,7 +1043,7 @@ def _surface_drop_stats(
     appends the axis-specific drop ``WarningCode`` to *warning_codes*. The
     consumer passes the *axis* its upstream primitive dropped along (``"periods"``
     for ``compute_ic`` / ``compute_fm_betas``, ``"assets"`` for
-    ``compute_ts_betas``). No-op when *frame* carries no drop stats (hand-built
+    ``compute_common_betas``). No-op when *frame* carries no drop stats (hand-built
     series) or has no surviving rows. Call only on the success path — a consumer
     that short-circuits first defers to its own short-circuit reason, so the drop
     warning never double-fires.

@@ -37,8 +37,8 @@ from factrix.metrics import (
     ic_ir,
     monotonicity,
     quantile_spread,
+    rank_turnover,
     top_concentration,
-    turnover,
 )
 from factrix.metrics._base import MetricBase
 from factrix.metrics._registry import REGISTRY
@@ -63,7 +63,7 @@ _CORE_METRICS = {
     "fm_beta": fm_beta(),
     "monotonicity": monotonicity(),
     "quantile_spread": quantile_spread(),
-    "turnover": turnover(),
+    "rank_turnover": rank_turnover(),
     "top_concentration": top_concentration(),
 }
 

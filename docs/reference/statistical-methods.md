@@ -50,12 +50,12 @@ sibling.
 When NW HAC is selected, factrix uses the
 [Newey-West 1987][newey-west-1987] Bartlett kernel with a
 deterministic bandwidth, applied by `ic` (with `NeweyWest` inference), `fm_beta`,
-`pooled_beta`, `ts_quantile_spread`, and `ts_asymmetry`.
+`pooled_beta`, `common_quantile_spread`, and `common_asymmetry`.
 
 The bandwidth rule is:
 
 - For NW HAC metric paths (`ic` with `NeweyWest` inference, `fm_beta`,
-  `pooled_beta`, `ts_quantile_spread`, `ts_asymmetry`, and slice Wald):
+  `pooled_beta`, `common_quantile_spread`, `common_asymmetry`, and slice Wald):
   $$
   L = \max\!\left(\text{auto\_bartlett}(T),\; h - 1\right)
   $$
@@ -132,7 +132,7 @@ different points in the bias-variance trade-off:
 
 | Procedure | Mechanism | Strengths | Weaknesses | Where factrix uses it |
 |---|---|---|---|---|
-| **Newey-West (1987)** | Bartlett-kernel HAC on the full overlapping series, bandwidth `L = max(bandwidth_base, h−1)`. | Simple, deterministic, asymptotically valid for arbitrary autocorrelation up to `L`. | Asymptotic Gaussian — finite-sample size distortion when `h/T` is non-trivial; bandwidth rule is conservative. | `ic` (with `NeweyWest` inference), `fm_beta` stage 2, `pooled_beta`, `ts_quantile_spread`, `ts_asymmetry`. |
+| **Newey-West (1987)** | Bartlett-kernel HAC on the full overlapping series, bandwidth `L = max(bandwidth_base, h−1)`. | Simple, deterministic, asymptotically valid for arbitrary autocorrelation up to `L`. | Asymptotic Gaussian — finite-sample size distortion when `h/T` is non-trivial; bandwidth rule is conservative. | `ic` (with `NeweyWest` inference), `fm_beta` stage 2, `pooled_beta`, `common_quantile_spread`, `common_asymmetry`. |
 | **Hansen-Hodrick (HH) (1980)** | A generalized method of moments (GMM)-style HAC estimator with a rectangular kernel truncated at `h−1`; the canonical reference for overlap-aware long-horizon SEs. | Targets the MA(`h−1`) residual structure overlap induces. | Rectangular kernel can yield a non-PSD covariance matrix in finite samples; still asymptotic. | Exposed as `factrix.inference.HANSEN_HODRICK` (rectangular-kernel SE → t-statistic → two-sided p-value); also borrows the `h−1` lag idea as a floor on the NW bandwidth above. |
 | **Hodrick (1992) "1B"** | Reverse-regression: regress one-period return on the predictor sum `X_t = Σ x_{t-j}` over the last `h` periods. | Size-correct in finite samples even at large `h/T`; no bandwidth choice. | Coefficient interpretation differs — `β` is the response to a cumulative-predictor stimulus (MA on the RHS) rather than a long-horizon forecast slope (MA on the LHS in the standard form); not a drop-in replacement for the canonical `β`. | **Not implemented**. Cited as the right tool when overlap is severe; the `Individual × Continuous` cell side-steps the issue with non-overlapping resampling instead. |
 
@@ -279,7 +279,7 @@ floor in section 1 absorbs. The persistence diagnostic in this
 section is on the *input* series itself, not the residual structure
 captured by HAC.
 
-For per-asset β regressions in `compute_ts_betas`, factrix
+For per-asset β regressions in `compute_common_betas`, factrix
 deliberately retains plain OLS SE rather than HAC.
 [](){ #stage1-plain-se }
 The Stambaugh bias arises from the predictor's persistence, not from
@@ -366,5 +366,5 @@ cross-metric comparability with the other $t$-paths, and the poor-conditioning
 guard (`WarningCode.UNRELIABLE_SE_SHORT_PERIODS`, plus the $n < 5\,\text{lags}$
 check inside the kernel) flags exactly the short/high-bandwidth regime where the
 gap matters. Distinct from the single-restriction NW-HAC **Wald** tests
-(`ts_quantile_spread`, `ts_asymmetry`), which *do* use a finite-sample
+(`common_quantile_spread`, `common_asymmetry`), which *do* use a finite-sample
 $F_{r,\,T-k}$ reference.
