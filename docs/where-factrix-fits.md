@@ -145,8 +145,9 @@ pipeline; we leave that branch to qlib.
 
 **Persistent-predictor flagging only, not auto-correction** —
 when the cross-sectional or time-series predictor is highly
-persistent (ADF p > 0.10), factrix raises
-`PERSISTENT_REGRESSOR` and notes that the β estimate may carry
+persistent (ADF p-value above the configured threshold; default 0.10),
+factrix raises
+`PERSISTENT_REGRESSOR` and notes that the beta estimate may carry
 Stambaugh (1999) bias. It does not silently swap in IVX
 (Phillips-Magdalinos), Stambaugh-correction, or sign-restricted
 inference, because the right correction depends on the
