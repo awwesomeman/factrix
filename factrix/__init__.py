@@ -239,7 +239,9 @@ def evaluate(
         allow_sparse_event_override = _allows_sparse_event_override(
             density, factor_sparse_ratios[c]
         )
-        sparse_ratio_key = factor_sparse_ratios[c] if allow_sparse_event_override else 0.0
+        sparse_ratio_key = (
+            factor_sparse_ratios[c] if allow_sparse_event_override else 0.0
+        )
         cell_groups.setdefault(
             (
                 scope,
@@ -947,9 +949,8 @@ def _cell_compatibility_warnings(
     for label, spec in label_spec.items():
         if spec.cell.matches(scope, density, structure):
             continue
-        if (
-            spec.cell.density is FactorDensity.SPARSE
-            and spec.cell.matches(scope, FactorDensity.SPARSE, structure)
+        if spec.cell.density is FactorDensity.SPARSE and spec.cell.matches(
+            scope, FactorDensity.SPARSE, structure
         ):
             warnings.append(
                 Warning(
