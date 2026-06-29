@@ -49,7 +49,7 @@ front and apply multiple-testing control deliberately.
 | Exposure premium in a cross-section | [`fm_beta`](../api/metrics/fm_beta.md) | `pooled_beta`, `fm_beta_sign_consistency`, [`k_spread`](../api/metrics/k_spread.md) |
 | Sparse event effect | [`caar`](../api/metrics/caar.md) | `bmp_z`, `corrado_rank`, `event_hit_rate`, `profit_factor`, `clustering_hhi` |
 | Common macro exposure | [`common_beta`](../api/metrics/common_beta.md) | `common_beta_r_squared`, `common_beta_sign_consistency`, beta-profile diagnostics |
-| Single-asset dense prediction | [`predictive_beta`](../api/metrics/predictive_beta.md) | [`directional_hit_rate`](../api/metrics/directional_hit_rate.md), `positive_rate`, trend / out-of-sample diagnostics |
+| Single-asset dense prediction | [`predictive_beta`](../api/metrics/predictive_beta.md) | [`directional_hit_rate`](../api/metrics/directional_hit_rate.md), plus trend / out-of-sample diagnostics on derived `(date, value)` series |
 
 ## Information coefficient (IC) vs Fama-MacBeth (FM)
 
