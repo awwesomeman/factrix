@@ -83,6 +83,18 @@ def timeseries_panel() -> pl.DataFrame:
     return raw.filter(pl.col("asset_id") == first)
 
 
+@pytest.fixture(scope="module")
+def evaluated_core_result(panel: pl.DataFrame) -> fx.EvaluationResult:
+    """Evaluate the core panel metrics once for result-side invariant tests."""
+    results = fx.evaluate(
+        panel,
+        metrics=_CORE_METRICS,
+        factor_cols=["factor"],
+        forward_periods=5,
+    )
+    return results["factor"]
+
+
 def _partition_ids(info: DataInspection) -> tuple[set[int], set[int], set[int]]:
     """Identity sets of the usable / degraded / unusable partitions."""
     return (
@@ -230,45 +242,42 @@ class TestApplicabilityMirrorsSpec:
 class TestResultMirrorsSpecAndApplicability:
     """Every ``evaluate`` output must trace back to an applicable spec."""
 
-    @pytest.fixture(scope="class")
-    def evaluated(self, request: pytest.FixtureRequest):
-        panel = request.getfixturevalue("panel")
-        results = fx.evaluate(
-            panel,
-            metrics=_CORE_METRICS,
-            factor_cols=["factor"],
-            forward_periods=5,
-        )
-        return results["factor"]
-
-    def test_outputs_are_all_metric_labels(self, evaluated) -> None:
+    def test_outputs_are_all_metric_labels(
+        self, evaluated_core_result: fx.EvaluationResult
+    ) -> None:
         # All requested metric labels appear in outputs.
-        assert set(evaluated.metrics) == set(_CORE_METRICS)
+        assert set(evaluated_core_result.metrics) == set(_CORE_METRICS)
 
-    def test_result_keys_resolve_to_metric_specs(self, evaluated) -> None:
+    def test_result_keys_resolve_to_metric_specs(
+        self, evaluated_core_result: fx.EvaluationResult
+    ) -> None:
         # Result dict keys are a join key back into the spec table; each must
         # resolve to a real, user-facing METRIC spec (never a PIPELINE node).
         sbn = spec_by_name()
-        for key in evaluated.metrics:
+        for key in evaluated_core_result.metrics:
             assert key in sbn
             assert sbn[key].role is SpecRole.METRIC
 
-    def test_result_name_matches_its_key(self, evaluated) -> None:
-        for key, out in evaluated.metrics.items():
+    def test_result_name_matches_its_key(
+        self, evaluated_core_result: fx.EvaluationResult
+    ) -> None:
+        for key, out in evaluated_core_result.metrics.items():
             assert out.name == key
 
-    def test_metric_outputs_are_scalar(self, evaluated) -> None:
+    def test_metric_outputs_are_scalar(
+        self, evaluated_core_result: fx.EvaluationResult
+    ) -> None:
         # role=METRIC ⟹ output_shape=SCALAR (TestSpecMirrorsClass), so every
         # produced value is a plain float and any p-value is a probability.
-        for out in evaluated.metrics.values():
+        for out in evaluated_core_result.metrics.values():
             assert isinstance(out.value, float)
             assert out.p_value is None or 0.0 <= out.p_value <= 1.0
 
     def test_evaluated_metrics_were_deemed_applicable(
-        self, evaluated, panel: pl.DataFrame
+        self, evaluated_core_result: fx.EvaluationResult, panel: pl.DataFrame
     ) -> None:
         # The applicability → result link: nothing evaluate produced was
         # flagged unusable by inspect_data for the same data.
         info = inspect_data(panel)
         runnable = set(info.usable.names) | set(info.degraded.names)
-        assert set(evaluated.metrics) <= runnable
+        assert set(evaluated_core_result.metrics) <= runnable
