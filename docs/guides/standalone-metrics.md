@@ -2,7 +2,10 @@
 title: Standalone metrics
 ---
 
-Every metric under `factrix.metrics` can be run either as part of a multi-metric execution plan using [`evaluate()`][factrix.evaluate] or invoked directly as a **standalone metric** helper on a Polars DataFrame.
+Panel and series metrics under `factrix.metrics` can be run as part of a
+multi-metric execution plan using [`evaluate()`][factrix.evaluate] or invoked
+directly as **standalone metric** helpers. Scalar post-processing helpers are
+direct-call only.
 
 This guide covers direct-call mechanics: input shape, return shape, and
 when to prefer `evaluate()` so the DAG can resolve shared dependencies. For
@@ -14,13 +17,16 @@ metric selection by research question, use [Choosing a metric](choosing-metric.m
 |---|---|---|
 | Long panel `(date, asset_id, factor, forward_return)` | `quantile_spread`, `monotonicity`, `directional_hit_rate`, `rank_turnover` | `MetricResult` or `dict[str, MetricResult]` for batchable helpers |
 | Two-column series `(date, value)` | `oos_decay`, `ic_trend`, `positive_rate` | `MetricResult` |
-| Producer output / aligned auxiliary input | `caar`, `spanning_alpha`, `greedy_forward_selection`, `breakeven_cost`, `net_spread` | `MetricResult` |
+| Producer output / aligned auxiliary input | `caar`, `spanning_alpha`, `greedy_forward_selection` | `MetricResult` |
+| Scalar post-processing values | `breakeven_cost`, `net_spread` | `MetricResult` |
 
 ---
 
 ## 1. Direct standalone calls
 
-You can call any metric callable directly. If the first argument is a Polars DataFrame or Series, the metric runs immediately and returns its results.
+You can call any metric callable directly. If the first argument is a Polars
+DataFrame, Series, or scalar input expected by the helper, the metric runs
+immediately and returns its results.
 
 ### Panel-input metrics
 
@@ -70,7 +76,13 @@ print(decay_res.value)  # OOS/IS retention ratio
 
 ## 2. Integrated evaluation with `evaluate()`
 
-Instead of calling multiple metrics manually and managing intermediate outputs, you can pass them together in the `metrics` dictionary of `fx.evaluate()`. The DAG executor automatically schedules and resolves any shared dependencies (like `compute_ic` or bucketing) to ensure optimal performance.
+Instead of calling multiple panel or series metrics manually and managing
+intermediate outputs, you can pass them together in the `metrics` dictionary of
+`fx.evaluate()`. The DAG executor automatically schedules and resolves any
+shared dependencies (like `compute_ic` or bucketing) to ensure optimal
+performance. Scalar helpers such as `breakeven_cost` and `net_spread` stay
+outside this path: run the upstream diagnostics first, then call the helper
+directly.
 
 ```python
 import factrix as fx

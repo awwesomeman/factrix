@@ -29,9 +29,11 @@ def compare(
 ) -> pl.DataFrame:
     """Render a wide leaderboard ``pl.DataFrame`` for multiple metrics.
 
-    One row per :class:`EvaluationResult`; two columns per metric —
-    ``<metric_name>`` (``MetricResult.value``) and ``<metric_name>_p_value``
-    (``MetricResult.p_value`` when present, else ``null``).
+    One row per :class:`EvaluationResult`; two columns per requested metric
+    label — ``<metric_label>`` (``MetricResult.value``) and
+    ``<metric_label>_p_value`` (``MetricResult.p_value`` when present,
+    else ``null``). The label is the key in ``EvaluationResult.metrics``,
+    usually the user-supplied key from ``evaluate(metrics={...})``.
 
     Args:
         results: Non-empty list of :class:`EvaluationResult`. Each must
@@ -41,9 +43,10 @@ def compare(
             callers still pass a one-element list; mirrors the
             ``metrics`` contract on ``fx.multi_factor.bhy`` so the
             whole multi-factor API surface uses one shape.
-        sort_by: Optional :class:`str` (must be in ``metrics``)
-            naming the sort key. ``None`` keeps input order and omits
-            the ``rank`` column.
+        sort_by: Optional :class:`str` naming any output column produced
+            before ranking: identity columns, context keys, metric value
+            columns, or ``<metric_label>_p_value`` columns. ``None`` keeps
+            input order and omits the ``rank`` column.
         descending: Sort direction applied to ``sort_by``. Default
             ``True`` (higher-is-better, the common case for ``ic`` /
             ``alpha`` / information ratio). Pass ``descending=False``
@@ -57,42 +60,30 @@ def compare(
     Returns:
         ``pl.DataFrame`` with column order ``factor``,
         ``forward_periods``, context keys (union across results,
-        first-seen order), then ``<m_name>`` / ``<m_name>_p_value`` pairs
+        first-seen order), then ``<metric_label>`` /
+        ``<metric_label>_p_value`` pairs
         in ``metrics`` order, then ``rank`` when ``sort_by`` is set.
 
     Raises:
         UserInputError: Empty ``results``; ``metrics`` not a non-empty
             ``list[str]``; any metric absent from any result's
-            outputs; ``sort_by`` not present in ``metrics``.
+            outputs; ``sort_by`` not present in the output columns.
 
     Examples:
         Multi-metric wide leaderboard sorted on IC:
 
-        >>> ic = fx.metrics.spec_by_name()["ic"]  # doctest: +SKIP
-        >>> sharpe = fx.metrics.spec_by_name()["sharpe"]  # doctest: +SKIP
         >>> board = fx.compare(  # doctest: +SKIP
-        ...     results, metrics=[ic, sharpe], sort_by=ic
+        ...     results, metrics=["ic", "sharpe"], sort_by="ic"
         ... )
 
         Lower-is-better metric (``descending=False``):
 
-        >>> rank_turnover = fx.metrics.spec_by_name()["rank_turnover"]  # doctest: +SKIP
         >>> board = fx.compare(  # doctest: +SKIP
-        ...     results, metrics=[rank_turnover], sort_by=rank_turnover, descending=False
+        ...     results, metrics=["rank_turnover"], sort_by="rank_turnover", descending=False
         ... )
     """
     metric_list = _validate_metric_list(metrics, func_name="compare", field="metrics")
     _require_non_empty_results(results, func_name="compare")
-    if sort_by is not None and sort_by not in {m for m in metric_list}:
-        raise UserInputError(
-            func_name="compare",
-            field="sort_by",
-            value=sort_by,
-            expected="str that appears in `metrics`",
-            candidates=[m for m in metric_list],
-            docs_path="api/compare#sort_by",
-        )
-
     context_keys = _ordered_keys(r.context for r in results)
     rows: list[dict[str, Any]] = []
     for r in results:
@@ -122,6 +113,16 @@ def compare(
 
     data = pl.DataFrame(rows)
     if sort_by is not None:
+        sort_candidates = list(data.columns)
+        if sort_by not in sort_candidates:
+            raise UserInputError(
+                func_name="compare",
+                field="sort_by",
+                value=sort_by,
+                expected="one of the columns produced by compare()",
+                candidates=sort_candidates,
+                docs_path="api/compare#sort_by",
+            )
         data = data.sort(sort_by, descending=descending, nulls_last=True)
         data = data.with_columns(
             pl.int_range(1, data.height + 1, dtype=pl.Int64).alias("rank")

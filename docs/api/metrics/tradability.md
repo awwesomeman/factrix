@@ -103,6 +103,12 @@ title: factrix.metrics.tradability
     # 291.7   0.00189   (approximate; bps and per-period spread)
     ```
 
+`breakeven_cost` and `net_spread` are scalar post-processing helpers, not
+panel-evaluation metrics. Keep `n_groups`, `forward_periods`, and any weighting
+choice aligned between `quantile_spread` and `notional_turnover`, then pass their
+`.value` fields into the cost helper. `inspect_data()` marks these helpers as
+standalone so they are not included in `inspect_data().usable.to_metrics_dict()`.
+
 ## See also
 
 <div class="grid cards" markdown>

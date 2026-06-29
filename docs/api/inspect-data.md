@@ -14,6 +14,11 @@ title: factrix.inspect_data
 - **Degraded**: The metric is applicable but runs with a warning because the sample size is borderline (falls between the hard `min_*` floor and the soft `warn_*` threshold).
 - **Unusable**: The metric cannot be run on this data, either because of a cell mismatch or because a hard sample floor (`min_*`) is violated.
 
+Scalar-input helpers such as `breakeven_cost` and `net_spread` are also listed
+as **unusable** for panel data. They consume already computed scalar values
+(`quantile_spread.value`, `notional_turnover.value`) rather than a panel, so run
+the upstream diagnostics first and call the helper directly.
+
 <hr>
 
 ## Result structure

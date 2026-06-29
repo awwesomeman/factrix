@@ -39,7 +39,7 @@ from typing import TYPE_CHECKING, Any
 
 import polars as pl
 
-from factrix._axis import DataStructure, FactorDensity, FactorScope, Tier
+from factrix._axis import DataStructure, FactorDensity, FactorScope, InputShape, Tier
 from factrix._codes import WarningCode, cross_section_tier
 from factrix._data_input import _FORWARD_PERIODS_COL
 from factrix._metric_index import MetricSpec, public_specs
@@ -261,9 +261,8 @@ class _FMStage1Profile:
 def _default_constructible(metric: Any) -> bool:
     """True when the metric class can be instantiated with no arguments.
 
-    Scalar-input utilities (e.g. ``breakeven_cost`` / ``net_spread``) declare
-    required parameters (``turnover`` / ``forward_periods`` …) and consume
-    pre-aggregated scalars rather than a data, so they are not part of the
+    Scalar-input utilities (e.g. ``breakeven_cost`` / ``net_spread``) consume
+    pre-aggregated scalars rather than panel data, so they are not part of the
     zero-config discovery -> :func:`factrix.evaluate` flow.
     """
     return all(
@@ -305,8 +304,9 @@ class MetricApplicabilityGroup(list["MetricApplicability"]):
             results = fx.evaluate(data, metrics=info.usable.to_metrics_dict(),
                                   factor_cols=[...], forward_periods=5)
 
-        Metrics whose class needs explicit construction arguments (the
-        scalar-input utilities) are omitted — construct and add those by hand.
+        Scalar-input utilities are kept out of ``usable`` and therefore out
+        of this bridge: compute their upstream values first, then call the
+        helper directly.
         """
         return {m.name: m.metric() for m in self if _default_constructible(m.metric)}
 
@@ -655,7 +655,8 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
                         f"Factor columns carry inconsistent FactorDensity: {{{detail}}}. "
                         f"Metric applicability is based on '{first_col}'; call "
                         f"inspect_data(data, factor_cols=[<col>]) for a verdict "
-                        f"specific to that column."
+                        f"specific to that column. Split heterogeneous factor "
+                        f"columns into separate inspect_data/evaluate batches."
                     ),
                 )
             )
@@ -672,7 +673,9 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
                         f"Factor columns carry inconsistent FactorScope: {{{detail}}}. "
                         f"Metric applicability is based on '{first_col}'; call "
                         f"inspect_data(data, factor_cols=[<col>]) for a verdict "
-                        f"specific to that column."
+                        f"specific to that column. Split asset-specific and "
+                        f"common macro factors into separate inspect_data/evaluate "
+                        f"batches."
                     ),
                 )
             )
@@ -799,6 +802,13 @@ def _evaluate_applicability(
             "(e.g. a ternary {-1, 0, +1} indicator); this metric needs a "
             "continuous magnitude and short-circuits "
             "not_applicable_discrete_signal at run time"
+        )
+
+    if spec.input_shape is InputShape.SCALAR:
+        blockers.append(
+            "scalar input utility: compute the upstream metric values first, "
+            "then call this helper directly; it is not runnable from "
+            "inspect_data().usable.to_metrics_dict()"
         )
 
     threshold_properties = properties

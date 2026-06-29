@@ -15,6 +15,7 @@ from factrix.metrics import (
     ic,
     ic_ir,
     ic_trend,
+    net_spread,
     oos_decay,
     positive_rate,
 )
@@ -100,6 +101,10 @@ class TestMetricsValidation:
     def test_overview_rejected_with_guidance(self):
         with pytest.raises(UserInputError, match="overview catalog"):
             _eval(fx.list_metrics())
+
+    def test_scalar_input_helper_rejected_with_guidance(self):
+        with pytest.raises(UserInputError, match="Scalar helpers"):
+            _eval({"net": net_spread(turnover=0.2)})
 
     def test_non_numeric_factor_column_rejected_at_entry(self):
         panel = _panel().with_columns(pl.lit("buy").alias("factor_text"))
