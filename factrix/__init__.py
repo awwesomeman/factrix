@@ -1005,8 +1005,7 @@ def _cell_mismatch_output(
     from factrix.metrics._helpers import _short_circuit_output
 
     guidance = _sparse_event_mismatch_guidance(spec, density)
-    guidance_metadata = {} if guidance is None else {"guidance": guidance}
-    return _short_circuit_output(
+    output = _short_circuit_output(
         label,
         WarningCode.STRUCTURE_MISMATCH.value,
         descriptive=True,
@@ -1020,7 +1019,11 @@ def _cell_mismatch_output(
         data_scope=scope.value,
         data_density=density.value,
         data_structure=structure.value,
-        **guidance_metadata,
+    )
+    if guidance is None:
+        return output
+    return dataclasses.replace(
+        output, metadata={**output.metadata, "guidance": guidance}
     )
 
 
