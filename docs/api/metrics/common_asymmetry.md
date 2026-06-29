@@ -1,12 +1,12 @@
 ---
-title: factrix.metrics.ts_asymmetry
+title: factrix.metrics.common_asymmetry
 ---
 
-::: factrix.metrics.ts_asymmetry
+::: factrix.metrics.common_asymmetry
     options:
       show_root_members_full_path: true
       members:
-        - ts_asymmetry
+        - common_asymmetry
 
 <hr>
 
@@ -26,7 +26,7 @@ title: factrix.metrics.ts_asymmetry
 
     Ordinary least squares (OLS) $\beta$ reports one slope and assumes a symmetric response —
     $\beta > 0$ could be "rises more on positive factor" *or* "falls
-    less on negative factor". `ts_asymmetry` runs Method A (conditional
+    less on negative factor". `common_asymmetry` runs Method A (conditional
     means on $\mathrm{sign}(f)$ dummies) so the long and short legs
     are recoverable separately.
 
@@ -57,12 +57,12 @@ title: factrix.metrics.ts_asymmetry
 
 ## Worked example — sign-asymmetric slopes on a common-factor panel
 
-!!! example "broadcast common factor → ts_asymmetry (Methods A + B)"
+!!! example "broadcast common factor → common_asymmetry (Methods A + B)"
 
     ```python
     import factrix as fx
     import polars as pl
-    from factrix.metrics.ts_asymmetry import ts_asymmetry
+    from factrix.metrics.common_asymmetry import common_asymmetry
     from factrix.preprocess import compute_forward_return
 
     # Build a panel whose ``factor`` is broadcast (one value per date,
@@ -74,7 +74,7 @@ title: factrix.metrics.ts_asymmetry
     panel  = raw.drop("factor").join(common, on="date")
     panel  = compute_forward_return(panel, forward_periods=5)
 
-    out = ts_asymmetry(panel, forward_periods=5)
+    out = common_asymmetry(panel, forward_periods=5)
     print(out.value, out.stat, out.p_value)
     # 0.00021  1.83  0.067   (approximate; method A magnitude)
     print(out.metadata["beta_long"], out.metadata["beta_short"],
@@ -89,16 +89,16 @@ title: factrix.metrics.ts_asymmetry
 
 <div class="grid cards" markdown>
 
--   __`ts_beta`__
+-   __`common_beta`__
 
     ---
 
     Symmetric linear $\beta$ on the same panel; pair when both
     direction and magnitude asymmetry matter.
 
-    [api/metrics/ts_beta →](ts_beta.md)
+    [api/metrics/common_beta →](common_beta.md)
 
--   __`ts_quantile_spread`__
+-   __`common_quantile_spread`__
 
     ---
 
@@ -106,7 +106,7 @@ title: factrix.metrics.ts_asymmetry
     two-flavour split, at the cost of $K$ free parameters and
     the `n_distinct(factor) >= n_groups * 2` gate.
 
-    [api/metrics/ts_quantile →](ts_quantile.md)
+    [api/metrics/common_quantile →](common_quantile.md)
 
 -   __`event_quality` family__
 

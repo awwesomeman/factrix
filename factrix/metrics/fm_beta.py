@@ -774,7 +774,7 @@ def pooled_beta(
 
 
 # ---------------------------------------------------------------------------
-# Beta sign consistency (parallel to hit_rate)
+# Beta sign consistency (parallel to positive_rate)
 # ---------------------------------------------------------------------------
 
 
@@ -794,7 +794,7 @@ def fm_beta_sign_consistency(
 
     $\beta_t$ is the per-date ordinary least squares (OLS) $\beta$ from ``compute_fm_betas``.
     Range $[0, 1]$; $1.0$ = $\beta$ always has the expected sign across
-    periods. Unlike ``ts_beta_sign_consistency`` (which symmetrizes via
+    periods. Unlike ``common_beta_sign_consistency`` (which symmetrizes via
     $\max(p, 1-p)$ where $p$ is the positive-sign fraction), this one is directional —
     you must supply the a-priori expected sign. Typical use: paired with
     a prior on factor direction to check stability.
@@ -808,7 +808,7 @@ def fm_beta_sign_consistency(
         pair with ``fm_beta`` for inferential significance.
 
         factrix splits this directional check from the symmetric
-        ``ts_beta_sign_consistency`` so the two answer different
+        ``common_beta_sign_consistency`` so the two answer different
         questions: this one requires the caller to commit to a prior
         sign; the symmetric variant tests cross-asset agreement only.
 

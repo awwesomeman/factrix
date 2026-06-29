@@ -10,12 +10,12 @@ betas.
 
 | Metric | Page |
 |---|---|
-| Cross-asset $t$ on per-asset $\beta_i$ (BJS aggregation) | [`ts_beta`](ts_beta.md) |
-| Spread between top- and bottom-bucket assets sorted by $\beta_i$ | [`ts_quantile`](ts_quantile.md) |
-| Sign-asymmetric slopes (positive vs negative regimes) | [`ts_asymmetry`](ts_asymmetry.md) |
+| Cross-asset $t$ on per-asset $\beta_i$ (BJS aggregation) | [`common_beta`](common_beta.md) |
+| Spread between top- and bottom-bucket assets sorted by $\beta_i$ | [`common_quantile`](common_quantile.md) |
+| Sign-asymmetric slopes (positive vs negative regimes) | [`common_asymmetry`](common_asymmetry.md) |
 
-`ts_beta` carries the cross-asset significance test; `ts_quantile` and
-`ts_asymmetry` are descriptive profile diagnostics.
+`common_beta` carries the cross-asset significance test; `common_quantile` and
+`common_asymmetry` are descriptive profile diagnostics.
 
 These metrics test the **cross-asset** distribution of per-asset
 $\beta_i$, so they need `n_assets >= 2`. At `n_assets == 1` there is no
@@ -25,7 +25,7 @@ cross-section: the cell is `PANEL`, so `evaluate` raises
 questions use [`predictive_beta`](predictive_beta.md) for the direct
 dense predictive-regression slope, the panel-input `directional_hit_rate`
 on `(date, asset_id, factor, forward_return)` for directional skill, or
-the two-column series diagnostics (`hit_rate`, `oos_decay`, `ic_trend`) on
+the two-column series diagnostics (`positive_rate`, `oos_decay`, `ic_trend`) on
 an explicit `(date, value)` series.
 
 The `Common × Sparse` cell swaps this continuous regressor for a

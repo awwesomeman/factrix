@@ -57,7 +57,7 @@ def _wald_p_linear(
     explicit ``df_denom`` to use the finite-sample ``F = W / r ~ F_{r,
     df_denom}`` reference instead:
 
-    - single-series NW-HAC regression (ts_quantile / ts_asymmetry):
+    - single-series NW-HAC regression (common_quantile / common_asymmetry):
       ``df_denom = T - k`` (residual dof, ``k`` = regressors);
     - one-way cluster-robust: ``df_denom = G - 1``;
     - two-way cluster-robust: ``df_denom = min(G_a, G_b) - 1``.

@@ -75,7 +75,7 @@ def predictive_beta(
         and ``p_value`` for ``H0: beta = 0``.
 
     Notes:
-        This is **not** a ``ts_beta`` fallback. ``ts_beta`` tests the
+        This is **not** a ``common_beta`` fallback. ``common_beta`` tests the
         cross-asset mean of per-asset betas and therefore remains a PANEL
         metric. ``predictive_beta`` is the explicit TIMESERIES dense metric
         for a single asset.

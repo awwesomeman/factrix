@@ -7,7 +7,7 @@ title: factrix.metrics.tradability
       show_root_members_full_path: true
       members:
         - notional_turnover
-        - turnover
+        - rank_turnover
         - breakeven_cost
         - net_spread
 
@@ -17,10 +17,10 @@ title: factrix.metrics.tradability
     `notional_turnover` is the Novy-Marx & Velikov (2016) $\tau$:
     fraction of top-and-bottom quantile members replaced per rebalance.
     This is the quantity whose units are compatible with `breakeven_cost`
-    and `net_spread`. `turnover` is `1 - mean(rank autocorrelation)`,
+    and `net_spread`. `rank_turnover` is `1 - mean(rank autocorrelation)`,
     a *rank-stability diagnostic* over the full cross-section — mid-rank
     churn that triggers no Q1/Qn rebalance still counts. Feeding
-    `turnover()` into the cost formulas will mis-state the result by a
+    `rank_turnover()` into the cost formulas will mis-state the result by a
     factor that grows with mid-rank churn.
 
 ## Use cases
@@ -70,7 +70,7 @@ title: factrix.metrics.tradability
 | Goal                                                                            | Function             |
 |---------------------------------------------------------------------------------|----------------------|
 | Per-rebalance Q1/Qn membership churn — feeds the cost formulas (default $\tau$) | `notional_turnover`  |
-| Rank-stability diagnostic across the full cross-section (or tail-union)         | `turnover`           |
+| Rank-stability diagnostic across the full cross-section (or tail-union)         | `rank_turnover`           |
 | Breakeven trading cost in bps, given a gross spread and $\tau$                  | `breakeven_cost`     |
 | Net per-period spread after a venue-specific cost estimate                      | `net_spread`         |
 
@@ -121,7 +121,7 @@ title: factrix.metrics.tradability
     ---
 
     Long-leg concentration on the same top bucket — combine with
-    turnover for a feasibility picture.
+    rank turnover for a feasibility picture.
 
     [api/metrics/concentration →](concentration.md)
 
@@ -129,7 +129,7 @@ title: factrix.metrics.tradability
 
     ---
 
-    Axis-agnostic slice dispatcher for per-slice turnover / breakeven
+    Axis-agnostic slice dispatcher for per-slice rank turnover / breakeven
     summaries.
 
     [api/by-slice →](../by-slice.md)

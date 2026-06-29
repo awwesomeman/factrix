@@ -62,13 +62,15 @@ def test_sort_by_descending_true_adds_rank():
 
 
 def test_sort_by_descending_false_ranks_low_first():
-    make_spec("turnover")
+    make_spec("rank_turnover")
     results = [
-        make_result(factor="high_to", p=0.5, metric="turnover", value=0.80),
-        make_result(factor="low_to", p=0.5, metric="turnover", value=0.10),
-        make_result(factor="mid_to", p=0.5, metric="turnover", value=0.45),
+        make_result(factor="high_to", p=0.5, metric="rank_turnover", value=0.80),
+        make_result(factor="low_to", p=0.5, metric="rank_turnover", value=0.10),
+        make_result(factor="mid_to", p=0.5, metric="rank_turnover", value=0.45),
     ]
-    df = compare(results, metrics=["turnover"], sort_by="turnover", descending=False)
+    df = compare(
+        results, metrics=["rank_turnover"], sort_by="rank_turnover", descending=False
+    )
     assert df["factor"].to_list() == ["low_to", "mid_to", "high_to"]
     assert df["rank"].to_list() == [1, 2, 3]
 

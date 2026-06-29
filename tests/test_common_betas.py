@@ -1,4 +1,4 @@
-"""Tests for ``compute_ts_betas`` — vectorized per-asset time-series OLS.
+"""Tests for ``compute_common_betas`` — vectorized per-asset time-series OLS.
 
 Mirrors ``test_fm_betas.py``: single-factor behaviour (schema, column-by-column
 parity with the lstsq reference, floor / degeneracy drops, pairwise-complete
@@ -13,8 +13,11 @@ import numpy as np
 import polars as pl
 import pytest
 from factrix._types import EPSILON
-from factrix.metrics._primitives._ts_betas import MIN_TS_PERIODS_HARD, compute_ts_betas
-from factrix.metrics.ts_beta import compute_rolling_mean_beta
+from factrix.metrics._primitives._common_betas import (
+    MIN_COMMON_BETA_PERIODS_HARD,
+    compute_common_betas,
+)
+from factrix.metrics.common_beta import compute_rolling_common_beta
 
 _OUT_COLS = ["asset_id", "beta", "alpha", "t_stat", "r_squared", "n_obs"]
 
@@ -51,7 +54,7 @@ def _lstsq_reference(
         y = c[rc].drop_nulls().to_numpy().astype(np.float64)
         x = c[fc].drop_nulls().to_numpy().astype(np.float64)
         n = min(len(y), len(x))
-        if n < MIN_TS_PERIODS_HARD:
+        if n < MIN_COMMON_BETA_PERIODS_HARD:
             continue
         y, x = y[:n], x[:n]
         X = np.column_stack([np.ones(n), x])
@@ -80,12 +83,12 @@ def _lstsq_reference(
 class TestComputeTSBetas:
     def test_returns_dict_keyed_by_factor(self):
         panel = _common_factor_panel(5, 40, seed=0)
-        result = compute_ts_betas(panel)
+        result = compute_common_betas(panel)
         assert isinstance(result, dict)
         assert set(result) == {"factor"}
 
     def test_output_schema(self):
-        df = compute_ts_betas(_common_factor_panel(6, 50, seed=1))["factor"]
+        df = compute_common_betas(_common_factor_panel(6, 50, seed=1))["factor"]
         # Analysis columns, plus the broadcast assets-axis drop-stat carrier.
         assert df.columns == [*_OUT_COLS, "_drop_stats"]
         assert df["asset_id"].is_sorted()
@@ -93,7 +96,7 @@ class TestComputeTSBetas:
 
     def test_matches_lstsq_reference_columnwise(self):
         panel = _common_factor_panel(40, 120, seed=2)
-        got = compute_ts_betas(panel)["factor"]
+        got = compute_common_betas(panel)["factor"]
         ref = _lstsq_reference(panel)
         assert got["asset_id"].to_list() == ref["asset_id"].to_list()
         j = ref.join(got, on="asset_id", suffix="_g")
@@ -104,14 +107,14 @@ class TestComputeTSBetas:
         assert (j["n_obs"] == j["n_obs_g"]).all()
 
     def test_drops_assets_below_min_obs(self):
-        # GOOD has MIN_TS_PERIODS_HARD rows; SHORT has fewer → dropped.
-        panel = _common_factor_panel(1, MIN_TS_PERIODS_HARD, seed=3).with_columns(
-            pl.lit("GOOD").alias("asset_id")
-        )
-        short = panel.head(MIN_TS_PERIODS_HARD - 1).with_columns(
+        # GOOD has MIN_COMMON_BETA_PERIODS_HARD rows; SHORT has fewer → dropped.
+        panel = _common_factor_panel(
+            1, MIN_COMMON_BETA_PERIODS_HARD, seed=3
+        ).with_columns(pl.lit("GOOD").alias("asset_id"))
+        short = panel.head(MIN_COMMON_BETA_PERIODS_HARD - 1).with_columns(
             pl.lit("SHORT").alias("asset_id")
         )
-        df = compute_ts_betas(pl.concat([panel, short]))["factor"]
+        df = compute_common_betas(pl.concat([panel, short]))["factor"]
         assert df["asset_id"].to_list() == ["GOOD"]
 
     def test_drops_zero_variance_asset_without_nan(self):
@@ -122,7 +125,7 @@ class TestComputeTSBetas:
         flat = good.with_columns(
             pl.lit("FLAT").alias("asset_id"), pl.lit(5.0).alias("factor")
         )
-        df = compute_ts_betas(pl.concat([good, flat]))["factor"]
+        df = compute_common_betas(pl.concat([good, flat]))["factor"]
         assert df["asset_id"].to_list() == ["GOOD"]
         assert not df["beta"].is_nan().any()
 
@@ -140,7 +143,7 @@ class TestComputeTSBetas:
             .otherwise(pl.col("forward_return"))
             .alias("forward_return")
         )
-        got = compute_ts_betas(holed)["factor"]
+        got = compute_common_betas(holed)["factor"]
 
         complete = holed.drop_nulls(["factor", "forward_return"]).sort("date")
         x = complete["factor"].to_numpy()
@@ -160,15 +163,15 @@ class TestComputeTSBetasBatch:
             pl.Series("f2", rng.standard_normal(panel.height)),
         )
         cols = ["f1", "f2"]
-        batch = compute_ts_betas(panel, factor_cols=cols)
+        batch = compute_common_betas(panel, factor_cols=cols)
         for col in cols:
-            assert batch[col].equals(compute_ts_betas(panel, factor_cols=[col])[col]), (
-                col
-            )
+            assert batch[col].equals(
+                compute_common_betas(panel, factor_cols=[col])[col]
+            ), col
 
     def test_empty_factor_list_rejected(self):
         with pytest.raises(ValueError, match="factor_cols must be non-empty"):
-            compute_ts_betas(_common_factor_panel(3, 30, seed=8), factor_cols=[])
+            compute_common_betas(_common_factor_panel(3, 30, seed=8), factor_cols=[])
 
 
 def _rolling_mean_beta_reference(
@@ -225,7 +228,7 @@ class TestRollingMeanBeta:
                     }
                 )
         df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        got = compute_rolling_mean_beta(df, window=30).sort("date")
+        got = compute_rolling_common_beta(df, window=30).sort("date")
         ref = _rolling_mean_beta_reference(df, window=30)
         assert got["date"].to_list() == ref["date"].to_list()
         assert np.allclose(got["value"].to_numpy(), ref["value"].to_numpy(), atol=1e-9)
@@ -252,7 +255,7 @@ class TestRollingMeanBeta:
                     }
                 )
         df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        got = compute_rolling_mean_beta(df, window=30)
+        got = compute_rolling_common_beta(df, window=30)
         vals = got["value"].to_numpy()
         assert got.height > 0
         assert not np.any(np.isnan(vals))

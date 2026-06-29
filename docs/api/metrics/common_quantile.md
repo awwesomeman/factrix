@@ -1,12 +1,12 @@
 ---
-title: factrix.metrics.ts_quantile
+title: factrix.metrics.common_quantile
 ---
 
-::: factrix.metrics.ts_quantile
+::: factrix.metrics.common_quantile
     options:
       show_root_members_full_path: true
       members:
-        - ts_quantile_spread
+        - common_quantile_spread
 
 <hr>
 
@@ -25,7 +25,7 @@ title: factrix.metrics.ts_quantile
     ---
 
     Linear ordinary least squares (OLS) $\beta$ reports a single slope and fails on
-    U-shape / inverted-U / extreme-only signals. `ts_quantile_spread`
+    U-shape / inverted-U / extreme-only signals. `common_quantile_spread`
     aggregates the panel to a per-date $(\_f, \_r)$ series, buckets
     `_f` into $K$ historical quantiles, and reads the conditional
     mean return per bucket — preserves whatever shape the relationship
@@ -39,7 +39,7 @@ title: factrix.metrics.ts_quantile
     difference between the top and bottom quantile of factor history.
     Inference is a Wald $\chi^2$ on $H_0: \beta_{K-1} = \beta_0$ with
     Newey-West HAC covariance; kernel choice is consistent with
-    `ts_asymmetry` so cross-method $p$-values stay comparable under
+    `common_asymmetry` so cross-method $p$-values stay comparable under
     overlapping forward returns.
 
 -   __Rank-monotonicity diagnostic across buckets__
@@ -55,12 +55,12 @@ title: factrix.metrics.ts_quantile
 
 ## Worked example — quantile-bucketed conditional means on a common-factor panel
 
-!!! example "broadcast common factor → ts_quantile_spread"
+!!! example "broadcast common factor → common_quantile_spread"
 
     ```python
     import factrix as fx
     import polars as pl
-    from factrix.metrics.ts_quantile import ts_quantile_spread
+    from factrix.metrics.common_quantile import common_quantile_spread
     from factrix.preprocess import compute_forward_return
 
     # Build a panel whose ``factor`` is broadcast (one value per date,
@@ -72,7 +72,7 @@ title: factrix.metrics.ts_quantile
     panel  = raw.drop("factor").join(common, on="date")
     panel  = compute_forward_return(panel, forward_periods=5)
 
-    out = ts_quantile_spread(panel, n_groups=5, forward_periods=5)
+    out = common_quantile_spread(panel, n_groups=5, forward_periods=5)
     print(out.value, out.stat, out.p_value)
     # 0.0018  3.20  0.0014   (approximate)
     print(out.metadata["spearman_rho"], out.metadata["spearman_p"])
@@ -88,16 +88,16 @@ title: factrix.metrics.ts_quantile
 
 <div class="grid cards" markdown>
 
--   __`ts_beta` / `ts_asymmetry`__
+-   __`common_beta` / `common_asymmetry`__
 
     ---
 
     Linear $\beta$ and signed-slope asymmetry diagnostics on the same
-    broadcast-factor panel. Use `ts_quantile_spread` when a Spearman
+    broadcast-factor panel. Use `common_quantile_spread` when a Spearman
     rank check or U-shape detection matters; the others assume a
     monotone or piecewise-linear response.
 
-    [api/metrics/ts_beta →](ts_beta.md)
+    [api/metrics/common_beta →](common_beta.md)
 
 -   __`event_quality` family__
 

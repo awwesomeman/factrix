@@ -1,15 +1,15 @@
 ---
-title: factrix.metrics.ts_beta
+title: factrix.metrics.common_beta
 ---
 
-::: factrix.metrics.ts_beta
+::: factrix.metrics.common_beta
     options:
       show_root_members_full_path: true
       members:
-        - ts_beta
-        - mean_r_squared
-        - ts_beta_sign_consistency
-        - compute_rolling_mean_beta
+        - common_beta
+        - common_beta_r_squared
+        - common_beta_sign_consistency
+        - compute_rolling_common_beta
 
 <hr>
 
@@ -31,8 +31,8 @@ title: factrix.metrics.ts_beta
 
     Stage 1 of the Black-Jensen-Scholes aggregation: per-asset OLS
     $R_{i,t} = \alpha_i + \beta_i \cdot F_t + \varepsilon$ over each
-    asset's full sample. Pre-step for `ts_beta` / `mean_r_squared` /
-    `ts_beta_sign_consistency`. Assets with fewer than `MIN_TS_PERIODS_HARD`
+    asset's full sample. Pre-step for `common_beta` / `common_beta_r_squared` /
+    `common_beta_sign_consistency`. Assets with fewer than `MIN_COMMON_BETA_PERIODS_HARD`
     rows or a singular design are dropped.
 
 -   __Cross-asset mean-$\beta$ significance__
@@ -52,7 +52,7 @@ title: factrix.metrics.ts_beta
 
     ---
 
-    `mean_r_squared` reports $\overline{R^2}$ and `median_r_squared`
+    `common_beta_r_squared` reports $\overline{R^2}$ and `median_r_squared`
     on the per-asset fits. Low values ($< 0.05$) say the factor is
     too weak or noisy to drive individual-asset returns even when
     its cross-asset mean $\beta$ looks nonzero; large mean-vs-median
@@ -64,15 +64,15 @@ title: factrix.metrics.ts_beta
     ---
 
     A common macro factor can separate asset classes even when its average
-    beta is close to zero. Pair `compute_ts_betas` with
-    `ts_beta_sign_consistency` and inspect the beta vector when equities,
+    beta is close to zero. Pair `compute_common_betas` with
+    `common_beta_sign_consistency` and inspect the beta vector when equities,
     duration, commodities, or currencies may load with opposite signs.
 
 -   __Rolling-window stability__
 
     ---
 
-    `compute_rolling_mean_beta` emits a `(date, value)` series of
+    `compute_rolling_common_beta` emits a `(date, value)` series of
     rolling cross-asset mean $\beta$ at stride `window`. Output schema
     matches the time-series tools so callers can pipe rolling betas
     into `trend` / `oos`.
@@ -83,25 +83,25 @@ title: factrix.metrics.ts_beta
 
 | Goal                                                                    | Function                          |
 |-------------------------------------------------------------------------|-----------------------------------|
-| Per-asset TS beta table for downstream inspection / slicing             | `compute_ts_betas`                |
-| Mean-$\beta$ significance across assets (Stage 2 of BJS)                | `ts_beta`                         |
-| Average explanatory power $\overline{R^2}$ across assets                | `mean_r_squared`                  |
-| Direction-agnostic sign agreement on per-asset $\beta$                  | `ts_beta_sign_consistency`        |
-| Rolling cross-asset mean $\beta$ series for trend / out-of-sample (OOS) pipes | `compute_rolling_mean_beta`       |
+| Per-asset TS beta table for downstream inspection / slicing             | `compute_common_betas`                |
+| Mean-$\beta$ significance across assets (Stage 2 of BJS)                | `common_beta`                         |
+| Average explanatory power $\overline{R^2}$ across assets                | `common_beta_r_squared`                  |
+| Direction-agnostic sign agreement on per-asset $\beta$                  | `common_beta_sign_consistency`        |
+| Rolling cross-asset mean $\beta$ series for trend / out-of-sample (OOS) pipes | `compute_rolling_common_beta`       |
 
 ## Allocation reading
 
-For asset-allocation panels, read `ts_beta` as the average exposure test, not
+For asset-allocation panels, read `common_beta` as the average exposure test, not
 as the whole common-factor story. A non-significant mean beta can still sit on
 top of a useful rotation profile when one group of assets has positive beta and
 another has negative beta.
 
 | Signal in the output | What to inspect |
 |---|---|
-| Mean beta is near zero, but the factor seems economically relevant | `ts_beta.metadata["beta_std"]`, `compute_ts_betas(...)[factor]["beta"]` |
-| Betas split between positive and negative assets | `ts_beta_sign_consistency.value`, `metadata["fraction_positive"]` |
-| A few assets drive the common-factor fit | `mean_r_squared.value`, `metadata["median_r_squared"]` |
-| The factor matters only in high / low states | [`ts_quantile_spread`](ts_quantile.md) |
+| Mean beta is near zero, but the factor seems economically relevant | `common_beta.metadata["beta_std"]`, `compute_common_betas(...)[factor]["beta"]` |
+| Betas split between positive and negative assets | `common_beta_sign_consistency.value`, `metadata["fraction_positive"]` |
+| A few assets drive the common-factor fit | `common_beta_r_squared.value`, `metadata["median_r_squared"]` |
+| The factor matters only in high / low states | [`common_quantile_spread`](common_quantile.md) |
 
 These are diagnostics for factor validation. Turning the beta profile into
 weights, hedges, leverage, or rebalance rules belongs in the downstream
@@ -109,12 +109,12 @@ portfolio/backtest layer.
 
 ## Worked example — per-asset TS betas then cross-asset $t$
 
-!!! example "compute_ts_betas → ts_beta on a broadcast common-factor panel"
+!!! example "compute_common_betas → common_beta on a broadcast common-factor panel"
 
     ```python
     import factrix as fx
     import polars as pl
-    from factrix.metrics.ts_beta import compute_ts_betas, ts_beta, mean_r_squared
+    from factrix.metrics.common_beta import compute_common_betas, common_beta, common_beta_r_squared
     from factrix.preprocess import compute_forward_return
 
     # Build a panel where ``factor`` is broadcast (one value per date,
@@ -130,7 +130,7 @@ portfolio/backtest layer.
     )
     panel = compute_forward_return(panel, forward_periods=5)
 
-    betas_df = compute_ts_betas(panel)["factor"]
+    betas_df = compute_common_betas(panel)["factor"]
     print(betas_df.head())
     # ┌──────────┬─────────┬─────────┬────────┬───────────┬───────┐
     # │ asset_id ┆ beta    ┆ alpha   ┆ t_stat ┆ r_squared ┆ n_obs │
@@ -139,8 +139,8 @@ portfolio/backtest layer.
     # │ ...      ┆  ...    ┆ ...     ┆  ...   ┆  ...      ┆  ...  │
     # └──────────┴─────────┴─────────┴────────┴───────────┴───────┘
 
-    out = ts_beta(betas_df)
-    r2  = mean_r_squared(betas_df)
+    out = common_beta(betas_df)
+    r2  = common_beta_r_squared(betas_df)
     print(out.value, out.stat, out.p_value, r2.value)
     # 0.078  6.84  4.1e-09  0.021   (approximate)
     ```
@@ -153,7 +153,7 @@ portfolio/backtest layer.
 
     ---
 
-    Pipe `compute_rolling_mean_beta` into the series diagnostics for
+    Pipe `compute_rolling_common_beta` into the series diagnostics for
     $\beta$-stability and OOS-survival reads.
 
     [api/metrics/trend →](trend.md)
@@ -189,7 +189,7 @@ portfolio/backtest layer.
     ---
 
     When this metric applies and the sample-size guards that gate it
-    (`MIN_TS_PERIODS_HARD`, `n_assets >= 3` for cross-asset t-stat, `n_assets >= 2` for sign
+    (`MIN_COMMON_BETA_PERIODS_HARD`, `n_assets >= 3` for cross-asset t-stat, `n_assets >= 2` for sign
     consistency).
 
     [reference/metric-applicability →](../../reference/metric-applicability.md)

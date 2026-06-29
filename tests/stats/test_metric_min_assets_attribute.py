@@ -16,7 +16,7 @@ import pytest
 _EXPECTED: list[tuple[str, int | None]] = [
     ("factrix.metrics.ic", None),
     ("factrix.metrics.fm_beta", None),
-    ("factrix.metrics.hit_rate", None),
+    ("factrix.metrics.positive_rate", None),
     ("factrix.metrics.caar", None),
     ("factrix.metrics.monotonicity", 50),
 ]

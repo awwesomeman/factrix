@@ -38,7 +38,7 @@ the sample axis that constrains it.
 
 ## Other metrics by family
 
-The inferential entry points (`ic`, `fm_beta`, `caar`, `ts_beta`) are the SSOT.
+The inferential entry points (`ic`, `fm_beta`, `caar`, `common_beta`) are the SSOT.
 The remaining
 metrics group by family below; the section heading carries the cell
 context, so each per-row schema reduces to *Metric / Sample axis /
@@ -72,8 +72,8 @@ Min sample*. `MIN_*` constants resolve to values in the
 
 | Metric | Sample axis | Min sample |
 |---|---|---|
-| [`turnover`][factrix.metrics.tradability.turnover] | `T` | `T ≥ 2·forward_periods + 1` |
-| [`notional_turnover`][factrix.metrics.tradability.notional_turnover] | `T` | as `turnover` |
+| [`rank_turnover`][factrix.metrics.tradability.rank_turnover] | `T` | `T >= 2*forward_periods + 1` |
+| [`notional_turnover`][factrix.metrics.tradability.notional_turnover] | `T` | `T >= 2` |
 | [`breakeven_cost`][factrix.metrics.tradability.breakeven_cost] | scalar | `notional_turnover > 0` |
 | [`net_spread`][factrix.metrics.tradability.net_spread] | scalar | spread + cost provided |
 
@@ -96,10 +96,10 @@ Min sample*. `MIN_*` constants resolve to values in the
 
 | Metric | Sample axis | Min sample |
 |---|---|---|
-| [`mean_r_squared`][factrix.metrics.ts_beta.mean_r_squared] | `n_assets` | `n_assets >= 1` |
-| [`ts_beta_sign_consistency`][factrix.metrics.ts_beta.ts_beta_sign_consistency] | `n_assets` | `n_assets >= 2` |
-| [`ts_quantile_spread`][factrix.metrics.ts_quantile.ts_quantile_spread] | `T` | `T ≥ MIN_PORTFOLIO_PERIODS_HARD`; factor `n_unique ≥ n_groups × 2` |
-| [`ts_asymmetry`][factrix.metrics.ts_asymmetry.ts_asymmetry] | `T` | factor has both signs; each side `n_unique ≥ 2` for method B |
+| [`common_beta_r_squared`][factrix.metrics.common_beta.common_beta_r_squared] | `n_assets` | `n_assets >= 1` |
+| [`common_beta_sign_consistency`][factrix.metrics.common_beta.common_beta_sign_consistency] | `n_assets` | `n_assets >= 2` |
+| [`common_quantile_spread`][factrix.metrics.common_quantile.common_quantile_spread] | `T` | `T ≥ MIN_PORTFOLIO_PERIODS_HARD`; factor `n_unique ≥ n_groups × 2` |
+| [`common_asymmetry`][factrix.metrics.common_asymmetry.common_asymmetry] | `T` | factor has both signs; each side `n_unique ≥ 2` for method B |
 
 ### Single-asset dense — Cell: Timeseries × Continuous
 
@@ -118,7 +118,7 @@ Min sample*. `MIN_*` constants resolve to values in the
 
 | Metric | Sample axis | Min sample |
 |---|---|---|
-| [`hit_rate`][factrix.metrics.hit_rate.hit_rate] | series length | `T ≥ MIN_SERIES_PERIODS_HARD` |
+| [`positive_rate`][factrix.metrics.positive_rate.positive_rate] | series length | `T ≥ MIN_SERIES_PERIODS_HARD` |
 | [`ic_trend`][factrix.metrics.trend.ic_trend] | `T` | `T ≥ 10` (literal floor) |
 | [`oos_decay`][factrix.metrics.oos_decay.oos_decay] | `T` | `T ≥ 2 × MIN_OOS_PERIODS_HARD` |
 
@@ -142,13 +142,13 @@ below.
 |---|---|---|---|---|---|
 | `MIN_IC_ASSETS_HARD` | 2 | per-date `n_assets` | hard | `factrix/_types.py` | `compute_ic` (drops dates with pairwise-complete `n_assets < 2`) → consumed by `ic`, `ic_ir` |
 | `MIN_IC_ASSETS_WARN` | 10 | per-date `n_assets` | warn | `factrix/_types.py` | `ic`, `ic_ir`, `inspect_data`; tags `WarningCode.FEW_ASSETS` when retained IC dates have `n_assets < 10` |
-| `MIN_SERIES_PERIODS_HARD` | 10 | `T` | hard | `factrix/_types.py` | `ic` post-stride sampled IC series, `hit_rate`, and series-mean non-overlap pre-flight |
+| `MIN_SERIES_PERIODS_HARD` | 10 | `T` | hard | `factrix/_types.py` | `ic` post-stride sampled IC series, `positive_rate`, and series-mean non-overlap pre-flight |
 | `MIN_DIRECTIONAL_PAIRS_HARD` | 10 | pooled pairs | hard | `factrix/_types.py` | `directional_hit_rate` |
 | `MIN_DIRECTIONAL_PAIRS_WARN` | 30 | pooled pairs | warn | `factrix/_types.py` | `directional_hit_rate`; tags `WarningCode.FEW_DIRECTIONAL_PAIRS` |
 | `MIN_EVENTS_HARD` | 4 | `K` (event count) | hard | `factrix/_types.py` | `caar`, `bmp_z`, `event_hit_rate`, `event_ic`, `profit_factor`, `event_skewness`, `event_around_return`, `mfe_mae`, `clustering_hhi`, `corrado_rank` |
 | `MIN_EVENTS_WARN` | 30 | `K` | warn | `factrix/_types.py` | `caar` only (Brown-Warner literature floor; descriptive event-quality metrics use HARD only) |
 | `MIN_OOS_PERIODS_HARD` | 5 | `T` (per split) | hard | `factrix/_types.py` | `oos_decay` (effective floor `T ≥ 2 × MIN_OOS_PERIODS_HARD = 10`) |
-| `MIN_PORTFOLIO_PERIODS_HARD` | 3 | `T/h` | hard | `factrix/_types.py` | `quantile_spread`, `quantile_spread_vw`, `top_concentration`, `ts_quantile_spread`, `ts_asymmetry` |
+| `MIN_PORTFOLIO_PERIODS_HARD` | 3 | `T/h` | hard | `factrix/_types.py` | `quantile_spread`, `quantile_spread_vw`, `top_concentration`, `common_quantile_spread`, `common_asymmetry` |
 | `MIN_PORTFOLIO_PERIODS_WARN` | 20 | `T/h` | warn | `factrix/_types.py` | `top_concentration` only (`quantile_spread` and the `ts_*` siblings are descriptive at the WARN tier and gate on HARD only) |
 | `MIN_MONOTONICITY_PERIODS_HARD` | 5 | `T/h` | hard | `factrix/_types.py` | `monotonicity` |
 | `MIN_PERIODS_HARD` | 20 | `T` | hard | `factrix/_stats/constants.py` | Shared hard floor for HAC / time-series inference |
@@ -158,7 +158,7 @@ below.
 | `MIN_FM_ASSETS_WARN` | 10 | per-date `n_assets` | warn | `factrix/metrics/_primitives/_fm_betas.py` | `fm_beta`, `fm_beta_sign_consistency`, `inspect_data`; tags `WarningCode.FEW_ASSETS` when retained FM dates have `n_assets < 10` |
 | `MIN_FM_PERIODS_HARD` | 4 | `T` (λ series) | hard | `factrix/metrics/fm_beta.py` | `fm_beta`, `fm_beta_sign_consistency` |
 | `MIN_FM_PERIODS_WARN` | 30 | `T` (λ series) | warn | `factrix/metrics/fm_beta.py` | `fm_beta` (Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) over-rejects below); ties to `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` |
-| `MIN_TS_PERIODS_HARD` | 20 | `T` per asset | hard | `factrix/metrics/_primitives/_ts_betas.py` | `compute_ts_betas` (drops assets with `T < 20`); upstream of `ts_beta`, `mean_r_squared`, `ts_beta_sign_consistency` |
+| `MIN_COMMON_BETA_PERIODS_HARD` | 20 | `T` per asset | hard | `factrix/metrics/_primitives/_common_betas.py` | `compute_common_betas` (drops assets with `T < 20`); upstream of `common_beta`, `common_beta_r_squared`, `common_beta_sign_consistency` |
 
 Naming caveats:
 
@@ -198,7 +198,7 @@ Inferential metrics enforce two separate floors:
 **Descriptive metrics** (`clustering_hhi`, `corrado_rank`,
 `event_around_return`, `event_hit_rate`,
 `event_ic`, `profit_factor`, `event_skewness`, `mfe_mae`,
-`quantile_spread`, `ts_quantile_spread`, `ts_asymmetry`, `bmp_z`)
+`quantile_spread`, `common_quantile_spread`, `common_asymmetry`, `bmp_z`)
 enforce **`_HARD` only** — they have no formal H₀ under which power
 can be characterised, so the literature `_WARN` tier is undefined
 for them. They accept smaller-`n` inputs than the inferential
@@ -220,7 +220,7 @@ A few specific caveats worth flagging:
   `WarningCode.FEW_EVENTS` fires. The `bmp_z` /
   `corrado_rank` siblings only partly mitigate.
 - **`MIN_PORTFOLIO_PERIODS_HARD = 3` / `MIN_PORTFOLIO_PERIODS_WARN = 20`**
-  in `top_concentration` and `ts_quantile_spread`. Below 3 there is
+  in `top_concentration` and `common_quantile_spread`. Below 3 there is
   no spread / concentration t to compute; in `[3, 20)` the metric
   returns the stat with `WarningCode.BORDERLINE_PORTFOLIO_PERIODS`.
   **`MIN_OOS_PERIODS_HARD = 5`** in `oos_decay` remains

@@ -10,7 +10,7 @@ from factrix.metrics.tradability import (
     breakeven_cost,
     net_spread,
     notional_turnover,
-    turnover,
+    rank_turnover,
 )
 
 
@@ -25,11 +25,11 @@ def _panel(n_dates: int, assets: list[str], factor_of) -> pl.DataFrame:
     return pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
 
-class TestComputeTurnover:
+class TestComputeRankTurnover:
     def test_static_factor(self):
         """Same factor values every date → rank_autocorr=1.0 → turnover=0."""
         df = _panel(5, ["A", "B", "C"], lambda t, a: ord(a) - ord("A") + 1)
-        result = turnover(df)
+        result = rank_turnover(df)
         assert result.value == pytest.approx(0.0, abs=0.01)
         assert result.metadata["n_pairs"] == 4
         assert result.metadata["forward_periods"] == 1
@@ -43,14 +43,14 @@ class TestComputeTurnover:
                 "factor": [1.0, 2.0, 3.0],
             }
         ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        result = turnover(df)
+        result = rank_turnover(df)
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "insufficient_dates"
 
     def test_insufficient_dates_for_horizon(self):
         """2·h + 1 dates is the minimum for SE to be defined."""
         df = _panel(4, ["A", "B", "C"], lambda t, a: ord(a) + t)
-        result = turnover(df, forward_periods=2)
+        result = rank_turnover(df, forward_periods=2)
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "insufficient_dates"
         assert result.metadata["min_required"] == 5
@@ -68,7 +68,7 @@ class TestComputeTurnover:
             return base if t % 2 == 0 else (4 - base)
 
         df = _panel(7, ["A", "B", "C"], factor)
-        result = turnover(df, forward_periods=2)
+        result = rank_turnover(df, forward_periods=2)
         assert result.value == pytest.approx(0.0, abs=0.01)
         assert result.metadata["n_pairs"] == 3
 
@@ -84,8 +84,8 @@ class TestComputeTurnover:
         df = _panel(6, assets, lambda t, a: ord(a) + 0.1 * t)
         q = 0.2
 
-        filtered = turnover(df, forward_periods=1, quantile=q)
-        unfiltered = turnover(df, forward_periods=1)
+        filtered = rank_turnover(df, forward_periods=1, quantile=q)
+        unfiltered = rank_turnover(df, forward_periods=1)
 
         assert filtered.metadata["quantile"] == q
         assert filtered.metadata["n_cross_section_mean"] == pytest.approx(4.0)
@@ -95,12 +95,12 @@ class TestComputeTurnover:
     def test_quantile_validation(self):
         df = _panel(5, ["A", "B", "C"], lambda t, a: ord(a))
         with pytest.raises(ValueError, match="quantile"):
-            turnover(df, quantile=0.6)
+            rank_turnover(df, quantile=0.6)
 
     def test_forward_periods_validation(self):
         df = _panel(5, ["A", "B", "C"], lambda t, a: ord(a))
         with pytest.raises(ValueError, match="forward_periods"):
-            turnover(df, forward_periods=0)
+            rank_turnover(df, forward_periods=0)
 
 
 class TestNotionalTurnover:
@@ -128,7 +128,7 @@ class TestNotionalTurnover:
     def test_middle_shuffle_does_not_count(self):
         """Middle-rank reshuffling with stable tails → notional=0, ρ<1.
 
-        This is the raison d'être of notional_turnover: ``turnover``
+        This is the raison d'être of notional_turnover: ``rank_turnover``
         (1 − Spearman ρ) is non-zero here because middle ranks move,
         but no bps cost is actually incurred because Q1/Q5 membership
         is unchanged.
@@ -147,7 +147,7 @@ class TestNotionalTurnover:
 
         df = _panel(6, self.TEN_ASSETS, factor)
         notional = notional_turnover(df, n_groups=5)
-        stab = turnover(df)
+        stab = rank_turnover(df)
         assert notional.value == pytest.approx(0.0)
         assert stab.value > 0.05  # rank AC noticeably below 1
         assert tails == set("ABIJ")  # scaffolding: document intent

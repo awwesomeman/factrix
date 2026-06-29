@@ -1,8 +1,8 @@
-"""Tradability metrics: Turnover, Breakeven Cost, Net Spread.
+"""Tradability metrics: Rank Turnover, Breakeven Cost, Net Spread.
 
 Two flavours of turnover co-exist here, measuring different things:
 
-- ``turnover()`` — ``1 − mean(rank autocorrelation)``. Rank-stability
+- ``rank_turnover()`` — ``1 − mean(rank autocorrelation)``. Rank-stability
   diagnostic; responds to mid-rank reshuffling. **Not** a notional
   trading-fraction and should **not** be fed into ``breakeven_cost`` /
   ``net_spread``.
@@ -14,7 +14,7 @@ Two flavours of turnover co-exist here, measuring different things:
 These are implementation-feasibility indicators, not factor quality
 or significance tests.
 
-Input for Turnover: DataFrame with ``date, asset_id, factor``.
+Input for Rank Turnover: DataFrame with ``date, asset_id, factor``.
 Input for Breakeven/Net Spread: pre-computed spread and turnover values.
 
 Notes:
@@ -59,34 +59,34 @@ _TR_CS_PRIMITIVES = (
 
 __all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
     "notional_turnover",
-    "turnover",
+    "rank_turnover",
     "breakeven_cost",
     "net_spread",
 ]
 
 
-def _turnover_min_dates(forward_periods: int) -> int:
-    """Raw-date floor for ``turnover``: the non-overlap pair stride ``h`` needs
+def _rank_turnover_min_dates(forward_periods: int) -> int:
+    """Raw-date floor for ``rank_turnover``: the non-overlap pair stride ``h`` needs
     >= 3 sampled dates (>= 2 non-overlapping pairs so ``std(rho)`` is defined),
     i.e. >= ``2*h + 1`` raw dates (Hansen & Hodrick 1980).
     """
     return 2 * forward_periods + 1
 
 
-def _turnover_sample_threshold(self: MetricBase) -> SampleThreshold:
-    """Dynamic periods floor for ``turnover``, scaling with ``forward_periods``.
-    Delegates to the same ``_turnover_min_dates`` the in-body short-circuit
+def _rank_turnover_sample_threshold(self: MetricBase) -> SampleThreshold:
+    """Dynamic periods floor for ``rank_turnover``, scaling with ``forward_periods``.
+    Delegates to the same ``_rank_turnover_min_dates`` the in-body short-circuit
     reads, so the pre-flight and run-time floors agree.
     """
-    return SampleThreshold(min_periods=_turnover_min_dates(self.forward_periods))
+    return SampleThreshold(min_periods=_rank_turnover_min_dates(self.forward_periods))
 
 
 @metric(
     cell=_TR_CELL,
     aggregation=Aggregation.TS_ONLY,
-    sample_threshold=_turnover_sample_threshold,
+    sample_threshold=_rank_turnover_sample_threshold,
 )
-def turnover(
+def rank_turnover(
     data: pl.DataFrame,
     factor_col: str = "factor",
     forward_periods: int = 1,
@@ -96,7 +96,7 @@ def turnover(
 
     The periods floor is dynamic — the minimum date count is ``2*forward_periods + 1`` — so it is declared as a resolver (a callable sample_threshold) rather than a constant, letting inspect_data pre-flight it.
 
-    $\text{turnover} = 1 - \mathrm{mean}(\bar\rho)$ where $\bar\rho$ is the mean rank autocorrelation
+    $\text{rank_turnover} = 1 - \mathrm{mean}(\bar\rho)$ where $\bar\rho$ is the mean rank autocorrelation
 
     **What this measures.** Sensitivity of the *full* cross-section rank
     vector to reshuffling between ``t`` and ``t + forward_periods``. Mid-rank
@@ -136,7 +136,7 @@ def turnover(
             only against other tail-filtered estimates at the same q.
 
     Returns:
-        MetricResult with ``value = turnover estimate (0–1)`` and metadata
+        MetricResult with ``value = rank turnover estimate (0–1)`` and metadata
         carrying ``mean_rank_autocorrelation``, ``std_rank_autocorrelation``,
         ``n_pairs``, ``forward_periods``, ``quantile``, and
         ``n_cross_section_mean`` (mean assets-per-pair post-filter).
@@ -152,7 +152,7 @@ def turnover(
         For each non-overlap pair $(t, t+h)$, compute
         $\rho_t = \mathrm{Spearman}(\mathrm{rank}_t, \mathrm{rank}_{t+h})$
         over assets present in both cross-sections;
-        $\text{turnover} = 1 - \mathrm{mean}_t \rho_t$. With the optional
+        $\text{rank_turnover} = 1 - \mathrm{mean}_t \rho_t$. With the optional
         tail filter, $\rho_t$ is restricted to the union of top- and
         bottom-q assets at either endpoint.
 
@@ -167,9 +167,9 @@ def turnover(
 
     Examples:
         >>> import factrix as fx
-        >>> from factrix.metrics.tradability import turnover
+        >>> from factrix.metrics.tradability import rank_turnover
         >>> panel = fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0)
-        >>> result = turnover(panel, forward_periods=5)
+        >>> result = rank_turnover(panel, forward_periods=5)
         >>> result.name == ""
         True
     """
@@ -181,10 +181,10 @@ def turnover(
     all_dates = data["date"].unique().sort()
     # Need ≥ 2 non-overlapping pairs so std(ρ) is defined; that requires
     # ≥ 3 sampled dates (Hansen & Hodrick 1980), i.e. ≥ 2·h + 1 raw dates.
-    min_required = _turnover_min_dates(forward_periods)
+    min_required = _rank_turnover_min_dates(forward_periods)
     if len(all_dates) < min_required:
         return _short_circuit_output(
-            "turnover",
+            "rank_turnover",
             "insufficient_dates",
             n_obs=len(all_dates),
             min_required=min_required,
@@ -229,7 +229,7 @@ def turnover(
 
     if rc_per_date.height < 2:
         return _short_circuit_output(
-            "turnover",
+            "rank_turnover",
             "insufficient_pairs",
             n_obs=rc_per_date.height,
             min_required=2,
@@ -458,7 +458,7 @@ def breakeven_cost(
 
     Expects ``turnover`` to be a **notional** fraction ∈ [0, 1] — the
     share of the equal-weight Q1/Q_n portfolio replaced per rebalance.
-    Use ``notional_turnover()``; do **not** feed in ``turnover()``
+    Use ``notional_turnover()``; do **not** feed in ``rank_turnover()``
     (which is rank-stability, not position-change).
 
     Time-scale alignment: ``gross_spread`` from ``quantile_spread`` is
@@ -485,7 +485,7 @@ def breakeven_cost(
 
         factrix expects ``turnover`` to be a notional fraction in [0, 1]
         (output of ``notional_turnover``); feeding the rank-stability
-        ``turnover()`` value will mis-state breakeven by a factor that
+        ``rank_turnover()`` value will mis-state breakeven by a factor that
         grows with mid-rank churn.
 
     References:
@@ -561,7 +561,7 @@ def net_spread(
 
     Expects ``turnover`` to be a **notional** fraction ∈ [0, 1] — the
     share of the equal-weight Q1/Q_n portfolio replaced per rebalance.
-    Use ``notional_turnover()``; do **not** feed in ``turnover()``
+    Use ``notional_turnover()``; do **not** feed in ``rank_turnover()``
     (which is rank-stability, not position-change).
 
     Args:
@@ -582,7 +582,7 @@ def net_spread(
         amortisation any factor with ``h >= 2`` is over-charged by ``h x``.
 
         factrix expects ``turnover`` to be a notional fraction (output of
-        ``notional_turnover``); rank-stability ``turnover()`` over-states
+        ``notional_turnover``); rank-stability ``rank_turnover()`` over-states
         the cost drag.
 
     References:

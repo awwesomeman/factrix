@@ -9,7 +9,7 @@ needs to know which.
 Two methods, both fit by OLS with Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) covariance and
 tested by a finite-sample Wald F so cross-method p-values stay comparable and the
 overlapping-forward-return autocorrelation is handled the same way
-as `ts_beta_t_nw`. Welch t is intentionally avoided — its iid
+as `common_beta_t_nw`. Welch t is intentionally avoided — its iid
 assumption breaks under `forward_periods > 1`.
 
 - Method A (conditional means): `r = β_long·I(f>0) + β_short·I(f<0)
@@ -59,7 +59,7 @@ from factrix.metrics._helpers import (
 )
 
 __all__ = [
-    "ts_asymmetry",
+    "common_asymmetry",
 ]
 
 
@@ -68,7 +68,7 @@ __all__ = [
     aggregation=Aggregation.CS_THEN_TS,
     sample_threshold=SampleThreshold(min_periods=MIN_PORTFOLIO_PERIODS_HARD),
 )
-def ts_asymmetry(
+def common_asymmetry(
     data: pl.DataFrame,
     *,
     factor_col: str = "factor",
@@ -137,24 +137,24 @@ def ts_asymmetry(
     Examples:
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
-        >>> from factrix.metrics.ts_asymmetry import ts_asymmetry
+        >>> from factrix.metrics.common_asymmetry import common_asymmetry
         >>> panel = compute_forward_return(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> result = ts_asymmetry(panel)
+        >>> result = common_asymmetry(panel)
         >>> result.name == ""
         True
     """
     if "date" not in data.columns:
         return _short_circuit_output(
-            "ts_asymmetry",
+            "common_asymmetry",
             "no_date_column",
         )
     for col in (factor_col, return_col):
         if col not in data.columns:
             return _short_circuit_output(
-                "ts_asymmetry",
+                "common_asymmetry",
                 f"no_{col}_column",
             )
 
@@ -166,7 +166,10 @@ def ts_asymmetry(
     n_periods = len(per_date)
 
     sc = _enforce_min_floor(
-        ts_asymmetry, "ts_asymmetry", n_periods, "insufficient_portfolio_periods"
+        common_asymmetry,
+        "common_asymmetry",
+        n_periods,
+        "insufficient_portfolio_periods",
     )
     if sc is not None:
         return sc
@@ -184,7 +187,7 @@ def ts_asymmetry(
 
     if n_pos == 0 or n_neg == 0:
         return _short_circuit_output(
-            "ts_asymmetry",
+            "common_asymmetry",
             "no_two_sided_factor",
             n_pos=n_pos,
             n_neg=n_neg,

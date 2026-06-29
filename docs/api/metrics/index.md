@@ -102,7 +102,7 @@ but their registered structure is `PANEL`; at `n_assets == 1` they raise
 Single-asset dense workflows use `predictive_beta` for direct
 predictive-regression slope inference and `directional_hit_rate` for sign
 prediction. Single-asset sparse workflows use sparse metrics whose cell
-wildcard allows `TIMESERIES`. Two-column diagnostics such as `hit_rate` /
+wildcard allows `TIMESERIES`. Two-column diagnostics such as `positive_rate` /
 `oos_decay` / `ic_trend` are standalone `(date, value)` tools; in
 `evaluate()` they layer on panel IC series, not raw single-asset dense panels.
 
@@ -124,10 +124,10 @@ modules plus a fourth axis-agnostic group**:
 **Single-asset dense** (`predictive_beta`) is the explicit
 `DataStructure.TIMESERIES` path for `n_assets == 1`: it runs a direct
 `forward_return ~ factor` predictive regression with Newey-West HAC
-inference. It is deliberately separate from `ts_beta`, whose estimand is
+inference. It is deliberately separate from `common_beta`, whose estimand is
 the cross-asset mean of per-asset betas.
 
-**Series diagnostics** (`hit_rate`, `trend`, `oos_decay`) are standalone
+**Series diagnostics** (`positive_rate`, `trend`, `oos_decay`) are standalone
 axis-agnostic helpers on `(date, value)` inputs. Their `evaluate()` path is
 the panel IC-series path (`compute_ic` → diagnostic), so their registered
 cell reflects that producer contract. `directional_hit_rate` lives near them

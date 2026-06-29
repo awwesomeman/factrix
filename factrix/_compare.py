@@ -47,7 +47,7 @@ def compare(
         descending: Sort direction applied to ``sort_by``. Default
             ``True`` (higher-is-better, the common case for ``ic`` /
             ``alpha`` / information ratio). Pass ``descending=False``
-            for lower-is-better metrics such as ``turnover`` or any
+            for lower-is-better metrics such as ``rank_turnover`` or any
             cost / drag metric. :class:`str` deliberately does
             not carry a ``higher_is_better`` flag — encoding sort
             direction in the type system bakes in a default that
@@ -76,9 +76,9 @@ def compare(
 
         Lower-is-better metric (``descending=False``):
 
-        >>> turnover = fx.metrics.spec_by_name()["turnover"]  # doctest: +SKIP
+        >>> rank_turnover = fx.metrics.spec_by_name()["rank_turnover"]  # doctest: +SKIP
         >>> board = fx.compare(  # doctest: +SKIP
-        ...     results, metrics=[turnover], sort_by=turnover, descending=False
+        ...     results, metrics=[rank_turnover], sort_by=rank_turnover, descending=False
         ... )
     """
     metric_list = _validate_metric_list(metrics, func_name="compare", field="metrics")

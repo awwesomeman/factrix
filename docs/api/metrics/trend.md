@@ -99,23 +99,23 @@ title: factrix.metrics.trend
 
     [api/metrics/ic →](ic.md)
 
--   __`hit_rate` / `oos`__
+-   __`positive_rate` / `oos`__
 
     ---
 
     Sibling series diagnostics on the same input shape — sign
     significance and IS/out-of-sample (OOS) persistence.
 
-    [api/metrics/hit_rate →](hit_rate.md)
+    [api/metrics/positive_rate →](positive_rate.md)
 
--   __`compute_rolling_mean_beta`__
+-   __`compute_rolling_common_beta`__
 
     ---
 
     Common-factor source of a rolling-$\beta$ series for stability
     trend analysis via the same primitive.
 
-    [api/metrics/ts_beta →](ts_beta.md)
+    [api/metrics/common_beta →](common_beta.md)
 
 -   __Statistical methods__
 

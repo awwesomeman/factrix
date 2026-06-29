@@ -41,7 +41,7 @@ commitment.
 
 The metric callable's module must declare `per_date_series` (a
 top-level capability function returning a `(date, value)` long-form
-frame); information coefficient (IC), Fama-MacBeth, and hit_rate ship with this declaration.
+frame); information coefficient (IC), Fama-MacBeth, and positive_rate ship with this declaration.
 A metric without it raises `TypeError` at the function call site.
 
 See the docstring Examples blocks above for the canonical

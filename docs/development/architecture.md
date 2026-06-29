@@ -278,7 +278,7 @@ internally by the primitives that procedures wrap:
   pairs are retained, and IC consumers / `inspect_data` surface
   `WarningCode.FEW_ASSETS` because the cross-section is statistically thin.
 - `MIN_SERIES_PERIODS_HARD = 10` — shared periods-axis floor for
-  non-overlapping series diagnostics (`ic` post-stride mean test, `hit_rate`,
+  non-overlapping series diagnostics (`ic` post-stride mean test, `positive_rate`,
   and the series-mean non-overlap pre-flight). It is intentionally not
   IC-named because the same 10-draw floor applies outside IC.
 - `MIN_EVENTS_HARD = 4`, `MIN_EVENTS_WARN = 30` — two-tier sparse-cell
@@ -314,7 +314,7 @@ resolves to one meaning on sight:
   `K-1`), `df_denom` (denominator), `df_resid` (residual). A DoF value never goes
   unqualified.
 - **`…_df` suffix → DataFrame.** A *named* frame keeps the informative idiom
-  (`ic_df`, `caar_df`, `beta_df`, `ts_betas_df`) — the prefix is the content, the
+  (`ic_df`, `caar_df`, `beta_df`, `common_betas_df`) — the prefix is the content, the
   `_df` says "frame". A *standalone* frame uses **`data`**, or a semantic noun where
   one reads better (`panel`, `per_date`, `factor_panel`, `subset`, `residuals`).
 - **bare `df` / `_df` → banned.** The unqualified token is exactly the ambiguous
@@ -562,7 +562,7 @@ per-asset OLS R_i = α_i + β_i·F over all n_periods dates   (time-series step)
 
 Failure modes:
 
-- per-asset `n_periods < MIN_TS_PERIODS_HARD = 20` → asset dropped.
+- per-asset `n_periods < MIN_COMMON_BETA_PERIODS_HARD = 20` → asset dropped.
 - `n_assets < MIN_ASSETS_WARN = 30` → `WarningCode.FEW_ASSETS` (still runs; severity scales with `n_assets`).
 - `n_assets = 1` → no asset cross-section to aggregate the per-asset βs
   over. The cell declares `cell.structure = PANEL`, so `evaluate` raises
@@ -598,19 +598,19 @@ Failure modes:
 
 ### `common_continuous` at `n_assets == 1` — not supported
 
-`common_continuous` metrics (`ts_beta`, `ts_quantile`, `ts_asymmetry`)
+`common_continuous` metrics (`common_beta`, `common_quantile`, `common_asymmetry`)
 test the **cross-asset** distribution of per-asset βs, so they require
 `n_assets >= 2`. At `n_assets == 1` the cell (`COMMON, DENSE, PANEL`) does not match the
 derived `TIMESERIES` structure, so `evaluate` raises
 `IncompatibleAxisError` (or NaN + `structure_mismatch` under
 `strict=False`). There is **no** single-series beta collapse inside
-`ts_beta`; use `predictive_beta` for the explicit single-asset dense
+`common_beta`; use `predictive_beta` for the explicit single-asset dense
 predictive regression
 `forward_return_t = alpha + beta * factor_t + epsilon_t` with Newey-West HAC
 inference. For single-asset dense directional diagnostics, use
 `directional_hit_rate` on the long-panel
 `(date, asset_id, factor, forward_return)` shape. Two-column diagnostics
-(`hit_rate`, `oos_decay`, `ic_trend`) remain standalone `(date, value)` tools;
+(`positive_rate`, `oos_decay`, `ic_trend`) remain standalone `(date, value)` tools;
 their `evaluate()` path layers on panel IC series, not raw single-asset dense
 panels. Sparse metrics whose structure is wildcarded remain available at `n_assets == 1`.
 
@@ -727,7 +727,7 @@ Everything else. Specifically:
 
 - **Same cell already has a mainstream metric** but you want to surface a different angle
   (non-linearity, asymmetry, decomposition, regime split). Example precedent:
-  `event_quality.py` (hit_rate / profit_factor / event_skewness / signal_density) all
+  `event_quality.py` (event_hit_rate / profit_factor / event_skewness / signal_density) all
   supplement the mainstream CAAR metric for `(*, SPARSE, PANEL)`.
 - **Descriptive diagnostic without a formal H₀** (concentration Herfindahl-Hirschman index (HHI), tradability, out-of-sample (OOS) decay).
 - **Multi-factor relationship** outside the single-factor inference frame (`spanning.py`).
@@ -777,8 +777,8 @@ factrix/
 ├── _stats/                  # numerics: hac, bootstrap, unit_root, wald, gmm, ols, diagnostics, constants
 ├── stats/                   # public estimator surface (newey_west, hansen_hodrick, driscoll_kraay, gmm, ...)
 ├── estimators/              # lowercase estimator callables
-├── metrics/                 # @metric callables (ic, fm_beta, ts_beta, caar, ...) + _registry
-│                            # per-cell thresholds (MIN_FM_PERIODS_HARD/WARN, MIN_TS_PERIODS_HARD) live
+├── metrics/                 # @metric callables (ic, fm_beta, common_beta, caar, ...) + _registry
+│                            # per-cell thresholds (MIN_FM_PERIODS_HARD/WARN, MIN_COMMON_BETA_PERIODS_HARD) live
 │                            # alongside the metrics that enforce them
 ├── slicing/                 # by_slice + slice_pairwise_test / slice_joint_test
 ├── preprocess/              # compute_forward_return / normalize / orthogonalize

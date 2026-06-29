@@ -47,7 +47,7 @@ MIN_IC_ASSETS_HARD: int = 2
 MIN_IC_ASSETS_WARN: int = 10
 
 # Minimum sampled series length (periods axis) for sign / mean diagnostics on
-# non-overlapping series. Used by IC's post-stride series test, hit_rate's
+# non-overlapping series. Used by IC's post-stride series test, positive_rate's
 # binomial sign-count test, and the raw-period base in series-mean inference.
 MIN_SERIES_PERIODS_HARD: int = 10
 

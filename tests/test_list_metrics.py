@@ -53,7 +53,7 @@ _PRIMARY_METRIC_CELLS: dict[str, list[tuple[FactorScope, FactorDensity]]] = {
         (FactorScope.INDIVIDUAL, FactorDensity.SPARSE),
         (FactorScope.COMMON, FactorDensity.SPARSE),
     ],
-    "ts_beta": [(FactorScope.COMMON, FactorDensity.DENSE)],
+    "common_beta": [(FactorScope.COMMON, FactorDensity.DENSE)],
 }
 
 # Family-subsection cell-name → (scope, density) cells.
@@ -107,8 +107,6 @@ def _parse_applicability_doc() -> dict[tuple[FactorScope, FactorDensity], set[st
             expected[cell].add(name)
 
     text = _APPLICABILITY_DOC.read_text(encoding="utf-8")
-    cell_re = re.compile(r"^###\s+(.+?)\s+—\s+Cell:\s+(.+?)\s*$")
-    nocell_re = re.compile(r"^###\s+(.+?)\s+—\s+not cell-bound\s*$")
     row_re = re.compile(r"^\|\s*\[`([^`]+)`\]")
     h2_re = re.compile(r"^##\s")
 
@@ -117,11 +115,14 @@ def _parse_applicability_doc() -> dict[tuple[FactorScope, FactorDensity], set[st
         if h2_re.match(line):
             active = []
             continue
-        if m := cell_re.match(line):
-            active = _CELL_HEADING_MAP.get(m.group(2).strip(), [])
+        if line.startswith("###") and "Cell:" in line:
+            cell_name = line.split("Cell:", 1)[1].strip()
+            active = _CELL_HEADING_MAP.get(cell_name, [])
             continue
-        if m := nocell_re.match(line):
-            active = _NOT_CELL_BOUND_MAP.get(m.group(1).strip(), [])
+        if line.startswith("###") and "not cell-bound" in line:
+            family = line.removeprefix("###").split("not cell-bound", 1)[0]
+            family = re.sub(r"\s+[^A-Za-z0-9`]+$", "", family).strip()
+            active = _NOT_CELL_BOUND_MAP.get(family, [])
             continue
         if active and (m := row_re.match(line)):
             for cell in active:

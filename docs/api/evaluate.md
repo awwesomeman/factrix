@@ -48,13 +48,13 @@ title: factrix.evaluate
 
     At `n_assets == 1` there is no cross-section, so any `DENSE` metric whose
     cell is `PANEL` — `Individual × Continuous` (`ic`, `fm`) **and**
-    `Common × Continuous` (`ts_beta`, `ts_quantile`, `ts_asymmetry`) —
+    `Common × Continuous` (`common_beta`, `common_quantile`, `common_asymmetry`) —
     raises `IncompatibleAxisError` (or NaN + `structure_mismatch` under
     `strict=False`). Single-asset data runs through the same entry point
     with `predictive_beta` for dense predictive-regression slopes, sparse
     metrics whose cell wildcard allows `TIMESERIES`, and panel-input wildcard
     metrics such as `directional_hit_rate`. Two-column diagnostics
-    (`hit_rate`, `oos_decay`, `ic_trend`) are standalone `(date, value)`
+    (`positive_rate`, `oos_decay`, `ic_trend`) are standalone `(date, value)`
     tools; in `evaluate()` they layer on panel IC series, not raw
     single-asset dense panels.
 
@@ -123,7 +123,7 @@ Metric behaviors are defined by instantiating metric classes directly. The DAG e
 
 ```python
 import factrix as fx
-from factrix.metrics import ic, caar, ts_beta
+from factrix.metrics import ic, caar, common_beta
 
 # 1. Individual × Continuous (e.g. Information Coefficient)
 results_ic = fx.evaluate(
@@ -142,9 +142,9 @@ results_caar = fx.evaluate(
 )
 
 # 3. Common × Continuous (e.g. Time-Series Beta)
-results_beta = fx.evaluate(
+resulcommon_beta = fx.evaluate(
     data,
-    metrics={"ts_beta": ts_beta()},
+    metrics={"common_beta": common_beta()},
     factor_cols=["macro_factor"],
     forward_periods=5
 )

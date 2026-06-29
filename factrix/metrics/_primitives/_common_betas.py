@@ -20,16 +20,16 @@ from factrix.metrics._helpers import _attach_drop_stats
 
 # Minimum complete (factor, return) observations per asset to fit a
 # time-series slope. Mirrors the historical per-asset floor.
-MIN_TS_PERIODS_HARD: int = 20
+MIN_COMMON_BETA_PERIODS_HARD: int = 20
 
 # One carrier label covering the three silent asset-axis reductions in
-# ``_ts_betas_one``: assets with no complete (factor, return) pairs vanish at
-# the valid-mask group-by; assets with fewer than MIN_TS_PERIODS_HARD complete pairs
+# ``_common_betas_one``: assets with no complete (factor, return) pairs vanish at
+# the valid-mask group-by; assets with fewer than MIN_COMMON_BETA_PERIODS_HARD complete pairs
 # are filtered; assets with zero factor time-variation yield a null slope that
 # is dropped. The cross-asset consumers aggregate over the survivors, so the
 # drop rate is measured against the raw universe.
-_TS_BETA_DROP_REASON = (
-    f"per-asset history below MIN_TS_PERIODS_HARD ({MIN_TS_PERIODS_HARD}), zero factor "
+_COMMON_BETA_DROP_REASON = (
+    f"per-asset history below MIN_COMMON_BETA_PERIODS_HARD ({MIN_COMMON_BETA_PERIODS_HARD}), zero factor "
     f"variation, or no complete (factor, return) pairs"
 )
 
@@ -42,7 +42,7 @@ _TS_BETA_DROP_REASON = (
     role=SpecRole.PIPELINE,
     batchable=True,
 )
-def compute_ts_betas(
+def compute_common_betas(
     data: pl.DataFrame,
     factor_cols: Sequence[str] = ("factor",),
     return_col: str = "forward_return",
@@ -79,7 +79,7 @@ def compute_ts_betas(
         ``asset_id``, plus a broadcast ``_drop_stats`` carrier column on the
         assets axis (see :func:`_attach_drop_stats`) so cross-asset consumers
         can surface how much of the universe was silently dropped. An asset is
-        emitted only with at least ``MIN_TS_PERIODS_HARD`` complete pairs and
+        emitted only with at least ``MIN_COMMON_BETA_PERIODS_HARD`` complete pairs and
         non-zero factor time-variation (zero-variance assets have no
         identifiable slope and are dropped).
     """
@@ -87,10 +87,12 @@ def compute_ts_betas(
     if not cols:
         raise ValueError("factor_cols must be non-empty")
 
-    return {f: _ts_betas_one(data, f, return_col) for f in cols}
+    return {f: _common_betas_one(data, f, return_col) for f in cols}
 
 
-def _ts_betas_one(data: pl.DataFrame, factor_col: str, return_col: str) -> pl.DataFrame:
+def _common_betas_one(
+    data: pl.DataFrame, factor_col: str, return_col: str
+) -> pl.DataFrame:
     # In-line asset count vs the raw universe, captured before the valid-mask
     # filter so the carried drop rate reflects the silent reduction the
     # cross-asset consumers see — including assets dropped for having no
@@ -114,7 +116,7 @@ def _ts_betas_one(data: pl.DataFrame, factor_col: str, return_col: str) -> pl.Da
             pl.col(return_col).var().alias("_var_y"),
             pl.cov(factor_col, return_col).alias("_cov"),
         )
-        .filter(pl.col("n_obs") >= MIN_TS_PERIODS_HARD)
+        .filter(pl.col("n_obs") >= MIN_COMMON_BETA_PERIODS_HARD)
     )
 
     n = pl.col("n_obs")
@@ -164,5 +166,5 @@ def _ts_betas_one(data: pl.DataFrame, factor_col: str, return_col: str) -> pl.Da
         result,
         axis="assets",
         n_in=n_assets_in,
-        drop_reason=_TS_BETA_DROP_REASON,
+        drop_reason=_COMMON_BETA_DROP_REASON,
     )

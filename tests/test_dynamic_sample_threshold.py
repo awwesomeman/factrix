@@ -92,7 +92,7 @@ def _cs_panel(n_dates: int, *, n_assets: int = 60, market_cap: bool = False):
     return panel
 
 
-def _hit_rate_series(n_dates: int):
+def _positive_rate_series(n_dates: int):
     from datetime import datetime, timedelta
 
     import polars as pl
@@ -116,9 +116,9 @@ def _build_stride_sampled_cases():
         MIN_SERIES_PERIODS_HARD,
     )
     from factrix.metrics.concentration import top_concentration
-    from factrix.metrics.hit_rate import hit_rate
     from factrix.metrics.k_spread import k_spread
     from factrix.metrics.monotonicity import monotonicity
+    from factrix.metrics.positive_rate import positive_rate
     from factrix.metrics.quantile import quantile_spread, quantile_spread_vw
 
     return [
@@ -139,7 +139,13 @@ def _build_stride_sampled_cases():
             {},
         ),
         ("monotonicity", monotonicity, MIN_MONOTONICITY_PERIODS_HARD, _cs_panel, {}),
-        ("hit_rate", hit_rate, MIN_SERIES_PERIODS_HARD, _hit_rate_series, {}),
+        (
+            "positive_rate",
+            positive_rate,
+            MIN_SERIES_PERIODS_HARD,
+            _positive_rate_series,
+            {},
+        ),
     ]
 
 

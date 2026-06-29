@@ -48,7 +48,7 @@ contrasts, not a sidecar to a primary value.
 | [`caar`][factrix.metrics.caar.caar] | non-overlapping `t` on event-date CAAR | `p_value` | mean(CAAR) |
 | [`bmp_z`][factrix.metrics.caar.bmp_z] | BMP cross-sectional `z` on SAR | `p_value` | mean(SAR) |
 | [`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank] | nonparametric rank `z` | `p_value` | mean(U × sign(factor)) |
-| [`hit_rate`][factrix.metrics.hit_rate.hit_rate] | binomial test (or normal `z`) | `p_value` | hit rate ∈ [0, 1] |
+| [`positive_rate`][factrix.metrics.positive_rate.positive_rate] | binomial test (or normal `z`) | `p_value` | hit rate ∈ [0, 1] |
 | [`directional_hit_rate`][factrix.metrics.directional_hit_rate.directional_hit_rate] | Pesaran-Timmermann `z` (one-sided) | `p_value` | directional hit rate ∈ [0, 1] |
 | [`event_hit_rate`][factrix.metrics.event_quality.event_hit_rate] | binomial test (or normal `z`) | `p_value` | hit rate ∈ [0, 1] |
 | [`event_ic`][factrix.metrics.event_quality.event_ic] | Fisher-transformed Spearman `z` | `p_value` | Spearman ρ |
@@ -68,12 +68,12 @@ contrasts, not a sidecar to a primary value.
 | [`greedy_forward_selection`][factrix.metrics.spanning.greedy_forward_selection] | none — selection meta | — | (NaN; results in metadata) |
 | [`ic_trend`][factrix.metrics.trend.ic_trend] | Theil-Sen slope `t` (CI-based) | `p_value` | Theil-Sen slope |
 | [`predictive_beta`][factrix.metrics.predictive_beta.predictive_beta] | Newey-West HAC `t` on single-asset predictive slope | `p_value` | predictive beta |
-| [`ts_beta`][factrix.metrics.ts_beta.ts_beta] | cross-asset `t` on per-asset β | `p_value` | mean(β) |
-| [`ts_beta_sign_consistency`][factrix.metrics.ts_beta.ts_beta_sign_consistency] | none — descriptive | — | max(p, 1-p) on sign fraction |
-| [`mean_r_squared`][factrix.metrics.ts_beta.mean_r_squared] | none — descriptive | — | mean(R²) |
-| [`ts_asymmetry`][factrix.metrics.ts_asymmetry.ts_asymmetry] | Wald F (NW HAC, finite-sample) on slope sum / equality | `p_value` | β_long + β_short |
-| [`ts_quantile_spread`][factrix.metrics.ts_quantile.ts_quantile_spread] | Wald F (NW HAC, finite-sample) on bucket β contrast | `p_value` | top − bottom bucket β |
-| [`turnover`][factrix.metrics.tradability.turnover] | none — descriptive | — | 1 − mean(rank-AC) |
+| [`common_beta`][factrix.metrics.common_beta.common_beta] | cross-asset `t` on per-asset β | `p_value` | mean(β) |
+| [`common_beta_sign_consistency`][factrix.metrics.common_beta.common_beta_sign_consistency] | none — descriptive | — | max(p, 1-p) on sign fraction |
+| [`common_beta_r_squared`][factrix.metrics.common_beta.common_beta_r_squared] | none — descriptive | — | mean(R²) |
+| [`common_asymmetry`][factrix.metrics.common_asymmetry.common_asymmetry] | Wald F (NW HAC, finite-sample) on slope sum / equality | `p_value` | β_long + β_short |
+| [`common_quantile_spread`][factrix.metrics.common_quantile.common_quantile_spread] | Wald F (NW HAC, finite-sample) on bucket β contrast | `p_value` | top − bottom bucket β |
+| [`rank_turnover`][factrix.metrics.tradability.rank_turnover] | none — descriptive | — | 1 − mean(rank-AC) |
 | [`notional_turnover`][factrix.metrics.tradability.notional_turnover] | none — descriptive | — | replaced fraction |
 | [`breakeven_cost`][factrix.metrics.tradability.breakeven_cost] | none — descriptive | — | breakeven spread (bps) |
 | [`net_spread`][factrix.metrics.tradability.net_spread] | none — descriptive | — | net spread (bps) |
@@ -178,9 +178,9 @@ Boehmer-Musumeci-Poulsen standardised-abnormal-return cross-sectional
 - *primary*: `p_value` — Corrado nonparametric rank `z`.
 - *descriptive*: `n_events`, `n_total_obs`.
 
-### `hit_rate` (`factrix.metrics.hit_rate`)
+### `positive_rate` (`factrix.metrics.positive_rate`)
 
-#### `hit_rate`
+#### `positive_rate`
 
 `MetricResult.stat` is the binomial hit count when the exact branch
 runs, the normal `z` when the approximation branch runs;
@@ -195,7 +195,7 @@ runs, the normal `z` when the approximation branch runs;
 
 #### `directional_hit_rate`
 
-Small-N robust sibling of `hit_rate`. `MetricResult.value` is the
+Small-N robust sibling of `positive_rate`. `MetricResult.value` is the
 directional hit rate (sign-agreement fraction); `stat` is the
 Pesaran-Timmermann `z` statistic (`stat_type="z"`), tested one-sided.
 
@@ -214,7 +214,7 @@ Pesaran-Timmermann `z` statistic (`stat_type="z"`), tested one-sided.
 
 #### `event_hit_rate`
 
-Same shape as `hit_rate` (binomial / normal-approx branches).
+Same shape as `positive_rate` (binomial / normal-approx branches).
 
 - *primary*: `p_value`.
 - *descriptive*: `n_events`, `n_hits`.
@@ -429,30 +429,30 @@ Newey-West HAC `t` statistic for `H0: beta = 0`.
   `degenerate_factor_variance`, `no_factor_column`, or
   `no_return_column`.
 
-### `ts_beta` (`factrix.metrics.ts_beta`)
+### `common_beta` (`factrix.metrics.common_beta`)
 
-#### `ts_beta`
+#### `common_beta`
 
 - *primary*: `p_value` — cross-asset `t` on the per-asset OLS β
   distribution.
 - *descriptive*: `n_assets`, `beta_std`, `median_beta`.
 
-#### `mean_r_squared`
+#### `common_beta_r_squared`
 
 Descriptive; no test.
 
 - *descriptive*: `n_assets`, `median_r_squared`, `min_r_squared`,
   `max_r_squared`.
 
-#### `ts_beta_sign_consistency`
+#### `common_beta_sign_consistency`
 
 Descriptive symmetric consistency — `value ∈ [0.5, 1.0]`.
 
 - *descriptive*: `n_assets`, `fraction_positive`.
 
-### `ts_asymmetry` (`factrix.metrics.ts_asymmetry`)
+### `common_asymmetry` (`factrix.metrics.common_asymmetry`)
 
-#### `ts_asymmetry`
+#### `common_asymmetry`
 
 Two complementary methods:
 
@@ -470,9 +470,9 @@ Two complementary methods:
   `method_b_skipped` (conditional), `intercept` (conditional),
   `beta_zero` (conditional).
 
-### `ts_quantile` (`factrix.metrics.ts_quantile`)
+### `common_quantile` (`factrix.metrics.common_quantile`)
 
-#### `ts_quantile_spread`
+#### `common_quantile_spread`
 
 - *primary*: `p_value` — Wald F (NW HAC, finite-sample `F_{r, T−k}`) on
   `H₀: β_top = β_bottom` from an OLS fit on bucket dummies.
@@ -487,7 +487,7 @@ All four are descriptive — `MetricResult.stat = None` and no
 `p_value` is emitted. They feed cost/benefit arithmetic, not
 inference.
 
-#### `turnover`
+#### `rank_turnover`
 
 - *descriptive*: `mean_rank_autocorrelation`,
   `std_rank_autocorrelation`, `n_pairs`, `forward_periods`,

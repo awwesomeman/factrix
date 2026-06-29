@@ -77,7 +77,7 @@ def event_hit_rate(
         data: Panel with event density and forward return.
 
     Returns:
-        MetricResult with value=hit_rate, stat=z from binomial test.
+        MetricResult with value=hit rate, stat=z from binomial test.
 
     Notes:
         ``hits = sum_i 1{signed_car_i > 0}``, ``rate = hits / N``.

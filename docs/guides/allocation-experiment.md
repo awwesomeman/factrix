@@ -78,9 +78,9 @@ annualized_spread = float(np.mean(spread) * periods_per_year)
 annualized_sharpe = float(
     np.mean(spread) / np.std(spread, ddof=1) * np.sqrt(periods_per_year)
 )
-hit_rate = float(np.mean(spread > 0))
+positive_rate = float(np.mean(spread > 0))
 
-print(annualized_spread, annualized_sharpe, hit_rate)
+print(annualized_spread, annualized_sharpe, positive_rate)
 ```
 
 This is not a production backtest. It is a diagnostic allocation proxy:
@@ -166,16 +166,16 @@ three as factor diagnostics, not as a completed allocation rule.
 Common factors such as growth surprises, inflation shocks, VIX, DXY, or policy
 expectations are shared across assets on a date. A single average beta can hide
 rotation value: equities may load positively while duration or gold loads
-negatively, leaving `ts_beta` close to zero even though the factor separates the
+negatively, leaving `common_beta` close to zero even though the factor separates the
 asset classes.
 
 Use the beta profile before reading the average-beta test:
 
 ```python
 import polars as pl
-from factrix.metrics import mean_r_squared, ts_beta, ts_beta_sign_consistency
-from factrix.metrics import ts_quantile_spread
-from factrix.metrics.ts_beta import compute_ts_betas
+from factrix.metrics import common_beta_r_squared, common_beta, common_beta_sign_consistency
+from factrix.metrics import common_quantile_spread
+from factrix.metrics.common_beta import compute_common_betas
 
 macro = (
     panel.select("date")
@@ -186,12 +186,12 @@ macro = (
     .select("date", "macro_growth")
 )
 macro_panel = panel.join(macro, on="date")
-betas_df = compute_ts_betas(macro_panel, factor_cols=["macro_growth"])["macro_growth"]
+betas_df = compute_common_betas(macro_panel, factor_cols=["macro_growth"])["macro_growth"]
 
-avg_beta = ts_beta(betas_df)
-r2 = mean_r_squared(betas_df)
-signs = ts_beta_sign_consistency(betas_df)
-spread = ts_quantile_spread(
+avg_beta = common_beta(betas_df)
+r2 = common_beta_r_squared(betas_df)
+signs = common_beta_sign_consistency(betas_df)
+spread = common_quantile_spread(
     macro_panel,
     factor_col="macro_growth",
     forward_periods=5,
@@ -208,11 +208,11 @@ Read the pieces together:
 
 | Question | Diagnostic |
 |---|---|
-| Is the average exposure different from zero? | `ts_beta.value`, `ts_beta.p_value` |
-| Are asset betas dispersed enough for rotation? | `ts_beta.metadata["beta_std"]`, `compute_ts_betas(...)[factor]["beta"]` |
-| Does one sign dominate, or do signs split by asset class? | `ts_beta_sign_consistency.value`, `metadata["fraction_positive"]` |
-| Does the factor explain individual asset returns? | `mean_r_squared.value`, `metadata["median_r_squared"]` |
-| Is the common factor nonlinear or extreme-state driven? | `ts_quantile_spread` |
+| Is the average exposure different from zero? | `common_beta.value`, `common_beta.p_value` |
+| Are asset betas dispersed enough for rotation? | `common_beta.metadata["beta_std"]`, `compute_common_betas(...)[factor]["beta"]` |
+| Does one sign dominate, or do signs split by asset class? | `common_beta_sign_consistency.value`, `metadata["fraction_positive"]` |
+| Does the factor explain individual asset returns? | `common_beta_r_squared.value`, `metadata["median_r_squared"]` |
+| Is the common factor nonlinear or extreme-state driven? | `common_quantile_spread` |
 
 This remains a factor diagnostic. If the beta vector suggests a long-equity /
 short-duration rotation, convert that insight into weights, risk budgets,
@@ -338,7 +338,7 @@ date-disjoint and you need a calibrated cross-regime contrast. Do not compare
 two per-regime p-values and call that a regime difference.
 
 Date-axis slicing can truncate history for metrics that look across dates
-(`ts_beta`, event windows, rolling/OOS diagnostics). `by_slice` emits
+(`common_beta`, event windows, rolling/OOS diagnostics). `by_slice` emits
 `WarningCode.SLICE_BOUNDARY_TRUNCATION` for those cases. For pure per-date
 metrics such as IC / FM, a date-axis split is closer to a normal period
 decomposition.

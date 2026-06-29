@@ -1,4 +1,4 @@
-"""Directional hit rate — small-N robust sibling of ``hit_rate``.
+"""Directional hit rate — small-N robust sibling of ``positive_rate``.
 
 Notes:
     **Pipeline.** Pool sign agreement between predicted (``factor``) and
@@ -9,8 +9,8 @@ Notes:
     **Input.** DataFrame with ``date, asset_id, factor, forward_return``.
 
     The small-N robust counterpart of
-    :func:`~factrix.metrics.hit_rate.hit_rate` (and a directional sibling
-    of :func:`~factrix.metrics.event_quality.event_hit_rate`). ``hit_rate``
+    :func:`~factrix.metrics.positive_rate.positive_rate` (and a directional sibling
+    of :func:`~factrix.metrics.event_quality.event_hit_rate`). ``positive_rate``
     runs a naive two-sided binomial against ``p = 0.5`` on a single
     pre-aggregated per-date series, implicitly assuming each call is an
     independent Bernoulli draw with a fixed 0.5 success rate. The
@@ -18,9 +18,7 @@ Notes:
     frequencies of both the prediction and the realisation, so a factor
     that is simply long a persistently-rising market is not credited with
     skill. This makes it the appropriate directional test for small,
-    sign-imbalanced samples (the `n_assets < 30` allocation regime). The headline
-    ``value`` is itself a hit rate — the fraction of correctly-signed
-    calls — hence the shared ``hit_rate`` name.
+    sign-imbalanced samples (the `n_assets < 30` allocation regime). The headline ``value`` remains a hit rate: the fraction of correctly signed calls.
 """
 
 from __future__ import annotations

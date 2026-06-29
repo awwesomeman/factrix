@@ -8,7 +8,7 @@ Notes:
     **Input.** DataFrame with ``date, asset_id, factor, forward_return``.
 
     **Output.** Time-indexed IC series (``date, ic``) that can be fed
-    into any ``series/`` tool (oos, trend, significance, hit_rate).
+    into any ``series/`` tool (oos, trend, significance, positive_rate).
 """
 
 from __future__ import annotations
@@ -282,7 +282,7 @@ def ic(
                     "(factor, return) pairs, so no per-date IC survived. IC "
                     "needs a wide cross-section; for few-asset panels (e.g. "
                     "asset allocation) use a time-series metric such as "
-                    "directional_hit_rate or ts_quantile_spread."
+                    "directional_hit_rate or common_quantile_spread."
                 ),
             )
         return _short_circuit_output(
