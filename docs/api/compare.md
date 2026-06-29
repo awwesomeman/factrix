@@ -40,8 +40,13 @@ The returned `pl.DataFrame` contains the following columns:
 - `factor`: The name of the evaluated factor.
 - `forward_periods`: The forward periods horizon.
 - Context keys: All context keys present across the evaluation results, ordered by first appearance.
-- `<metric_name>`: The metric value (e.g. `ic`).
-- `<metric_name>_p_value`: The metric p-value if applicable (e.g. `ic_p_value`).
+- `<metric_label>`: The metric value, where `metric_label` is the key in
+  `EvaluationResult.metrics` and the string passed in `metrics=[...]` (e.g.
+  `ic`).
+- `<metric_label>_p_value`: The metric p-value if applicable (e.g.
+  `ic_p_value`). With a custom evaluation label such as
+  `metrics={"ic_nw": ic(...)}`, pass `metrics=["ic_nw"]` to `compare()` and
+  the p-value column is `ic_nw_p_value`.
 - `rank`: Rank column, present only when `sort_by` is set (the column is absent otherwise).
 
 ## Parameter details
@@ -49,5 +54,12 @@ The returned `pl.DataFrame` contains the following columns:
 | Kwarg | Default | Meaning |
 |-------|---------|---------|
 | `metrics` | (required) | `list[str]` of metric labels to include in the leaderboard. |
-| `sort_by` | `None` | The metric label to sort the leaderboard by. `None` keeps the original list order. |
+| `sort_by` | `None` | Any output column produced before ranking: `factor`, `forward_periods`, context keys, metric value columns such as `ic`, or p-value columns such as `ic_p_value` / `<metric_label>_p_value`. `None` keeps the original list order. |
 | `descending` | `True` | Whether to sort in descending order (higher is better). Set to `False` for lower-is-better metrics. |
+
+`rank` is created after sorting, so it is not a valid `sort_by` key. To sort
+by significance, use the p-value column and set `descending=False`:
+
+```python
+df = fx.compare(results, metrics=["ic"], sort_by="ic_p_value", descending=False)
+```

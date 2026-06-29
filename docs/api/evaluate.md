@@ -6,6 +6,8 @@ title: factrix.evaluate
 > four-column floor documented in [Data schema](data-schema.md).
 > `evaluate_horizons` consumes a raw canonical panel with `price` and factor
 > columns, then computes `forward_return` internally for each horizon.
+> Scalar post-processing helpers such as `breakeven_cost` and `net_spread`
+> are direct-call utilities, not `evaluate()` metrics.
 
 ::: factrix.evaluate
 

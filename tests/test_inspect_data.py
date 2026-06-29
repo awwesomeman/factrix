@@ -770,7 +770,7 @@ class TestMetricApplicabilityGroup:
         info = self._info()
         assert info.usable.names == [m.name for m in info.usable]
 
-    def test_to_metrics_dict_shape_and_excludes_scalar_utilities(self):
+    def test_to_metrics_dict_shape_and_flags_scalar_utilities(self):
         from factrix.metrics._base import MetricBase
 
         info = self._info()
@@ -778,9 +778,18 @@ class TestMetricApplicabilityGroup:
         assert md, "fixture should have usable metrics"
         assert all(isinstance(v, MetricBase) for v in md.values())
         assert set(md) <= set(info.usable.names)
-        # breakeven_cost / net_spread need required scalar args -> omitted.
         assert "breakeven_cost" not in md
         assert "net_spread" not in md
+        scalar_blocked = {
+            m.name: m.blockers
+            for m in info.unusable
+            if m.name in {"breakeven_cost", "net_spread"}
+        }
+        assert set(scalar_blocked) == {"breakeven_cost", "net_spread"}
+        assert all(
+            "scalar input utility" in blockers[0]
+            for blockers in scalar_blocked.values()
+        )
 
     def test_slice_preserves_type(self):
         info = self._info()
@@ -874,12 +883,14 @@ class TestCrossFactorConsistency:
         )
         assert "'factor': dense" in density_warning.message
         assert "'factor3': sparse" in density_warning.message
+        assert "separate inspect_data/evaluate batches" in density_warning.message
 
         scope_warning = next(
             w for w in info.warnings if w.code.value == "cross_factor_scope_mismatch"
         )
         assert "'factor': individual" in scope_warning.message
         assert "'factor2': common" in scope_warning.message
+        assert "asset-specific and common macro factors" in scope_warning.message
 
     def test_factor_cols_restricts_scope(self):
         raw = fx.datasets.make_cs_panel(n_assets=10, n_dates=30, seed=1)

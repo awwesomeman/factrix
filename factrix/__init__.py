@@ -55,6 +55,7 @@ from factrix._axis import (  # DataStructure used by the structure pre-flight; r
     DataStructure,
     FactorDensity,
     FactorScope,
+    InputShape,
     Tier,
 )
 from factrix._codes import WarningCode
@@ -144,6 +145,10 @@ def evaluate(
             ``forward_periods`` is **not** a metric knob: every metric runs at
             the data's single overlap horizon. To compare horizons, build two
             panels and evaluate each.
+            Scalar-input helpers (for example ``breakeven_cost`` /
+            ``net_spread``) are post-processing utilities, not
+            panel-evaluation metrics; compute their upstream diagnostics first
+            and call them directly.
         factor_cols: Names of factor columns on ``data``. List-only —
             single ``str`` is rejected. Non-empty, no duplicates, every
             name must exist on ``data``.
@@ -539,7 +544,8 @@ def _validate_metrics_arg(metrics: object) -> None:
 
         from factrix._axis import SpecRole
 
-        if val.__class__.spec().role is SpecRole.PIPELINE:
+        spec = val.__class__.spec()
+        if spec.role is SpecRole.PIPELINE:
             raise UserInputError(
                 func_name="evaluate",
                 field="metrics",
@@ -548,6 +554,19 @@ def _validate_metrics_arg(metrics: object) -> None:
                     "a standalone metric. Pipeline producers (like compute_ic) "
                     "cannot be evaluated directly; they are pulled automatically "
                     "when you evaluate a downstream metric via its `requires=` dependency."
+                ),
+                docs_path=_DOCS_METRICS,
+            )
+        if spec.input_shape is InputShape.SCALAR:
+            raise UserInputError(
+                func_name="evaluate",
+                field="metrics",
+                value=f"{key!r} -> {val.__class__.__name__}() (input_shape=SCALAR)",
+                expected=(
+                    "a panel- or series-evaluation metric. Scalar helpers such "
+                    "as breakeven_cost() / net_spread() consume already "
+                    "computed metric values; run the upstream diagnostics first "
+                    "and call the helper directly."
                 ),
                 docs_path=_DOCS_METRICS,
             )

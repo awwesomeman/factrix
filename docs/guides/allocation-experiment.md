@@ -47,6 +47,15 @@ print(result.metrics["spread"].value, result.metrics["spread"].p_value)
 positive on average. In small allocation universes, add `k_spread`: it keeps
 each leg at a fixed name count instead of forcing unstable quantile buckets.
 
+When a research sheet mixes asset-specific signals (for example trend or carry
+scores that differ by asset) with common macro signals (for example the same
+growth surprise value broadcast to every asset on a date), preflight and
+evaluate them in separate batches. `inspect_data(..., factor_cols=[...])` bases
+the displayed applicability table on one detected factor cell and warns when
+the requested columns mix scope or density; the clean workflow is one batch for
+`Individual x Dense` metrics such as `ic` / `fm_beta`, and a separate batch for
+`Common x Dense` metrics such as `common_beta` and its diagnostics.
+
 ## Build a simple allocation proxy
 
 For a custom composite signal, create the signal column upstream and use

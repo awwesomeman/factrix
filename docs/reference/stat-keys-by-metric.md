@@ -77,8 +77,8 @@ contrasts, not a sidecar to a primary value.
 | [`common_quantile_spread`][factrix.metrics.common_quantile.common_quantile_spread] | Wald F (NW HAC, finite-sample) on bucket β contrast | `p_value` | top − bottom bucket β |
 | [`rank_turnover`][factrix.metrics.tradability.rank_turnover] | none — descriptive | — | 1 − mean(rank-AC) |
 | [`notional_turnover`][factrix.metrics.tradability.notional_turnover] | none — descriptive | — | replaced fraction |
-| [`breakeven_cost`][factrix.metrics.tradability.breakeven_cost] | none — descriptive | — | breakeven spread (bps) |
-| [`net_spread`][factrix.metrics.tradability.net_spread] | none — descriptive | — | net spread (bps) |
+| [`breakeven_cost`][factrix.metrics.tradability.breakeven_cost] | none — descriptive | — | breakeven single-leg cost (bps) |
+| [`net_spread`][factrix.metrics.tradability.net_spread] | none — descriptive | — | net spread (per-period return) |
 
 ## Per-metric schemas
 

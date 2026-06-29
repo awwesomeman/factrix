@@ -58,12 +58,12 @@ overview["ic"]       # [MetricSpec(name="ic", ...), MetricSpec(name="ic_ir", ...
 sorted(overview)     # ['caar', 'fm_beta', 'ic', ...] — the concept families
 ```
 
-The catalog is a *reference*, not a runnable input — wire concrete
-callables up from `factrix.metrics` and pass them to
+The catalog is a *reference*, not a runnable input — import concrete metric
+classes from `factrix.metrics`, instantiate them, and pass those instances to
 [`evaluate`](../evaluate.md):
 
 ```python
-from factrix.metrics import ic, fm_beta, breakeven_cost
+from factrix.metrics import ic, fm_beta, quantile_spread
 ```
 
 ### Per-cell applicability → `inspect_data`
@@ -142,13 +142,15 @@ required distinction is the zero non-event state. Always-in-market
 `{-1, +1}` columns are dense directional signals because they have no non-event
 zero state.
 
-**What stays out of `evaluate()`**: strategy return metrics (Sharpe, Sortino,
-max drawdown, Calmar, annualized return), execution-cost metrics (slippage,
-market impact, borrow cost, liquidity capacity), threshold sweeps that select
-the best entry/exit cutoff, and walk-forward optimization. Those require a
-trading rule, portfolio weights, execution assumptions, or model-selection
-discipline. factrix evaluates factor density; feed screened factors into a
-backtest or execution simulator downstream.
+**What stays out of `evaluate()`**: scalar post-processing helpers such as
+`breakeven_cost` and `net_spread`; strategy return metrics (Sharpe, Sortino,
+max drawdown, Calmar, annualized return); execution-cost metrics (slippage,
+market impact, borrow cost, liquidity capacity); threshold sweeps that select
+the best entry/exit cutoff; and walk-forward optimization. Those require
+already computed diagnostic values, a trading rule, portfolio weights,
+execution assumptions, or model-selection discipline. factrix evaluates factor
+density; feed screened factors into a backtest or execution simulator
+downstream.
 
 ## How to read a metric page
 
