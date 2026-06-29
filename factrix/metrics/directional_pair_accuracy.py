@@ -3,8 +3,8 @@
 For allocation-style panels with only a handful of assets, quantile buckets can
 be too coarse to answer the most basic ordering question: did the higher-scored
 asset outperform the lower-scored asset on the same date? This module reports a
-descriptive per-date pairwise ordering accuracy and deliberately does not attach
-a naive binomial p-value over same-date pairs.
+descriptive pooled pairwise ordering accuracy and deliberately does not attach a
+naive binomial p-value over same-date pairs.
 """
 
 from __future__ import annotations
@@ -59,7 +59,7 @@ def directional_pair_accuracy(
     factor_col: str = "factor",
     return_col: str = "forward_return",
 ) -> MetricResult:
-    """Per-date pairwise ordering accuracy for small allocation universes.
+    """Pairwise ordering accuracy for small allocation universes.
 
     For each non-overlapping date, compare every pair of assets with
     pairwise-complete ``factor_col`` and ``return_col`` values. A pair is
@@ -77,10 +77,11 @@ def directional_pair_accuracy(
         return_col: Forward-return column.
 
     Returns:
-        MetricResult with ``value`` equal to the simple mean of per-date
-        pairwise ordering accuracies. ``p_value`` and ``stat`` are ``None``:
-        same-date asset pairs share shocks and are not treated as independent
-        Bernoulli trials.
+        MetricResult with ``value`` equal to pooled correct comparable pairs
+        divided by pooled comparable pairs. The unweighted mean of per-date
+        accuracies is reported in metadata. ``p_value`` and ``stat`` are
+        ``None``: same-date asset pairs share shocks and are not treated as
+        independent Bernoulli trials.
     """
     if factor_col not in data.columns:
         return _short_circuit_output(
@@ -178,14 +179,14 @@ def directional_pair_accuracy(
         )
         warning_codes.append(WarningCode.FEW_ORDERING_PAIRS.value)
 
-    value = float(np.mean(per_date_accuracy))
     pooled_accuracy = n_correct_pairs / n_usable_pairs
+    mean_per_date_accuracy = float(np.mean(per_date_accuracy))
     min_pairs = min(pairs_per_period) if pairs_per_period else 0
     max_pairs = max(pairs_per_period) if pairs_per_period else 0
     mean_pairs = float(np.mean(pairs_per_period)) if pairs_per_period else math.nan
 
     metadata: dict[str, object] = {
-        "method": "per-date pairwise ordering accuracy (descriptive; no p-value)",
+        "method": "pooled pairwise ordering accuracy (descriptive; no p-value)",
         "n_pairs": n_usable_pairs,
         "n_raw_pairs": n_raw_pairs,
         "n_periods": len(per_date_accuracy),
@@ -197,16 +198,17 @@ def directional_pair_accuracy(
         "dropped_pairs": n_raw_pairs - n_usable_pairs,
         "dropped_rows_null": rows_in - paired.height,
         "pooled_accuracy": float(pooled_accuracy),
+        "mean_per_date_accuracy": mean_per_date_accuracy,
         "mean_pairs_per_period": mean_pairs,
         "min_pairs_per_period": min_pairs,
         "max_pairs_per_period": max_pairs,
         "tie_epsilon": EPSILON,
     }
     return MetricResult(
-        value=value,
+        value=float(pooled_accuracy),
         p_value=None,
-        n_obs=len(per_date_accuracy),
-        n_obs_axis="periods",
+        n_obs=n_usable_pairs,
+        n_obs_axis="pairs",
         stat=None,
         metadata=metadata,
         warning_codes=tuple(warning_codes),

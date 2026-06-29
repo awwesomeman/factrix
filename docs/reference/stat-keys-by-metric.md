@@ -40,7 +40,7 @@ contrasts, not a sidecar to a primary value.
 
 | Metric | Primary stat (`MetricResult.stat`) | Primary `metadata` key | `value` |
 |---|---|---|---|
-| [`directional_pair_accuracy`][factrix.metrics.directional_pair_accuracy.directional_pair_accuracy] | none; descriptive | n/a | mean per-date pairwise ordering accuracy |
+| [`directional_pair_accuracy`][factrix.metrics.directional_pair_accuracy.directional_pair_accuracy] | none; descriptive | n/a | pooled pairwise ordering accuracy |
 | [`common_beta_profile`][factrix.metrics.common_beta.common_beta_profile] | none; descriptive | n/a | positive-minus-negative beta mean spread |
 | [`ic`][factrix.metrics.ic.ic] | `t` on per-date information coefficient (IC) series (non-overlapping default, Newey-West HAC if configured) | `p_value` | mean(IC) |
 | [`ic_ir`][factrix.metrics.ic.ic_ir] | none — descriptive | — | mean(IC) / std(IC) |
@@ -216,15 +216,16 @@ Pesaran-Timmermann `z` statistic (`stat_type="z"`), tested one-sided.
 
 #### `directional_pair_accuracy`
 
-Descriptive small-N ordering diagnostic. `MetricResult.value` is the simple
-mean of per-date pairwise ordering accuracies. `p_value` and `stat` are `None`
-because same-date asset pairs are not treated as independent Bernoulli trials.
+Descriptive small-N ordering diagnostic. `MetricResult.value` is pooled
+comparable-pair accuracy. `p_value` and `stat` are `None` because same-date
+asset pairs are not treated as independent Bernoulli trials.
 
 - *descriptive*: `method`, `n_pairs`, `n_raw_pairs`, `n_periods`,
   `n_correct_pairs`, `n_incorrect_pairs`, `factor_tie_pairs`,
   `return_tie_pairs`, `both_tie_pairs`, `dropped_pairs`,
-  `dropped_rows_null`, `pooled_accuracy`, `mean_pairs_per_period`,
-  `min_pairs_per_period`, `max_pairs_per_period`, `tie_epsilon`.
+  `dropped_rows_null`, `pooled_accuracy`, `mean_per_date_accuracy`,
+  `mean_pairs_per_period`, `min_pairs_per_period`, `max_pairs_per_period`,
+  `tie_epsilon`.
 - *warning*: `WarningCode.FEW_ORDERING_PAIRS` when comparable pairs sit below
   `MIN_PAIR_ACCURACY_PAIRS_WARN` but clear the hard floor.
 - *short-circuit*: `reason` `insufficient_ordering_pairs` carries

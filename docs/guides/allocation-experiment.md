@@ -245,6 +245,10 @@ group_profile = (
         (pl.col("beta") < 0).sum().alias("n_negative_beta"),
         pl.col("beta").std().alias("beta_std"),
         pl.col("beta").abs().mean().alias("abs_beta_mean"),
+        (
+            pl.col("beta").filter(pl.col("beta") > 0).mean()
+            - pl.col("beta").filter(pl.col("beta") < 0).mean()
+        ).alias("positive_minus_negative_beta_spread"),
     )
 )
 ```

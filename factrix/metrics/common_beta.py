@@ -218,7 +218,7 @@ def common_beta_profile(
         if len(pos_betas) and len(neg_betas)
         else float("nan")
     )
-    beta_std = float(np.std(betas, ddof=DDOF)) if n >= 2 else 0.0
+    beta_std = float(np.std(betas, ddof=DDOF)) if n >= 2 else float("nan")
 
     metadata: dict[str, object] = {
         "n_assets": n,

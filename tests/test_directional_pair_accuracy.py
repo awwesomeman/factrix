@@ -44,11 +44,12 @@ class TestDirectionalPairAccuracy:
         assert result.value == pytest.approx(1.0)
         assert result.p_value is None
         assert result.stat is None
-        assert result.n_obs_axis == "periods"
-        assert result.n_obs == 5
+        assert result.n_obs_axis == "pairs"
+        assert result.n_obs == 30
         assert result.metadata["n_pairs"] == 30
         assert result.metadata["n_correct_pairs"] == 30
         assert result.metadata["pooled_accuracy"] == pytest.approx(1.0)
+        assert result.metadata["mean_per_date_accuracy"] == pytest.approx(1.0)
 
     def test_reversed_ordering_scores_zero(self):
         data = _panel(
@@ -63,6 +64,19 @@ class TestDirectionalPairAccuracy:
         result = directional_pair_accuracy(data, forward_periods=1)
         assert result.value == pytest.approx(0.0)
         assert result.metadata["n_incorrect_pairs"] == 30
+
+    def test_value_is_pooled_accuracy_on_unbalanced_panels(self):
+        small_correct_dates = [[(1.0, 1.0), (2.0, 2.0)] for _ in range(10)]
+        large_reversed_date = [[(float(i), float(9 - i)) for i in range(10)]]
+        data = _panel([*small_correct_dates, *large_reversed_date])
+
+        result = directional_pair_accuracy(data, forward_periods=1)
+
+        assert result.metadata["n_correct_pairs"] == 10
+        assert result.metadata["n_incorrect_pairs"] == 45
+        assert result.value == pytest.approx(10 / 55)
+        assert result.metadata["pooled_accuracy"] == pytest.approx(10 / 55)
+        assert result.metadata["mean_per_date_accuracy"] == pytest.approx(10 / 11)
 
     def test_ties_and_nulls_are_excluded_and_counted(self):
         data = _panel(
