@@ -26,3 +26,7 @@ All three are descriptive robustness diagnostics. Use them against the IC series
 diagnostics in the navigation, but it is **not** a `(date, value)` helper: it
 consumes the long panel `(date, asset_id, factor, forward_return)` and tests
 whether `sign(factor)` predicts `sign(forward_return)`.
+
+[`directional_pair_accuracy`](directional_pair_accuracy.md) is also panel-input,
+but it compares same-date asset pairs for rank ordering and remains descriptive
+(`p_value=None`).

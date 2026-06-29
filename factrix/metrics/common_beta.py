@@ -17,6 +17,8 @@ Notes:
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import polars as pl
 
@@ -35,13 +37,18 @@ from factrix._stats import (
     _calc_t_stat,
     _p_value_from_t,
 )
-from factrix._types import DDOF
+from factrix._types import DDOF, EPSILON
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _enforce_min_floor, _surface_drop_stats
+from factrix.metrics._helpers import (
+    _enforce_min_floor,
+    _short_circuit_output,
+    _surface_drop_stats,
+)
 from factrix.metrics._primitives import compute_common_betas
 
 __all__ = [
     "common_beta",
+    "common_beta_profile",
     "common_beta_r_squared",
     "common_beta_sign_consistency",
     "compute_rolling_common_beta",
@@ -136,6 +143,109 @@ def common_beta(common_betas_df: pl.DataFrame) -> MetricResult:
         n_obs=n,
         n_obs_axis="assets",
         stat=t,
+        metadata=metadata,
+        warning_codes=tuple(warning_codes),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Descriptive beta sign / dispersion profile
+# ---------------------------------------------------------------------------
+
+
+@metric(
+    cell=_COMMON_BETA_CELL,
+    aggregation=Aggregation.TS_THEN_CS,
+    input_shape=InputShape.SERIES,
+    requires={"common_betas_df": compute_common_betas},
+    sample_threshold=SampleThreshold(min_assets=1),
+)
+def common_beta_profile(
+    common_betas_df: pl.DataFrame,
+    *,
+    neutral_epsilon: float = EPSILON,
+) -> MetricResult:
+    """Descriptive sign and dispersion profile of per-asset common-factor betas.
+
+    ``value`` is the positive-minus-negative beta mean spread when both sides
+    exist; otherwise it is ``NaN`` and the side counts in metadata explain why.
+    No hypothesis test is run.
+
+    Args:
+        common_betas_df: Per-asset beta table from
+            :func:`compute_common_betas`.
+        neutral_epsilon: Absolute-beta threshold treated as neutral. Betas with
+            ``abs(beta) <= neutral_epsilon`` are counted as neutral rather than
+            positive or negative.
+
+    Returns:
+        MetricResult with descriptive beta-profile metadata and
+        ``p_value=None``.
+    """
+    if neutral_epsilon < 0.0:
+        raise ValueError("neutral_epsilon must be non-negative")
+    if "beta" not in common_betas_df.columns:
+        return _short_circuit_output(
+            "common_beta_profile",
+            "no_beta_column",
+            missing_column="beta",
+            descriptive=True,
+        )
+
+    betas = common_betas_df["beta"].drop_nulls().to_numpy()
+    n = len(betas)
+    sc = _enforce_min_floor(
+        common_beta_profile,
+        "common_beta_profile",
+        n,
+        "no_asset_beta_observations",
+        axis="assets",
+        descriptive=True,
+    )
+    if sc is not None:
+        return sc
+
+    positive = betas > neutral_epsilon
+    negative = betas < -neutral_epsilon
+    neutral = ~(positive | negative)
+
+    pos_betas = betas[positive]
+    neg_betas = betas[negative]
+    positive_mean = float(np.mean(pos_betas)) if len(pos_betas) else float("nan")
+    negative_mean = float(np.mean(neg_betas)) if len(neg_betas) else float("nan")
+    spread = (
+        positive_mean - negative_mean
+        if len(pos_betas) and len(neg_betas)
+        else float("nan")
+    )
+    beta_std = float(np.std(betas, ddof=DDOF)) if n >= 2 else 0.0
+
+    metadata: dict[str, object] = {
+        "n_assets": n,
+        "n_positive_beta": int(np.sum(positive)),
+        "n_negative_beta": int(np.sum(negative)),
+        "n_neutral_beta": int(np.sum(neutral)),
+        "positive_beta_mean": positive_mean,
+        "negative_beta_mean": negative_mean,
+        "abs_beta_mean": float(np.mean(np.abs(betas))),
+        "beta_std": beta_std,
+        "positive_minus_negative_beta_spread": spread,
+        "neutral_epsilon": neutral_epsilon,
+        "method": "descriptive per-asset beta sign and dispersion profile",
+    }
+    if math.isnan(spread):
+        metadata["spread_status"] = "requires_positive_and_negative_betas"
+
+    warning_codes: list[str] = []
+    _surface_drop_stats(
+        common_betas_df, "common_beta_profile", metadata, warning_codes, axis="assets"
+    )
+    return MetricResult(
+        value=spread,
+        p_value=None,
+        n_obs=n,
+        n_obs_axis="assets",
+        stat=None,
         metadata=metadata,
         warning_codes=tuple(warning_codes),
     )

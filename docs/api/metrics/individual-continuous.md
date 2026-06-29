@@ -11,6 +11,7 @@ aggregated over time.
 | Spearman rank correlation, the canonical signal-quality summary | [`ic`](ic.md) |
 | Per-date ordinary least squares (OLS) slope $\lambda$, Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) $t$ on its mean | [`fm_beta`](fm_beta.md) |
 | Long-short quintile spread (equal- and value-weighted) | [`quantile`](quantile.md) |
+| Pairwise ordering accuracy for small allocation universes | [`directional_pair_accuracy`](directional_pair_accuracy.md) |
 | Quintile-return monotonicity rank test | [`monotonicity`](monotonicity.md) |
 | HHI-style top-bucket concentration | [`concentration`](concentration.md) |
 | Turnover, breakeven cost, net spread | [`tradability`](tradability.md) |

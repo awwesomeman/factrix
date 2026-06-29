@@ -8,6 +8,7 @@
 | [`metrics.concentration`][factrix.metrics.concentration] | `(INDIVIDUAL, DENSE, PANEL)` | cs_then_ts |
 | [`metrics.corrado_rank`][factrix.metrics.corrado_rank] | `(*, SPARSE, *)` | event_time |
 | [`metrics.directional_hit_rate`][factrix.metrics.directional_hit_rate] | `(*, DENSE, *)` | ts_only |
+| [`metrics.directional_pair_accuracy`][factrix.metrics.directional_pair_accuracy] | `(INDIVIDUAL, DENSE, PANEL)` | cs_then_ts |
 | [`metrics.event_horizon`][factrix.metrics.event_horizon] | `(*, SPARSE, *)` | event_time |
 | [`metrics.event_quality`][factrix.metrics.event_quality] | `(*, SPARSE, *)` | event_time |
 | [`metrics.fm_beta`][factrix.metrics.fm_beta] | `(INDIVIDUAL, DENSE, PANEL)` | cs_then_ts |

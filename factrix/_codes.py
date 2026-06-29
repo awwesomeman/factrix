@@ -67,6 +67,14 @@ class WarningCode(StrEnum):
     # ``pairs`` axis token — the count is pooled (date, asset) trials, not
     # periods.
     FEW_DIRECTIONAL_PAIRS = "few_directional_pairs"
+    # Fired by ``directional_pair_accuracy`` when the pooled non-overlapping
+    # within-date ordering pairs sit in
+    # ``[MIN_PAIR_ACCURACY_PAIRS_HARD, MIN_PAIR_ACCURACY_PAIRS_WARN)``. The
+    # metric is descriptive and returns no p-value, but a small comparable-pair
+    # count makes the per-date ordering accuracy fragile. Below the HARD floor
+    # it short-circuits to NaN instead. Named on the ``pairs`` axis token: the
+    # count is comparable asset pairs, not periods or assets.
+    FEW_ORDERING_PAIRS = "few_ordering_pairs"
     # Fired when a rectangular-kernel HAC primitive (Hansen-Hodrick 1980)
     # produces a negative variance-of-mean estimate on short / mildly
     # anti-correlated samples. Unlike the Bartlett kernel, the rectangular
@@ -210,6 +218,12 @@ _WARNING_DESCRIPTIONS.update(
         "directional trials, and the normal approximation to S_n is power-thin "
         "below ~30 pooled pairs — read borderline p-values cautiously. Below the "
         "HARD floor the metric short-circuits to NaN.",
+        WarningCode.FEW_ORDERING_PAIRS: "directional_pair_accuracy with "
+        "MIN_PAIR_ACCURACY_PAIRS_HARD ≤ n_pairs < "
+        "MIN_PAIR_ACCURACY_PAIRS_WARN (10..29); the descriptive ordering "
+        "accuracy is returned but n counts pooled non-overlapping within-date "
+        "asset pairs after factor/return ties are removed. Below the HARD "
+        "floor the metric short-circuits to NaN.",
         WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE: "Rectangular-kernel HAC variance-of-mean came out "
         "negative (no PSD guarantee, Andrews 1991); clamped to 0 → SE=0, t=0, p=1.0. "
         "Fires only on short / mildly anti-correlated samples.",

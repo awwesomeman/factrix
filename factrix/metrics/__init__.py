@@ -28,6 +28,7 @@ there is no separate Common-sparse module set):
 Common x Continuous:
     compute_common_betas, common_beta, common_beta_r_squared,
     compute_rolling_common_beta, common_beta_sign_consistency,
+    common_beta_profile,
     common_quantile_spread, common_asymmetry
 
 Single-asset x Continuous:
@@ -40,6 +41,10 @@ Scope-agnostic (run in either scope; ``cell`` scope is ``None``):
     directional_hit_rate -- small-N robust, Pesaran-Timmermann directional
     sibling of ``positive_rate`` (consumes a ``date, asset_id, factor,
     forward_return`` panel rather than a pre-aggregated series)
+
+Individual x Dense x Panel diagnostics:
+    directional_pair_accuracy -- descriptive small-N pairwise ordering
+    accuracy across same-date asset pairs
 """
 
 from factrix._metric_index import metric_spec, register
@@ -53,6 +58,7 @@ from factrix.metrics.clustering_hhi import clustering_hhi
 from factrix.metrics.common_asymmetry import common_asymmetry
 from factrix.metrics.common_beta import (
     common_beta,
+    common_beta_profile,
     common_beta_r_squared,
     common_beta_sign_consistency,
 )
@@ -60,6 +66,7 @@ from factrix.metrics.common_quantile import common_quantile_spread
 from factrix.metrics.concentration import top_concentration
 from factrix.metrics.corrado_rank import corrado_rank
 from factrix.metrics.directional_hit_rate import directional_hit_rate
+from factrix.metrics.directional_pair_accuracy import directional_pair_accuracy
 from factrix.metrics.event_horizon import (
     event_around_return,
 )
@@ -108,6 +115,7 @@ __all__ = [
     "clustering_hhi",
     "corrado_rank",
     "directional_hit_rate",
+    "directional_pair_accuracy",
     "event_around_return",
     "event_hit_rate",
     "event_ic",
@@ -135,6 +143,7 @@ __all__ = [
     "top_concentration",
     "common_asymmetry",
     "common_beta",
+    "common_beta_profile",
     "common_beta_sign_consistency",
     "common_quantile_spread",
     "rank_turnover",

@@ -224,6 +224,7 @@ nav:
               - Overview: api/metrics/series-tools.md
               - positive_rate: api/metrics/positive_rate.md
               - directional_hit_rate: api/metrics/directional_hit_rate.md
+              - directional_pair_accuracy: api/metrics/directional_pair_accuracy.md
               - predictive_beta: api/metrics/predictive_beta.md
               - trend: api/metrics/trend.md
               - oos: api/metrics/oos_decay.md

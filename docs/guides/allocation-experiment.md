@@ -112,13 +112,17 @@ print(spread_metric.value, spread_metric.p_value, spread_metric.metadata["method
 When even `k=1` is too noisy, treat the result as a fragile
 small-cross-section diagnostic rather than a portfolio claim. Pair it with
 `directional_hit_rate` when the question is "does the signal get the direction
-right?" rather than "does a long-short spread clear zero?"
+right?" and with `directional_pair_accuracy` when the question is "does the
+higher-scored asset usually beat the lower-scored asset on the same date?"
 
 ```python
-from factrix.metrics import directional_hit_rate
+from factrix.metrics import directional_hit_rate, directional_pair_accuracy
 
 hit = directional_hit_rate(panel, forward_periods=5)
 print(hit.value, hit.p_value, hit.metadata["p_expected"])
+
+ordering = directional_pair_accuracy(panel, forward_periods=5)
+print(ordering.value, ordering.p_value, ordering.metadata["n_pairs"])
 ```
 
 For 5-20 asset panels, read IC / FM output as the canonical inference layer when
@@ -134,7 +138,7 @@ in the `Individual × Dense` cell and read a small set of complementary
 diagnostics:
 
 ```python
-from factrix.metrics import directional_hit_rate, fm_beta, k_spread
+from factrix.metrics import directional_hit_rate, directional_pair_accuracy, fm_beta, k_spread
 
 country_panel = panel.rename({"factor": "country_momentum"})
 
@@ -144,6 +148,7 @@ country = fx.evaluate(
         "fm": fm_beta(),
         "spread": k_spread(k=2),
         "direction": directional_hit_rate(),
+        "ordering": directional_pair_accuracy(),
     },
     factor_cols=["country_momentum"],
     forward_periods=5,
@@ -154,12 +159,15 @@ result = country["country_momentum"]
 print(result.metrics["fm"].value, result.metrics["fm"].p_value)
 print(result.metrics["spread"].value, result.metrics["spread"].p_value)
 print(result.metrics["direction"].value, result.metrics["direction"].p_value)
+print(result.metrics["ordering"].value, result.metrics["ordering"].p_value)
 ```
 
 `fm_beta` keeps the economic unit of the signal, `k_spread` gives a
 fixed-count long-short read when the asset universe is small, and
-`directional_hit_rate` checks whether the signal gets the sign right. Treat the
-three as factor diagnostics, not as a completed allocation rule.
+`directional_hit_rate` checks whether the signal gets the sign right.
+`directional_pair_accuracy` checks same-date rank ordering without turning
+within-date pairs into a naive p-value. Treat the set as factor diagnostics, not
+as a completed allocation rule.
 
 ## Common macro factors and heterogeneous betas
 
@@ -173,7 +181,8 @@ Use the beta profile before reading the average-beta test:
 
 ```python
 import polars as pl
-from factrix.metrics import common_beta_r_squared, common_beta, common_beta_sign_consistency
+from factrix.metrics import common_beta_r_squared, common_beta, common_beta_profile
+from factrix.metrics import common_beta_sign_consistency
 from factrix.metrics import common_quantile_spread
 from factrix.metrics.common_beta import compute_common_betas
 
@@ -189,6 +198,7 @@ macro_panel = panel.join(macro, on="date")
 betas_df = compute_common_betas(macro_panel, factor_cols=["macro_growth"])["macro_growth"]
 
 avg_beta = common_beta(betas_df)
+profile = common_beta_profile(betas_df)
 r2 = common_beta_r_squared(betas_df)
 signs = common_beta_sign_consistency(betas_df)
 spread = common_quantile_spread(
@@ -199,7 +209,7 @@ spread = common_quantile_spread(
 )
 
 print(avg_beta.value, avg_beta.p_value)
-print(avg_beta.metadata["beta_std"], avg_beta.metadata["median_beta"])
+print(profile.value, profile.metadata["n_positive_beta"], profile.metadata["n_negative_beta"])
 print(r2.value, signs.value, signs.metadata["fraction_positive"])
 print(spread.value, spread.p_value)
 ```
@@ -209,10 +219,35 @@ Read the pieces together:
 | Question | Diagnostic |
 |---|---|
 | Is the average exposure different from zero? | `common_beta.value`, `common_beta.p_value` |
-| Are asset betas dispersed enough for rotation? | `common_beta.metadata["beta_std"]`, `compute_common_betas(...)[factor]["beta"]` |
-| Does one sign dominate, or do signs split by asset class? | `common_beta_sign_consistency.value`, `metadata["fraction_positive"]` |
+| Are asset betas dispersed enough for rotation? | `common_beta_profile.metadata["beta_std"]`, `compute_common_betas(...)[factor]["beta"]` |
+| Does one sign dominate, or do signs split by asset class? | `common_beta_profile.metadata["n_positive_beta"]`, `metadata["n_negative_beta"]`, `common_beta_sign_consistency.value` |
 | Does the factor explain individual asset returns? | `common_beta_r_squared.value`, `metadata["median_r_squared"]` |
 | Is the common factor nonlinear or extreme-state driven? | `common_quantile_spread` |
+
+When the asset-class split matters, join your own labels to the beta table and
+summarize signs and dispersion by group. Keep missing labels explicit:
+
+```python
+asset_groups = pl.DataFrame(
+    {
+        "asset_id": ["A00", "A01", "A02"],
+        "asset_group": ["equity", "duration", "commodity"],
+    }
+)
+
+group_profile = (
+    betas_df.join(asset_groups, on="asset_id", how="left")
+    .with_columns(pl.col("asset_group").fill_null("__missing_group__"))
+    .group_by("asset_group")
+    .agg(
+        pl.len().alias("n_assets"),
+        (pl.col("beta") > 0).sum().alias("n_positive_beta"),
+        (pl.col("beta") < 0).sum().alias("n_negative_beta"),
+        pl.col("beta").std().alias("beta_std"),
+        pl.col("beta").abs().mean().alias("abs_beta_mean"),
+    )
+)
+```
 
 This remains a factor diagnostic. If the beta vector suggests a long-equity /
 short-duration rotation, convert that insight into weights, risk budgets,
