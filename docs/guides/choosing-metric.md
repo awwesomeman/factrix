@@ -30,6 +30,27 @@ Then use the cross-reference pages by task:
 | Which `MetricResult` fields and metadata keys matter? | [Stat keys by metric](../reference/stat-keys-by-metric.md) |
 | Which metrics apply to my specific panel? | [`inspect_data`](../api/inspect-data.md) |
 
+## First-pass metrics vs diagnostics
+
+factrix uses "mainstream" and "supplementary" as a usage convention, not
+as a registry tier. This mirrors the way quant research usually separates a
+primary specification from robustness checks, decompositions, and diagnostics.
+`evaluate()` runs exactly the metrics you pass, and `list_metrics()` lists
+public metrics without marking one as mandatory.
+
+You may run a diagnostic directly when it matches the research question. Treat
+it as targeted evidence unless you deliberately make it the tested family. If
+you screen many factors or many diagnostic variants, define that family up
+front and apply multiple-testing control deliberately.
+
+| Research question | Usually first-pass | Usually diagnostic |
+|---|---|---|
+| Rank-ordering in a cross-section | [`ic`](../api/metrics/ic.md) | `ic_ir`, `monotonicity`, [`k_spread`](../api/metrics/k_spread.md), [`directional_hit_rate`](../api/metrics/directional_hit_rate.md) |
+| Exposure premium in a cross-section | [`fm_beta`](../api/metrics/fm_beta.md) | `pooled_beta`, `fm_beta_sign_consistency`, [`k_spread`](../api/metrics/k_spread.md) |
+| Sparse event effect | [`caar`](../api/metrics/caar.md) | `bmp_z`, `corrado_rank`, `event_hit_rate`, `profit_factor`, `clustering_hhi` |
+| Common macro exposure | [`common_beta`](../api/metrics/common_beta.md) | `common_beta_r_squared`, `common_beta_sign_consistency`, beta-profile diagnostics |
+| Single-asset dense prediction | [`predictive_beta`](../api/metrics/predictive_beta.md) | [`directional_hit_rate`](../api/metrics/directional_hit_rate.md), `positive_rate`, trend / out-of-sample diagnostics |
+
 ## Information coefficient (IC) vs Fama-MacBeth (FM)
 
 Both metrics evaluate individual, continuous factors (`FactorScope.INDIVIDUAL` and `FactorDensity.DENSE` cells), but they answer different research questions:
