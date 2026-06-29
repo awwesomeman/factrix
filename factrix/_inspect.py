@@ -150,6 +150,17 @@ def _detect_scope(raw: Any) -> tuple[FactorScope, str]:
     )
 
 
+def _factor_sign_is_one_sided(raw: Any, factor_col: str) -> bool:
+    """True when non-zero factor signs contain exactly one side."""
+    signs = (
+        raw.select(pl.col(factor_col).sign().alias("_sign"))
+        .filter(pl.col("_sign").is_not_null() & (pl.col("_sign") != 0))
+        .select(pl.col("_sign").n_unique())
+        .item()
+    )
+    return int(signs) == 1
+
+
 @dataclass(frozen=True, slots=True)
 class DataProperties:
     """Inspected data properties driving cell dispatch.
@@ -607,6 +618,7 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
     # matching the ``factor != 0`` filter the event-driven metrics apply.
     n_events = int(data.filter(pl.col(first_col) != 0).height)
     n_unique_factor = int(data[first_col].drop_nulls().n_unique())
+    factor_sign_one_sided = _factor_sign_is_one_sided(data, first_col)
     ic_stage1_profile = _compute_ic_stage1_profile(data, first_col)
     fm_stage1_profile = _compute_fm_stage1_profile(data, first_col)
 
@@ -694,6 +706,7 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
             spec,
             properties,
             signal_discrete,
+            factor_sign_one_sided,
             ic_stage1_profile=ic_stage1_profile,
             fm_stage1_profile=fm_stage1_profile,
         )
@@ -751,6 +764,7 @@ def _evaluate_applicability(
     spec: MetricSpec,
     properties: DataProperties,
     signal_discrete: bool,
+    factor_sign_one_sided: bool = False,
     ic_stage1_profile: _ICStage1Profile | None = None,
     fm_stage1_profile: _FMStage1Profile | None = None,
 ) -> MetricApplicability:
@@ -802,6 +816,15 @@ def _evaluate_applicability(
             "(e.g. a ternary {-1, 0, +1} indicator); this metric needs a "
             "continuous magnitude and short-circuits "
             "not_applicable_discrete_signal at run time"
+        )
+
+    if spec.name == "directional_hit_rate" and factor_sign_one_sided:
+        blockers.append(
+            "one-sided directional signal: sign(factor) has only one non-zero "
+            "side, so directional_hit_rate would short-circuit "
+            "degenerate_directional_variance at run time; center, threshold, "
+            "or encode a true two-sided directional signal before using this "
+            "metric"
         )
 
     if spec.input_shape is InputShape.SCALAR:

@@ -265,7 +265,11 @@ skewness in `value` only.
 Descriptive; no test.
 
 - *descriptive*: `total_gains`, `total_losses`, `n_events`, `n_wins`,
-  `n_losses`.
+  `n_losses`, `no_gains`, `no_losses`, `profit_factor_status`.
+  `profit_factor_status` is `"finite"` for ordinary gain/loss samples,
+  `"unbounded_no_losses"` when positive gains have no offsetting losses
+  (`value = inf`), and `"undefined_no_gains_or_losses"` when both gross gains
+  and gross losses are zero (`value = NaN`).
 
 #### `signal_density`
 
@@ -446,7 +450,11 @@ Newey-West HAC `t` statistic for `H0: beta = 0`.
 
 - *primary*: `p_value` — two-sided HAC slope test.
 - *descriptive*: `n_periods`, `newey_west_lags`, `forward_periods`,
-  `alpha`, `r_squared`, `factor_std`.
+  `alpha`, `r_squared`, `factor_std`, `adf_stat`, `adf_p`,
+  `adf_threshold`, `unit_root_suspected`.
+- *warning*: `WarningCode.PERSISTENT_REGRESSOR` when the ADF p-value exceeds
+  `adf_threshold`; the HAC slope is still returned, but the predictive
+  regression may carry persistent-regressor bias.
 - *short-circuit*: `reason` `insufficient_predictive_periods`,
   `degenerate_factor_variance`, `no_factor_column`, or
   `no_return_column`.

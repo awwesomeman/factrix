@@ -46,7 +46,10 @@ title: factrix.metrics.directional_hit_rate
     its sign before testing). Observations are sub-sampled at stride
     `forward_periods` so overlapping forward-return windows do not
     inflate the statistic; degenerate samples (one-signed predictions or
-    realisations) short-circuit to `NaN`.
+    realisations) short-circuit to `NaN`. `inspect_data()` also blocks
+    obviously one-sided factor signs up front, so bulk discovery does not
+    advertise `directional_hit_rate` as clean when runtime would hit
+    `degenerate_directional_variance`.
 
 </div>
 

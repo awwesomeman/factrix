@@ -219,6 +219,19 @@ class TestMfeMae:
 
 
 class TestProfitFactor:
+    def _event_outcomes(self, returns: list[float]) -> pl.DataFrame:
+        n = len(returns)
+        return pl.DataFrame(
+            {
+                "date": [
+                    datetime(2020, 1, 1) + timedelta(days=i) for i in range(n)
+                ],
+                "asset_id": ["A"] * n,
+                "factor": [1.0] * n,
+                "forward_return": returns,
+            }
+        )
+
     def test_strong_signal_above_one(self, event_data):
         result = profit_factor(event_data)
         assert result.value > 0
@@ -227,6 +240,35 @@ class TestProfitFactor:
         result = profit_factor(event_data)
         assert "total_gains" in result.metadata
         assert "total_losses" in result.metadata
+
+    def test_no_losses_returns_unbounded_ratio(self):
+        result = profit_factor(self._event_outcomes([0.01, 0.02, 0.03, 0.04]))
+        assert math.isinf(result.value)
+        assert result.metadata["no_losses"] is True
+        assert result.metadata["no_gains"] is False
+        assert result.metadata["profit_factor_status"] == "unbounded_no_losses"
+
+    def test_no_gains_with_losses_returns_zero(self):
+        result = profit_factor(self._event_outcomes([-0.01, -0.02, -0.03, -0.04]))
+        assert result.value == 0.0
+        assert result.metadata["no_gains"] is True
+        assert result.metadata["no_losses"] is False
+        assert result.metadata["profit_factor_status"] == "finite"
+
+    def test_no_gains_or_losses_returns_nan(self):
+        result = profit_factor(self._event_outcomes([0.0, 0.0, 0.0, 0.0]))
+        assert math.isnan(result.value)
+        assert result.metadata["no_gains"] is True
+        assert result.metadata["no_losses"] is True
+        assert (
+            result.metadata["profit_factor_status"]
+            == "undefined_no_gains_or_losses"
+        )
+
+    def test_mixed_events_return_finite_ratio(self):
+        result = profit_factor(self._event_outcomes([0.03, -0.01, 0.02, -0.04]))
+        assert result.value == pytest.approx(1.0)
+        assert result.metadata["profit_factor_status"] == "finite"
 
     def test_insufficient_events(self):
         df = pl.DataFrame(

@@ -63,3 +63,10 @@ by significance, use the p-value column and set `descending=False`:
 ```python
 df = fx.compare(results, metrics=["ic"], sort_by="ic_p_value", descending=False)
 ```
+
+For signed metrics such as `predictive_beta`, sorting by the raw value answers
+"largest positive effect", not "strongest evidence". A strongly negative but
+highly significant factor will rank low under `sort_by="predictive_beta"` with
+the default descending order. Use the p-value column for significance screens,
+or sort on `abs(value)` in caller code when magnitude regardless of sign is the
+intended ranking.
