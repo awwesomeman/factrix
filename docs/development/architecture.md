@@ -868,3 +868,17 @@ now serves runtime discovery (`list_metrics()` / `metrics_summary()`), dispatch
 validation, and the rendered reference tables. Adding or changing a metric in
 one place updates both the API and the docs on the next build, and CI catches
 generated-file drift.
+
+### Example docs SSOT strategy - notebooks render MkDocs pages
+
+Worked example recipes use the executable notebook as the source of truth:
+`examples/*.ipynb` renders to `docs/examples/*.md` during the docs build via
+`scripts/mkdocs_hooks/render_example_notebooks.py`.
+
+The generated markdown files stay committed so GitHub and local docs reads do
+not require running MkDocs first. Drift is caught in two places:
+
+- `tests/test_example_notebook_docs.py` compares committed example pages with
+  the live notebook renderer.
+- `.github/workflows/docs-deploy-dev.yml` runs `mkdocs build --strict`, then
+  `git diff --exit-code` on the generated example pages.

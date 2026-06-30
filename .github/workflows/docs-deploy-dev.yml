@@ -50,6 +50,8 @@ jobs:
       - name: Check generated docs files are committed
         run: |
           git diff --exit-code -- \
+            docs/examples/multi_factor_screening.md \
+            docs/examples/stock_factor_evaluation.md \
             docs/reference/_generated_metric_matrix.md \
             docs/reference/_generated_metric_name_index.md \
             docs/reference/_generated_warning_codes.md
@@ -76,6 +78,8 @@ jobs:
       - name: Check generated docs files are committed
         run: |
           git diff --exit-code -- \
+            docs/examples/multi_factor_screening.md \
+            docs/examples/stock_factor_evaluation.md \
             docs/reference/_generated_metric_matrix.md \
             docs/reference/_generated_metric_name_index.md \
             docs/reference/_generated_warning_codes.md

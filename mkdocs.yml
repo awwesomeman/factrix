@@ -38,6 +38,8 @@ theme:
         name: Switch to light mode
 
 hooks:
+  # examples/*.ipynb -> docs/examples/*.md
+  - scripts/mkdocs_hooks/render_example_notebooks.py
   # factrix._metric_index.public_specs() -> docs/reference/_generated_metric_matrix.md
   - scripts/mkdocs_hooks/gen_metric_matrix.py
   # factrix._metric_index.public_specs() -> docs/reference/_generated_metric_name_index.md
