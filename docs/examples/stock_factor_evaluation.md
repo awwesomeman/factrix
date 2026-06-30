@@ -214,7 +214,50 @@ Read the rows as a research comparison, not as an optimizer:
 - `turnover` is a feasibility diagnostic; it has no p-value and does not decide whether the factor is good.
 - FM beta magnitudes depend on factor scale. For neutralized residuals, compare the sign, p-value, and stability before comparing raw beta levels.
 
-## 7. Check whether all-market IC is really stock selection
+## 7. Build a coverage-aware research table
+
+`compare()` gives the headline leaderboard. Keep a second, narrow diagnostics table beside it so coverage, estimator sample sizes, and warning state are visible before p-values are compared across candidates. This table is not a composite score; it keeps evidence, effect size, and data-quality fields readable in one place.
+
+```python
+diagnostic_rows = []
+for res in results.values():
+    ic_out = res.metrics["ic"]
+    spread_out = res.metrics["spread"]
+    turnover_out = res.metrics["turnover"]
+
+    diagnostic_rows.append(
+        {
+            "factor": res.factor,
+            "n_pairs": res.n_pairs,
+            "ic_n_obs": ic_out.n_obs,
+            "ic_n_obs_axis": ic_out.n_obs_axis,
+            "ic_drop_rate": ic_out.metadata.get("drop_rate"),
+            "ic_tie_ratio": ic_out.metadata.get("tie_ratio"),
+            "ic_reason": ic_out.reason,
+            "ic_warning_codes": ", ".join(ic_out.warning_codes) or None,
+            "spread_n_obs": spread_out.n_obs,
+            "spread_n_obs_axis": spread_out.n_obs_axis,
+            "spread_drop_rate": spread_out.metadata.get("drop_rate"),
+            "spread_reason": spread_out.reason,
+            "turnover_n_obs": turnover_out.n_obs,
+            "turnover_n_obs_axis": turnover_out.n_obs_axis,
+            "turnover_reason": turnover_out.reason,
+        }
+    )
+
+diagnostics = pl.DataFrame(diagnostic_rows).sort("factor")
+print(diagnostics)
+```
+
+Read the diagnostics table before treating a low p-value as comparable across factors:
+
+- `n_pairs` is a factor-level coverage proxy: fewer valid `(date, asset_id)` pairs means the factor was observed on a narrower panel.
+- `n_obs` is metric-specific and should be read with `n_obs_axis`; IC and FM usually count periods, while turnover can count rebalance pairs.
+- `drop_rate` and `drop_reason` explain metric-side filters such as dates dropped for too few complete cross-sectional pairs.
+- `tie_ratio` flags low-cardinality dense signals. A high value can mean the factor is closer to a group exposure than an idiosyncratic stock-ranking signal.
+- `reason` and `warning_codes` should remain in the table so NaNs and degraded estimates do not disappear during sorting.
+
+## 8. Check whether all-market IC is really stock selection
 
 A sector-level factor can pass all-market IC because sectors rotate. That is a valid group-exposure result, but it is not the same as within-sector stock selection. A high tie ratio or a low-cardinality warning should prompt this check.
 
@@ -234,7 +277,7 @@ for sector, res in per_sector.items():
 
 If the all-market IC is significant but within-sector IC is weak or undefined, the next research question is sector rotation or allocation, not stock selection. Keep that distinction outside the factor-ranking table so the downstream strategy does not double-count a sector bet as idiosyncratic alpha.
 
-## 8. Point-in-time checklist
+## 9. Point-in-time checklist
 
 factrix cannot infer whether a factor was available at the signal timestamp. A future-return leak will look like a strong factor because the input hypothesis is already invalid. Before passing data to factrix, check:
 
