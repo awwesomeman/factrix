@@ -29,6 +29,7 @@ import factrix as fx
 import factrix.preprocess as fprep
 import polars as pl
 from factrix.metrics import fm_beta, ic, notional_turnover, quantile_spread
+from factrix.metrics.tradability import breakeven_cost, net_spread
 ```
 
 ## 2. Build a panel with stock-style exposures
@@ -257,7 +258,41 @@ Read the diagnostics table before treating a low p-value as comparable across fa
 - `tie_ratio` flags low-cardinality dense signals. A high value can mean the factor is closer to a group exposure than an idiosyncratic stock-ranking signal.
 - `reason` and `warning_codes` should remain in the table so NaNs and degraded estimates do not disappear during sorting.
 
-## 8. Check whether all-market IC is really stock selection
+## 8. Translate gross spread into net feasibility
+
+The `spread` metric is a gross per-period Q1/Q5 spread, and the `turnover` metric below is notional Q1/Q5 membership churn per rebalance because it came from `notional_turnover(n_groups=5)`. That pair can feed the scalar cost helpers. Keep this arithmetic outside `evaluate()`: it is a pre-strategy feasibility read, not an execution simulation.
+
+```python
+cost_rows = []
+for res in results.values():
+    gross_spread = res.metrics["spread"].value
+    turnover = res.metrics["turnover"].value
+    cost_rows.append(
+        {
+            "factor": res.factor,
+            "gross_spread": gross_spread,
+            "notional_turnover": turnover,
+            "breakeven_cost_bps": breakeven_cost(
+                gross_spread,
+                turnover,
+                forward_periods=res.forward_periods,
+            ).value,
+            "net_spread_30bps": net_spread(
+                gross_spread,
+                turnover,
+                estimated_cost_bps=30.0,
+                forward_periods=res.forward_periods,
+            ).value,
+        }
+    )
+
+cost_table = pl.DataFrame(cost_rows).sort("net_spread_30bps", descending=True)
+print(cost_table)
+```
+
+Read `breakeven_cost_bps` as the single-leg cost threshold that would take the gross spread to zero at the observed notional turnover. `net_spread_30bps` is still per-period, matching the scale of `quantile_spread`. If this column flips sign under a plausible cost assumption, the factor may remain statistically real but weak as a tradable candidate. Capacity, impact, borrow, and venue-specific microstructure remain downstream concerns.
+
+## 9. Check whether all-market IC is really stock selection
 
 A sector-level factor can pass all-market IC because sectors rotate. That is a valid group-exposure result, but it is not the same as within-sector stock selection. A high tie ratio or a low-cardinality warning should prompt this check.
 
@@ -277,7 +312,7 @@ for sector, res in per_sector.items():
 
 If the all-market IC is significant but within-sector IC is weak or undefined, the next research question is sector rotation or allocation, not stock selection. Keep that distinction outside the factor-ranking table so the downstream strategy does not double-count a sector bet as idiosyncratic alpha.
 
-## 9. Point-in-time checklist
+## 10. Point-in-time checklist
 
 factrix cannot infer whether a factor was available at the signal timestamp. A future-return leak will look like a strong factor because the input hypothesis is already invalid. Before passing data to factrix, check:
 
@@ -291,4 +326,4 @@ factrix cannot infer whether a factor was available at the signal timestamp. A f
 
 ## What to do next
 
-Use this page for the single-factor workflow. For batch FDR control across many candidates, continue with [Multi-factor screening](multi_factor_screening.md). For scalar gross-to-net cost arithmetic after `spread` and `turnover`, use [`breakeven_cost` and `net_spread`](../api/metrics/tradability.md) as standalone post-processing helpers.
+Use this page for the single-factor workflow. For batch FDR control across many candidates, continue with [Multi-factor screening](multi_factor_screening.md). For API details on scalar cost helpers, see [`breakeven_cost` and `net_spread`](../api/metrics/tradability.md).
