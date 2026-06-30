@@ -47,9 +47,9 @@ from factrix.preprocess import compute_forward_return
 
 ## 2. Build a single-family batch
 
-Five candidate factors, all evaluated under Newey-West IC with `forward_periods=5`. This is a valid BHY input where one step-up actually controls the declared family.
+Six candidate factors, all evaluated under Newey-West IC with `forward_periods=5`. This is a valid BHY input where one step-up actually controls the declared family.
 
-We start from one ground-truth factor and add increasing IID noise to produce variants with varying signal strengths. Each variant is materialized under its own column name (`variant_0` through `variant_4`) so `evaluate(..., factor_cols=[name])` stamps a distinct `factor` per result.
+We start from one ground-truth factor and add increasing IID noise to produce variants with varying signal strengths. Each variant is materialized under its own column name (`variant_0` through `variant_4`) so `evaluate(..., factor_cols=[name])` stamps a distinct `factor` per result. The extra `variant_0_copy` column is a deliberate duplicate: a different hypothesis identity with the same values, useful for the post-BHY redundancy check.
 
 ```python
 from factrix.metrics import ic
@@ -78,6 +78,9 @@ candidates = {
     )
     for i in range(5)
 }
+candidates["variant_0_copy"] = candidates["variant_0"].rename(
+    {"variant_0": "variant_0_copy"}
+)
 
 results = []
 for name, candidate_panel in candidates.items():
@@ -114,15 +117,77 @@ bhy_ic
 Illustrative output:
 
 ```text
-BHY survivors: 5 / 5
-  variant_0    p_value=2.136e-39  adj_p=2.439e-38
-  variant_1    p_value=4.052e-26  adj_p=2.313e-25
-  variant_2    p_value=6.682e-22  adj_p=2.543e-21
-  variant_3    p_value=3.987e-17  adj_p=1.138e-16
-  variant_4    p_value=7.407e-14  adj_p=1.691e-13
+BHY survivors: 6 / 6
+  variant_0    p_value=2.136e-39  adj_p=1.57e-38
+  variant_1    p_value=4.052e-26  adj_p=1.985e-25
+  variant_2    p_value=6.682e-22  adj_p=2.456e-21
+  variant_3    p_value=3.987e-17  adj_p=1.172e-16
+  variant_4    p_value=7.407e-14  adj_p=1.815e-13
+  variant_0_copy p_value=2.136e-39  adj_p=1.57e-38
 ```
 
-## 4. Duplicate-identity defense
+## 4. Check redundancy after BHY
+
+BHY controls the false-discovery rate for the declared family; it does not say the survivors are economically distinct. Before treating a survivor list as a factor set, inspect pairwise factor correlation and run fixed spanning comparisons on spread series.
+
+```python
+from factrix.metrics.quantile import compute_spread_series
+from factrix.metrics.spanning import spanning_alpha
+
+survivor_names = [res.factor for res in bhy_ic.survivors]
+factor_panel = candidates[survivor_names[0]].select(
+    "date", "asset_id", survivor_names[0]
+)
+for name in survivor_names[1:]:
+    factor_panel = factor_panel.join(
+        candidates[name].select("date", "asset_id", name),
+        on=["date", "asset_id"],
+    )
+
+corr_rows = []
+for left_idx, left in enumerate(survivor_names):
+    for right in survivor_names[left_idx + 1 :]:
+        mean_corr = (
+            factor_panel.group_by("date")
+            .agg(pl.corr(left, right).alias("corr"))
+            .select(pl.col("corr").mean())
+            .item()
+        )
+        corr_rows.append({"left": left, "right": right, "mean_cs_corr": mean_corr})
+
+corr_table = pl.DataFrame(corr_rows).sort("mean_cs_corr", descending=True)
+print(corr_table.head(5))
+
+spreads = {
+    name: compute_spread_series(
+        candidates[name],
+        forward_periods=5,
+        n_groups=5,
+        factor_cols=[name],
+    )[name]
+    for name in survivor_names
+}
+base_name = survivor_names[0]
+spanning_rows = []
+for name in survivor_names[1:]:
+    out = spanning_alpha(spreads[name], base_spreads={base_name: spreads[base_name]})
+    spanning_rows.append(
+        {
+            "candidate": name,
+            "base": base_name,
+            "alpha": out.value,
+            "alpha_p_value": out.p_value,
+            "r_squared": out.metadata.get("r_squared"),
+        }
+    )
+
+spanning_table = pl.DataFrame(spanning_rows).sort("alpha_p_value")
+print(spanning_table)
+```
+
+`variant_0_copy` passes BHY because it carries the same strong signal as `variant_0`, but the correlation and spanning rows show it is not new alpha. `spanning_alpha` is a fixed comparison diagnostic: choose the base factor intentionally, then read alpha and p-value. Do not read this as stepwise post-selection inference. `greedy_forward_selection` remains a model-construction helper, and its returned t-stats are explicitly marked invalid for inference.
+
+## 5. Duplicate-identity defense
 
 `evaluate()` stamps each result's `factor` from its `factor_cols` name, so two results built off the same `"factor"` column both land at identity `("factor", forward_periods)`. Pass two such results to `bhy()` and the family-resolution layer raises `UserInputError` rather than silently treating distinct candidates as one hypothesis.
 
@@ -174,6 +239,6 @@ stamped.extend(
 print(f"\ncanonical fix identities: {[r.factor for r in stamped]}")
 ```
 
-## 5. Where to go next
+## 6. Where to go next
 
-For the broader structural details, see [Panel vs timeseries](../guides/panel-timeseries.md), [Large-scale evaluation](../guides/large-scale-evaluation.md), and the [`bhy` API reference](../api/bhy.md).
+For the broader structural details, see [Panel vs timeseries](../guides/panel-timeseries.md), [Large-scale evaluation](../guides/large-scale-evaluation.md), the [`bhy` API reference](../api/bhy.md), and the [`spanning_alpha` API reference](../api/metrics/spanning.md).
