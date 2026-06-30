@@ -29,7 +29,7 @@ front and apply multiple-testing control deliberately.
 | Exposure premium in a cross-section | [`fm_beta`](../api/metrics/fm_beta.md) | [`pooled_beta`](../api/metrics/fm_beta.md), [`fm_beta_sign_consistency`](../api/metrics/fm_beta.md), [`k_spread`](../api/metrics/k_spread.md) | `fm_beta` keeps the economic unit of exposure; diagnostics show pooled fit, sign stability, and small-universe spread. |
 | Sparse event effect | [`caar`](../api/metrics/caar.md) | [`bmp_z`](../api/metrics/caar.md), [`corrado_rank`](../api/metrics/corrado_rank.md), [`event_hit_rate`](../api/metrics/event_quality.md), [`profit_factor`](../api/metrics/event_quality.md), [`clustering_hhi`](../api/metrics/clustering_hhi.md) | `caar` is the event-time headline test; diagnostics check variance assumptions, ranks, hit quality, payoff asymmetry, and event clustering. |
 | Common macro exposure | [`common_beta`](../api/metrics/common_beta.md) | [`common_beta_profile`](../api/metrics/common_beta.md), [`common_beta_r_squared`](../api/metrics/common_beta.md), [`common_beta_sign_consistency`](../api/metrics/common_beta.md), [`compute_common_betas(...)[factor]`](../api/metrics/common_beta.md) | `common_beta` tests average per-asset beta; diagnostics reveal whether offsetting positive and negative betas hide a rotation profile. |
-| Single-asset dense prediction | [`predictive_beta`](../api/metrics/predictive_beta.md) | [`directional_hit_rate`](../api/metrics/directional_hit_rate.md), plus [`trend`](../api/metrics/trend.md) / [`oos_decay`](../api/metrics/oos_decay.md) diagnostics on derived `(date, value)` series | `predictive_beta` tests the HAC predictive-regression slope; diagnostics check sign prediction and stability after deriving a series. |
+| Single-asset dense prediction | [`predictive_beta`](../api/metrics/predictive_beta.md) | [`directional_hit_rate`](../api/metrics/directional_hit_rate.md), plus the [`predictive_beta` stability workflow](../api/metrics/predictive_beta.md#stability-workflow) | `predictive_beta` tests the HAC predictive-regression slope; diagnostics check sign prediction and whether pre-declared rolling betas keep the same economic direction. |
 | Tradability / implementation pressure | No headline test | [`tradability`](../api/metrics/tradability.md), [`concentration`](../api/metrics/concentration.md), turnover / cost diagnostics | These are descriptive checks around implementation pressure, not a replacement for the factor's headline inference. |
 
 Then use the cross-reference pages by task:
@@ -85,3 +85,16 @@ print(board.to_dicts())
 ```
 
 For the full metric catalog, see [Metrics](../api/metrics/index.md).
+
+## Single-asset dense stability
+
+For `n_assets == 1` dense panels, use `predictive_beta` as the single canonical
+inference read. If you need stability evidence, derive a rolling or expanding
+beta series with pre-declared `window_periods` / `step_periods` and summarize it
+descriptively: sign consistency, recent beta, median beta, and min/max beta.
+
+Those windowed betas are robustness diagnostics, not a new alpha-selection
+family. Overlapping windows share observations, so their p-values are not
+independent hypotheses to rank, optimize over, or pass to `bhy`. If the profile
+suggests a structural break, treat the break as a separate regime research
+design rather than letting the stability helper pick the regime for you.

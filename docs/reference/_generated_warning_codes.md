@@ -2,7 +2,7 @@
 |---|---|
 | `unreliable_se_short_periods` | n_periods is below the WARN floor (~30); NW HAC SE may be biased. Reused across panel time-series guards (MIN_PERIODS_WARN) and primitive inference (MIN_FM_PERIODS_WARN); both default to 30. |
 | `event_window_overlap` | Adjacent events sit within forward_periods; AR windows overlap. |
-| `persistent_regressor` | ADF p exceeds the configured threshold on the continuous factor; beta may carry Stambaugh bias. |
+| `persistent_regressor` | ADF p > 0.10 on the continuous factor; β may carry Stambaugh bias. |
 | `serial_correlation_detected` | Ljung-Box p < 0.05 on residuals; NW lag may be under-set. |
 | `few_assets` | Cross-section asset count is below the relevant WARN floor (panel-wide MIN_ASSETS_WARN=30, per-date MIN_IC_ASSETS_WARN=10, or per-date MIN_FM_ASSETS_WARN=10). The statistic is returned, but small n_assets inflates critical values or leaves minimal residual degrees of freedom. Severity scales with n_assets; read the relevant n_assets metadata. |
 | `thin_quantile_groups` | quantile_spread with the median cross-section split into n_groups buckets leaving < MIN_GROUP_ASSETS (5) assets per bucket; each bucket mean rests on a handful of names so the spread can be dominated by individual assets. Advisory only — reduce n_groups (the warning suggests a value) or treat the spread as a fragile small-cross-section diagnostic. Distinct from few_assets, which keys off the absolute cross-section size. |
