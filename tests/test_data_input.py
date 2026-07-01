@@ -1,6 +1,6 @@
 """Tests for `_coerce_data`, the strict polars-native API gateway.
 
-`fx.evaluate` and `fx.run_metrics` accept `pl.DataFrame` (passes
+`fx.evaluate` accepts `pl.DataFrame` (passes
 through) and `pl.LazyFrame` (collected at the boundary). `pd.DataFrame`
 is rejected with a guiding `TypeError` that points to
 `factrix.adapt(df, ...)` or `pl.from_pandas(df)` as the documented
