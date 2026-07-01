@@ -29,6 +29,10 @@ properties (`properties`), the per-metric applicability verdicts
 any data-level `warnings`. Each entry in the metrics group is a
 `MetricApplicability`.
 
+The tier groups are `MetricApplicabilityGroup` objects: they expose `.names`
+and `.to_metrics_dict()`, and slicing or concatenating them with `+` preserves
+those helpers.
+
 ::: factrix.DataInspection
 
 ---
