@@ -16,6 +16,7 @@ guide.
 
 ## Historical pre-1.0 GitHub releases
 
+- `v0.16.0`
 - `v0.15.0`
 - `v0.14.0`
 - `v0.13.0`
