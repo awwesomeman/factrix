@@ -66,14 +66,14 @@ with $h$ = `forward_periods`. The first term is the
 [Hansen-Hodrick 1980][hansen-hodrick-1980] overlap floor that ensures
 the kernel covers the MA(`h − 1`) structure of overlapping returns.
 factrix takes the maximum so the bandwidth is always at least large
-enough to absorb the overlap, with the Andrews term taking over once
+enough to absorb the overlap, with the Newey-West term taking over once
 `T` is large.
 
 Two choices factrix deliberately did not adopt:
 
 - The data-adaptive plug-in of [Newey-West 1994][newey-west-1994] is
   not used. Its sampling variability defeats the point of having a
-  reproducible reported SE; the deterministic Andrews rule is
+  reproducible reported SE; the deterministic Newey-West rule is
   adequate at typical research `T` and is auditable.
 - The prewhitening refinement of
   [Andrews-Monahan 1992][andrews-monahan-1992] is also not used.
@@ -270,7 +270,7 @@ returned; the caller decides whether to trust it.
 The ADF p-value is interpolated from
 [MacKinnon 1996][mackinnon-1996] response-surface critical values for
 the constant-only specification (`_adf_pvalue_interp`). The
-interpolation accuracy is ±0.03 — ample for the qualitative "is this
+interpolation accuracy is ~±0.02 — ample for the qualitative "is this
 a unit root" decision the threshold drives.
 
 Overlapping multi-period returns inherit MA(`h − 1`) autocorrelation

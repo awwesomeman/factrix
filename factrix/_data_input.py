@@ -1,6 +1,6 @@
 """Input-type gateway for public entry points.
 
-factrix is polars-native: ``fx.evaluate`` and ``fx.run_metrics`` accept
+factrix is polars-native: ``fx.evaluate`` accepts
 ``pl.DataFrame`` (canonical) or ``pl.LazyFrame`` (collected immediately
 at the boundary — no projection or predicate pushdown applied by
 factrix, so call ``.select(...)`` / ``.filter(...)`` upstream for

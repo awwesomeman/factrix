@@ -51,7 +51,7 @@ title: factrix.evaluate
     ---
 
     At `n_assets == 1` there is no cross-section, so any `DENSE` metric whose
-    cell is `PANEL` — `Individual × Continuous` (`ic`, `fm`) **and**
+    cell is `PANEL` — `Individual × Continuous` (`ic`, `fm_beta`) **and**
     `Common × Continuous` (`common_beta`, `common_quantile`, `common_asymmetry`) —
     raises `IncompatibleAxisError` (or NaN + `structure_mismatch` under
     `strict=False`). Single-asset data runs through the same entry point

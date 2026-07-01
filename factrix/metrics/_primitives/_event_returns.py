@@ -90,7 +90,8 @@ def compute_event_returns(
                     continue
                 if prices[prev_idx] < EPSILON:
                     continue
-                signed_ret = float(prices[bar_idx] / prices[prev_idx] - 1)
+                raw_ret = prices[bar_idx] / prices[prev_idx] - 1
+                signed_ret = float(direction * raw_ret)
 
             rows.append(
                 {

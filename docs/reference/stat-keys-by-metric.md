@@ -62,10 +62,10 @@ contrasts, not a sidecar to a primary value.
 | [`quantile_spread`][factrix.metrics.quantile.quantile_spread] | NW HAC `t` on top-bottom spread (block-bootstrap CI when small cross-section) | `p_value` | mean(spread) |
 | [`k_spread`][factrix.metrics.k_spread.k_spread] | non-overlapping `t` on top-K−bottom-K spread (block-bootstrap CI when small cross-section) | `p_value` | mean(spread) |
 | [`quantile_spread_vw`][factrix.metrics.quantile.quantile_spread_vw] | NW HAC `t` on vw spread | `p_value` | mean(vw spread) |
-| [`top_concentration`][factrix.metrics.concentration.top_concentration] | one-sided `t` on diversity ratio | `p_value` | mean(eff_n / n_top) |
+| [`top_concentration`][factrix.metrics.concentration.top_concentration] | one-sided `t` on diversity ratio | `p_value` | mean(eff_n) = mean(1/HHI) |
 | [`clustering_hhi`][factrix.metrics.clustering_hhi.clustering_hhi] | none — descriptive | — | event-date Herfindahl-Hirschman index (HHI) |
 | [`mfe_mae`][factrix.metrics.mfe_mae.mfe_mae] | none — descriptive | — | MFE_p50 / \|MAE_p75\| |
-| [`oos_decay`][factrix.metrics.oos_decay.oos_decay] | none — descriptive | — | median(survival) |
+| [`oos_decay`][factrix.metrics.oos_decay.oos_decay] | none — descriptive | — | survival = \|mean_oos\| / \|mean_is\| |
 | [`spanning_alpha`][factrix.metrics.spanning.spanning_alpha] | OLS `t` on α | `p_value` | spanning α |
 | [`greedy_forward_selection`][factrix.metrics.spanning.greedy_forward_selection] | none — selection meta | — | (NaN; results in metadata) |
 | [`ic_trend`][factrix.metrics.trend.ic_trend] | Theil-Sen slope `t` (CI-based) | `p_value` | Theil-Sen slope |
@@ -386,8 +386,7 @@ Descriptive; period-axis concentration of event dates.
 
 Descriptive; no test.
 
-- *descriptive*: `mfe_p50`, `mae_p75`, `mae_p95`, `mfe_mae_ratio`,
-  `bars_to_mfe_mean`, `bars_to_mae_mean`, `n_events`.
+- *descriptive*: `mfe_p50`, `mae_p75`, `mfe_mae_ratio`, `n_events`.
 - *descriptive* (conditional, when σ-normalised inputs available):
   `mfe_z_p50`, `mae_z_p75`, `mfe_mae_ratio_z`, `n_events_z`.
 - `p_value` is `None` — descriptive metric, no hypothesis test.
@@ -399,9 +398,7 @@ Descriptive; no test.
 hypothesis test.
 
 - *descriptive*: `status` (`"PASS"` / `"VETOED"`), `sign_flipped`,
-  `per_split` (list of `{is_ratio, mean_is, mean_oos,
-  survival_ratio, sign_flipped}`), `survival_threshold`, `n_splits`,
-  `method`.
+  `is_ratio`, `mean_is`, `mean_oos`, `survival_threshold`.
 
 ### `spanning` (`factrix.metrics.spanning`)
 

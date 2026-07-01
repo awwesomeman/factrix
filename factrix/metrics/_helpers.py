@@ -7,7 +7,7 @@ Multi-factor function-name suffix taxonomy (project-wide convention):
 - **(no suffix)** — batch-native unified API. Function takes
   ``factor_cols: list[str]`` and returns ``dict[str, ResultT]``; no
   single-factor sibling. Examples: ``compute_ic``, ``quantile_spread``,
-  ``monotonicity``, ``fx.run_metrics``.
+  ``monotonicity``.
 - **``_batch``** — batch variant that coexists with a single-factor
   sibling. Use when keeping the single-factor signature stable matters
   (callable API, third-party callers). Examples:

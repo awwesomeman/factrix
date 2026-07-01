@@ -178,7 +178,7 @@ def common_quantile_spread(
     per_bucket_periods = n_periods // n_groups
     if per_bucket_periods < 5:
         warnings.warn(
-            f"common_quantile_spread: median {per_bucket_periods} periods per "
+            f"common_quantile_spread: avg {per_bucket_periods} periods per "
             f"bucket (T={n_periods}, n_groups={n_groups}). Each bucket mean "
             f"sits on a thin sample; consider reducing n_groups.",
             UserWarning,
