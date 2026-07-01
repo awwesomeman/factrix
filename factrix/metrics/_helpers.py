@@ -14,15 +14,6 @@ Multi-factor function-name suffix taxonomy (project-wide convention):
   ``bootstrap_mean_ci`` (1-D);
   ``_assign_quantile_groups`` (single) + ``_assign_quantile_groups_batch``
   (batch).
-- **``_chunked``** — split-and-yield variant of an already-batch
-  function. Takes the same ``factor_cols`` input but splits into K
-  sub-batches and yields K results; per-chunk peak RSS is bounded.
-  Example: ``fx.run_metrics_chunked``.
-- **``_iter``** — per-factor streaming yield variant. Takes the same
-  input but yields ``(factor_id, result)`` one factor at a time so
-  callers can compose with per-bundle sinks. Cross-factor batch
-  dispatch is preserved internally; the streaming is at the result
-  granularity.
 
 ``_multi*`` is reserved for structural multivariate concepts (e.g.
 multivariate test statistics), not for "this function handles many
