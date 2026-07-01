@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import numpy as np
 import polars as pl
+from scipy import stats as sp_stats
 
 from factrix._axis import (
     Aggregation,
@@ -16,7 +17,7 @@ from factrix._axis import (
 )
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
-from factrix._stats import _calc_t_stat, _p_value_from_z
+from factrix._stats import _calc_t_stat
 from factrix._types import EPSILON, MIN_EVENTS_HARD
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import _enforce_min_floor, _short_circuit_output
@@ -56,6 +57,10 @@ def corrado_rank(
         form $U_{\text{event,signed}} = U_{\text{event}} \cdot \mathrm{sign}(\text{factor})$.
         Test statistic
         $z = \mathrm{mean}(U_{\text{event,signed}}) / (\mathrm{std}(U_{\text{all}}) / \sqrt{N_{\text{events}}})$.
+        ``p_value`` is **one-sided** (``H0: mean_u <= 0``): the direction
+        adjustment already folds sign into $z$, so a factor that
+        anti-predicts returns a negative $z$ rather than a small two-sided
+        $p$ — mirroring :func:`~factrix.metrics.directional_hit_rate.directional_hit_rate`.
 
     Args:
         data: Full panel with ``date, asset_id, factor, forward_return``.
@@ -134,7 +139,10 @@ def corrado_rank(
 
     mean_u = float(np.mean(u_event))
     z = _calc_t_stat(mean_u, std_u, n_events)
-    p = _p_value_from_z(z)
+    # One-sided: u_event is already direction-adjusted by sign(factor), so
+    # z > 0 signals genuine directional skill and z < 0 signals a factor that
+    # anti-predicts — a two-sided p would read the latter as "significant".
+    p = float(sp_stats.norm.sf(z))
 
     return MetricResult(
         p_value=p,
@@ -146,7 +154,7 @@ def corrado_rank(
             "n_events": n_events,
             "n_total_obs": len(ranked),
             "stat_type": "z",
-            "h0": "mu_rank=0",
+            "h0": "mu_rank<=0",
             "method": "Corrado (1989) rank test",
         },
     )

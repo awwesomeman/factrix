@@ -100,7 +100,7 @@ Min sample*. `MIN_*` constants resolve to values in the
 | [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | per-offset `K` | `K ≥ MIN_EVENTS_HARD` |
 | [`mfe_mae`][factrix.metrics.mfe_mae.mfe_mae] | `K` | `K ≥ MIN_EVENTS_HARD`; `price` column required |
 | [`clustering_hhi`][factrix.metrics.clustering_hhi.clustering_hhi] | `K`, `n_assets` | `n_assets >= 2`; `K >= MIN_EVENTS_HARD` |
-| [`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank] | `K` × estimation window | `K ≥ MIN_EVENTS_HARD`; per-asset `T ≥ 30` |
+| [`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank] | `K` | `K ≥ MIN_EVENTS_HARD` |
 
 ### TS-β family — Cell: Common × Continuous
 
@@ -316,20 +316,19 @@ metric. Two implications:
 ### `estimation_window`
 
 The estimation window is the per-asset pre-event sample used to fit
-the abnormal-return baseline. factrix uses it in two places:
-
-- [`bmp_z`][factrix.metrics.caar.bmp_z]: standardises each
-  event's abnormal return by the event's own pre-event SE, computed
-  over the estimation window.
-- [`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank]:
-  ranks the abnormal return against the per-asset distribution drawn
-  from the estimation window.
+the abnormal-return baseline. factrix uses it in
+[`bmp_z`][factrix.metrics.caar.bmp_z], which standardises each
+event's abnormal return by the event's own pre-event SE, computed
+over the estimation window.
+[`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank] ranks
+each asset's *full* return sample (event + non-event rows) rather
+than an estimation-window slice — see the per-row primitive table
+above — so the conventions below apply to `bmp_z` only.
 
 Conventions:
 
 - **Length**: per-asset `T ≥ 30` non-event observations is the
-  literature default (Brown-Warner 1985 §2.B). factrix enforces
-  this floor at the `corrado_rank` per-asset gate.
+  literature default (Brown-Warner 1985 §2.B).
 - **Alignment**: ends one period before the event date; gap-before
   -event of zero (no skip period). Users running a skip-period
   convention must pre-shift the panel.
