@@ -44,16 +44,20 @@
 ^https://onlinelibrary\.wiley\.com/
 ^https://www\.tandfonline\.com/
 
-# Site-internal absolute paths rendered from `site_url` (e.g.
-# `/factrix/api/evaluate/`). Lychee scans the built HTML as local
-# files but cannot map a root-relative URL back to the local site
-# directory without a URL → filesystem rewrite — every such link
-# errors with "Cannot convert path '/factrix/...' to a URI". These
-# internal links are already validated by `mkdocs build --strict`
-# (broken nav / cross-references fail the docs build), so duplicating
-# the check at the lychee layer adds no signal. Revisit if lychee
-# gains first-class support for `site_url`-prefixed URL → local-dir
-# remapping.
+# doi.org returns 403 to bot user-agents (same reason as the academic
+# publishers above); DOI links redirect to the publisher page which is
+# already excluded. Add the resolver itself so lychee doesn't flag
+# DOI citations before the redirect.
+^https://doi\.org/
+
+# Site-internal root-relative paths (e.g. `/factrix/api/evaluate/`).
+# The main source of these was `site/404.html` (theme sitemap), which
+# is now excluded via `--exclude-path ./site/404.html` in the workflow.
+# This pattern remains as a safety net for any other page that may emit
+# root-relative hrefs — lychee errors on them at URL-build time (before
+# filtering), so `--exclude-path` is the primary fix; this entry only
+# catches anything that slips through as a text-based pattern match.
+# Internal links are already validated by `mkdocs build --strict`.
 ^/factrix/
 
 # pola.rs (Polars project home) intermittently fails TLS handshake

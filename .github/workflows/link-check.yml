@@ -1,14 +1,11 @@
 name: link-check
 
 on:
-  # pull_request trigger held off: the `pr:` job (fail: true) red-builds on
-  # root-relative `/factrix/...` links in the built site (theme assets +
-  # mike version-prefixed internal links). lychee errors on these at the
-  # URL-build stage — before `.lycheeignore` filtering applies — because the
-  # local `site/` tree has no `factrix/` prefix to resolve them against.
-  # These internal links are already validated by `mkdocs build --strict`,
-  # so the daily scheduled run below is sufficient. Restore the PR trigger
-  # once the lychee root-relative false-positive is resolved.
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - '.lycheeignore'
   schedule:
     # Daily at 06:00 UTC (~14:00 Asia/Taipei) — outside GitHub Actions
     # peak hours, runner availability is best.
@@ -58,6 +55,7 @@ jobs:
             --cache
             --max-cache-age 1d
             --exclude-loopback
+            --exclude-path ./site/404.html
             './site/**/*.html'
             './README.md'
           fail: true
@@ -101,6 +99,7 @@ jobs:
             --cache
             --max-cache-age 1d
             --exclude-loopback
+            --exclude-path ./site/404.html
             './site/**/*.html'
             './README.md'
           output: ./lychee-report.md
