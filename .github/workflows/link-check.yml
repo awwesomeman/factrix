@@ -43,7 +43,7 @@ jobs:
         run: uv run mkdocs build
 
       - name: Restore lychee cache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: .lycheecache
           key: lychee-${{ runner.os }}-v2-${{ hashFiles('.lycheeignore') }}
@@ -85,7 +85,7 @@ jobs:
         run: uv run mkdocs build
 
       - name: Restore lychee cache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: .lycheecache
           key: lychee-${{ runner.os }}-v2-${{ hashFiles('.lycheeignore') }}
