@@ -56,7 +56,8 @@ Plus introspection / error / enum re-exports:
 
 - `fx.FactorScope`, `fx.FactorDensity` — user-facing axes
 - `fx.WarningCode` — structured result codes
-- `fx.FactrixError`, `fx.IncompatibleAxisError`, `fx.InsufficientSampleError`, `fx.UserInputError` — exception hierarchy (see § Error UX contract)
+- `fx.FactrixError`, `fx.IncompatibleAxisError`, `fx.IncompatibleInferenceError`,
+  `fx.InsufficientSampleError`, `fx.UserInputError` — exception hierarchy (see § Error UX contract)
 
 `__version__` is sourced from `pyproject.toml` (Commitizen-managed).
 
@@ -797,8 +798,8 @@ factrix/
 │                            #   MIN_SERIES_PERIODS_HARD, MIN_EVENTS_HARD/WARN,
 │                            #   MIN_OOS_PERIODS_HARD, MIN_PORTFOLIO_PERIODS_HARD/WARN, ...
 ├── _stats/                  # numerics: hac, bootstrap, unit_root, wald, gmm, ols, diagnostics, constants
-├── stats/                   # public estimator surface (newey_west, hansen_hodrick, driscoll_kraay, gmm, ...)
-├── estimators/              # lowercase estimator callables
+├── inference/               # curated metric-internal inference members (series-mean dataclasses)
+├── stats/                   # public statistical helper surface (block_bootstrap, driscoll_kraay, ...)
 ├── metrics/                 # @metric callables (ic, fm_beta, common_beta, caar, ...) + _registry
 │                            # per-cell thresholds (MIN_FM_PERIODS_HARD/WARN, MIN_COMMON_BETA_PERIODS_HARD) live
 │                            # alongside the metrics that enforce them

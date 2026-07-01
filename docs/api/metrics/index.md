@@ -106,6 +106,19 @@ info = fx.inspect_data(panel)
 any `blockers` / `warnings`, accounting for the actual panel shape
 (`n_periods` / `n_assets` / `n_pairs`).
 
+### Inference selection
+
+Only metrics whose signature exposes `inference=` accept a selectable
+inference method. Today that surface is limited to the series-mean family:
+`ic`, `quantile_spread`, and `k_spread`. Each of those metrics validates the
+passed method against its own allowlist and raises
+`IncompatibleInferenceError` for anything outside it, instead of running an
+unvetted test or falling back silently.
+
+`factrix.inference.HANSEN_HODRICK` is available as a standalone series-mean
+inference member, but it is not currently in any metric's allowlist. The
+metric-supported choices are `NON_OVERLAPPING` and `NEWEY_WEST`.
+
 ## Cell vs. DataStructure
 
 factrix has **two orthogonal classifications**:
