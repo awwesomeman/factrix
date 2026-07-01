@@ -39,6 +39,7 @@ from factrix.metrics._helpers import (
     _enforce_scaled_floor,
     _sample_non_overlapping,
     _scaled_periods_threshold,
+    _short_circuit_output,
     _warn_high_tie_ratio,
 )
 
@@ -200,6 +201,20 @@ def monotonicity(
         )
         if sc is not None:
             results[f] = sc
+            continue
+        if len(mono_arr) == 0:
+            # n_raw_periods cleared the scaled floor above, but every
+            # sampled date had a null bucket mean for this factor (e.g. a
+            # sparse column), leaving nothing to correlate.
+            results[f] = _short_circuit_output(
+                "monotonicity",
+                "insufficient_monotonicity_periods",
+                n_obs=0,
+                n_obs_axis="periods",
+                n_groups=n_groups,
+                tie_ratio=tie_ratios[f],
+                tie_policy=tie_policy,
+            )
             continue
         avg_mono = float(np.mean(np.abs(mono_arr)))
         mean_mono = float(np.mean(mono_arr))
