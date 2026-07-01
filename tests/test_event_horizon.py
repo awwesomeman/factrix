@@ -91,6 +91,35 @@ class TestComputeEventReturns:
         result = compute_event_returns(event_data, offsets=[12])
         assert result["signed_return"].mean() > 0
 
+    def test_pre_event_signed(self):
+        """Pre-event returns are direction-adjusted, so a directional
+        pre-event drift does not cancel across +/- events.
+
+        Two assets carry a consistent pre-event drift *in the direction of
+        the event*: the +1 event is preceded by a price rise, the -1 event
+        by a price fall. Raw (unsigned) pre-event returns would cancel to
+        ~0; direction-signed returns both read positive and add up.
+        """
+        dates = [datetime(2020, 1, 1) + timedelta(days=i) for i in range(6)]
+        # asset_up: prices rise before a +1 event on the last date
+        # asset_dn: prices fall before a -1 event on the last date
+        rows = []
+        for aid, prices, direction in [
+            ("asset_up", [100.0, 101.0, 102.0, 103.0, 104.0, 105.0], 1.0),
+            ("asset_dn", [100.0, 99.0, 98.0, 97.0, 96.0, 95.0], -1.0),
+        ]:
+            for i, (d, p) in enumerate(zip(dates, prices, strict=True)):
+                factor = direction if i == len(dates) - 1 else 0.0
+                rows.append({"date": d, "asset_id": aid, "factor": factor, "price": p})
+        panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+        result = compute_event_returns(panel, offsets=[-1])
+        signed = result["signed_return"].to_list()
+        # Both the up-event and down-event pre-returns are signed positive.
+        assert len(signed) == 2
+        assert all(s > 0 for s in signed)
+        assert result["signed_return"].mean() > 0
+
     def test_output_date_dtype_mirrors_input_us(self, event_data):
         df_us = event_data.with_columns(pl.col("date").cast(pl.Datetime("us")))
         result = compute_event_returns(df_us, offsets=[1, 6])
