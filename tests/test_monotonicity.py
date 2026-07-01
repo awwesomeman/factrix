@@ -48,6 +48,32 @@ class TestComputeMonotonicity:
         assert math.isnan(result.value)
         assert result.p_value is None or result.p_value >= 0.10
 
+    def test_all_null_buckets_short_circuits_with_reason(self):
+        """Raw date count clears the scaled floor, but every sampled date's
+        bucket means are null (e.g. ``forward_return`` entirely missing), so
+        there is nothing left to correlate. Must short-circuit with a reason
+        rather than silently returning a degenerate NaN/t=0/p=1 triple.
+        """
+        from datetime import datetime, timedelta
+
+        import polars as pl
+
+        n_dates = 10
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
+        rows = [
+            {"date": d, "asset_id": aid, "factor": float(j), "forward_return": None}
+            for d in dates
+            for j, aid in enumerate(["A", "B", "C", "D"])
+        ]
+        df = pl.DataFrame(rows).with_columns(
+            pl.col("date").cast(pl.Datetime("ms")),
+            pl.col("forward_return").cast(pl.Float64),
+        )
+        result = monotonicity(df, forward_periods=1, n_groups=2)["factor"]
+
+        assert math.isnan(result.value)
+        assert result.metadata["reason"] == "insufficient_monotonicity_periods"
+
 
 class TestMonotonicityBatch:
     """Multi-factor path of ``monotonicity``."""
