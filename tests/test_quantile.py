@@ -278,6 +278,41 @@ class TestQuantileSpreadVW:
         assert result.metadata["signal_status"] == "no_signal_zero_variance_factor"
         assert result.metadata.get("reason") is None
 
+    @pytest.mark.parametrize("tie_policy", ["ordinal", "average"])
+    def test_mixed_constant_dates_contribute_zero_spread(self, tie_policy):
+        # Mixed panels should retain no-signal dates as zero spread. Dropping
+        # them overstates the mean; ranking them injects row-order artifacts.
+        n_dates, n_assets = 6, 10
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
+        rows = []
+        for date_idx, date in enumerate(dates):
+            constant_date = date_idx % 2 == 0
+            for asset_idx in range(n_assets):
+                rows.append(
+                    {
+                        "date": date,
+                        "asset_id": f"s_{asset_idx}",
+                        "factor": 1.0 if constant_date else float(asset_idx),
+                        "forward_return": asset_idx / 100.0,
+                        "market_cap": 1.0,
+                    }
+                )
+        panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+        result = quantile_spread_vw(
+            panel,
+            forward_periods=1,
+            n_groups=5,
+            tie_policy=tie_policy,
+            lag_weights=False,
+        )
+
+        assert result.value == pytest.approx(0.04)
+        assert result.n_obs == n_dates
+        assert result.metadata.get("signal_status") is None
+        assert math.isfinite(result.value)
+        assert result.p_value is not None and math.isfinite(result.p_value)
+
     def test_per_date_assets_below_n_groups_short_circuits(self):
         # Three valid names per date cannot fill five quantile buckets.
         dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(8)]

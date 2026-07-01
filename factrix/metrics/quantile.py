@@ -471,6 +471,11 @@ def quantile_spread_vw(
         )
         .group_by("date")
         .agg(
+            pl.col(factor_col).count().alias("_n_assets"),
+            pl.col(factor_col)
+            .filter(pl.col(factor_col).is_not_null())
+            .n_unique()
+            .alias("_n_unique"),
             (
                 pl.col("_wr").filter(pl.col("_group") == top_group).sum()
                 / pl.col(weight_col).filter(pl.col("_group") == top_group).sum()
@@ -481,7 +486,10 @@ def quantile_spread_vw(
             ).alias("bottom_return_vw"),
         )
         .with_columns(
-            (pl.col("top_return_vw") - pl.col("bottom_return_vw")).alias("spread_vw"),
+            pl.when((pl.col("_n_assets") > 0) & (pl.col("_n_unique") <= 1))
+            .then(pl.lit(0.0))
+            .otherwise(pl.col("top_return_vw") - pl.col("bottom_return_vw"))
+            .alias("spread_vw"),
         )
         .sort("date")
     )
@@ -503,9 +511,7 @@ def quantile_spread_vw(
     # n_groups buckets on per-date valid factor counts, then treat a constant
     # factor as no-signal — otherwise value weighting manufactures an
     # ordering-artifact spread (ordinal ties) or empty-bucket NaN (average).
-    per_date_assets = sampled.group_by("date").agg(
-        pl.col(factor_col).count().alias("_n")
-    )["_n"]
+    per_date_assets = vw_series["_n_assets"]
     if bool((per_date_assets < n_groups).all()):
         max_assets_value = per_date_assets.max()
         max_assets = 0 if max_assets_value is None else cast(int, max_assets_value)
