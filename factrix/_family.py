@@ -40,6 +40,24 @@ if TYPE_CHECKING:
 _BUILTIN_EXPAND_OVER_FIELDS: frozenset[str] = frozenset({"forward_periods"})
 
 
+def _hypothesis_identity(
+    result: EvaluationResult, *, exclude: tuple[str, ...] = ()
+) -> tuple[Any, ...]:
+    """Hypothesis identity: ``(factor, forward_periods, *sorted(params.items()))``.
+
+    ``exclude`` strips named components — ``partial_conjunction`` passes its
+    ``expand_over`` keys so results replicated along the condition axis
+    collapse into one aggregation identity while every other swept knob
+    keeps identities apart. Param keys ride along with their values so that
+    results carrying different key sets cannot collide on values alone.
+    """
+    parts: list[Any] = [result.factor]
+    if "forward_periods" not in exclude:
+        parts.append(result.forward_periods)
+    parts.extend(sorted((k, v) for k, v in result.params.items() if k not in exclude))
+    return tuple(parts)
+
+
 @dataclass(frozen=True, slots=True)
 class _FamilyEntry:
     """Flat record carrying one hypothesis through the family pipeline.
@@ -98,11 +116,7 @@ def _partition(
     seen: dict[tuple[Any, ...], int] = {}
     for idx, result in enumerate(results):
         values = _expand_over_values(result, keys=keys)
-        identifier = (
-            result.factor,
-            result.forward_periods,
-            *sorted(result.params.items()),
-        )
+        identifier = _hypothesis_identity(result)
         if identifier in seen:
             raise UserInputError(
                 func_name=func_name,

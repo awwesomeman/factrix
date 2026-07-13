@@ -159,3 +159,49 @@ def test_missing_param_key_aggregates_all_offenders():
             results, metrics=["ic"], min_pass=2, expand_over=("region",)
         )
     assert "factor='alpha' missing 'region'" in str(excinfo.value)
+
+
+def test_pc_non_condition_param_separates_identities():
+    """A knob swept outside the condition axis must not inflate m.
+
+    With `base_tf` on `params`, the four results are two identities of two
+    conditions each — not one identity with four mixed-axis "conditions".
+    """
+    make_spec("ic")
+    results = [
+        make_result(
+            factor="mom", p=p, metric="ic", params={"base_tf": tf, "region": rg}
+        )
+        for tf, rg, p in [
+            ("1h", "US", 0.001),
+            ("1h", "EU", 0.002),
+            ("4h", "US", 0.9),
+            ("4h", "EU", 0.8),
+        ]
+    ]
+    out = partial_conjunction(
+        results, metrics=["ic"], min_pass=2, expand_over=("region",), q=0.05
+    )
+    assert len(out["ic"].n_tests) == 2
+    assert set(out["ic"].n_tests.values()) == {2}
+
+
+def test_pc_mixed_horizons_outside_condition_axis_stay_distinct():
+    """`forward_periods` outside `expand_over` splits identities, not conditions."""
+    make_spec("ic")
+    results = [
+        make_result(
+            factor="mom",
+            p=0.001,
+            metric="ic",
+            forward_periods=fp,
+            params={"region": rg},
+        )
+        for fp in (5, 10)
+        for rg in ("US", "EU")
+    ]
+    out = partial_conjunction(
+        results, metrics=["ic"], min_pass=2, expand_over=("region",), q=0.05
+    )
+    assert len(out["ic"].n_tests) == 2
+    assert set(out["ic"].n_tests.values()) == {2}

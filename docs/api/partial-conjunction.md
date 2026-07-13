@@ -132,7 +132,7 @@ per metric — the same `_FdrResultBase` shape as `bhy`'s
 | `pc_p_all` | Raw PC $p$-value (pre-BHY), aligned with `entries` |
 | `survivors` / `adj_p` | Surviving subset and its adjusted p-value (derived from `adj_p_all <= q`) |
 | `min_pass` | The $k$ you passed |
-| `n_tests` | Keyed by the single-element identity tuple `(factor,)` → condition count $m$ for that identity |
+| `n_tests` | Keyed by the identity tuple — `factor`, then `forward_periods` and `params` items not named by `expand_over` → condition count $m$ for that identity |
 | `n_passed_uncorr_all` | Per-identity count of raw $p < q$, aligned with `entries`. Descriptive — flags borderline (`n_passed_uncorr_all == min_pass`) and data-gap cases at a glance. **Cutoff is your `q`**, so the count moves with `q` — using it to override `adj_p` survivor selection is the anti-shopping failure mode this function exists to prevent. |
 
 `to_frame()` gives a `factor | adj_p | survived` DataFrame over every tested

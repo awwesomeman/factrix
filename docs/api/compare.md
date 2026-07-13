@@ -39,7 +39,7 @@ The returned `pl.DataFrame` contains the following columns:
 
 - `factor`: The name of the evaluated factor.
 - `forward_periods`: The forward periods horizon.
-- Context keys: All context keys present across the evaluation results, ordered by first appearance.
+- Params keys: All `params` keys present across the evaluation results, ordered by first appearance.
 - `<metric_label>`: The metric value, where `metric_label` is the key in
   `EvaluationResult.metrics` and the string passed in `metrics=[...]` (e.g.
   `ic`).
@@ -54,7 +54,7 @@ The returned `pl.DataFrame` contains the following columns:
 | Kwarg | Default | Meaning |
 |-------|---------|---------|
 | `metrics` | (required) | `list[str]` of metric labels to include in the leaderboard. |
-| `sort_by` | `None` | Any output column produced before ranking: `factor`, `forward_periods`, context keys, metric value columns such as `ic`, or p-value columns such as `ic_p_value` / `<metric_label>_p_value`. `None` keeps the original list order. |
+| `sort_by` | `None` | Any output column produced before ranking: `factor`, `forward_periods`, `params` keys, metric value columns such as `ic`, or p-value columns such as `ic_p_value` / `<metric_label>_p_value`. `None` keeps the original list order. |
 | `descending` | `True` | Whether to sort in descending order (higher is better). Set to `False` for lower-is-better metrics. |
 
 `rank` is created after sorting, so it is not a valid `sort_by` key. To sort
