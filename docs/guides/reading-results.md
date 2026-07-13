@@ -22,14 +22,15 @@ result = results["factor"]
 
 An `EvaluationResult` represents the outcome of evaluating a single factor column over all specified metrics. Read the fields in the order below:
 
-### 1. Identity & context — what was tested
+### 1. Identity & sweep knobs — what was tested
 
 | Field | Type | Notes |
 |---|---|---|
 | `factor` | `str` | The name of the factor column. |
 | `cell` | `tuple[FactorScope, FactorDensity, DataStructure]` | The resolved analysis cell (scope, density, and structure). |
 | `forward_periods` | `int` | The forward periods horizon. |
-| `context` | `Mapping[str, Any]` | Extra context labels (e.g. `{"region": "US"}`). |
+| `params` | `Mapping[str, Hashable]` | Sweep knobs that define *which* hypothesis this is (e.g. `{"timeframe": "1h"}`). Joins the hypothesis identifier. |
+| `metadata` | `Mapping[str, Any]` | Bookkeeping labels (e.g. `{"run_id": ...}`) that never join the identifier or partition a family. |
 
 ### 2. Sample size and observations
 

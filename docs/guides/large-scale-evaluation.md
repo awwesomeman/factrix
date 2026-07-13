@@ -34,11 +34,16 @@ from factrix.metrics import ic
 # 1. Scan metadata only — nothing is read from disk yet
 lazy_panel = pl.scan_parquet("large_panel.parquet")
 
-# 2. Separate the fixed baseline columns from candidate factor columns
-baseline_cols = ["date", "asset_id", "forward_return"]
-factor_cols = [
-    c for c in lazy_panel.collect_schema().names() if c not in baseline_cols
-]
+# 2. Separate the fixed baseline columns from candidate factor columns.
+# If the parquet was written from a `compute_forward_return()` panel, it
+# also carries "price" and the reserved "_forward_periods" stamp column —
+# both must be excluded here too, or they get swept into factor_cols and
+# `evaluate()` raises `ColumnNotFoundError` (it strips "_forward_periods"
+# internally before dispatch, but does not filter the caller's factor_cols).
+schema_cols = lazy_panel.collect_schema().names()
+reserved_cols = {"date", "asset_id", "price", "forward_return", "_forward_periods"}
+baseline_cols = [c for c in schema_cols if c in reserved_cols]
+factor_cols = [c for c in schema_cols if c not in reserved_cols]
 
 # 3. Process candidate factors in chunks
 chunk_size = 50
