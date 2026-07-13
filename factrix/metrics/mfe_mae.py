@@ -45,6 +45,7 @@ _MFE_CELL = cell(None, FactorDensity.SPARSE, structure=None)
 @metric(
     cell=_MFE_CELL,
     aggregation=Aggregation.EVENT_TIME,
+    slice_boundary_sensitive=True,
     input_shape=InputShape.SERIES,
     requires={"mfe_mae_df": compute_mfe_mae},
     sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),

@@ -64,6 +64,7 @@ _COMMON_BETA_CELL = cell(
 @metric(
     cell=_COMMON_BETA_CELL,
     aggregation=Aggregation.TS_THEN_CS,
+    slice_boundary_sensitive=True,
     input_shape=InputShape.SERIES,
     requires={"common_betas_df": compute_common_betas},
     sample_threshold=SampleThreshold(min_assets=3),
@@ -157,6 +158,7 @@ def common_beta(common_betas_df: pl.DataFrame) -> MetricResult:
 @metric(
     cell=_COMMON_BETA_CELL,
     aggregation=Aggregation.TS_THEN_CS,
+    slice_boundary_sensitive=True,
     input_shape=InputShape.SERIES,
     requires={"common_betas_df": compute_common_betas},
     sample_threshold=SampleThreshold(min_assets=1),
@@ -260,6 +262,7 @@ def common_beta_profile(
 @metric(
     cell=_COMMON_BETA_CELL,
     aggregation=Aggregation.TS_THEN_CS,
+    slice_boundary_sensitive=True,
     input_shape=InputShape.SERIES,
     requires={"common_betas_df": compute_common_betas},
     sample_threshold=SampleThreshold(min_assets=1),
@@ -343,6 +346,7 @@ def common_beta_r_squared(common_betas_df: pl.DataFrame) -> MetricResult:
 @metric(
     cell=_COMMON_BETA_CELL,
     aggregation=Aggregation.TS_THEN_CS,
+    slice_boundary_sensitive=True,
     input_shape=InputShape.PANEL,
     output_shape=OutputShape.SERIES,
     role=SpecRole.PIPELINE,
@@ -479,6 +483,7 @@ def compute_rolling_common_beta(
 @metric(
     cell=_COMMON_BETA_CELL,
     aggregation=Aggregation.TS_THEN_CS,
+    slice_boundary_sensitive=True,
     input_shape=InputShape.SERIES,
     requires={"common_betas_df": compute_common_betas},
     sample_threshold=SampleThreshold(min_assets=2),

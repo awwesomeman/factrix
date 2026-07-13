@@ -54,6 +54,7 @@ __all__ = [
 @metric(
     cell=cell(None, FactorDensity.DENSE, structure=None),
     aggregation=Aggregation.TS_ONLY,
+    slice_boundary_sensitive=True,
     input_shape=InputShape.PANEL,
     sample_threshold=SampleThreshold(
         min_pairs=MIN_DIRECTIONAL_PAIRS_HARD,

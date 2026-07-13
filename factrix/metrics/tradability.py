@@ -83,6 +83,7 @@ def _rank_turnover_sample_threshold(self: MetricBase) -> SampleThreshold:
 @metric(
     cell=_TR_CELL,
     aggregation=Aggregation.TS_ONLY,
+    slice_boundary_sensitive=True,
     sample_threshold=_rank_turnover_sample_threshold,
 )
 def rank_turnover(

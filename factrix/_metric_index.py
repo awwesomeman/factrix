@@ -273,6 +273,10 @@ class MetricSpec:
       :func:`inspect_data` blocks it on a discrete ±k signal, matching the
       metric's run-time ``not_applicable_discrete_signal`` short-circuit.
       Defaults to ``False``.
+    - ``slice_boundary_sensitive``: ``True`` when evaluating independently on
+      date-axis slices changes the computation by truncating ordered history,
+      resetting a sampling phase, or refitting a time-series model. This is a
+      capability of the estimator, not an inference from ``aggregation``.
     """
 
     name: str
@@ -288,6 +292,7 @@ class MetricSpec:
     # factor (``|factor|`` varies across events). ``inspect_data`` blocks it on a
     # discrete ±k signal, matching the metric's run-time short-circuit.
     requires_continuous_magnitude: bool = False
+    slice_boundary_sensitive: bool = False
 
     def __post_init__(self) -> None:
         if self.role is SpecRole.METRIC and self.output_shape is not OutputShape.SCALAR:

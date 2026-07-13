@@ -139,6 +139,10 @@ class MetricBase(metaclass=MetricMeta):
     # ``inspect_data`` blocks it pre-flight. Default ``False`` — most metrics
     # accept any cardinality.
     requires_continuous_magnitude: ClassVar[bool] = False
+    # Declares that independent date-axis slices alter ordered-history,
+    # sampling-phase, or time-series-model semantics. ``by_slice`` reads this
+    # capability directly instead of guessing from the aggregation category.
+    slice_boundary_sensitive: ClassVar[bool] = False
 
     # Canonical injected horizon. Declared here (not a real attribute on the
     # base) so a floor resolver typed ``Callable[[MetricBase], SampleThreshold]``
@@ -183,6 +187,7 @@ class MetricBase(metaclass=MetricMeta):
             batchable=cls.batchable,
             sample_threshold=cls.sample_threshold,
             requires_continuous_magnitude=cls.requires_continuous_magnitude,
+            slice_boundary_sensitive=cls.slice_boundary_sensitive,
         )
 
     def _params(self) -> dict[str, Any]:

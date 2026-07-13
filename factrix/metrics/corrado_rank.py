@@ -33,6 +33,7 @@ __all__ = [
     # floor guards thin samples.
     cell=cell(None, FactorDensity.SPARSE, structure=None),
     aggregation=Aggregation.EVENT_TIME,
+    slice_boundary_sensitive=True,
     sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
 )
 def corrado_rank(

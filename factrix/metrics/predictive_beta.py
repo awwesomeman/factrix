@@ -37,6 +37,7 @@ __all__ = ["predictive_beta"]
 @metric(
     cell=cell(None, FactorDensity.DENSE, structure=DataStructure.TIMESERIES),
     aggregation=Aggregation.TS_ONLY,
+    slice_boundary_sensitive=True,
     input_shape=InputShape.PANEL,
     sample_threshold=SampleThreshold(
         min_periods=MIN_PERIODS_HARD,
