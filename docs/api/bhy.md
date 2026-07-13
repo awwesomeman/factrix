@@ -81,8 +81,11 @@ Two separate concerns, on two separate knobs:
 
 - **Identity** — `(factor, forward_periods, *params)`. It names *which
   hypothesis* this is. Every `EvaluationResult.params` entry joins it
-  automatically, so a swept knob (`base_tf`, `universe_id`, …) never has to be
-  encoded into the factor name to stay unique.
+  automatically, so a swept knob (`timeframe`, `universe_id`, …) never has to be
+  encoded into the factor name to stay unique. These knobs change the input
+  panel upstream of `evaluate()` — a different bar timeframe or universe is a
+  different panel — so `evaluate()` cannot infer them; the caller stamps them
+  on `params` after the fact.
 - **Family partition** — `expand_over` alone. It is a purely statistical
   declaration about which hypotheses compete with each other. It may name
   `params` keys or the built-in `"forward_periods"`, never the factor name.
@@ -108,12 +111,12 @@ control over later shopping across them.
 | User intent | Where the knob lives | API call | Family scope per step-up |
 |---|---|---|---|
 | "This study runs on `tw50` only" — a pre-registered scope, not a tested dimension | filter upstream; the knob need not be stamped at all | `bhy([r for r in results if …], metrics=["ic"])` | `factor × forward_periods` |
-| "Sweep `base_tf` ∈ {1h, 4h, 1d} and take the best" — a tested dimension, winner selected across it | `params` | `bhy(results, metrics=["ic"])` | `factor × forward_periods × base_tf`, **one** step-up over all of them |
+| "Sweep `timeframe` ∈ {1h, 4h, 1d} and take the best" — a tested dimension, winner selected across it | `params` | `bhy(results, metrics=["ic"])` | `factor × forward_periods × timeframe`, **one** step-up over all of them |
 | "Report predeclared `tw50` and `tw100` screens separately, with no cross-universe winner selection" | `params` + `expand_over` | `bhy(results, metrics=["ic"], expand_over=("universe_id",))` | one step-up per universe |
 | "Record which pipeline run produced this" — never affects inference | `metadata` | — | not applicable |
 
 The middle row is the one that used to require encoding the knob into the factor
-name. It no longer does: stamping `base_tf` on `params` makes each hypothesis
+name. It no longer does: stamping `timeframe` on `params` makes each hypothesis
 uniquely identified while leaving them all in a single family.
 
 ## See also

@@ -321,12 +321,12 @@ def test_params_join_identity_so_swept_knob_pools_in_one_family():
     """A knob swept in `params` disambiguates without splitting the family.
 
     Before params joined the identity, the same factor evaluated across
-    several `base_tf` values collided on `(factor, forward_periods)` and the
+    several `timeframe` values collided on `(factor, forward_periods)` and the
     only pooling-safe escape was encoding the knob into the factor name.
     """
     make_spec("ic")
     results = [
-        make_result(factor="mom", p=0.001, metric="ic", params={"base_tf": tf})
+        make_result(factor="mom", p=0.001, metric="ic", params={"timeframe": tf})
         for tf in ("1h", "4h", "1d")
     ]
     out = bhy(results, metrics=["ic"], q=0.05)
@@ -367,7 +367,7 @@ def test_params_keys_ride_along_so_distinct_axes_do_not_collide():
     """Same value on different param keys must stay two hypotheses."""
     make_spec("ic")
     results = [
-        make_result(factor="mom", p=0.001, metric="ic", params={"base_tf": "1h"}),
+        make_result(factor="mom", p=0.001, metric="ic", params={"timeframe": "1h"}),
         make_result(factor="mom", p=0.002, metric="ic", params={"universe": "1h"}),
     ]
     out = bhy(results, metrics=["ic"], q=0.05)

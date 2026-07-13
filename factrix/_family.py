@@ -11,7 +11,7 @@ concerns and are kept on separate knobs:
 
 * **Identity** — ``(factor, forward_periods, *params)``. Every
   ``EvaluationResult.params`` entry joins the identifier automatically,
-  so a swept knob (``base_tf``, ``universe``) never has to be encoded
+  so a swept knob (``timeframe``, ``universe``) never has to be encoded
   into the factor name to stay unique. ``EvaluationResult.metadata`` is
   bookkeeping and never joins the identifier.
 * **Family partition** — ``expand_over`` alone, naming ``forward_periods``
@@ -128,7 +128,7 @@ def _partition(
                     f"{seen[identifier]}, again at {idx}. Two results that "
                     "differ only in `metadata` are the same hypothesis — "
                     "metadata is bookkeeping and never disambiguates. If the "
-                    "repeats are a swept knob (base_tf, universe, ...), stamp "
+                    "repeats are a swept knob (timeframe, universe, ...), stamp "
                     "it on `EvaluationResult.params`; it then joins the "
                     "identifier without partitioning the family"
                 ),

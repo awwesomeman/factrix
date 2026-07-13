@@ -164,13 +164,13 @@ def test_missing_param_key_aggregates_all_offenders():
 def test_pc_non_condition_param_separates_identities():
     """A knob swept outside the condition axis must not inflate m.
 
-    With `base_tf` on `params`, the four results are two identities of two
+    With `timeframe` on `params`, the four results are two identities of two
     conditions each — not one identity with four mixed-axis "conditions".
     """
     make_spec("ic")
     results = [
         make_result(
-            factor="mom", p=p, metric="ic", params={"base_tf": tf, "region": rg}
+            factor="mom", p=p, metric="ic", params={"timeframe": tf, "region": rg}
         )
         for tf, rg, p in [
             ("1h", "US", 0.001),

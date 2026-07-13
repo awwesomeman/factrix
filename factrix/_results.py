@@ -155,7 +155,7 @@ class EvaluationResult:
             value is still a :class:`MetricResult`.
         params: Caller-supplied hypothesis parameters — the sweep knobs
             that decide *which* hypothesis this result is (e.g.
-            ``{"base_tf": "1h", "universe": "tw50"}``). Every value joins
+            ``{"timeframe": "1h", "universe": "tw50"}``). Every value joins
             the hypothesis identifier, so two results that differ only in
             ``params`` are two distinct hypotheses. ``expand_over`` may
             name these keys to partition a family.
