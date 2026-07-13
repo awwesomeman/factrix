@@ -412,7 +412,7 @@ def event_skewness(
 
     return MetricResult(
         p_value=p,
-        alternative="two-sided",
+        alternative="two-sided" if p is not None else None,
         value=skew,
         n_obs=n,
         n_obs_axis="events",
