@@ -152,6 +152,7 @@ def k_spread(
     return_col: str = "forward_return",
     rng_seed: int = 0,
     inference: NonOverlapping | NeweyWest = NON_OVERLAPPING,
+    expect_few_assets: bool = False,
 ) -> MetricResult:
     r"""Fixed-K Top-K vs Bottom-K long-short spread.
 
@@ -303,6 +304,7 @@ def k_spread(
             forward_periods=forward_periods,
             n_assets=n_assets,
             rng_seed=rng_seed,
+            expect_few_assets=expect_few_assets,
         )
     )
 

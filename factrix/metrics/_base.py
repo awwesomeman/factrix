@@ -77,12 +77,14 @@ class MetricMeta(type):
             return super().__call__(*args, **kwargs)
 
     def _reject_injected_params(cls, supplied: dict[str, Any]) -> None:
-        """Reject user-supplied injected params (e.g. ``forward_periods``).
+        """Reject user-supplied injected params (``forward_periods`` /
+        ``expect_few_assets``).
 
-        These are data-derived: ``evaluate`` injects the panel's stamped overlap
-        horizon at dispatch. A metric never carries its own ``forward_periods``,
-        so there is no per-metric knob left to diverge from the data — the
-        guarantee is structural, enforced here at the constructor boundary.
+        These are dispatch-injected, not per-metric knobs: ``evaluate`` injects
+        the panel's stamped overlap horizon and the caller's study-level
+        few-asset declaration. A metric never carries its own copy, so there is
+        no per-metric knob left to diverge — the guarantee is structural,
+        enforced here at the constructor boundary.
         """
         injected = getattr(cls, "_injected_param_names", ())
         offending = [name for name in supplied if name in injected]
@@ -90,17 +92,27 @@ class MetricMeta(type):
             from factrix._errors import UserInputError
 
             name = offending[0]
+            expected_by_param = {
+                "forward_periods": (
+                    "'forward_periods' is no longer a metric parameter — it is "
+                    "the panel's overlap horizon, read from the data. Set it "
+                    "once via factrix.preprocess.compute_forward_return(data, "
+                    "forward_periods=<forward_periods>); evaluate reads it "
+                    "from there."
+                ),
+                "expect_few_assets": (
+                    "'expect_few_assets' is not a metric parameter — it is a "
+                    "study-level declaration. Pass it once on "
+                    "evaluate(..., expect_few_assets=True); every metric in "
+                    "the call inherits it at dispatch."
+                ),
+            }
             raise UserInputError(
                 func_name=cls.__name__,
                 field=name,
                 value=supplied[name],
-                expected=(
-                    f"{name!r} is no longer a metric parameter — it is the "
-                    f"panel's overlap horizon, read from the data. Set it once "
-                    f"via factrix.preprocess.compute_forward_return(data, "
-                    f"forward_periods=<forward_periods>); evaluate reads it from there."
-                ),
-                docs_path="api/evaluate#forward_periods",
+                expected=expected_by_param[name],
+                docs_path=f"api/evaluate#{name}",
             )
 
 
@@ -194,27 +206,42 @@ class MetricBase(metaclass=MetricMeta):
         """Configured parameter values, pulled from the instance's slots."""
         return {name: getattr(self, name) for name in self._param_names}
 
-    def _inject(self, forward_periods: int | None) -> dict[str, Any]:
-        """Dispatch-time injected kwargs for ``_impl`` (the data's horizon).
+    def _inject(
+        self, forward_periods: int | None, expect_few_assets: bool | None = None
+    ) -> dict[str, Any]:
+        """Dispatch-time injected kwargs for ``_impl``.
 
-        Only the horizon, and only when the body declares it; a standalone call
-        (``forward_periods=None``) leaves the metric at its signature default.
+        Each injected param is forwarded only when the body declares it and the
+        dispatch supplied a value; a standalone call (``None``) leaves the
+        metric at its signature default.
         """
-        if (
-            forward_periods is not None
-            and "forward_periods" in self._injected_param_names
-        ):
-            return {"forward_periods": forward_periods}
-        return {}
+        supplied = {
+            "forward_periods": forward_periods,
+            "expect_few_assets": expect_few_assets,
+        }
+        return {
+            name: value
+            for name, value in supplied.items()
+            if value is not None and name in self._injected_param_names
+        }
 
     def __call__(
-        self, *args: Any, forward_periods: int | None = None, **kwargs: Any
+        self,
+        *args: Any,
+        forward_periods: int | None = None,
+        expect_few_assets: bool | None = None,
+        **kwargs: Any,
     ) -> Any:
         """Evaluate the metric on a single input (one factor's view / upstream)."""
         try:
             # Accessed via __class__ to avoid binding ``_impl`` as a method.
             return self.__class__._impl(
-                *args, **{**self._params(), **self._inject(forward_periods), **kwargs}
+                *args,
+                **{
+                    **self._params(),
+                    **self._inject(forward_periods, expect_few_assets),
+                    **kwargs,
+                },
             )
         except Exception as e:
             _log_exception_once(
@@ -234,6 +261,7 @@ class MetricBase(metaclass=MetricMeta):
         project: Callable[[str], Any],
         upstream: dict[str, dict[str, Any]],
         forward_periods: int | None = None,
+        expect_few_assets: bool | None = None,
     ) -> dict[str, Any]:
         """Run this metric across a factor batch; return ``{factor: output}``.
 
@@ -244,7 +272,7 @@ class MetricBase(metaclass=MetricMeta):
         ``batchable`` (whole panel), ``requires`` (consume upstream), plain
         (thin view) — are unified in :func:`_dispatch_batch`.
         """
-        inj = self._inject(forward_periods)
+        inj = self._inject(forward_periods, expect_few_assets)
         if self.requires:
 
             def run_batch() -> dict[str, Any]:

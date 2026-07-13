@@ -191,7 +191,10 @@ _WARNING_DESCRIPTIONS.update(
         "MIN_IC_ASSETS_WARN=10, or per-date MIN_FM_ASSETS_WARN=10). The "
         "statistic is returned, but small n_assets inflates critical values or "
         "leaves minimal residual degrees of freedom. Severity scales with "
-        "n_assets; read the relevant n_assets metadata.",
+        "n_assets; read the relevant n_assets metadata. A by-design few-asset "
+        "study declares the regime once via "
+        "evaluate(..., expect_few_assets=True), which suppresses this code "
+        "and stamps metadata['few_assets_expected'] instead.",
         WarningCode.THIN_QUANTILE_GROUPS: "quantile_spread with the median "
         "cross-section split into n_groups buckets leaving < MIN_GROUP_ASSETS "
         "(5) assets per bucket; each bucket mean rests on a handful of names so "

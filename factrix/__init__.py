@@ -116,6 +116,7 @@ def evaluate(
     factor_cols: list[str],
     forward_periods: int | None = None,
     strict: bool = True,
+    expect_few_assets: bool = False,
 ) -> "dict[str, EvaluationResult]":
     """Evaluate one or more factors against forward returns through the DAG executor.
 
@@ -175,6 +176,21 @@ def evaluate(
             cell mismatches) is kept as a NaN output with attached
             warnings instead of raising. Config-time / construct-time
             failures always raise.
+        expect_few_assets: Declare a **by-design few-asset study** (single
+            asset, pairs, a hand-picked handful of names). When ``True`` and
+            the cross-section is thin (``n_assets < MIN_ASSETS_WARN``), the
+            :attr:`~factrix.WarningCode.FEW_ASSETS` warning and its
+            ``UserWarning`` echo are not emitted — the declaration says "this
+            regime is expected", not "pretend the regime is absent": every
+            inference consequence stays readable on the result
+            (``metadata["method"]`` still names the block-bootstrap switch,
+            ``min_assets_per_period`` floors stay stamped, and the affected
+            metrics carry ``metadata["few_assets_expected"] = True`` as the
+            acknowledgment record). Default ``False`` — the warning behavior
+            is completely unchanged unless declared. On a wide cross-section
+            the declaration is a no-op. Not a per-metric knob: constructing a
+            metric with ``expect_few_assets=`` is rejected; the study-level
+            declaration here is injected into every metric at dispatch.
 
     Returns:
         ``dict[str, EvaluationResult]`` keyed by factor column name, in
@@ -211,6 +227,7 @@ def evaluate(
         True
     """
     _validate_metrics_arg(metrics)
+    _validate_expect_few_assets_arg(expect_few_assets)
     cols = _validate_factor_cols_arg(factor_cols)
     data = _coerce_data(data)
     _validate_baseline_columns(data)
@@ -300,6 +317,7 @@ def evaluate(
             scope=scope,
             density=density,
             forward_periods=fp,
+            expect_few_assets=expect_few_assets,
             kwargs_by_metric=node_kwargs,
         )
         for c in group_cols:
@@ -322,6 +340,7 @@ def evaluate_horizons(
     factor_cols: list[str],
     forward_periods: list[int],
     strict: bool = True,
+    expect_few_assets: bool = False,
 ) -> list[EvaluationResult]:
     """Sweep ``evaluate`` across several overlap horizons of one raw panel.
 
@@ -369,6 +388,9 @@ def evaluate_horizons(
             ``(factor, forward_periods)`` identity that ``compare`` / ``bhy``
             reject downstream.
         strict: Forwarded unchanged to each inner :func:`evaluate`.
+        expect_few_assets: Forwarded unchanged to each inner
+            :func:`evaluate` — the few-asset declaration is a property of
+            the study, so it applies identically at every horizon.
 
     Returns:
         Flat ``list[EvaluationResult]`` grouped by horizon (outer) then
@@ -415,6 +437,7 @@ def evaluate_horizons(
             metrics=metrics,
             factor_cols=factor_cols,
             strict=strict,
+            expect_few_assets=expect_few_assets,
         )
         results.extend(per_factor.values())
     return results
@@ -481,6 +504,21 @@ def _is_metrics_overview(metrics: object) -> bool:
             for v in metrics.values()
         )
     )
+
+
+def _validate_expect_few_assets_arg(expect_few_assets: object) -> None:
+    if not isinstance(expect_few_assets, bool):
+        raise UserInputError(
+            func_name="evaluate",
+            field="expect_few_assets",
+            value=type(expect_few_assets).__name__,
+            expected=(
+                "bool — True declares a by-design few-asset study "
+                "(suppresses the FEW_ASSETS warning while keeping the "
+                "inference switch readable in metric metadata)"
+            ),
+            docs_path="api/evaluate#expect_few_assets",
+        )
 
 
 def _validate_metrics_arg(metrics: object) -> None:

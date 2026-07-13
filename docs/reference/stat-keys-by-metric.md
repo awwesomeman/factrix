@@ -88,7 +88,7 @@ contrasts, not a sidecar to a primary value.
 
 - *primary*: `p_value` — `t`-test on the per-date IC series (non-overlapping stride with stride `forward_periods` by default, or Newey-West HAC if configured).
 - *descriptive*: `n_periods`, `forward_periods`, `tie_ratio` (median across dates), `min_assets_per_period` / `warn_assets_per_period` when the upstream IC series carries per-date asset counts, `stat_type` (`"t"`), `h0` (`"mu=0"`), `method`.
-- *warning*: `WarningCode.FEW_ASSETS` when retained per-date IC cross-sections are below `MIN_IC_ASSETS_WARN`.
+- *warning*: `WarningCode.FEW_ASSETS` when retained per-date IC cross-sections are below `MIN_IC_ASSETS_WARN`; suppressed under `evaluate(..., expect_few_assets=True)`, which stamps `few_assets_expected` (conditional — the thin regime engaged under a declared `evaluate(..., expect_few_assets=True)` study; replaces the warning, not the record).
 - *short-circuit*: `reason` `insufficient_ic_periods` (too few dates) carries `min_required`; `insufficient_ic_assets` (every cross-section below `MIN_IC_ASSETS_HARD`, so no per-date IC survived — common on one-valid-pair panels) carries `min_assets_required`.
 
 #### `ic_ir`
@@ -97,7 +97,7 @@ Descriptive metric — `MetricResult.stat` is `None` and no `p_value`
 is emitted.
 
 - *descriptive*: `mean_ic`, `std_ic`, `n_periods`, `tie_ratio`, `min_assets_per_period` / `warn_assets_per_period` when the upstream IC series carries per-date asset counts.
-- *warning*: `WarningCode.FEW_ASSETS` when retained per-date IC cross-sections are below `MIN_IC_ASSETS_WARN`.
+- *warning*: `WarningCode.FEW_ASSETS` when retained per-date IC cross-sections are below `MIN_IC_ASSETS_WARN`; suppressed under `evaluate(..., expect_few_assets=True)`, which stamps `few_assets_expected` (conditional — the thin regime engaged under a declared `evaluate(..., expect_few_assets=True)` study; replaces the warning, not the record).
 
 ### `fm_beta` family (`factrix.metrics.fm_beta`)
 
@@ -111,7 +111,7 @@ is emitted.
 - *descriptive*: `n_periods`, `newey_west_lags`, `forward_periods`,
   `is_estimated_factor`, `warning_codes` (conditional),
   `min_assets_per_period` / `warn_assets_per_period` when the upstream
-  FM beta series carries per-date asset counts.
+  FM beta series carries per-date asset counts; `few_assets_expected` (conditional — the thin regime engaged under a declared `evaluate(..., expect_few_assets=True)` study; replaces the warning, not the record).
 - *descriptive* (conditional, Shanken applied): `shanken_c`,
   `shanken_factor_return_var`, `shanken_factor_return_var_source`.
 - *descriptive* (conditional, σ²_f ≈ 0): `shanken_correction` =
@@ -145,7 +145,7 @@ Descriptive; no test.
 
 - *descriptive*: `expected_sign`, `n_periods`,
   `min_assets_per_period` / `warn_assets_per_period` when the upstream
-  FM beta series carries per-date asset counts.
+  FM beta series carries per-date asset counts; `few_assets_expected` (conditional — the thin regime engaged under a declared `evaluate(..., expect_few_assets=True)` study; replaces the warning, not the record).
 
 ### `caar` family (`factrix.metrics.caar`)
 
@@ -357,7 +357,11 @@ they additionally emit `p_value_t` (the parametric `t` p-value kept
 for reference), `bootstrap_block_length`, `bootstrap_n_resamples`,
 and `bootstrap_seed`. The switch is **not** silent: the single
 cross-section code (`few_assets`) is attached to `warning_codes`,
-so the method change surfaces as a `Warning` on the result.
+so the method change surfaces as a `Warning` on the result. Under a
+declared `evaluate(..., expect_few_assets=True)` study the code is
+not attached — the branch instead stamps `few_assets_expected` so
+the acknowledged switch stays readable from `metadata` (`method`
+still names the bootstrap path).
 
 ### `concentration` (`factrix.metrics.concentration`)
 

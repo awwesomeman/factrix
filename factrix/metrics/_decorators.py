@@ -17,11 +17,13 @@ from factrix.metrics._registry import register
 
 _F = TypeVar("_F", bound=Callable[..., Any])
 
-# Parameters that ``evaluate`` injects from the data rather than the user
-# configuring per metric. They remain dataclass fields (so threshold hooks can
-# read them and standalone calls keep the signature default) but are kept out of
-# the user-facing ``_param_names`` — the public constructor rejects them.
-_INJECTED_PARAMS: frozenset[str] = frozenset({"forward_periods"})
+# Parameters that ``evaluate`` injects at dispatch rather than the user
+# configuring per metric: ``forward_periods`` comes from the data's horizon
+# stamp, ``expect_few_assets`` from the caller's study-level declaration on
+# ``evaluate``. They remain dataclass fields (so threshold hooks can read them
+# and standalone calls keep the signature default) but are kept out of the
+# user-facing ``_param_names`` — the public constructor rejects them.
+_INJECTED_PARAMS: frozenset[str] = frozenset({"forward_periods", "expect_few_assets"})
 
 
 def _normalize_threshold(

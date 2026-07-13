@@ -125,14 +125,25 @@ def _warn_if_few_ic_assets(
     metric_name: str,
     metadata: dict[str, object],
     warning_codes: list[str],
+    *,
+    expect_few_assets: bool = False,
 ) -> None:
-    """Surface retained-but-thin IC cross-sections as a soft warning."""
+    """Surface retained-but-thin IC cross-sections as a soft warning.
+
+    ``expect_few_assets=True`` declares the thin regime as the study's
+    design: the ``min_assets_per_period`` floors stay stamped and a
+    ``few_assets_expected`` marker records the acknowledgment, but no
+    ``FEW_ASSETS`` code or ``UserWarning`` is emitted.
+    """
     min_assets_per_period = _min_ic_assets(ic_df)
     if min_assets_per_period is None:
         return
     metadata["min_assets_per_period"] = min_assets_per_period
     metadata["warn_assets_per_period"] = MIN_IC_ASSETS_WARN
     if min_assets_per_period >= MIN_IC_ASSETS_WARN:
+        return
+    if expect_few_assets:
+        metadata["few_assets_expected"] = True
         return
     _warnings.warn(
         f"{metric_name}: min_assets_per_period={min_assets_per_period} below "
@@ -194,6 +205,7 @@ def ic(
     ic_df: pl.DataFrame,
     forward_periods: int = 5,
     inference: NonOverlapping | NeweyWest = NON_OVERLAPPING,
+    expect_few_assets: bool = False,
 ) -> MetricResult:
     r"""Information coefficient (IC) mean significance: is mean IC significantly different from zero?
 
@@ -319,7 +331,9 @@ def ic(
         "tie_ratio": median_tie,
     }
     warning_codes: list[str] = []
-    _warn_if_few_ic_assets(ic_df, "ic", metadata, warning_codes)
+    _warn_if_few_ic_assets(
+        ic_df, "ic", metadata, warning_codes, expect_few_assets=expect_few_assets
+    )
     _surface_drop_stats(ic_df, "ic", metadata, warning_codes)
     # Surface the inference method's own soft-floor signals (e.g. a thin
     # post-stride sample tripping UNRELIABLE_SE_SHORT_PERIODS); de-dup so a
@@ -351,6 +365,7 @@ def ic(
 )
 def ic_ir(
     ic_df: pl.DataFrame,
+    expect_few_assets: bool = False,
 ) -> MetricResult:
     r"""$\mathrm{ICIR} = \mathrm{mean}(\mathrm{IC}) / \mathrm{std}(\mathrm{IC})$.
 
@@ -431,7 +446,9 @@ def ic_ir(
         "n_periods": n,
         "tie_ratio": median_tie,
     }
-    _warn_if_few_ic_assets(ic_df, "ic_ir", metadata, warning_codes)
+    _warn_if_few_ic_assets(
+        ic_df, "ic_ir", metadata, warning_codes, expect_few_assets=expect_few_assets
+    )
     _surface_drop_stats(ic_df, "ic_ir", metadata, warning_codes)
     return MetricResult(
         value=ratio,

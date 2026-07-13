@@ -100,14 +100,25 @@ def _surface_fm_asset_warning(
     metric_name: str,
     metadata: dict,
     warning_codes: list[str],
+    *,
+    expect_few_assets: bool = False,
 ) -> None:
-    """Surface thin per-date FM cross-sections without blocking the result."""
+    """Surface thin per-date FM cross-sections without blocking the result.
+
+    ``expect_few_assets=True`` declares the thin regime as the study's
+    design: the ``min_assets_per_period`` floors stay stamped and a
+    ``few_assets_expected`` marker records the acknowledgment, but no
+    ``FEW_ASSETS`` code or ``UserWarning`` is emitted.
+    """
     min_assets_per_period = _min_fm_assets(beta_df)
     if min_assets_per_period is None:
         return
     metadata["min_assets_per_period"] = min_assets_per_period
     metadata["warn_assets_per_period"] = MIN_FM_ASSETS_WARN
     if min_assets_per_period >= MIN_FM_ASSETS_WARN:
+        return
+    if expect_few_assets:
+        metadata["few_assets_expected"] = True
         return
     warnings.warn(
         f"{metric_name}: min_assets_per_period={min_assets_per_period} below "
@@ -144,6 +155,7 @@ def fm_beta(
     forward_periods: int | None = None,
     is_estimated_factor: bool = False,
     factor_return_var: float | None = None,
+    expect_few_assets: bool = False,
 ) -> MetricResult:
     r"""Newey-West t-test on FM beta series. $H_0: \mathrm{mean}(\beta) = 0$.
 
@@ -331,7 +343,13 @@ def fm_beta(
             p_final = p_shanken
             t = t_shanken
 
-    _surface_fm_asset_warning(beta_df, "fm_beta", metadata, warning_codes)
+    _surface_fm_asset_warning(
+        beta_df,
+        "fm_beta",
+        metadata,
+        warning_codes,
+        expect_few_assets=expect_few_assets,
+    )
     _surface_drop_stats(beta_df, "fm_beta", metadata, warning_codes)
     return MetricResult(
         p_value=p_final,
@@ -795,6 +813,7 @@ def fm_beta_sign_consistency(
     beta_df: pl.DataFrame,
     *,
     expected_sign: int = 1,
+    expect_few_assets: bool = False,
 ) -> MetricResult:
     r"""Fraction of FM per-date $\beta$s carrying the expected sign — ``value`` $= \mathrm{mean}_t \mathbb{1}\{\mathrm{sign}(\beta_t) = s^\star\}$.
 
@@ -859,6 +878,7 @@ def fm_beta_sign_consistency(
         "fm_beta_sign_consistency",
         metadata,
         warning_codes,
+        expect_few_assets=expect_few_assets,
     )
     _surface_drop_stats(beta_df, "fm_beta_sign_consistency", metadata, warning_codes)
     return MetricResult(
