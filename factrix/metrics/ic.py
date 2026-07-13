@@ -329,6 +329,7 @@ def ic(
             warning_codes.append(code.value)
     return MetricResult(
         p_value=result.p_value,
+        alternative="two-sided",
         value=mean_ic,
         n_obs=n,
         n_obs_axis="periods",

@@ -335,6 +335,7 @@ def fm_beta(
     _surface_drop_stats(beta_df, "fm_beta", metadata, warning_codes)
     return MetricResult(
         p_value=p_final,
+        alternative="two-sided",
         value=mean_beta,
         n_obs=n,
         n_obs_axis="periods",
@@ -420,6 +421,7 @@ def _pooled_beta_driscoll_kraay(
     if n_periods < _MIN_DK_PERIODS_HARD:
         return MetricResult(
             p_value=1.0,
+            alternative="two-sided",
             value=slope,
             n_obs=n_obs,
             n_obs_axis="pairs",
@@ -458,6 +460,7 @@ def _pooled_beta_driscoll_kraay(
     }
     return MetricResult(
         p_value=p,
+        alternative="two-sided",
         value=slope,
         n_obs=n_obs,
         n_obs_axis="pairs",
@@ -671,6 +674,7 @@ def pooled_beta(
         if g_a < 3:
             return MetricResult(
                 p_value=1.0,
+                alternative="two-sided",
                 value=slope,
                 n_obs=n_obs,
                 n_obs_axis="pairs",
@@ -698,6 +702,7 @@ def pooled_beta(
         if min(g_a, g_b) < 3:
             return MetricResult(
                 p_value=1.0,
+                alternative="two-sided",
                 value=slope,
                 n_obs=n_obs,
                 n_obs_axis="pairs",
@@ -765,6 +770,7 @@ def pooled_beta(
 
     return MetricResult(
         p_value=p,
+        alternative="two-sided",
         value=slope,
         n_obs=n_obs,
         n_obs_axis="pairs",

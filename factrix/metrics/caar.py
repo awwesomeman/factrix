@@ -251,6 +251,7 @@ def caar(
 
     return MetricResult(
         p_value=p,
+        alternative="two-sided",
         value=mean_caar,
         n_obs=n_sampled,
         n_obs_axis="events",
@@ -519,6 +520,7 @@ def bmp_z(
 
     return MetricResult(
         p_value=p,
+        alternative="two-sided",
         value=mean_sar,
         n_obs=n_valid,
         n_obs_axis="events",

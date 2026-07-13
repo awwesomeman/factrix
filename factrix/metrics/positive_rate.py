@@ -188,6 +188,7 @@ def positive_rate(
     )
     return MetricResult(
         p_value=p,
+        alternative="two-sided",
         value=rate,
         n_obs=n,
         n_obs_axis="periods",

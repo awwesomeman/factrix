@@ -258,6 +258,7 @@ def spanning_alpha(
 
     return MetricResult(
         p_value=p,
+        alternative="two-sided",
         value=ols.alpha,
         n_obs=n_obs,
         n_obs_axis="periods",

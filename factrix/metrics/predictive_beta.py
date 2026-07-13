@@ -166,6 +166,7 @@ def predictive_beta(
     return MetricResult(
         value=beta,
         p_value=p_value,
+        alternative="two-sided",
         n_obs=n,
         n_obs_axis="periods",
         stat=t_stat,

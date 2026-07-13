@@ -133,6 +133,7 @@ def top_concentration(
         return _short_circuit_output(
             "top_concentration",
             "no_return_column",
+            alternative="less",
             missing_column=return_col,
             weight_by=weight_by,
         )
@@ -229,6 +230,7 @@ def top_concentration(
     }
     return MetricResult(
         p_value=p,
+        alternative="less",
         value=mean_eff_n,
         n_obs=n,
         n_obs_axis="periods",

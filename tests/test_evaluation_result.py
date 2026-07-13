@@ -21,6 +21,7 @@ def _sample_group() -> Mapping[str, MetricResult]:
     ic_out = MetricResult(
         value=0.05,
         p_value=0.012,
+        alternative="two-sided",
         n_obs=100,
         stat=2.5,
         metadata={"p_value": 0.012},
@@ -92,6 +93,7 @@ class TestEvaluationResultToFrame:
             "metric_name",
             "value",
             "p_value",
+            "alternative",
             "stat",
             "n_obs",
             "n_obs_axis",
@@ -101,6 +103,7 @@ class TestEvaluationResultToFrame:
         ]
         assert df.schema["value"] == pl.Float64
         assert df.schema["p_value"] == pl.Float64
+        assert df.schema["alternative"] == pl.Utf8
         assert df.schema["n_obs"] == pl.Int64
         assert df.schema["n_obs_axis"] == pl.Utf8
         assert df.schema["is_applicable"] == pl.Boolean
@@ -123,6 +126,7 @@ class TestEvaluationResultToFrame:
         row = df.row(0, named=True)
         assert row["value"] is None
         assert row["p_value"] is None
+        assert row["alternative"] is None
 
     def test_short_circuit_marks_metric_inapplicable(self):
         bad = MetricResult(
@@ -182,6 +186,7 @@ class TestEvaluationResultToDict:
         assert "n_obs" not in back
         assert "metrics_partition" not in back
         assert back["metrics"]["ic"]["p_value"] == 0.012
+        assert back["metrics"]["ic"]["alternative"] == "two-sided"
         assert back["metrics"]["ic"]["is_applicable"] is True
         assert back["metrics"]["ic"]["reason"] is None
         assert back["warnings"][0]["code"] == WarningCode.FEW_ASSETS.value
@@ -190,7 +195,6 @@ class TestEvaluationResultToDict:
     def test_nonfinite_floats_become_null(self):
         bad = MetricResult(
             value=float("nan"),
-            p_value=float("nan"),
             stat=float("inf"),
             metadata={"p_value": float("nan")},
             name="ic",
@@ -201,6 +205,25 @@ class TestEvaluationResultToDict:
         assert d["metrics"]["ic"]["stat"] is None
         assert d["metrics"]["ic"]["p_value"] is None
         json.dumps(d)
+
+
+class TestMetricResultPValueContract:
+    @pytest.mark.parametrize("p_value", [float("nan"), float("inf"), -0.1, 1.1])
+    def test_rejects_invalid_p_value(self, p_value: float):
+        with pytest.raises(ValueError, match=r"finite.*\[0, 1\]"):
+            MetricResult(
+                value=0.0,
+                p_value=p_value,
+                alternative="two-sided",
+            )
+
+    def test_rejects_p_value_without_alternative(self):
+        with pytest.raises(ValueError, match="both be provided"):
+            MetricResult(value=0.0, p_value=0.5)
+
+    def test_rejects_alternative_without_p_value(self):
+        with pytest.raises(ValueError, match="both be provided"):
+            MetricResult(value=0.0, alternative="greater")
 
 
 class TestReprHtml:

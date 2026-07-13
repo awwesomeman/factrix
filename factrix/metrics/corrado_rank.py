@@ -120,7 +120,12 @@ def corrado_rank(
     n_events = len(events)
 
     sc = _enforce_min_floor(
-        corrado_rank, "corrado_rank", n_events, "insufficient_events", axis="events"
+        corrado_rank,
+        "corrado_rank",
+        n_events,
+        "insufficient_events",
+        axis="events",
+        alternative="greater",
     )
     if sc is not None:
         return sc
@@ -134,6 +139,7 @@ def corrado_rank(
         return _short_circuit_output(
             "corrado_rank",
             "degenerate_rank_variance",
+            alternative="greater",
             std_u=std_u,
         )
 
@@ -146,6 +152,7 @@ def corrado_rank(
 
     return MetricResult(
         p_value=p,
+        alternative="greater",
         value=mean_u,
         n_obs=n_events,
         n_obs_axis="events",

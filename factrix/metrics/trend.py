@@ -201,6 +201,7 @@ def ic_trend(
     )
     return MetricResult(
         p_value=p,
+        alternative="two-sided",
         value=slope,
         n_obs=n,
         n_obs_axis="periods",

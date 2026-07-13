@@ -223,6 +223,7 @@ def monotonicity(
         p = _p_value_from_t(t, len(mono_arr))
         results[f] = MetricResult(
             p_value=p,
+            alternative="two-sided",
             value=avg_mono,
             n_obs=len(mono_arr),
             n_obs_axis="periods",

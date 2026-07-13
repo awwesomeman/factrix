@@ -125,6 +125,7 @@ def event_hit_rate(
 
     return MetricResult(
         p_value=p,
+        alternative="two-sided",
         value=rate,
         n_obs=n,
         n_obs_axis="events",
@@ -229,6 +230,7 @@ def event_ic(
 
     return MetricResult(
         p_value=p,
+        alternative="two-sided",
         value=rho,
         n_obs=n,
         n_obs_axis="events",
@@ -410,6 +412,7 @@ def event_skewness(
 
     return MetricResult(
         p_value=p,
+        alternative="two-sided",
         value=skew,
         n_obs=n,
         n_obs_axis="events",

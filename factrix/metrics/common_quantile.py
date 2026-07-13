@@ -225,6 +225,7 @@ def common_quantile_spread(
 
     return MetricResult(
         p_value=p_spread,
+        alternative="two-sided",
         value=spread_value,
         n_obs=n_periods,
         n_obs_axis="periods",

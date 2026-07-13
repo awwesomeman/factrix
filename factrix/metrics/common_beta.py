@@ -139,6 +139,7 @@ def common_beta(common_betas_df: pl.DataFrame) -> MetricResult:
     )
     return MetricResult(
         p_value=p,
+        alternative="two-sided",
         value=mean_b,
         n_obs=n,
         n_obs_axis="assets",

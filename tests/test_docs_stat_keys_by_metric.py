@@ -22,7 +22,7 @@ _COMMON_KEYS: frozenset[str] = frozenset(
 # Explicit-keyword params of ``_short_circuit_output`` — control flags that
 # do not surface as ``MetricResult.metadata`` keys at runtime.
 _HELPER_CONTROL_KWARGS: frozenset[str] = frozenset(
-    {"n_obs", "n_obs_axis", "descriptive"}
+    {"n_obs", "n_obs_axis", "descriptive", "alternative"}
 )
 
 # Inner keys of nested dict / list-of-dict metadata payloads. Documented

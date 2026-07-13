@@ -345,6 +345,7 @@ def _quantile_spread_from_series(
     )
     return MetricResult(
         p_value=p,
+        alternative="two-sided",
         value=mean_spread,
         n_obs=n,
         n_obs_axis="periods",
@@ -559,6 +560,7 @@ def quantile_spread_vw(
     )
     return MetricResult(
         p_value=p,
+        alternative="two-sided",
         value=mean_spread,
         n_obs=n,
         n_obs_axis="periods",
