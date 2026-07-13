@@ -169,7 +169,7 @@ def evaluate(
     factor_cols: list[str],
     forward_periods: int | None = None,
     strict: bool = True,
-    expect_few_assets: bool = False,
+    expected_warnings: tuple[str, ...] = (),
 ) -> dict[str, EvaluationResult]:
 ```
 
@@ -179,7 +179,7 @@ def evaluate(
 - `factor_cols` accepts a list of column names on `data`.
 - `forward_periods` is **not** a metric knob — it is the data's single overlap horizon (rows of the time axis). Normally omitted: `compute_forward_return` stamps it on the panel and `evaluate` reads it from there. Pass it only to declare the horizon for a self-attached `forward_return` column that carries no stamp; a value disagreeing with the stamp is rejected. To compare horizons, build one panel per horizon and evaluate each (or use `evaluate_horizons`).
 - `strict` (default `True`) raises an exception on inapplicable metrics; when `False`, inapplicable metrics return `NaN` with warnings.
-- `expect_few_assets` (default `False`) declares a by-design few-asset study (single asset, pairs, a hand-picked handful of names). When `True` and the cross-section is thin (`n_assets < MIN_ASSETS_WARN = 30`), the `FEW_ASSETS` warning and its `UserWarning` echo are not emitted; every inference consequence stays readable on the result (`metadata["method"]` still names the block-bootstrap switch, `min_assets_per_period` floors stay stamped, and affected metrics carry `metadata["few_assets_expected"] = True`). Undeclared behavior is unchanged; on a wide cross-section the declaration is a no-op. Not a per-metric knob — constructing a metric with `expect_few_assets=` is rejected.
+- `expected_warnings` (default `()`) declares warning regimes that are the study's design, e.g. `expected_warnings=("few_assets",)` for a by-design few-asset study (single asset, pairs). Declared codes are marked, never dropped: matching `Warning` records stay on the result with `expected=True` (read the alert view via `result.unexpected_warnings`), the per-run `UserWarning` echoes stop, and repr emphasis moves to unexpected warnings. Inference is untouched — the small-cross-section block-bootstrap switch still fires and stays readable in `metadata["method"]`. Unknown codes are rejected (typo guard). Not a per-metric knob — constructing a metric with `expected_warnings=` is rejected.
 
 Under the hood, evaluation is scheduled and executed via `DagExecutor`, which topologically sorts specs and dependencies, raising a `CycleError` if circular dependencies are detected.
 
@@ -197,7 +197,7 @@ def evaluate_horizons(
     factor_cols: list[str],
     forward_periods: list[int],
     strict: bool = True,
-    expect_few_assets: bool = False,
+    expected_warnings: tuple[str, ...] = (),
 ) -> list[EvaluationResult]:
 ```
 

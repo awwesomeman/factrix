@@ -193,8 +193,8 @@ _WARNING_DESCRIPTIONS.update(
         "leaves minimal residual degrees of freedom. Severity scales with "
         "n_assets; read the relevant n_assets metadata. A by-design few-asset "
         "study declares the regime once via "
-        "evaluate(..., expect_few_assets=True), which suppresses this code "
-        "and stamps metadata['few_assets_expected'] instead.",
+        "evaluate(..., expected_warnings=('few_assets',)): the record is kept "
+        "and marked expected=True, and the per-run UserWarning echo stops.",
         WarningCode.THIN_QUANTILE_GROUPS: "quantile_spread with the median "
         "cross-section split into n_groups buckets leaving < MIN_GROUP_ASSETS "
         "(5) assets per bucket; each bucket mean rests on a handful of names so "

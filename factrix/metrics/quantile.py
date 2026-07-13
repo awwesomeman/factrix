@@ -113,7 +113,6 @@ def quantile_spread(
     factor_cols: Sequence[str] = ("factor",),
     tie_policy: str = "ordinal",
     inference: NonOverlapping | NeweyWest = NON_OVERLAPPING,
-    expect_few_assets: bool = False,
     *,
     _precomputed_series: dict[str, pl.DataFrame] | None = None,
 ) -> dict[str, MetricResult]:
@@ -222,7 +221,6 @@ def quantile_spread(
             full_series=(
                 full_series_by_factor[f] if full_series_by_factor is not None else None
             ),
-            expect_few_assets=expect_few_assets,
         )
         for f in cols
     }
@@ -239,7 +237,6 @@ def _quantile_spread_from_series(
     forward_periods: int,
     n_groups: int,
     full_series: pl.DataFrame | None,
-    expect_few_assets: bool = False,
 ) -> MetricResult:
     """Per-factor t-test pipeline shared by single and batch paths.
 
@@ -297,7 +294,6 @@ def _quantile_spread_from_series(
             full_spread=full_series,
             forward_periods=forward_periods,
             n_assets=n_assets,
-            expect_few_assets=expect_few_assets,
         )
     )
 

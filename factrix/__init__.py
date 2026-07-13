@@ -116,7 +116,7 @@ def evaluate(
     factor_cols: list[str],
     forward_periods: int | None = None,
     strict: bool = True,
-    expect_few_assets: bool = False,
+    expected_warnings: tuple[str, ...] = (),
 ) -> "dict[str, EvaluationResult]":
     """Evaluate one or more factors against forward returns through the DAG executor.
 
@@ -176,21 +176,24 @@ def evaluate(
             cell mismatches) is kept as a NaN output with attached
             warnings instead of raising. Config-time / construct-time
             failures always raise.
-        expect_few_assets: Declare a **by-design few-asset study** (single
-            asset, pairs, a hand-picked handful of names). When ``True`` and
-            the cross-section is thin (``n_assets < MIN_ASSETS_WARN``), the
-            :attr:`~factrix.WarningCode.FEW_ASSETS` warning and its
-            ``UserWarning`` echo are not emitted — the declaration says "this
-            regime is expected", not "pretend the regime is absent": every
-            inference consequence stays readable on the result
-            (``metadata["method"]`` still names the block-bootstrap switch,
-            ``min_assets_per_period`` floors stay stamped, and the affected
-            metrics carry ``metadata["few_assets_expected"] = True`` as the
-            acknowledgment record). Default ``False`` — the warning behavior
-            is completely unchanged unless declared. On a wide cross-section
-            the declaration is a no-op. Not a per-metric knob: constructing a
-            metric with ``expect_few_assets=`` is rejected; the study-level
-            declaration here is injected into every metric at dispatch.
+        expected_warnings: :class:`~factrix.WarningCode` values (e.g.
+            ``("few_assets",)``) declaring warning regimes that are the
+            study's **design**, not an accident — a single-asset or pairs
+            study has no cross-section by construction, so its every run
+            trips ``few_assets``. Declared codes are **marked, never
+            dropped**: each matching :class:`Warning` record is kept with
+            ``expected=True`` (read the alert view via
+            ``result.unexpected_warnings``), so nothing leaves the audit
+            trail — the declaration says "this regime is expected", not
+            "pretend it is absent". Inference is untouched (e.g. the
+            small-cross-section block-bootstrap switch still fires and stays
+            readable in ``metadata["method"]``); only the human-facing
+            channels go quiet — the per-run ``UserWarning`` echoes stop and
+            repr emphasis moves to unexpected warnings. Unknown codes are
+            rejected (typo guard). Default ``()`` — behavior is completely
+            unchanged unless declared. Not a per-metric knob: constructing a
+            metric with ``expected_warnings=`` is rejected; the study-level
+            declaration here applies to every metric in the call.
 
     Returns:
         ``dict[str, EvaluationResult]`` keyed by factor column name, in
@@ -227,7 +230,7 @@ def evaluate(
         True
     """
     _validate_metrics_arg(metrics)
-    _validate_expect_few_assets_arg(expect_few_assets)
+    expected = _validate_expected_warnings_arg(expected_warnings)
     cols = _validate_factor_cols_arg(factor_cols)
     data = _coerce_data(data)
     _validate_baseline_columns(data)
@@ -317,7 +320,7 @@ def evaluate(
             scope=scope,
             density=density,
             forward_periods=fp,
-            expect_few_assets=expect_few_assets,
+            expected_warnings=expected,
             kwargs_by_metric=node_kwargs,
         )
         for c in group_cols:
@@ -329,6 +332,7 @@ def evaluate(
                 ordered_labels=list(label_spec),
                 mismatches=mismatches,
                 compatibility_warnings=compatibility_warnings,
+                expected_warnings=expected,
             )
     return {c: results[c] for c in cols}
 
@@ -340,7 +344,7 @@ def evaluate_horizons(
     factor_cols: list[str],
     forward_periods: list[int],
     strict: bool = True,
-    expect_few_assets: bool = False,
+    expected_warnings: tuple[str, ...] = (),
 ) -> list[EvaluationResult]:
     """Sweep ``evaluate`` across several overlap horizons of one raw panel.
 
@@ -388,9 +392,9 @@ def evaluate_horizons(
             ``(factor, forward_periods)`` identity that ``compare`` / ``bhy``
             reject downstream.
         strict: Forwarded unchanged to each inner :func:`evaluate`.
-        expect_few_assets: Forwarded unchanged to each inner
-            :func:`evaluate` — the few-asset declaration is a property of
-            the study, so it applies identically at every horizon.
+        expected_warnings: Forwarded unchanged to each inner
+            :func:`evaluate` — the declaration is a property of the study,
+            so it applies identically at every horizon.
 
     Returns:
         Flat ``list[EvaluationResult]`` grouped by horizon (outer) then
@@ -437,7 +441,7 @@ def evaluate_horizons(
             metrics=metrics,
             factor_cols=factor_cols,
             strict=strict,
-            expect_few_assets=expect_few_assets,
+            expected_warnings=expected_warnings,
         )
         results.extend(per_factor.values())
     return results
@@ -506,19 +510,48 @@ def _is_metrics_overview(metrics: object) -> bool:
     )
 
 
-def _validate_expect_few_assets_arg(expect_few_assets: object) -> None:
-    if not isinstance(expect_few_assets, bool):
+def _validate_expected_warnings_arg(expected_warnings: object) -> tuple[str, ...]:
+    """Normalize and validate the study-level expected-warnings declaration.
+
+    Accepts a ``tuple`` / ``list`` of :class:`WarningCode` values (the
+    ``StrEnum`` members themselves also pass). Every element must name an
+    existing code — the declaration marks records as expected, so a typo
+    would silently mark nothing.
+    """
+    docs = "api/evaluate#expected_warnings"
+    if isinstance(expected_warnings, str) or not isinstance(
+        expected_warnings, (tuple, list)
+    ):
         raise UserInputError(
             func_name="evaluate",
-            field="expect_few_assets",
-            value=type(expect_few_assets).__name__,
+            field="expected_warnings",
+            value=expected_warnings
+            if isinstance(expected_warnings, str)
+            else type(expected_warnings).__name__,
             expected=(
-                "bool — True declares a by-design few-asset study "
-                "(suppresses the FEW_ASSETS warning while keeping the "
-                "inference switch readable in metric metadata)"
+                "tuple of WarningCode values declaring by-design warning "
+                "regimes, e.g. expected_warnings=('few_assets',) — a bare "
+                "string is rejected to avoid the ('f', 'e', 'w', ...) trap"
             ),
-            docs_path="api/evaluate#expect_few_assets",
+            docs_path=docs,
         )
+    valid = {code.value for code in WarningCode}
+    normalized: list[str] = []
+    for item in expected_warnings:
+        if not isinstance(item, str) or item not in valid:
+            raise UserInputError(
+                func_name="evaluate",
+                field="expected_warnings",
+                value=item,
+                expected=(
+                    "a WarningCode value; unknown codes are rejected because "
+                    "the declaration would silently mark nothing. Valid "
+                    f"codes: {sorted(valid)}"
+                ),
+                docs_path=docs,
+            )
+        normalized.append(str(item))
+    return tuple(normalized)
 
 
 def _validate_metrics_arg(metrics: object) -> None:
@@ -795,12 +828,18 @@ def _relabel_result(
     ordered_labels: list[str],
     mismatches: "dict[str, tuple[MetricSpec, FactorScope, FactorDensity, DataStructure, int]]",
     compatibility_warnings: list[Warning],
+    expected_warnings: tuple[str, ...] = (),
 ) -> EvaluationResult:
     """Re-key a node-keyed executor result onto the user's labels.
 
     Cell-mismatched labels never reach the executor; their NaN
     short-circuit ``MetricResult`` is synthesized here so the returned dict still carries
     every requested label, in the caller's request order.
+
+    This is also the single chokepoint where the caller's
+    ``expected_warnings`` declaration is stamped: every :class:`Warning`
+    whose code was declared is marked ``expected=True`` — records are
+    marked, never dropped.
     """
     node_outputs = result.metrics
     label_outputs: dict[str, MetricResult] = {}
@@ -836,6 +875,13 @@ def _relabel_result(
     ]
     warnings.extend(mismatch_warnings)
     warnings.extend(compatibility_warnings)
+    if expected_warnings:
+        warnings = [
+            dataclasses.replace(w, expected=True)
+            if w.code.value in expected_warnings
+            else w
+            for w in warnings
+        ]
     return dataclasses.replace(
         result,
         metrics=MappingProxyType(label_outputs),

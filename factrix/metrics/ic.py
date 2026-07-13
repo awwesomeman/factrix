@@ -126,14 +126,15 @@ def _warn_if_few_ic_assets(
     metadata: dict[str, object],
     warning_codes: list[str],
     *,
-    expect_few_assets: bool = False,
+    expected_warnings: tuple[str, ...] = (),
 ) -> None:
     """Surface retained-but-thin IC cross-sections as a soft warning.
 
-    ``expect_few_assets=True`` declares the thin regime as the study's
-    design: the ``min_assets_per_period`` floors stay stamped and a
-    ``few_assets_expected`` marker records the acknowledgment, but no
-    ``FEW_ASSETS`` code or ``UserWarning`` is emitted.
+    The structured ``FEW_ASSETS`` code is always attached — it is the
+    record. A caller who declared the code via
+    ``evaluate(..., expected_warnings=("few_assets",))`` only quiets the
+    per-run ``UserWarning`` echo; the record is later marked
+    ``expected=True`` at result assembly, never dropped.
     """
     min_assets_per_period = _min_ic_assets(ic_df)
     if min_assets_per_period is None:
@@ -142,17 +143,15 @@ def _warn_if_few_ic_assets(
     metadata["warn_assets_per_period"] = MIN_IC_ASSETS_WARN
     if min_assets_per_period >= MIN_IC_ASSETS_WARN:
         return
-    if expect_few_assets:
-        metadata["few_assets_expected"] = True
-        return
-    _warnings.warn(
-        f"{metric_name}: min_assets_per_period={min_assets_per_period} below "
-        f"MIN_IC_ASSETS_WARN={MIN_IC_ASSETS_WARN}; per-date IC is computable "
-        "but the cross-section is thin. value is returned but read it cautiously.",
-        UserWarning,
-        stacklevel=2,
-    )
     code = WarningCode.FEW_ASSETS.value
+    if code not in expected_warnings:
+        _warnings.warn(
+            f"{metric_name}: min_assets_per_period={min_assets_per_period} below "
+            f"MIN_IC_ASSETS_WARN={MIN_IC_ASSETS_WARN}; per-date IC is computable "
+            "but the cross-section is thin. value is returned but read it cautiously.",
+            UserWarning,
+            stacklevel=2,
+        )
     if code not in warning_codes:
         warning_codes.append(code)
 
@@ -205,7 +204,7 @@ def ic(
     ic_df: pl.DataFrame,
     forward_periods: int = 5,
     inference: NonOverlapping | NeweyWest = NON_OVERLAPPING,
-    expect_few_assets: bool = False,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Information coefficient (IC) mean significance: is mean IC significantly different from zero?
 
@@ -332,7 +331,7 @@ def ic(
     }
     warning_codes: list[str] = []
     _warn_if_few_ic_assets(
-        ic_df, "ic", metadata, warning_codes, expect_few_assets=expect_few_assets
+        ic_df, "ic", metadata, warning_codes, expected_warnings=expected_warnings
     )
     _surface_drop_stats(ic_df, "ic", metadata, warning_codes)
     # Surface the inference method's own soft-floor signals (e.g. a thin
@@ -365,7 +364,7 @@ def ic(
 )
 def ic_ir(
     ic_df: pl.DataFrame,
-    expect_few_assets: bool = False,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""$\mathrm{ICIR} = \mathrm{mean}(\mathrm{IC}) / \mathrm{std}(\mathrm{IC})$.
 
@@ -447,7 +446,7 @@ def ic_ir(
         "tie_ratio": median_tie,
     }
     _warn_if_few_ic_assets(
-        ic_df, "ic_ir", metadata, warning_codes, expect_few_assets=expect_few_assets
+        ic_df, "ic_ir", metadata, warning_codes, expected_warnings=expected_warnings
     )
     _surface_drop_stats(ic_df, "ic_ir", metadata, warning_codes)
     return MetricResult(

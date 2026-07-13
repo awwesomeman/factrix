@@ -71,7 +71,6 @@ def _spread_significance(
     n_assets: int,
     *,
     rng_seed: int = _SPREAD_BOOTSTRAP_SEED,
-    expect_few_assets: bool = False,
 ) -> tuple[float, float, str, dict[str, object], tuple[str, ...]]:
     """Headline significance for a per-date long-short spread series.
 
@@ -94,12 +93,6 @@ def _spread_significance(
     ``warning_codes`` carry the single ``FEW_ASSETS`` code. This
     surfaces the method change as a :class:`Warning` on the result rather
     than leaving it buried in metadata; severity is read from ``n_assets``.
-
-    ``expect_few_assets=True`` declares the thin regime as the study's
-    design: the switch itself is unchanged and stays readable
-    (``method`` / bootstrap metadata, plus a ``few_assets_expected``
-    marker), but the ``FEW_ASSETS`` code is not emitted — the caller
-    declared the expectation, so the warning would be noise, not signal.
     """
     n = len(spread)
     mean = float(np.mean(spread))
@@ -118,9 +111,6 @@ def _spread_significance(
         "bootstrap_n_resamples": boot_meta["n_resamples"],
         "bootstrap_seed": boot_meta["rng_seed"],
     }
-    if expect_few_assets:
-        extra["few_assets_expected"] = True
-        return t, float(p_boot), "block-bootstrap CI", extra, ()
     tier: WarningCode | None = cross_section_tier(n_assets)
     codes = (tier.value,) if tier is not None else ()
     return t, float(p_boot), "block-bootstrap CI", extra, codes
@@ -158,7 +148,6 @@ def _spread_significance_with_inference(
     forward_periods: int,
     n_assets: int,
     rng_seed: int = _SPREAD_BOOTSTRAP_SEED,
-    expect_few_assets: bool = False,
 ) -> tuple[float, float, float, str, dict[str, object], tuple[str, ...]]:
     """Single headline-significance chokepoint shared by every spread metric.
 
@@ -202,10 +191,7 @@ def _spread_significance_with_inference(
     )
     if not use_hac:
         t, p, method, extra, codes = _spread_significance(
-            strided_spread,
-            n_assets,
-            rng_seed=rng_seed,
-            expect_few_assets=expect_few_assets,
+            strided_spread, n_assets, rng_seed=rng_seed
         )
         if isinstance(inference, NeweyWest):
             # Requested HAC but the small-cross-section bootstrap (or a

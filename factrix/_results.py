@@ -120,11 +120,17 @@ class Warning:
         source: Metric label that emitted the warning, or ``None`` for
             bundle-level diagnostics.
         message: Human-readable detail.
+        expected: ``True`` when the caller declared this code as the
+            study's design via ``evaluate(..., expected_warnings=(...,))``.
+            The record is never dropped — the flag says "acknowledged",
+            not "absent" — so human-facing channels (stderr echo, repr
+            emphasis) can go quiet while the audit trail stays complete.
     """
 
     code: WarningCode
     source: str | None = None
     message: str = ""
+    expected: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,6 +188,16 @@ class EvaluationResult:
     params: Mapping[str, Hashable] = field(default_factory=dict)
     metadata: Mapping[str, Any] = field(default_factory=dict)
     warnings: list[Warning] = field(default_factory=list)
+
+    @property
+    def unexpected_warnings(self) -> list[Warning]:
+        """Warnings the caller did *not* declare via ``expected_warnings``.
+
+        The alert view for pipelines and humans: :attr:`warnings` is the
+        complete record (declared regimes included, flagged
+        ``expected=True``); this subset is what still deserves attention.
+        """
+        return [w for w in self.warnings if not w.expected]
 
     def metric(self, label: str) -> MetricResult:
         """Return the :class:`MetricResult` for ``label``.
@@ -245,7 +261,7 @@ class EvaluationResult:
           ``n_pairs`` / ``n_assets`` / ``params`` / ``metadata``
         - ``metrics``: ``label -> {value, p_value, alternative, stat, n_obs,
           n_obs_axis, is_applicable, reason, metadata}``
-        - ``warnings``: list of ``{code, source, message}``
+        - ``warnings``: list of ``{code, source, message, expected}``
         - ``plan``
 
         Float ``NaN`` / ``Inf`` are emitted as ``None``.
@@ -273,6 +289,7 @@ class EvaluationResult:
                     "code": w.code.value,
                     "source": w.source,
                     "message": w.message,
+                    "expected": w.expected,
                 }
                 for w in self.warnings
             ],
@@ -295,7 +312,13 @@ class EvaluationResult:
         if self.metadata:
             header_rows.append(("metadata", dict(self.metadata)))
         if self.warnings:
-            header_rows.append(("n_warnings", len(self.warnings)))
+            n_expected = sum(1 for w in self.warnings if w.expected)
+            n_summary = (
+                f"{len(self.warnings) - n_expected} (+{n_expected} expected)"
+                if n_expected
+                else str(len(self.warnings))
+            )
+            header_rows.append(("n_warnings", n_summary))
         header_html = "".join(
             f"<tr><th style='text-align:left'>{html.escape(str(k))}</th>"
             f"<td>{html.escape(str(v))}</td></tr>"
@@ -324,14 +347,19 @@ class EvaluationResult:
             w_rows = "".join(
                 f"<tr><td>{html.escape(w.code.value)}</td>"
                 f"<td>{html.escape(w.source or '')}</td>"
+                f"<td>{'yes' if w.expected else ''}</td>"
                 f"<td>{html.escape(w.message)}</td></tr>"
                 for w in self.warnings
             )
+            # A declared study collapses the block by default — the record
+            # stays one click away, but only unexpected warnings demand
+            # attention on open.
+            details_open = " open" if self.unexpected_warnings else ""
             warnings_block = (
-                "<details open><summary>warnings "
+                f"<details{details_open}><summary>warnings "
                 f"({len(self.warnings)})</summary>"
                 "<table><thead><tr><th>code</th><th>source</th>"
-                "<th>message</th></tr></thead>"
+                "<th>expected</th><th>message</th></tr></thead>"
                 f"<tbody>{w_rows}</tbody></table></details>"
             )
 
