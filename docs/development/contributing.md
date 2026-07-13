@@ -636,7 +636,7 @@ Module-level and function-level docstrings carry different roles. The split is s
 - **Module docstring** holds navigation + cross-module context only:
     - A one-to-three-sentence TL;DR of what the module is for and which entry point / public surface consumes it.
     - When the module hosts several callables sharing one theoretical frame (e.g. `_stats/bootstrap.py` covering stationary + fixed schemes): a brief inventory naming each public callable with a one-line distinguishing characteristic.
-    - Non-obvious sibling-module relationships when the boundary matters (e.g. `_stats/multiple_testing.py` is sister to public `factrix.stats.multiple_testing`).
+    - Non-obvious sibling-module relationships when the boundary matters (e.g. `_stats/bootstrap.py` supplies private block-index primitives to public `factrix.stats.bootstrap`).
 - **Function / class / method docstring** holds the implementation contract: `Args:` → `Returns:` → `Yields:` → `Attributes:` → `Raises:` → `Warns:` → `Notes:` → `References:` → `Examples:` (see the "Section order" subsection below for the canonical sequence).
 - The module docstring does **not** hold parameter contracts, return shape, pipeline `Notes:`, runnable `Examples:`, or implementation rationale.
 

@@ -147,6 +147,12 @@ class TestHolmAdjustedP:
         adj_sorted = adj[np.argsort(p)]
         assert np.all(np.diff(adj_sorted) >= -1e-12)
 
+    def test_dominates_bonferroni(self):
+        rng = np.random.default_rng(0)
+        p = rng.uniform(size=20)
+        bonferroni = np.minimum(len(p) * p, 1.0)
+        assert np.all(holm_adjusted_p(p) <= bonferroni)
+
     def test_full_family_size_accounts_for_unsubmitted_survivors(self):
         p = np.array([0.001, 0.01, 0.04])
         expected = np.array([0.1, 0.99, 1.0])
@@ -206,6 +212,21 @@ class TestRomanoWolfAdjustedP:
     def test_bootstrap_ties_count_as_exceedances(self):
         out = romano_wolf_adjusted_p([1.0], np.array([[1.0], [0.0]]))
         np.testing.assert_allclose(out, [2.0 / 3.0])
+
+    def test_joint_dependence_avoids_bonferroni_penalty(self):
+        rng = np.random.default_rng(2)
+        common = rng.standard_normal(size=2_000)
+        bootstrap = np.tile(common[:, None], (1, 10))
+        statistics = np.array([3.5] + [0.0] * 9)
+        adjusted = romano_wolf_adjusted_p(statistics, bootstrap)
+        assert adjusted[0] < 0.005
+
+    def test_one_sided_uses_positive_tail(self):
+        rng = np.random.default_rng(3)
+        bootstrap = rng.standard_normal(size=(2_000, 2))
+        adjusted = romano_wolf_adjusted_p([3.0, -3.0], bootstrap, one_sided=True)
+        assert adjusted[0] < 0.05
+        assert adjusted[1] > 0.5
 
     def test_empty_family(self):
         out = romano_wolf_adjusted_p([], np.empty((10, 0)))
