@@ -333,6 +333,7 @@ def k_spread(
     return MetricResult(
         value=mean_spread,
         p_value=p,
+        alternative="two-sided",
         n_obs=n,
         n_obs_axis="periods",
         stat=t,

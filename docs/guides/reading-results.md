@@ -46,7 +46,8 @@ The `metrics` attribute is a read-only `Mapping[str, MetricResult]` mapping the 
 For a specific metric `key`, `result.metrics[key]` exposes:
 
 - **`value`**: Raw metric value (e.g. mean IC).
-- **`p_value`**: Promoted two-sided p-value for the metric's test (when applicable, or `None`).
+- **`p_value`**: Calibrated p-value for the metric's test (when applicable, or `None`).
+- **`alternative`**: The tested tail (`two-sided`, `greater`, or `less`), present exactly when `p_value` is present. Never infer the tail from the sign of `stat`.
 - **`stat`**: Test statistic (t, z, W, chi2, ...).
 - **`n_obs`**: Observations seen by this specific metric's estimator.
 - **`warning_codes`**: Advisory warnings attached by the metric (e.g. `FEW_EVENTS`).

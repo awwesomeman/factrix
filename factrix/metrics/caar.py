@@ -95,6 +95,7 @@ def _caar_sample_threshold(self: MetricBase) -> SampleThreshold:
 @metric(
     cell=_CAAR_CELL,
     aggregation=Aggregation.EVENT_TIME,
+    slice_boundary_sensitive=True,
     input_shape=InputShape.SERIES,
     requires={"caar_df": compute_caar},
     sample_threshold=_caar_sample_threshold,
@@ -251,6 +252,7 @@ def caar(
 
     return MetricResult(
         p_value=p,
+        alternative="two-sided",
         value=mean_caar,
         n_obs=n_sampled,
         n_obs_axis="events",
@@ -263,6 +265,7 @@ def caar(
 @metric(
     cell=_CAAR_CELL,
     aggregation=Aggregation.EVENT_TIME,
+    slice_boundary_sensitive=True,
     sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
 )
 def bmp_z(
@@ -519,6 +522,7 @@ def bmp_z(
 
     return MetricResult(
         p_value=p,
+        alternative="two-sided",
         value=mean_sar,
         n_obs=n_valid,
         n_obs_axis="events",

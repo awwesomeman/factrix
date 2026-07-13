@@ -21,6 +21,13 @@ Time-series length `n_periods` and asset count `n_assets` are gated **independen
 
 `n_assets` is never hard-blocked because the cross-asset t-test on E[β] is mathematically well-defined for `n_assets >= 2` — only its statistical power degrades. A hard block would force users to choose between "can't run" and "don't know there's a problem"; the warning provides the result while surfacing the issue.
 
+`FEW_ASSETS` does not imply one universal estimator switch. Spread metrics may
+switch from a cross-asset t-test to block bootstrap in the thin regime; IC,
+Fama–MacBeth, and common-beta paths retain their documented estimator and use
+the warning to flag thin ranks, low residual degrees of freedom, or unstable
+cross-asset aggregation. Read the metric metadata and method, not the warning
+code alone, to identify the inference path.
+
 ### Behaviour matrix by density and `n_assets`
 
 | Density / Scope | `n_assets == 1` | `n_assets = 2..9` | `n_assets = 10..29` | `n_assets >= 30` |

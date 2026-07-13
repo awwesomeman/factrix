@@ -50,6 +50,7 @@ GateStatus = Literal["PASS", "VETOED"]
         FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
     ),
     aggregation=Aggregation.TS_ONLY,
+    slice_boundary_sensitive=True,
     input_shape=InputShape.SERIES,
     requires={"series": compute_ic},
     sample_threshold=SampleThreshold(min_periods=MIN_OOS_PERIODS_HARD * 2),

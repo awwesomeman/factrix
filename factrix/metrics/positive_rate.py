@@ -75,6 +75,7 @@ def per_date_series(series: pl.DataFrame) -> pl.DataFrame:
         FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
     ),
     aggregation=Aggregation.TS_ONLY,
+    slice_boundary_sensitive=True,
     input_shape=InputShape.SERIES,
     requires={"series": compute_ic},
     # Periods floor scales with the non-overlap stride: the binomial runs on the
@@ -188,6 +189,7 @@ def positive_rate(
     )
     return MetricResult(
         p_value=p,
+        alternative="two-sided",
         value=rate,
         n_obs=n,
         n_obs_axis="periods",

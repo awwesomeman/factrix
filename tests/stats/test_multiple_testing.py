@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import factrix as fx
 import numpy as np
 import pytest
 from factrix.stats import (
@@ -18,6 +19,12 @@ from factrix.stats.multiple_testing import (
     romano_wolf_adjusted_p,
     simes_p,
 )
+
+
+def test_stats_is_explicit_namespace_without_top_level_bhy() -> None:
+    assert "stats" in fx.__all__
+    assert fx.stats.bhy_adjusted_p is bhy_adjusted_p
+    assert not hasattr(fx, "bhy")
 
 
 class TestBhyAdjust:

@@ -20,6 +20,7 @@ def _with_extra(factor: str, ic_value: float, sharpe_value: float):
             "sharpe": MetricResult(
                 value=sharpe_value,
                 p_value=0.2,
+                alternative="two-sided",
                 n_obs=100,
                 name="sharpe",
                 metadata={"p_value": 0.2},

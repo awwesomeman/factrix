@@ -10,7 +10,8 @@ Current-state snapshot of the public API surface and internal layout.
 
 **factrix is a Factor FactorDensity Validator, not a backtest engine.**
 
-The library produces a single canonical p-value (`MetricResult.p_value`) per
+The library produces a single canonical p-value (`MetricResult.p_value`) and
+its explicit tested tail (`MetricResult.alternative`) per
 factor per `(scope, density, structure)` cell from the cell's mainstream
 metric (information coefficient (IC) / FM-λ / CAAR / TS-β). Dense
 time-series mainstream metrics use Newey-West (NW)
@@ -660,7 +661,8 @@ Failure modes:
 
 ## Family functions and the resolution layer
 
-The low-level public adjusted-p primitives under `factrix.stats` are distinct
+The low-level public adjusted-p primitives under the explicitly exported
+`factrix.stats` namespace are distinct
 from the family verbs in this section. `holm_adjusted_p` accepts a p-value
 vector; `romano_wolf_adjusted_p` accepts observed statistics plus a caller-
 supplied joint, null-centred, consistently studentized `(B, m)` bootstrap
@@ -675,8 +677,14 @@ horizons. It must not reconstruct a different estimand silently from scalar
 `EvaluationResult` fields; that higher-level workflow remains separate from
 the adjusted-p primitive.
 
-Multiple-testing functions (`bhy` today; `bhy_hierarchical` / `partial_conjunction` /
-`bonferroni` / `holm` / `romano_wolf` planned) share a single internal pre-processing
+Closed-form Holm/BHY procedures accept calibrated p-values and therefore do
+not require every hypothesis in a family to share the same alternative. The
+producer owns calibration and records `alternative`; the family layer neither
+converts tails nor infers them from statistic signs. There is intentionally no
+generic one-sided-to-two-sided helper.
+
+EvaluationResult-based multiple-testing functions (`bhy`, `bhy_hierarchical`,
+and `partial_conjunction`) share a single internal pre-processing
 layer in `factrix/_family.py::_resolve_family`. Each function's procedure runs *after*
 the family-resolution invariants pass.
 
@@ -688,19 +696,19 @@ ones:
 
 | Class | Functions | Signature shape |
 |-------|-------|-----------------|
-| Closed-form (p-value only) | `bhy` / `bhy_hierarchical` / `partial_conjunction` / `bonferroni` / `holm` | `(results, *, metrics, expand_over, ...)` |
-| Resampling-based | `romano_wolf` (planned) | `(results, panel, *, metrics, expand_over, n_bootstrap, ...)` — needs raw return panel for bootstrap step-down |
+| Closed-form (p-value only) | `bhy` / `bhy_hierarchical` / `partial_conjunction` | `(results, *, metrics, expand_over, ...)` |
+| Resampling-based | Not exposed at the `multi_factor` layer | Requires a future metric-specific panel and bootstrap contract; the low-level `stats.romano_wolf_adjusted_p` primitive is not this workflow |
 
 ### `_resolve_family` four invariants
 
 For input `results: Sequence[EvaluationResult]`, `expand_over: Sequence[str] | None`,
 and `metric: str` (one resolved spec):
 
-1. `expand_over` names must be present in every result's `context` and must
-   not collide with identity dimensions (`factor` / `forward_periods`) —
-   identity names *the hypothesis*, context names *the slicing condition*;
-   the family layer rejects confusing the two as an anti-shopping defense.
-2. partition key per result = `identity + tuple(context[k] for k in expand_over)`
+1. `expand_over` names must be present in every result's `context`, except
+   the built-in `forward_periods`; `factor` is rejected because it is an
+   identity dimension, not a family partition.
+2. hypothesis key per result = `(factor, forward_periods) +
+   tuple(context[k] for k in expand_over if k != "forward_periods")`
    must be unique across the input. `EvaluationResult.__hash__ = None`, so dedup
    walks the tuple, not a hash.
 3. The specified `metric` must have a computed `p_value` that is non-NaN,
@@ -724,11 +732,10 @@ e.g. `expand_over=["regime_id"]` runs one BHY step-up per regime.
 - Mixing cells without a distinct `factor` raises `UserInputError`
   (duplicate identity). Set `factor` per candidate, or use `expand_over`
   if results legitimately share identity.
-- Mixing `forward_periods` without `expand_over` emits a `RuntimeWarning` —
-  different horizons carry different null distributions, and pooling them
-  dilutes the per-rank threshold `q × k / N`.
-- Cross-family aggregation (horizon-shopping correction) remains the
-  user's responsibility — see the [BHY screening](../api/bhy.md) reference page.
+- Mixing `forward_periods` without a horizon partition emits an informational
+  `RuntimeWarning`. Pooling is correct when selection may choose across
+  horizons; `expand_over=("forward_periods",)` is only for predeclared,
+  separately reported horizon screens and does not control later horizon shopping.
 
 ---
 
@@ -831,10 +838,10 @@ Hard constraints — violating these breaks the API contract:
 
 1. `MetricSpec` is `frozen=True, slots=True`; every construction path runs `__post_init__`, which enforces the field invariants (e.g. `role=METRIC → output_shape=SCALAR`).
 2. All result dataclasses — `EvaluationResult`, `MetricResult`, `Warning` — are `frozen=True, slots=True`; `EvaluationResult.metrics` is a `MappingProxyType` for read-only per-metric outputs. One unified `EvaluationResult` — no per-cell subclass.
-3. The metric-spec SSOT is the `@metric` registration in each `factrix/metrics/*.py`, resolved through `factrix._metric_index` (`spec_by_name` / `public_specs` / `list_metrics`); no parallel rule table. `@metric`-class registration feeds the index via `factrix.metrics._registry.register`.
+3. The metric-spec SSOT is the `@metric` registration in each `factrix/metrics/*.py`, resolved through `factrix._metric_index` (`spec_by_name` / `public_specs` / `list_metrics`); no parallel rule table. `@metric`-class registration feeds the index via `factrix.metrics._registry.register`. Slice-boundary warnings read `MetricSpec.slice_boundary_sensitive`; aggregation categories are not a proxy rule table.
 4. The DAG executor is the single dispatch path. `DagExecutor` topologically orders specs by `MetricSpec.requires` (raising `CycleError` on cycles), runs `batchable=True` producers once per factor batch and `batchable=False` consumers once per factor, and short-circuits a downstream consumer with a NaN `MetricResult` + `WarningCode.UPSTREAM_UNAVAILABLE` rather than invoking it on missing upstream data.
-5. `MetricResult.p_value` is the single canonical p-value read path — `EvaluationResult.to_frame()` / `to_dict()`, `compare`, and the BHY family resolver all read it; the p-value lives only on the field and is not duplicated into `metadata`. `warnings` flag interpretation risk but never rebind it.
-6. Family declaration is explicit: a screening verb's input list is one family, optionally split per bucket via `expand_over`. `_resolve_family` enforces (a) the hypothesis identity `(factor, *expand_over_values)` is unique across the input, (b) `expand_over` names come only from `EvaluationResult.context` (or the built-in `forward_periods`), never the factor, (c) `p_value` is populated everywhere before procedures read it. Cell / horizon partitioning is the caller's responsibility; mixed `forward_periods` without `expand_over` warns.
+5. `MetricResult.p_value` is the single canonical p-value read path — `EvaluationResult.to_frame()` / `to_dict()`, `compare`, and the BHY family resolver all read it; the p-value lives only on the field and is not duplicated into `metadata`. A formal p-value and `alternative` (`two-sided` / `greater` / `less`) must be present together; p-values are finite and in `[0, 1]`. `warnings` flag interpretation risk but never rebind it.
+6. Family declaration is explicit: a screening verb's input list is one family, optionally split per bucket via `expand_over`. `_resolve_family` enforces (a) the hypothesis identity `(factor, forward_periods, *context_partition_values)` is unique across the input, (b) `expand_over` names come only from `EvaluationResult.context` (or the built-in `forward_periods`), never the factor, (c) `p_value` is populated everywhere before procedures read it. Mixed horizons warn so the caller confirms whether selection is pooled or predeclared per horizon.
 7. `T < MIN_PERIODS_HARD` raises `InsufficientSampleError`; metrics never silently produce a result on under-sampled data. NW HAC lag selection on overlapping forward returns floors at `forward_periods - 1` (the Hansen-Hodrick floor) so serial correlation from overlap is not under-counted.
 
 For the user-facing field walk of `EvaluationResult` (and its

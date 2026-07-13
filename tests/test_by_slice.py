@@ -9,7 +9,7 @@ import pytest
 from factrix import by_slice
 from factrix._codes import WarningCode
 from factrix._results import EvaluationResult
-from factrix.metrics import caar, ic
+from factrix.metrics import caar, event_hit_rate, ic, positive_rate
 from factrix.preprocess import compute_forward_return
 from factrix.slicing._primitive import _slice_by
 from factrix.slicing.dispatcher import _warn_date_axis_truncation
@@ -171,3 +171,18 @@ class TestDateAxisTruncationWarning:
         with warnings.catch_warnings():
             warnings.simplefilter("error")
             _warn_date_axis_truncation(panel, ic(), "year")  # CS_THEN_TS: no warn
+
+    def test_sampling_phase_metric_on_date_axis_warns(self):
+        panel = _sector_panel(n_dates=600)
+        with pytest.warns(
+            UserWarning, match=WarningCode.SLICE_BOUNDARY_TRUNCATION.value
+        ):
+            _warn_date_axis_truncation(panel, positive_rate(), "year")
+
+    def test_boundary_insensitive_event_metric_on_date_axis_silent(self):
+        panel = _sector_panel(n_dates=600)
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            _warn_date_axis_truncation(panel, event_hit_rate(), "year")

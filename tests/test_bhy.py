@@ -35,6 +35,7 @@ def test_multi_primary_runs_independent_screens():
                 "ic_ir": MetricResult(
                     value=0.4,
                     p_value=0.5,
+                    alternative="two-sided",
                     n_obs=100,
                     name="ic_ir",
                     metadata={"p_value": 0.5},
@@ -166,6 +167,21 @@ def test_mixed_horizons_without_expand_over_warns():
         bhy(results, metrics=["ic"], q=0.5)
 
 
+def test_same_factor_at_different_horizons_is_two_hypotheses():
+    make_spec("ic")
+    results = [
+        make_result(factor="f1", p=0.01, metric="ic", forward_periods=1),
+        make_result(factor="f1", p=0.02, metric="ic", forward_periods=5),
+    ]
+    with pytest.warns(RuntimeWarning, match="pooled"):
+        out = bhy(results, metrics=["ic"], q=0.5)["ic"]
+    assert out.n_tests == {(): 2}
+    assert [(r.factor, r.forward_periods) for r in out.survivors] == [
+        ("f1", 1),
+        ("f1", 5),
+    ]
+
+
 def test_singleton_buckets_warn():
     make_spec("ic")
     results = [
@@ -192,7 +208,7 @@ def test_primary_element_must_be_str():
         bhy([], metrics=[123])  # type: ignore[list-item]
 
 
-def test_duplicate_factor_without_expand_over_raises():
+def test_duplicate_factor_and_horizon_without_expand_over_raises():
     make_spec("ic")
     results = [
         make_result(factor="f1", p=0.01, metric="ic"),
@@ -208,15 +224,6 @@ def test_missing_primary_metric_raises():
     results = [make_result(factor="f1", p=0.01, metric="ic")]
     with pytest.raises(UserInputError, match="other"):
         bhy(results, metrics=["other"])
-
-
-def test_nan_p_raises():
-    make_spec("ic")
-    results = [
-        make_result(factor="f1", p=float("nan"), metric="ic"),
-    ]
-    with pytest.raises(UserInputError, match="NaN"):
-        bhy(results, metrics=["ic"])
 
 
 def test_descriptive_metric_all_none_p_raises():

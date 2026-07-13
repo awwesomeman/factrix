@@ -50,7 +50,12 @@ def make_result(
     if metadata:
         output_metadata.update(metadata)
     primary_out = MetricResult(
-        value=value, p_value=p, n_obs=100, name=metric, metadata=output_metadata
+        value=value,
+        p_value=p,
+        alternative=None if p is None else "two-sided",
+        n_obs=100,
+        name=metric,
+        metadata=output_metadata,
     )
     outputs = {metric: primary_out}
     if extra_outputs:

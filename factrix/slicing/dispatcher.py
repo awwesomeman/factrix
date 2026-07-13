@@ -17,28 +17,12 @@ from typing import TYPE_CHECKING
 
 import polars as pl
 
-from factrix._axis import Aggregation
 from factrix._codes import WarningCode
 from factrix.slicing._primitive import _slice_by
 
 if TYPE_CHECKING:
     from factrix._results import EvaluationResult
     from factrix.metrics._base import MetricBase
-
-# Aggregations whose computation looks across dates per asset — a rolling
-# window, per-asset time-series regression, or event window. Slicing the
-# panel on a date axis truncates that history at slice boundaries (see
-# WarningCode.SLICE_BOUNDARY_TRUNCATION). The complement
-# (CS_THEN_TS / CS_SNAPSHOT) is per-date independent, so a date-axis slice
-# is exactly the intended period decomposition and does not warn.
-_CROSS_DATE_AGGREGATIONS = frozenset(
-    {
-        Aggregation.TS_ONLY,
-        Aggregation.TS_THEN_CS,
-        Aggregation.EVENT_TIME,
-        Aggregation.RETURN_SPANNING,
-    }
-)
 
 # Single-metric label used inside the per-slice evaluate call.
 _METRIC_LABEL = "metric"
@@ -73,7 +57,7 @@ def by_slice(
     windows (``common_beta``, ``mfe_mae``, ``oos_decay``, …) — sees truncated
     history at slice boundaries, so its per-slice value differs from the
     full-sample value decomposed by period. Per-date metrics (``ic``,
-    ``fm_beta``, ``quantile``, ``positive_rate``) are unaffected. A
+    ``fm_beta``, ``quantile``) are unaffected. A
     :class:`~factrix._codes.WarningCode.SLICE_BOUNDARY_TRUNCATION` warning
     is emitted when a cross-date metric is sliced on a date axis.
 
@@ -168,17 +152,17 @@ def _warn_date_axis_truncation(data: pl.DataFrame, metric: MetricBase, by: str) 
     """Warn when a cross-date metric is sliced on a date axis.
 
     Emits :class:`~factrix._codes.WarningCode.SLICE_BOUNDARY_TRUNCATION`
-    only when both hold: (1) the metric's aggregation looks across dates
-    (``_CROSS_DATE_AGGREGATIONS``); (2) ``by`` is a date-axis partition —
+    only when both hold: (1) the metric declares
+    ``MetricSpec.slice_boundary_sensitive``; (2) ``by`` is a date-axis partition —
     its value varies within an asset over time, so partitioning truncates
     each asset's history. A cross-sectional ``by`` (constant within an
     asset) keeps history intact and does not warn.
     """
     try:
-        aggregation = type(metric).spec().aggregation
+        spec = type(metric).spec()
     except (AttributeError, TypeError):
         return  # not a metric instance; evaluate raises the canonical error
-    if aggregation not in _CROSS_DATE_AGGREGATIONS:
+    if not spec.slice_boundary_sensitive:
         return
     if "asset_id" not in data.columns:
         return  # cannot classify the axis without an asset dimension
@@ -186,9 +170,9 @@ def _warn_date_axis_truncation(data: pl.DataFrame, metric: MetricBase, by: str) 
     n_asset_by_pairs = data.select("asset_id", by).n_unique()
     if n_asset_by_pairs <= n_assets:
         return  # by is constant within each asset → cross-sectional
-    name = type(metric).spec().name
+    name = spec.name
     warnings.warn(
-        f"by_slice: {name!r} aggregates across dates ({aggregation.value}), "
+        f"by_slice: {name!r} depends on intact date ordering, "
         f"but {by!r} is a date-axis partition (its value varies within an "
         f"asset over time). Each slice is evaluated on its own rows only, so "
         f"rolling windows / per-asset time-series regressions / event windows "

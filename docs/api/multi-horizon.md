@@ -21,9 +21,10 @@ problems:
    horizon shopping explicit at the false discovery rate (FDR) layer; an
    in-metric horizon loop would collapse `k` horizons into one identity
    entry, defeating that defense.
-3. **Two Benjamini-Hochberg-Yekutieli (BHY) paths.** The family-function
-   layer ([`multi_factor.bhy`][bhy] with `expand_over=("forward_periods",)`)
-   is the single source of truth for FDR control across horizons.
+3. **One Benjamini-Hochberg-Yekutieli (BHY) path.** The family-function
+   layer ([`multi_factor.bhy`][bhy]) is the single source of truth for FDR
+   control. The caller declares whether horizons compete in one family or are
+   predeclared, separately reported buckets.
 
 The dispatcher framing also lets descriptive metrics (`mfe_mae`,
 `caar`, `oos`, `monotonicity`, ...) inherit horizon-sweep support
@@ -64,11 +65,12 @@ results = fx.evaluate_horizons(
 table = pl.concat([r.to_frame() for r in results])  # long-form: horizon x metric
 ```
 
-### Inferential sweep — FDR-controlled across horizons
+### Inferential sweep — FDR-controlled across factors and horizons
 
-Feed the swept list to [`multi_factor.bhy`][bhy] with
-`expand_over=("forward_periods",)`. The family-function layer partitions
-the BHY null per horizon so the step-up threshold is correct.
+Feed the swept list to [`multi_factor.bhy`][bhy] without `expand_over` when the
+research process may select any factor × horizon combination. This pools every
+searched hypothesis into the controlled family. A runtime warning makes that
+choice visible; it is informational, not an error.
 
 ```python
 import factrix as fx
@@ -86,13 +88,16 @@ results = fx.evaluate_horizons(
 fdr_res = fx.multi_factor.bhy(
     results,
     metrics=["ic"],
-    expand_over=("forward_periods",),
 )
 
 bhy_ic = fdr_res["ic"]
 survivors = bhy_ic.survivors
 adj_p = bhy_ic.adj_p
 ```
+
+Use `expand_over=("forward_periods",)` only for horizon-specific screens that
+were predeclared and will be selected and reported separately. It runs one
+step-up per horizon and does not control a later choice of the best horizon.
 
 Cross-horizon comparability is a scale alignment only: the `/ forward_periods` in
 `compute_forward_return` makes rank-IC comparable across horizons, but

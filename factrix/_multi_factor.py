@@ -9,9 +9,9 @@ metric still returns a dict — no isinstance dispatch on the caller
 side).
 
 Family declaration is explicit: the input list *is* the family,
-optionally split per-bucket via ``expand_over``. Hypothesis identifier
-is ``(factor, *expand_over_values)``. Cell / horizon partitioning is
-the caller's responsibility.
+optionally split per-bucket via ``expand_over``. The base hypothesis
+identifier is ``(factor, forward_periods)``; context partition values
+extend it. Family partitioning remains the caller's responsibility.
 """
 
 from __future__ import annotations
@@ -429,8 +429,9 @@ def bhy(
     is non-empty, one independent step-up runs per unique tuple of
     ``expand_over`` values (read from ``EvaluationResult.forward_periods``
     for that built-in slicing axis, otherwise from
-    ``EvaluationResult.context[k]``). Cell / horizon partitioning is
-    the caller's responsibility.
+    ``EvaluationResult.context[k]``). Pooling horizons in one family is
+    appropriate when selection may choose across horizons; partitioning by
+    horizon is appropriate only for predeclared, separately reported screens.
 
     Args:
         results: :class:`EvaluationResult` records. The full input is
@@ -452,15 +453,16 @@ def bhy(
 
     Raises:
         UserInputError: ``metrics`` not a non-empty ``list[str]``;
-            duplicate ``(factor, *expand_over_values)`` identifier;
+            duplicate ``(factor, forward_periods,
+            *context_partition_values)`` identifier;
             ``expand_over`` key missing from a result's context or
             naming ``'factor'``; metric absent from a result's
             outputs or its ``p_value`` missing / NaN.
 
     Warns:
-        RuntimeWarning: Input mixes ``forward_periods`` with
-            ``expand_over`` empty (pooling horizons dilutes the
-            per-rank threshold). Or most ``expand_over`` buckets are
+        RuntimeWarning: Input pools multiple ``forward_periods`` in the same
+            family, reminding callers to match the family to their selection
+            rule. Or most ``expand_over`` buckets are
             singletons (BHY on n=1 provides no FDR correction).
     """
     metric_list = _validate_metric_list(metrics, func_name="bhy", field="metrics")
@@ -880,19 +882,17 @@ def _warn_on_mixed_horizons(
     *,
     expand_over: tuple[str, ...],
 ) -> None:
-    if expand_over:
+    if "forward_periods" in expand_over:
         return
     horizons = {r.forward_periods for r in results}
     if len(horizons) > 1:
         warnings.warn(
             f"bhy: input mixes forward_periods={sorted(horizons)} but "
-            "expand_over is empty — different horizons have different "
-            "null distributions; pooling them in one step-up dilutes "
-            "the per-rank threshold and silently inflates FDR. Either "
-            "split the call per horizon, or set "
-            "expand_over=('forward_periods',) to declare per-bucket "
-            "families — the latter is the intended companion to an "
-            "evaluate_horizons sweep.",
+            "they are being pooled into one multiple-testing family. This is "
+            "the correct choice when the research process may select across "
+            "horizons. Use expand_over=('forward_periods',) only when horizon "
+            "screens were predeclared and will be selected and reported "
+            "separately; it does not control global horizon shopping.",
             RuntimeWarning,
             stacklevel=3,
         )

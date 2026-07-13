@@ -11,13 +11,15 @@ import html
 import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 import polars as pl
 
 from factrix._axis import DataStructure, FactorDensity, FactorScope
 from factrix._codes import WarningCode
 from factrix._types import SampleAxis
+
+PValueAlternative = Literal["two-sided", "greater", "less"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,8 +28,10 @@ class MetricResult:
 
     Attributes:
         value: Raw metric value.
-        p_value: Two-sided p-value for the metric's hypothesis test.
-            ``None`` for descriptive metrics that carry no formal test.
+        p_value: P-value for the metric's hypothesis test. ``None`` for
+            descriptive metrics that carry no formal test.
+        alternative: Alternative-hypothesis direction used to construct
+            ``p_value``. Present exactly when ``p_value`` is present.
         n_obs: Effective sample size the estimator actually used
             (e.g. number of non-overlapping IC periods, number of
             events, number of bootstrap windows). ``None`` where a
@@ -51,6 +55,7 @@ class MetricResult:
 
     value: float
     p_value: float | None = None
+    alternative: PValueAlternative | None = None
     n_obs: int | None = None
     n_obs_axis: SampleAxis | None = None
     stat: float | None = None
@@ -58,11 +63,26 @@ class MetricResult:
     warning_codes: tuple[str, ...] = ()
     name: str = ""
 
+    def __post_init__(self) -> None:
+        if (self.p_value is None) != (self.alternative is None):
+            raise ValueError(
+                "MetricResult: p_value and alternative must either both be "
+                "provided or both be None."
+            )
+        if self.p_value is not None and (
+            not math.isfinite(self.p_value) or not 0.0 <= self.p_value <= 1.0
+        ):
+            raise ValueError(
+                "MetricResult: p_value must be finite and lie in [0, 1]; "
+                f"got {self.p_value!r}."
+            )
+
     def __repr__(self) -> str:
         name = self.name or "?"
         parts = [f"{name}={self.value:.4f}"]
         if self.p_value is not None:
             parts.append(f"p_value={self.p_value:.4g}")
+            parts.append(f"alternative={self.alternative}")
         if self.n_obs is not None:
             axis = f" {self.n_obs_axis}" if self.n_obs_axis else ""
             parts.append(f"n_obs={self.n_obs}{axis}")
@@ -182,6 +202,7 @@ class EvaluationResult:
         | ``metric_name`` | str | ``MetricResult.name`` |
         | ``value`` | f64 \| null | ``MetricResult.value`` |
         | ``p_value`` | f64 \| null | ``MetricResult.p_value`` |
+        | ``alternative`` | str \| null | ``MetricResult.alternative`` |
         | ``stat`` | f64 \| null | ``MetricResult.stat`` |
         | ``n_obs`` | i64 \| null | ``MetricResult.n_obs`` — estimator effective sample size |
         | ``n_obs_axis`` | str \| null | ``MetricResult.n_obs_axis`` — axis ``n_obs`` counts along (``periods`` / ``events`` / ``pairs`` / ``assets``) |
@@ -214,7 +235,7 @@ class EvaluationResult:
 
         - ``factor`` / ``cell`` / ``forward_periods`` / ``n_periods`` /
           ``n_pairs`` / ``n_assets`` / ``context``
-        - ``metrics``: ``label -> {value, p_value, stat, n_obs,
+        - ``metrics``: ``label -> {value, p_value, alternative, stat, n_obs,
           n_obs_axis, is_applicable, reason, metadata}``
         - ``warnings``: list of ``{code, source, message}``
         - ``plan``
@@ -274,14 +295,16 @@ class EvaluationResult:
         for name, out in sorted(self.metrics.items()):
             val_repr = "null" if math.isnan(out.value) else f"{out.value:.4g}"
             p_repr = f"{out.p_value:.4g}" if isinstance(out.p_value, float) else ""
+            alternative = out.alternative or ""
             metric_rows.append(
                 f"<tr><td>{html.escape(name)}</td>"
                 f"<td style='text-align:right'>{val_repr}</td>"
-                f"<td style='text-align:right'>{p_repr}</td></tr>"
+                f"<td style='text-align:right'>{p_repr}</td>"
+                f"<td>{html.escape(alternative)}</td></tr>"
             )
         metric_table = (
             "<table><thead><tr><th>metric</th><th>value</th>"
-            "<th>p</th></tr></thead>"
+            "<th>p</th><th>alternative</th></tr></thead>"
             f"<tbody>{''.join(metric_rows)}</tbody></table>"
         )
 
@@ -322,6 +345,7 @@ _TO_FRAME_SCHEMA: dict[str, pl.DataType | type[pl.DataType]] = {
     "metric_name": pl.Utf8,
     "value": pl.Float64,
     "p_value": pl.Float64,
+    "alternative": pl.Utf8,
     "stat": pl.Float64,
     "n_obs": pl.Int64,
     "n_obs_axis": pl.Utf8,
@@ -341,6 +365,7 @@ def _output_row(
         "metric_name": label,
         "value": _float_or_none(out.value),
         "p_value": _float_or_none(out.p_value),
+        "alternative": out.alternative,
         "stat": _float_or_none(out.stat),
         "n_obs": out.n_obs,
         "n_obs_axis": out.n_obs_axis,
@@ -364,6 +389,7 @@ def _metric_output_to_record(out: MetricResult) -> dict[str, Any]:
     return {
         "value": _float_or_none(out.value),
         "p_value": _float_or_none(out.p_value),
+        "alternative": out.alternative,
         "stat": _float_or_none(out.stat),
         "n_obs": out.n_obs,
         "n_obs_axis": out.n_obs_axis,

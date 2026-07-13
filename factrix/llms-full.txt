@@ -202,7 +202,7 @@ Thin sweep that runs `evaluate` across several overlap horizons of one **raw** p
 
 - `data` is a raw price panel (`date`, `asset_id`, `price`, factor columns). Only forward-return is computed; winsorize / abnormal-return are out of scope.
 - `forward_periods` is a non-empty `list[int]` of distinct positive horizons (e.g. `[5, 20, 60]`); duplicates and non-positive values are rejected.
-- Returns a flat `list[EvaluationResult]` grouped by horizon then `factor_cols` order — one entry per `(factor, forward_periods)`. The list feeds straight into `compare(...)` and `bhy(..., expand_over=("forward_periods",))`, which partitions each horizon into its own step-up family.
+- Returns a flat `list[EvaluationResult]` grouped by horizon then `factor_cols` order — one entry per `(factor, forward_periods)`. The list feeds straight into `compare(...)` and `bhy(...)`. Pool horizons when selection may choose across them; use `expand_over=("forward_periods",)` only for predeclared, separately reported horizon screens.
 - Comparability across horizons is a scale alignment (the `/ forward_periods` in `compute_forward_return` makes rank-IC comparable); signed-return-mean metrics carry a compounding bias that grows with `forward_periods`, so treat those sweeps as descriptive.
 
 ---
@@ -250,6 +250,12 @@ def bhy(
 
 Benjamini-Hochberg-Yekutieli step-up FDR within a declared family. Returns a dictionary of `BhyResult` objects keyed by the metric labels.
 
+The base hypothesis identity is `(factor, forward_periods)`. With no
+`expand_over`, all factor × horizon hypotheses are pooled, which is required
+when the research process may select the best horizon. Partition by
+`forward_periods` only for predeclared horizon-specific screens; separate
+buckets do not control later horizon shopping.
+
 `BhyResult` contains:
 - `metric_name`: Metric label under test.
 - `survivors`: Surviving `EvaluationResult` records.
@@ -278,6 +284,13 @@ per-period statistic matrix and applies common block indices to all columns,
 returning `(B, T, m)`. This preserves joint dependence before the caller
 centres and studentizes each bootstrap statistic for
 `romano_wolf_adjusted_p`; separate calls per column are not equivalent.
+
+Holm and BHY consume calibrated p-values and may combine documented one- and
+two-sided alternatives; they do not reinterpret tails. There is no generic
+tail-conversion helper. Factrix also does not expose a high-level
+`multi_factor.romano_wolf` or panel-aware bootstrap workflow: callers of the
+low-level primitive must supply the complete joint, H0-centred, correctly
+studentized `(B, m)` matrix.
 
 ---
 
@@ -421,7 +434,8 @@ Flat warning representation containing:
 
 Dataclass for a single metric's output:
 - `value`: Raw scalar result.
-- `p_value`: Two-sided p-value for the metric's hypothesis test.
+- `p_value`: Calibrated p-value for the metric's hypothesis test, or `None` for descriptive outputs.
+- `alternative`: Tested tail (`two-sided`, `greater`, or `less`), present exactly when `p_value` is present.
 - `n_obs`: Effective sample size the estimator actually used (single source of truth for sample size).
 - `n_obs_axis`: The sample dimension `n_obs` counts along (`periods` / `pairs` / `events` / ...), or `None`.
 - `stat`: Test statistic value (t, z, W, chi2, ...), when applicable.

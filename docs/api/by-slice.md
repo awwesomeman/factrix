@@ -41,15 +41,17 @@ own rows. The consequence depends on the slicing axis:
   constant within an asset): each slice is an independent universe with
   intact per-asset history. This is the primary intent.
 - **Date-axis partition** (year, regime; the value varies within an asset
-  over time): a metric whose aggregation looks across dates —
+  over time): a metric declaring boundary sensitivity —
   rolling-window betas, per-asset time-series regressions, event windows
   (`common_beta`, `mfe_mae`, `oos_decay`) — sees **truncated history** at
   slice boundaries, so its per-slice value differs from the full-sample
   value decomposed by period. Per-date metrics (`ic`, `fm_beta`,
-  `quantile`, `positive_rate`) are unaffected.
+  `quantile`) are unaffected. `positive_rate` is sensitive because each
+  slice resets its non-overlap sampling phase.
 
 `by_slice` emits a `WarningCode.SLICE_BOUNDARY_TRUNCATION` warning when a
-cross-date metric is sliced on a date axis. If you want the full-sample
+metric whose `MetricSpec.slice_boundary_sensitive` capability is true is
+sliced on a date axis. If you want the full-sample
 metric decomposed by period instead, compute it once on the whole panel
 and group the per-date output yourself.
 
@@ -70,7 +72,7 @@ pl.concat([
     r.to_frame().with_columns(pl.lit(k).alias("slice"))
     for k, r in result.items()
 ]).sort("slice")
-# columns: slice, factor, n_assets, metric_name, value, p_value, stat, n_obs, warning_codes
+# columns include: slice, factor, n_assets, metric_name, value, p_value, alternative, stat, n_obs, warning_codes
 ```
 
 Each `EvaluationResult` carries per-slice `n_periods` / `n_assets`, so
@@ -80,8 +82,8 @@ sample-size differences across slices are visible directly.
 
     Each slice's `p_value` tests that slice alone against its own null
     (e.g. `ic` mean = 0). Filtering across K parallel slices inflates the
-    family-wise error rate (FWER) — under H0, K=10 sectors yields ≈ 0.4
-    expected "significant" slices by pure chance. `by_slice` is for
+    family-wise error rate (FWER) — under independent nulls, K=10 sectors
+    gives about a 40% chance of at least one false positive. `by_slice` is for
     **exploration**; for inference claims with FWER / false discovery rate
     (FDR) control, use
     [`slice_pairwise_test`](slice-test.md#factrix.slice_pairwise_test)

@@ -61,6 +61,7 @@ def metric(
     | Callable[[MetricBase], SampleThreshold]
     | None = None,
     requires_continuous_magnitude: bool = False,
+    slice_boundary_sensitive: bool = False,
 ) -> Callable[[_F], _F]:
     """Decorator to define a Metric class from a function definition.
 
@@ -135,6 +136,7 @@ def metric(
             "batchable": batchable,
             "_resolve_sample_threshold": staticmethod(resolver),
             "requires_continuous_magnitude": requires_continuous_magnitude,
+            "slice_boundary_sensitive": slice_boundary_sensitive,
             "_impl": fn,
             "_first_param_name": first_param_name,
             "_param_names": user_param_names,

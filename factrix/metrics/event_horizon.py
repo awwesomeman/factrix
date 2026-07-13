@@ -44,6 +44,7 @@ _EH_CELL = cell(None, FactorDensity.SPARSE, structure=None)
 @metric(
     cell=_EH_CELL,
     aggregation=Aggregation.EVENT_TIME,
+    slice_boundary_sensitive=True,
     sample_threshold=SampleThreshold(),
 )
 def event_around_return(

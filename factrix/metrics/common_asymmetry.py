@@ -258,6 +258,7 @@ def common_asymmetry(
 
     return MetricResult(
         p_value=p_a,
+        alternative="two-sided",
         value=asym_value,
         n_obs=n_periods,
         n_obs_axis="periods",

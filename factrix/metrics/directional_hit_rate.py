@@ -54,6 +54,7 @@ __all__ = [
 @metric(
     cell=cell(None, FactorDensity.DENSE, structure=None),
     aggregation=Aggregation.TS_ONLY,
+    slice_boundary_sensitive=True,
     input_shape=InputShape.PANEL,
     sample_threshold=SampleThreshold(
         min_pairs=MIN_DIRECTIONAL_PAIRS_HARD,
@@ -160,6 +161,7 @@ def directional_hit_rate(
         return _short_circuit_output(
             "directional_hit_rate",
             "no_return_column",
+            alternative="greater",
             missing_column=return_col,
         )
 
@@ -189,6 +191,7 @@ def directional_hit_rate(
         n,
         "insufficient_directional_samples",
         axis="pairs",
+        alternative="greater",
     )
     if sc is not None:
         return sc
@@ -215,6 +218,7 @@ def directional_hit_rate(
         return _short_circuit_output(
             "directional_hit_rate",
             "degenerate_directional_variance",
+            alternative="greater",
             n_obs=n,
             n_obs_axis="pairs",
             p_correct=p_correct,
@@ -282,6 +286,7 @@ def directional_hit_rate(
     return MetricResult(
         value=p_correct,
         p_value=p,
+        alternative="greater",
         n_obs=n,
         n_obs_axis="pairs",
         stat=float(s_stat),

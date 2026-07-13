@@ -37,7 +37,7 @@ if TYPE_CHECKING:
     from factrix.inference import NeweyWest, NonOverlapping
     from factrix.metrics._base import MetricBase
 from factrix._metric_index import SampleThreshold
-from factrix._results import MetricResult
+from factrix._results import MetricResult, PValueAlternative
 from factrix._stats import _calc_t_stat, _p_value_from_t
 from factrix._stats.constants import MIN_ASSETS_WARN
 from factrix._types import DDOF, EPSILON, KPSource, SampleAxis
@@ -250,6 +250,7 @@ def _short_circuit_output(
     n_obs: int | None = None,
     n_obs_axis: SampleAxis | None = None,
     descriptive: bool = False,
+    alternative: PValueAlternative = "two-sided",
     **extra_metadata: object,
 ) -> MetricResult:
     """Canonical short-circuit ``MetricResult`` for "cannot compute".
@@ -290,6 +291,7 @@ def _short_circuit_output(
     return MetricResult(
         value=float("nan"),
         p_value=p,
+        alternative=None if descriptive else alternative,
         n_obs=n_obs,
         n_obs_axis=n_obs_axis,
         stat=None,
@@ -333,6 +335,7 @@ def _no_signal_zero_variance(n_periods: int, **extra: object) -> MetricResult:
     return MetricResult(
         value=0.0,
         p_value=1.0,
+        alternative="two-sided",
         n_obs=n_periods,
         n_obs_axis="periods",
         stat=0.0,
@@ -355,6 +358,7 @@ def _enforce_min_floor(
     *,
     axis: SampleAxis = "periods",
     descriptive: bool = False,
+    alternative: PValueAlternative = "two-sided",
     **extra: object,
 ) -> MetricResult | None:
     """Short-circuit when ``n`` falls below the metric's declared ``min_<axis>``.
@@ -391,6 +395,7 @@ def _enforce_min_floor(
             n_obs_axis=axis,
             min_required=floor,
             descriptive=descriptive,
+            alternative=alternative,
             **extra,
         )
     return None
@@ -402,6 +407,7 @@ def _enforce_scaled_floor(
     base: int,
     forward_periods: int,
     reason: str,
+    alternative: PValueAlternative = "two-sided",
     **extra: object,
 ) -> MetricResult | None:
     """Short-circuit when the *raw* (pre-sampling) date count is below the
@@ -428,6 +434,7 @@ def _enforce_scaled_floor(
             n_obs_axis="periods",
             min_required=floor,
             descriptive=False,  # every stride-sampling metric runs a hypothesis test
+            alternative=alternative,
             **extra,
         )
     return None

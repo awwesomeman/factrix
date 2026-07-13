@@ -14,7 +14,7 @@ This recipe uses `multi_factor.bhy(...)` over a list of `EvaluationResult` objec
 
 The input list is the family. Each result must carry a unique identity `(factor, forward_periods)`. The recommended path is to name the factor column distinctly per candidate panel and pass it via `factor_cols=[...]`; `evaluate` stamps the `factor` name onto each returned `EvaluationResult`.
 
-Pass `expand_over=("forward_periods",)` to declare per-horizon independent step-ups. Mixing `forward_periods` without `expand_over` emits a `RuntimeWarning` because different horizons carry different null distributions.
+Pooling horizons without `expand_over` controls the full factor × horizon search and emits an informational `RuntimeWarning`. Pass `expand_over=("forward_periods",)` only for predeclared horizon-specific screens that will be selected and reported separately; it does not control later horizon shopping.
 
 ## Use this when
 

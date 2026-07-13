@@ -138,8 +138,8 @@ def compute_forward_return(
            horizons — it does *not* address the inference problem.
            Overlap is handled by heteroskedasticity-and-autocorrelation-consistent (HAC) (see
            :class:`factrix.inference.NeweyWest`); across-horizon
-           selection is handled by the family-wise error rate (FWER) correction in
-           :func:`factrix.multi_factor.bhy`. The three concerns
+           selection is handled by a declared multiple-testing family in
+           :func:`factrix.multi_factor.bhy` (BHY controls FDR, not FWER). The three concerns
            (scale, overlap, cross-horizon selection) are addressed
            at separate layers; overlap and across-horizon dependence
            share a common source in the persistent regressor, but

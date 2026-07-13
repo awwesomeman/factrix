@@ -19,6 +19,7 @@ Converts the metric results into a stable, long-form Polars `pl.DataFrame`. This
 - `metric_name` (`str`): The metric identifier.
 - `value` (`f64` | `null`): The calculated metric value (NaN/Inf are normalized to `null`).
 - `p_value` (`f64` | `null`): The p-value, if applicable.
+- `alternative` (`str` | `null`): The tested alternative (`two-sided`, `greater`, or `less`), present exactly when `p_value` is present.
 - `stat` (`f64` | `null`): The underlying test statistic, if applicable.
 - `n_obs` (`i64` | `null`): Effective sample size the metric's estimator used. `null` only where a single integer count is not meaningful (e.g. a multi-window CAAR series).
 - `n_obs_axis` (`str` | `null`): The dimension `n_obs` counts along — `periods` / `events` / `pairs` / `assets`. A bare count is uninterpretable without it (a Fama-MacBeth `n_obs` is `periods`; a pooled-OLS one is `(date, asset)` `pairs`). `null` exactly when `n_obs` is.
@@ -50,7 +51,8 @@ Converts the result into a JSON-friendly nested dictionary. It normalizes floats
 `MetricResult` represents the outcome of a single metric calculation. Its primary fields are:
 
 - **`value`** (`float`): The calculated numeric output of the metric.
-- **`p_value`** (`float` | `None`): The statistical p-value.
+- **`p_value`** (`float` | `None`): The calibrated statistical p-value. It must be finite and in `[0, 1]`.
+- **`alternative`** (`str` | `None`): The corresponding alternative hypothesis (`two-sided`, `greater`, or `less`). `p_value` and `alternative` must either both be present or both be `None`.
     > [!IMPORTANT]
     > `p_value` is the canonical field for metric p-values.
 - **`stat`** (`float` | `None`): The test statistic (e.g. t-statistic, z-statistic).

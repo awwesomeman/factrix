@@ -6,8 +6,10 @@ list of :class:`~factrix._results.EvaluationResult` into flat
 ``_FamilyEntry`` records ready for the procedure-specific step-up math.
 
 The invariants enforced here are the family-layer extension of the
-anti-shopping defense: the hypothesis identity is
-``(factor, *expand_over_values)``; ``expand_over`` names are read
+anti-shopping defense: the base hypothesis identity is
+``(factor, forward_periods)``. Context values named by ``expand_over``
+extend that identity while all ``expand_over`` values partition the family;
+``expand_over`` names are read
 from ``forward_periods`` (the lone non-context built-in slicing axis)
 or from ``EvaluationResult.context``. The estimator-override hook is
 gone — callers select inference at metric-construction time (e.g.
@@ -41,8 +43,9 @@ class _FamilyEntry:
     ``p_value`` only after the attach stage, where it is always non-None.
 
     Attributes:
-        identifier: ``(factor, *expand_over_values)`` — the hypothesis
-            key. With no ``expand_over``, collapses to ``(factor,)``.
+        identifier: ``(factor, forward_periods, *context_partition_values)``
+            — the hypothesis key. ``forward_periods`` is always part of the
+            identity, even when it is also the family partition axis.
         expand_over_values: ``tuple`` in caller-supplied key order;
             empty when ``expand_over`` is empty.
         result: Back-reference for survivor rendering; not read by the
@@ -86,19 +89,25 @@ def _partition(
     seen: dict[tuple[Any, ...], int] = {}
     for idx, result in enumerate(results):
         values = _expand_over_values(result, keys=keys)
-        identifier = (result.factor, *values)
+        context_values = tuple(
+            value
+            for name, value in zip(keys, values, strict=True)
+            if name not in _BUILTIN_EXPAND_OVER_FIELDS
+        )
+        identifier = (result.factor, result.forward_periods, *context_values)
         if identifier in seen:
             raise UserInputError(
                 func_name=func_name,
                 field="results",
                 value=identifier,
                 expected=(
-                    "unique (factor, *expand_over_values) identifier across "
+                    "unique (factor, forward_periods, "
+                    "*context_partition_values) identifier across "
                     f"input; duplicate first seen at index {seen[identifier]}, "
                     f"again at {idx}. Either stamp a distinct factor column "
-                    "per evaluation, or pass `expand_over=[<key>]` to declare "
-                    "per-bucket families (e.g. `expand_over=('forward_periods',)` "
-                    "for multi-horizon screening)"
+                    "per evaluation, or pass `expand_over=[<context_key>]` "
+                    "when the repeated evaluation belongs to a predeclared "
+                    "context-specific family"
                 ),
                 docs_path=f"api/{func_name}#partition-key",
             )
@@ -165,8 +174,8 @@ def _resolve_family(
        field (``forward_periods``) or as a key in every result's
        ``context``. ``factor`` is rejected (it is the hypothesis
        identifier, not a slicing axis).
-    2. The partition key ``(factor, *expand_over_values)`` must be
-       unique across the input.
+    2. The hypothesis key ``(factor, forward_periods,
+       *context_partition_values)`` must be unique across the input.
     3. Each result must produce the ``metric``'s p-value;
        the p must be present and non-NaN.
     """
