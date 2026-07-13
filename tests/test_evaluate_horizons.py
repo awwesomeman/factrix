@@ -110,16 +110,16 @@ class TestFeedsAggregationLayer:
             )
         assert "ic" in screens
 
-    def test_flatten_without_expand_over_raises_duplicate_identity(self):
-        # Same factor at two horizons -> duplicate (factor,) identity in bhy.
+    def test_flatten_without_expand_over_pools_factor_horizon_hypotheses(self):
         results = fx.evaluate_horizons(
             _raw(),
             metrics={"ic": ic()},
             factor_cols=["factor"],
             forward_periods=[5, 10],
         )
-        with pytest.raises(UserInputError):
-            fx.multi_factor.bhy(results, metrics=["ic"])
+        with pytest.warns(RuntimeWarning, match="pooled"):
+            screen = fx.multi_factor.bhy(results, metrics=["ic"])["ic"]
+        assert screen.n_tests == {(): 2}
 
 
 class TestStrictForwarded:
