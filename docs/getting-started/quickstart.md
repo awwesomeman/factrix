@@ -93,11 +93,13 @@ Calling `.to_dict()` on the returned `EvaluationResult` returns a flat, JSON-fri
   "n_periods": 494,
   "n_pairs": 49400,
   "n_assets": 100,
-  "context": {},
+  "params": {},
+  "metadata": {},
   "metrics": {
     "ic": {
       "value": 0.0722,
       "p_value": 2.129e-40,
+      "alternative": "two-sided",
       "stat": 14.60,
       "n_obs": 494,
       "n_obs_axis": "periods",
