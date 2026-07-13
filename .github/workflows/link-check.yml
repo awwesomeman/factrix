@@ -56,6 +56,7 @@ jobs:
             --max-cache-age 1d
             --exclude-loopback
             --exclude-path site/404.html
+            --root-dir "$GITHUB_WORKSPACE/site"
             './site/**/*.html'
             './README.md'
           fail: true
@@ -100,6 +101,7 @@ jobs:
             --max-cache-age 1d
             --exclude-loopback
             --exclude-path site/404.html
+            --root-dir "$GITHUB_WORKSPACE/site"
             './site/**/*.html'
             './README.md'
           output: ./lychee-report.md
