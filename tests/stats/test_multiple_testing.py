@@ -4,10 +4,18 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from factrix.stats import (
+    holm_adjusted_p as exported_holm_adjusted_p,
+)
+from factrix.stats import (
+    romano_wolf_adjusted_p as exported_romano_wolf_adjusted_p,
+)
 from factrix.stats.multiple_testing import (
     bhy_adjust,
     bhy_adjusted_p,
+    holm_adjusted_p,
     partial_conjunction_p,
+    romano_wolf_adjusted_p,
     simes_p,
 )
 
@@ -115,6 +123,154 @@ class TestBhyAdjustedP:
         mask = bhy_adjust(p, fdr=fdr)
         adj = bhy_adjusted_p(p)
         np.testing.assert_array_equal(mask, adj <= fdr)
+
+
+class TestHolmAdjustedP:
+    def test_exported_from_stats_namespace(self):
+        assert exported_holm_adjusted_p is holm_adjusted_p
+
+    def test_empty_input(self):
+        adj = holm_adjusted_p([])
+        assert adj.shape == (0,)
+        assert adj.dtype == float
+
+    def test_statsmodels_reference_values(self):
+        # statsmodels.stats.multitest.multipletests(..., method="holm")
+        # for this textbook family returns these adjusted p-values.
+        p = np.array([0.01, 0.04, 0.03, 0.005])
+        expected = np.array([0.03, 0.06, 0.06, 0.02])
+        np.testing.assert_allclose(holm_adjusted_p(p), expected)
+
+    def test_monotonicity_in_rank(self):
+        p = np.array([0.001, 0.04, 0.02, 0.5, 0.3, 0.1])
+        adj = holm_adjusted_p(p)
+        adj_sorted = adj[np.argsort(p)]
+        assert np.all(np.diff(adj_sorted) >= -1e-12)
+
+    def test_dominates_bonferroni(self):
+        rng = np.random.default_rng(0)
+        p = rng.uniform(size=20)
+        bonferroni = np.minimum(len(p) * p, 1.0)
+        assert np.all(holm_adjusted_p(p) <= bonferroni)
+
+    def test_full_family_size_accounts_for_unsubmitted_survivors(self):
+        p = np.array([0.001, 0.01, 0.04])
+        expected = np.array([0.1, 0.99, 1.0])
+        np.testing.assert_allclose(holm_adjusted_p(p, n_tests=100), expected)
+        assert np.all(holm_adjusted_p(p, n_tests=100) >= holm_adjusted_p(p))
+
+    def test_default_matches_explicit_len(self):
+        p = np.array([0.001, 0.01, 0.04])
+        np.testing.assert_allclose(
+            holm_adjusted_p(p), holm_adjusted_p(p, n_tests=len(p))
+        )
+
+
+class TestRomanoWolfAdjustedP:
+    def test_exported_from_stats_namespace_and_returns_array(self):
+        assert exported_romano_wolf_adjusted_p is romano_wolf_adjusted_p
+        out = romano_wolf_adjusted_p([1.0], np.array([[0.0], [2.0]]))
+        assert isinstance(out, np.ndarray)
+
+    def test_deterministic_stepdown_reference(self):
+        statistics = np.array([4.5, 2.5, 1.2])
+        bootstrap = np.array(
+            [
+                [4.0, 0.0, 0.0],
+                [0.0, 3.0, 0.0],
+                [0.0, 0.0, 2.0],
+                [0.0, 0.0, 1.5],
+                [0.0, 0.0, 0.0],
+            ]
+        )
+        expected = np.array([1.0 / 6.0, 2.0 / 6.0, 3.0 / 6.0])
+        np.testing.assert_allclose(
+            romano_wolf_adjusted_p(statistics, bootstrap), expected
+        )
+
+    def test_vectorized_suffix_max_matches_naive_stepdown(self):
+        rng = np.random.default_rng(42)
+        statistics = rng.normal(size=12)
+        bootstrap = rng.normal(size=(200, 12))
+        observed = np.abs(statistics)
+        boot_abs = np.abs(bootstrap)
+        order = np.argsort(-observed, kind="stable")
+        initial = []
+        for rank, hypothesis in enumerate(order):
+            max_remaining = boot_abs[:, order[rank:]].max(axis=1)
+            initial.append(
+                (np.sum(max_remaining >= observed[hypothesis]) + 1.0)
+                / (len(bootstrap) + 1.0)
+            )
+        expected_desc = np.maximum.accumulate(initial)
+        expected = np.empty(len(statistics))
+        expected[order] = expected_desc
+        np.testing.assert_allclose(
+            romano_wolf_adjusted_p(statistics, bootstrap), expected
+        )
+
+    def test_bootstrap_ties_count_as_exceedances(self):
+        out = romano_wolf_adjusted_p([1.0], np.array([[1.0], [0.0]]))
+        np.testing.assert_allclose(out, [2.0 / 3.0])
+
+    def test_joint_dependence_avoids_bonferroni_penalty(self):
+        rng = np.random.default_rng(2)
+        common = rng.standard_normal(size=2_000)
+        bootstrap = np.tile(common[:, None], (1, 10))
+        statistics = np.array([3.5] + [0.0] * 9)
+        adjusted = romano_wolf_adjusted_p(statistics, bootstrap)
+        assert adjusted[0] < 0.005
+
+    def test_one_sided_uses_positive_tail(self):
+        rng = np.random.default_rng(3)
+        bootstrap = rng.standard_normal(size=(2_000, 2))
+        adjusted = romano_wolf_adjusted_p([3.0, -3.0], bootstrap, one_sided=True)
+        assert adjusted[0] < 0.05
+        assert adjusted[1] > 0.5
+
+    def test_empty_family(self):
+        out = romano_wolf_adjusted_p([], np.empty((10, 0)))
+        assert out.shape == (0,)
+        assert out.dtype == float
+
+    @pytest.mark.parametrize(
+        ("statistics", "bootstrap", "message"),
+        [
+            ([[1.0, 2.0]], np.ones((10, 2)), "statistics must be 1-D"),
+            ([1.0, np.nan], np.ones((10, 2)), "statistics must be finite"),
+            ([1.0, 2.0], np.ones((10, 3)), r"shape \(B, 2\)"),
+            ([1.0, 2.0], np.array([[1.0, np.inf]]), "must be finite"),
+            ([1.0, 2.0], np.empty((0, 2)), "at least 1 resample"),
+        ],
+    )
+    def test_validates_statistics_and_bootstrap(self, statistics, bootstrap, message):
+        with pytest.raises(ValueError, match=message):
+            romano_wolf_adjusted_p(statistics, bootstrap)
+
+    def test_rejects_non_boolean_tail_mode(self):
+        with pytest.raises(ValueError, match="one_sided must be a bool"):
+            romano_wolf_adjusted_p([1.0], np.ones((10, 1)), one_sided=1)
+
+
+@pytest.mark.parametrize("adjust", [bhy_adjusted_p, holm_adjusted_p])
+class TestAdjustedPValidation:
+    def test_rejects_non_vector_input(self, adjust):
+        with pytest.raises(ValueError, match="must be 1-D"):
+            adjust([[0.01, 0.02]])
+
+    @pytest.mark.parametrize("value", [np.nan, np.inf, -0.1, 1.1])
+    def test_rejects_non_finite_or_out_of_range_pvalues(self, adjust, value):
+        with pytest.raises(ValueError, match=r"lie in \[0, 1\].*finite"):
+            adjust([0.01, value])
+
+    @pytest.mark.parametrize("n_tests", [True, 2.5])
+    def test_rejects_non_integer_family_size(self, adjust, n_tests):
+        with pytest.raises(ValueError, match="must be an integer"):
+            adjust([0.01, 0.02], n_tests=n_tests)
+
+    def test_rejects_family_size_smaller_than_submission(self, adjust):
+        with pytest.raises(ValueError, match=r"n_tests .* must be >="):
+            adjust([0.01, 0.02], n_tests=1)
 
 
 class TestNTotal:

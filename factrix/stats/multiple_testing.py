@@ -1,4 +1,4 @@
-"""Multiple-testing adjustments.
+"""False-discovery and family-wise multiple-testing adjustments.
 
 [Benjamini-Yekutieli (2001)][benjamini-yekutieli-2001] step-up procedure for false discovery rate (FDR) control under
 arbitrary dependence among the tests. The BHY correction factor
@@ -20,6 +20,16 @@ ranges over the submitted p's; the unsubmitted ``m - len(p)`` candidates
 are implicitly not rejected. Default (``None``) reproduces single-stage
 BHY where ``m = len(p_values)``.
 
+[Holm (1979)][holm-1979] step-down controls the family-wise error rate
+(FWER) under arbitrary dependence. It targets searches that select one winner
+or require every retained hypothesis to avoid any false positive.
+
+[Romano-Wolf (2005)][romano-wolf-2005] step-down max-t uses a joint bootstrap
+null distribution to preserve power when hypotheses are dependent. The caller
+supplies the already centred and consistently studentized bootstrap statistics.
+Adjusted p-values follow the efficient suffix-maximum algorithm in
+[Romano-Wolf (2016)][romano-wolf-2016].
+
 References:
     - [Benjamini & Yekutieli (2001)][benjamini-yekutieli-2001], "The
       Control of the False Discovery Rate in Multiple Testing under
@@ -30,11 +40,18 @@ References:
       for Multiple Tests of Significance."
     - [Yekutieli (2008)][yekutieli-2008], "Hierarchical False Discovery
       Rate-controlling Methodology."
+    - [Holm (1979)][holm-1979], "A Simple Sequentially Rejective Multiple
+      Test Procedure."
+    - [Romano & Wolf (2005)][romano-wolf-2005], "Stepwise Multiple Testing
+      as Formalized Data Snooping."
+    - [Romano & Wolf (2016)][romano-wolf-2016], "Efficient Computation of
+      Adjusted P-Values for Resampling-Based Stepdown Multiple Testing."
 """
 
 from __future__ import annotations
 
 import functools
+from numbers import Integral
 
 import numpy as np
 import numpy.typing as npt
@@ -50,21 +67,31 @@ def _bhy_correction_factor(m: int) -> float:
     return float(np.sum(1.0 / np.arange(1, m + 1)))
 
 
-def _resolve_m(n_submitted: int, n_tests: int | None) -> int:
-    """Validate n_tests and return the BHY denominator m.
+def _validate_p_values(p_values: npt.ArrayLike, *, func_name: str) -> np.ndarray:
+    """Return a validated one-dimensional, finite p-value array."""
+    p = np.asarray(p_values, dtype=float)
+    if p.ndim != 1:
+        raise ValueError(f"{func_name}: p_values must be 1-D; got shape {p.shape}.")
+    if p.size and (not np.all(np.isfinite(p)) or not np.all((p >= 0) & (p <= 1))):
+        raise ValueError(f"{func_name}: p_values must all lie in [0, 1] and be finite.")
+    return p
+
+
+def _resolve_family_size(n_submitted: int, n_tests: int | None) -> int:
+    """Validate ``n_tests`` and return the complete family size.
 
     ``n_tests < n_submitted`` would mean the caller is claiming the
     candidate family is smaller than the submitted set — incoherent.
-    Callers of this helper are already past the ``n_submitted == 0``
-    early-return, so ``n_tests < 1`` is caught by the same check.
     """
     if n_tests is None:
         return n_submitted
+    if isinstance(n_tests, bool) or not isinstance(n_tests, Integral):
+        raise ValueError(f"n_tests must be an integer; got {n_tests!r}.")
     if n_tests < n_submitted:
         raise ValueError(
             f"n_tests ({n_tests}) must be >= len(p_values) ({n_submitted}). "
-            f"BHY assumes submitted p-values are a subset of the full "
-            f"candidate family; a smaller n_tests is incoherent."
+            f"Submitted p-values must be a subset of the full candidate "
+            f"family; a smaller n_tests is incoherent."
         )
     return int(n_tests)
 
@@ -99,16 +126,14 @@ def bhy_adjust(
           Dependency." Annals of Statistics, 29(4), 1165–1188. The
           ``c(m) = Σ 1/i`` correction underlying this step-up rule.
     """
-    p = np.asarray(p_values, dtype=float)
+    p = _validate_p_values(p_values, func_name="bhy_adjust")
     n = len(p)
-    if n == 0:
-        return np.zeros(0, dtype=bool)
-    if not np.all((p >= 0) & (p <= 1)):
-        raise ValueError("bhy_adjust: p_values must all lie in [0, 1].")
     if not (0 < fdr < 1):
         raise ValueError(f"bhy_adjust: fdr must be in (0, 1); got {fdr}.")
+    m = _resolve_family_size(n, n_tests)
+    if n == 0:
+        return np.zeros(0, dtype=bool)
 
-    m = _resolve_m(n, n_tests)
     c_m = _bhy_correction_factor(m)
     order = np.argsort(p)
     sorted_p = p[order]
@@ -152,12 +177,12 @@ def bhy_adjusted_p(
           per-hypothesis adjusted-p mapping derived from the same
           step-up rule used by ``bhy_adjust``.
     """
-    p = np.asarray(p_values, dtype=float)
+    p = _validate_p_values(p_values, func_name="bhy_adjusted_p")
     n = len(p)
+    m = _resolve_family_size(n, n_tests)
     if n == 0:
         return np.zeros(0, dtype=float)
 
-    m = _resolve_m(n, n_tests)
     c_m = _bhy_correction_factor(m)
     order = np.argsort(p)
     sorted_p = p[order]
@@ -169,6 +194,156 @@ def bhy_adjusted_p(
 
     out = np.empty(n, dtype=float)
     out[order] = adj_sorted
+    return out
+
+
+def holm_adjusted_p(
+    p_values: npt.ArrayLike,
+    *,
+    n_tests: int | None = None,
+) -> np.ndarray:
+    """[Holm (1979)][holm-1979] step-down FWER-adjusted p-values.
+
+    Holm controls the probability of at least one false rejection within a
+    declared family under arbitrary dependence. It is appropriate when a
+    search produces one selected winner or when every retained hypothesis
+    must be protected from any false positive. Use BHY instead when the goal
+    is to retain a batch while controlling the expected false-discovery
+    proportion.
+
+    The submitted p-values are ordered from smallest to largest and scaled by
+    ``m, m - 1, ..., m - n + 1`` before a cumulative maximum enforces the
+    step-down rejection order. ``m`` is ``n_tests`` when supplied and
+    otherwise ``len(p_values)``.
+
+    Args:
+        p_values: One-dimensional, finite p-values in ``[0, 1]`` from one
+            search family.
+        n_tests: Full number of hypotheses tried when ``p_values`` contains
+            only the most-significant survivors of a larger search. Must be
+            an integer ``>= len(p_values)``. Omitted hypotheses are assumed
+            to rank after every submitted p-value; submit the complete family
+            if that ordering is not guaranteed.
+
+    Returns:
+        Adjusted p-values in input order as a NumPy array, clipped to
+        ``[0, 1]``.
+
+    References:
+        - [Holm (1979)][holm-1979]. "A Simple Sequentially Rejective Multiple
+          Test Procedure." Scandinavian Journal of Statistics, 6(2), 65-70.
+    """
+    p = _validate_p_values(p_values, func_name="holm_adjusted_p")
+    n = len(p)
+    m = _resolve_family_size(n, n_tests)
+    if n == 0:
+        return np.zeros(0, dtype=float)
+
+    order = np.argsort(p)
+    sorted_p = p[order]
+    factors = m - np.arange(n, dtype=float)
+    scaled = factors * sorted_p
+    adj_sorted = np.minimum(np.maximum.accumulate(scaled), 1.0)
+
+    out = np.empty(n, dtype=float)
+    out[order] = adj_sorted
+    return out
+
+
+def romano_wolf_adjusted_p(
+    statistics: npt.ArrayLike,
+    bootstrap_statistics: npt.ArrayLike,
+    *,
+    one_sided: bool = False,
+) -> np.ndarray:
+    """[Romano-Wolf (2005)][romano-wolf-2005] step-down max-t adjusted p-values.
+
+    Romano-Wolf controls the family-wise error rate while using the joint
+    bootstrap distribution to account for dependence among hypotheses. Each
+    bootstrap row must be one joint draw across all ``m`` hypotheses. Building
+    columns with independent resampling would destroy that dependence and
+    invalidate the method's power advantage over Holm.
+
+    This is an expert-level adjusted-p primitive, not a resampling workflow.
+    The caller is responsible for generating bootstrap statistics under the
+    joint null, centring them at the null, and using the same studentization as
+    the observed statistics. Every hypothesis tried in the search must occupy
+    one column; unlike ``holm_adjusted_p(n_tests=...)``, this function cannot
+    account for omitted hypotheses without their joint bootstrap statistics.
+    The empirical p-value grid has resolution ``1 / (B + 1)`` because the
+    calculation uses add-one smoothing. Bootstrap values tied with the
+    observed statistic count as exceedances (``>=``), a conservative tie rule
+    for discrete bootstrap distributions.
+
+    Args:
+        statistics: Finite one-dimensional observed test statistics of length
+            ``m``. Large positive values favour rejection; two-sided mode uses
+            their absolute values.
+        bootstrap_statistics: Finite ``(B, m)`` bootstrap test-statistic
+            matrix. Rows are joint null draws and columns align exactly with
+            ``statistics``.
+        one_sided: ``True`` for the positive-tail alternative or ``False``
+            (default) for a two-sided absolute-value test.
+
+    Returns:
+        Adjusted p-values in input order as a NumPy array, each in ``[0, 1]``.
+
+    References:
+        - [Romano & Wolf (2005)][romano-wolf-2005]. "Stepwise Multiple
+          Testing as Formalized Data Snooping." Econometrica, 73(4),
+          1237-1282.
+        - [Romano & Wolf (2016)][romano-wolf-2016]. "Efficient Computation
+          of Adjusted P-Values for Resampling-Based Stepdown Multiple
+          Testing." Statistics & Probability Letters, 113, 38-40.
+    """
+    if not isinstance(one_sided, bool):
+        raise ValueError(f"one_sided must be a bool; got {one_sided!r}.")
+
+    observed = np.asarray(statistics, dtype=float)
+    if observed.ndim != 1:
+        raise ValueError(
+            f"romano_wolf_adjusted_p: statistics must be 1-D; "
+            f"got shape {observed.shape}."
+        )
+    if observed.size and not np.all(np.isfinite(observed)):
+        raise ValueError("romano_wolf_adjusted_p: statistics must be finite.")
+
+    bootstrap = np.asarray(bootstrap_statistics, dtype=float)
+    m = len(observed)
+    if bootstrap.ndim != 2 or bootstrap.shape[1] != m:
+        raise ValueError(
+            f"romano_wolf_adjusted_p: bootstrap_statistics must have shape "
+            f"(B, {m}); got {bootstrap.shape}."
+        )
+    if bootstrap.size and not np.all(np.isfinite(bootstrap)):
+        raise ValueError("romano_wolf_adjusted_p: bootstrap_statistics must be finite.")
+    if m == 0:
+        return np.zeros(0, dtype=float)
+    if bootstrap.shape[0] < 1:
+        raise ValueError(
+            "romano_wolf_adjusted_p: bootstrap_statistics must have at "
+            "least 1 resample."
+        )
+
+    if one_sided:
+        observed_use = observed
+        bootstrap_use = bootstrap
+    else:
+        observed_use = np.abs(observed)
+        bootstrap_use = np.abs(bootstrap)
+
+    desc_order = np.argsort(-observed_use, kind="stable")
+    n_bootstrap = bootstrap_use.shape[0]
+    observed_desc = observed_use[desc_order]
+    bootstrap_desc = bootstrap_use[:, desc_order]
+    max_remaining = np.maximum.accumulate(bootstrap_desc[:, ::-1], axis=1)[:, ::-1]
+    exceedances = np.sum(max_remaining >= observed_desc, axis=0)
+    p_initial = (exceedances + 1.0) / (n_bootstrap + 1.0)
+    p_adj_desc = np.maximum.accumulate(p_initial)
+    np.minimum(p_adj_desc, 1.0, out=p_adj_desc)
+
+    out = np.empty(m, dtype=float)
+    out[desc_order] = p_adj_desc
     return out
 
 
@@ -206,7 +381,7 @@ def simes_p(p_values: npt.ArrayLike) -> float:
           Simes as the group representative in hierarchical FDR
           procedures fed to an outer BHY step-up.
     """
-    p = np.asarray(p_values, dtype=float)
+    p = _validate_p_values(p_values, func_name="simes_p")
     m = len(p)
     if m == 0:
         raise ValueError("simes_p: p_values must be non-empty.")
@@ -246,7 +421,7 @@ def partial_conjunction_p(
           for Partial Conjunction Hypotheses." Biometrics, 64(4),
           1215–1222. The partial-conjunction test implemented here.
     """
-    p = np.asarray(p_values, dtype=float)
+    p = _validate_p_values(p_values, func_name="partial_conjunction_p")
     m = len(p)
     if m == 0:
         raise ValueError("partial_conjunction_p: p_values must be non-empty.")

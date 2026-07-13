@@ -13,7 +13,8 @@ cross-section-robust HAC SE for pooled-panel slopes; selection-only
 identity handle, numerics consumed by ``pooled_beta``.
 ``BlockBootstrap`` — block-bootstrap empirical-p selection-only
 instance for paired-diff slice tests.
-``multiple_testing`` — Benjamini-Hochberg-Yekutieli (BHY) procedure for false discovery rate (FDR) control across many factors.
+``multiple_testing`` — BHY false-discovery plus Holm and Romano-Wolf
+family-wise error-rate adjustments across a declared search family.
 ``bootstrap`` — stationary-bootstrap resampling + CI for dependent series.
 """
 
@@ -26,7 +27,12 @@ from factrix.stats.bootstrap import (
     stationary_bootstrap_resamples,
 )
 from factrix.stats.driscoll_kraay import DriscollKraay
-from factrix.stats.multiple_testing import bhy_adjust, bhy_adjusted_p
+from factrix.stats.multiple_testing import (
+    bhy_adjust,
+    bhy_adjusted_p,
+    holm_adjusted_p,
+    romano_wolf_adjusted_p,
+)
 from factrix.stats.wald_cluster import WaldNWCluster, WaldTwoWayCluster
 
 __all__ = [
@@ -38,5 +44,7 @@ __all__ = [
     "bhy_adjust",
     "bhy_adjusted_p",
     "bootstrap_mean_ci",
+    "holm_adjusted_p",
+    "romano_wolf_adjusted_p",
     "stationary_bootstrap_resamples",
 ]

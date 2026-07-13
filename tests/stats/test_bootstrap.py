@@ -48,6 +48,32 @@ class TestStationaryBootstrapResamples:
         b = stationary_bootstrap_resamples(x, n_bootstrap=30, seed=42)
         np.testing.assert_array_equal(a, b)
 
+    def test_matrix_columns_share_resampled_rows(self):
+        base = np.arange(40, dtype=float)
+        values = np.column_stack([base, 10.0 * base + 3.0])
+        resamples = stationary_bootstrap_resamples(
+            values,
+            n_bootstrap=20,
+            seed=42,
+        )
+        assert resamples.shape == (20, 40, 2)
+        np.testing.assert_array_equal(
+            resamples[:, :, 1], 10.0 * resamples[:, :, 0] + 3.0
+        )
+
+    def test_matrix_first_column_matches_vector_with_same_seed(self):
+        base = np.arange(40, dtype=float)
+        values = np.column_stack([base, -base])
+        vector = stationary_bootstrap_resamples(base, n_bootstrap=20, seed=42)
+        matrix = stationary_bootstrap_resamples(values, n_bootstrap=20, seed=42)
+        np.testing.assert_array_equal(matrix[:, :, 0], vector)
+
+    def test_empty_matrix_preserves_column_axis(self):
+        resamples = stationary_bootstrap_resamples(
+            np.empty((0, 3)), n_bootstrap=5, seed=0
+        )
+        assert resamples.shape == (5, 0, 3)
+
     def test_block_length_one_is_iid_bootstrap(self):
         """L=1: resamples lose the within-block dependence of L>1."""
         rng = np.random.default_rng(0)
@@ -104,6 +130,19 @@ class TestStationaryBootstrapResamples:
                 block_length=0.5,
             )
 
+    def test_rejects_unsupported_shape(self):
+        with pytest.raises(ValueError, match=r"shape \(T,\) or \(T, m\)"):
+            stationary_bootstrap_resamples(np.ones((2, 3, 4)), n_bootstrap=5)
+
+    @pytest.mark.parametrize("n_bootstrap", [0, -1, True, 2.5])
+    def test_rejects_invalid_resample_count(self, n_bootstrap):
+        with pytest.raises(ValueError, match="positive integer"):
+            stationary_bootstrap_resamples(np.arange(10.0), n_bootstrap=n_bootstrap)
+
+    def test_rejects_non_finite_values(self):
+        with pytest.raises(ValueError, match="finite"):
+            stationary_bootstrap_resamples(np.array([[1.0, np.nan]]), n_bootstrap=5)
+
 
 class TestBootstrapMeanCI:
     def test_basic_ci_brackets_sample_mean(self):
@@ -131,3 +170,7 @@ class TestBootstrapMeanCI:
             bootstrap_mean_ci(np.arange(20.0), ci=1.5)
         with pytest.raises(ValueError, match="ci"):
             bootstrap_mean_ci(np.arange(20.0), ci=0.0)
+
+    def test_rejects_matrix_input(self):
+        with pytest.raises(ValueError, match="values must be 1-D"):
+            bootstrap_mean_ci(np.ones((20, 2)))

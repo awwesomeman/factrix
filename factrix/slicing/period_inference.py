@@ -74,7 +74,6 @@ from factrix._stats.bootstrap import (
     _politis_white_block_length,
     _stationary_block_indices,
 )
-from factrix._stats.multiple_testing import holm_step_down, romano_wolf
 from factrix._stats.wald import _nw_hac_vector_mean, _wald_p_linear
 from factrix._types import EPSILON
 from factrix.metrics._base import MetricBase
@@ -87,6 +86,7 @@ from factrix.slicing.inference import (
     _run_producer_for_factor,
     _validate_metric_instance,
 )
+from factrix.stats.multiple_testing import holm_adjusted_p, romano_wolf_adjusted_p
 
 Method = Literal["bootstrap", "analytic"]
 
@@ -336,7 +336,7 @@ def slice_period_pairwise_test(
             extreme = int(np.sum(np.abs(col) >= abs(t)))
             p_raw.append((extreme + 1.0) / (_N_RESAMPLES + 1.0))
         boot_matrix = np.column_stack(boot_cols)
-        p_adj = romano_wolf(t_obs, boot_matrix, one_sided=False)
+        p_adj = romano_wolf_adjusted_p(t_obs, boot_matrix, one_sided=False)
         stats = [float(t * t) for t in t_obs]
     else:
         means, variances = _analytic_slice_moments(
@@ -357,7 +357,7 @@ def slice_period_pairwise_test(
             mean_diffs.append(diff_obs)
             stats.append(chi)
             p_raw.append(p)
-        p_adj = holm_step_down(p_raw)
+        p_adj = holm_adjusted_p(p_raw)
 
     n_pairs = len(pairs)
     reference_dist = "bootstrap_null" if method == "bootstrap" else "chi2"

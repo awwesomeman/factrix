@@ -257,6 +257,28 @@ Benjamini-Hochberg-Yekutieli step-up FDR within a declared family. Returns a dic
 - `q`: Target FDR.
 - `n_tests`: Partition sizes.
 
+For lower-level multiplicity adjustment, `factrix.stats.bhy_adjusted_p`
+controls FDR when retaining a batch, while
+`factrix.stats.holm_adjusted_p` controls FWER when a search selects one winner
+or every retained hypothesis must avoid any false positive. Both accept
+`n_tests` when the submitted p-values are the most-significant survivors of a
+larger recorded search family.
+
+`factrix.stats.romano_wolf_adjusted_p` is the dependence-aware FWER primitive
+for observed statistics plus a caller-supplied `(B, m)` bootstrap matrix. Each
+row must be one joint, null-centred draw across all hypotheses with the same
+studentization as the observed statistics; independently resampling columns is
+invalid. Every searched hypothesis needs a column — there is no `n_tests`
+shortcut for omitted Romano-Wolf hypotheses. The helper returns adjusted
+p-values only and does not construct the bootstrap family; use Holm when a
+valid joint bootstrap family is unavailable.
+
+`factrix.stats.stationary_bootstrap_resamples` accepts an aligned `(T, m)`
+per-period statistic matrix and applies common block indices to all columns,
+returning `(B, T, m)`. This preserves joint dependence before the caller
+centres and studentizes each bootstrap statistic for
+`romano_wolf_adjusted_p`; separate calls per column are not equivalent.
+
 ---
 
 ### `multi_factor.bhy_hierarchical`

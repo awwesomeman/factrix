@@ -660,6 +660,21 @@ Failure modes:
 
 ## Family functions and the resolution layer
 
+The low-level public adjusted-p primitives under `factrix.stats` are distinct
+from the family verbs in this section. `holm_adjusted_p` accepts a p-value
+vector; `romano_wolf_adjusted_p` accepts observed statistics plus a caller-
+supplied joint, null-centred, consistently studentized `(B, m)` bootstrap
+matrix. `stationary_bootstrap_resamples` can jointly resample an aligned
+`(T, m)` matrix with common block indices, but it does not choose a null,
+estimand, or studentization. These primitives do not consume
+`EvaluationResult` and do not run through `_resolve_family`.
+
+A future panel-aware Romano-Wolf family verb would need a metric-specific
+per-period statistic contract and explicit alignment across factors and
+horizons. It must not reconstruct a different estimand silently from scalar
+`EvaluationResult` fields; that higher-level workflow remains separate from
+the adjusted-p primitive.
+
 Multiple-testing functions (`bhy` today; `bhy_hierarchical` / `partial_conjunction` /
 `bonferroni` / `holm` / `romano_wolf` planned) share a single internal pre-processing
 layer in `factrix/_family.py::_resolve_family`. Each function's procedure runs *after*
