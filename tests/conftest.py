@@ -38,13 +38,16 @@ def make_result(
     value: float = 0.05,
     metadata: dict[str, Any] | None = None,
     forward_periods: int = 5,
-    context: dict[str, Any] | None = None,
+    params: dict[str, Any] | None = None,
+    result_metadata: dict[str, Any] | None = None,
     extra_outputs: dict[str, MetricResult] | None = None,
 ) -> EvaluationResult:
     """Build an :class:`EvaluationResult` for testing.
 
     ``metric`` names the metric label included in outputs. ``p=None``
-    simulates a metric with no p-value.
+    simulates a metric with no p-value. ``metadata`` seeds the
+    :class:`MetricResult` payload; ``result_metadata`` seeds the
+    bundle-level :class:`EvaluationResult` bookkeeping labels.
     """
     output_metadata: dict[str, Any] = {} if p is None else {"p_value": float(p)}
     if metadata:
@@ -69,7 +72,8 @@ def make_result(
         n_assets=25,
         metrics=MappingProxyType(outputs),
         plan="1. test [per-factor]",
-        context=context or {},
+        params=params or {},
+        metadata=result_metadata or {},
     )
 
 

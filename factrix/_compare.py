@@ -3,7 +3,7 @@
 Pure projection: stacks per-factor per-metric values into a wide
 ``pl.DataFrame`` for sorting and visual diff. No metric is recomputed.
 
-Heterogeneous context keys follow ``pl.concat(how="diagonal")`` —
+Heterogeneous ``params`` keys follow ``pl.concat(how="diagonal")`` —
 union + null-fill — so a result missing ``region`` surfaces as a
 ``null`` cell rather than a silent drop.
 """
@@ -44,7 +44,7 @@ def compare(
             ``metrics`` contract on ``fx.multi_factor.bhy`` so the
             whole multi-factor API surface uses one shape.
         sort_by: Optional :class:`str` naming any output column produced
-            before ranking: identity columns, context keys, metric value
+            before ranking: identity columns, params keys, metric value
             columns, or ``<metric_label>_p_value`` columns. ``None`` keeps
             input order and omits the ``rank`` column.
         descending: Sort direction applied to ``sort_by``. Default
@@ -59,7 +59,7 @@ def compare(
 
     Returns:
         ``pl.DataFrame`` with column order ``factor``,
-        ``forward_periods``, context keys (union across results,
+        ``forward_periods``, params keys (union across results,
         first-seen order), then ``<metric_label>`` /
         ``<metric_label>_p_value`` pairs
         in ``metrics`` order, then ``rank`` when ``sort_by`` is set.
@@ -84,15 +84,15 @@ def compare(
     """
     metric_list = _validate_metric_list(metrics, func_name="compare", field="metrics")
     _require_non_empty_results(results, func_name="compare")
-    context_keys = _ordered_keys(r.context for r in results)
+    param_keys = _ordered_keys(r.params for r in results)
     rows: list[dict[str, Any]] = []
     for r in results:
         row: dict[str, Any] = {
             "factor": r.factor,
             "forward_periods": r.forward_periods,
         }
-        for k in context_keys:
-            row[k] = r.context.get(k)
+        for k in param_keys:
+            row[k] = r.params.get(k)
         for spec in metric_list:
             if spec not in r.metrics:
                 raise UserInputError(

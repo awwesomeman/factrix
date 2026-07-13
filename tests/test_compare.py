@@ -104,18 +104,18 @@ def test_sort_by_p_value_column():
     assert df["rank"].to_list() == [1, 2, 3]
 
 
-def test_sort_by_identity_and_context_columns():
+def test_sort_by_identity_and_param_columns():
     make_spec("ic")
     results = [
-        make_result(factor="b", p=0.1, metric="ic", context={"region": "US"}),
-        make_result(factor="a", p=0.1, metric="ic", context={"region": "EU"}),
+        make_result(factor="b", p=0.1, metric="ic", params={"region": "US"}),
+        make_result(factor="a", p=0.1, metric="ic", params={"region": "EU"}),
     ]
 
     by_factor = compare(results, metrics=["ic"], sort_by="factor", descending=False)
     assert by_factor["factor"].to_list() == ["a", "b"]
 
-    by_context = compare(results, metrics=["ic"], sort_by="region", descending=False)
-    assert by_context["region"].to_list() == ["EU", "US"]
+    by_params = compare(results, metrics=["ic"], sort_by="region", descending=False)
+    assert by_params["region"].to_list() == ["EU", "US"]
 
 
 def test_no_sort_keeps_input_order_omits_rank():
@@ -130,11 +130,11 @@ def test_no_sort_keeps_input_order_omits_rank():
     assert "rank" not in df.columns
 
 
-def test_context_keys_propagate_with_null_fill():
+def test_param_keys_propagate_with_null_fill():
     make_spec("ic")
     results = [
-        make_result(factor="a", p=0.1, metric="ic", context={"region": "US"}),
-        make_result(factor="b", p=0.1, metric="ic", context={"sector": "tech"}),
+        make_result(factor="a", p=0.1, metric="ic", params={"region": "US"}),
+        make_result(factor="b", p=0.1, metric="ic", params={"sector": "tech"}),
     ]
     df = compare(results, metrics=["ic"])
     assert set(df.columns) >= {"region", "sector"}

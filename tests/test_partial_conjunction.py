@@ -11,7 +11,7 @@ from .conftest import make_result, make_spec
 
 def _replicate(factor: str, ps: list[float], primary, regions=("US", "EU", "JP")):
     return [
-        make_result(factor=factor, p=p, metric=primary, context={"region": region})
+        make_result(factor=factor, p=p, metric=primary, params={"region": region})
         for p, region in zip(ps, regions, strict=False)
     ]
 
@@ -78,7 +78,7 @@ def test_pc_list_of_dict_keys_suggests_values():
     make_spec("ic")
     results = {
         "alpha": make_result(
-            factor="alpha", p=0.01, metric="ic", context={"region": "US"}
+            factor="alpha", p=0.01, metric="ic", params={"region": "US"}
         )
     }
     mistaken: list[str] = []
@@ -115,8 +115,8 @@ def test_pc_insufficient_conditions_raises():
 def test_pc_duplicate_condition_raises():
     make_spec("ic")
     results = [
-        make_result(factor="alpha_1", p=0.01, metric="ic", context={"region": "US"}),
-        make_result(factor="alpha_1", p=0.02, metric="ic", context={"region": "US"}),
+        make_result(factor="alpha_1", p=0.01, metric="ic", params={"region": "US"}),
+        make_result(factor="alpha_1", p=0.02, metric="ic", params={"region": "US"}),
     ]
     with pytest.raises(UserInputError, match="unique"):
         partial_conjunction(
@@ -148,11 +148,11 @@ def test_pc_heterogeneous_m_warns_in_lenient_mode():
         )
 
 
-def test_missing_context_key_aggregates_all_offenders():
+def test_missing_param_key_aggregates_all_offenders():
     make_spec("ic")
     results = [
-        make_result(factor="alpha", p=0.01, metric="ic", context={"region": "US"}),
-        make_result(factor="alpha", p=0.01, metric="ic", context={}),
+        make_result(factor="alpha", p=0.01, metric="ic", params={"region": "US"}),
+        make_result(factor="alpha", p=0.01, metric="ic", params={}),
     ]
     with pytest.raises(UserInputError) as excinfo:
         partial_conjunction(

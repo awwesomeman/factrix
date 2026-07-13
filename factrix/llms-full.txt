@@ -416,7 +416,8 @@ Dataclass containing the evaluation outputs:
 - `n_assets`: Unique asset count.
 - `metrics`: read-only `Mapping[str, MetricResult]` holding metric results, keyed by user label.
 - `plan`: Execution plan string.
-- `context`: Free-form context dictionary.
+- `params`: Caller-supplied hypothesis parameters (the swept knobs — `base_tf`, `universe`, ...). Every entry joins the hypothesis identifier `(factor, forward_periods, *params)`, so a swept knob never has to be encoded into the factor name to stay unique. `expand_over` may name these keys to partition a multiple-testing family.
+- `metadata`: Caller-supplied bookkeeping labels (`run_id`, data vintage, ...). Never joins the identifier and never partitions a family — two results differing only in `metadata` are the same hypothesis and raise as a duplicate.
 - `warnings`: Attached `Warning` records.
 
 Methods:

@@ -19,10 +19,10 @@ from factrix.metrics import ic
 # "Which factor families have signal, and within those, which factors?"
 # evaluate() returns dict[str, EvaluationResult]; pull the single result
 # and stamp the family label onto it with dataclasses.replace so the
-# outer screen can group on context["family"].
-def stamp(panel, factor_col, **context):
+# outer screen can group on params["family"].
+def stamp(panel, factor_col, **params):
     res = fx.evaluate(panel, metrics={"ic": ic()}, factor_cols=[factor_col])[factor_col]
-    return dataclasses.replace(res, context=context)
+    return dataclasses.replace(res, params=params)
 
 results = [
     stamp(panel_mom_1m, "mom_1m", family="momentum"),
@@ -98,7 +98,7 @@ metric — the `_FdrResultBase` shape (`entries` / `survivors` / `adj_p` /
 | `group` | Context key naming the group axis (a single `str`) |
 | `n_tests` | Mapping `(group_value,) -> m_group` for **every** input group (covers dead families too, so "N of M families survived" claims are computable directly). Counter to `partial_conjunction`, which keeps surviving identities only. |
 
-Per-survivor group label: `survivor.context[result.group]`.
+Per-survivor group label: `survivor.params[result.group]`.
 
 ::: factrix.multi_factor.HierarchicalBhyResult
     options:
@@ -119,7 +119,7 @@ Per-survivor group label: `survivor.context[result.group]`.
 | Trigger | Outcome |
 |---|---|
 | `group` shadows an identity field (`factor` / `forward_periods`) | [`UserInputError`][factrix.UserInputError]. |
-| `group` key missing from a result's `context` | [`UserInputError`][factrix.UserInputError]. |
+| `group` key missing from a result's `params` | [`UserInputError`][factrix.UserInputError]. |
 | Only one distinct group value across input | [`UserInputError`][factrix.UserInputError] — points at [`bhy`](multi-factor.md). |
 | Every result is its own group at $n \ge 3$ (group axis near-unique) | [`UserInputError`][factrix.UserInputError] — pick a coarser categorical. |
 | Duplicate `(identity, group_value)` partition key | [`UserInputError`][factrix.UserInputError]. |

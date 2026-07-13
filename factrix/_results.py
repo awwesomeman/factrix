@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import html
 import math
-from collections.abc import Mapping
+from collections.abc import Hashable, Mapping
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -153,10 +153,17 @@ class EvaluationResult:
             Structural metrics (e.g. ``greedy_forward_selection``) carry
             their non-scalar payload in ``MetricResult.metadata`` — the
             value is still a :class:`MetricResult`.
-        context: Caller-supplied free-form labels (e.g.
-            ``{"region": "US"}``). Read by
-            ``bhy(expand_over=...)`` / ``partial_conjunction`` /
-            ``bhy_hierarchical`` to partition or aggregate inputs.
+        params: Caller-supplied hypothesis parameters — the sweep knobs
+            that decide *which* hypothesis this result is (e.g.
+            ``{"base_tf": "1h", "universe": "tw50"}``). Every value joins
+            the hypothesis identifier, so two results that differ only in
+            ``params`` are two distinct hypotheses. ``expand_over`` may
+            name these keys to partition a family.
+        metadata: Caller-supplied bookkeeping labels that do *not* define
+            the hypothesis (e.g. ``{"run_id": ..., "vintage": ...}``).
+            Never joins the identifier and never partitions a family, so
+            two results differing only in ``metadata`` still collide as a
+            duplicate hypothesis.
         warnings: Flat list of :class:`Warning` records. Per-metric
             entries carry ``source=label``; cross-metric or pre-dispatch
             entries carry ``source=None``.
@@ -172,7 +179,8 @@ class EvaluationResult:
     n_assets: int
     metrics: Mapping[str, MetricResult]
     plan: str
-    context: Mapping[str, Any] = field(default_factory=dict)
+    params: Mapping[str, Hashable] = field(default_factory=dict)
+    metadata: Mapping[str, Any] = field(default_factory=dict)
     warnings: list[Warning] = field(default_factory=list)
 
     def metric(self, label: str) -> MetricResult:
@@ -234,7 +242,7 @@ class EvaluationResult:
         Layout (top-level keys, stable order):
 
         - ``factor`` / ``cell`` / ``forward_periods`` / ``n_periods`` /
-          ``n_pairs`` / ``n_assets`` / ``context``
+          ``n_pairs`` / ``n_assets`` / ``params`` / ``metadata``
         - ``metrics``: ``label -> {value, p_value, alternative, stat, n_obs,
           n_obs_axis, is_applicable, reason, metadata}``
         - ``warnings``: list of ``{code, source, message}``
@@ -254,7 +262,8 @@ class EvaluationResult:
             "n_periods": self.n_periods,
             "n_pairs": self.n_pairs,
             "n_assets": self.n_assets,
-            "context": dict(self.context),
+            "params": dict(self.params),
+            "metadata": dict(self.metadata),
             "metrics": {
                 name: _metric_output_to_record(out)
                 for name, out in self.metrics.items()
@@ -281,8 +290,10 @@ class EvaluationResult:
             ("n_assets", self.n_assets),
             ("n_metrics", len(self.metrics)),
         ]
-        if self.context:
-            header_rows.append(("context", dict(self.context)))
+        if self.params:
+            header_rows.append(("params", dict(self.params)))
+        if self.metadata:
+            header_rows.append(("metadata", dict(self.metadata)))
         if self.warnings:
             header_rows.append(("n_warnings", len(self.warnings)))
         header_html = "".join(

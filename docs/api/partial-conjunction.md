@@ -20,10 +20,10 @@ from factrix.metrics import ic
 # "Momentum is significant in BOTH large-cap AND small-cap universes"
 # evaluate() returns dict[str, EvaluationResult]; pull the single result
 # and stamp the universe label onto it with dataclasses.replace so
-# expand_over can split the family on context["universe_id"].
-def stamp(panel, factor_col, **context):
+# expand_over can split the family on params["universe_id"].
+def stamp(panel, factor_col, **params):
     res = fx.evaluate(panel, metrics={"ic": ic()}, factor_cols=[factor_col])[factor_col]
-    return dataclasses.replace(res, context=context)
+    return dataclasses.replace(res, params=params)
 
 results = [
     stamp(panel_large, "mom", universe_id="large_cap"),

@@ -10,8 +10,9 @@ side).
 
 Family declaration is explicit: the input list *is* the family,
 optionally split per-bucket via ``expand_over``. The base hypothesis
-identifier is ``(factor, forward_periods)``; context partition values
-extend it. Family partitioning remains the caller's responsibility.
+identifier is ``(factor, forward_periods, *params)`` — every swept knob on
+``EvaluationResult.params`` joins it automatically. ``expand_over`` only
+partitions the family; ``metadata`` never touches either.
 """
 
 from __future__ import annotations
@@ -413,7 +414,7 @@ class HierarchicalBhyResult(_FdrResultBase):
 def _lookup_expand(result: EvaluationResult, key: str) -> Any:
     if key == "forward_periods":
         return result.forward_periods
-    return result.context.get(key)
+    return result.params.get(key)
 
 
 def bhy(
@@ -429,7 +430,7 @@ def bhy(
     is non-empty, one independent step-up runs per unique tuple of
     ``expand_over`` values (read from ``EvaluationResult.forward_periods``
     for that built-in slicing axis, otherwise from
-    ``EvaluationResult.context[k]``). Pooling horizons in one family is
+    ``EvaluationResult.params[k]``). Pooling horizons in one family is
     appropriate when selection may choose across horizons; partitioning by
     horizon is appropriate only for predeclared, separately reported screens.
 
@@ -444,7 +445,7 @@ def bhy(
         expand_over: Tuple of keys whose distinct value tuples split
             the input into independent BHY step-up buckets. Built-in
             field ``"forward_periods"`` is read off the result;
-            other keys are looked up on ``result.context``.
+            other keys are looked up on ``result.params``.
         q: Nominal FDR target. Must satisfy ``0 < q < 1``.
             Default ``0.05``.
 
@@ -453,10 +454,9 @@ def bhy(
 
     Raises:
         UserInputError: ``metrics`` not a non-empty ``list[str]``;
-            duplicate ``(factor, forward_periods,
-            *context_partition_values)`` identifier;
-            ``expand_over`` key missing from a result's context or
-            naming ``'factor'``; metric absent from a result's
+            duplicate ``(factor, forward_periods, *params)``
+            identifier; ``expand_over`` key missing from a result's
+            ``params`` or naming ``'factor'``; metric absent from a result's
             outputs or its ``p_value`` missing / NaN.
 
     Warns:
@@ -552,7 +552,7 @@ def partial_conjunction(
         metrics: ``list[str]`` — one PC screen runs per metric;
             return dict keyed by ``label``.
         min_pass: ``k`` in "k of m". Must be ``>= 2``.
-        expand_over: Non-empty tuple of context keys (or
+        expand_over: Non-empty tuple of ``params`` keys (or
             ``"forward_periods"``) defining the condition axis.
         n_conditions: Strict condition-count declaration. ``None`` lets ``m`` be
             inferred per identity; an ``int`` requires every identity
@@ -603,7 +603,7 @@ def partial_conjunction(
             field="expand_over",
             value=expand_over,
             expected=(
-                "non-empty tuple of context keys naming the condition "
+                "non-empty tuple of params keys naming the condition "
                 "axis (e.g. ('region',) for cross-region replication, "
                 "('forward_periods',) for cross-horizon replication). "
                 "partial_conjunction is undefined without a condition axis"
@@ -752,7 +752,7 @@ def bhy_hierarchical(
 
     Args:
         results: :class:`EvaluationResult` records. Each is assigned
-            to one group via ``result.context[group]`` (or via
+            to one group via ``result.params[group]`` (or via
             ``result.forward_periods`` if ``group == "forward_periods"``).
             Within a group, ``factor`` must be unique.
         metrics: ``list[str]`` — one hierarchical screen per

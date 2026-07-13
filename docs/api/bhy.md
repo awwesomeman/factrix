@@ -24,7 +24,7 @@ title: factrix.multi_factor.bhy
 
     ---
 
-    Pass `expand_over=(<context key>,)` to run one step-up per distinct
+    Pass `expand_over=(<params key>,)` to run one step-up per distinct
     bucket — for instance per `regime_id` or `universe_id` — under the
     Benjamini & Bogomolov (2014) selective-inference framing. Each
     bucket's `m`, threshold, and survivors stay self-contained.
@@ -72,47 +72,49 @@ when buckets are declared.
 | Kwarg | Default | Meaning |
 |-------|---------|---------|
 | `metrics` | (required) | `list[str]` of metric labels to run the FDR screen for. |
-| `expand_over` | `()` | Context keys whose distinct value tuples split the input into independent step-ups. Names must live in `EvaluationResult.context` (except for the built-in `"forward_periods"`). |
+| `expand_over` | `()` | Params keys whose distinct value tuples split the input into independent step-ups. Names must live in `EvaluationResult.params` (except for the built-in `"forward_periods"`). Naming a `metadata` key is rejected — bookkeeping does not define a family. |
 | `q` | `0.05` | Nominal false discovery rate target. The Benjamini–Yekutieli $c(m)$ correction is applied internally — pass the level you actually want; do not pre-divide. |
 
-### Identity vs context (anti-shopping defense)
+### Identity vs partition (anti-shopping defense)
 
-Identity = `(factor, forward_periods)` — names *which hypothesis*.
-Context = mutable dict of slicing conditions (`universe_id`,
-`regime_id`, …) — names *which slice* of the data the hypothesis was
-tested on. `expand_over` may only name context keys (or the built-in `"forward_periods"`), never the factor name.
+Two separate concerns, on two separate knobs:
 
-Concretely: if `expand_over=["factor"]` were allowed, every factor
-would land in its own size-1 family and pass its own step-up trivially
-— FDR control across the screening universe collapses.
+- **Identity** — `(factor, forward_periods, *params)`. It names *which
+  hypothesis* this is. Every `EvaluationResult.params` entry joins it
+  automatically, so a swept knob (`base_tf`, `universe_id`, …) never has to be
+  encoded into the factor name to stay unique.
+- **Family partition** — `expand_over` alone. It is a purely statistical
+  declaration about which hypotheses compete with each other. It may name
+  `params` keys or the built-in `"forward_periods"`, never the factor name.
 
-Different horizons of the same factor are distinct hypotheses because
-`forward_periods` is part of the base identity. With `expand_over=()`, all
-factor × horizon hypotheses enter one step-up; this is the correct family when
-the research process may choose the best horizon. Use
-`expand_over=("forward_periods",)` only when horizon-specific screens were
-predeclared and will be selected and reported separately. Separate buckets do
-not provide global control over later horizon shopping.
+`EvaluationResult.metadata` is bookkeeping (`run_id`, data vintage). It joins
+neither. Two results differing only in `metadata` are the *same* hypothesis and
+raise as a duplicate — that check exists to catch a hypothesis submitted twice,
+and a bookkeeping label must not defeat it.
 
-### Sample restriction vs hypothesis dimension
+Concretely: if `expand_over=["factor"]` were allowed, every factor would land in
+its own size-1 family and pass its own step-up trivially — FDR control across the
+screening universe collapses.
 
-A context key (`universe_id`, `regime_id`, …) can play one of two roles
-in a screening run:
+With `expand_over=()`, all hypotheses enter one step-up. Pooling makes the family
+larger and the per-rank threshold *stricter*, so it is the correct — and
+conservative — choice whenever the research process may select the winner across
+the swept knobs. Use `expand_over=(…)` only when the buckets were predeclared and
+will be selected and reported separately; separate buckets provide no global
+control over later shopping across them.
 
-- **Sample restriction** — you have *already* committed to a single slice
-  (e.g. "this study runs on `tw50` only"). The context value is a
-  pre-registered scope, not a tested dimension. Filter the input list
-  upstream and call `bhy` without naming that key. FDR is controlled over
-  the implied family.
-- **Separately reported family** — the context defines predeclared screens
-  whose discoveries will not compete across buckets. Pass it via
-  `expand_over=(<key>,)`; one independent step-up runs per distinct value
-  tuple. If selection later compares buckets, they belong in one family instead.
+### The three roles a knob can play
 
-| User intent | API call | Family scope per step-up |
-|---|---|---|
-| "Run BHY on the `tw50` universe only" | `bhy([r for r in results if r.context.get("universe_id") == "tw50"], metrics=["ic"])` | `factor × forward_periods` |
-| "Report predeclared `tw50` and `tw100` screens separately, with no cross-universe winner selection" | `bhy(results, metrics=["ic"], expand_over=("universe_id",))` | `factor × forward_periods × universe_id`, one step-up per universe |
+| User intent | Where the knob lives | API call | Family scope per step-up |
+|---|---|---|---|
+| "This study runs on `tw50` only" — a pre-registered scope, not a tested dimension | filter upstream; the knob need not be stamped at all | `bhy([r for r in results if …], metrics=["ic"])` | `factor × forward_periods` |
+| "Sweep `base_tf` ∈ {1h, 4h, 1d} and take the best" — a tested dimension, winner selected across it | `params` | `bhy(results, metrics=["ic"])` | `factor × forward_periods × base_tf`, **one** step-up over all of them |
+| "Report predeclared `tw50` and `tw100` screens separately, with no cross-universe winner selection" | `params` + `expand_over` | `bhy(results, metrics=["ic"], expand_over=("universe_id",))` | one step-up per universe |
+| "Record which pipeline run produced this" — never affects inference | `metadata` | — | not applicable |
+
+The middle row is the one that used to require encoding the knob into the factor
+name. It no longer does: stamping `base_tf` on `params` makes each hypothesis
+uniquely identified while leaving them all in a single family.
 
 ## See also
 
