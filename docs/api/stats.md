@@ -27,3 +27,14 @@ The selection-only estimator classes under `factrix.stats`:
 - **`romano_wolf_adjusted_p(statistics, bootstrap_statistics, *, one_sided=False)`**: Dependence-aware step-down max-t FWER-adjusted p-values. This expert primitive requires every searched hypothesis and each bootstrap row to be a joint, null-centred draw with the same studentization as the observed statistics; independently resampled or omitted columns are invalid. Its empirical p-value resolution is `1 / (B + 1)`. Use Holm when a valid joint bootstrap family is unavailable.
 - **`stationary_bootstrap_resamples(values, n_bootstrap, ...)`**: Politis-Romano (1994) bootstrap resamples. An aligned `(T, m)` per-period statistic matrix is resampled with common row indices and returns `(B, T, m)`, preserving cross-hypothesis dependence for Romano-Wolf; separate per-column calls do not.
 - **`bootstrap_mean_ci(values, *, n_bootstrap, ci, ...)`**: Stationary-bootstrap CI for a statistic.
+
+Holm and BHY consume already calibrated p-values, so a declared family may
+contain a documented mix of `two-sided`, `greater`, and `less` alternatives;
+the procedures do not reinterpret tails. Factrix intentionally provides no
+generic one-sided-to-two-sided conversion because that conversion depends on
+the null distribution and producer contract.
+
+`romano_wolf_adjusted_p` remains an expert primitive: the caller must provide
+the complete joint, H0-centred, correctly studentized `(B, m)` matrix. Factrix
+does not currently expose a `multi_factor.romano_wolf` or panel-aware bootstrap
+workflow; use Holm unless that joint bootstrap contract is available.

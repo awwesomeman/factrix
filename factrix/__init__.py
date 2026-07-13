@@ -50,7 +50,7 @@ import polars as pl
 if TYPE_CHECKING:
     from factrix.metrics._base import MetricBase
 
-from factrix import datasets, inference, multi_factor, preprocess
+from factrix import datasets, inference, multi_factor, preprocess, stats
 from factrix._axis import (  # DataStructure used by the structure pre-flight; re-exported for namespace access, intentionally not in __all__
     DataStructure,
     FactorDensity,
@@ -143,8 +143,8 @@ def evaluate(
             quantile_spread(n_groups=10)}`` — via by-value DAG dedup; shared
             upstream producers are computed once per distinct config.
             ``forward_periods`` is **not** a metric knob: every metric runs at
-            the data's single overlap horizon. To compare horizons, build two
-            panels and evaluate each.
+            the data's single overlap horizon. To compare horizons, use
+            :func:`evaluate_horizons` on the clean raw panel.
             Scalar-input helpers (for example ``breakeven_cost`` /
             ``net_spread``) are post-processing utilities, not
             panel-evaluation metrics; compute their upstream diagnostics first
@@ -346,8 +346,10 @@ def evaluate_horizons(
     horizon. ``factor`` and ``forward_periods`` are existing native
     attributes of :class:`EvaluationResult`; the list feeds straight into
     :func:`compare` and into
-    ``bhy(..., expand_over=('forward_periods',))``, which partitions each
-    horizon into its own step-up family.
+    :func:`factrix.multi_factor.bhy`. Pool all horizons when selection may
+    choose across them; use ``expand_over=('forward_periods',)`` only for
+    predeclared horizon-specific screens that are selected and reported
+    separately.
 
     Args:
         data: A **raw** panel carrying ``date``, ``asset_id``, ``price`` and
@@ -1095,6 +1097,8 @@ __all__ = [
     "preprocess",
     # Curated statistical inference methods (e.g. ic(inference=...))
     "inference",
+    # Low-level statistical primitives and estimator classes
+    "stats",
     # Metric registration surface
     "MetricSpec",
     "metric_spec",

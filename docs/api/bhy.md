@@ -86,6 +86,14 @@ Concretely: if `expand_over=["factor"]` were allowed, every factor
 would land in its own size-1 family and pass its own step-up trivially
 — FDR control across the screening universe collapses.
 
+Different horizons of the same factor are distinct hypotheses because
+`forward_periods` is part of the base identity. With `expand_over=()`, all
+factor × horizon hypotheses enter one step-up; this is the correct family when
+the research process may choose the best horizon. Use
+`expand_over=("forward_periods",)` only when horizon-specific screens were
+predeclared and will be selected and reported separately. Separate buckets do
+not provide global control over later horizon shopping.
+
 ### Sample restriction vs hypothesis dimension
 
 A context key (`universe_id`, `regime_id`, …) can play one of two roles
@@ -96,16 +104,15 @@ in a screening run:
   pre-registered scope, not a tested dimension. Filter the input list
   upstream and call `bhy` without naming that key. FDR is controlled over
   the implied family.
-- **Hypothesis dimension** — you want to ask "across these
-  contexts, which factor / context combinations survive?" The context
-  value is part of the hypothesis identity at the family level. Pass it
-  via `expand_over=(<key>,)`; one independent step-up runs per distinct
-  value tuple.
+- **Separately reported family** — the context defines predeclared screens
+  whose discoveries will not compete across buckets. Pass it via
+  `expand_over=(<key>,)`; one independent step-up runs per distinct value
+  tuple. If selection later compares buckets, they belong in one family instead.
 
 | User intent | API call | Family scope per step-up |
 |---|---|---|
 | "Run BHY on the `tw50` universe only" | `bhy([r for r in results if r.context.get("universe_id") == "tw50"], metrics=["ic"])` | `factor × forward_periods` |
-| "Test the same factors on `tw50` *and* `tw100`, treating universe as a tested dimension" | `bhy(results, metrics=["ic"], expand_over=("universe_id",))` | `factor × forward_periods × universe_id`, one step-up per universe |
+| "Report predeclared `tw50` and `tw100` screens separately, with no cross-universe winner selection" | `bhy(results, metrics=["ic"], expand_over=("universe_id",))` | `factor × forward_periods × universe_id`, one step-up per universe |
 
 ## See also
 
