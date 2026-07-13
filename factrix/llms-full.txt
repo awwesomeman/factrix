@@ -257,6 +257,13 @@ Benjamini-Hochberg-Yekutieli step-up FDR within a declared family. Returns a dic
 - `q`: Target FDR.
 - `n_tests`: Partition sizes.
 
+For lower-level multiplicity adjustment, `factrix.stats.bhy_adjusted_p`
+controls FDR when retaining a batch, while
+`factrix.stats.holm_adjusted_p` controls FWER when a search selects one winner
+or every retained hypothesis must avoid any false positive. Both accept
+`n_tests` when the submitted p-values are the most-significant survivors of a
+larger recorded search family.
+
 ---
 
 ### `multi_factor.bhy_hierarchical`

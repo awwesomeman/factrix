@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from factrix.stats import holm_adjusted_p as exported_holm_adjusted_p
 from factrix.stats.multiple_testing import (
     bhy_adjust,
     bhy_adjusted_p,
+    holm_adjusted_p,
     partial_conjunction_p,
     simes_p,
 )
@@ -115,6 +117,62 @@ class TestBhyAdjustedP:
         mask = bhy_adjust(p, fdr=fdr)
         adj = bhy_adjusted_p(p)
         np.testing.assert_array_equal(mask, adj <= fdr)
+
+
+class TestHolmAdjustedP:
+    def test_exported_from_stats_namespace(self):
+        assert exported_holm_adjusted_p is holm_adjusted_p
+
+    def test_empty_input(self):
+        adj = holm_adjusted_p([])
+        assert adj.shape == (0,)
+        assert adj.dtype == float
+
+    def test_statsmodels_reference_values(self):
+        # statsmodels.stats.multitest.multipletests(..., method="holm")
+        # for this textbook family returns these adjusted p-values.
+        p = np.array([0.01, 0.04, 0.03, 0.005])
+        expected = np.array([0.03, 0.06, 0.06, 0.02])
+        np.testing.assert_allclose(holm_adjusted_p(p), expected)
+
+    def test_monotonicity_in_rank(self):
+        p = np.array([0.001, 0.04, 0.02, 0.5, 0.3, 0.1])
+        adj = holm_adjusted_p(p)
+        adj_sorted = adj[np.argsort(p)]
+        assert np.all(np.diff(adj_sorted) >= -1e-12)
+
+    def test_full_family_size_accounts_for_unsubmitted_survivors(self):
+        p = np.array([0.001, 0.01, 0.04])
+        expected = np.array([0.1, 0.99, 1.0])
+        np.testing.assert_allclose(holm_adjusted_p(p, n_tests=100), expected)
+        assert np.all(holm_adjusted_p(p, n_tests=100) >= holm_adjusted_p(p))
+
+    def test_default_matches_explicit_len(self):
+        p = np.array([0.001, 0.01, 0.04])
+        np.testing.assert_allclose(
+            holm_adjusted_p(p), holm_adjusted_p(p, n_tests=len(p))
+        )
+
+
+@pytest.mark.parametrize("adjust", [bhy_adjusted_p, holm_adjusted_p])
+class TestAdjustedPValidation:
+    def test_rejects_non_vector_input(self, adjust):
+        with pytest.raises(ValueError, match="must be 1-D"):
+            adjust([[0.01, 0.02]])
+
+    @pytest.mark.parametrize("value", [np.nan, np.inf, -0.1, 1.1])
+    def test_rejects_non_finite_or_out_of_range_pvalues(self, adjust, value):
+        with pytest.raises(ValueError, match=r"lie in \[0, 1\].*finite"):
+            adjust([0.01, value])
+
+    @pytest.mark.parametrize("n_tests", [True, 2.5])
+    def test_rejects_non_integer_family_size(self, adjust, n_tests):
+        with pytest.raises(ValueError, match="must be an integer"):
+            adjust([0.01, 0.02], n_tests=n_tests)
+
+    def test_rejects_family_size_smaller_than_submission(self, adjust):
+        with pytest.raises(ValueError, match=r"n_tests .* must be >="):
+            adjust([0.01, 0.02], n_tests=1)
 
 
 class TestNTotal:

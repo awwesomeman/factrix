@@ -41,11 +41,11 @@ import polars as pl
 
 from factrix._data_input import _read_forward_periods_stamp
 from factrix._errors import UserInputError
-from factrix._stats.multiple_testing import holm_step_down
 from factrix._stats.wald import _wald_nw_cluster_means
 from factrix.metrics._base import MetricBase
 from factrix.metrics._metric_capabilities import resolve_per_date_series
 from factrix.slicing._primitive import _slice_by
+from factrix.stats.multiple_testing import holm_adjusted_p
 
 _DOCS_SLICE = "api/slice-test"
 
@@ -305,7 +305,7 @@ def slice_pairwise_test(
         p_raw.append(p)
         mean_diffs.append(float(col_means[i] - col_means[j]))
 
-    p_adj = holm_step_down(p_raw)
+    p_adj = holm_adjusted_p(p_raw)
 
     n_pairs = len(pairs)
     return pl.DataFrame(

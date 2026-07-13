@@ -1,4 +1,4 @@
-"""Multiple-testing adjustments.
+"""False-discovery and family-wise multiple-testing adjustments.
 
 [Benjamini-Yekutieli (2001)][benjamini-yekutieli-2001] step-up procedure for false discovery rate (FDR) control under
 arbitrary dependence among the tests. The BHY correction factor
@@ -20,6 +20,10 @@ ranges over the submitted p's; the unsubmitted ``m - len(p)`` candidates
 are implicitly not rejected. Default (``None``) reproduces single-stage
 BHY where ``m = len(p_values)``.
 
+[Holm (1979)][holm-1979] step-down controls the family-wise error rate
+(FWER) under arbitrary dependence. It targets searches that select one winner
+or require every retained hypothesis to avoid any false positive.
+
 References:
     - [Benjamini & Yekutieli (2001)][benjamini-yekutieli-2001], "The
       Control of the False Discovery Rate in Multiple Testing under
@@ -30,11 +34,14 @@ References:
       for Multiple Tests of Significance."
     - [Yekutieli (2008)][yekutieli-2008], "Hierarchical False Discovery
       Rate-controlling Methodology."
+    - [Holm (1979)][holm-1979], "A Simple Sequentially Rejective Multiple
+      Test Procedure."
 """
 
 from __future__ import annotations
 
 import functools
+from numbers import Integral
 
 import numpy as np
 import numpy.typing as npt
@@ -50,21 +57,31 @@ def _bhy_correction_factor(m: int) -> float:
     return float(np.sum(1.0 / np.arange(1, m + 1)))
 
 
-def _resolve_m(n_submitted: int, n_tests: int | None) -> int:
-    """Validate n_tests and return the BHY denominator m.
+def _validate_p_values(p_values: npt.ArrayLike, *, func_name: str) -> np.ndarray:
+    """Return a validated one-dimensional, finite p-value array."""
+    p = np.asarray(p_values, dtype=float)
+    if p.ndim != 1:
+        raise ValueError(f"{func_name}: p_values must be 1-D; got shape {p.shape}.")
+    if p.size and (not np.all(np.isfinite(p)) or not np.all((p >= 0) & (p <= 1))):
+        raise ValueError(f"{func_name}: p_values must all lie in [0, 1] and be finite.")
+    return p
+
+
+def _resolve_family_size(n_submitted: int, n_tests: int | None) -> int:
+    """Validate ``n_tests`` and return the complete family size.
 
     ``n_tests < n_submitted`` would mean the caller is claiming the
     candidate family is smaller than the submitted set — incoherent.
-    Callers of this helper are already past the ``n_submitted == 0``
-    early-return, so ``n_tests < 1`` is caught by the same check.
     """
     if n_tests is None:
         return n_submitted
+    if isinstance(n_tests, bool) or not isinstance(n_tests, Integral):
+        raise ValueError(f"n_tests must be an integer; got {n_tests!r}.")
     if n_tests < n_submitted:
         raise ValueError(
             f"n_tests ({n_tests}) must be >= len(p_values) ({n_submitted}). "
-            f"BHY assumes submitted p-values are a subset of the full "
-            f"candidate family; a smaller n_tests is incoherent."
+            f"Submitted p-values must be a subset of the full candidate "
+            f"family; a smaller n_tests is incoherent."
         )
     return int(n_tests)
 
@@ -99,16 +116,14 @@ def bhy_adjust(
           Dependency." Annals of Statistics, 29(4), 1165–1188. The
           ``c(m) = Σ 1/i`` correction underlying this step-up rule.
     """
-    p = np.asarray(p_values, dtype=float)
+    p = _validate_p_values(p_values, func_name="bhy_adjust")
     n = len(p)
-    if n == 0:
-        return np.zeros(0, dtype=bool)
-    if not np.all((p >= 0) & (p <= 1)):
-        raise ValueError("bhy_adjust: p_values must all lie in [0, 1].")
     if not (0 < fdr < 1):
         raise ValueError(f"bhy_adjust: fdr must be in (0, 1); got {fdr}.")
+    m = _resolve_family_size(n, n_tests)
+    if n == 0:
+        return np.zeros(0, dtype=bool)
 
-    m = _resolve_m(n, n_tests)
     c_m = _bhy_correction_factor(m)
     order = np.argsort(p)
     sorted_p = p[order]
@@ -152,12 +167,12 @@ def bhy_adjusted_p(
           per-hypothesis adjusted-p mapping derived from the same
           step-up rule used by ``bhy_adjust``.
     """
-    p = np.asarray(p_values, dtype=float)
+    p = _validate_p_values(p_values, func_name="bhy_adjusted_p")
     n = len(p)
+    m = _resolve_family_size(n, n_tests)
     if n == 0:
         return np.zeros(0, dtype=float)
 
-    m = _resolve_m(n, n_tests)
     c_m = _bhy_correction_factor(m)
     order = np.argsort(p)
     sorted_p = p[order]
@@ -166,6 +181,59 @@ def bhy_adjusted_p(
     # Cummin from the right → monotone non-decreasing in rank order.
     adj_sorted = np.minimum.accumulate(scaled[::-1])[::-1]
     np.minimum(adj_sorted, 1.0, out=adj_sorted)
+
+    out = np.empty(n, dtype=float)
+    out[order] = adj_sorted
+    return out
+
+
+def holm_adjusted_p(
+    p_values: npt.ArrayLike,
+    *,
+    n_tests: int | None = None,
+) -> np.ndarray:
+    """[Holm (1979)][holm-1979] step-down FWER-adjusted p-values.
+
+    Holm controls the probability of at least one false rejection within a
+    declared family under arbitrary dependence. It is appropriate when a
+    search produces one selected winner or when every retained hypothesis
+    must be protected from any false positive. Use BHY instead when the goal
+    is to retain a batch while controlling the expected false-discovery
+    proportion.
+
+    The submitted p-values are ordered from smallest to largest and scaled by
+    ``m, m - 1, ..., m - n + 1`` before a cumulative maximum enforces the
+    step-down rejection order. ``m`` is ``n_tests`` when supplied and
+    otherwise ``len(p_values)``.
+
+    Args:
+        p_values: One-dimensional, finite p-values in ``[0, 1]`` from one
+            search family.
+        n_tests: Full number of hypotheses tried when ``p_values`` contains
+            only the most-significant survivors of a larger search. Must be
+            an integer ``>= len(p_values)``. Omitted hypotheses are assumed
+            to rank after every submitted p-value; submit the complete family
+            if that ordering is not guaranteed.
+
+    Returns:
+        Adjusted p-values in input order as a NumPy array, clipped to
+        ``[0, 1]``.
+
+    References:
+        - [Holm (1979)][holm-1979]. "A Simple Sequentially Rejective Multiple
+          Test Procedure." Scandinavian Journal of Statistics, 6(2), 65-70.
+    """
+    p = _validate_p_values(p_values, func_name="holm_adjusted_p")
+    n = len(p)
+    m = _resolve_family_size(n, n_tests)
+    if n == 0:
+        return np.zeros(0, dtype=float)
+
+    order = np.argsort(p)
+    sorted_p = p[order]
+    factors = m - np.arange(n, dtype=float)
+    scaled = factors * sorted_p
+    adj_sorted = np.minimum(np.maximum.accumulate(scaled), 1.0)
 
     out = np.empty(n, dtype=float)
     out[order] = adj_sorted
@@ -206,7 +274,7 @@ def simes_p(p_values: npt.ArrayLike) -> float:
           Simes as the group representative in hierarchical FDR
           procedures fed to an outer BHY step-up.
     """
-    p = np.asarray(p_values, dtype=float)
+    p = _validate_p_values(p_values, func_name="simes_p")
     m = len(p)
     if m == 0:
         raise ValueError("simes_p: p_values must be non-empty.")
@@ -246,7 +314,7 @@ def partial_conjunction_p(
           for Partial Conjunction Hypotheses." Biometrics, 64(4),
           1215–1222. The partial-conjunction test implemented here.
     """
-    p = np.asarray(p_values, dtype=float)
+    p = _validate_p_values(p_values, func_name="partial_conjunction_p")
     m = len(p)
     if m == 0:
         raise ValueError("partial_conjunction_p: p_values must be non-empty.")

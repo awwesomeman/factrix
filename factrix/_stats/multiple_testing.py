@@ -1,10 +1,10 @@
 """Family-wise error rate (FWER) adjustments — Holm / Bonferroni / Romano-Wolf.
 
-Sister module to public ``factrix.stats.multiple_testing`` (Benjamini-
-Yekutieli false discovery rate (FDR) control). The procedures here control the *family-wise*
-error rate — probability of at least one false rejection — and target
-the slice-test setting where a small number of hypotheses
-(per-slice contrasts vs a baseline) are tested simultaneously.
+The public Holm adjustment lives in ``factrix.stats.multiple_testing``; this
+module retains the Bonferroni baseline and Romano-Wolf kernel used by slice
+inference. These procedures control the *family-wise* error rate — probability
+of at least one false rejection — and target the slice-test setting where a
+small number of hypotheses are tested simultaneously.
 
 - **Bonferroni** — single-step ``p_adj_k = min(m * p_k, 1)``. Controls
   FWER under any dependence; uniformly the most conservative.
@@ -37,6 +37,8 @@ from collections.abc import Sequence
 
 import numpy as np
 import numpy.typing as npt
+
+from factrix.stats.multiple_testing import holm_adjusted_p
 
 
 def _validate_p(p_values: Sequence[float] | npt.ArrayLike) -> np.ndarray:
@@ -74,18 +76,7 @@ def holm_step_down(p_values: Sequence[float] | npt.ArrayLike) -> list[float]:
     Strong family-wise error rate (FWER) control under arbitrary dependence; uniformly
     dominates Bonferroni (each adjusted p is ≤ Bonferroni's).
     """
-    p = _validate_p(p_values)
-    m = len(p)
-    if m == 0:
-        return []
-    order = np.argsort(p)
-    sorted_p = p[order]
-    factors = np.arange(m, 0, -1, dtype=float)
-    scaled = factors * sorted_p
-    adj_sorted = np.minimum(np.maximum.accumulate(scaled), 1.0)
-    out = np.empty(m, dtype=float)
-    out[order] = adj_sorted
-    return list(out)
+    return list(holm_adjusted_p(p_values))
 
 
 def romano_wolf(
