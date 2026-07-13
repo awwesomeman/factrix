@@ -6,12 +6,19 @@ list of :class:`~factrix._results.EvaluationResult` into flat
 ``_FamilyEntry`` records ready for the procedure-specific step-up math.
 
 The invariants enforced here are the family-layer extension of the
-anti-shopping defense: the base hypothesis identity is
-``(factor, forward_periods)``. Context values named by ``expand_over``
-extend that identity while all ``expand_over`` values partition the family;
-``expand_over`` names are read
-from ``forward_periods`` (the lone non-context built-in slicing axis)
-or from ``EvaluationResult.context``. The estimator-override hook is
+anti-shopping defense. Identity and family partition are separate
+concerns and are kept on separate knobs:
+
+* **Identity** — ``(factor, forward_periods, *params)``. Every
+  ``EvaluationResult.params`` entry joins the identifier automatically,
+  so a swept knob (``timeframe``, ``universe``) never has to be encoded
+  into the factor name to stay unique. ``EvaluationResult.metadata`` is
+  bookkeeping and never joins the identifier.
+* **Family partition** — ``expand_over`` alone, naming ``forward_periods``
+  (the lone built-in) or ``params`` keys. It no longer doubles as an
+  identity knob, so partitioning is a pure statistical declaration.
+
+The estimator-override hook is
 gone — callers select inference at metric-construction time (e.g.
 ``ic(inference=fx.inference.NEWEY_WEST)``) and pick the result by
 passing the corresponding ``metric`` label.
@@ -33,6 +40,24 @@ if TYPE_CHECKING:
 _BUILTIN_EXPAND_OVER_FIELDS: frozenset[str] = frozenset({"forward_periods"})
 
 
+def _hypothesis_identity(
+    result: EvaluationResult, *, exclude: tuple[str, ...] = ()
+) -> tuple[Any, ...]:
+    """Hypothesis identity: ``(factor, forward_periods, *sorted(params.items()))``.
+
+    ``exclude`` strips named components — ``partial_conjunction`` passes its
+    ``expand_over`` keys so results replicated along the condition axis
+    collapse into one aggregation identity while every other swept knob
+    keeps identities apart. Param keys ride along with their values so that
+    results carrying different key sets cannot collide on values alone.
+    """
+    parts: list[Any] = [result.factor]
+    if "forward_periods" not in exclude:
+        parts.append(result.forward_periods)
+    parts.extend(sorted((k, v) for k, v in result.params.items() if k not in exclude))
+    return tuple(parts)
+
+
 @dataclass(frozen=True, slots=True)
 class _FamilyEntry:
     """Flat record carrying one hypothesis through the family pipeline.
@@ -43,9 +68,11 @@ class _FamilyEntry:
     ``p_value`` only after the attach stage, where it is always non-None.
 
     Attributes:
-        identifier: ``(factor, forward_periods, *context_partition_values)``
-            — the hypothesis key. ``forward_periods`` is always part of the
-            identity, even when it is also the family partition axis.
+        identifier: ``(factor, forward_periods, *sorted(params.items()))``
+            — the hypothesis key. ``forward_periods`` and every ``params``
+            entry always join the identity, independently of ``expand_over``.
+            Param keys ride along with their values so that results carrying
+            different key sets cannot collide on values alone.
         expand_over_values: ``tuple`` in caller-supplied key order;
             empty when ``expand_over`` is empty.
         result: Back-reference for survivor rendering; not read by the
@@ -79,35 +106,31 @@ def _partition(
                 func_name=func_name,
                 field="expand_over",
                 value=name,
-                expected="slicing axis, not the hypothesis identifier 'factor'",
+                expected="partition key, not the hypothesis identifier 'factor'",
                 docs_path=f"api/{func_name}#expand_over",
             )
 
-    _check_context_keys(results, keys=keys, func_name=func_name)
+    _check_param_keys(results, keys=keys, func_name=func_name)
 
     entries: list[_FamilyEntry] = []
     seen: dict[tuple[Any, ...], int] = {}
     for idx, result in enumerate(results):
         values = _expand_over_values(result, keys=keys)
-        context_values = tuple(
-            value
-            for name, value in zip(keys, values, strict=True)
-            if name not in _BUILTIN_EXPAND_OVER_FIELDS
-        )
-        identifier = (result.factor, result.forward_periods, *context_values)
+        identifier = _hypothesis_identity(result)
         if identifier in seen:
             raise UserInputError(
                 func_name=func_name,
                 field="results",
                 value=identifier,
                 expected=(
-                    "unique (factor, forward_periods, "
-                    "*context_partition_values) identifier across "
-                    f"input; duplicate first seen at index {seen[identifier]}, "
-                    f"again at {idx}. Either stamp a distinct factor column "
-                    "per evaluation, or pass `expand_over=[<context_key>]` "
-                    "when the repeated evaluation belongs to a predeclared "
-                    "context-specific family"
+                    "unique (factor, forward_periods, *params) identifier "
+                    f"across input; duplicate first seen at index "
+                    f"{seen[identifier]}, again at {idx}. Two results that "
+                    "differ only in `metadata` are the same hypothesis — "
+                    "metadata is bookkeeping and never disambiguates. If the "
+                    "repeats are a swept knob (timeframe, universe, ...), stamp "
+                    "it on `EvaluationResult.params`; it then joins the "
+                    "identifier without partitioning the family"
                 ),
                 docs_path=f"api/{func_name}#partition-key",
             )
@@ -170,12 +193,13 @@ def _resolve_family(
 
     Steps (raise on failure, in order):
 
-    1. ``expand_over`` names must exist either as a built-in slicing
-       field (``forward_periods``) or as a key in every result's
-       ``context``. ``factor`` is rejected (it is the hypothesis
-       identifier, not a slicing axis).
-    2. The hypothesis key ``(factor, forward_periods,
-       *context_partition_values)`` must be unique across the input.
+    1. ``expand_over`` names must exist either as a built-in field
+       (``forward_periods``) or as a key in every result's ``params``.
+       ``factor`` is rejected (it is the hypothesis identifier, not a
+       partition key); a ``metadata`` key is rejected (bookkeeping does
+       not define a family).
+    2. The hypothesis key ``(factor, forward_periods, *params)`` must be
+       unique across the input.
     3. Each result must produce the ``metric``'s p-value;
        the p must be present and non-NaN.
     """
@@ -183,7 +207,7 @@ def _resolve_family(
     return _attach_p_values(partition, func_name=func_name, metric=metric)
 
 
-def _check_context_keys(
+def _check_param_keys(
     results: Sequence[EvaluationResult],
     *,
     keys: list[str],
@@ -191,39 +215,52 @@ def _check_context_keys(
 ) -> None:
     """Raise once listing every ``(factor, missing_key)`` across the input.
 
-    Built-in slicing fields (``forward_periods``) are read off the result
-    and never missing; only ``context`` keys are checked. A single failed
-    result no longer short-circuits the whole screen — integrating results
-    from several sources surfaces all context gaps in one pass, matching
-    the aggregate-then-report idiom of ``evaluate``'s strict / column
-    guards. fail-loud is preserved: any gap still raises (silently
-    dropping a result would alter family composition and the FDR
-    denominator).
+    Built-in fields (``forward_periods``) are read off the result and never
+    missing; only ``params`` keys are checked. A single failed result does
+    not short-circuit the whole screen — integrating results from several
+    sources surfaces all gaps in one pass, matching the
+    aggregate-then-report idiom of ``evaluate``'s strict / column guards.
+    fail-loud is preserved: any gap still raises (silently dropping a result
+    would alter family composition and the FDR denominator).
+
+    A key that lives on ``metadata`` instead of ``params`` gets a targeted
+    message: it is present in the input, but bookkeeping labels do not
+    define a family, so partitioning on one is rejected rather than
+    silently honoured.
     """
-    context_keys = [k for k in keys if k not in _BUILTIN_EXPAND_OVER_FIELDS]
-    if not context_keys:
+    param_keys = [k for k in keys if k not in _BUILTIN_EXPAND_OVER_FIELDS]
+    if not param_keys:
         return
     missing = [
         (result.factor, name)
         for result in results
-        for name in context_keys
-        if name not in result.context
+        for name in param_keys
+        if name not in result.params
     ]
     if not missing:
         return
     missing_keys = sorted({k for _, k in missing})
-    available = sorted({k for result in results for k in result.context})
+    available = sorted({k for result in results for k in result.params})
+    on_metadata = sorted({k for k in missing_keys for r in results if k in r.metadata})
     detail = "; ".join(f"factor={factor!r} missing {key!r}" for factor, key in missing)
+    hint = (
+        (
+            f" Key(s) {on_metadata!r} live on `metadata`, which is bookkeeping "
+            f"and never partitions a family — move them to `params` if they "
+            f"are a swept knob."
+        )
+        if on_metadata
+        else ""
+    )
     raise UserInputError(
         func_name=func_name,
         field="expand_over",
         value=missing_keys,
         expected=(
             f"expand_over key(s) {missing_keys!r} present in every result's "
-            f"context. Missing — {detail}. Stamp the key on every "
-            f"EvaluationResult.context, or drop it from expand_over. "
-            f"Context keys seen across the input: "
-            f"{available or ['<none>']!r}"
+            f"params. Missing — {detail}.{hint} Stamp the key on every "
+            f"EvaluationResult.params, or drop it from expand_over. "
+            f"Param keys seen across the input: {available or ['<none>']!r}"
         ),
         docs_path=f"api/{func_name}#expand_over",
     )
@@ -236,13 +273,13 @@ def _expand_over_values(
 ) -> tuple[Any, ...]:
     """Read the ``expand_over`` value tuple off one result.
 
-    Presence of every context key is guaranteed by a prior
-    ``_check_context_keys`` sweep, so this reads without re-validating.
+    Presence of every param key is guaranteed by a prior
+    ``_check_param_keys`` sweep, so this reads without re-validating.
     """
     return tuple(
         getattr(result, name)
         if name in _BUILTIN_EXPAND_OVER_FIELDS
-        else result.context[name]
+        else result.params[name]
         for name in keys
     )
 

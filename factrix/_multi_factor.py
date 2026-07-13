@@ -10,8 +10,9 @@ side).
 
 Family declaration is explicit: the input list *is* the family,
 optionally split per-bucket via ``expand_over``. The base hypothesis
-identifier is ``(factor, forward_periods)``; context partition values
-extend it. Family partitioning remains the caller's responsibility.
+identifier is ``(factor, forward_periods, *params)`` — every swept knob on
+``EvaluationResult.params`` joins it automatically. ``expand_over`` only
+partitions the family; ``metadata`` never touches either.
 """
 
 from __future__ import annotations
@@ -28,7 +29,12 @@ import numpy as np
 import polars as pl
 
 from factrix._errors import UserInputError
-from factrix._family import _attach_p_values, _partition, _resolve_family
+from factrix._family import (
+    _attach_p_values,
+    _hypothesis_identity,
+    _partition,
+    _resolve_family,
+)
 from factrix.stats.multiple_testing import (
     bhy_adjusted_p,
     partial_conjunction_p,
@@ -322,11 +328,13 @@ class PartialConjunctionResult(_FdrResultBase):
     ``n_tests`` with :class:`_FdrResultBase`. ``entries`` is one
     representative :class:`EvaluationResult` per identity; ``adj_p_all`` is
     the BHY-adjusted PC p-value; ``n_tests`` is the condition count per
-    identifier.
+    identity, keyed by the identifier with the ``expand_over`` components
+    stripped (``factor``, then ``forward_periods`` and ``params`` items not
+    named by ``expand_over``).
 
     Attributes:
         pc_p_all: Raw PC p-value aligned with ``entries``.
-        expand_over: Context keys defining the condition axis.
+        expand_over: ``params`` keys defining the condition axis.
         min_pass: ``k`` in the ``k`` of ``m`` partial conjunction test.
         n_passed_uncorr_all: Per-identity count of raw p-values strictly
             below ``q`` (descriptive — not used in inference), aligned
@@ -358,7 +366,11 @@ class PartialConjunctionResult(_FdrResultBase):
                 r.factor,
                 f"{float(pc):.4g}",
                 f"{float(adj):.4g}",
-                str(self.n_tests.get((r.factor,), 0)),
+                str(
+                    self.n_tests.get(
+                        _hypothesis_identity(r, exclude=self.expand_over), 0
+                    )
+                ),
                 str(int(n)),
             )
             for r, pc, adj, n, ok in zip(
@@ -386,7 +398,7 @@ class HierarchicalBhyResult(_FdrResultBase):
     ``(group_value,)`` — covering *all* input groups, not just survivors.
 
     Attributes:
-        group: Context key naming the group axis.
+        group: ``params`` key naming the group axis.
     """
 
     group: str
@@ -413,7 +425,7 @@ class HierarchicalBhyResult(_FdrResultBase):
 def _lookup_expand(result: EvaluationResult, key: str) -> Any:
     if key == "forward_periods":
         return result.forward_periods
-    return result.context.get(key)
+    return result.params.get(key)
 
 
 def bhy(
@@ -428,8 +440,8 @@ def bhy(
     The input list is treated as a single family. When ``expand_over``
     is non-empty, one independent step-up runs per unique tuple of
     ``expand_over`` values (read from ``EvaluationResult.forward_periods``
-    for that built-in slicing axis, otherwise from
-    ``EvaluationResult.context[k]``). Pooling horizons in one family is
+    for that built-in partition key, otherwise from
+    ``EvaluationResult.params[k]``). Pooling horizons in one family is
     appropriate when selection may choose across horizons; partitioning by
     horizon is appropriate only for predeclared, separately reported screens.
 
@@ -444,7 +456,7 @@ def bhy(
         expand_over: Tuple of keys whose distinct value tuples split
             the input into independent BHY step-up buckets. Built-in
             field ``"forward_periods"`` is read off the result;
-            other keys are looked up on ``result.context``.
+            other keys are looked up on ``result.params``.
         q: Nominal FDR target. Must satisfy ``0 < q < 1``.
             Default ``0.05``.
 
@@ -453,10 +465,9 @@ def bhy(
 
     Raises:
         UserInputError: ``metrics`` not a non-empty ``list[str]``;
-            duplicate ``(factor, forward_periods,
-            *context_partition_values)`` identifier;
-            ``expand_over`` key missing from a result's context or
-            naming ``'factor'``; metric absent from a result's
+            duplicate ``(factor, forward_periods, *params)``
+            identifier; ``expand_over`` key missing from a result's
+            ``params`` or naming ``'factor'``; metric absent from a result's
             outputs or its ``p_value`` missing / NaN.
 
     Warns:
@@ -545,14 +556,17 @@ def partial_conjunction(
     forbidden.
 
     Args:
-        results: :class:`EvaluationResult` records. Conditions per
-            identity come from ``expand_over``; multiple results
-            sharing the hypothesis identifier (``factor``) must differ
-            on at least one ``expand_over`` key.
+        results: :class:`EvaluationResult` records. The aggregation
+            identity is the hypothesis identifier minus the
+            ``expand_over`` components; results sharing an identity form
+            that identity's conditions and must differ on at least one
+            ``expand_over`` key. Any other swept knob (``params`` key or
+            ``forward_periods`` outside ``expand_over``) keeps
+            identities apart instead of inflating ``m``.
         metrics: ``list[str]`` — one PC screen runs per metric;
             return dict keyed by ``label``.
         min_pass: ``k`` in "k of m". Must be ``>= 2``.
-        expand_over: Non-empty tuple of context keys (or
+        expand_over: Non-empty tuple of ``params`` keys (or
             ``"forward_periods"``) defining the condition axis.
         n_conditions: Strict condition-count declaration. ``None`` lets ``m`` be
             inferred per identity; an ``int`` requires every identity
@@ -603,7 +617,7 @@ def partial_conjunction(
             field="expand_over",
             value=expand_over,
             expected=(
-                "non-empty tuple of context keys naming the condition "
+                "non-empty tuple of params keys naming the condition "
                 "axis (e.g. ('region',) for cross-region replication, "
                 "('forward_periods',) for cross-horizon replication). "
                 "partial_conjunction is undefined without a condition axis"
@@ -654,23 +668,21 @@ def _partial_conjunction_one(
         expand_over=expand_over,
     )
 
-    entries_by_factor: dict[str, list[Any]] = defaultdict(list)
-    identifiers_ordered: list[str] = []
-    seen: set[str] = set()
+    entries_by_identity: dict[tuple[Any, ...], list[Any]] = defaultdict(list)
+    identities_ordered: list[tuple[Any, ...]] = []
     for entry in entries:
-        factor = entry.result.factor
-        entries_by_factor[factor].append(entry)
-        if factor not in seen:
-            seen.add(factor)
-            identifiers_ordered.append(factor)
+        identity = _hypothesis_identity(entry.result, exclude=expand_over)
+        if identity not in entries_by_identity:
+            identities_ordered.append(identity)
+        entries_by_identity[identity].append(entry)
 
-    pc_p_arr = np.empty(len(identifiers_ordered), dtype=np.float64)
-    n_passed_arr = np.empty(len(identifiers_ordered), dtype=np.int64)
+    pc_p_arr = np.empty(len(identities_ordered), dtype=np.float64)
+    n_passed_arr = np.empty(len(identities_ordered), dtype=np.int64)
     n_tests_per_id: dict[tuple[Any, ...], int] = {}
     rep_results: list[EvaluationResult] = []
 
-    for i, factor in enumerate(identifiers_ordered):
-        group = entries_by_factor[factor]
+    for i, identity in enumerate(identities_ordered):
+        group = entries_by_identity[identity]
         m = len(group)
 
         if n_conditions is not None and m != n_conditions:
@@ -679,10 +691,10 @@ def _partial_conjunction_one(
                 field="n_conditions",
                 value=n_conditions,
                 expected=(
-                    f"factor {factor!r} has {m} condition(s) in data but "
+                    f"identity {identity!r} has {m} condition(s) in data but "
                     f"n_conditions={n_conditions} declared. "
                     "Pass n_conditions=None for inferred condition counts, or fix the "
-                    f"input so every factor has exactly {n_conditions} "
+                    f"input so every identity has exactly {n_conditions} "
                     "conditions"
                 ),
                 docs_path="api/partial-conjunction#strict-vs-lenient",
@@ -692,11 +704,11 @@ def _partial_conjunction_one(
             raise UserInputError(
                 func_name="partial_conjunction",
                 field="results",
-                value=factor,
+                value=identity,
                 expected=(
-                    f"factor {factor!r} has only {m} condition(s) but "
+                    f"identity {identity!r} has only {m} condition(s) but "
                     f"min_pass={min_pass} requires at least that many. "
-                    "Either drop this factor from the input or lower min_pass"
+                    "Either drop this identity from the input or lower min_pass"
                 ),
                 docs_path="api/partial-conjunction#insufficient-conditions",
             )
@@ -704,7 +716,7 @@ def _partial_conjunction_one(
         ps = np.array([e.p_value for e in group], dtype=np.float64)
         pc_p_arr[i] = partial_conjunction_p(ps, min_pass=min_pass)
         n_passed_arr[i] = int(np.sum(ps < q))
-        n_tests_per_id[(factor,)] = m
+        n_tests_per_id[identity] = m
         rep_results.append(group[0].result)
 
     if n_conditions is None:
@@ -713,9 +725,9 @@ def _partial_conjunction_one(
             warnings.warn(
                 "partial_conjunction: inferred condition counts (n_conditions=None) "
                 f"is running with heterogeneous condition counts "
-                f"m={sorted(m_values)} across factors. PC p-values are "
-                "valid marginally but the k/m bar differs per factor. "
-                "For cross-factor comparability pass n_conditions=<int> "
+                f"m={sorted(m_values)} across identities. PC p-values are "
+                "valid marginally but the k/m bar differs per identity. "
+                "For cross-identity comparability pass n_conditions=<int> "
                 "(fixed condition count) or split the call.",
                 RuntimeWarning,
                 stacklevel=3,
@@ -730,7 +742,7 @@ def _partial_conjunction_one(
         q=q,
         expand_over=expand_over,
         min_pass=min_pass,
-        n_tests={(f,): n_tests_per_id[(f,)] for f in identifiers_ordered},
+        n_tests=n_tests_per_id,
         n_passed_uncorr_all=n_passed_arr,
     )
 
@@ -752,9 +764,11 @@ def bhy_hierarchical(
 
     Args:
         results: :class:`EvaluationResult` records. Each is assigned
-            to one group via ``result.context[group]`` (or via
+            to one group via ``result.params[group]`` (or via
             ``result.forward_periods`` if ``group == "forward_periods"``).
-            Within a group, ``factor`` must be unique.
+            Within a group, each member is one hypothesis of the inner
+            family; the ``(factor, forward_periods, *params)``
+            identifier must be unique across the input.
         metrics: ``list[str]`` — one hierarchical screen per
             metric; return dict keyed by ``label``.
         group: Single key naming the group axis.
@@ -768,7 +782,7 @@ def bhy_hierarchical(
         UserInputError: ``group == 'factor'`` (it is the identifier);
             only one distinct group value in the input (call ``bhy``
             instead); every result is its own group at ``n >= 3``;
-            duplicate ``(factor, group_value)`` identifier; any
+            duplicate ``(factor, forward_periods, *params)`` identifier; any
             ``_resolve_family`` invariant failure.
 
     Warns:

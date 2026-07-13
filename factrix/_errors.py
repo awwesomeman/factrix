@@ -40,7 +40,7 @@ class FactrixError(Exception):
 class UserInputError(FactrixError, ValueError):
     """User-supplied input does not match expected names or types.
 
-    Raised for typos in named-set kwargs (metric / estimator / context key
+    Raised for typos in named-set kwargs (metric / estimator / params key
     / column name) or input-type mismatches. Multi-inherits from
     :class:`ValueError` so ecosystem code (`pytest.raises(ValueError)`,
     generic `except ValueError`) keeps working.

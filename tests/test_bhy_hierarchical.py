@@ -11,7 +11,7 @@ from .conftest import make_result, make_spec
 
 def _grouped(p_by_factor: dict[str, float], group_value: str, primary):
     return [
-        make_result(factor=factor, p=p, metric=primary, context={"family": group_value})
+        make_result(factor=factor, p=p, metric=primary, params={"family": group_value})
         for factor, p in p_by_factor.items()
     ]
 
@@ -46,7 +46,7 @@ def test_single_group_raises():
 def test_every_result_own_group_raises():
     make_spec("ic")
     results = [
-        make_result(factor=f"f{i}", p=0.01, metric="ic", context={"family": f"g{i}"})
+        make_result(factor=f"f{i}", p=0.01, metric="ic", params={"family": f"g{i}"})
         for i in range(3)
     ]
     with pytest.raises(UserInputError, match="every result is its own group"):
@@ -99,7 +99,7 @@ def test_list_of_dict_keys_suggests_values():
     make_spec("ic")
     results = {
         "mom_1": make_result(
-            factor="mom_1", p=0.01, metric="ic", context={"family": "momentum"}
+            factor="mom_1", p=0.01, metric="ic", params={"family": "momentum"}
         )
     }
     mistaken: list[str] = []
@@ -124,10 +124,8 @@ def test_primary_must_be_list_of_str():
 def test_missing_group_key_aggregates_all_offenders():
     make_spec("ic")
     results = [
-        make_result(
-            factor="mom_1", p=0.01, metric="ic", context={"family": "momentum"}
-        ),
-        make_result(factor="mom_2", p=0.01, metric="ic", context={}),
+        make_result(factor="mom_1", p=0.01, metric="ic", params={"family": "momentum"}),
+        make_result(factor="mom_2", p=0.01, metric="ic", params={}),
     ]
     with pytest.raises(UserInputError) as excinfo:
         bhy_hierarchical(results, metrics=["ic"], group="family")

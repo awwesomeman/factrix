@@ -137,7 +137,8 @@ class EvaluationResult:
     n_assets: int
     metrics: Mapping[str, MetricResult]
     plan: str
-    context: Mapping[str, Any] = field(default_factory=dict)
+    params: Mapping[str, Hashable] = field(default_factory=dict)
+    metadata: Mapping[str, Any] = field(default_factory=dict)
     warnings: list[Warning] = field(default_factory=list)
 ```
 
@@ -704,11 +705,11 @@ ones:
 For input `results: Sequence[EvaluationResult]`, `expand_over: Sequence[str] | None`,
 and `metric: str` (one resolved spec):
 
-1. `expand_over` names must be present in every result's `context`, except
+1. `expand_over` names must be present in every result's `params`, except
    the built-in `forward_periods`; `factor` is rejected because it is an
    identity dimension, not a family partition.
 2. hypothesis key per result = `(factor, forward_periods) +
-   tuple(context[k] for k in expand_over if k != "forward_periods")`
+   tuple(params[k] for k in expand_over if k != "forward_periods")`
    must be unique across the input. `EvaluationResult.__hash__ = None`, so dedup
    walks the tuple, not a hash.
 3. The specified `metric` must have a computed `p_value` that is non-NaN,
@@ -722,7 +723,7 @@ so fuzzy suggestions and docs links render uniformly.
 
 `expand_over` declares per-bucket independent families (Benjamini & Bogomolov
 2014, *Selective Inference on Multiple Families of Hypotheses*, JRSS-B). Each
-unique tuple of `context[k] for k in expand_over` is its own step-up batch —
+unique tuple of `params[k] for k in expand_over` is its own step-up batch —
 e.g. `expand_over=["regime_id"]` runs one BHY step-up per regime.
 
 ### Caller responsibilities
@@ -841,7 +842,7 @@ Hard constraints — violating these breaks the API contract:
 3. The metric-spec SSOT is the `@metric` registration in each `factrix/metrics/*.py`, resolved through `factrix._metric_index` (`spec_by_name` / `public_specs` / `list_metrics`); no parallel rule table. `@metric`-class registration feeds the index via `factrix.metrics._registry.register`. Slice-boundary warnings read `MetricSpec.slice_boundary_sensitive`; aggregation categories are not a proxy rule table.
 4. The DAG executor is the single dispatch path. `DagExecutor` topologically orders specs by `MetricSpec.requires` (raising `CycleError` on cycles), runs `batchable=True` producers once per factor batch and `batchable=False` consumers once per factor, and short-circuits a downstream consumer with a NaN `MetricResult` + `WarningCode.UPSTREAM_UNAVAILABLE` rather than invoking it on missing upstream data.
 5. `MetricResult.p_value` is the single canonical p-value read path — `EvaluationResult.to_frame()` / `to_dict()`, `compare`, and the BHY family resolver all read it; the p-value lives only on the field and is not duplicated into `metadata`. A formal p-value and `alternative` (`two-sided` / `greater` / `less`) must be present together; p-values are finite and in `[0, 1]`. `warnings` flag interpretation risk but never rebind it.
-6. Family declaration is explicit: a screening verb's input list is one family, optionally split per bucket via `expand_over`. `_resolve_family` enforces (a) the hypothesis identity `(factor, forward_periods, *context_partition_values)` is unique across the input, (b) `expand_over` names come only from `EvaluationResult.context` (or the built-in `forward_periods`), never the factor, (c) `p_value` is populated everywhere before procedures read it. Mixed horizons warn so the caller confirms whether selection is pooled or predeclared per horizon.
+6. Family declaration is explicit: a screening verb's input list is one family, optionally split per bucket via `expand_over`. `_resolve_family` enforces (a) the hypothesis identity `(factor, forward_periods, *params)` is unique across the input — every `params` entry joins it automatically, while `metadata` never does, (b) `expand_over` names come only from `EvaluationResult.params` (or the built-in `forward_periods`), never the factor and never a `metadata` key, (c) `p_value` is populated everywhere before procedures read it. Mixed horizons warn so the caller confirms whether selection is pooled or predeclared per horizon.
 7. `T < MIN_PERIODS_HARD` raises `InsufficientSampleError`; metrics never silently produce a result on under-sampled data. NW HAC lag selection on overlapping forward returns floors at `forward_periods - 1` (the Hansen-Hodrick floor) so serial correlation from overlap is not under-counted.
 
 For the user-facing field walk of `EvaluationResult` (and its

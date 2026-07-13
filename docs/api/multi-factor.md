@@ -6,7 +6,7 @@ title: factrix.multi_factor
 
 Collection-level false-discovery-rate (FDR) control across a list of
 `EvaluationResult` objects. Use after `evaluate`
-has produced results for candidate factors (or per factor × context
+has produced results for candidate factors (or per factor × params
 combinations): the functions in this module adjust per-factor p-values
 for multiple testing under the dependence structure that factor pools
 exhibit by construction.
