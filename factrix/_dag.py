@@ -177,6 +177,7 @@ class DagExecutor:
         scope: FactorScope,
         density: FactorDensity,
         forward_periods: int,
+        expected_warnings: tuple[str, ...] = (),
         kwargs_by_metric: Mapping[str, Mapping[str, Any]] | None = None,
     ) -> dict[str, EvaluationResult]:
         """Run every spec against every factor and return one bundle per factor.
@@ -229,7 +230,10 @@ class DagExecutor:
         for node in (step.node for step in self._plan_steps):
             nid = node.node_id
             handle = self._batch_handle(
-                node.spec, kwargs_by_metric.get(nid, {}), forward_periods
+                node.spec,
+                kwargs_by_metric.get(nid, {}),
+                forward_periods,
+                expected_warnings=expected_warnings,
             )
 
             # Split factors by upstream short-circuit: dead factors get the
@@ -288,15 +292,22 @@ class DagExecutor:
         )
 
     def _batch_handle(
-        self, spec: MetricSpec, kwargs: Mapping[str, Any], forward_periods: int
+        self,
+        spec: MetricSpec,
+        kwargs: Mapping[str, Any],
+        forward_periods: int,
+        *,
+        expected_warnings: tuple[str, ...] = (),
     ) -> Callable[..., dict[str, Any]]:
         """Return the spec's unified batch dispatcher.
 
         Registry ``MetricBase`` classes expose ``__call_batch__`` directly
         (bound to a configured instance); bare ``fn_resolver`` callables are
         wrapped through the same :func:`_dispatch_batch` so both paths share
-        one dispatch body. ``forward_periods`` is the data's stamped overlap
-        horizon, injected into whichever callables declare it.
+        one dispatch body. ``forward_periods`` (the data's stamped overlap
+        horizon) and ``expected_warnings`` (the caller's study-level
+        declaration, consumed by bodies that echo a ``UserWarning``) are
+        injected into whichever callables declare them.
         """
         import functools
 
@@ -306,12 +317,18 @@ class DagExecutor:
         kw = dict(kwargs)
         if isinstance(fn, type) and issubclass(fn, MetricBase):
             return functools.partial(
-                fn(**kw).__call_batch__, forward_periods=forward_periods
+                fn(**kw).__call_batch__,
+                forward_periods=forward_periods,
+                expected_warnings=expected_warnings,
             )
 
         bare: Callable[..., Any] = fn
-        accepts_fp = "forward_periods" in _callable_params(bare)
-        inj = {"forward_periods": forward_periods} if accepts_fp else {}
+        bare_params = _callable_params(bare)
+        inj: dict[str, Any] = {}
+        if "forward_periods" in bare_params:
+            inj["forward_periods"] = forward_periods
+        if "expected_warnings" in bare_params:
+            inj["expected_warnings"] = expected_warnings
 
         def handle(
             data: pl.DataFrame,

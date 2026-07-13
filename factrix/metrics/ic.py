@@ -125,8 +125,17 @@ def _warn_if_few_ic_assets(
     metric_name: str,
     metadata: dict[str, object],
     warning_codes: list[str],
+    *,
+    expected_warnings: tuple[str, ...] = (),
 ) -> None:
-    """Surface retained-but-thin IC cross-sections as a soft warning."""
+    """Surface retained-but-thin IC cross-sections as a soft warning.
+
+    The structured ``FEW_ASSETS`` code is always attached — it is the
+    record. A caller who declared the code via
+    ``evaluate(..., expected_warnings=("few_assets",))`` only quiets the
+    per-run ``UserWarning`` echo; the record is later marked
+    ``expected=True`` at result assembly, never dropped.
+    """
     min_assets_per_period = _min_ic_assets(ic_df)
     if min_assets_per_period is None:
         return
@@ -134,14 +143,15 @@ def _warn_if_few_ic_assets(
     metadata["warn_assets_per_period"] = MIN_IC_ASSETS_WARN
     if min_assets_per_period >= MIN_IC_ASSETS_WARN:
         return
-    _warnings.warn(
-        f"{metric_name}: min_assets_per_period={min_assets_per_period} below "
-        f"MIN_IC_ASSETS_WARN={MIN_IC_ASSETS_WARN}; per-date IC is computable "
-        "but the cross-section is thin. value is returned but read it cautiously.",
-        UserWarning,
-        stacklevel=2,
-    )
     code = WarningCode.FEW_ASSETS.value
+    if code not in expected_warnings:
+        _warnings.warn(
+            f"{metric_name}: min_assets_per_period={min_assets_per_period} below "
+            f"MIN_IC_ASSETS_WARN={MIN_IC_ASSETS_WARN}; per-date IC is computable "
+            "but the cross-section is thin. value is returned but read it cautiously.",
+            UserWarning,
+            stacklevel=2,
+        )
     if code not in warning_codes:
         warning_codes.append(code)
 
@@ -194,6 +204,7 @@ def ic(
     ic_df: pl.DataFrame,
     forward_periods: int = 5,
     inference: NonOverlapping | NeweyWest = NON_OVERLAPPING,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Information coefficient (IC) mean significance: is mean IC significantly different from zero?
 
@@ -319,7 +330,9 @@ def ic(
         "tie_ratio": median_tie,
     }
     warning_codes: list[str] = []
-    _warn_if_few_ic_assets(ic_df, "ic", metadata, warning_codes)
+    _warn_if_few_ic_assets(
+        ic_df, "ic", metadata, warning_codes, expected_warnings=expected_warnings
+    )
     _surface_drop_stats(ic_df, "ic", metadata, warning_codes)
     # Surface the inference method's own soft-floor signals (e.g. a thin
     # post-stride sample tripping UNRELIABLE_SE_SHORT_PERIODS); de-dup so a
@@ -351,6 +364,7 @@ def ic(
 )
 def ic_ir(
     ic_df: pl.DataFrame,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""$\mathrm{ICIR} = \mathrm{mean}(\mathrm{IC}) / \mathrm{std}(\mathrm{IC})$.
 
@@ -431,7 +445,9 @@ def ic_ir(
         "n_periods": n,
         "tie_ratio": median_tie,
     }
-    _warn_if_few_ic_assets(ic_df, "ic_ir", metadata, warning_codes)
+    _warn_if_few_ic_assets(
+        ic_df, "ic_ir", metadata, warning_codes, expected_warnings=expected_warnings
+    )
     _surface_drop_stats(ic_df, "ic_ir", metadata, warning_codes)
     return MetricResult(
         value=ratio,

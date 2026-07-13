@@ -100,8 +100,17 @@ def _surface_fm_asset_warning(
     metric_name: str,
     metadata: dict,
     warning_codes: list[str],
+    *,
+    expected_warnings: tuple[str, ...] = (),
 ) -> None:
-    """Surface thin per-date FM cross-sections without blocking the result."""
+    """Surface thin per-date FM cross-sections without blocking the result.
+
+    The structured ``FEW_ASSETS`` code is always attached — it is the
+    record. A caller who declared the code via
+    ``evaluate(..., expected_warnings=("few_assets",))`` only quiets the
+    per-run ``UserWarning`` echo; the record is later marked
+    ``expected=True`` at result assembly, never dropped.
+    """
     min_assets_per_period = _min_fm_assets(beta_df)
     if min_assets_per_period is None:
         return
@@ -109,15 +118,16 @@ def _surface_fm_asset_warning(
     metadata["warn_assets_per_period"] = MIN_FM_ASSETS_WARN
     if min_assets_per_period >= MIN_FM_ASSETS_WARN:
         return
-    warnings.warn(
-        f"{metric_name}: min_assets_per_period={min_assets_per_period} below "
-        f"MIN_FM_ASSETS_WARN={MIN_FM_ASSETS_WARN}; per-date FM beta is "
-        "computable but the cross-section is thin. value is returned but read "
-        "it cautiously.",
-        UserWarning,
-        stacklevel=2,
-    )
     code = WarningCode.FEW_ASSETS.value
+    if code not in expected_warnings:
+        warnings.warn(
+            f"{metric_name}: min_assets_per_period={min_assets_per_period} below "
+            f"MIN_FM_ASSETS_WARN={MIN_FM_ASSETS_WARN}; per-date FM beta is "
+            "computable but the cross-section is thin. value is returned but read "
+            "it cautiously.",
+            UserWarning,
+            stacklevel=2,
+        )
     if code not in warning_codes:
         warning_codes.append(code)
 
@@ -144,6 +154,7 @@ def fm_beta(
     forward_periods: int | None = None,
     is_estimated_factor: bool = False,
     factor_return_var: float | None = None,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Newey-West t-test on FM beta series. $H_0: \mathrm{mean}(\beta) = 0$.
 
@@ -331,7 +342,13 @@ def fm_beta(
             p_final = p_shanken
             t = t_shanken
 
-    _surface_fm_asset_warning(beta_df, "fm_beta", metadata, warning_codes)
+    _surface_fm_asset_warning(
+        beta_df,
+        "fm_beta",
+        metadata,
+        warning_codes,
+        expected_warnings=expected_warnings,
+    )
     _surface_drop_stats(beta_df, "fm_beta", metadata, warning_codes)
     return MetricResult(
         p_value=p_final,
@@ -795,6 +812,7 @@ def fm_beta_sign_consistency(
     beta_df: pl.DataFrame,
     *,
     expected_sign: int = 1,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Fraction of FM per-date $\beta$s carrying the expected sign — ``value`` $= \mathrm{mean}_t \mathbb{1}\{\mathrm{sign}(\beta_t) = s^\star\}$.
 
@@ -859,6 +877,7 @@ def fm_beta_sign_consistency(
         "fm_beta_sign_consistency",
         metadata,
         warning_codes,
+        expected_warnings=expected_warnings,
     )
     _surface_drop_stats(beta_df, "fm_beta_sign_consistency", metadata, warning_codes)
     return MetricResult(
