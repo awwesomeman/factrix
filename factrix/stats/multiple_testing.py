@@ -24,6 +24,12 @@ BHY where ``m = len(p_values)``.
 (FWER) under arbitrary dependence. It targets searches that select one winner
 or require every retained hypothesis to avoid any false positive.
 
+[Romano-Wolf (2005)][romano-wolf-2005] step-down max-t uses a joint bootstrap
+null distribution to preserve power when hypotheses are dependent. The caller
+supplies the already centred and consistently studentized bootstrap statistics.
+Adjusted p-values follow the efficient suffix-maximum algorithm in
+[Romano-Wolf (2016)][romano-wolf-2016].
+
 References:
     - [Benjamini & Yekutieli (2001)][benjamini-yekutieli-2001], "The
       Control of the False Discovery Rate in Multiple Testing under
@@ -36,6 +42,10 @@ References:
       Rate-controlling Methodology."
     - [Holm (1979)][holm-1979], "A Simple Sequentially Rejective Multiple
       Test Procedure."
+    - [Romano & Wolf (2005)][romano-wolf-2005], "Stepwise Multiple Testing
+      as Formalized Data Snooping."
+    - [Romano & Wolf (2016)][romano-wolf-2016], "Efficient Computation of
+      Adjusted P-Values for Resampling-Based Stepdown Multiple Testing."
 """
 
 from __future__ import annotations
@@ -237,6 +247,103 @@ def holm_adjusted_p(
 
     out = np.empty(n, dtype=float)
     out[order] = adj_sorted
+    return out
+
+
+def romano_wolf_adjusted_p(
+    statistics: npt.ArrayLike,
+    bootstrap_statistics: npt.ArrayLike,
+    *,
+    one_sided: bool = False,
+) -> np.ndarray:
+    """[Romano-Wolf (2005)][romano-wolf-2005] step-down max-t adjusted p-values.
+
+    Romano-Wolf controls the family-wise error rate while using the joint
+    bootstrap distribution to account for dependence among hypotheses. Each
+    bootstrap row must be one joint draw across all ``m`` hypotheses. Building
+    columns with independent resampling would destroy that dependence and
+    invalidate the method's power advantage over Holm.
+
+    This is an expert-level adjusted-p primitive, not a resampling workflow.
+    The caller is responsible for generating bootstrap statistics under the
+    joint null, centring them at the null, and using the same studentization as
+    the observed statistics. Every hypothesis tried in the search must occupy
+    one column; unlike ``holm_adjusted_p(n_tests=...)``, this function cannot
+    account for omitted hypotheses without their joint bootstrap statistics.
+    The empirical p-value grid has resolution ``1 / (B + 1)`` because the
+    calculation uses add-one smoothing. Bootstrap values tied with the
+    observed statistic count as exceedances (``>=``), a conservative tie rule
+    for discrete bootstrap distributions.
+
+    Args:
+        statistics: Finite one-dimensional observed test statistics of length
+            ``m``. Large positive values favour rejection; two-sided mode uses
+            their absolute values.
+        bootstrap_statistics: Finite ``(B, m)`` bootstrap test-statistic
+            matrix. Rows are joint null draws and columns align exactly with
+            ``statistics``.
+        one_sided: ``True`` for the positive-tail alternative or ``False``
+            (default) for a two-sided absolute-value test.
+
+    Returns:
+        Adjusted p-values in input order as a NumPy array, each in ``[0, 1]``.
+
+    References:
+        - [Romano & Wolf (2005)][romano-wolf-2005]. "Stepwise Multiple
+          Testing as Formalized Data Snooping." Econometrica, 73(4),
+          1237-1282.
+        - [Romano & Wolf (2016)][romano-wolf-2016]. "Efficient Computation
+          of Adjusted P-Values for Resampling-Based Stepdown Multiple
+          Testing." Statistics & Probability Letters, 113, 38-40.
+    """
+    if not isinstance(one_sided, bool):
+        raise ValueError(f"one_sided must be a bool; got {one_sided!r}.")
+
+    observed = np.asarray(statistics, dtype=float)
+    if observed.ndim != 1:
+        raise ValueError(
+            f"romano_wolf_adjusted_p: statistics must be 1-D; "
+            f"got shape {observed.shape}."
+        )
+    if observed.size and not np.all(np.isfinite(observed)):
+        raise ValueError("romano_wolf_adjusted_p: statistics must be finite.")
+
+    bootstrap = np.asarray(bootstrap_statistics, dtype=float)
+    m = len(observed)
+    if bootstrap.ndim != 2 or bootstrap.shape[1] != m:
+        raise ValueError(
+            f"romano_wolf_adjusted_p: bootstrap_statistics must have shape "
+            f"(B, {m}); got {bootstrap.shape}."
+        )
+    if bootstrap.size and not np.all(np.isfinite(bootstrap)):
+        raise ValueError("romano_wolf_adjusted_p: bootstrap_statistics must be finite.")
+    if m == 0:
+        return np.zeros(0, dtype=float)
+    if bootstrap.shape[0] < 1:
+        raise ValueError(
+            "romano_wolf_adjusted_p: bootstrap_statistics must have at "
+            "least 1 resample."
+        )
+
+    if one_sided:
+        observed_use = observed
+        bootstrap_use = bootstrap
+    else:
+        observed_use = np.abs(observed)
+        bootstrap_use = np.abs(bootstrap)
+
+    desc_order = np.argsort(-observed_use, kind="stable")
+    n_bootstrap = bootstrap_use.shape[0]
+    observed_desc = observed_use[desc_order]
+    bootstrap_desc = bootstrap_use[:, desc_order]
+    max_remaining = np.maximum.accumulate(bootstrap_desc[:, ::-1], axis=1)[:, ::-1]
+    exceedances = np.sum(max_remaining >= observed_desc, axis=0)
+    p_initial = (exceedances + 1.0) / (n_bootstrap + 1.0)
+    p_adj_desc = np.maximum.accumulate(p_initial)
+    np.minimum(p_adj_desc, 1.0, out=p_adj_desc)
+
+    out = np.empty(m, dtype=float)
+    out[desc_order] = p_adj_desc
     return out
 
 

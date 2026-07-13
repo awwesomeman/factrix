@@ -4,12 +4,18 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from factrix.stats import holm_adjusted_p as exported_holm_adjusted_p
+from factrix.stats import (
+    holm_adjusted_p as exported_holm_adjusted_p,
+)
+from factrix.stats import (
+    romano_wolf_adjusted_p as exported_romano_wolf_adjusted_p,
+)
 from factrix.stats.multiple_testing import (
     bhy_adjust,
     bhy_adjusted_p,
     holm_adjusted_p,
     partial_conjunction_p,
+    romano_wolf_adjusted_p,
     simes_p,
 )
 
@@ -152,6 +158,77 @@ class TestHolmAdjustedP:
         np.testing.assert_allclose(
             holm_adjusted_p(p), holm_adjusted_p(p, n_tests=len(p))
         )
+
+
+class TestRomanoWolfAdjustedP:
+    def test_exported_from_stats_namespace_and_returns_array(self):
+        assert exported_romano_wolf_adjusted_p is romano_wolf_adjusted_p
+        out = romano_wolf_adjusted_p([1.0], np.array([[0.0], [2.0]]))
+        assert isinstance(out, np.ndarray)
+
+    def test_deterministic_stepdown_reference(self):
+        statistics = np.array([4.5, 2.5, 1.2])
+        bootstrap = np.array(
+            [
+                [4.0, 0.0, 0.0],
+                [0.0, 3.0, 0.0],
+                [0.0, 0.0, 2.0],
+                [0.0, 0.0, 1.5],
+                [0.0, 0.0, 0.0],
+            ]
+        )
+        expected = np.array([1.0 / 6.0, 2.0 / 6.0, 3.0 / 6.0])
+        np.testing.assert_allclose(
+            romano_wolf_adjusted_p(statistics, bootstrap), expected
+        )
+
+    def test_vectorized_suffix_max_matches_naive_stepdown(self):
+        rng = np.random.default_rng(42)
+        statistics = rng.normal(size=12)
+        bootstrap = rng.normal(size=(200, 12))
+        observed = np.abs(statistics)
+        boot_abs = np.abs(bootstrap)
+        order = np.argsort(-observed, kind="stable")
+        initial = []
+        for rank, hypothesis in enumerate(order):
+            max_remaining = boot_abs[:, order[rank:]].max(axis=1)
+            initial.append(
+                (np.sum(max_remaining >= observed[hypothesis]) + 1.0)
+                / (len(bootstrap) + 1.0)
+            )
+        expected_desc = np.maximum.accumulate(initial)
+        expected = np.empty(len(statistics))
+        expected[order] = expected_desc
+        np.testing.assert_allclose(
+            romano_wolf_adjusted_p(statistics, bootstrap), expected
+        )
+
+    def test_bootstrap_ties_count_as_exceedances(self):
+        out = romano_wolf_adjusted_p([1.0], np.array([[1.0], [0.0]]))
+        np.testing.assert_allclose(out, [2.0 / 3.0])
+
+    def test_empty_family(self):
+        out = romano_wolf_adjusted_p([], np.empty((10, 0)))
+        assert out.shape == (0,)
+        assert out.dtype == float
+
+    @pytest.mark.parametrize(
+        ("statistics", "bootstrap", "message"),
+        [
+            ([[1.0, 2.0]], np.ones((10, 2)), "statistics must be 1-D"),
+            ([1.0, np.nan], np.ones((10, 2)), "statistics must be finite"),
+            ([1.0, 2.0], np.ones((10, 3)), r"shape \(B, 2\)"),
+            ([1.0, 2.0], np.array([[1.0, np.inf]]), "must be finite"),
+            ([1.0, 2.0], np.empty((0, 2)), "at least 1 resample"),
+        ],
+    )
+    def test_validates_statistics_and_bootstrap(self, statistics, bootstrap, message):
+        with pytest.raises(ValueError, match=message):
+            romano_wolf_adjusted_p(statistics, bootstrap)
+
+    def test_rejects_non_boolean_tail_mode(self):
+        with pytest.raises(ValueError, match="one_sided must be a bool"):
+            romano_wolf_adjusted_p([1.0], np.ones((10, 1)), one_sided=1)
 
 
 @pytest.mark.parametrize("adjust", [bhy_adjusted_p, holm_adjusted_p])

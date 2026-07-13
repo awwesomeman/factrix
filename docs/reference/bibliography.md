@@ -581,6 +581,17 @@ Bootstrap-based FWER step-down exploiting the joint dependence of
 test statistics; factrix's bootstrap-based FWER step-down option for
 the date-shared slice-test setting (e.g. universe pairwise IC).
 
+### Romano & Wolf (2016)
+[](){ #romano-wolf-2016 }
+
+Romano, J. P. & Wolf, M. (2016). "Efficient Computation of Adjusted
+P-Values for Resampling-Based Stepdown Multiple Testing."
+*Statistics & Probability Letters* 113, 38–40.
+
+Efficient suffix-maximum algorithm for converting joint null resampling
+statistics into monotone step-down adjusted p-values; the algorithm used
+by `romano_wolf_adjusted_p`.
+
 ### White (2000)
 [](){ #white-2000 }
 

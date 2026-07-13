@@ -1,10 +1,11 @@
 """Family-wise error rate (FWER) adjustments — Holm / Bonferroni / Romano-Wolf.
 
-The public Holm adjustment lives in ``factrix.stats.multiple_testing``; this
-module retains the Bonferroni baseline and Romano-Wolf kernel used by slice
-inference. These procedures control the *family-wise* error rate — probability
-of at least one false rejection — and target the slice-test setting where a
-small number of hypotheses are tested simultaneously.
+The public Holm and Romano-Wolf adjustments live in
+``factrix.stats.multiple_testing``; this module retains the Bonferroni baseline
+and compatibility wrappers for the former private call sites. These procedures
+control the *family-wise* error rate — probability of at least one false
+rejection — and target the slice-test setting where a small number of
+hypotheses are tested simultaneously.
 
 - **Bonferroni** — single-step ``p_adj_k = min(m * p_k, 1)``. Controls
   FWER under any dependence; uniformly the most conservative.
@@ -38,7 +39,7 @@ from collections.abc import Sequence
 import numpy as np
 import numpy.typing as npt
 
-from factrix.stats.multiple_testing import holm_adjusted_p
+from factrix.stats.multiple_testing import holm_adjusted_p, romano_wolf_adjusted_p
 
 
 def _validate_p(p_values: Sequence[float] | npt.ArrayLike) -> np.ndarray:
@@ -111,47 +112,10 @@ def romano_wolf(
     Returns:
         Adjusted p-values in input order, each in ``[0, 1]``.
     """
-    t = np.asarray(statistics, dtype=float)
-    boot = np.asarray(bootstrap_distribution, dtype=float)
-    m = len(t)
-    if m == 0:
-        return []
-    if boot.ndim != 2 or boot.shape[1] != m:
-        raise ValueError(
-            f"bootstrap_distribution must have shape (B, {m}); got {boot.shape}."
+    return list(
+        romano_wolf_adjusted_p(
+            statistics,
+            bootstrap_distribution,
+            one_sided=one_sided,
         )
-    if boot.shape[0] < 1:
-        raise ValueError("bootstrap_distribution must have at least 1 resample.")
-
-    # Two-sided default: collapse to absolute values up front so the
-    # max-over-remaining is computed on the right scale.
-    if one_sided:
-        t_use = t
-        boot_use = boot
-    else:
-        t_use = np.abs(t)
-        boot_use = np.abs(boot)
-
-    # Most-significant first: order by descending observed statistic.
-    desc_order = np.argsort(-t_use)
-    p_adj_desc = np.empty(m, dtype=float)
-    remaining = list(desc_order)
-    for j, k in enumerate(desc_order):
-        # max over the not-yet-rejected hypotheses, per bootstrap row.
-        max_remaining = boot_use[:, remaining].max(axis=1)
-        # Empirical p with +1 / (B+1) smoothing — keeps p strictly > 0
-        # so log-scale plotting / multi-stage stacks don't crash on a
-        # zero-count bootstrap tail. Standard Davison-Hinkley convention.
-        b = boot_use.shape[0]
-        p_adj_desc[j] = (np.sum(max_remaining >= t_use[k]) + 1.0) / (b + 1.0)
-        remaining = remaining[1:]
-
-    # Enforce monotonicity in descending-significance order: an earlier
-    # (more significant) rejection cannot have a larger adjusted p than
-    # a later one. Cummax over the sequence.
-    p_adj_desc = np.maximum.accumulate(p_adj_desc)
-    p_adj_desc = np.minimum(p_adj_desc, 1.0)
-
-    out = np.empty(m, dtype=float)
-    out[desc_order] = p_adj_desc
-    return list(out)
+    )

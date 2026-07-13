@@ -21,6 +21,7 @@ References:
 from __future__ import annotations
 
 from collections.abc import Callable
+from numbers import Integral
 
 import numpy as np
 
@@ -48,13 +49,18 @@ def stationary_bootstrap_resamples(
 ) -> np.ndarray:
     """Draw ``n_bootstrap`` stationary-bootstrap resamples of ``values``.
 
-    Each resample has the same length ``T`` as the input. Blocks have
-    geometric lengths with mean ``block_length`` — at each step there is
-    probability ``1/block_length`` of starting a new block at a random
-    position in the original series. Sampling is circular.
+    Each resample has the same length ``T`` as the input. One-dimensional
+    input returns ``(B, T)``; two-dimensional ``(T, m)`` input returns
+    ``(B, T, m)`` and applies the same sampled row indices to every column.
+    The latter preserves cross-hypothesis dependence for joint bootstrap
+    procedures such as Romano-Wolf. Blocks have geometric lengths with mean
+    ``block_length`` and sampling is circular.
 
     Args:
-        values: 1-D array of the original time series.
+        values: Finite ``(T,)`` time series or aligned ``(T, m)`` matrix.
+            Matrix columns are always resampled jointly; do not call the
+            function separately per column when cross-column dependence
+            matters.
         n_bootstrap: Number of resamples to draw.
         block_length: Mean geometric block length. Defaults to
             ``1.75 * T^(1/3)`` ([Politis-White (2004)][politis-white-2004] practical rule).
@@ -64,7 +70,8 @@ def stationary_bootstrap_resamples(
             reproducible.
 
     Returns:
-        ``(n_bootstrap, T)`` numpy array of resampled series.
+        ``(n_bootstrap, T)`` array for vector input or
+        ``(n_bootstrap, T, m)`` for matrix input.
 
     References:
         - [Politis & Romano (1994)][politis-romano-1994]. "The Stationary
@@ -79,9 +86,22 @@ def stationary_bootstrap_resamples(
     from factrix._stats.bootstrap import _stationary_block_indices
 
     values = np.asarray(values, dtype=float)
+    if values.ndim not in (1, 2):
+        raise ValueError(f"values must have shape (T,) or (T, m); got {values.shape}.")
+    if values.size and not np.all(np.isfinite(values)):
+        raise ValueError("values must be finite.")
+    if (
+        isinstance(n_bootstrap, bool)
+        or not isinstance(n_bootstrap, Integral)
+        or n_bootstrap < 1
+    ):
+        raise ValueError(
+            f"n_bootstrap must be a positive integer; got {n_bootstrap!r}."
+        )
+    n_bootstrap = int(n_bootstrap)
     n = len(values)
     if n == 0:
-        return np.empty((n_bootstrap, 0), dtype=float)
+        return np.empty((n_bootstrap, *values.shape), dtype=float)
 
     if block_length is None:
         block_length = _default_block_length(n)
@@ -131,6 +151,10 @@ def bootstrap_mean_ci(
     if not 0.0 < ci < 1.0:
         raise ValueError(f"ci must be in (0, 1), got {ci!r}")
     values = np.asarray(values, dtype=float)
+    if values.ndim != 1:
+        raise ValueError(
+            f"bootstrap_mean_ci: values must be 1-D; got shape {values.shape}."
+        )
     resamples = stationary_bootstrap_resamples(
         values,
         n_bootstrap=n_bootstrap,

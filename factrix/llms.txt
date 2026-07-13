@@ -15,7 +15,7 @@
 - [API — Multi-horizon](https://awwesomeman.github.io/factrix/api/multi-horizon/): multi-horizon evaluation recipes using evaluate_horizons + bhy(expand_over=)
 - [API — EvaluationResult](https://awwesomeman.github.io/factrix/api/evaluation-results/): unified result schema, to_dict() / to_frame()
 - [API — multi_factor](https://awwesomeman.github.io/factrix/api/multi-factor/): bhy() / bhy_hierarchical() / partial_conjunction() — FDR-corrected screening
-- [API — stats](https://awwesomeman.github.io/factrix/api/stats/): BHY FDR and Holm FWER adjusted p-values, dependent-series bootstrap helpers
+- [API — stats](https://awwesomeman.github.io/factrix/api/stats/): BHY FDR plus Holm and Romano-Wolf FWER adjusted p-values, dependent-series bootstrap helpers
 - [Reference — warning codes](https://awwesomeman.github.io/factrix/reference/warning-codes/): WarningCode enum
 - [Reference — metric applicability](https://awwesomeman.github.io/factrix/reference/metric-applicability/): which metrics apply to which axis combinations
 - [Full LLM reference](https://awwesomeman.github.io/factrix/llms-full.txt): single-fetch file covering concepts + API + usage patterns
