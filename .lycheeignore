@@ -35,6 +35,12 @@
 # checked).
 ^https://github\.com/[^/]+/[^/]+/edit/
 
+# GitHub returns 404 for the private repository's stargazers page when
+# lychee checks it without a browser login. Keep the README badge target
+# useful for authorized readers while excluding this permission-dependent
+# false positive only.
+^https://github\.com/awwesomeman/factrix/stargazers$
+
 # Academic publishers (Oxford Academic, Wiley Online Library, Taylor &
 # Francis) return 403 Forbidden to bot user-agents including the GitHub
 # Actions runner pool. The links resolve fine for humans; CI cannot
