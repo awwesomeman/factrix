@@ -33,6 +33,8 @@
 
 <h3 align="center"><b>Tests one factor. Screens a thousand.</b></h3>
 
+<p align="center"><a href="https://awwesomeman.github.io/factrix/latest/"><b>📖 Full documentation</b></a></p>
+
 ## Where factrix fits
 
 **Does this factor possess predictive edge?**
