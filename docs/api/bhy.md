@@ -119,6 +119,35 @@ The middle row is the one that used to require encoding the knob into the factor
 name. It no longer does: stamping `timeframe` on `params` makes each hypothesis
 uniquely identified while leaving them all in a single family.
 
+`evaluate()` itself takes no `params=` kwarg — a swept knob changes the input
+panel *upstream* of `evaluate()` (a different timeframe is a different panel),
+so `evaluate()` has no way to know it. The caller stamps `params` on the
+returned `EvaluationResult` with `dataclasses.replace`, same pattern as
+[`bhy_hierarchical`](bhy-hierarchical.md) and
+[`partial_conjunction`](partial-conjunction.md):
+
+```python
+import dataclasses
+
+import factrix as fx
+from factrix.metrics import ic
+
+# "Sweep timeframe and let the winner be picked across all of them" —
+# evaluate() returns dict[str, EvaluationResult]; pull the single result
+# and stamp the timeframe label onto it with dataclasses.replace so the
+# identifier stays unique without splitting the family.
+def stamp(panel, factor_col, **params):
+    res = fx.evaluate(panel, metrics={"ic": ic()}, factor_cols=[factor_col])[factor_col]
+    return dataclasses.replace(res, params=params)
+
+results = [
+    stamp(panel_1h, "mom", timeframe="1h"),
+    stamp(panel_4h, "mom", timeframe="4h"),
+    stamp(panel_1d, "mom", timeframe="1d"),
+]
+survivors = fx.multi_factor.bhy(results, metrics=["ic"], q=0.05)  # one step-up over all three
+```
+
 ## See also
 
 <div class="grid cards" markdown>
