@@ -16,6 +16,11 @@ _VALUE_REPR_CAP = 120
 _AVAILABLE_PREVIEW = 15
 
 
+def _api_docs_path(func_name: str, anchor: str) -> str:
+    """Return the deployed API path for a snake-case function name."""
+    return f"api/{func_name.replace('_', '-')}#{anchor}"
+
+
 def _truncate_repr(value: object) -> str:
     text = repr(value)
     if len(text) <= _VALUE_REPR_CAP:

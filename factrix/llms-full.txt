@@ -296,6 +296,24 @@ buckets do not control later horizon shopping.
 - `q`: Target FDR.
 - `n_tests`: Partition sizes.
 
+### `multi_factor.bhy_across_metrics`
+
+```python
+def bhy_across_metrics(
+    results: list[EvaluationResult],
+    *,
+    metrics: list[str],
+    expand_over: tuple[str, ...] = (),
+    q: float = 0.05,
+) -> CrossMetricBhyResult:
+```
+
+Pools all declared factor × metric cells into one BHY family. The survivor unit
+is a `MetricHypothesis`, not a factor; deduplicating survivors by factor does
+not provide factor-level FDR control. `insufficient_*` cells remain auditable
+with `active=False` and empty adjusted p-values but do not enter `n_tests`.
+Other missing or invalid p-values fail loudly.
+
 For lower-level multiplicity adjustment, `factrix.stats.bhy_adjusted_p`
 controls FDR when retaining a batch, while
 `factrix.stats.holm_adjusted_p` controls FWER when a search selects one winner
@@ -358,6 +376,24 @@ def partial_conjunction(
 ```
 
 Partial-conjunction screening: keeps factors significant in at least `min_pass` of `expand_over` conditions.
+
+### `multi_factor.partial_conjunction_across_metrics`
+
+```python
+def partial_conjunction_across_metrics(
+    results: list[EvaluationResult],
+    *,
+    metrics: list[str],
+    min_pass: int,
+    q: float = 0.05,
+) -> CrossMetricPartialConjunctionResult:
+```
+
+Treats the predeclared metric list as the fixed condition axis, computes one
+k-of-m p-value per factor identity, then runs BHY across identities. An
+`insufficient_*` endpoint is conservatively assigned p=1 rather than lowering
+m; an identity with fewer than k active endpoints stays in the audit output but
+does not enter the outer BHY family. Descriptive endpoints fail loudly.
 
 ---
 

@@ -1,18 +1,20 @@
-"""Collection-level FDR-control functions (``bhy`` / ``partial_conjunction``
-/ ``bhy_hierarchical``).
+"""Collection-level FDR control for per-metric and cross-metric families.
 
-All three accept ``list[EvaluationResult]`` and a list of
-:class:`~factrix._metric_index.metric label` records; each function runs
-one independent screen per metric and returns a
-``dict[metric_name, *Result]`` keyed by ``label`` (a single
-metric still returns a dict — no isinstance dispatch on the caller
-side).
+The original ``bhy`` / ``partial_conjunction`` / ``bhy_hierarchical``
+procedures run one independent screen per metric and return a
+``dict[metric_name, *Result]``. Cross-metric procedures share the
+``list[EvaluationResult]`` input but return one result with an explicit
+cell-level or factor-level survivor unit.
 
 Family declaration is explicit: the input list *is* the family,
 optionally split per-bucket via ``expand_over``. The base hypothesis
 identifier is ``(factor, forward_periods, *params)`` — every swept knob on
 ``EvaluationResult.params`` joins it automatically. ``expand_over`` only
 partitions the family; ``metadata`` never touches either.
+
+``bhy_across_metrics`` extends that identity with a metric label;
+``partial_conjunction_across_metrics`` treats the declared labels as a fixed
+k-of-m condition axis and returns factor-level identities.
 """
 
 from __future__ import annotations
@@ -22,13 +24,13 @@ import warnings
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from numbers import Real
+from numbers import Integral, Real
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import polars as pl
 
-from factrix._errors import UserInputError
+from factrix._errors import UserInputError, _api_docs_path
 from factrix._family import (
     _attach_p_values,
     _hypothesis_identity,
@@ -57,7 +59,7 @@ def _validate_metric_list(value: Any, *, func_name: str, field: str) -> list[str
     Used by ``bhy.metrics`` / ``compare.metrics`` so both surfaces give
     identical error messages for the same misuse.
     """
-    anchor = f"api/{func_name}#{field}"
+    anchor = _api_docs_path(func_name, field)
     if not isinstance(value, list):
         raise UserInputError(
             func_name=func_name,
@@ -86,6 +88,32 @@ def _validate_metric_list(value: Any, *, func_name: str, field: str) -> list[str
     return list(value)
 
 
+def _validate_cross_metric_list(value: Any, *, func_name: str) -> list[str]:
+    """Validate the ordered, unique metric axis for cross-metric screens."""
+    metrics = _validate_metric_list(value, func_name=func_name, field="metrics")
+    duplicates = sorted({name for name in metrics if metrics.count(name) > 1})
+    if duplicates:
+        raise UserInputError(
+            func_name=func_name,
+            field="metrics",
+            value=duplicates,
+            expected="unique metric labels; duplicates would repeat one hypothesis",
+            docs_path=_api_docs_path(func_name, "metrics"),
+        )
+    if len(metrics) < 2:
+        raise UserInputError(
+            func_name=func_name,
+            field="metrics",
+            value=metrics,
+            expected=(
+                "at least 2 metric labels for a cross-metric family; "
+                "use bhy() for one metric"
+            ),
+            docs_path=_api_docs_path(func_name, "metrics"),
+        )
+    return metrics
+
+
 def _validate_q(value: Any, *, func_name: str) -> float:
     """Validate the nominal FDR target shared by screening procedures."""
     if isinstance(value, bool) or not isinstance(value, Real):
@@ -94,7 +122,7 @@ def _validate_q(value: Any, *, func_name: str) -> float:
             field="q",
             value=value,
             expected="float in the open interval (0, 1)",
-            docs_path=f"api/{func_name}#q",
+            docs_path=_api_docs_path(func_name, "q"),
         )
     q = float(value)
     if not np.isfinite(q) or not 0.0 < q < 1.0:
@@ -103,7 +131,7 @@ def _validate_q(value: Any, *, func_name: str) -> float:
             field="q",
             value=value,
             expected="float in the open interval (0, 1)",
-            docs_path=f"api/{func_name}#q",
+            docs_path=_api_docs_path(func_name, "q"),
         )
     return q
 
@@ -126,7 +154,7 @@ def _require_non_empty_results(
                 "list[EvaluationResult], not the dict returned by evaluate() — "
                 "pass list(results.values())"
             ),
-            docs_path=f"api/{func_name}#results",
+            docs_path=_api_docs_path(func_name, "results"),
         )
     if not results:
         raise UserInputError(
@@ -134,7 +162,7 @@ def _require_non_empty_results(
             field="results",
             value=results,
             expected="non-empty list[EvaluationResult]",
-            docs_path=f"api/{func_name}#results",
+            docs_path=_api_docs_path(func_name, "results"),
         )
     from factrix._results import EvaluationResult
 
@@ -149,7 +177,7 @@ def _require_non_empty_results(
                     "evaluate(), pass list(results.values()); do not extend "
                     "a list with the dict itself, because that appends keys"
                 ),
-                docs_path=f"api/{func_name}#results",
+                docs_path=_api_docs_path(func_name, "results"),
             )
 
 
@@ -320,6 +348,110 @@ class BhyResult(_FdrResultBase):
         return headers, rows
 
 
+@dataclass(frozen=True, slots=True)
+class MetricHypothesis:
+    """One traceable ``EvaluationResult`` x metric hypothesis.
+
+    ``is_active=False`` marks an ``insufficient_*`` data-shortage cell. The
+    record remains auditable but is excluded from the BHY denominator.
+    """
+
+    result: EvaluationResult
+    metric_name: str
+    p_value: float
+    identifier: tuple[Any, ...]
+    expand_over_values: tuple[Any, ...]
+    is_active: bool
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class CrossMetricBhyResult:
+    """One BHY screen over a pooled factor x metric hypothesis family."""
+
+    entries: list[MetricHypothesis]
+    adj_p_all: np.ndarray
+    q: float
+    metrics: tuple[str, ...]
+    expand_over: tuple[str, ...]
+    n_tests: Mapping[tuple[Any, ...], int]
+
+    @property
+    def _survived(self) -> np.ndarray:
+        return self.adj_p_all <= self.q
+
+    @property
+    def survivors(self) -> list[MetricHypothesis]:
+        """Surviving factor x metric hypotheses in canonical order."""
+        return [e for e, ok in zip(self.entries, self._survived, strict=True) if ok]
+
+    @property
+    def adj_p(self) -> np.ndarray:
+        """Adjusted p-values aligned with :attr:`survivors`."""
+        return self.adj_p_all[self._survived]
+
+    def to_frame(self) -> pl.DataFrame:
+        """Return every tested cell, including inactive and eliminated rows."""
+        return pl.DataFrame(
+            {
+                "factor": [e.result.factor for e in self.entries],
+                "metric": [e.metric_name for e in self.entries],
+                "p_value": [e.p_value for e in self.entries],
+                "adj_p": self.adj_p_all,
+                "survived": self._survived,
+                "active": [e.is_active for e in self.entries],
+            }
+        )
+
+    def __len__(self) -> int:
+        return int(self._survived.sum())
+
+    def _header(self) -> str:
+        parts = [
+            f"metrics={list(self.metrics)!r}",
+            f"n={len(self.survivors)}",
+            f"q={self.q:g}",
+        ]
+        if self.expand_over:
+            parts.append(f"expand_over={list(self.expand_over)!r}")
+        return ", ".join(parts)
+
+    def _rows(self) -> tuple[tuple[str, ...], list[tuple[str, ...]]]:
+        if self.expand_over:
+            headers: tuple[str, ...] = (
+                "expand_over_values",
+                "factor",
+                "metric",
+                "adj_p",
+            )
+            rows: list[tuple[str, ...]] = [
+                (
+                    repr(entry.expand_over_values),
+                    entry.result.factor,
+                    entry.metric_name,
+                    f"{float(adj):.4g}",
+                )
+                for entry, adj in zip(self.survivors, self.adj_p, strict=True)
+            ]
+            return headers, rows
+        headers = ("factor", "metric", "adj_p")
+        rows = [
+            (entry.result.factor, entry.metric_name, f"{float(adj):.4g}")
+            for entry, adj in zip(self.survivors, self.adj_p, strict=True)
+        ]
+        return headers, rows
+
+    def __repr__(self) -> str:
+        head = f"{type(self).__name__}({self._header()})"
+        if not self.survivors:
+            return head
+        headers, rows = self._rows()
+        return f"{head}\n{_render_table(headers, rows)}"
+
+    def _repr_html_(self) -> str:
+        headers, rows = self._rows()
+        return _render_html(f"{type(self).__name__} ({self._header()})", headers, rows)
+
+
 @dataclass(frozen=True, slots=True, repr=False)
 class PartialConjunctionResult(_FdrResultBase):
     """Per-identity partial-conjunction survivors for one metric.
@@ -384,6 +516,105 @@ class PartialConjunctionResult(_FdrResultBase):
             if ok
         ]
         return headers, rows
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class CrossMetricPartialConjunctionResult:
+    """Factor-level k-of-m metric confirmation followed by BHY."""
+
+    entries: list[EvaluationResult]
+    hypotheses: list[MetricHypothesis]
+    adj_p_all: np.ndarray
+    pc_p_all: np.ndarray
+    q: float
+    metrics: tuple[str, ...]
+    min_pass: int
+    n_tests: Mapping[tuple[Any, ...], int]
+    n_active: Mapping[tuple[Any, ...], int]
+    n_identities: int
+    n_passed_uncorr_all: np.ndarray
+
+    @property
+    def _survived(self) -> np.ndarray:
+        return self.adj_p_all <= self.q
+
+    @property
+    def survivors(self) -> list[EvaluationResult]:
+        """Factor identities whose adjusted partial-conjunction p passes."""
+        return [e for e, ok in zip(self.entries, self._survived, strict=True) if ok]
+
+    @property
+    def adj_p(self) -> np.ndarray:
+        """Adjusted p-values aligned with :attr:`survivors`."""
+        return self.adj_p_all[self._survived]
+
+    def to_frame(self) -> pl.DataFrame:
+        """Return one row per factor identity, including ineligible rows."""
+        identities = [_hypothesis_identity(entry) for entry in self.entries]
+        return pl.DataFrame(
+            {
+                "factor": [entry.factor for entry in self.entries],
+                "pc_p": self.pc_p_all,
+                "adj_p": self.adj_p_all,
+                "survived": self._survived,
+                "active": [
+                    self.n_active[identity] >= self.min_pass for identity in identities
+                ],
+                "n_tests": [self.n_tests[identity] for identity in identities],
+                "n_active": [self.n_active[identity] for identity in identities],
+                "n_passed_uncorr": self.n_passed_uncorr_all,
+            }
+        )
+
+    def __len__(self) -> int:
+        return int(self._survived.sum())
+
+    def _header(self) -> str:
+        return (
+            f"metrics={list(self.metrics)!r}, n={len(self.survivors)}, "
+            f"q={self.q:g}, min_pass={self.min_pass}"
+        )
+
+    def _rows(self) -> tuple[tuple[str, ...], list[tuple[str, ...]]]:
+        identities = [_hypothesis_identity(entry) for entry in self.entries]
+        headers: tuple[str, ...] = (
+            "factor",
+            "pc_p",
+            "adj_p",
+            "n_tests",
+            "n_passed_uncorr",
+        )
+        rows: list[tuple[str, ...]] = [
+            (
+                entry.factor,
+                f"{float(pc):.4g}",
+                f"{float(adj):.4g}",
+                str(self.n_tests[identity]),
+                str(int(n_passed)),
+            )
+            for entry, identity, pc, adj, n_passed, ok in zip(
+                self.entries,
+                identities,
+                self.pc_p_all,
+                self.adj_p_all,
+                self.n_passed_uncorr_all,
+                self._survived,
+                strict=True,
+            )
+            if ok
+        ]
+        return headers, rows
+
+    def __repr__(self) -> str:
+        head = f"{type(self).__name__}({self._header()})"
+        if not self.survivors:
+            return head
+        headers, rows = self._rows()
+        return f"{head}\n{_render_table(headers, rows)}"
+
+    def _repr_html_(self) -> str:
+        headers, rows = self._rows()
+        return _render_html(f"{type(self).__name__} ({self._header()})", headers, rows)
 
 
 @dataclass(frozen=True, slots=True, repr=False)
@@ -481,7 +712,7 @@ def bhy(
     _require_non_empty_results(results, func_name="bhy")
     expand_over_tuple = tuple(expand_over)
 
-    _warn_on_mixed_horizons(results, expand_over=expand_over_tuple)
+    _warn_on_mixed_horizons(results, func_name="bhy", expand_over=expand_over_tuple)
 
     partition = _partition(results, func_name="bhy", expand_over=expand_over_tuple)
     buckets: dict[tuple[Any, ...], list[int]] = defaultdict(list)
@@ -530,6 +761,115 @@ def _is_insufficient_short_circuit(result: EvaluationResult, metric: str) -> boo
     """Return True when a metric output is a data-shortage placeholder."""
     reason = result.metrics[metric].metadata.get("reason")
     return isinstance(reason, str) and reason.startswith("insufficient_")
+
+
+def _normalize_metric_hypotheses(
+    results: Sequence[EvaluationResult],
+    *,
+    metrics: Sequence[str],
+    func_name: str,
+    expand_over: tuple[str, ...] = (),
+) -> list[MetricHypothesis]:
+    """Flatten results x metrics while preserving result-major order."""
+    partition = _partition(results, func_name=func_name, expand_over=expand_over)
+    attached = {
+        metric: _attach_p_values(partition, func_name=func_name, metric=metric)
+        for metric in metrics
+    }
+    hypotheses: list[MetricHypothesis] = []
+    for idx, partition_entry in enumerate(partition):
+        for metric in metrics:
+            p_value = attached[metric][idx].p_value
+            assert p_value is not None  # guaranteed by _attach_p_values
+            hypotheses.append(
+                MetricHypothesis(
+                    result=partition_entry.result,
+                    metric_name=metric,
+                    p_value=float(p_value),
+                    identifier=(*partition_entry.identifier, ("metric", metric)),
+                    expand_over_values=partition_entry.expand_over_values,
+                    is_active=not _is_insufficient_short_circuit(
+                        partition_entry.result, metric
+                    ),
+                )
+            )
+    return hypotheses
+
+
+def bhy_across_metrics(
+    results: list[EvaluationResult],
+    *,
+    metrics: list[str],
+    expand_over: tuple[str, ...] = (),
+    q: float = 0.05,
+) -> CrossMetricBhyResult:
+    """Pool factor x metric hypotheses into one BHY FDR family.
+
+    The survivor unit is one ``(EvaluationResult, metric label)`` cell. This
+    controls hypothesis-level FDR; deduplicating survivors by factor does not
+    create a factor-level FDR guarantee.
+
+    Args:
+        results: Unique :class:`EvaluationResult` hypotheses.
+        metrics: At least two unique inferential metric labels, in the desired
+            audit order.
+        expand_over: Result fields or ``params`` keys that partition the input
+            into separately reported families. Metrics stay pooled inside each
+            bucket.
+        q: Nominal FDR target in the open interval ``(0, 1)``.
+
+    Returns:
+        A :class:`CrossMetricBhyResult` containing every submitted cell.
+
+    Raises:
+        UserInputError: Inputs do not define a valid, traceable family or any
+            non-short-circuited metric cell has an invalid p-value.
+    """
+    metric_list = _validate_cross_metric_list(metrics, func_name="bhy_across_metrics")
+    q_target = _validate_q(q, func_name="bhy_across_metrics")
+    _require_non_empty_results(results, func_name="bhy_across_metrics")
+    expand_over_tuple = tuple(expand_over)
+    _warn_on_mixed_horizons(
+        results,
+        func_name="bhy_across_metrics",
+        expand_over=expand_over_tuple,
+    )
+
+    entries = _normalize_metric_hypotheses(
+        results,
+        metrics=metric_list,
+        func_name="bhy_across_metrics",
+        expand_over=expand_over_tuple,
+    )
+    buckets: dict[tuple[Any, ...], list[int]] = defaultdict(list)
+    for idx, entry in enumerate(entries):
+        if entry.is_active:
+            buckets[entry.expand_over_values].append(idx)
+
+    n_tests = {bucket_key: len(ix) for bucket_key, ix in buckets.items()}
+    singleton = sum(1 for ix in buckets.values() if len(ix) == 1)
+    if singleton and len(buckets) > 1:
+        warnings.warn(
+            f"bhy_across_metrics: {singleton} of {len(buckets)} expand_over "
+            "buckets contain a single active hypothesis; BHY on n=1 is "
+            "identical to a raw threshold and provides no FDR correction.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
+    adj_p_all = np.full(len(entries), np.nan, dtype=np.float64)
+    for ix in buckets.values():
+        p_array = np.array([entries[i].p_value for i in ix], dtype=np.float64)
+        adj_p_all[ix] = bhy_adjusted_p(p_array)
+
+    return CrossMetricBhyResult(
+        entries=entries,
+        adj_p_all=adj_p_all,
+        q=q_target,
+        metrics=tuple(metric_list),
+        expand_over=expand_over_tuple,
+        n_tests=n_tests,
+    )
 
 
 def partial_conjunction(
@@ -747,6 +1087,122 @@ def _partial_conjunction_one(
     )
 
 
+def partial_conjunction_across_metrics(
+    results: list[EvaluationResult],
+    *,
+    metrics: list[str],
+    min_pass: int,
+    q: float = 0.05,
+) -> CrossMetricPartialConjunctionResult:
+    """Test whether each factor identity passes at least k of m metrics.
+
+    Metric labels are the predeclared condition axis. For each result, the
+    Bonferroni-style partial-conjunction p-value is computed across the fixed
+    ``m=len(metrics)`` endpoints, then BHY runs across factor identities.
+    ``insufficient_*`` endpoints are conservatively assigned p=1 rather than
+    shrinking ``m``; identities with fewer than ``min_pass`` active endpoints
+    remain in the audit output but do not enter the outer BHY family.
+
+    Args:
+        results: Unique :class:`EvaluationResult` hypotheses. Horizon and all
+            ``params`` remain part of each factor identity.
+        metrics: At least two unique, predeclared inferential metric labels.
+        min_pass: ``k`` in the claim "at least k of m metrics carry signal".
+            Must satisfy ``2 <= min_pass <= len(metrics)``.
+        q: Nominal FDR target for BHY across factor identities.
+
+    Returns:
+        A :class:`CrossMetricPartialConjunctionResult` with factor-level
+        survivors and the underlying metric hypotheses retained for audit.
+
+    Raises:
+        UserInputError: Inputs, metric p-values, or ``min_pass`` violate the
+            declared k-of-m contract.
+    """
+    metric_list = _validate_cross_metric_list(
+        metrics, func_name="partial_conjunction_across_metrics"
+    )
+    if isinstance(min_pass, bool) or not isinstance(min_pass, Integral):
+        raise UserInputError(
+            func_name="partial_conjunction_across_metrics",
+            field="min_pass",
+            value=min_pass,
+            expected="integer satisfying 2 <= min_pass <= len(metrics)",
+            docs_path="api/partial-conjunction-across-metrics#min-pass",
+        )
+    min_pass_int = int(min_pass)
+    if not 2 <= min_pass_int <= len(metric_list):
+        raise UserInputError(
+            func_name="partial_conjunction_across_metrics",
+            field="min_pass",
+            value=min_pass,
+            expected=(
+                f"integer satisfying 2 <= min_pass <= len(metrics) ({len(metric_list)})"
+            ),
+            docs_path="api/partial-conjunction-across-metrics#min-pass",
+        )
+
+    q_target = _validate_q(q, func_name="partial_conjunction_across_metrics")
+    _require_non_empty_results(results, func_name="partial_conjunction_across_metrics")
+    _warn_on_mixed_horizons(
+        results,
+        func_name="partial_conjunction_across_metrics",
+        expand_over=(),
+        supports_expand_over=False,
+    )
+    hypotheses = _normalize_metric_hypotheses(
+        results,
+        metrics=metric_list,
+        func_name="partial_conjunction_across_metrics",
+    )
+
+    m = len(metric_list)
+    identifiers = [_hypothesis_identity(result) for result in results]
+    n_tests = {identity: m for identity in identifiers}
+    n_active: dict[tuple[Any, ...], int] = {}
+    pc_p_all = np.full(len(results), np.nan, dtype=np.float64)
+    n_passed = np.zeros(len(results), dtype=np.int64)
+    eligible: list[int] = []
+
+    for idx, identity in enumerate(identifiers):
+        conditions = hypotheses[idx * m : (idx + 1) * m]
+        active_count = sum(condition.is_active for condition in conditions)
+        n_active[identity] = active_count
+        n_passed[idx] = sum(
+            condition.is_active and condition.p_value < q_target
+            for condition in conditions
+        )
+        if active_count < min_pass_int:
+            continue
+        p_values = np.array(
+            [
+                condition.p_value if condition.is_active else 1.0
+                for condition in conditions
+            ],
+            dtype=np.float64,
+        )
+        pc_p_all[idx] = partial_conjunction_p(p_values, min_pass=min_pass_int)
+        eligible.append(idx)
+
+    adj_p_all = np.full(len(results), np.nan, dtype=np.float64)
+    if eligible:
+        adj_p_all[eligible] = bhy_adjusted_p(pc_p_all[eligible])
+
+    return CrossMetricPartialConjunctionResult(
+        entries=list(results),
+        hypotheses=hypotheses,
+        adj_p_all=adj_p_all,
+        pc_p_all=pc_p_all,
+        q=q_target,
+        metrics=tuple(metric_list),
+        min_pass=min_pass_int,
+        n_tests=n_tests,
+        n_active=n_active,
+        n_identities=len(eligible),
+        n_passed_uncorr_all=n_passed,
+    )
+
+
 def bhy_hierarchical(
     results: list[EvaluationResult],
     *,
@@ -894,19 +1350,30 @@ def _bhy_hierarchical_one(
 def _warn_on_mixed_horizons(
     results: Sequence[EvaluationResult],
     *,
+    func_name: str,
     expand_over: tuple[str, ...],
+    supports_expand_over: bool = True,
 ) -> None:
     if "forward_periods" in expand_over:
         return
     horizons = {r.forward_periods for r in results}
     if len(horizons) > 1:
+        hint = (
+            "Use expand_over=('forward_periods',) only when horizon screens "
+            "were predeclared and will be selected and reported separately; "
+            "it does not control global horizon shopping."
+            if supports_expand_over
+            else (
+                "For predeclared horizon-specific screens, filter the input by "
+                "horizon and call the function separately; separate calls do "
+                "not control later global horizon shopping."
+            )
+        )
         warnings.warn(
-            f"bhy: input mixes forward_periods={sorted(horizons)} but "
+            f"{func_name}: input mixes forward_periods={sorted(horizons)} but "
             "they are being pooled into one multiple-testing family. This is "
             "the correct choice when the research process may select across "
-            "horizons. Use expand_over=('forward_periods',) only when horizon "
-            "screens were predeclared and will be selected and reported "
-            "separately; it does not control global horizon shopping.",
+            f"horizons. {hint}",
             RuntimeWarning,
             stacklevel=3,
         )

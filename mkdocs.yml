@@ -186,7 +186,9 @@ nav:
           - Multi-factor:
               - Overview: api/multi-factor.md
               - bhy: api/bhy.md
+              - bhy_across_metrics: api/bhy-across-metrics.md
               - partial_conjunction: api/partial-conjunction.md
+              - partial_conjunction_across_metrics: api/partial-conjunction-across-metrics.md
               - bhy_hierarchical: api/bhy-hierarchical.md
           - Discovery:
               - metric_spec: api/metric-spec.md

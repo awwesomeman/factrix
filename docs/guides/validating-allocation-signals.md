@@ -110,11 +110,13 @@ select, not to every descriptive column in a report.
 | Select the best factor or horizon from a grid | Run `evaluate_horizons`, then call `bhy` without `expand_over`; keep factor × horizon hypotheses pooled |
 | Report predeclared horizon-specific screens without comparing them | `bhy(..., expand_over=("forward_periods",))` |
 | Require a factor to pass at least k of m horizons | `partial_conjunction(..., min_pass=k, expand_over=("forward_periods",))` |
+| Select factor × metric cells from one family | `bhy_across_metrics(...)`; the survivor unit remains a cell hypothesis |
+| Require a factor to pass at least k of m metrics | `partial_conjunction_across_metrics(..., min_pass=k)` |
 
-Do not run separate metric families and promote a factor when any one passes;
-that creates an uncorrected any-pass rule. Horizon suitability comes from the
-effective sample, overlap, and warning records—not a universal list of allowed
-horizon numbers.
+Do not deduplicate pooled cell survivors into factors and claim factor-level
+FDR; an any-metric-pass factor promotion is a different procedure. Horizon
+suitability comes from the effective sample, overlap, and warning records—not
+a universal list of allowed horizon numbers.
 
 With `strict=False`, data-shortage placeholders remain visible. `bhy` excludes
 outputs whose reason starts with `insufficient_` from the active test count and

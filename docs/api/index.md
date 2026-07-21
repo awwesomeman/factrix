@@ -26,7 +26,9 @@ flowchart TD
 
     subgraph Screen["FDR screening"]
         BHY[bhy]
+        XBHY[bhy across metrics]
         PC[partial conjunction]
+        XPC[partial conjunction across metrics]
         BHYH[hierarchical BHY]
     end
 
@@ -51,13 +53,18 @@ flowchart TD
     EVALP -.-> ST
     EVALP -.-> ID
     EV ==>|results| BHY
+    EV ==>|results| XBHY
     EV ==>|results| PC
+    EV ==>|results| XPC
     EV ==>|results| BHYH
     EV ==>|results| CMP
     EVH ==>|results| CMP
     EVH ==>|results| BHY
+    EVH ==>|results| XBHY
+    EVH ==>|results| XPC
     BHY ==>|survivors| CMP
     PC ==>|survivors| CMP
+    XPC ==>|survivors| CMP
     BHYH ==>|survivors| CMP
     LM -.-> EV
     MS -.-> EV
@@ -69,7 +76,9 @@ flowchart TD
     click BS "by-slice/" "by_slice API"
     click ST "slice-test/" "slice tests API"
     click BHY "multi-factor/" "bhy API"
+    click XBHY "bhy-across-metrics/" "bhy_across_metrics API"
     click PC "partial-conjunction/" "partial_conjunction API"
+    click XPC "partial-conjunction-across-metrics/" "partial_conjunction_across_metrics API"
     click BHYH "bhy-hierarchical/" "bhy_hierarchical API"
     click LM "metrics/#factrix.list_metrics" "list_metrics API"
     click MS "metrics/#factrix.metrics_summary" "metrics_summary API"
@@ -107,9 +116,9 @@ each requested horizon.
 - **Inference** produces a p-value for one hypothesis. `evaluate` and
   `evaluate_horizons` do this per factor; `slice_*_test` functions test across
   slices of one factor. None of these corrects for testing many candidates.
-- **Screening** starts after inference. `bhy`, `partial_conjunction`, and
-  `bhy_hierarchical` take `list[EvaluationResult]` and control false discoveries
-  across the declared family.
+- **Screening** starts after inference. The `multi_factor` procedures take
+  `list[EvaluationResult]` and control false discoveries across declared
+  factor, context, or metric families.
 - **Views** such as `by_slice` and `compare` arrange or rank results; they do
   not add another statistical test.
 
@@ -129,6 +138,8 @@ each requested horizon.
 | Metric catalog discovery, browse | `metrics_summary()` -> `pl.DataFrame` of `(family, metric, summary)` |
 | Per-panel applicability | `inspect_data(raw_or_panel)` -> `.usable` / `.degraded` / `.unusable` |
 | Multi-factor screening with FDR | `evaluate(...)` -> `multi_factor.bhy(list(results.values()), metrics=[...])` |
+| Cross-metric pooled FDR | `evaluate(...)` -> `multi_factor.bhy_across_metrics(list(results.values()), metrics=[...])` |
+| Factor confirmation across metrics | `evaluate(...)` -> `multi_factor.partial_conjunction_across_metrics(list(results.values()), metrics=[...], min_pass=k)` |
 | Cross-factor leaderboard | `compare(list(results.values()), metrics=[...])` -> `pl.DataFrame` |
 
 See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surface end-to-end.
@@ -145,7 +156,9 @@ See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surfac
 | [`slice_*_test` family](slice-test.md) | Inference (across slices) | Pairwise / omnibus tests over date-aligned or date-disjoint slice families. | Testing whether slice means differ. |
 | [`multi_factor`](multi-factor.md) | Screening (FDR) | Module-level overview of collection-level FDR functions. | Multi-factor FDR screening overview. |
 | [`bhy`](bhy.md) | Screening (FDR) | Benjamini-Hochberg-Yekutieli step-up FDR. | Screening candidate factors. |
+| [`bhy_across_metrics`](bhy-across-metrics.md) | Screening (FDR) | One pooled BHY family over factor × metric cells. | Selection may choose across metric labels. |
 | [`partial_conjunction`](partial-conjunction.md) | Screening (FDR) | k-of-m partial conjunction screening. | "Factor passes in k of m contexts." |
+| [`partial_conjunction_across_metrics`](partial-conjunction-across-metrics.md) | Screening (FDR) | Factor-level k-of-m confirmation across metrics. | "Factor passes on k of m endpoints." |
 | [`bhy_hierarchical`](bhy-hierarchical.md) | Screening (FDR) | Two-stage hierarchical BHY FDR. | Grouped / nested-context screening. |
 | [`compare`](compare.md) | Descriptive view | Cross-factor leaderboard; stacks evaluation results into a `pl.DataFrame`. | Ranking candidate factors. |
 | [`list_metrics`](metrics/index.md#factrix.list_metrics) | Introspection | Family-grouped catalog of public metric specs. | Programmatic browsing over the metric catalog. |

@@ -31,13 +31,13 @@ flowchart TD
     REG["Registry<br/>list[MetricSpec]"]
     DAG["DagExecutor<br/>computes dependency graph"]
     ER["EvaluationResult<br/>groups / metrics / warnings"]
-    BHY["multi_factor.bhy()<br/>BHY FDR correction"]
+    SCREEN["multi_factor<br/>FDR screening"]
 
     User -->|"evaluate(panel, metrics=[...])"| EVAL
     EVAL --> REG
     REG --> DAG
     DAG -->|"results"| ER
-    ER -->|"batch"| BHY
+    ER -->|"batch"| SCREEN
 ```
 
 The dispatch runs through a Directed Acyclic Graph (DAG) executor on a closed `list[MetricSpec]` rather than a registry-keyed procedure table.
@@ -46,12 +46,16 @@ The dispatch runs through a Directed Acyclic Graph (DAG) executor on a closed `l
 
 ## Public API surface
 
-Entry points, all in `factrix.__init__`:
+Primary public entry points:
 
 | Symbol | Purpose |
 |--------|---------|
 | `fx.evaluate(panel, metrics=...)` | Dispatch to the metrics applicable to the factor's cell |
 | `fx.multi_factor.bhy(results, *, metrics, expand_over=(), q=0.05)` | Benjamini-Hochberg-Yekutieli (BHY) false discovery rate (FDR) correction; one declared family per call (optionally split per-bucket via `expand_over`) |
+| `fx.multi_factor.bhy_across_metrics(results, *, metrics, expand_over=(), q=0.05)` | One pooled BHY family over factor × metric hypotheses, optionally partitioned by predeclared contexts |
+| `fx.multi_factor.partial_conjunction(results, *, metrics, min_pass, expand_over, ...)` | Factor confirmation in at least `min_pass` predeclared contexts |
+| `fx.multi_factor.partial_conjunction_across_metrics(results, *, metrics, min_pass, q=0.05)` | Factor confirmation on at least `min_pass` predeclared metric endpoints |
+| `fx.multi_factor.bhy_hierarchical(results, *, metrics, group, q=0.05)` | Two-stage FDR screening across and within predeclared groups |
 
 Plus introspection / error / enum re-exports:
 
@@ -684,10 +688,12 @@ producer owns calibration and records `alternative`; the family layer neither
 converts tails nor infers them from statistic signs. There is intentionally no
 generic one-sided-to-two-sided helper.
 
-EvaluationResult-based multiple-testing functions (`bhy`, `bhy_hierarchical`,
-and `partial_conjunction`) share a single internal pre-processing
-layer in `factrix/_family.py::_resolve_family`. Each function's procedure runs *after*
-the family-resolution invariants pass.
+`EvaluationResult`-based multiple-testing functions share partitioning and
+p-value resolution in `factrix/_family.py`. Single-metric procedures use
+`_resolve_family`; cross-metric procedures flatten the result × metric grid in
+`_multi_factor.py::_normalize_metric_hypotheses`, reusing `_partition` and
+`_attach_p_values`. Each procedure runs only after these family-resolution
+invariants pass.
 
 ### Two signature classes
 
@@ -697,10 +703,10 @@ ones:
 
 | Class | Functions | Signature shape |
 |-------|-------|-----------------|
-| Closed-form (p-value only) | `bhy` / `bhy_hierarchical` / `partial_conjunction` | `(results, *, metrics, expand_over, ...)` |
+| Closed-form (p-value only) | `bhy` / `bhy_across_metrics` / `bhy_hierarchical` / `partial_conjunction` / `partial_conjunction_across_metrics` | `(results, *, metrics, ...)`; `expand_over` is available only where the procedure supports separate context families |
 | Resampling-based | Not exposed at the `multi_factor` layer | Requires a future metric-specific panel and bootstrap contract; the low-level `stats.romano_wolf_adjusted_p` primitive is not this workflow |
 
-### `_resolve_family` four invariants
+### Family-resolution invariants
 
 For input `results: Sequence[EvaluationResult]`, `expand_over: Sequence[str] | None`,
 and `metric: str` (one resolved spec):
@@ -708,16 +714,23 @@ and `metric: str` (one resolved spec):
 1. `expand_over` names must be present in every result's `params`, except
    the built-in `forward_periods`; `factor` is rejected because it is an
    identity dimension, not a family partition.
-2. hypothesis key per result = `(factor, forward_periods) +
-   tuple(params[k] for k in expand_over if k != "forward_periods")`
-   must be unique across the input. `EvaluationResult.__hash__ = None`, so dedup
-   walks the tuple, not a hash.
+2. The hypothesis identity per result is `(factor, forward_periods,
+   *sorted(params.items()))` and must be unique across the input. Every declared
+   parameter therefore joins identity even when it does not partition the
+   family. `EvaluationResult.__hash__ = None`, so dedup walks the tuple, not a
+   result hash.
 3. The specified `metric` must have a computed `p_value` that is non-NaN,
    and must be populated on every result.
 4. Resolved `p_value` per entry: the p-value read from the specified `metric`.
 
-All three user-facing raises route through `factrix._errors.UserInputError`
-so fuzzy suggestions and docs links render uniformly.
+Cross-metric BHY adds the metric label to this identity. Cross-metric partial
+conjunction instead treats the predeclared metric list as a fixed condition
+axis: insufficient endpoints count as p=1 and do not reduce `m`; an identity
+with fewer than `min_pass` active endpoints remains auditable but does not enter
+the outer BHY family.
+
+All screening input errors route through `factrix._errors.UserInputError` so
+fuzzy suggestions and docs links render uniformly.
 
 ### `expand_over` semantics
 
@@ -810,8 +823,8 @@ factrix/
 ├── _results.py              # EvaluationResult / MetricResult / Warning dataclasses
 ├── _inspect.py              # inspect_data — typed data introspection with per-metric verdict
 ├── _compare.py              # compare — multi-metric leaderboard over EvaluationResult lists
-├── _family.py               # _resolve_family — shared family resolution for the FDR verbs
-├── _multi_factor.py         # bhy / partial_conjunction / bhy_hierarchical impls
+├── _family.py               # _partition / _attach_p_values / _resolve_family — shared FDR family resolution
+├── _multi_factor.py         # per-metric, cross-metric, partial-conjunction, and hierarchical FDR impls
 ├── multi_factor.py          # public namespace (re-exports the FDR verbs)
 ├── _data_input.py           # input-type gateway for public entry points
 ├── adapt.py                 # column-name adapter → factrix canonical names
@@ -842,7 +855,7 @@ Hard constraints — violating these breaks the API contract:
 3. The metric-spec SSOT is the `@metric` registration in each `factrix/metrics/*.py`, resolved through `factrix._metric_index` (`spec_by_name` / `public_specs` / `list_metrics`); no parallel rule table. `@metric`-class registration feeds the index via `factrix.metrics._registry.register`. Slice-boundary warnings read `MetricSpec.slice_boundary_sensitive`; aggregation categories are not a proxy rule table.
 4. The DAG executor is the single dispatch path. `DagExecutor` topologically orders specs by `MetricSpec.requires` (raising `CycleError` on cycles), runs `batchable=True` producers once per factor batch and `batchable=False` consumers once per factor, and short-circuits a downstream consumer with a NaN `MetricResult` + `WarningCode.UPSTREAM_UNAVAILABLE` rather than invoking it on missing upstream data.
 5. `MetricResult.p_value` is the single canonical p-value read path — `EvaluationResult.to_frame()` / `to_dict()`, `compare`, and the BHY family resolver all read it; the p-value lives only on the field and is not duplicated into `metadata`. A formal p-value and `alternative` (`two-sided` / `greater` / `less`) must be present together; p-values are finite and in `[0, 1]`. `warnings` flag interpretation risk but never rebind it.
-6. Family declaration is explicit: a screening verb's input list is one family, optionally split per bucket via `expand_over`. `_resolve_family` enforces (a) the hypothesis identity `(factor, forward_periods, *params)` is unique across the input — every `params` entry joins it automatically, while `metadata` never does, (b) `expand_over` names come only from `EvaluationResult.params` (or the built-in `forward_periods`), never the factor and never a `metadata` key, (c) `p_value` is populated everywhere before procedures read it. Mixed horizons warn so the caller confirms whether selection is pooled or predeclared per horizon.
+6. Family declaration is explicit: a screening verb's input list is one family, optionally split per bucket via `expand_over` where the API supports it. Shared resolution enforces (a) the result identity `(factor, forward_periods, *sorted(params.items()))` is unique across the input — every `params` entry joins it automatically, while `metadata` never does, (b) `expand_over` names come only from `EvaluationResult.params` (or the built-in `forward_periods`), never the factor and never a `metadata` key, (c) formal p-values are populated before procedures read them. Cross-metric BHY adds the metric label to the hypothesis identity; cross-metric partial conjunction keeps the predeclared metric count fixed under insufficient endpoints. Mixed horizons warn so the caller confirms whether selection is pooled or predeclared per horizon.
 7. `T < MIN_PERIODS_HARD` raises `InsufficientSampleError`; metrics never silently produce a result on under-sampled data. NW HAC lag selection on overlapping forward returns floors at `forward_periods - 1` (the Hansen-Hodrick floor) so serial correlation from overlap is not under-counted.
 
 For the user-facing field walk of `EvaluationResult` (and its
