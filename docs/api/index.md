@@ -174,3 +174,19 @@ Sidebar entries mirror the actual Python identifier:
 | `EvaluationResult` | Class | `fx.EvaluationResult` |
 | `evaluate`, `inspect_data` | Function | `fx.evaluate(panel, metrics=...)` |
 | `multi_factor`, `datasets`, `Metrics` | Module | `fx.multi_factor.bhy(list(results.values()), metrics=[...])` |
+
+An importable submodule is not automatically a callable. For example,
+`from factrix.metrics import spanning` can resolve the `spanning` module, so
+passing it to `inspect.signature()` or calling it raises `TypeError`. Import the
+documented function or class instead:
+
+```python
+from factrix.metrics import spanning_alpha
+from factrix.preprocess import orthogonalize_factor
+from factrix.stats import DriscollKraay
+```
+
+For registered metric names, use [`metrics_summary()` or `list_metrics()`](metrics/index.md#programmatic-discovery).
+For preprocessing, statistics, and slicing, use the identifiers listed in their
+API pages rather than inferring callability from module filenames or `dir()`
+output.

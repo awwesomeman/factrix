@@ -40,6 +40,7 @@ Then use the cross-reference pages by task:
 | How is the metric computed? | [Metric pipelines](../reference/metric-pipelines.md) |
 | Which `MetricResult` fields and metadata keys matter? | [Stat keys by metric](../reference/stat-keys-by-metric.md) |
 | Which metrics apply to my specific panel? | [`inspect_data`](../api/inspect-data.md) |
+| How should I validate an allocation signal? | [Validating allocation signals](validating-allocation-signals.md#small-universe-workflow) |
 
 ## Information coefficient (IC) vs Fama-MacBeth (FM)
 

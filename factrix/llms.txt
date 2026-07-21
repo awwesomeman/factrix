@@ -10,6 +10,7 @@
 - [Concepts](https://awwesomeman.github.io/factrix/getting-started/concepts/): FactorScope / FactorDensity / DataStructure / MetricSpec explained
 - [Quickstart](https://awwesomeman.github.io/factrix/getting-started/quickstart/): five-minute end-to-end example
 - [Guides](https://awwesomeman.github.io/factrix/guides/): Panel vs timeseries, large-scale evaluation, custom metrics, choosing a metric
+- [Guides — Validating allocation signals](https://awwesomeman.github.io/factrix/guides/validating-allocation-signals/): metric choice, small-universe diagnostics, cost boundaries, selection families, and robustness checks
 - [API — inspect_data](https://awwesomeman.github.io/factrix/api/inspect-data/): pre-flight data inspection
 - [API — evaluate](https://awwesomeman.github.io/factrix/api/evaluate/): single-factor and multi-factor evaluation entry point
 - [API — Multi-horizon](https://awwesomeman.github.io/factrix/api/multi-horizon/): multi-horizon evaluation recipes using evaluate_horizons + bhy(expand_over=)

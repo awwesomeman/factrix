@@ -116,8 +116,8 @@ portfolio/backtest layer.
 question is about asset classes, regions, or sectors, join user-supplied labels
 to the `compute_common_betas(...)[factor]` table and summarize the same sign
 and dispersion fields by group. Missing labels should be named explicitly
-rather than silently dropped. For the allocation workflow around this profile,
-see [Allocation-style experiments](../../guides/allocation-experiment.md#common-macro-factors-and-heterogeneous-betas).
+rather than silently dropped. For guidance on matching metrics to allocation
+signals, see [Validating allocation signals](../../guides/validating-allocation-signals.md#match-the-metric-to-the-signal).
 
 ```python
 import polars as pl
