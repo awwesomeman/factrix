@@ -96,87 +96,86 @@ This is not a production backtest. It is a diagnostic allocation proxy:
 equal-weight top bucket, equal-weight bottom bucket, no turnover costs, no
 borrow constraints, no capacity model, and no weight optimization.
 
+Add the built-in cost helpers only when their units match that proxy:
+
+```python
+from factrix.metrics import breakeven_cost, net_spread, notional_turnover
+
+gross_spread = float(series["spread"].drop_nulls().mean())
+turnover = notional_turnover(
+    panel, factor_col="composite_signal", n_groups=5, forward_periods=5
+)
+breakeven = breakeven_cost(gross_spread, turnover.value, forward_periods=5)
+after_cost = net_spread(
+    gross_spread, turnover.value, estimated_cost_bps=10, forward_periods=5
+)
+```
+
+`notional_turnover` measures membership churn in the same equal-weight
+top/bottom construction; `breakeven_cost` and `net_spread` assume that turnover
+and a single-leg cost. They do not price a long-only or custom-weight portfolio.
+For those portfolios, compute turnover, slippage, market impact, and capacity
+from the actual target weights downstream. `rank_turnover` measures rank
+stability and is not a cost input. See [Tradability](../api/metrics/tradability.md)
+for the formulas and units.
+
 ## Small universes
 
-If the universe is small, reduce the number of groups or use the fixed-count
-spread. With only five assets, `n_groups=5` means one asset per bucket, so the
-spread is dominated by individual names. `n_groups=2` is the coarsest useful
-long-short split, while `k_spread(k=1)` / `k_spread(k=2)` states the leg size
-directly.
+Small cross-sections reduce power; they do not change the research question.
+Choose the first-pass metric by estimand, then add diagnostics:
+
+| Question | Evidence | Selection role |
+|---|---|---|
+| Does the signal rank future returns? | `ic(inference=fx.inference.NEWEY_WEST)` | First-pass inference for a ranking strategy |
+| Is return linear in exposure units? | `fm_beta()` | First-pass inference for an exposure-premium strategy |
+| Does the signal predict absolute up/down direction? | `directional_hit_rate()` | Inferential only when sign prediction is the objective; not a substitute for rank IC |
+| Does the higher-scored asset beat the lower-scored asset? | `directional_pair_accuracy()` | Descriptive; same-date pairs are dependent, so `p_value=None` |
+| Is IC stable through time? | `ic_ir()` | Descriptive; use `ic` for mean-IC inference |
+| Is the payoff shape economically coherent? | `k_spread()`, `quantile_spread()`, `monotonicity()` | Supplementary; tiny legs make spread and shape fragile |
+
+For spread diagnostics, reduce `n_groups` or state the leg size directly with
+`k_spread`. With five assets, five quantiles leave one name per bucket; that is
+an individual-name diagnostic, not diversified portfolio evidence.
 
 ```python
-from factrix.metrics import k_spread
+from factrix.metrics import directional_hit_rate, directional_pair_accuracy, ic
+from factrix.metrics import ic_ir, k_spread
 
-series = compute_spread_series(
-    panel,
-    factor_cols=["factor"],
-    forward_periods=5,
-    n_groups=2,
-)["factor"]
+small_assets = panel["asset_id"].unique().sort().head(6).to_list()
+small_panel = panel.filter(pl.col("asset_id").is_in(small_assets))
 
-spread_metric = k_spread(panel, forward_periods=5, k=2)
-print(spread_metric.value, spread_metric.p_value, spread_metric.metadata["method"])
-```
-
-When even `k=1` is too noisy, treat the result as a fragile
-small-cross-section diagnostic rather than a portfolio claim. Pair it with
-`directional_hit_rate` when the question is "does the signal get the direction
-right?" and with `directional_pair_accuracy` when the question is "does the
-higher-scored asset usually beat the lower-scored asset on the same date?"
-
-```python
-from factrix.metrics import directional_hit_rate, directional_pair_accuracy
-
-hit = directional_hit_rate(panel, forward_periods=5)
-print(hit.value, hit.p_value, hit.metadata["p_expected"])
-
-ordering = directional_pair_accuracy(panel, forward_periods=5)
-print(ordering.value, ordering.p_value, ordering.metadata["n_pairs"])
-```
-
-For 5-20 asset panels, read IC / FM output as the canonical inference layer when
-available, but expect `WarningCode.FEW_ASSETS` on thin cross-sections. The
-small-N spread and directional diagnostics are supplementary; they do not
-replace the canonical p-value family for screening.
-
-## Country-level momentum
-
-Country equity, rates, FX, or commodity momentum is usually an
-asset-specific dense signal: each asset has its own score on each date. Keep it
-in the `Individual × Dense` cell and read a small set of complementary
-diagnostics:
-
-```python
-from factrix.metrics import directional_hit_rate, directional_pair_accuracy, fm_beta, k_spread
-
-country_panel = panel.rename({"factor": "country_momentum"})
-
-country = fx.evaluate(
-    country_panel,
+small = fx.evaluate(
+    small_panel,
     metrics={
-        "fm": fm_beta(),
+        "ic": ic(inference=fx.inference.NEWEY_WEST),
+        "ic_ir": ic_ir(),
         "spread": k_spread(k=2),
         "direction": directional_hit_rate(),
         "ordering": directional_pair_accuracy(),
     },
-    factor_cols=["country_momentum"],
+    factor_cols=["factor"],
     forward_periods=5,
     strict=False,
+    expected_warnings=("few_assets",),
 )
 
-result = country["country_momentum"]
-print(result.metrics["fm"].value, result.metrics["fm"].p_value)
-print(result.metrics["spread"].value, result.metrics["spread"].p_value)
-print(result.metrics["direction"].value, result.metrics["direction"].p_value)
-print(result.metrics["ordering"].value, result.metrics["ordering"].p_value)
+result = small["factor"]
+print(result.metrics["ic"].p_value)
+print(result.metrics["ic_ir"].p_value)       # None: descriptive
+print(result.metrics["ordering"].p_value)    # None: descriptive
+print(result.unexpected_warnings)             # alerts not declared above
 ```
 
-`fm_beta` keeps the economic unit of the signal, `k_spread` gives a
-fixed-count long-short read when the asset universe is small, and
-`directional_hit_rate` checks whether the signal gets the sign right.
-`directional_pair_accuracy` checks same-date rank ordering without turning
-within-date pairs into a naive p-value. Treat the set as factor diagnostics, not
-as a completed allocation rule.
+`expected_warnings` marks matching records as expected and quiets their repeated
+`UserWarning` echo. It does not remove records, alter p-values, or change an
+estimator; inspect the full audit trail through `result.warnings`. Leave other
+codes undeclared so `result.unexpected_warnings` remains an actionable alert
+view.
+
+After the primary screen, use [slice analysis](slice-analysis.md),
+[`spanning_alpha`](../api/metrics/spanning.md), and
+[`pooled_beta`](../api/metrics/fm_beta.md) as follow-up robustness evidence.
+Do not turn several supplementary reads into an unregistered "any-pass" gate.
 
 ## Common macro factors and heterogeneous betas
 
@@ -391,7 +390,7 @@ Date-axis slicing can truncate history for metrics that look across dates
 metrics such as IC / FM, a date-axis split is closer to a normal period
 decomposition.
 
-## Multi-factor screens
+## Multiple testing and horizons
 
 After evaluating many candidate factors, pass the `EvaluationResult` values to
 BHY false discovery rate control. Build a panel with several factor columns —
@@ -417,10 +416,25 @@ bhy_ic = fx.multi_factor.bhy(list(results.values()), metrics=["ic"], q=0.05)["ic
 print([r.factor for r in bhy_ic.survivors])
 ```
 
+Declare the family from the decision the research process can make:
+
+| Research decision | Family declaration |
+|---|---|
+| Select the best factor or horizon from the full grid | Run `evaluate_horizons`, then call `bhy` without `expand_over`; all factor × horizon hypotheses stay pooled |
+| Report predeclared horizon-specific screens without comparing them | `bhy(..., expand_over=("forward_periods",))` |
+| Require a factor to pass at least k of m horizons | `partial_conjunction(..., min_pass=k, expand_over=("forward_periods",))` |
+
+Do not split families by horizon and later choose the best bucket: that leaves
+the cross-horizon selection uncorrected. Horizon suitability comes from the
+effective sample, overlap, and warning records—not from a universal list of
+allowed horizon numbers. See [Multi-horizon evaluation](../api/multi-horizon.md)
+and [Multi-factor screening](../api/multi-factor.md) for the APIs.
+
 `strict=False` is useful for sensitivity grids where some small-universe cells
-may be too thin for a metric. Data-shortage placeholders are kept in
-`evaluate` output for inspection, while `bhy` excludes `insufficient_*`
-placeholders from the tested family.
+may be too thin for a metric. Data-shortage placeholders remain in `evaluate`
+output for inspection. `bhy` excludes outputs whose reason starts with
+`insufficient_` from the active test count and leaves their adjusted p-value
+empty; other missing or invalid p-values still fail loudly.
 
 ## Windows console output
 

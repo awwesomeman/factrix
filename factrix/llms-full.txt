@@ -155,6 +155,36 @@ print("Predictive beta:", res.metrics["predictive_beta"].value)
 print("p-value:", res.metrics["predictive_beta"].p_value)
 ```
 
+### 4. Small-universe allocation
+
+Small cross-sections reduce power; they do not change the estimand. For an
+`Individual × Dense` allocation panel:
+
+| Research question | Evidence | Role |
+|---|---|---|
+| Rank future returns | `ic(inference=fx.inference.NEWEY_WEST)` | First-pass inference for ranking |
+| Estimate premium per exposure unit | `fm_beta()` | First-pass inference for linear exposure |
+| Predict absolute up/down direction | `directional_hit_rate()` | Inferential only when sign prediction is the objective; not a rank-IC substitute |
+| Check same-date pair ordering | `directional_pair_accuracy()` | Descriptive (`p_value=None`) |
+| Check IC stability | `ic_ir()` | Descriptive; use `ic` for mean-IC inference |
+| Inspect payoff shape | `k_spread()`, `quantile_spread()`, `monotonicity()` | Supplementary; tiny legs are fragile |
+
+- A by-design thin study may pass `expected_warnings=("few_assets",)` to
+  `evaluate`. The warning record remains marked `expected=True`, inference is
+  unchanged, and `result.unexpected_warnings` remains the alert view.
+- Keep all factor × horizon hypotheses pooled in `bhy` when the workflow may
+  select the best combination. Use `expand_over=("forward_periods",)` only for
+  separately reported, predeclared horizon screens; use `partial_conjunction`
+  for a predeclared k-of-m horizon rule.
+- `notional_turnover` → `breakeven_cost` / `net_spread` models the matching
+  equal-weight top/bottom proxy. A long-only or custom-weight portfolio must
+  compute turnover and execution costs from its actual weights downstream;
+  `rank_turnover` is not a cost input.
+- Treat `by_slice`, `spanning_alpha`, and `pooled_beta` as follow-up robustness
+  evidence, not an unregistered any-pass promotion gate.
+
+Full workflow: https://awwesomeman.github.io/factrix/guides/allocation-experiment/
+
 ---
 
 ## Public API
