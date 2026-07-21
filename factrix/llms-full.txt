@@ -155,7 +155,7 @@ print("Predictive beta:", res.metrics["predictive_beta"].value)
 print("p-value:", res.metrics["predictive_beta"].p_value)
 ```
 
-### 4. Small-universe allocation
+### 4. Allocation signal validation
 
 Small cross-sections reduce power; they do not change the estimand. For an
 `Individual × Dense` allocation panel:
@@ -183,7 +183,7 @@ Small cross-sections reduce power; they do not change the estimand. For an
 - Treat `by_slice`, `spanning_alpha`, and `pooled_beta` as follow-up robustness
   evidence, not an unregistered any-pass promotion gate.
 
-Full workflow: https://awwesomeman.github.io/factrix/guides/allocation-experiment/
+Full workflow: https://awwesomeman.github.io/factrix/guides/validating-allocation-signals/
 
 ---
 

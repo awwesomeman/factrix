@@ -155,7 +155,7 @@ nav:
           - Choosing a metric: guides/choosing-metric.md
           - Panel vs timeseries: guides/panel-timeseries.md
           - Reading results: guides/reading-results.md
-          - Allocation-style experiments: guides/allocation-experiment.md
+          - Validating allocation signals: guides/validating-allocation-signals.md
           - Observability: guides/observability.md
           - Large-scale evaluation: guides/large-scale-evaluation.md
           - Slice analysis: guides/slice-analysis.md

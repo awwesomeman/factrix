@@ -83,14 +83,14 @@ title: factrix.metrics.directional_pair_accuracy
 
     [guides/choosing-metric](../../guides/choosing-metric.md)
 
--   __Allocation-style experiments__
+-   __Validating allocation signals__
 
     ---
 
     How to use small-N diagnostics without treating them as portfolio
     optimizers or backtests.
 
-    [guides/allocation-experiment](../../guides/allocation-experiment.md)
+    [guides/validating-allocation-signals](../../guides/validating-allocation-signals.md#small-universe-workflow)
 
 -   __Metric applicability reference__
 
