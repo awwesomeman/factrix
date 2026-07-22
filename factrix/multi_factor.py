@@ -3,9 +3,6 @@
 The original per-metric procedures return one result container per metric
 label. Cross-metric procedures return one container whose survivor unit is
 explicitly either a factor-by-metric hypothesis or a factor identity.
-
-Cross-metric procedures return one result whose survivor unit is explicitly
-either a factor-by-metric hypothesis or a factor identity.
 """
 
 from factrix._multi_factor import (
