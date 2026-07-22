@@ -12,10 +12,11 @@ References:
     - [Politis & Romano (1994)][politis-romano-1994], "The Stationary
       Bootstrap."
     - [Politis & White (2004)][politis-white-2004], "Automatic Block-
-      Length Selection for the Dependent Bootstrap." Full procedure
-      requires spectral-density estimation; this module falls back to
-      the practical ``L = round(1.75 * T^(1/3))`` rule when
-      ``block_length=None``.
+      Length Selection for the Dependent Bootstrap." ``block_length=None``
+      runs the same spectral plug-in used by ``factrix.stats.BlockBootstrap``
+      (via ``factrix._stats.bootstrap._politis_white_block_length``), so
+      "auto" means one calibrated estimate everywhere in the library rather
+      than a cruder standalone default.
 """
 
 from __future__ import annotations
@@ -26,18 +27,27 @@ from numbers import Integral
 import numpy as np
 
 
-def _default_block_length(n: int) -> float:
-    """Practical fallback per [Politis-White (2004)][politis-white-2004] commentary.
+def _resolve_auto_block_length(values: np.ndarray) -> float:
+    """Politis-White (2004) block length, shared with ``BlockBootstrap``.
 
-    Full PW picks ``L`` from a plug-in of the spectral density; that
-    needs another set of choices we don't want to inherit here. The
-    ``1.75 * T^(1/3)`` rule is the widely-cited pragmatic compromise
-    (same cube-root cadence as [Newey-West (1994)][newey-west-1994], slightly larger constant
-    because the stationary bootstrap's kernel is different).
+    Matrix input resamples every column under one shared row-index draw
+    (see ``stationary_bootstrap_resamples``), so a single block length must
+    serve all columns. Taking the max of the per-column spectral estimates
+    is the conservative choice — under-blocking the most persistent column
+    would understate its dependence in the joint resample.
     """
-    if n < 2:
-        return 1.0
-    return max(1.0, 1.75 * (n ** (1.0 / 3.0)))
+    from factrix._stats.bootstrap import _politis_white_block_length
+
+    if values.ndim == 1:
+        return _politis_white_block_length(values, scheme="stationary")
+    if values.shape[1] == 0:
+        return _politis_white_block_length(
+            np.zeros(values.shape[0]), scheme="stationary"
+        )
+    return max(
+        _politis_white_block_length(values[:, j], scheme="stationary")
+        for j in range(values.shape[1])
+    )
 
 
 def stationary_bootstrap_resamples(
@@ -62,10 +72,11 @@ def stationary_bootstrap_resamples(
             function separately per column when cross-column dependence
             matters.
         n_bootstrap: Number of resamples to draw.
-        block_length: Mean geometric block length. Defaults to
-            ``1.75 * T^(1/3)`` ([Politis-White (2004)][politis-white-2004] practical rule).
-            Must be ``>= 1``; block_length=1 reduces to the ordinary
-            iid bootstrap (Efron).
+        block_length: Mean geometric block length. Defaults to the
+            [Politis-White (2004)][politis-white-2004] automatic spectral
+            plug-in (falling back to the practical ``1.75 * T^(1/3)`` rule
+            when the series is too short or degenerate). Must be ``>= 1``;
+            block_length=1 reduces to the ordinary iid bootstrap (Efron).
         seed: Seed for ``np.random.default_rng`` to make the resample
             reproducible.
 
@@ -80,8 +91,8 @@ def stationary_bootstrap_resamples(
           block lengths — the resampling scheme this function implements.
         - [Politis & White (2004)][politis-white-2004]. "Automatic Block-
           Length Selection for the Dependent Bootstrap." Econometric
-          Reviews, 23(1), 53–70. Source of the practical ``1.75 * T^(1/3)``
-          block-length default.
+          Reviews, 23(1), 53–70. Source of the spectral plug-in
+          ``block_length=None`` resolves to.
     """
     from factrix._stats.bootstrap import _stationary_block_indices
 
@@ -104,7 +115,7 @@ def stationary_bootstrap_resamples(
         return np.empty((n_bootstrap, *values.shape), dtype=float)
 
     if block_length is None:
-        block_length = _default_block_length(n)
+        block_length = _resolve_auto_block_length(values)
     if block_length < 1.0:
         raise ValueError(f"block_length must be >= 1.0, got {block_length!r}")
 
