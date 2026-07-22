@@ -127,14 +127,16 @@ are valid there and `ic` never changes the method for you.
 
 ### NW vs HH-1980 vs Hodrick-1992 — when to use which
 
-The three procedures all target overlap-induced SE distortion but at
-different points in the bias-variance trade-off:
+The first three procedures target overlap-induced SE distortion; the
+stationary bootstrap targets the same distortion plus the normal-
+approximation assumption all three analytic methods still make:
 
 | Procedure | Mechanism | Strengths | Weaknesses | Where factrix uses it |
 |---|---|---|---|---|
 | **Newey-West (1987)** | Bartlett-kernel HAC on the full overlapping series, bandwidth `L = max(bandwidth_base, h−1)`. | Simple, deterministic, asymptotically valid for arbitrary autocorrelation up to `L`. | Asymptotic Gaussian — finite-sample size distortion when `h/T` is non-trivial; bandwidth rule is conservative. | `ic` (with `NeweyWest` inference), `fm_beta` stage 2, `pooled_beta`, `common_quantile_spread`, `common_asymmetry`. |
 | **Hansen-Hodrick (HH) (1980)** | A generalized method of moments (GMM)-style HAC estimator with a rectangular kernel truncated at `h−1`; the canonical reference for overlap-aware long-horizon SEs. | Targets the MA(`h−1`) residual structure overlap induces. | Rectangular kernel can yield a non-PSD covariance matrix in finite samples; still asymptotic. | Exposed as `factrix.inference.HANSEN_HODRICK` (rectangular-kernel SE → t-statistic → two-sided p-value); also borrows the `h−1` lag idea as a floor on the NW bandwidth above. |
 | **Hodrick (1992) "1B"** | Reverse-regression: regress one-period return on the predictor sum `X_t = Σ x_{t-j}` over the last `h` periods. | Size-correct in finite samples even at large `h/T`; no bandwidth choice. | Coefficient interpretation differs — `β` is the response to a cumulative-predictor stimulus (MA on the RHS) rather than a long-horizon forecast slope (MA on the LHS in the standard form); not a drop-in replacement for the canonical `β`. | **Not implemented**. Cited as the right tool when overlap is severe; the `Individual × Continuous` cell side-steps the issue with non-overlapping resampling instead. |
+| **Stationary bootstrap (Politis-Romano 1994)** | Block-resamples the series (geometric block length, Politis-White 2004 automatic selection), centred under `H0`, and reports the empirical two-sided p from the resampled means. | No normality or asymptotic-variance assumption at all — valid when the IC/return distribution is heavy-tailed or skewed enough that NW's / HH's Gaussian p-value is itself suspect. | Heavier to compute (resampling, not closed-form); the reported `stat` is the observed mean, not a studentized ratio. | Exposed as `factrix.inference.STATIONARY_BOOTSTRAP` on `ic` only — `quantile_spread` / `k_spread` dispatch on a hard `isinstance(NeweyWest)` check that would need to go polymorphic first. |
 
 Practical rule of thumb:
 
@@ -146,6 +148,10 @@ Practical rule of thumb:
   defaults) over NW. If a slope estimate is needed and resampling
   burns too much sample, Hodrick-1992 1B is the literature-preferred
   alternative; pre-compute externally.
+- Distribution itself in doubt (heavy tails, skew) regardless of `h/T`:
+  prefer `STATIONARY_BOOTSTRAP` over any of the analytic methods above —
+  it is the only one of the four that does not assume asymptotic
+  normality.
 
 ---
 
