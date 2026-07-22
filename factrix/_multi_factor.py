@@ -214,36 +214,28 @@ def _render_html(
     )
 
 
-@dataclass(frozen=True, slots=True, repr=False)
-class _FdrResultBase:
-    """Shared fields and render protocol for the FDR survivor result trio.
+class _ScreenResultMixin:
+    """Shared survivor / adjusted-p / repr protocol for FDR screen results.
 
-    Carries the fields common to :class:`BhyResult`,
-    :class:`PartialConjunctionResult`, and :class:`HierarchicalBhyResult`
-    plus the ``__len__`` / ``__repr__`` / ``_repr_html_`` machinery.
-    Subclasses append their own fields and supply ``_header`` / ``_rows``.
+    Plain (non-dataclass) mixin so every screen result — single-metric or
+    cross-metric, keyed by :class:`EvaluationResult` or
+    :class:`MetricHypothesis` — shares one ``__len__`` / ``__repr__`` /
+    ``_repr_html_`` implementation instead of each concrete result
+    reimplementing it. Concrete classes provide ``entries`` / ``adj_p_all`` /
+    ``q`` as dataclass fields plus ``_header`` / ``_rows`` for rendering.
 
     The canonical store is the **full** tested family — ``entries`` with
-    ``adj_p_all`` aligned to it — so the eliminated factors' adjusted
-    p-values survive (a screen of N factors passing 2 still shows how far
-    the other N-2 sat from the threshold). :attr:`survivors` / :attr:`adj_p`
-    are the surviving subset, derived on access.
-
-    Common attributes:
-        metric_name: ``label`` of the metric driving the screen;
-            also the key under which the record is returned.
-        entries: Every tested :class:`EvaluationResult`, in input order.
-        adj_p_all: BHY-adjusted p-value aligned with ``entries``; ``NaN``
-            for an entry dropped before the family formed (data shortage).
-        q: Nominal FDR target; must satisfy ``0 < q < 1``.
-        n_tests: Per-bucket / per-identity family size keyed by tuple.
+    ``adj_p_all`` aligned to it — so eliminated entries' adjusted p-values
+    survive (a screen of N passing 2 still shows how far the other N-2 sat
+    from the threshold). :attr:`survivors` / :attr:`adj_p` are the surviving
+    subset, derived on access.
     """
 
-    metric_name: str
-    entries: list[EvaluationResult]
+    __slots__ = ()
+
+    entries: Sequence[Any]
     adj_p_all: np.ndarray
     q: float
-    n_tests: Mapping[tuple[Any, ...], int]
 
     @property
     def _survived(self) -> np.ndarray:
@@ -255,29 +247,14 @@ class _FdrResultBase:
         return self.adj_p_all <= self.q
 
     @property
-    def survivors(self) -> list[EvaluationResult]:
-        """The surviving :class:`EvaluationResult` records, input order."""
+    def survivors(self) -> list[Any]:
+        """The surviving entries, input order."""
         return [e for e, ok in zip(self.entries, self._survived, strict=True) if ok]
 
     @property
     def adj_p(self) -> np.ndarray:
-        """BHY-adjusted p-value for the survivors, aligned with :attr:`survivors`."""
+        """Adjusted p-value for the survivors, aligned with :attr:`survivors`."""
         return self.adj_p_all[self._survived]
-
-    def to_frame(self) -> pl.DataFrame:
-        """Every tested factor with its adjusted p-value and survive flag.
-
-        Columns ``factor`` / ``adj_p`` / ``survived``, one row per tested
-        factor (input order) — including the eliminated ones that
-        :attr:`survivors` and :attr:`adj_p` drop.
-        """
-        return pl.DataFrame(
-            {
-                "factor": [e.factor for e in self.entries],
-                "adj_p": self.adj_p_all,
-                "survived": self._survived,
-            }
-        )
 
     def __len__(self) -> int:
         return int(self._survived.sum())
@@ -298,6 +275,46 @@ class _FdrResultBase:
     def _repr_html_(self) -> str:
         headers, rows = self._rows()
         return _render_html(f"{type(self).__name__} ({self._header()})", headers, rows)
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class _FdrResultBase(_ScreenResultMixin):
+    """Shared fields for the single-metric FDR survivor result trio.
+
+    Carries the fields common to :class:`BhyResult`,
+    :class:`PartialConjunctionResult`, and :class:`HierarchicalBhyResult`.
+    Subclasses append their own fields and supply ``_header`` / ``_rows``.
+
+    Common attributes:
+        metric_name: ``label`` of the metric driving the screen;
+            also the key under which the record is returned.
+        entries: Every tested :class:`EvaluationResult`, in input order.
+        adj_p_all: BHY-adjusted p-value aligned with ``entries``; ``NaN``
+            for an entry dropped before the family formed (data shortage).
+        q: Nominal FDR target; must satisfy ``0 < q < 1``.
+        n_tests: Per-bucket / per-identity family size keyed by tuple.
+    """
+
+    metric_name: str
+    entries: list[EvaluationResult]
+    adj_p_all: np.ndarray
+    q: float
+    n_tests: Mapping[tuple[Any, ...], int]
+
+    def to_frame(self) -> pl.DataFrame:
+        """Every tested factor with its adjusted p-value and survive flag.
+
+        Columns ``factor`` / ``adj_p`` / ``survived``, one row per tested
+        factor (input order) — including the eliminated ones that
+        :attr:`survivors` and :attr:`adj_p` drop.
+        """
+        return pl.DataFrame(
+            {
+                "factor": [e.factor for e in self.entries],
+                "adj_p": self.adj_p_all,
+                "survived": self._survived,
+            }
+        )
 
 
 @dataclass(frozen=True, slots=True, repr=False)
@@ -365,7 +382,7 @@ class MetricHypothesis:
 
 
 @dataclass(frozen=True, slots=True, repr=False)
-class CrossMetricBhyResult:
+class CrossMetricBhyResult(_ScreenResultMixin):
     """One BHY screen over a pooled factor x metric hypothesis family."""
 
     entries: list[MetricHypothesis]
@@ -374,20 +391,6 @@ class CrossMetricBhyResult:
     metrics: tuple[str, ...]
     expand_over: tuple[str, ...]
     n_tests: Mapping[tuple[Any, ...], int]
-
-    @property
-    def _survived(self) -> np.ndarray:
-        return self.adj_p_all <= self.q
-
-    @property
-    def survivors(self) -> list[MetricHypothesis]:
-        """Surviving factor x metric hypotheses in canonical order."""
-        return [e for e, ok in zip(self.entries, self._survived, strict=True) if ok]
-
-    @property
-    def adj_p(self) -> np.ndarray:
-        """Adjusted p-values aligned with :attr:`survivors`."""
-        return self.adj_p_all[self._survived]
 
     def to_frame(self) -> pl.DataFrame:
         """Return every tested cell, including inactive and eliminated rows."""
@@ -401,9 +404,6 @@ class CrossMetricBhyResult:
                 "active": [e.is_active for e in self.entries],
             }
         )
-
-    def __len__(self) -> int:
-        return int(self._survived.sum())
 
     def _header(self) -> str:
         parts = [
@@ -439,17 +439,6 @@ class CrossMetricBhyResult:
             for entry, adj in zip(self.survivors, self.adj_p, strict=True)
         ]
         return headers, rows
-
-    def __repr__(self) -> str:
-        head = f"{type(self).__name__}({self._header()})"
-        if not self.survivors:
-            return head
-        headers, rows = self._rows()
-        return f"{head}\n{_render_table(headers, rows)}"
-
-    def _repr_html_(self) -> str:
-        headers, rows = self._rows()
-        return _render_html(f"{type(self).__name__} ({self._header()})", headers, rows)
 
 
 @dataclass(frozen=True, slots=True, repr=False)
@@ -519,7 +508,7 @@ class PartialConjunctionResult(_FdrResultBase):
 
 
 @dataclass(frozen=True, slots=True, repr=False)
-class CrossMetricPartialConjunctionResult:
+class CrossMetricPartialConjunctionResult(_ScreenResultMixin):
     """Factor-level k-of-m metric confirmation followed by BHY."""
 
     entries: list[EvaluationResult]
@@ -533,20 +522,6 @@ class CrossMetricPartialConjunctionResult:
     n_active: Mapping[tuple[Any, ...], int]
     n_identities: int
     n_passed_uncorr_all: np.ndarray
-
-    @property
-    def _survived(self) -> np.ndarray:
-        return self.adj_p_all <= self.q
-
-    @property
-    def survivors(self) -> list[EvaluationResult]:
-        """Factor identities whose adjusted partial-conjunction p passes."""
-        return [e for e, ok in zip(self.entries, self._survived, strict=True) if ok]
-
-    @property
-    def adj_p(self) -> np.ndarray:
-        """Adjusted p-values aligned with :attr:`survivors`."""
-        return self.adj_p_all[self._survived]
 
     def to_frame(self) -> pl.DataFrame:
         """Return one row per factor identity, including ineligible rows."""
@@ -565,9 +540,6 @@ class CrossMetricPartialConjunctionResult:
                 "n_passed_uncorr": self.n_passed_uncorr_all,
             }
         )
-
-    def __len__(self) -> int:
-        return int(self._survived.sum())
 
     def _header(self) -> str:
         return (
@@ -604,17 +576,6 @@ class CrossMetricPartialConjunctionResult:
             if ok
         ]
         return headers, rows
-
-    def __repr__(self) -> str:
-        head = f"{type(self).__name__}({self._header()})"
-        if not self.survivors:
-            return head
-        headers, rows = self._rows()
-        return f"{head}\n{_render_table(headers, rows)}"
-
-    def _repr_html_(self) -> str:
-        headers, rows = self._rows()
-        return _render_html(f"{type(self).__name__} ({self._header()})", headers, rows)
 
 
 @dataclass(frozen=True, slots=True, repr=False)
