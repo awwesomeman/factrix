@@ -10,8 +10,11 @@ one date-aware input contract::
 DataFrame). ``NonOverlapping`` strides the cleaned series at
 ``forward_periods`` (sub-sampling away the MA(h-1) overlap), while
 ``NeweyWest`` / ``HansenHodrick`` keep every observation and correct the
-SE via a HAC kernel. The lag / bandwidth is derived from the
-compute-time sample, so the dataclasses take no constructor knobs.
+SE via a HAC kernel. ``StationaryBootstrap`` also keeps every observation
+but replaces the analytic SE with a block-bootstrap empirical p, for
+series too short or non-normal for a HAC t-test to be trusted. The
+lag / bandwidth / block length is derived from the compute-time sample,
+so the dataclasses take no constructor knobs.
 
 These are metric-internal inference units: ``compute`` returns an
 ``InferenceResult`` whose ``stat`` / ``p_value`` feed a ``MetricResult``
@@ -191,6 +194,58 @@ class HansenHodrick:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class StationaryBootstrap:
+    r"""Stationary-bootstrap empirical-p inference on a series mean.
+
+    Resamples geometric-length blocks ([Politis-Romano 1994][politis-romano-1994])
+    from the series, centred under $H_0: \mathbb{E}[x] = 0$, and reports the
+    two-sided empirical p — the fraction of bootstrap means at least as
+    extreme as the observed one (Davison-Hinkley ``+1`` smoothing). No
+    normality or asymptotic-variance assumption, unlike ``NeweyWest`` /
+    ``HansenHodrick``: appropriate when the series is short relative to its
+    dependence horizon or heavy-tailed / skewed enough that a HAC t-test is
+    unreliable. Block length resolves automatically per
+    [Politis-White (2004)][politis-white-2004]; the resolved seed is
+    reported in ``metadata`` so the run is reproducible after the fact even
+    though the dataclass itself carries no seed knob.
+
+    Delegates to ``factrix._stats.bootstrap._block_bootstrap_diff_p`` —
+    the same kernel backing ``factrix.stats.BlockBootstrap`` — so the
+    empirical-p convention is one implementation, not a parallel one.
+    """
+
+    test: ClassVar[str] = "bootstrap-mean"
+    se: ClassVar[str | None] = "bootstrap"
+    summary: ClassVar[str] = "stationary-bootstrap empirical p-test"
+    min_periods: ClassVar[int] = MIN_PERIODS_WARN
+
+    def min_input_periods(self, forward_periods: int) -> int:
+        """Minimum input series length (periods); no overlap-specific floor."""
+        return MIN_PERIODS_HARD
+
+    def compute(
+        self, data: pl.DataFrame, *, value_col: str, forward_periods: int
+    ) -> InferenceResult:
+        from factrix._stats.bootstrap import _block_bootstrap_diff_p
+
+        vals = _clean_series(data, value_col).to_numpy()
+        n = len(vals)
+        p_value, boot_metadata = _block_bootstrap_diff_p(vals)
+
+        warnings: frozenset[WarningCode] = frozenset()
+        if 0 < n < self.min_periods:
+            warnings = frozenset({WarningCode.UNRELIABLE_SE_SHORT_PERIODS})
+
+        return InferenceResult(
+            stat=float(vals.mean()) if n else float("nan"),
+            p_value=p_value,
+            metadata=dict(boot_metadata),
+            warnings=warnings,
+        )
+
+
 NON_OVERLAPPING = NonOverlapping()
 NEWEY_WEST = NeweyWest()
 HANSEN_HODRICK = HansenHodrick()
+STATIONARY_BOOTSTRAP = StationaryBootstrap()

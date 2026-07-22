@@ -58,29 +58,35 @@ The closed union is a type annotation, not a runtime gate, so every
 ``_check_applicable_inference``). A method outside the set raises
 :class:`~factrix.IncompatibleInferenceError` listing the allowed members,
 rather than running an unintended test or silently falling back to the
-default. ``ic`` / ``quantile_spread`` / ``k_spread`` all allow
-``{NON_OVERLAPPING, NEWEY_WEST}``; ``resolve_applicable_inference`` reads
-the set back for discovery.
+default. ``quantile_spread`` / ``k_spread`` allow
+``{NON_OVERLAPPING, NEWEY_WEST}``; ``ic`` additionally allows
+``STATIONARY_BOOTSTRAP`` (see below); ``resolve_applicable_inference``
+reads the set back for discovery.
 
-``HANSEN_HODRICK`` vs the metric allowlists
--------------------------------------------
-``HansenHodrick`` is a complete series-mean member (same ``compute``
-contract as the other two) and is exported for explicit / comparison use,
-but it is **not** in any metric's ``applicable_inference`` today, for
-reasons that differ per dispatch style:
+``HANSEN_HODRICK`` / ``STATIONARY_BOOTSTRAP`` vs the metric allowlists
+-----------------------------------------------------------------------
+``HansenHodrick`` and ``StationaryBootstrap`` are complete series-mean
+members (same ``compute`` contract as the others), but neither is in
+every metric's ``applicable_inference``, for reasons that differ per
+dispatch style:
 
 - ``ic`` dispatches **polymorphically** (``inference.compute(...)`` /
   ``inference.min_input_periods(...)``), so it could in principle run
   ``HANSEN_HODRICK`` — its allowlist is narrower than its capability. The
-  vetted pair is kept: ``NeweyWest`` (Bartlett kernel, PSD-guaranteed) is
+  vetted HAC pair is kept: ``NeweyWest`` (Bartlett kernel, PSD-guaranteed) is
   the recommended HAC, while ``HansenHodrick``'s rectangular kernel has no
   PSD guarantee (it can clamp a negative variance — see
-  ``WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE``).
+  ``WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE``). ``StationaryBootstrap``
+  runs through the same polymorphic path and *is* admitted — it makes no
+  asymptotic-variance assumption at all, so it is the recommended fallback
+  when the IC series is too short or too heavy-tailed for either HAC
+  member to be trusted.
 - ``quantile_spread`` / ``k_spread`` dispatch through
   ``_spread_significance_with_inference``, which hard-branches on
   ``isinstance(inference, NeweyWest)`` for the HAC path. The allowlist is
   **load-bearing** there: it admits exactly the two members that dispatch
-  handles, so widening it requires making that dispatch polymorphic first.
+  handles, so widening it to ``HANSEN_HODRICK`` or ``STATIONARY_BOOTSTRAP``
+  requires making that dispatch polymorphic first — not done here.
 """
 
 from __future__ import annotations
@@ -90,18 +96,22 @@ from factrix.inference.series_mean import (
     HANSEN_HODRICK,
     NEWEY_WEST,
     NON_OVERLAPPING,
+    STATIONARY_BOOTSTRAP,
     HansenHodrick,
     NeweyWest,
     NonOverlapping,
+    StationaryBootstrap,
 )
 
 __all__ = [
     "HANSEN_HODRICK",
     "NEWEY_WEST",
     "NON_OVERLAPPING",
+    "STATIONARY_BOOTSTRAP",
     "HansenHodrick",
     "Inference",
     "InferenceResult",
     "NeweyWest",
     "NonOverlapping",
+    "StationaryBootstrap",
 ]

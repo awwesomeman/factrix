@@ -504,8 +504,9 @@ Only the series-mean family (`ic`, `quantile_spread`, `k_spread`) takes a
 selectable `inference=`; every other metric carries a fixed estimator by
 its statistical shape, so the absence of the knob is by design. The
 `factrix.inference` module docstring is the SSOT for the full rule — the
-per-family rationale, the closed-union policy, and why `HANSEN_HODRICK` is
-exported yet absent from the metric unions.
+per-family rationale, the closed-union policy, and why `HANSEN_HODRICK` and
+`STATIONARY_BOOTSTRAP` are each exported but not admitted into every
+metric's union.
 
 ### `individual_continuous(IC)` — cross-section first
 

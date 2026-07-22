@@ -420,7 +420,11 @@ class TestICInferenceAllowlist:
                 inference=fx.inference.HANSEN_HODRICK,
             )
         assert exc.value.func_name == "ic"
-        assert exc.value.applicable == ("NeweyWest", "NonOverlapping")
+        assert exc.value.applicable == (
+            "NeweyWest",
+            "NonOverlapping",
+            "StationaryBootstrap",
+        )
         assert "HansenHodrick" in str(exc.value)
 
     def test_non_inference_object_raises_cleanly(self):
@@ -432,7 +436,11 @@ class TestICInferenceAllowlist:
     def test_allowlisted_members_pass(self):
         import factrix as fx
 
-        for member in (fx.inference.NON_OVERLAPPING, fx.inference.NEWEY_WEST):
+        for member in (
+            fx.inference.NON_OVERLAPPING,
+            fx.inference.NEWEY_WEST,
+            fx.inference.STATIONARY_BOOTSTRAP,
+        ):
             result = ic(self._ic_series(40), forward_periods=1, inference=member)
             assert not math.isnan(result.value)
 
@@ -448,13 +456,25 @@ class TestApplicableInferenceDiscovery:
         from factrix.metrics.k_spread import k_spread
         from factrix.metrics.quantile import quantile_spread
 
-        for m in (ic, quantile_spread, k_spread):
+        # quantile_spread / k_spread dispatch through a hard isinstance(NeweyWest)
+        # branch, so their allowlist stays the original vetted pair.
+        for m in (quantile_spread, k_spread):
             allow = resolve_applicable_inference(m)
             assert allow is not None
             assert sorted(type(x).__name__ for x in allow) == [
                 "NeweyWest",
                 "NonOverlapping",
             ]
+
+        # ic dispatches polymorphically, so its allowlist additionally admits
+        # StationaryBootstrap.
+        ic_allow = resolve_applicable_inference(ic)
+        assert ic_allow is not None
+        assert sorted(type(x).__name__ for x in ic_allow) == [
+            "NeweyWest",
+            "NonOverlapping",
+            "StationaryBootstrap",
+        ]
 
     def test_singleton_inference_metric_returns_none(self):
         from factrix.metrics._metric_capabilities import resolve_applicable_inference

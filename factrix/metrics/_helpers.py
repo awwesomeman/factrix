@@ -34,7 +34,7 @@ from factrix._codes import WarningCode, cross_section_tier
 from factrix._errors import IncompatibleInferenceError
 
 if TYPE_CHECKING:
-    from factrix.inference import NeweyWest, NonOverlapping
+    from factrix.inference import NeweyWest, NonOverlapping, StationaryBootstrap
     from factrix.metrics._base import MetricBase
 from factrix._metric_index import SampleThreshold
 from factrix._results import MetricResult, PValueAlternative
@@ -118,7 +118,7 @@ def _spread_significance(
 
 def _check_applicable_inference(
     inference: object,
-    applicable: frozenset[NonOverlapping | NeweyWest],
+    applicable: frozenset[NonOverlapping | NeweyWest | StationaryBootstrap],
     *,
     func_name: str,
 ) -> None:
