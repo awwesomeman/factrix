@@ -182,7 +182,7 @@ nav:
               - inspect_data: api/inspect-data.md
           - Slicing:
               - by_slice: api/by-slice.md
-              - slice_pairwise_test / slice_joint_test: api/slice-test.md
+              - slice_*_test / slice_period_*_test: api/slice-test.md
           - Multi-factor:
               - Overview: api/multi-factor.md
               - bhy: api/bhy.md

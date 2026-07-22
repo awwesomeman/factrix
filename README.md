@@ -81,7 +81,6 @@ factrix stops at the inference — primary test plus diagnostic battery. It does
 [quantstats]: https://github.com/ranaroussi/quantstats
 [qlib]: https://github.com/microsoft/qlib
 [mlfinlab]: https://github.com/hudson-and-thames/mlfinlab
-[full-comparison]: https://awwesomeman.github.io/factrix/latest/where-factrix-fits/
 
 ## Installation
 
@@ -117,84 +116,12 @@ print('ic_mean =', round(ic_res.value, 4))
 print('p_value =', round(ic_res.p_value, 4))
 ```
 
-**Multi-factor BHY screening**
+More scenarios, runnable end to end:
 
-```python
-# A panel can carry many candidate factors — pass every column to factor_cols.
-raw_mf  = fx.datasets.make_multi_factor_panel(n_factors=3, n_assets=100, n_dates=500, seed=2024)
-data_mf = fx.preprocess.compute_forward_return(raw_mf, forward_periods=5)
-
-results = fx.evaluate(
-    data_mf,
-    metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)},
-    factor_cols=["factor_0000", "factor_0001", "factor_0002"],
-    forward_periods=5,
-)
-
-# evaluate returns dict[str, EvaluationResult] keyed by factor column;
-# bhy screens the list of results as one hypothesis family.
-fdr_results = fx.multi_factor.bhy(list(results.values()), metrics=["ic"], q=0.05)
-bhy_ic = fdr_results["ic"]
-print("survivors =", [r.factor for r in bhy_ic.survivors])
-```
-
-**Multi-horizon sweep and BHY screening**
-
-```python
-# evaluate_horizons sweeps the factors across forward periods and returns a
-# flat list[EvaluationResult] — one per (factor, forward_periods) — so it feeds
-# bhy directly (no list(...values()) needed). expand_over=("forward_periods",)
-# runs an independent BHY step-up per horizon, the correct cross-horizon screen
-# (each horizon bucket is its own family of the swept factors).
-results_sweep = fx.evaluate_horizons(
-    raw_mf,  # raw multi-factor panel — no forward_return attached
-    metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)},
-    factor_cols=["factor_0000", "factor_0001", "factor_0002"],
-    forward_periods=[1, 5, 10],
-)
-
-fdr_results = fx.multi_factor.bhy(
-    results_sweep,
-    metrics=["ic"],
-    expand_over=("forward_periods",),
-    q=0.05,
-)
-bhy_ic = fdr_results["ic"]
-print("survivors =", [(r.factor, r.forward_periods) for r in bhy_ic.survivors])
-```
-
-**Single-asset (timeseries) evaluation**
-
-```python
-import numpy as np
-import polars as pl
-from datetime import datetime, timedelta
-from factrix.metrics import predictive_beta
-
-# Build a one-asset panel by hand (the cross-section generators need N >= 2).
-rng    = np.random.default_rng(7)
-dates  = [datetime(2020, 1, 1) + timedelta(days=i) for i in range(250)]
-factor = rng.standard_normal(250)
-ret    = 0.05 * factor + rng.standard_normal(250)        # factor leads next return
-single_asset_data = pl.DataFrame({
-    "date": dates,
-    "asset_id": "SPX",
-    "price": 100 * np.exp(np.cumsum(ret) / 100),
-    "macro_factor": factor,
-})
-data = fx.preprocess.compute_forward_return(single_asset_data, forward_periods=5)
-
-# A single-asset panel auto-resolves the structure axis to
-# DataStructure.TIMESERIES (N == 1); predictive_beta is the explicit
-# dense single-asset predictive-regression metric.
-results = fx.evaluate(
-    data,
-    metrics={"beta": predictive_beta()},
-    factor_cols=["macro_factor"],
-    forward_periods=5,
-)
-print(results["macro_factor"].metrics["beta"].value)
-```
+- [Quickstart](https://awwesomeman.github.io/factrix/latest/getting-started/quickstart/) — same example, plus `.to_dict()` output and warnings.
+- [Multi-factor screening](https://awwesomeman.github.io/factrix/latest/examples/multi_factor_screening/) — BHY false-discovery-rate control across candidate factors.
+- [Multi-horizon evaluation](https://awwesomeman.github.io/factrix/latest/api/multi-horizon/) — sweeping `forward_periods` with `evaluate_horizons`.
+- [PANEL vs TIMESERIES](https://awwesomeman.github.io/factrix/latest/guides/panel-timeseries/) — single-asset evaluation with `predictive_beta`.
 
 ## Documentation
 
