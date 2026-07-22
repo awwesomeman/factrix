@@ -24,14 +24,17 @@ from factrix._stats import (
     _resolve_nw_lags,
     _t_stat_from_array,
 )
+from factrix._stats.bootstrap import _block_bootstrap_diff_p
 from factrix._stats.constants import MIN_PERIODS_WARN, auto_bartlett
 from factrix.inference import (
     NEWEY_WEST,
     NON_OVERLAPPING,
+    STATIONARY_BOOTSTRAP,
     HansenHodrick,
     Inference,
     NeweyWest,
     NonOverlapping,
+    StationaryBootstrap,
 )
 
 
@@ -44,7 +47,9 @@ def _series_df(values: np.ndarray) -> pl.DataFrame:
 
 
 class TestProtocolIdentity:
-    @pytest.mark.parametrize("member", [NON_OVERLAPPING, NEWEY_WEST, HansenHodrick()])
+    @pytest.mark.parametrize(
+        "member", [NON_OVERLAPPING, NEWEY_WEST, HansenHodrick(), STATIONARY_BOOTSTRAP]
+    )
     def test_satisfies_inference_protocol(self, member: object) -> None:
         assert isinstance(member, Inference)
 
@@ -53,10 +58,13 @@ class TestProtocolIdentity:
         assert NonOverlapping.se == "ols"
         assert NeweyWest.se == "hac"
         assert HansenHodrick.se == "hac"
+        assert StationaryBootstrap.test == "bootstrap-mean"
+        assert StationaryBootstrap.se == "bootstrap"
 
     def test_curated_instances_are_singletons_of_their_type(self) -> None:
         assert isinstance(NON_OVERLAPPING, NonOverlapping)
         assert isinstance(NEWEY_WEST, NeweyWest)
+        assert isinstance(STATIONARY_BOOTSTRAP, StationaryBootstrap)
 
 
 class TestNonOverlapping:
@@ -160,3 +168,40 @@ class TestHansenHodrick:
         )
         assert result.metadata["variance_clamped"] is True
         assert WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE in result.warnings
+
+
+class TestStationaryBootstrap:
+    def test_stat_is_observed_mean(self) -> None:
+        series = np.random.default_rng(0).standard_normal(80) + 0.2
+        result = STATIONARY_BOOTSTRAP.compute(
+            _series_df(series), value_col="ic", forward_periods=5
+        )
+        assert result.stat == pytest.approx(float(series.mean()))
+        assert 0.0 < result.p_value <= 1.0
+
+    def test_metadata_reports_reproducible_seed(self) -> None:
+        series = np.random.default_rng(1).standard_normal(80)
+        result = STATIONARY_BOOTSTRAP.compute(
+            _series_df(series), value_col="ic", forward_periods=5
+        )
+        assert set(result.metadata) == {
+            "block_length",
+            "n_resamples",
+            "scheme",
+            "rng_seed",
+        }
+        p_replay, _ = _block_bootstrap_diff_p(
+            series, rng_seed=result.metadata["rng_seed"]
+        )
+        assert result.p_value == p_replay
+
+    def test_short_sample_warns(self) -> None:
+        result = STATIONARY_BOOTSTRAP.compute(
+            _series_df(np.arange(10.0)), value_col="ic", forward_periods=1
+        )
+        assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS in result.warnings
+
+    def test_min_input_periods_matches_newey_west(self) -> None:
+        assert STATIONARY_BOOTSTRAP.min_input_periods(
+            5
+        ) == NEWEY_WEST.min_input_periods(5)

@@ -36,7 +36,14 @@ from factrix._types import (
     MIN_IC_ASSETS_WARN,
     MIN_SERIES_PERIODS_HARD,
 )
-from factrix.inference import NEWEY_WEST, NON_OVERLAPPING, NeweyWest, NonOverlapping
+from factrix.inference import (
+    NEWEY_WEST,
+    NON_OVERLAPPING,
+    STATIONARY_BOOTSTRAP,
+    NeweyWest,
+    NonOverlapping,
+    StationaryBootstrap,
+)
 from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
@@ -72,11 +79,14 @@ min_assets_per_group: int | None = None
 per_date_series = per_date_series_rename("ic")
 
 # Inference allowlist: ``ic`` dispatches an ``Inference.compute`` polymorphically,
-# so it *could* run any series-mean member, but the vetted pair is the
-# non-overlap t-test and the Bartlett-kernel Newey-West HAC. ``HansenHodrick``
-# (rectangular kernel, no PSD guarantee) is deliberately excluded.
-applicable_inference: frozenset[NonOverlapping | NeweyWest] = frozenset(
-    {NON_OVERLAPPING, NEWEY_WEST}
+# so it *could* run any series-mean member. The vetted set is the non-overlap
+# t-test, the Bartlett-kernel Newey-West HAC, and the stationary-bootstrap
+# empirical p (no asymptotic-variance assumption at all — the fallback when
+# the IC series is too short / heavy-tailed for either HAC path).
+# ``HansenHodrick`` (rectangular kernel, no PSD guarantee) is deliberately
+# excluded.
+applicable_inference: frozenset[NonOverlapping | NeweyWest | StationaryBootstrap] = (
+    frozenset({NON_OVERLAPPING, NEWEY_WEST, STATIONARY_BOOTSTRAP})
 )
 
 
@@ -203,7 +213,7 @@ def _ic_shortfall_is_asset_driven(ic_df: pl.DataFrame, raw_min: int) -> bool:
 def ic(
     ic_df: pl.DataFrame,
     forward_periods: int = 5,
-    inference: NonOverlapping | NeweyWest = NON_OVERLAPPING,
+    inference: NonOverlapping | NeweyWest | StationaryBootstrap = NON_OVERLAPPING,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Information coefficient (IC) mean significance: is mean IC significantly different from zero?
@@ -220,8 +230,11 @@ def ic(
         inference: Significance-test method. ``fx.inference.NON_OVERLAPPING``
             (default) runs an OLS t-test on a non-overlapping stride
             subsample; ``fx.inference.NEWEY_WEST`` keeps every observation
-            and uses a Newey-West HAC standard error. Both test the same
-            $H_0: \mathbb{E}[\mathrm{IC}] = 0$.
+            and uses a Newey-West HAC standard error; ``fx.inference.STATIONARY_BOOTSTRAP``
+            also keeps every observation but replaces the HAC SE with a
+            block-bootstrap empirical p, for a series too short or
+            heavy-tailed for either t-test to be trusted. All three test the
+            same $H_0: \mathbb{E}[\mathrm{IC}] = 0$.
 
     Returns:
         MetricResult with value=mean IC and the inference method's t/p.
@@ -254,8 +267,12 @@ def ic(
         The guidance is one-directional: prefer ``NEWEY_WEST`` when the
         non-overlapping effective sample is too thin; there is no symmetric
         reason to switch back to non-overlapping once the sample is ample.
-        ``ic`` never changes ``inference`` for you — the choice stays
-        explicit.
+        ``STATIONARY_BOOTSTRAP`` drops the HAC asymptotic-variance
+        assumption entirely in favour of a block-bootstrap empirical p —
+        prefer it when the IC series is heavy-tailed / skewed enough that
+        a HAC t-test's normal-approximation p-value is itself suspect, not
+        only when the sample is short. ``ic`` never changes ``inference``
+        for you — the choice stays explicit.
 
     Examples:
         Chain from :func:`compute_ic` output:
@@ -324,7 +341,10 @@ def ic(
     metadata: dict[str, object] = {
         "n_periods": n,
         "forward_periods": forward_periods,
-        "stat_type": "t",
+        # stat / stat_type must reflect the test actually run — NonOverlapping
+        # / NeweyWest report a t-ratio, StationaryBootstrap reports the
+        # observed mean under an empirical (not t-distribution) p.
+        "stat_type": inference.test,
         "h0": "mu=0",
         "method": inference.summary,
         "tie_ratio": median_tie,

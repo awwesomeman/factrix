@@ -4,22 +4,40 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from factrix._stats.bootstrap import _politis_white_block_length
 from factrix.stats.bootstrap import (
-    _default_block_length,
+    _resolve_auto_block_length,
     bootstrap_mean_ci,
     stationary_bootstrap_resamples,
 )
 
 
-class TestDefaultBlockLength:
-    def test_grows_as_t_cuberoot(self):
-        # L ≈ 1.75 · T^(1/3): 1000 → ~17.5, 8000 → ~35
-        assert _default_block_length(1000) == pytest.approx(17.5, rel=0.01)
-        assert _default_block_length(8000) == pytest.approx(35.0, rel=0.01)
+class TestResolveAutoBlockLength:
+    def test_vector_matches_politis_white(self):
+        x = np.random.default_rng(0).standard_normal(200)
+        assert _resolve_auto_block_length(x) == _politis_white_block_length(
+            x, scheme="stationary"
+        )
 
-    def test_degenerate_small_n(self):
-        assert _default_block_length(1) == 1.0
-        assert _default_block_length(0) == 1.0
+    def test_matrix_takes_max_of_per_column_estimates(self):
+        rng = np.random.default_rng(0)
+        persistent = np.empty(300)
+        persistent[0] = rng.standard_normal()
+        for t in range(1, 300):
+            persistent[t] = 0.9 * persistent[t - 1] + rng.standard_normal()
+        iid = rng.standard_normal(300)
+        values = np.column_stack([iid, persistent])
+
+        expected = max(
+            _politis_white_block_length(iid, scheme="stationary"),
+            _politis_white_block_length(persistent, scheme="stationary"),
+        )
+        assert _resolve_auto_block_length(values) == expected
+
+    def test_zero_column_matrix_falls_back_like_degenerate_series(self):
+        assert _resolve_auto_block_length(
+            np.empty((10, 0))
+        ) == _politis_white_block_length(np.zeros(10), scheme="stationary")
 
 
 class TestStationaryBootstrapResamples:
