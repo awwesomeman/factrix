@@ -130,3 +130,15 @@ def test_missing_group_key_aggregates_all_offenders():
     with pytest.raises(UserInputError) as excinfo:
         bhy_hierarchical(results, metrics=["ic"], group="family")
     assert "factor='mom_2' missing 'family'" in str(excinfo.value)
+    assert excinfo.value.field == "group"
+
+
+def test_group_equal_to_factor_raises_on_group_field():
+    make_spec("ic")
+    results = _grouped({"a": 0.01, "b": 0.02}, "g1", "ic") + _grouped(
+        {"c": 0.03, "d": 0.04}, "g2", "ic"
+    )
+    with pytest.raises(UserInputError) as excinfo:
+        bhy_hierarchical(results, metrics=["ic"], group="factor")
+    assert excinfo.value.field == "group"
+    assert "hypothesis identifier" in str(excinfo.value)

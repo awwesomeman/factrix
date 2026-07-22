@@ -1231,6 +1231,7 @@ def _bhy_hierarchical_one(
         func_name="bhy_hierarchical",
         metric=metric,
         expand_over=(group,),
+        field="group",
     )
 
     buckets: dict[Any, list[int]] = defaultdict(list)

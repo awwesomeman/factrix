@@ -92,25 +92,31 @@ def _partition(
     *,
     func_name: str,
     expand_over: Sequence[str] = (),
+    field: str = "expand_over",
 ) -> list[_FamilyEntry]:
     """Validate ``expand_over`` keys and partition-key uniqueness.
 
     Pulled out of ``_resolve_family`` so multi-metric callers run
     the per-result walk once, then attach per-metric p-values via
     ``_attach_p_values``. Returns entries with ``p_value=None``.
+
+    ``field`` names the caller's own public keyword (``expand_over`` for
+    ``bhy``/``bhy_across_metrics``/``partial_conjunction``, ``group`` for
+    ``bhy_hierarchical``) so raised errors point at the parameter the
+    caller actually typed.
     """
     keys = list(expand_over)
     for name in keys:
         if name == "factor":
             raise UserInputError(
                 func_name=func_name,
-                field="expand_over",
+                field=field,
                 value=name,
                 expected="partition key, not the hypothesis identifier 'factor'",
-                docs_path=_api_docs_path(func_name, "expand_over"),
+                docs_path=_api_docs_path(func_name, field),
             )
 
-    _check_param_keys(results, keys=keys, func_name=func_name)
+    _check_param_keys(results, keys=keys, func_name=func_name, field=field)
 
     entries: list[_FamilyEntry] = []
     seen: dict[tuple[Any, ...], int] = {}
@@ -187,6 +193,7 @@ def _resolve_family(
     func_name: str,
     metric: str,
     expand_over: Sequence[str] = (),
+    field: str = "expand_over",
 ) -> list[_FamilyEntry]:
     """Single-metric convenience wrapper around ``_partition`` +
     ``_attach_p_values``.
@@ -202,8 +209,12 @@ def _resolve_family(
        unique across the input.
     3. Each result must produce the ``metric``'s p-value;
        the p must be present and non-NaN.
+
+    ``field`` is forwarded to ``_partition`` — see its docstring.
     """
-    partition = _partition(results, func_name=func_name, expand_over=expand_over)
+    partition = _partition(
+        results, func_name=func_name, expand_over=expand_over, field=field
+    )
     return _attach_p_values(partition, func_name=func_name, metric=metric)
 
 
@@ -212,6 +223,7 @@ def _check_param_keys(
     *,
     keys: list[str],
     func_name: str,
+    field: str = "expand_over",
 ) -> None:
     """Raise once listing every ``(factor, missing_key)`` across the input.
 
@@ -254,15 +266,15 @@ def _check_param_keys(
     )
     raise UserInputError(
         func_name=func_name,
-        field="expand_over",
+        field=field,
         value=missing_keys,
         expected=(
-            f"expand_over key(s) {missing_keys!r} present in every result's "
+            f"{field} key(s) {missing_keys!r} present in every result's "
             f"params. Missing — {detail}.{hint} Stamp the key on every "
-            f"EvaluationResult.params, or drop it from expand_over. "
+            f"EvaluationResult.params, or drop it from {field}. "
             f"Param keys seen across the input: {available or ['<none>']!r}"
         ),
-        docs_path=_api_docs_path(func_name, "expand_over"),
+        docs_path=_api_docs_path(func_name, field),
     )
 
 
