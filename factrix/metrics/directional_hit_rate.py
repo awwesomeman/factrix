@@ -131,7 +131,13 @@ def directional_hit_rate(
         *negatively* related to forward returns scores poorly here — flip
         its sign before testing. Degenerate samples (all predictions or
         all realisations one-signed, or a non-positive variance estimate)
-        short-circuit: $P_*$ is then 1 and the statistic is undefined.
+        short-circuit: $P_*$ is then 1 and the statistic is undefined. This
+        is why ``return_col`` must be sign-symmetric around zero — a
+        risk-adjusted return (e.g. ``forward_return / forward_realized_vol``)
+        qualifies, but an always-positive magnitude target (realised
+        volatility, turnover) collapses ``P_*`` to 1 and hits this
+        short-circuit; use :func:`~factrix.metrics.ic.ic` or
+        :func:`~factrix.metrics.monotonicity.monotonicity` for those instead.
 
         The sample floor is on the **pairs** axis — the $n$ pooled
         ``(date, asset)`` directional trials, not the period count. Below

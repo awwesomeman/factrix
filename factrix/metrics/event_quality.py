@@ -89,6 +89,15 @@ def event_hit_rate(
         (raw hit count for the exact path, z for the normal path) so an
         exact-binomial p is never paired with a Gaussian z label.
 
+        ``return_col`` must be sign-symmetric around zero — ``signed_car =
+        return_col * sign(factor_col)``, so an always-positive magnitude
+        target (realised volatility, turnover) collapses ``sign(signed_car)``
+        to ``sign(factor_col)`` and silently turns the hit rate into a count
+        of positive-factor events, with no error raised. Use
+        :func:`~factrix.metrics.ic.ic` or
+        :func:`~factrix.metrics.monotonicity.monotonicity` for those targets
+        instead.
+
     Examples:
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return

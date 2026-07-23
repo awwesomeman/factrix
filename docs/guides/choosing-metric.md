@@ -42,6 +42,24 @@ Then use the cross-reference pages by task:
 | Which metrics apply to my specific panel? | [`inspect_data`](../api/inspect-data.md) |
 | How should I validate an allocation signal? | [Validating allocation signals](validating-allocation-signals.md#small-universe-workflow) |
 
+## Choosing a target column
+
+`directional_hit_rate`, `event_hit_rate`, and `monotonicity` all read the
+target through a `return_col` argument (default `"forward_return"`) — any
+column name works, not just `compute_forward_return`'s output. A
+risk-adjusted return you compute yourself (e.g.
+`forward_return / forward_realized_vol`) is still sign-symmetric around
+zero, so the sign-test metrics (`directional_hit_rate`, `event_hit_rate`)
+apply unchanged.
+
+An always-positive magnitude target (realised volatility, turnover) is not
+a drop-in replacement: both sign-test metrics assume `return_col` can be
+negative. `directional_hit_rate` short-circuits with
+`degenerate_directional_variance`; `event_hit_rate` has no such guard and
+silently degrades to counting positive-factor events. Use `ic` or
+`monotonicity` instead — both are rank-based and test factor level against
+target magnitude directly, with no sign assumption.
+
 ## Information coefficient (IC) vs Fama-MacBeth (FM)
 
 Both metrics evaluate individual, continuous factors (`FactorScope.INDIVIDUAL`
