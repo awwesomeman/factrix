@@ -9,6 +9,9 @@ each asset's sensitivity (β) to the common factor.
 ``common_beta_r_squared``: average explanatory power across assets.
 ``compute_rolling_common_beta``: rolling window mean β for stability analysis.
 
+The common factor here is an exogenous, given series — not a
+jointly-estimated Barra/APT factor return.
+
 Notes:
     **Pipeline.** Per-asset full-sample ordinary least squares (OLS) β (time-series step), then
     cross-asset t on the β distribution; rolling-window variant slices

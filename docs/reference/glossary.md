@@ -172,6 +172,41 @@ the `forward_periods` horizon is explicit and aligned with the
 Distinct from "spot return" (contemporaneous one-period return) and
 "realised return" (ex-post return for risk attribution).
 
+### `factor return`
+
+Not one construct — three different series carry this label inside factrix,
+and none of them is the industry-standard meaning:
+
+- `spanning_alpha` / `greedy_forward_selection`: the return of one candidate
+  factor's **spread portfolio** (`compute_spread_series` output), regressed
+  time-series-wise on other factors' return series.
+- `common_beta` family: an **exogenous, given** macro series (VIX, USD
+  index) — not estimated, just supplied.
+- `fm_beta` (per-date slope from `compute_fm_betas`, averaged) /
+  `pooled_beta` (one pooled OLS on the stacked panel instead): both fit
+  **one factor at a time** — a single-regressor OLS estimate, re-run
+  independently per factor, with no joint control for other factors.
+
+**Industry equivalents and collisions**:
+
+- **Barra / APT multi-factor risk model "factor return"**: a vector
+  jointly estimated across all `K` factors in one cross-sectional
+  regression per date (`Rt = Xt Ft + et`), each factor orthogonalized
+  against every other factor in the same system, used downstream to build
+  a factor covariance matrix. **Collides** with all three factrix senses
+  above — factrix never estimates factors jointly. Every factrix "factor
+  return" is a single-factor artifact produced to test that one factor in
+  isolation; it is not a system-level output and cannot feed a
+  covariance-matrix / risk-decomposition step.
+- **Fama-French factor-mimicking portfolio return**: matches the
+  `spanning_alpha` sense when the base factors are themselves spread
+  portfolios.
+
+Porting a Barra/APT-estimated factor return series into factrix: use it
+only as a `spanning_alpha` base-factor column (time-series regression) —
+factrix has no mechanism to jointly re-estimate it alongside other
+factors at the cross-sectional level.
+
 ### `signal_horizon` (datasets only)
 
 A property of the *synthetic* signal embedded in `make_cs_panel` /

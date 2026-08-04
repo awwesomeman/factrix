@@ -7,6 +7,7 @@ base factors? Standard factor research tool ([Barillas-Shanken (2017)][barillas-
 select those with incremental alpha (Stage 2).
 
 Both use factor return time series (quantile spread series), not information coefficient (IC).
+This is a single-factor artifact, not a jointly-estimated Barra/APT factor return.
 
 Notes:
     **Pipeline.** Regression of factor return time-series on

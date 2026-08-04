@@ -6,6 +6,9 @@ r"""Fama-MacBeth regression — the mainstream metric for the
 ``pooled_beta``: pooled OLS with clustered SE by date.
 ``fm_beta_sign_consistency``: fraction of periods with correct beta sign.
 
+$\lambda$ is a single-factor, single-regressor slope re-run independently
+per factor — not a jointly-estimated Barra/APT factor return.
+
 Notes:
     **Pipeline.** Per-date cross-sectional OLS slope $\lambda$
     (cross-section step) → time series of $\lambda$, then Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) $t$
