@@ -607,7 +607,7 @@ wheels = [
 
 [[package]]
 name = "factrix"
-version = "0.19.0"
+version = "0.20.0"
 source = { editable = "." }
 dependencies = [
     { name = "numpy" },
@@ -633,6 +633,7 @@ dev = [
     { name = "pytest-mock" },
     { name = "ruff" },
     { name = "twine" },
+    { name = "tzdata" },
 ]
 docs = [
     { name = "mike" },
@@ -676,6 +677,7 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = "==0.15.21" },
     { name = "scipy", specifier = ">=1.13" },
     { name = "twine", marker = "extra == 'dev'" },
+    { name = "tzdata", marker = "extra == 'dev'", specifier = ">=2025.1" },
 ]
 provides-extras = ["jupyter", "dev", "docs", "all"]
 
