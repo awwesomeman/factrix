@@ -15,6 +15,21 @@ from factrix._stats.core import _p_value_from_t, _significance_marker
 from factrix._types import EPSILON
 
 
+def _require_finite(values: np.ndarray, func_name: str) -> np.ndarray:
+    """Coerce to a float array and reject non-finite entries.
+
+    A NaN propagates through ``np.mean`` / ``np.dot`` and then slips past
+    the ``se < EPSILON`` degeneracy guard (``max(nan, 0.0)`` is ``nan`` and
+    every comparison with NaN is False), surfacing as a NaN t / p far from
+    the cause. Callers must drop or impute upstream; the public
+    ``stationary_bootstrap_resamples`` enforces the same contract.
+    """
+    values = np.asarray(values, dtype=float)
+    if values.size and not np.all(np.isfinite(values)):
+        raise ValueError(f"{func_name}: values must be finite (no NaN / inf).")
+    return values
+
+
 def _resolve_nw_lags(
     n: int,
     lags: int | None,
@@ -56,6 +71,7 @@ def _newey_west_se(
     Returns:
         HAC-adjusted standard error of the mean.
     """
+    values = _require_finite(values, "_newey_west_se")
     n = len(values)
     if n < 2:
         return 0.0
@@ -99,6 +115,7 @@ def _newey_west_t_test(
     """
     from factrix._logging import get_metrics_logger
 
+    values = _require_finite(values, "_newey_west_t_test")
     n = len(values)
     if n < 3:
         return 0.0, 1.0, ""
@@ -152,6 +169,7 @@ def _hansen_hodrick_se(
         ``(se, clamped)`` — clamped variance √max(., 0); ``clamped`` is
         ``True`` iff the raw variance estimate was < 0.
     """
+    values = _require_finite(values, "_hansen_hodrick_se")
     n = len(values)
     if n < 2 or forward_periods < 1:
         return 0.0, False
@@ -294,6 +312,7 @@ def _hansen_hodrick_t_test(
     ``(0.0, 1.0, "", clamped)`` — the conservative "cannot reject"
     direction.
     """
+    values = _require_finite(values, "_hansen_hodrick_t_test")
     n = len(values)
     if n < 3 or forward_periods < 1:
         return 0.0, 1.0, "", False

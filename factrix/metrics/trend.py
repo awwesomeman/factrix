@@ -28,6 +28,7 @@ from factrix._axis import (
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import _adf, _p_value_from_t
+from factrix._types import EPSILON
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _enforce_min_floor,
@@ -99,6 +100,30 @@ def ic_trend(
         ``SE ≈ (high - low) / 2 / 1.96`` and ``t ≈ slope / SE``. An ADF
         unit-root pre-check on the input flags series for which the slope
         null is rejected at inflated rates regardless of the true trend.
+
+        **Mixed reference distributions.** The SE above is backed out from
+        scipy's *normal*-based 95% rank CI (hence the 1.96), while the
+        p-value is then read off a ``t(n - 2)`` tail — two estimates the
+        slope *and* the intercept, so ``n - 2``, not the ``n - 1`` of a
+        one-sample mean test. Mixing a normal-derived SE with a t reference
+        is deliberate: it is the conservative direction (t has fatter tails
+        than the normal the SE came from) and it keeps small-``n`` trend
+        p-values from being read as exact. The alternative — a pure z-test
+        — would be internally consistent but anti-conservative at the
+        ``min_periods=10`` floor this metric allows.
+
+        **Degenerate confidence interval.** A perfectly linear series (or
+        any series whose pairwise slopes all agree) makes scipy return
+        ``low_slope == high_slope``, i.e. ``margin == 0`` and ``SE == 0``.
+        The old code silently mapped that to ``t = 0`` and ``p = 1.0`` while
+        simultaneously reporting ``ci_excludes_zero=True`` — maximal
+        evidence read out as "no evidence". A zero-width CI around a
+        non-zero slope is instead treated as *decisive*: ``p_value = 0.0``
+        and ``stat = None``, because the t-statistic ``slope / 0`` has no
+        finite value and :class:`~factrix._results.MetricResult` rejects a
+        non-finite ``stat``. ``metadata["method"]`` records the degenerate
+        branch. A zero-width CI around a *zero* slope (a flat series) is the
+        opposite case and keeps ``stat = 0.0`` / ``p = 1.0``.
 
         factrix uses Theil-Sen rather than OLS because its 29.3% breakdown
         point absorbs information coefficient (IC) outliers (e.g. COVID-era spikes) that would
@@ -173,13 +198,30 @@ def ic_trend(
     # WHY: derive an approximate t-stat from the CI for the significance flag.
     # slope ± margin = CI → margin = (high - low) / 2 → SE ≈ margin / 1.96
     margin = (high_slope - low_slope) / 2
-    approx_t = slope / (margin / 1.96) if margin > 0 else 0.0
+    degenerate_ci = margin < EPSILON
 
-    p = _p_value_from_t(approx_t, n)
+    approx_t: float | None
+    if not degenerate_ci:
+        # dof = n - 2: the trend fit estimates a slope *and* an intercept.
+        approx_t = slope / (margin / 1.96)
+        p = _p_value_from_t(approx_t, n, dof=n - 2)
+    elif abs(slope) > EPSILON:
+        # Zero-width CI around a non-zero slope: every pairwise slope agrees.
+        approx_t = None
+        p = 0.0
+    else:
+        approx_t = 0.0
+        p = 1.0
+
+    method = (
+        "theil-sen degenerate (zero-width) CI"
+        if degenerate_ci
+        else "theil-sen CI approximation"
+    )
     metadata: dict = {
         "stat_type": "t",
         "h0": "slope=0",
-        "method": "theil-sen CI approximation",
+        "method": method,
         "n_periods": n,
         "ci_low": low_slope,
         "ci_high": high_slope,

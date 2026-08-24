@@ -66,6 +66,32 @@ _DROP_STATS_COL = "_drop_stats"
 _SPREAD_BOOTSTRAP_SEED = 0
 
 
+def _finite_expr(col: str) -> pl.Expr:
+    """``col`` is present and finite: neither null, NaN nor ±inf.
+
+    polars treats null (missing) and float NaN (a value) differently and
+    ``drop_nulls`` / ``mean`` / ``var`` / ``cov`` / ``rank`` do not skip NaN;
+    this is the one predicate every producer uses to define its sample.
+    Non-float dtypes have no NaN, so the cast keeps the expression valid on
+    integer factors.
+    """
+    c = pl.col(col).cast(pl.Float64, strict=False)
+    return c.is_not_null() & c.is_finite()
+
+
+def _finite_values(series: pl.Series) -> pl.Series:
+    """Series-level twin of :func:`_finite_expr`: drop null, NaN and ±inf.
+
+    polars ``drop_nulls`` keeps float NaN, and one NaN reaching ``np.mean`` /
+    ``np.std`` makes ``_calc_t_stat`` return ``t=0, p=1`` silently (or makes
+    the block bootstrap raise). Every series column a metric collapses to a
+    scalar goes through here first, and the resulting length is what the
+    metric reports as ``n_obs``.
+    """
+    s = series.cast(pl.Float64, strict=False)
+    return s.filter(s.is_finite())
+
+
 def _spread_significance(
     spread: np.ndarray,
     n_assets: int,
@@ -201,15 +227,22 @@ def _spread_significance_with_inference(
                 "inference_requested": inference.summary,
                 "inference_overridden": True,
             }
+        extra = {**extra, "n_periods_tested": len(strided_spread)}
         return strided_mean, t, p, method, extra, codes
 
     assert full_spread is not None  # narrowed by use_hac
     res = inference.compute(
         full_spread, value_col="spread", forward_periods=forward_periods
     )
-    full_vals = full_spread["spread"].drop_nulls()
+    full_vals = _finite_values(full_spread["spread"])
     full_mean = float(full_vals.mean())  # type: ignore[arg-type]
-    extra = {**res.metadata, "n_periods_full": len(full_vals)}
+    # ``n_periods_tested`` is the sample the stat / p / value describe: the
+    # full overlapping series here, the strided series on the other path.
+    extra = {
+        **res.metadata,
+        "n_periods_full": len(full_vals),
+        "n_periods_tested": len(full_vals),
+    }
     codes = tuple(code.value for code in res.warnings)
     return full_mean, res.stat, res.p_value, inference.summary, extra, codes
 
@@ -230,14 +263,22 @@ def _aggregate_to_per_date(
     callers using this on time-series-only metrics document that
     aggregation in their own docstrings.
     """
+    # ``mean`` propagates a float NaN (only nulls are skipped), so average
+    # the finite values only and drop a date whose mean is still undefined.
     return (
         data.lazy()
         .group_by("date")
         .agg(
-            pl.col(factor_col).mean().alias(factor_alias),
-            pl.col(return_col).mean().alias(return_alias),
+            pl.col(factor_col)
+            .filter(_finite_expr(factor_col))
+            .mean()
+            .alias(factor_alias),
+            pl.col(return_col)
+            .filter(_finite_expr(return_col))
+            .mean()
+            .alias(return_alias),
         )
-        .filter(pl.col(factor_alias).is_not_null() & pl.col(return_alias).is_not_null())
+        .filter(_finite_expr(factor_alias) & _finite_expr(return_alias))
         .sort("date")
         .collect()
     )
@@ -518,17 +559,35 @@ def _warn_below_scaled_floor(
 def _estimate_within_date_icc(
     data: pl.DataFrame, value_col: str
 ) -> tuple[float | None, float, KPSource]:
-    r"""ICC-style within-date correlation $\hat r$ of ``value_col`` and mean cluster size.
+    r"""One-way ANOVA intraclass correlation ICC(1) of ``value_col`` within dates.
 
     Shared cross-sectional-correlation estimator for same-date pooled
     observations (``bmp_z`` SAR, ``directional_hit_rate`` sign-hit indicator).
-    Decomposes the variance of ``value_col`` into
-    $\sigma^2_{\mathrm{between}} = \mathrm{var}(\overline{v}_d)$ (date means)
-    and the $(n_k - 1)$-weighted pooled within-date variance
-    $\sigma^2_{\mathrm{within}}$, returning
-    $\hat r = \sigma^2_{\mathrm{between}} /
-    (\sigma^2_{\mathrm{between}} + \sigma^2_{\mathrm{within}})$ clipped to
-    $[0, 1]$ and the mean events-per-date.
+    With $K$ dates, $n_d$ observations on date $d$, $N = \sum n_d$:
+
+    $$
+    \mathrm{MSB} = \frac{\sum_d n_d (\bar v_d - \bar v)^2}{K - 1},\quad
+    \mathrm{MSW} = \frac{\sum_d (n_d - 1) s_d^2}{N - K},\quad
+    n_0 = \frac{N - \sum_d n_d^2 / N}{K - 1},
+    $$
+
+    $$
+    \hat r = \frac{\mathrm{MSB} - \mathrm{MSW}}
+                   {\mathrm{MSB} + (n_0 - 1)\,\mathrm{MSW}}
+    $$
+
+    clipped to $[0, 1]$ ([Shrout-Fleiss 1979][shrout-fleiss-1979] ICC(1);
+    $n_0$ is the unbalanced-design cluster size of Donner-Koval). The
+    returned ``n_eff`` is $n_0$.
+
+    Why ANOVA rather than the naive ``var(date means) / total`` ratio: under
+    independence the variance of a date mean is $\sigma^2_w / n_d$, not
+    zero, so the naive ratio converges to $1/(n_d + 1)$ — e.g. $0.17$ at
+    five names per date — and the downstream Kolari-Pynnönen deflator then
+    fires at full strength on data with no clustering at all (an earlier
+    factrix version did exactly this and was ~5× under-sized). The ANOVA
+    estimator subtracts the within-date component and is unbiased at
+    $\hat r = 0$ under independence.
 
     Args:
         data: One row per pooled observation with a ``date`` column and
@@ -545,48 +604,66 @@ def _estimate_within_date_icc(
           single-asset series lands here, so the caller leaves the
           statistic uncorrected).
     """
-    per_date = data.group_by("date").agg(
-        pl.col(value_col).mean().alias("m"),
-        pl.col(value_col).var(ddof=DDOF).alias("v"),
-        pl.len().alias("n"),
+    finite = pl.col(value_col).is_not_null() & pl.col(value_col).is_not_nan()
+    per_date = (
+        data.filter(finite)
+        .group_by("date")
+        .agg(
+            pl.col(value_col).mean().alias("m"),
+            pl.col(value_col).var(ddof=DDOF).alias("v"),
+            pl.len().alias("n"),
+        )
     )
     if per_date.height == 0:
         return None, 0.0, "no_multi_event_dates"
 
-    multi = per_date.filter(pl.col("n") >= 2)
-    # n_eff must align with the subsample r̂ is estimated on: computing
-    # n_eff across singleton-heavy dates and scaling by r̂ from the
-    # multi-observation subset conflates two clustering regimes and biases
-    # the correction downward when singletons dominate. Using the
-    # multi-observation mean keeps the two moments commensurate
-    # (conservative on singleton-heavy datasets, per the K-P literature).
-    if multi.height < 2:
-        fallback_n_eff = float(per_date["n"].sum() / per_date.height)
-        return None, fallback_n_eff, "no_multi_event_dates"
-    n_eff = float(multi["n"].mean())  # type: ignore[arg-type]
+    n_d = per_date["n"].to_numpy().astype(float)
+    m_d = per_date["m"].to_numpy().astype(float)
+    k_dates = len(n_d)
+    n_total = float(n_d.sum())
+    n_multi = int((n_d >= 2).sum())
+    # MSW needs at least one date with n_d >= 2 and MSB at least two dates;
+    # a single-asset series (all singletons) lands here and the caller
+    # leaves its statistic uncorrected (the canonical PT / BMP setting).
+    if k_dates < 2 or n_multi < 1 or n_total - k_dates < 1:
+        return None, float(n_total / k_dates), "no_multi_event_dates"
 
-    w_num = (multi["v"] * (multi["n"] - 1)).sum()
-    w_den = (multi["n"] - 1).sum()
-    sigma2_within = float(w_num / w_den) if w_den > 0 else 0.0  # type: ignore[operator]
+    grand = float((n_d * m_d).sum() / n_total)
+    msb = float((n_d * (m_d - grand) ** 2).sum() / (k_dates - 1))
+    v_d = per_date["v"].fill_null(0.0).to_numpy().astype(float)
+    msw = float(((n_d - 1.0) * v_d).sum() / (n_total - k_dates))
+    n0 = float((n_total - (n_d**2).sum() / n_total) / (k_dates - 1))
 
-    date_means = multi["m"].to_numpy()
-    sigma2_between = float(np.var(date_means, ddof=DDOF))
-
-    total = sigma2_between + sigma2_within
-    r_hat = 0.0 if total < EPSILON else max(0.0, min(1.0, sigma2_between / total))
-    return r_hat, n_eff, "icc"
+    denom = msb + (n0 - 1.0) * msw
+    if denom < EPSILON:
+        return 0.0, n0, "icc"
+    r_hat = max(0.0, min(1.0, (msb - msw) / denom))
+    return r_hat, n0, "icc"
 
 
 def _kp_cluster_scale(r_hat: float, n_eff: float) -> float:
-    r"""Kolari-Pynnönen (2010) cross-sectional-correlation shrinkage factor.
+    r"""Design-effect deflator for a pooled statistic under within-date correlation.
 
-    $\sqrt{(1 - \hat r) / (1 + (N_{\mathrm{eff}} - 1)\,\hat r)} \le 1$: the
-    multiplier that deflates a pooled test statistic for within-date
-    correlation, given the ICC $\hat r$ and mean cluster size
-    $N_{\mathrm{eff}}$ from :func:`_estimate_within_date_icc`. At $\hat r = 0$
-    (no clustering) it is 1 — the statistic is unchanged.
+    $1 / \sqrt{1 + (N_{\mathrm{eff}} - 1)\,\hat r} \le 1$: the multiplier
+    that deflates a pooled ``mean / (sd / √N)`` statistic for within-date
+    intraclass correlation $\hat r$ and cluster size $N_{\mathrm{eff}}$
+    from :func:`_estimate_within_date_icc` (Kish design effect). At
+    $\hat r = 0$ (no clustering) it is 1 — the statistic is unchanged.
+
+    Why not the full Kolari-Pynnönen (2010) factor
+    $\sqrt{(1 - \bar r)/(1 + (N - 1)\bar r)}$: K-P's $(1 - \bar r)$
+    numerator corrects a cross-sectional variance estimated on a *single
+    event date*, which
+    under clustering estimates only $\sigma^2 (1 - \bar r)$. factrix pools
+    SARs / hit indicators across many event dates, so the pooled variance
+    already contains the between-date component and is an unbiased
+    estimate of $\sigma^2$; applying the $(1 - \bar r)$ term on top
+    double-counts and over-deflates. The design-effect form is the
+    textbook clustered-mean variance ($\mathrm{Var}(\bar x) =
+    \sigma^2 (1 + (n - 1) r) / N$) and is what the pooled statistics here
+    need.
     """
-    return float(np.sqrt((1.0 - r_hat) / (1.0 + (n_eff - 1.0) * r_hat)))
+    return float(1.0 / np.sqrt(1.0 + (n_eff - 1.0) * r_hat))
 
 
 def _pick_event_return_col(data: pl.DataFrame) -> str:
@@ -773,15 +850,26 @@ def _assign_quantile_groups(
     Returns:
         DataFrame with ``_group`` column appended.
     """
-    rank_expr = pl.col(factor_col).rank(method=tie_policy).over("date").alias("_rank")  # type: ignore[arg-type]
+    # A float NaN is *not* null to polars: ``rank`` places it above every
+    # finite value (top bucket) and ``count`` includes it. Treat NaN like a
+    # missing factor (pandas ``qcut`` / alphalens drop it) so it never lands
+    # in a leg and never shrinks the quantile width.
+    finite = _finite_expr(factor_col)
+    rank_expr = (
+        pl.when(finite)
+        .then(pl.col(factor_col))
+        .rank(method=tie_policy)  # type: ignore[arg-type]
+        .over("date")
+        .alias("_rank")
+    )
     return (
         data.with_columns(
             rank_expr,
-            # Denominator is the per-date *non-null* factor count, not the row
-            # count: a null factor gets a null rank (it never lands in a bucket),
-            # so counting it would shrink every quantile width and leave the top
-            # bucket unreachable (max rank / n_assets < 1).
-            pl.col(factor_col).count().over("date").alias("_n"),
+            # Denominator is the per-date *finite* factor count, not the row
+            # count: a null / NaN factor gets a null rank (it never lands in a
+            # bucket), so counting it would shrink every quantile width and
+            # leave the top bucket unreachable (max rank / n_assets < 1).
+            finite.sum().over("date").alias("_n"),
         )
         .with_columns(
             ((pl.col("_rank") - 1) * n_groups / pl.col("_n"))
@@ -810,14 +898,20 @@ def _assign_quantile_groups_batch(
     ``_group__<f>`` columns directly.
     """
     rank_exprs = [
-        pl.col(f).rank(method=tie_policy).over("date").alias(f"_rank__{f}")  # type: ignore[arg-type]
+        pl.when(_finite_expr(f))
+        .then(pl.col(f))
+        .rank(method=tie_policy)  # type: ignore[arg-type]
+        .over("date")
+        .alias(f"_rank__{f}")
         for f in factor_cols
     ]
-    # Per-date *non-null* count is per factor: each factor may null out a
+    # Per-date *finite* count is per factor: each factor may null / NaN out a
     # different set of assets, and a null-inclusive denominator would shrink the
     # quantile widths and leave the top bucket unreachable (see
     # :func:`_assign_quantile_groups`).
-    n_exprs = [pl.col(f).count().over("date").alias(f"_n__{f}") for f in factor_cols]
+    n_exprs = [
+        _finite_expr(f).sum().over("date").alias(f"_n__{f}") for f in factor_cols
+    ]
     with_ranks = data.with_columns(*rank_exprs, *n_exprs)
     group_exprs = [
         ((pl.col(f"_rank__{f}") - 1) * n_groups / pl.col(f"_n__{f}"))
@@ -846,12 +940,16 @@ def _compute_tie_ratio(
     """
     if data.is_empty():
         return float("nan")
+    # Nulls are not a "value": they must count neither as a distinct level
+    # nor in the denominator, or a sparse factor reads as tied.
+    finite = _finite_expr(factor_col)
     per_date = (
         data.group_by("date")
         .agg(
-            pl.col(factor_col).n_unique().alias("_u"),
-            pl.len().alias("_n"),
+            pl.col(factor_col).filter(finite).n_unique().alias("_u"),
+            finite.sum().alias("_n"),
         )
+        .filter(pl.col("_n") > 0)
         .with_columns(
             (1.0 - pl.col("_u") / pl.col("_n")).alias("_tr"),
         )

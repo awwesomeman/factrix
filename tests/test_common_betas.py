@@ -17,7 +17,12 @@ from factrix.metrics._primitives._common_betas import (
     MIN_COMMON_BETA_PERIODS_HARD,
     compute_common_betas,
 )
-from factrix.metrics.common_beta import common_beta_profile, compute_rolling_common_beta
+from factrix.metrics.common_beta import (
+    common_beta,
+    common_beta_profile,
+    common_beta_sign_consistency,
+    compute_rolling_common_beta,
+)
 
 _OUT_COLS = ["asset_id", "beta", "alpha", "t_stat", "r_squared", "n_obs"]
 
@@ -335,3 +340,141 @@ class TestCommonBetaProfile:
                 pl.DataFrame({"asset_id": ["A"], "beta": [0.1]}),
                 neutral_epsilon=-0.1,
             )
+
+
+class TestCommonBetasNonFinite:
+    """REGRESSION: NaN cells poisoned per-asset betas and cross-asset tests."""
+
+    def test_single_nan_return_does_not_emit_nan_beta(self):
+        panel = _common_factor_panel(n_assets=6, n_dates=60, seed=11)
+        poisoned = panel.with_columns(
+            pl.when(
+                (pl.col("asset_id") == panel["asset_id"][0])
+                & (pl.int_range(pl.len()) == 0)
+            )
+            .then(float("nan"))
+            .otherwise(pl.col("forward_return"))
+            .alias("forward_return")
+        )
+        out = compute_common_betas(poisoned)["factor"]
+        # Old code: _var_x > EPSILON stayed True while _cov went NaN, so the
+        # asset emitted a NaN beta that survived drop_nulls("beta").
+        assert np.isfinite(out["beta"].to_numpy()).all()
+        assert np.isfinite(out["alpha"].to_numpy()).all()
+
+    def test_nan_factor_row_reduces_n_obs_for_that_asset_only(self):
+        panel = _common_factor_panel(n_assets=4, n_dates=60, seed=12)
+        victim = panel["asset_id"][0]
+        poisoned = panel.with_columns(
+            pl.when(
+                (pl.col("asset_id") == victim) & (pl.col("date") == panel["date"][0])
+            )
+            .then(float("nan"))
+            .otherwise(pl.col("factor"))
+            .alias("factor")
+        )
+        clean = compute_common_betas(panel)["factor"]
+        out = compute_common_betas(poisoned)["factor"]
+        n_clean = dict(zip(clean["asset_id"], clean["n_obs"], strict=True))
+        n_out = dict(zip(out["asset_id"], out["n_obs"], strict=True))
+        assert n_out[victim] == n_clean[victim] - 1
+        for a in n_clean:
+            if a != victim:
+                assert n_out[a] == n_clean[a]
+
+    def test_common_beta_consumer_drops_nan_betas(self):
+        # Hand-built frame: a NaN beta reaching _calc_t_stat silently returns
+        # t=0 / p=1 with a NaN value.
+        df = pl.DataFrame(
+            {
+                "asset_id": ["A", "B", "C", "D"],
+                "beta": [1.0, 1.1, float("nan"), 0.9],
+                "alpha": [0.0, 0.0, 0.0, 0.0],
+                "t_stat": [3.0, 3.0, None, 3.0],
+                "r_squared": [0.5, 0.5, 0.5, 0.5],
+                "n_obs": [50, 50, 50, 50],
+            }
+        )
+        result = common_beta(df)
+        assert np.isfinite(result.value)
+        assert result.value == pytest.approx((1.0 + 1.1 + 0.9) / 3)
+        assert result.n_obs == 3
+        assert result.stat != 0.0
+        assert result.p_value < 1.0
+
+    def test_sign_consistency_and_profile_drop_nan_betas(self):
+        df = pl.DataFrame(
+            {
+                "asset_id": ["A", "B", "C"],
+                "beta": [1.0, float("nan"), 2.0],
+                "alpha": [0.0, 0.0, 0.0],
+                "t_stat": [3.0, None, 3.0],
+                "r_squared": [0.4, float("nan"), 0.6],
+                "n_obs": [50, 50, 50],
+            }
+        )
+        sign = common_beta_sign_consistency(df)
+        assert sign.n_obs == 2
+        assert sign.value == pytest.approx(1.0)
+        profile = common_beta_profile(df)
+        assert profile.n_obs == 2
+        assert profile.metadata["n_positive_beta"] == 2
+        assert np.isfinite(profile.metadata["abs_beta_mean"])
+
+
+class TestCommonBetasExactFitTStat:
+    """REGRESSION: an exact fit reported t_stat=0.0 with r_squared=1.0."""
+
+    def test_exact_fit_reports_null_t_stat(self):
+        n = 40
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n)]
+        f = np.linspace(-1.0, 1.0, n)
+        rows = []
+        for d, fv in zip(dates, f, strict=True):
+            # Asset X: return is an exact affine function of the factor.
+            rows.append(
+                {
+                    "date": d,
+                    "asset_id": "X",
+                    "factor": float(fv),
+                    "forward_return": 2.0 * float(fv) + 0.1,
+                }
+            )
+        panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        out = compute_common_betas(panel)["factor"]
+        row = out.filter(pl.col("asset_id") == "X")
+        assert row["beta"][0] == pytest.approx(2.0)
+        assert row["r_squared"][0] == pytest.approx(1.0)
+        # Old code: t_stat == 0.0 (reads as "maximally insignificant").
+        assert row["t_stat"][0] is None
+
+
+class TestRollingZeroVarianceSkip:
+    """REGRESSION: lstsq returns the min-norm slope 0.0 for a constant column."""
+
+    def test_zero_variance_asset_is_skipped_not_averaged_in(self):
+        n_dates, window = 80, 60
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
+        f = np.linspace(-1.0, 1.0, n_dates)
+        rows = []
+        for d, fv in zip(dates, f, strict=True):
+            # "G" carries a real slope of 2.0.
+            rows.append(
+                {
+                    "date": d,
+                    "asset_id": "G",
+                    "factor": float(fv),
+                    "forward_return": 2.0 * float(fv),
+                }
+            )
+            # "Z" has a constant factor: no identifiable slope.
+            rows.append(
+                {"date": d, "asset_id": "Z", "factor": 1.0, "forward_return": float(fv)}
+            )
+        panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+        out = compute_rolling_common_beta(panel, window=window)
+        assert out.height == n_dates - window
+        # Old code: mean(2.0, 0.0) == 1.0 because lstsq's min-norm solution for
+        # the constant column was accepted as a real "no relationship" beta.
+        assert out["value"].to_numpy() == pytest.approx(2.0)

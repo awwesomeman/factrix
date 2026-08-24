@@ -13,7 +13,12 @@ import numpy as np
 import polars as pl
 import pytest
 from factrix._codes import WarningCode
-from factrix.metrics.fm_beta import compute_fm_betas, fm_beta, fm_beta_sign_consistency
+from factrix.metrics.fm_beta import (
+    compute_fm_betas,
+    fm_beta,
+    fm_beta_sign_consistency,
+    pooled_beta,
+)
 
 
 def _lstsq_betas(df: pl.DataFrame, factor_col: str = "factor") -> dict:
@@ -217,3 +222,100 @@ class TestComputeFMBetasBatch:
     def test_empty_factor_list_rejected(self, tiny_panel):
         with pytest.raises(ValueError, match="factor_cols must be non-empty"):
             compute_fm_betas(tiny_panel, factor_cols=[])
+
+
+def _nan_panel(n_dates: int = 30, n_assets: int = 8, seed: int = 5) -> pl.DataFrame:
+    rng = np.random.default_rng(seed)
+    dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
+    rows = []
+    for d in dates:
+        for a in range(n_assets):
+            f = float(rng.normal())
+            rows.append(
+                {
+                    "date": d,
+                    "asset_id": f"A{a}",
+                    "factor": f,
+                    "forward_return": 0.5 * f + float(rng.normal(0, 0.1)),
+                }
+            )
+    return pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+
+class TestNonFinitePassThrough:
+    """REGRESSION: polars var/cov/drop_nulls do not skip float NaN."""
+
+    def test_single_nan_return_does_not_emit_nan_beta(self):
+        panel = _nan_panel()
+        target = panel["date"][0]
+        poisoned = panel.with_columns(
+            pl.when((pl.col("date") == target) & (pl.col("asset_id") == "A0"))
+            .then(float("nan"))
+            .otherwise(pl.col("forward_return"))
+            .alias("forward_return")
+        )
+        out = compute_fm_betas(poisoned)["factor"]
+        betas = out["beta"].to_numpy()
+        # Old code: var(x) > 0 stayed True while cov went NaN -> NaN beta that
+        # survived drop_nulls("beta").
+        assert np.isfinite(betas).all()
+        # The NaN row is excluded from the effective n for that date.
+        row = out.filter(pl.col("date") == target)
+        assert row.height == 1
+        assert row["n_assets"][0] == 7
+
+    def test_single_nan_factor_does_not_emit_nan_beta(self):
+        panel = _nan_panel()
+        poisoned = panel.with_columns(
+            pl.when(pl.int_range(pl.len()) == 3)
+            .then(float("nan"))
+            .otherwise(pl.col("factor"))
+            .alias("factor")
+        )
+        out = compute_fm_betas(poisoned)["factor"]
+        assert np.isfinite(out["beta"].to_numpy()).all()
+
+    def test_date_below_hard_floor_after_nan_drop_is_removed(self):
+        panel = _nan_panel(n_dates=12, n_assets=3)
+        target = panel["date"][0]
+        poisoned = panel.with_columns(
+            pl.when((pl.col("date") == target) & (pl.col("asset_id") == "A0"))
+            .then(float("nan"))
+            .otherwise(pl.col("forward_return"))
+            .alias("forward_return")
+        )
+        out = compute_fm_betas(poisoned)["factor"]
+        # 3 assets - 1 non-finite = 2 finite pairs < MIN_FM_ASSETS_HARD.
+        assert target not in out["date"].to_list()
+        stats = out["_drop_stats"][0]
+        assert stats["dropped_periods"] >= 1
+
+    def test_pooled_beta_survives_a_nan_cell(self):
+        panel = _nan_panel()
+        poisoned = panel.with_columns(
+            pl.when(pl.int_range(pl.len()) == 11)
+            .then(float("nan"))
+            .otherwise(pl.col("forward_return"))
+            .alias("forward_return")
+        )
+        # Old code: drop_nulls kept the NaN -> lstsq slope NaN -> MetricResult
+        # rejected the non-finite value with a ValueError.
+        result = pooled_beta(poisoned)
+        assert np.isfinite(result.value)
+        assert result.metadata["dropped_pairs"] == 1
+        assert result.n_obs == poisoned.height - 1
+
+    def test_sign_consistency_ignores_nan_betas(self):
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(5)]
+        beta_df = pl.DataFrame(
+            {
+                "date": dates,
+                "beta": [1.0, 2.0, float("nan"), 3.0, 4.0],
+                "n_assets": [10, 10, 10, 10, 10],
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        result = fm_beta_sign_consistency(beta_df, expected_sign=1)
+        # Old code: NaN > 0 is False -> counted as a wrong-sign period AND in
+        # n_obs, giving 4/5 = 0.8 instead of 4/4 = 1.0.
+        assert result.value == pytest.approx(1.0)
+        assert result.n_obs == 4

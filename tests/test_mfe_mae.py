@@ -194,7 +194,10 @@ class TestMfeMae:
         result = mfe_mae(mfe_df)
         assert result is not None
         assert "mfe_p50" in result.metadata
-        assert "mae_p75" in result.metadata
+        # MAE is a signed non-positive excursion: the WORST adverse quartile
+        # is p25, not p75.
+        assert "mae_p25" in result.metadata
+        assert "mae_p75" not in result.metadata
 
     def test_short_circuit_when_empty(self):
         empty = pl.DataFrame(
@@ -299,3 +302,116 @@ class TestEventSkewness:
         )
         result = event_skewness(df)
         assert math.isnan(result.value)
+
+
+# ---------------------------------------------------------------------------
+# Excursion sign / quantile conventions (regression)
+# ---------------------------------------------------------------------------
+
+
+def _price_path(prices: list[float], direction: float = 1.0) -> pl.DataFrame:
+    """Single-asset panel whose only event is on the first bar."""
+    n = len(prices)
+    return pl.DataFrame(
+        {
+            "date": pl.Series(
+                [datetime(2020, 1, 1) + timedelta(days=i) for i in range(n)],
+                dtype=pl.Datetime("ms"),
+            ),
+            "asset_id": ["A"] * n,
+            "factor": [direction] + [0.0] * (n - 1),
+            "forward_return": [0.0] * n,
+            "price": prices,
+        }
+    )
+
+
+class TestSweeneyFloor:
+    """MFE >= 0 and MAE <= 0 by construction (Sweeney / Tharp)."""
+
+    def test_monotonically_losing_trade_has_zero_mfe(self):
+        # Every post-entry bar is below entry, so the trade was never
+        # favorable. Old behaviour reported the least-bad bar as a
+        # *negative* MFE.
+        out = compute_mfe_mae(_price_path([100.0, 99.0, 98.0, 97.0]), window=3)
+        assert out["mfe"][0] == 0.0
+        assert out["bars_to_mfe"][0] == 0
+        assert out["mae"][0] == pytest.approx(-0.03)
+        assert out["bars_to_mae"][0] == 3
+
+    def test_monotonically_winning_trade_has_zero_mae(self):
+        # Old behaviour reported the least-good bar as a *positive* MAE.
+        out = compute_mfe_mae(_price_path([100.0, 101.0, 102.0, 103.0]), window=3)
+        assert out["mae"][0] == 0.0
+        assert out["bars_to_mae"][0] == 0
+        assert out["mfe"][0] == pytest.approx(0.03)
+        assert out["bars_to_mfe"][0] == 3
+
+    def test_short_direction_is_floored_the_same_way(self):
+        # direction = -1: rising prices are adverse for the position.
+        out = compute_mfe_mae(
+            _price_path([100.0, 101.0, 102.0, 103.0], direction=-1.0), window=3
+        )
+        assert out["mfe"][0] == 0.0
+        assert out["mae"][0] == pytest.approx(-0.03)
+
+    def test_two_sided_path_keeps_both_excursions(self):
+        out = compute_mfe_mae(_price_path([100.0, 102.0, 98.0, 100.0]), window=3)
+        assert out["mfe"][0] == pytest.approx(0.02)
+        assert out["bars_to_mfe"][0] == 1
+        assert out["mae"][0] == pytest.approx(-0.02)
+        assert out["bars_to_mae"][0] == 2
+
+    def test_signs_hold_across_a_realistic_panel(self, event_data):
+        out = compute_mfe_mae(event_data, window=10)
+        assert (out["mfe"] >= 0.0).all()
+        assert (out["mae"] <= 0.0).all()
+
+    def test_z_siblings_derive_from_the_floored_values(self, event_data):
+        out = compute_mfe_mae(event_data, window=10).drop_nulls().drop_nans()
+        assert (out["mfe_z"] >= 0.0).all()
+        assert (out["mae_z"] <= 0.0).all()
+        # mfe_z / mfe == mae_z / mae == 1 / window_scale wherever both are
+        # non-zero, i.e. the z pair is the same rescaling of the floored pair.
+        both = out.filter((pl.col("mfe") > 0) & (pl.col("mae") < 0))
+        assert both.height > 0
+        ratio_f = (both["mfe_z"] / both["mfe"]).to_numpy()
+        ratio_a = (both["mae_z"] / both["mae"]).to_numpy()
+        assert np.allclose(ratio_f, ratio_a)
+
+
+class TestWorstAdverseQuartile:
+    def test_headline_divides_by_the_worst_quartile_not_the_mildest(self):
+        # mae values: -0.10 .. -0.01. quantile(0.25) is the WORST quartile
+        # (most negative); quantile(0.75) is the mildest.
+        maes = [-0.01 * (i + 1) for i in range(10)]
+        mfes = [0.02] * 10
+        per_event = pl.DataFrame(
+            {
+                "date": pl.Series(
+                    [datetime(2020, 1, 1) + timedelta(days=i) for i in range(10)],
+                    dtype=pl.Datetime("ms"),
+                ),
+                "asset_id": ["A"] * 10,
+                "mfe": mfes,
+                "mae": maes,
+            }
+        )
+        result = mfe_mae(per_event)
+
+        expected_p25 = float(pl.Series(maes).quantile(0.25))
+        assert result.metadata["mae_p25"] == pytest.approx(expected_p25)
+        assert expected_p25 < float(pl.Series(maes).quantile(0.75))
+        assert result.value == pytest.approx(0.02 / abs(expected_p25))
+        # The old (mildest-quartile) denominator would have inflated the ratio.
+        assert result.value < 0.02 / abs(float(pl.Series(maes).quantile(0.75)))
+
+    def test_z_sibling_uses_p25_too(self, event_data):
+        per_event = compute_mfe_mae(event_data, window=10)
+        result = mfe_mae(per_event)
+        if "mae_z_p25" in result.metadata:
+            mae_z = per_event["mae_z"].drop_nulls().drop_nans()
+            assert result.metadata["mae_z_p25"] == pytest.approx(
+                float(mae_z.quantile(0.25))
+            )
+            assert "mae_z_p75" not in result.metadata

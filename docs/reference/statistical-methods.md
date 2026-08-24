@@ -34,6 +34,20 @@ The five sections are the only first-class disciplines in factrix:
 5. **Event-study cross-sectional inference** — CAAR cross-event $t$,
    BMP-style standardised AR, Corrado rank.
 
+!!! note "Every estimator here is frequency-agnostic"
+    No estimator in factrix reads the calendar. `date` is only an ordering
+    key, and every window, lag, horizon and stride (`forward_periods`,
+    `estimation_window`, `window`, Bartlett lags, block lengths) is a count
+    of **panel rows**, i.e. of whatever period one row represents. There is
+    no annualisation factor, no trading-day constant and no date
+    arithmetic anywhere in the library, so `forward_periods=5` is five days
+    on a daily panel and five months on a monthly one. Where a docstring
+    says "one period" it means one row; "within-date" means "among the rows
+    sharing one timestamp", whatever that timestamp's granularity. The
+    caller owns frequency consistency between the factor, the return and
+    the price column — see
+    [Preparing data](../guides/preparing-data.md).
+
 ---
 
 ## 1. HAC SE under overlapping returns
@@ -273,11 +287,21 @@ metadata records `unit_root_suspected=True` and the slope significance
 is annotated with that caveat. The slope value itself is still
 returned; the caller decides whether to trust it.
 
+The lag order of the augmentation is selected by AIC over
+$0 \ldots \lfloor 12 (T/100)^{1/4} \rfloor$ ([Schwert 1989][schwert-1989]
+ceiling) on a common estimation sample, then refitted on the full sample —
+the `statsmodels.tsa.stattools.adfuller(autolag="AIC")` procedure. The
+series this is applied to carry MA($h-1$) autocorrelation from overlapping
+forward returns, so the un-augmented $\text{lags}=0$ regression (the
+earlier default) is mis-sized. Pass `lags=` explicitly to `_adf` to fix
+the order.
+
 The ADF p-value is interpolated from
 [MacKinnon 1996][mackinnon-1996] response-surface critical values for
-the constant-only specification (`_adf_pvalue_interp`). The
-interpolation accuracy is ~±0.02 — ample for the qualitative "is this
-a unit root" decision the threshold drives.
+the constant-only specification (`_adf_pvalue_interp`); the upper tail
+uses Fuller's $\tau_\mu$ points ($-0.44$ / $-0.07$ / $0.23$ / $0.60$ at
+90 / 95 / 97.5 / 99%). The interpolation accuracy is ~±0.02 — ample for
+the qualitative "is this a unit root" decision the threshold drives.
 
 Overlapping multi-period returns inherit MA(`h − 1`) autocorrelation
 ([Richardson-Stock 1989][richardson-stock-1989]), which the NW lag
@@ -343,23 +367,33 @@ the underlying return.
 
 ## 6. Known simplifications (deliberately retained)
 
-Two estimators take a documented shortcut over the textbook form. Both are
-intentional and have been reviewed; this section records the trade-off so the
-choice is not re-litigated. Neither is a correctness bug.
+One estimator takes a documented shortcut over the textbook form. It is
+intentional and has been reviewed; this section records the trade-off so the
+choice is not re-litigated.
 
-### Within-date ICC uses the raw between-group variance
+### Within-date clustering: ANOVA ICC(1) and the design-effect deflator
 
-`_estimate_within_date_icc` (feeds the [Kolari-Pynnönen][kolari-pynnonen-2010]
-deflation in `bmp_z` and `directional_hit_rate`) estimates the between-date
-component as $\hat\sigma^2_b = \operatorname{Var}(\bar x_d)$ — the sample
-variance of the per-date means — rather than the one-way random-effects ANOVA
-estimator $(\text{MSB} - \text{MSW}) / \bar n$. Because
-$\mathbb{E}[\operatorname{Var}(\bar x_d)] = \sigma^2_b + \sigma^2_w / \bar n$,
-the raw form is biased **upward**, so the estimated intra-class correlation
-$\hat r$ is biased upward and the KP scale $\sqrt{(1-r)/(1+(n_{\text{eff}}-1)r)}$
-shrinks the $z$ **more** than the ANOVA estimator would. The bias is therefore
-in the **conservative** direction (smaller test statistic, fewer rejections),
-which is why the simpler, always-non-negative estimator is kept.
+`_estimate_within_date_icc` (feeds the clustering deflation in `bmp_z` and
+`directional_hit_rate`) is the one-way random-effects ANOVA estimator
+$\hat r = (\text{MSB} - \text{MSW}) / (\text{MSB} + (n_0 - 1)\,\text{MSW})$
+([Shrout-Fleiss 1979][shrout-fleiss-1979] ICC(1), Donner-Koval $n_0$ for
+unbalanced dates), clipped to $[0, 1]$. An earlier version used the raw
+between/total ratio $\operatorname{Var}(\bar x_d) / (\operatorname{Var}(\bar x_d) +
+\hat\sigma^2_w)$; because $\mathbb{E}[\operatorname{Var}(\bar x_d)] = \sigma^2_b +
+\sigma^2_w / n$, that ratio converges to $1/(n+1)$ under **independence** and
+the deflator fired at full strength on unclustered data (empirical size
+$\approx 1\%$ at nominal 5%). This was previously described here as a
+conservative simplification; it was a mis-sized test and has been replaced.
+
+The deflator itself is the Kish design effect $1/\sqrt{1 + (n_0 - 1)\hat r}$,
+i.e. [Kolari-Pynnönen 2010][kolari-pynnonen-2010] **without** the $(1 - \bar r)$
+numerator. K-P's numerator corrects a cross-sectional variance estimated on a
+*single* event day (which under clustering estimates only $\sigma^2(1 - \bar
+r)$). factrix pools SARs / hit indicators across many event dates, so the pooled
+variance already contains the between-date component; applying $(1 - \bar r)$
+on top would double-count. Choosing the design-effect form is the
+engine-specific decision; the textbook K-P form is correct for the single-day
+BMP setting it was derived in.
 
 ### HAC mean $t$-tests reference $t_{n-1}$ on the full overlapping sample
 
@@ -374,3 +408,35 @@ check inside the kernel) flags exactly the short/high-bandwidth regime where the
 gap matters. Distinct from the single-restriction NW-HAC **Wald** tests
 (`common_quantile_spread`, `common_asymmetry`), which *do* use a finite-sample
 $F_{r,\,T-k}$ reference.
+
+## 7. Missing-value convention (null vs NaN)
+
+polars distinguishes `null` (missing) from float `NaN` (a value), and
+`drop_nulls` / `mean` / `std` / `sum` / `rank` do **not** skip NaN — a NaN
+propagates through a mean, ranks above every finite value, and compares
+`False` to everything (so `x > 0` counts it as a miss and `x != 0` as an
+event). pandas users are used to `skipna=True` hiding this; there is no such
+switch in polars, so factrix fixes one convention across the library:
+
+1. **Producers drop and record.** A per-date primitive (`compute_ic`,
+   `compute_caar`, the quantile bucketing, the beta primitives) drops a
+   non-finite input row or an undefined per-date statistic (e.g. the
+   Spearman $\rho$ of a constant cross-section, which `pl.corr` returns as
+   NaN) at the boundary, and reports the count through `_drop_stats` /
+   `n_*_dropped` metadata so the shrinkage is visible.
+2. **Consumers use `drop_nulls().drop_nans()`.** Every series consumer treats
+   NaN exactly like null: it is a missing observation, never a value. The
+   headline `value`, `stat`, `p_value` and `n_obs` are computed on the same
+   surviving sample.
+3. **Kernels refuse non-finite input.** `factrix._stats` primitives
+   (`_newey_west_*`, `_hansen_hodrick_*`, `_block_bootstrap_diff_p`) raise
+   `ValueError` on NaN / inf — scipy's `nan_policy="raise"` semantics — rather
+   than emit a NaN statistic or, worse, a spuriously small $p$ (an all-NaN
+   bootstrap centring makes every `|boot| >= |obs|` comparison `False` and the
+   empirical $p$ collapses to $1/(B+1)$).
+
+The alternative — pandas-style silent `skipna` inside every reduction — was
+rejected because it hides sample shrinkage from the reader and would still
+leave `rank` / comparison semantics wrong. Imputing NaN to 0 was rejected
+because a zero is a *value* (it pulls means toward zero and hit rates down).
+

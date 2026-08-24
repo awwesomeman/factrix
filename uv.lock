@@ -668,7 +668,7 @@ requires-dist = [
     { name = "nbformat", marker = "extra == 'jupyter'", specifier = ">=4.2.0" },
     { name = "numpy", specifier = ">=2.0" },
     { name = "pandera", specifier = ">=0.29" },
-    { name = "polars", specifier = ">=1.38" },
+    { name = "polars", specifier = ">=1.38.1" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.5.1" },
     { name = "pytest", marker = "extra == 'dev'", specifier = "==9.1.1" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = "==7.1.0" },

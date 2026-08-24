@@ -125,19 +125,50 @@ def _selection_to_result(acc: _ForwardSelection, n_obs: int) -> MetricResult:
 def _align_spread_series(
     series_dict: dict[str, pl.DataFrame],
 ) -> tuple[pl.DataFrame, dict[str, np.ndarray]]:
-    """Align multiple spread series to common dates with non-null spreads.
+    """Align multiple spread series to common dates with finite spreads.
 
-    Only dates where ALL series have non-null spread values are kept.
-    This avoids biasing regression by filling missing data with zeros.
+    Only dates where ALL series carry a finite (non-null, non-NaN) spread are
+    kept. This avoids biasing the regression by filling missing data with zeros.
+
+    Every returned array is materialised by sorting the per-series join result
+    on ``date``, so position ``i`` of every array is the value observed on
+    ``common_dates[i]`` regardless of the input frames' row order.
+
+    Raises:
+        ValueError: if any input series has duplicate ``date`` rows. A
+            duplicated date makes the date → value map ambiguous and silently
+            produces arrays of unequal length (``np.column_stack`` then raises
+            a shape error far from the cause).
 
     Returns:
         (common_dates DataFrame, dict of name → aligned numpy array).
+
+    Notes:
+        polars joins carry no row-order guarantee (``maintain_order`` defaults
+        to ``None``), so the previous ``common_dates.join(...)`` ordering was
+        incidental. Under a shuffled input frame the arrays came back permuted
+        relative to one another, which silently destroys every downstream
+        regression (a true 0.5 slope collapsed to ~0.001). The explicit
+        ``.sort("date")`` below pins the contract to the date key rather than
+        to join internals. The alternative — passing ``maintain_order="left"``
+        — is engine-version-dependent and still gives no protection against
+        duplicate keys, so factrix sorts and rejects duplicates instead.
     """
     # WHY: inner join on dates ensures only dates present in ALL series;
-    # then filter out any date where any series has null spread
+    # then filter out any date where any series has a non-finite spread.
     all_dates = None
-    for data in series_dict.values():
-        valid = data.filter(pl.col("spread").is_not_null()).select("date").unique()
+    for name, data in series_dict.items():
+        if data["date"].n_unique() != data.height:
+            raise ValueError(
+                f"_align_spread_series: series {name!r} has duplicate dates "
+                f"({data.height} rows, {data['date'].n_unique()} unique); "
+                f"date-keyed alignment is ambiguous. De-duplicate first."
+            )
+        valid = (
+            data.filter(pl.col("spread").is_not_null() & pl.col("spread").is_not_nan())
+            .select("date")
+            .unique()
+        )
         if all_dates is None:
             all_dates = valid
         else:
@@ -149,9 +180,11 @@ def _align_spread_series(
     common_dates = all_dates.sort("date")
     arrays = {}
     for name, data in series_dict.items():
-        arrays[name] = common_dates.join(
-            data.select("date", "spread"), on="date", how="inner"
-        )["spread"].to_numpy()
+        arrays[name] = (
+            common_dates.join(data.select("date", "spread"), on="date", how="inner")
+            .sort("date")["spread"]
+            .to_numpy()
+        )
     return common_dates, arrays
 
 
@@ -236,7 +269,11 @@ def spanning_alpha(
         base_arrays = arrays
         base_matrix = np.column_stack(list(base_arrays.values()))
     else:
-        candidate_arr = factor_spread["spread"].drop_nulls().to_numpy()
+        # Consumer-side non-finite guard: polars ``drop_nulls`` keeps float
+        # NaN, which would propagate through ``_ols_alpha`` into a NaN alpha
+        # and a silent t=0 / p=1. The multi-series path drops NaN inside
+        # ``_align_spread_series``; this branch bypasses it.
+        candidate_arr = factor_spread["spread"].drop_nulls().drop_nans().to_numpy()
         base_arrays = {}
         base_matrix = np.empty((len(candidate_arr), 0))
 

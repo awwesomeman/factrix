@@ -94,3 +94,130 @@ class TestQ1Concentration:
         ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = top_concentration(df, weight_by="alpha_contribution")
         assert result.metadata.get("reason") == "no_return_column"
+
+
+def _panel(rows):
+    return pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+
+class TestTopBucketMembership:
+    """The bucket is a strict count over the finite cross-section."""
+
+    @staticmethod
+    def _uniform_panel(n_assets, n_dates=10, factor_of=None, return_of=None):
+        rows = []
+        for d in range(n_dates):
+            date = datetime(2024, 1, 1) + timedelta(days=d)
+            for i in range(n_assets):
+                rows.append(
+                    {
+                        "date": date,
+                        "asset_id": f"A{i}",
+                        "factor": (float(i + 1) if factor_of is None else factor_of(i)),
+                        "forward_return": (0.01 if return_of is None else return_of(i)),
+                    }
+                )
+        return _panel(rows)
+
+    def test_count_cutoff_is_floor_n_times_q(self):
+        """n=10, q=0.2 selects 2 names, not 3 (percent-rank cutoff was
+        inclusive at the boundary and took one name too many)."""
+        result = top_concentration(
+            self._uniform_panel(10), forward_periods=1, q_top=0.2
+        )
+        assert result.metadata["mean_n_top"] == 2.0
+
+    def test_count_cutoff_does_not_drift_with_n(self):
+        """n=100, q=0.2 selects 20, not 21 — the old off-by-one grew with n."""
+        result = top_concentration(
+            self._uniform_panel(100), forward_periods=1, q_top=0.2
+        )
+        assert result.metadata["mean_n_top"] == 20.0
+
+    def test_bucket_never_empty(self):
+        """floor(n*q) == 0 still selects the single top name."""
+        result = top_concentration(self._uniform_panel(4), forward_periods=1, q_top=0.2)
+        assert result.metadata["mean_n_top"] == 1.0
+
+    def test_null_factors_do_not_shrink_the_bucket(self):
+        """5 valid + 5 null names, q=0.2 → 1 name (floor(5*0.2)).
+
+        The old denominator was ``pl.len()`` (10), so the percent-rank of the
+        best valid name was 5/10 = 0.5 < 0.8 and the bucket came out EMPTY.
+        """
+        panel = self._uniform_panel(
+            10, factor_of=lambda i: float(i + 1) if i < 5 else None
+        )
+        result = top_concentration(panel, forward_periods=1, q_top=0.2)
+        assert result.metadata["mean_n_top"] == 1.0
+        assert result.n_obs == 10
+
+    def test_nan_factor_is_never_selected(self):
+        """NaN sorts as the largest value under a descending rank."""
+        panel = self._uniform_panel(
+            10, factor_of=lambda i: float("nan") if i == 0 else float(i)
+        )
+        result = top_concentration(panel, forward_periods=1, q_top=0.2)
+        # 9 finite names -> floor(9*0.2) = 1, and it must be asset A9 (factor
+        # 9.0), not the NaN one.
+        assert result.metadata["mean_n_top"] == 1.0
+        # A single name in the bucket -> HHI 1 -> eff_n 1.
+        assert result.value == 1.0
+
+
+class TestAlphaContributionWeights:
+    def test_null_return_leaves_both_hhi_and_n_top(self):
+        """A selected name with no realised return is not a member.
+
+        Old behaviour: its weight was null so it left the HHI numerator, but
+        ``n_top = pl.len()`` still counted it — the eff_n / n_top ratio came
+        out biased low (spurious "concentration").
+        """
+        rows = []
+        for d in range(10):
+            date = datetime(2024, 1, 1) + timedelta(days=d)
+            for i in range(10):
+                rows.append(
+                    {
+                        "date": date,
+                        "asset_id": f"A{i}",
+                        "factor": float(i + 1),
+                        # Top bucket is A8, A9; A9 has no return.
+                        "forward_return": None if i == 9 else 0.01,
+                    }
+                )
+        result = top_concentration(
+            _panel(rows),
+            forward_periods=1,
+            q_top=0.2,
+            weight_by="alpha_contribution",
+        )
+        # Only A8 carries a weight -> bucket of one -> eff_n == n_top == 1,
+        # ratio 1.0 (perfectly "diversified" over the one name observed),
+        # not eff_n=1 / n_top=2 = 0.5.
+        assert result.metadata["mean_n_top"] == 1.0
+        assert result.metadata["ratio_eff_to_total"] == 1.0
+        assert result.metadata["n_top_members_selected"] == 20
+        assert result.metadata["n_top_members_dropped"] == 10
+
+    def test_all_weights_missing_short_circuits(self):
+        rows = []
+        for d in range(10):
+            date = datetime(2024, 1, 1) + timedelta(days=d)
+            for i in range(10):
+                rows.append(
+                    {
+                        "date": date,
+                        "asset_id": f"A{i}",
+                        "factor": float(i + 1),
+                        "forward_return": None,
+                    }
+                )
+        result = top_concentration(
+            _panel(rows),
+            forward_periods=1,
+            q_top=0.2,
+            weight_by="alpha_contribution",
+        )
+        assert result.metadata["reason"] == "insufficient_top_bucket_periods"
+        assert result.n_obs == 0

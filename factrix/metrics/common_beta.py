@@ -44,6 +44,7 @@ from factrix._types import DDOF, EPSILON
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _enforce_min_floor,
+    _finite_expr,
     _short_circuit_output,
     _surface_drop_stats,
 )
@@ -115,7 +116,10 @@ def common_beta(common_betas_df: pl.DataFrame) -> MetricResult:
         >>> result.name == ""
         True
     """
-    betas = common_betas_df["beta"].drop_nulls().to_numpy()
+    # ``drop_nans`` as well as ``drop_nulls``: polars keeps float NaN, and a NaN
+    # beta reaching ``_calc_t_stat`` silently returns t=0 / p=1 with a NaN
+    # ``value`` — a "no effect" verdict manufactured out of missing data.
+    betas = common_betas_df["beta"].drop_nulls().drop_nans().to_numpy()
     n = len(betas)
 
     sc = _enforce_min_floor(
@@ -198,7 +202,7 @@ def common_beta_profile(
             descriptive=True,
         )
 
-    betas = common_betas_df["beta"].drop_nulls().to_numpy()
+    betas = common_betas_df["beta"].drop_nulls().drop_nans().to_numpy()
     n = len(betas)
     sc = _enforce_min_floor(
         common_beta_profile,
@@ -309,7 +313,7 @@ def common_beta_r_squared(common_betas_df: pl.DataFrame) -> MetricResult:
         >>> result.name == ""
         True
     """
-    r2_vals = common_betas_df["r_squared"].drop_nulls().to_numpy()
+    r2_vals = common_betas_df["r_squared"].drop_nulls().drop_nans().to_numpy()
     n = len(r2_vals)
 
     sc = _enforce_min_floor(
@@ -367,12 +371,14 @@ def compute_rolling_common_beta(
     """Rolling-window mean β across assets — time-series input for out-of-sample (OOS) / trend.
 
     Formula (per date t ≥ ``window``):
-        For each asset i, take the trailing ``window`` rows ending at t.
+        For each asset i, take the trailing window of dates
+        ``[dates[i - window], dates[i - 1]]`` — the ``window`` dates
+        **strictly before** t; date t itself is excluded.
         If ≥ 10 valid (factor, return) pairs, run ordinary least squares (OLS):
             R_{i,s} = α_i + β_i·F_s + ε   (s in window)
         β_t = mean_i β_i   (cross-asset mean of this window's βs)
 
-    Dates with fewer than ``window`` trailing rows are skipped. Assets
+    Dates with fewer than ``window`` trailing dates are skipped. Assets
     with < 10 valid obs in the window are dropped from that date's β
     calculation. If no asset qualifies at a given date, that date is
     absent from the output entirely.
@@ -382,6 +388,27 @@ def compute_rolling_common_beta(
         cross-asset mean β. Shape compatible with ``oos`` / ``ic_trend``.
 
     Notes:
+        **Window convention — lag-1, out-of-sample.** The value stamped on
+        output date ``t`` is estimated on the half-open history
+        ``[t - window, t - 1]``: it uses only dates strictly *before* t and
+        never t's own observation. That makes each ``value_t`` usable as a
+        signal *at* t without look-ahead — the series can be joined directly
+        onto date t and fed to ``oos`` / ``ic_trend`` (or traded) with no
+        further shifting. The alternative and more common convention (pandas
+        ``rolling(window)``, which closes the window *at* t and therefore
+        includes t) would make ``value_t`` contemporaneous and quietly
+        look-ahead-biased for exactly the OOS/trend use this producer exists
+        to feed; factrix pays one date of history for that guarantee.
+
+        **Zero-variance regressors are skipped, not solved.** An asset whose
+        factor is constant over the window has no identifiable slope;
+        ``lstsq`` does not raise there, it returns the minimum-norm solution
+        — slope exactly 0.0 — which would enter the cross-asset mean as a
+        real "no relationship" estimate and shrink ``value_t`` toward zero.
+        Such assets are dropped from that date's mean exactly like the
+        < 10-obs assets, so only identifiable slopes are averaged; a date on
+        which every asset is degenerate is absent from the output.
+
         Per date ``t >= window``, run the per-asset TS OLS over the
         trailing ``window`` rows and compute ``value_t = mean_i beta_i``.
         Output schema matches the time-series tools (``oos`` /
@@ -415,16 +442,15 @@ def compute_rolling_common_beta(
         )
 
     # Partition by asset once into date-sorted numpy arrays, dropping rows with a
-    # null factor or return up front: an incomplete pair is unobserved, and
+    # non-finite factor or return up front: an incomplete pair is unobserved, and
     # leaving it in would feed a NaN into the per-asset OLS and poison that
-    # asset's slope (and the cross-asset mean). The trailing date window for each
+    # asset's slope (and the cross-asset mean). ``is_not_null`` alone is not
+    # enough — polars keeps float NaN. The trailing date window for each
     # ``t`` is the closed interval ``[dates[i-window], dates[i-1]]`` — every
     # asset row whose date lands in it, located by ``searchsorted`` on the
     # asset's sorted dates — which replaces the per-date ``is_in`` filter and the
     # per-asset ``asset_id ==`` filter the loop used to run.
-    valid = data.filter(
-        pl.col(factor_col).is_not_null() & pl.col(return_col).is_not_null()
-    )
+    valid = data.filter(_finite_expr(factor_col) & _finite_expr(return_col))
     asset_arrays: dict[object, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
     for key, a_data in (
         valid.sort("date")
@@ -452,6 +478,12 @@ def compute_rolling_common_beta(
                 continue
             x = x_all[left:right]
             y = y_all[left:right]
+            # Skip zero-variance regressors: lstsq does not raise on a constant
+            # column, it returns the minimum-norm solution (slope exactly 0.0),
+            # which would enter the cross-asset mean as a genuine "no
+            # relationship" estimate and bias value_t toward 0.
+            if float(np.std(x)) < EPSILON:
+                continue
             X = np.column_stack([np.ones(n), x])
             try:
                 b, _, _, _ = np.linalg.lstsq(X, y, rcond=None)
@@ -534,7 +566,7 @@ def common_beta_sign_consistency(common_betas_df: pl.DataFrame) -> MetricResult:
         >>> result.name == ""
         True
     """
-    betas = common_betas_df["beta"].drop_nulls().to_numpy()
+    betas = common_betas_df["beta"].drop_nulls().drop_nans().to_numpy()
     n = len(betas)
     sc = _enforce_min_floor(
         common_beta_sign_consistency,

@@ -16,6 +16,7 @@ Scope: the period-axis null-droppers — ``positive_rate``, ``oos_decay``,
 from __future__ import annotations
 
 import datetime as dt
+import math
 import warnings
 
 import factrix as fx
@@ -131,16 +132,22 @@ class TestSpreadTools:
             result = quantile_spread(_spread_panel(), forward_periods=1)["factor"]
         assert EXCESSIVE in result.warning_codes
         assert result.metadata["drop_rate"] == pytest.approx(0.5, abs=0.02)
-        assert "spread" in result.metadata["drop_reason"]
+        assert "NaN" in result.metadata["drop_reason"]
 
     def test_quantile_spread_vw_records_schema(self):
-        # vw bucketing fills top/bottom even on thin dates here, so no null
-        # spread to drop — the five-key schema is still recorded on success.
-        result = quantile_spread_vw(_spread_panel(), forward_periods=1)
+        # Thin dates leave the top bucket empty. The weighted mean's
+        # denominator is then a sum over nothing, which polars reports as 0
+        # (not null) — the ratio used to come back as a NaN spread that
+        # ``drop_nulls`` kept, so drop_rate read 0.0 while a NaN sat in the
+        # tested sample. An empty leg is now null: dropped, and counted.
+        with pytest.warns(UserWarning, match="of periods dropped"):
+            result = quantile_spread_vw(_spread_panel(), forward_periods=1)
         assert set(DROP_STAT_KEYS) <= set(result.metadata)
-        # Nothing dropped → drop_reason is null (not the static criterion label).
-        assert result.metadata["drop_rate"] == 0.0
-        assert result.metadata["drop_reason"] is None
+        assert result.metadata["drop_rate"] == pytest.approx(0.5, abs=0.02)
+        assert "NaN" in result.metadata["drop_reason"]
+        # ... and the surviving sample is finite, so the headline is real.
+        assert math.isfinite(result.value)
+        assert result.n_obs == result.metadata["n_periods_out"]
 
     def test_k_spread_records_schema(self):
         # k_spread's top-k/bottom-k yields a spread even on thin dates, so the

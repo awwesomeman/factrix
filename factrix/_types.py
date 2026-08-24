@@ -108,7 +108,7 @@ PValue = NewType("PValue", float)
 # Metric-option Literal aliases
 # ---------------------------------------------------------------------------
 
-# Kolari-Pynnönen (2010) clustering correction for CAAR — which intra-day
+# Clustering correction for CAAR — which within-date (same-period)
 # correlation source the Z is built from.
 KPSource = Literal["icc", "no_multi_event_dates"]
 

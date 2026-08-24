@@ -210,11 +210,12 @@ class TestNotionalTurnover:
 
 class TestBreakevenCost:
     def test_basic(self):
-        # Notional turnover=0.5 (fraction of Q1/Q_n replaced per rebalance):
-        # gross=0.10/period, turnover=0.5/rebalance, fp=1
-        # → 0.10*1/(2*0.5)*10000 = 1000 bps
+        # Notional turnover=0.5 (per-leg fraction of Q1/Q_n replaced per
+        # rebalance): gross=0.10/period, turnover=0.5/rebalance, fp=1.
+        # Traded notional per rebalance = 4*0.5 = 2 (2 legs x sell+buy), so
+        # the breakeven one-way cost is 0.10*1/(4*0.5)*10000 = 500 bps.
         result = breakeven_cost(0.10, 0.5, forward_periods=1)
-        assert result.value == pytest.approx(1000.0)
+        assert result.value == pytest.approx(500.0)
         assert result.metadata["forward_periods"] == 1
 
     def test_zero_turnover(self):
@@ -239,10 +240,10 @@ class TestBreakevenCost:
 
 class TestNetSpread:
     def test_basic(self):
-        # Notional turnover=0.5; cost=30bps single-leg; fp=1.
-        # net = 0.10 - 2*(30/10000)*0.5/1 = 0.10 - 0.003 = 0.097
+        # Notional turnover=0.5 (per leg); cost=30bps one-way; fp=1.
+        # net = 0.10 - 4*(30/10000)*0.5/1 = 0.10 - 0.006 = 0.094
         result = net_spread(0.10, 0.5, estimated_cost_bps=30, forward_periods=1)
-        assert result.value == pytest.approx(0.097)
+        assert result.value == pytest.approx(0.094)
         assert result.metadata["forward_periods"] == 1
 
     def test_cost_exceeds_alpha(self):

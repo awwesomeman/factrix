@@ -8,7 +8,7 @@ DataFrame and ``mfe_mae`` returns a short-circuit ``MetricResult``
 (``value=NaN``, ``metadata["reason"]``) — never ``None``.
 
 Metrics:
-    mfe_mae           — aggregate summary (p50, p75, ratio)
+    mfe_mae           — aggregate summary (MFE p50, MAE p25, ratio)
 
 Notes:
     **Pipeline.** Per-event MFE / MAE excursion over a fixed window
@@ -62,22 +62,42 @@ def mfe_mae(mfe_mae_df: pl.DataFrame) -> MetricResult:
         mfe_mae_df: Output of ``compute_mfe_mae()``.
 
     Returns:
-        MetricResult with value=MFE_p50/|MAE_p75| ratio. On insufficient
+        MetricResult with value=MFE_p50/|MAE_p25| ratio. On insufficient
         data (empty input or fewer than ``MIN_EVENTS_HARD`` rows), returns a
         short-circuit MetricResult (``value=NaN``, ``metadata["reason"]``
         set) so all metrics share a single return contract.
 
     Notes:
-        Headline ``ratio = quantile(mfe, 0.50) / |quantile(mae, 0.75)|``.
-        Z-normalised siblings ``mfe_z_p50`` / ``mae_z_p75`` /
+        Headline ``ratio = MFE_p50 / |MAE_p25|`` =
+        ``quantile(mfe, 0.50) / |quantile(mae, 0.25)|``.
+        Z-normalised siblings ``mfe_z_p50`` / ``mae_z_p25`` /
         ``mfe_mae_ratio_z`` are reported when ``mfe_z`` / ``mae_z`` are
         present and pass the same minimum-events threshold.
 
-        factrix pairs the MFE median against the MAE 75th percentile
-        (not the median) because the asymmetric quantile pair captures
-        risk-adjusted favourability: a strategy with median favourable
-        excursion that exceeds typical adverse excursion in the worst
-        quartile is the practically useful regime.
+        factrix pairs the MFE median against the **worst adverse
+        quartile** (not the median) because the asymmetric quantile pair
+        captures risk-adjusted favourability: a strategy whose median
+        favourable excursion exceeds the adverse excursion of its worst
+        quartile of events is the practically useful regime.
+
+        MAE is stored as a *signed non-positive* excursion, so the worst
+        quartile is the **25th** percentile — the most negative tail — and
+        ``|MAE_p25| >= |MAE_p50|``. Earlier versions read
+        ``quantile(mae, 0.75)``, which on a non-positive series is the
+        *mildest* adverse quartile (nearest zero); pairing it with the
+        stated "worst quartile" intent both mislabelled the statistic and
+        inflated ``ratio`` by dividing by the smallest adverse magnitude
+        instead of the largest. The alternative convention — storing MAE
+        as a positive magnitude, where p75 would be correct — was not
+        adopted: the signed form keeps ``mfe``/``mae`` on the same signed
+        return axis as every other event primitive and lets
+        ``mfe + |mae|`` read as total excursion range.
+
+        ``compute_mfe_mae`` floors the excursions at the entry price
+        (``mfe >= 0``, ``mae <= 0``, the Sweeney/Tharp definition), so the
+        sign of ``mae`` is guaranteed here rather than assumed. Entry is
+        the event bar's own close — see ``compute_mfe_mae`` for why this
+        primitive enters one bar earlier than the return-profile ones.
 
     Examples:
         Chain from :func:`compute_mfe_mae` output:
@@ -119,13 +139,15 @@ def mfe_mae(mfe_mae_df: pl.DataFrame) -> MetricResult:
         return sc
 
     mfe_p50 = float(mfe.quantile(0.50))  # type: ignore[arg-type]
-    mae_p75 = float(mae.quantile(0.75))  # type: ignore[arg-type]
+    # MAE is a signed non-positive excursion, so the *worst* adverse quartile
+    # is the 25th percentile (most negative), not the 75th.
+    mae_p25 = float(mae.quantile(0.25))  # type: ignore[arg-type]
 
-    ratio = mfe_p50 / abs(mae_p75) if abs(mae_p75) > EPSILON else 0.0
+    ratio = mfe_p50 / abs(mae_p25) if abs(mae_p25) > EPSILON else 0.0
 
     metadata: dict[str, object] = {
         "mfe_p50": mfe_p50,
-        "mae_p75": mae_p75,
+        "mae_p25": mae_p25,
         "mfe_mae_ratio": ratio,
         "n_events": n_events,
     }
@@ -136,11 +158,11 @@ def mfe_mae(mfe_mae_df: pl.DataFrame) -> MetricResult:
         mae_z = mfe_mae_df["mae_z"].drop_nulls().drop_nans()
         if len(mfe_z) >= MIN_EVENTS_HARD and len(mae_z) >= MIN_EVENTS_HARD:
             mfe_z_p50 = float(mfe_z.quantile(0.50))  # type: ignore[arg-type]
-            mae_z_p75 = float(mae_z.quantile(0.75))  # type: ignore[arg-type]
+            mae_z_p25 = float(mae_z.quantile(0.25))  # type: ignore[arg-type]
             metadata["mfe_z_p50"] = mfe_z_p50
-            metadata["mae_z_p75"] = mae_z_p75
+            metadata["mae_z_p25"] = mae_z_p25
             metadata["mfe_mae_ratio_z"] = (
-                mfe_z_p50 / abs(mae_z_p75) if abs(mae_z_p75) > EPSILON else 0.0
+                mfe_z_p50 / abs(mae_z_p25) if abs(mae_z_p25) > EPSILON else 0.0
             )
             metadata["n_events_z"] = int(min(len(mfe_z), len(mae_z)))
 

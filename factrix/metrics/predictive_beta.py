@@ -27,6 +27,7 @@ from factrix._types import DDOF, EPSILON
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _enforce_min_floor,
+    _finite_expr,
     _short_circuit_output,
     _warn_below_floor,
 )
@@ -83,6 +84,14 @@ def predictive_beta(
         cross-asset mean of per-asset betas and therefore remains a PANEL
         metric. ``predictive_beta`` is the explicit TIMESERIES dense metric
         for a single asset.
+
+        Sample definition: the regression runs on the **finite** ``(factor,
+        return)`` pairs — non-null and neither ``NaN`` nor ``±inf``. polars'
+        ``drop_nulls`` keeps float ``NaN`` (unlike pandas, where ``NaN`` *is*
+        the missing marker), and a single ``NaN`` reaching the Newey-West
+        slope routine either raises or yields a ``NaN`` beta that
+        ``MetricResult`` rejects — one bad cell would fail the whole series.
+        ``n_obs`` counts the finite pairs actually regressed.
     """
     if adf_threshold is not None and not (0.0 < adf_threshold < 1.0):
         raise ValueError(
@@ -102,9 +111,12 @@ def predictive_beta(
             missing_column=return_col,
         )
 
+    # Finite (not merely non-null) pairs: polars' ``drop_nulls`` keeps float
+    # NaN, which would flow into ``_ols_nw_slope_t`` and either crash the
+    # Newey-West path or return a NaN beta that ``MetricResult`` rejects.
     paired = (
         data.select("date", factor_col, return_col)
-        .drop_nulls([factor_col, return_col])
+        .filter(_finite_expr(factor_col) & _finite_expr(return_col))
         .sort("date")
     )
     n = paired.height

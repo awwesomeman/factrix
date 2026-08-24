@@ -34,6 +34,7 @@ from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _enforce_min_floor,
     _resolve_series_value_col,
+    _short_circuit_output,
     _surface_null_drop,
 )
 from factrix.metrics.ic import compute_ic
@@ -43,6 +44,10 @@ __all__ = [
 ]
 
 GateStatus = Literal["PASS", "VETOED"]
+
+# Minimum observations each side of the split must carry for its mean to be
+# a window statistic rather than a single point.
+_MIN_SPLIT_OBS = 2
 
 
 @metric(
@@ -71,8 +76,12 @@ def oos_decay(
         series: DataFrame with ``date`` and ``value_col``, sorted by date.
         value_col: Numeric column to evaluate.
         is_ratio: Fraction of the series allocated to IS (default ``0.7``).
+            Must lie strictly inside ``(0, 1)``.
         survival_threshold: Minimum survival ratio for ``status="PASS"``
             (default ``0.5``).
+
+    Raises:
+        ValueError: ``is_ratio`` is not strictly inside ``(0, 1)``.
 
     Returns:
         MetricResult with:
@@ -102,6 +111,16 @@ def oos_decay(
 
         Descriptive only — no ``p_value`` is emitted.
 
+        **Split validity.** ``is_ratio`` must be strictly inside ``(0, 1)``
+        and is validated up front: ``is_ratio=1.0`` used to produce an empty
+        OOS slice whose polars ``mean()`` is ``None``, and ``float(None)``
+        then raised a bare ``TypeError`` from deep inside the metric. Beyond
+        that, the ``min_periods`` floor bounds the *series length*, not the
+        split, so an extreme ratio can still leave one side with fewer than
+        two observations; that short-circuits with the usual
+        ``reason="insufficient_oos_periods"`` rather than reporting a
+        survival ratio computed from a single point.
+
     References:
         - [McLean-Pontiff (2016)][mclean-pontiff-2016]: post-publication
           returns ~58% lower than in-sample, with ~32% of that drop
@@ -127,9 +146,16 @@ def oos_decay(
         >>> result.name == ""
         True
     """
+    if not 0.0 < is_ratio < 1.0:
+        raise ValueError(
+            f"is_ratio must be a fraction strictly inside (0, 1), got {is_ratio!r}. "
+            "0 leaves no in-sample window and 1 leaves no out-of-sample window, "
+            "so no survival ratio is defined."
+        )
+
     value_col = _resolve_series_value_col(series, value_col)
     sorted_series = series.sort("date")
-    vals = sorted_series[value_col].drop_nulls()
+    vals = sorted_series[value_col].drop_nulls().drop_nans()
     n = len(vals)
 
     sc = _enforce_min_floor(
@@ -147,11 +173,29 @@ def oos_decay(
         return sc
 
     split_idx = int(n * is_ratio)
+
+    # WHY: the min-periods floor bounds `n`, not the *split*. A lopsided
+    # `is_ratio` (0.05, 0.98, ...) can still leave one side with 0 or 1
+    # observation, where a mean is either undefined (polars returns None →
+    # `float(None)` TypeError) or a single point masquerading as a window.
+    if split_idx < _MIN_SPLIT_OBS or n - split_idx < _MIN_SPLIT_OBS:
+        return _short_circuit_output(
+            "oos_decay",
+            "insufficient_oos_periods",
+            n_obs=n,
+            n_obs_axis="periods",
+            descriptive=True,
+            sign_flipped=False,
+            status="VETOED",
+            is_ratio=is_ratio,
+            survival_threshold=survival_threshold,
+        )
+
     is_vals = vals[:split_idx]
     oos_vals = vals[split_idx:]
 
-    # `n >= MIN_OOS_PERIODS_HARD * 2` and `0 < is_ratio < 1` guarantee both
-    # slices are non-empty, so polars mean() returns a numeric.
+    # Both slices carry >= _MIN_SPLIT_OBS observations, so polars mean()
+    # returns a numeric.
     mean_is = float(is_vals.mean())  # type: ignore[arg-type]
     mean_oos = float(oos_vals.mean())  # type: ignore[arg-type]
 
@@ -177,7 +221,7 @@ def oos_decay(
     _surface_null_drop(
         n_periods_in=sorted_series.height,
         n_periods_out=n,
-        drop_reason="null value observations in the series",
+        drop_reason="null / NaN value observations in the series",
         metric_name="oos_decay",
         metadata=metadata,
         warning_codes=warning_codes,

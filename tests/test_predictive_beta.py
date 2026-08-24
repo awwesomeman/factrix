@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 import factrix as fx
 import numpy as np
@@ -179,3 +179,55 @@ class TestPredictiveBetaDispatch:
         assert single_pb.usable is True
         assert panel_pb.usable is False
         assert any("cell mismatch" in b for b in panel_pb.blockers)
+
+
+class TestPredictiveBetaNonFinite:
+    """REGRESSION: polars drop_nulls keeps float NaN, poisoning the NW slope."""
+
+    @staticmethod
+    def _series(n: int = 120, seed: int = 3) -> pl.DataFrame:
+        rng = np.random.default_rng(seed)
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n)]
+        x = rng.standard_normal(n)
+        y = 0.7 * x + rng.normal(0, 0.2, n)
+        return pl.DataFrame(
+            {"date": dates, "factor": x, "forward_return": y}
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+    def test_nan_return_cell_is_dropped(self):
+        data = self._series()
+        poisoned = data.with_columns(
+            pl.when(pl.int_range(pl.len()) == 10)
+            .then(float("nan"))
+            .otherwise(pl.col("forward_return"))
+            .alias("forward_return")
+        )
+        result = predictive_beta(poisoned)
+        assert np.isfinite(result.value)
+        assert np.isfinite(result.stat)
+        assert result.n_obs == data.height - 1
+
+    def test_nan_factor_cell_is_dropped(self):
+        data = self._series()
+        poisoned = data.with_columns(
+            pl.when(pl.int_range(pl.len()) == 4)
+            .then(float("nan"))
+            .otherwise(pl.col("factor"))
+            .alias("factor")
+        )
+        result = predictive_beta(poisoned)
+        assert np.isfinite(result.value)
+        assert result.n_obs == data.height - 1
+
+    def test_matches_manually_pruned_input(self):
+        data = self._series()
+        poisoned = data.with_columns(
+            pl.when(pl.int_range(pl.len()) == 7)
+            .then(float("nan"))
+            .otherwise(pl.col("forward_return"))
+            .alias("forward_return")
+        )
+        pruned = data.with_row_index("_i").filter(pl.col("_i") != 7).drop("_i")
+        assert predictive_beta(poisoned).value == pytest.approx(
+            predictive_beta(pruned).value
+        )

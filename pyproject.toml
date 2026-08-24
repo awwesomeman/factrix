@@ -23,7 +23,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "polars>=1.38",
+    "polars>=1.38.1",
     "numpy>=2.0",
     "scipy>=1.13",
     "pandera>=0.29",

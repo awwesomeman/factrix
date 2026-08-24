@@ -34,9 +34,9 @@ title: factrix.metrics.event_quality
     ---
 
     Fraction of events whose `signed_car` is positive, with a two-sided
-    binomial test against $H_0: p = 0.5$. Exact branch below the
-    normal-approximation cutoff; $z$ branch above. Headline statistic
-    for "is the sign right more often than chance".
+    binomial test against $H_0: p = 0.5$ — exact
+    (`scipy.stats.binomtest`) at every $n$; `stat` is the hit count.
+    Headline statistic for "is the sign right more often than chance".
 
 -   __Magnitude → magnitude__
 

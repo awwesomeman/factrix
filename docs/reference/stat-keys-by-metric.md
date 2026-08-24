@@ -77,7 +77,7 @@ contrasts, not a sidecar to a primary value.
 | [`common_quantile_spread`][factrix.metrics.common_quantile.common_quantile_spread] | Wald F (NW HAC, finite-sample) on bucket β contrast | `p_value` | top − bottom bucket β |
 | [`rank_turnover`][factrix.metrics.tradability.rank_turnover] | none — descriptive | — | 1 − mean(rank-AC) |
 | [`notional_turnover`][factrix.metrics.tradability.notional_turnover] | none — descriptive | — | replaced fraction |
-| [`breakeven_cost`][factrix.metrics.tradability.breakeven_cost] | none — descriptive | — | breakeven single-leg cost (bps) |
+| [`breakeven_cost`][factrix.metrics.tradability.breakeven_cost] | none — descriptive | — | breakeven one-way cost (bps) |
 | [`net_spread`][factrix.metrics.tradability.net_spread] | none — descriptive | — | net spread (per-period return) |
 
 ## Per-metric schemas
@@ -87,7 +87,7 @@ contrasts, not a sidecar to a primary value.
 #### `ic`
 
 - *primary*: `p_value` — `t`-test on the per-date IC series (non-overlapping stride with stride `forward_periods` by default, or Newey-West HAC if configured).
-- *descriptive*: `n_periods`, `forward_periods`, `tie_ratio` (median across dates), `min_assets_per_period` / `warn_assets_per_period` when the upstream IC series carries per-date asset counts, `stat_type` (`"t"`), `h0` (`"mu=0"`), `method`.
+- *descriptive*: `n_periods` (the sample the `value` / `stat` / `p_value` describe — the strided subsample under `NonOverlapping`, the full series under `NeweyWest` / `StationaryBootstrap`; equals `n_obs`), `n_periods_full` and `mean_ic_full` (the full per-date series, for reference), `forward_periods`, `tie_ratio` (median across dates), `min_assets_per_period` / `warn_assets_per_period` when the upstream IC series carries per-date asset counts, `stat_type` (`"t"`), `h0` (`"mu=0"`), `method`.
 - *warning*: `WarningCode.FEW_ASSETS` when retained per-date IC cross-sections are below `MIN_IC_ASSETS_WARN`.
 - *short-circuit*: `reason` `insufficient_ic_periods` (too few dates) carries `min_required`; `insufficient_ic_assets` (every cross-section below `MIN_IC_ASSETS_HARD`, so no per-date IC survived — common on one-valid-pair panels) carries `min_assets_required`.
 
@@ -152,9 +152,15 @@ Descriptive; no test.
 #### `caar`
 
 - *primary*: `p_value` — non-overlapping `t` on per-event-date CAAR.
+  `value`, `stat`, `p_value` and `n_obs` all describe the event-spaced
+  subsample.
 - *descriptive*: `n_event_periods` (number of periods with an event),
   `total_events` (underlying events behind the portfolio),
-  `n_event_periods_sampled`,
+  `n_event_periods_sampled`, `mean_caar_full` / `n_event_periods_full`
+  (the full per-date series, for reference),
+  `n_event_periods_dropped_non_finite` (null / NaN `caar` dates dropped
+  before spacing), `n_events_dropped_non_finite` (events with a non-finite
+  return or factor dropped by `compute_caar`),
   `warning_codes` (conditional, e.g. `FEW_EVENTS`).
 
 #### `bmp_z`
@@ -163,33 +169,35 @@ Boehmer-Musumeci-Poulsen standardised-abnormal-return cross-sectional
 `z` test, with optional Kolari-Pynnönen clustering adjustment.
 
 - *primary*: `p_value`.
-- *descriptive*: `n_events`, `n_dropped`, `std_sar`,
+- *descriptive*: `n_events`, `n_dropped` (= `n_dropped_no_vol` +
+  `n_dropped_non_finite_return`), `std_sar`,
   `estimation_window`, `include_prediction_error_variance`,
   `vol_source` (`"price"` or `"forward_return"`), `vol_estimation_lag`
   (rows the fallback std is lagged so its window ends before the event;
   `0` on the price path).
-- *descriptive* (conditional, KP applied): `kolari_pynnonen_r`,
-  `kolari_pynnonen_n_eff`, `kolari_pynnonen_r_source`,
-  `kolari_pynnonen_applied`, `kolari_pynnonen_scaling`,
-  `stat_uncorrected`.
+- *descriptive* (conditional, KP applied): `kolari_pynnonen_r` (one-way
+  ANOVA ICC(1)), `kolari_pynnonen_n_eff`, `kolari_pynnonen_r_source`,
+  `kolari_pynnonen_applied`, `kolari_pynnonen_scaling` (the design-effect
+  deflator `1/sqrt(1+(n_eff-1)r)`), `stat_uncorrected`.
 
 ### `corrado` (`factrix.metrics.corrado_rank`)
 
 #### `corrado_rank` (emits `MetricResult.name = "corrado_rank"`)
 
 - *primary*: `p_value` — Corrado nonparametric rank `z`.
-- *descriptive*: `n_events`, `n_total_obs`.
+- *descriptive*: `n_events`, `n_total_obs` (finite return cells behind the
+  rank denominator), `n_events_dropped_non_finite`.
 
 ### `positive_rate` (`factrix.metrics.positive_rate`)
 
 #### `positive_rate`
 
-`MetricResult.stat` is the binomial hit count when the exact branch
-runs, the normal `z` when the approximation branch runs;
-`stat_type` discriminates (`"binomial_hits"` vs `"z"`).
+`MetricResult.stat` is the binomial hit count
+(`stat_type="binomial_hits"`); the `p_value` is the exact two-sided
+binomial test at every `n`.
 
-- *primary*: `p_value` — binomial / normal-approximation test on
-  non-overlapping wins (stride `forward_periods`).
+- *primary*: `p_value` — exact binomial test on non-overlapping wins
+  (stride `forward_periods`).
 - *descriptive*: `n_hits`. The trial count is the period-axis drop-stat
   `n_periods_out` (the surviving non-overlapping observations).
 
@@ -236,16 +244,17 @@ asset pairs are not treated as independent Bernoulli trials.
 
 #### `event_hit_rate`
 
-Same shape as `positive_rate` (binomial / normal-approx branches).
+Same shape as `positive_rate` (exact binomial, `stat` = hit count).
 
 - *primary*: `p_value`.
-- *descriptive*: `n_events`, `n_hits`.
+- *descriptive*: `n_events`, `n_hits`, `n_events_dropped_non_finite`
+  (events with a non-finite return / factor, excluded from `n`).
 
 #### `event_ic`
 
 - *primary*: `p_value` — Fisher-transformed Spearman ρ between
   `|factor|` and `signed_car`.
-- *descriptive*: `n_events`.
+- *descriptive*: `n_events`, `n_events_dropped_non_finite`.
 
 `MetricResult.stat = None` and the short-circuit `reason` is set to
 `"not_applicable_discrete_signal"` when the signal lacks magnitude
@@ -254,7 +263,7 @@ variance (e.g. binary {-1, +1}).
 #### `event_skewness`
 
 - *primary* (conditional, N ≥ 20): `p_value` — D'Agostino skew `z`.
-- *descriptive*: `n_events`.
+- *descriptive*: `n_events`, `n_events_dropped_non_finite`.
 
 When `n_events < 20`, `MetricResult.stat = None` and `p_value` / `stat_type`
 / `h0` / `method` are omitted — the metric reports the Fisher
@@ -265,7 +274,8 @@ skewness in `value` only.
 Descriptive; no test.
 
 - *descriptive*: `total_gains`, `total_losses`, `n_events`, `n_wins`,
-  `n_losses`, `no_gains`, `no_losses`, `profit_factor_status`.
+  `n_losses`, `no_gains`, `no_losses`, `profit_factor_status`,
+  `n_events_dropped_non_finite`.
   `profit_factor_status` is `"finite"` for ordinary gain/loss samples,
   `"unbounded_no_losses"` when positive gains have no offsetting losses
   (`value = inf`), and `"undefined_no_gains_or_losses"` when both gross gains
@@ -310,13 +320,24 @@ consistency are read separately.
 
 - *primary*: `p_value` — non-overlapping `t`-test on the
   (top − bottom) spread series. Small cross-sections
-  (`n_assets < MIN_ASSETS_WARN`) switch to a block-bootstrap CI; see
-  the shared small-N keys below.
+  (`median_cross_section < MIN_ASSETS_WARN`) switch to a
+  block-bootstrap CI; see the shared small-N keys below.
 - *secondary-test*: `long_alpha`, `long_stat`, `long_p_value` —
-  long-leg attribution (mean excess and `t` / p-value).
+  long-leg attribution (mean excess and `t` / p-value), on
+  `n_periods_long_leg` observations.
 - *secondary-test*: `short_alpha`, `short_stat`, `short_p_value`,
-  `short_significance` — short-leg attribution.
-- *descriptive*: `n_periods`, `tie_ratio`, `tie_policy`, `method`.
+  `short_significance` — short-leg attribution, on
+  `n_periods_short_leg` observations.
+- *descriptive*: `n_periods` (**the sample the headline test ran on**,
+  equal to `n_obs`: the strided series under `NON_OVERLAPPING`, the full
+  overlapping series under `NEWEY_WEST`), `n_periods_strided` (the
+  non-overlap count, always present), `median_cross_section` (median
+  per-date count of finite factor values — what the small-N switch
+  reads), `tie_ratio`, `tie_policy`, `method`.
+- *descriptive*: `n_periods_in`, `n_periods_out`, `n_dropped`,
+  `drop_rate`, `drop_reason` — the null/NaN-drop bookkeeping on the
+  **strided** spread series (`n_periods_in` also appears on the
+  no-surviving-periods short-circuit).
 - *descriptive* (conditional, no-signal): `signal_status`
   (`"no_signal_zero_variance_factor"`) when the factor has observations
   but no cross-sectional variation. This is a valid `p_value = 1.0`
@@ -342,8 +363,13 @@ Fixed-K (top-K − bottom-K) long-short spread; the small-N sibling of
   (`method` records which).
 - *descriptive*: `k` (names per leg), `cross_sectional_dispersion`
   (mean per-date cross-sectional return std), `top_return`,
-  `bottom_return`, `n_periods`, `method`. The `k`-too-large
-  short-circuit reports `max_assets_per_date`.
+  `bottom_return`, `n_periods` (**the sample the headline test ran on**,
+  equal to `n_obs`: strided under `NON_OVERLAPPING`, full overlapping
+  under `NEWEY_WEST`), `n_periods_strided`, `median_cross_section`
+  (median per-date count of usable names — what the small-N switch
+  reads), `method`. The `k`-too-large short-circuit reports
+  `max_assets_per_date`; the no-surviving-periods short-circuit reports
+  `n_periods_in`.
 - *descriptive* (conditional, no-signal): `signal_status`
   (`"no_signal_zero_variance_factor"`) when the factor has observations
   but no cross-sectional variation. This is a valid `p_value = 1.0`
@@ -352,7 +378,10 @@ Fixed-K (top-K − bottom-K) long-short spread; the small-N sibling of
 #### Shared small-N significance keys
 
 Both `quantile_spread` and `k_spread` switch the headline test to a
-block-bootstrap CI when `n_assets < MIN_ASSETS_WARN`. In that branch
+block-bootstrap CI when the **median per-date** cross-section
+(`median_cross_section`) is below `MIN_ASSETS_WARN` — the heavy-tail
+rationale is per date, so a rotating universe with many lifetime
+`asset_id`s but few names quoted at a time still counts as thin. In that branch
 they additionally emit `p_value_t` (the parametric `t` p-value kept
 for reference), `bootstrap_block_length`, `bootstrap_n_resamples`,
 and `bootstrap_seed`. The switch is **not** silent: the single
@@ -369,7 +398,12 @@ diversity ratio (effective-n / n_top, derived from HHI) falls
 
 - *primary*: `p_value` — one-sided `t`.
 - *descriptive*: `mean_n_top`, `ratio_eff_to_total`, `tie_ratio`,
-  `weight_by`, `warning_codes` (conditional).
+  `weight_by`, `q_top` (requested top fraction; per date the bucket is
+  the `max(1, floor(n · q_top))` highest finite factor values),
+  `n_top_members_selected` / `n_top_members_dropped` ((date, asset)
+  pairs the cutoff selected, and how many of those were excluded from
+  both the HHI and `n_top` for a non-finite weight),
+  `warning_codes` (conditional).
 
 ### `clustering` (`factrix.metrics.clustering_hhi`)
 
@@ -386,9 +420,11 @@ Descriptive; period-axis concentration of event dates.
 
 Descriptive; no test.
 
-- *descriptive*: `mfe_p50`, `mae_p75`, `mfe_mae_ratio`, `n_events`.
+- *descriptive*: `mfe_p50`, `mae_p25` (MAE is a signed non-positive
+  excursion, so the *worst* quartile is the 25th percentile),
+  `mfe_mae_ratio` (= `mfe_p50 / |mae_p25|`), `n_events`.
 - *descriptive* (conditional, when σ-normalised inputs available):
-  `mfe_z_p50`, `mae_z_p75`, `mfe_mae_ratio_z`, `n_events_z`.
+  `mfe_z_p50`, `mae_z_p25`, `mfe_mae_ratio_z`, `n_events_z`.
 - `p_value` is `None` — descriptive metric, no hypothesis test.
 ### `oos` (`factrix.metrics.oos_decay`)
 
@@ -429,7 +465,10 @@ Stepwise selection meta-metric; descriptive `MetricResult` with
 #### `ic_trend`
 
 Theil-Sen median slope on the IC series. The reported `MetricResult.stat`
-is the slope-`t` derived from the rank-based confidence interval.
+is the slope-`t` derived from the rank-based confidence interval (read
+against `t(n-2)`). When the CI has zero width around a non-zero slope
+(every pairwise slope identical) the `t` is undefined: `stat` is `None`,
+`p_value` is `0.0`, and `method` names the degenerate branch.
 
 - *primary*: `p_value` — slope significance from the Theil-Sen CI.
 - *descriptive*: `n_periods`, `ci_low`, `ci_high`,

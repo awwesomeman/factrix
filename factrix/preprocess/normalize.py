@@ -8,19 +8,46 @@ All functions expect canonical column names (date, asset_id).
 
 import polars as pl
 
-from factrix._types import MAD_CONSISTENCY_CONSTANT
+from factrix._types import EPSILON, MAD_CONSISTENCY_CONSTANT
 
 
-def _mad_expressions(factor_col: str) -> tuple[pl.Expr, pl.Expr]:
-    """Compute median and MAD expressions for a factor column.
+def _finite(factor_col: str) -> pl.Expr:
+    """``factor_col`` with non-finite entries (NaN / ±Inf) blanked to null.
+
+    polars aggregations skip nulls but *propagate* float NaN, so a single
+    NaN on a date would otherwise poison that date's median / MAD / std and
+    silently take the whole cross-section out of the pipeline. Blanking
+    non-finite values to null makes the per-date statistics ignore them, in
+    line with the library convention (consumers use
+    ``drop_nulls().drop_nans()``; producers never impute).
+    """
+    col = pl.col(factor_col)
+    return pl.when(col.is_finite()).then(col).otherwise(None)
+
+
+def _scale_expressions(factor_col: str) -> tuple[pl.Expr, pl.Expr]:
+    """Per-date centre and dispersion expressions for a factor column.
 
     Returns:
-        (median_expr, mad_expr) — both are per-date window expressions.
+        ``(median_expr, scale_expr)`` — both per-date window expressions.
+        ``scale_expr`` is ``1.4826 × MAD`` when the MAD is non-degenerate,
+        the per-date sample standard deviation (``ddof=1``) when the MAD
+        collapses to zero, and ``0.0`` when the cross-section carries no
+        dispersion at all.
     """
-    median_expr = pl.col(factor_col).median().over("date")
-    deviation = (pl.col(factor_col) - median_expr).abs()
-    mad_expr = deviation.median().over("date")
-    return median_expr, mad_expr
+    clean = _finite(factor_col)
+    median_expr = clean.median().over("date")
+    mad_expr = (clean - median_expr).abs().median().over("date")
+    std_expr = clean.std(ddof=1).over("date")
+
+    scale_expr = (
+        pl.when(mad_expr > EPSILON)
+        .then(mad_expr * MAD_CONSISTENCY_CONSTANT)
+        .when(std_expr > EPSILON)
+        .then(std_expr)
+        .otherwise(pl.lit(0.0))
+    )
+    return median_expr, scale_expr
 
 
 def mad_winsorize(
@@ -40,6 +67,29 @@ def mad_winsorize(
     Returns:
         DataFrame with ``factor_col`` clipped in-place.
 
+    Notes:
+        **Zero-MAD fallback.** More than 50% ties on a date (bucketed,
+        binary or heavily discretised factors are the common case) drive
+        the MAD to exactly 0, which collapses the clip interval to
+        ``[median, median]`` and flattens the entire cross-section to its
+        median — the factor is destroyed rather than winsorised. When the
+        MAD is 0 we fall back to the per-date sample standard deviation
+        (``ddof=1``) as the scale; the MAD branch already carries the
+        1.4826 consistency constant precisely so the two scales are
+        comparable at the Gaussian. Mainstream robust-scale implementations
+        (statsmodels ``mad``, scipy ``median_abs_deviation``) leave the
+        zero-MAD case to the caller — the alternatives are an IQR fallback
+        (still zero for a two-bucket factor) or returning NaN (drops the
+        date). We prefer the std fallback because it keeps a bucketed
+        factor finite and rank-preserving. A cross-section with no
+        dispersion at all (every value identical) has ``scale = 0`` and is
+        left untouched by the clip.
+
+        **Non-finite input.** NaN / ±Inf values are excluded from the
+        per-date median / MAD / std (polars aggregations do not skip float
+        NaN on their own), so one bad tick no longer voids the date. They
+        are still clipped like any other value.
+
     Examples:
         >>> import factrix as fx
         >>> from factrix.preprocess import mad_winsorize
@@ -53,12 +103,15 @@ def mad_winsorize(
     if n_mad <= 0:
         return data
 
-    median_expr, mad_expr = _mad_expressions(factor_col)
-    half_width = mad_expr * MAD_CONSISTENCY_CONSTANT * n_mad
+    median_expr, scale_expr = _scale_expressions(factor_col)
+    half_width = scale_expr * n_mad
 
     return data.with_columns(
-        pl.col(factor_col)
-        .clip(median_expr - half_width, median_expr + half_width)
+        pl.when(scale_expr > EPSILON)
+        .then(
+            pl.col(factor_col).clip(median_expr - half_width, median_expr + half_width)
+        )
+        .otherwise(pl.col(factor_col))
         .alias(factor_col)
     )
 
@@ -74,6 +127,27 @@ def cross_sectional_zscore(
     Returns:
         DataFrame with ``factor_zscore`` column appended.
 
+    Notes:
+        **Zero-MAD fallback.** With more than 50% ties on a date the MAD is
+        exactly 0, so the naive ratio is ``±inf`` for every non-median value
+        (and ``0/0 = NaN`` at the median). We fall back to the per-date
+        sample standard deviation (``ddof=1``) as the scale, matching
+        :func:`mad_winsorize`. The alternative conventions are to return NaN
+        for the date (drops bucketed factors entirely) or to fall back to a
+        scaled IQR (still zero for a two-bucket factor); the std fallback
+        keeps the z finite and rank-preserving, which is what the downstream
+        rank-based metrics need. When the cross-section is fully constant
+        there is genuinely no dispersion: every non-null value gets ``0.0``,
+        an honest "no spread", rather than ``inf`` or NaN.
+
+        **Nulls stay null.** The previous implementation ended with
+        ``fill_nan(0.0).fill_null(0.0)``, which imputed every missing factor
+        to *exactly the cross-sectional median* — a silent, maximally
+        "average" fabrication that inflated coverage. Per the library
+        convention (producers never impute; consumers drop with
+        ``drop_nulls().drop_nans()``), a null input now yields a null
+        z-score, and so does a non-finite (NaN / ±Inf) input.
+
     Examples:
         >>> import factrix as fx
         >>> from factrix.preprocess import cross_sectional_zscore
@@ -82,11 +156,15 @@ def cross_sectional_zscore(
         >>> "factor_zscore" in standardized.columns
         True
     """
-    median_expr, mad_expr = _mad_expressions(factor_col)
+    clean = _finite(factor_col)
+    median_expr, scale_expr = _scale_expressions(factor_col)
 
-    return data.with_columns(
-        ((pl.col(factor_col) - median_expr) / (mad_expr * MAD_CONSISTENCY_CONSTANT))
-        .fill_nan(0.0)
-        .fill_null(0.0)
-        .alias("factor_zscore")
+    zscore = (
+        pl.when(clean.is_null())
+        .then(pl.lit(None, dtype=pl.Float64))
+        .when(scale_expr > EPSILON)
+        .then((clean - median_expr) / scale_expr)
+        .otherwise(pl.lit(0.0))
     )
+
+    return data.with_columns(zscore.alias("factor_zscore"))

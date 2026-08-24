@@ -26,14 +26,24 @@ def test_adf_random_walk_fails_to_reject(rng):
     assert p > 0.10
 
 
-def test_adf_highly_persistent_ar1_flags_as_unit_root_ish(rng):
+def test_adf_highly_persistent_ar1_flags_as_unit_root_ish():
+    # A near-unit-root AR(1) is rejected on ~20-25% of draws at T=400 (the
+    # test has genuine but limited power there), so a single seed is not a
+    # stable assertion. Check the rejection *rate* sits between the
+    # random-walk size and the white-noise power instead.
     rho = 0.98
-    eps = rng.standard_normal(400)
-    y = np.zeros(400)
-    for t in range(1, 400):
-        y[t] = rho * y[t - 1] + eps[t]
-    _tau, p = _adf(y)
-    assert p > 0.05, f"ρ=0.98 should not reject at 5%, got p={p}"
+    rejections = 0
+    n_seeds = 60
+    for seed in range(n_seeds):
+        r = np.random.default_rng(seed)
+        eps = r.standard_normal(400)
+        y = np.zeros(400)
+        for t in range(1, 400):
+            y[t] = rho * y[t - 1] + eps[t]
+        _tau, p = _adf(y)
+        rejections += p < 0.05
+    rate = rejections / n_seeds
+    assert 0.02 < rate < 0.5, f"rho=0.98 rejection rate {rate:.2f} out of band"
 
 
 def test_adf_short_series_returns_degenerate():

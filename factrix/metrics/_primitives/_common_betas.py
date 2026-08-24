@@ -16,7 +16,7 @@ from factrix._axis import (
 from factrix._metric_index import cell
 from factrix._types import EPSILON
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _attach_drop_stats
+from factrix.metrics._helpers import _attach_drop_stats, _finite_expr
 
 # Minimum complete (factor, return) observations per asset to fit a
 # time-series slope. Mirrors the historical per-asset floor.
@@ -30,7 +30,7 @@ MIN_COMMON_BETA_PERIODS_HARD: int = 20
 # drop rate is measured against the raw universe.
 _COMMON_BETA_DROP_REASON = (
     f"per-asset history below MIN_COMMON_BETA_PERIODS_HARD ({MIN_COMMON_BETA_PERIODS_HARD}), zero factor "
-    f"variation, or no complete (factor, return) pairs"
+    f"variation, or no finite (factor, return) pairs"
 )
 
 
@@ -79,9 +79,29 @@ def compute_common_betas(
         ``asset_id``, plus a broadcast ``_drop_stats`` carrier column on the
         assets axis (see :func:`_attach_drop_stats`) so cross-asset consumers
         can surface how much of the universe was silently dropped. An asset is
-        emitted only with at least ``MIN_COMMON_BETA_PERIODS_HARD`` complete pairs and
-        non-zero factor time-variation (zero-variance assets have no
-        identifiable slope and are dropped).
+        emitted only with at least ``MIN_COMMON_BETA_PERIODS_HARD`` **finite**
+        pairs and non-zero factor time-variation (zero-variance assets have no
+        identifiable slope and are dropped). ``beta`` is always finite;
+        ``t_stat`` may be **null** — see Notes.
+
+    Notes:
+        Sample definition: "complete pair" means *finite* pair — non-null and
+        neither ``NaN`` nor ``±inf``. polars keeps ``NaN`` as an ordinary float
+        (unlike pandas, where ``NaN`` is the missing marker), so a single
+        ``NaN`` cell used to leave ``Var(F) > 0`` while ``Cov(F, R)`` went
+        ``NaN``; the asset then emitted a ``NaN`` beta that survived
+        ``drop_nulls`` and poisoned every cross-asset aggregate downstream.
+        Row-wise dropping (rather than voiding the whole asset) matches a
+        pandas ``dropna()`` per-asset OLS, and ``n_obs`` is the finite-pair
+        count actually regressed.
+
+        ``t_stat`` is **null when the standard error is undefined**: an exact
+        fit (``SSR = 0``, ``R² = 1``) or exhausted residual dof. The obvious
+        alternative — the previous ``t_stat = 0.0`` — reads downstream as
+        "maximally insignificant", the exact inverse of a perfectly determined
+        slope, and it does so silently because 0.0 is a legal t. A null forces
+        the consumer to decide; :mod:`factrix.metrics.common_beta` drops such
+        assets from any t-based aggregate while keeping their ``beta``.
     """
     cols = list(factor_cols)
     if not cols:
@@ -99,10 +119,13 @@ def _common_betas_one(
     # complete (factor, return) pairs at all.
     n_assets_in = data["asset_id"].n_unique()
 
-    # Restrict every moment to the pairwise-complete (factor, return) set so
-    # cov and var share one sample (polars cov pairwise-drops; bare var would
-    # not), matching a per-asset OLS on the complete observations.
-    valid_mask = pl.col(factor_col).is_not_null() & pl.col(return_col).is_not_null()
+    # Restrict every moment to the pairwise-FINITE (factor, return) set so cov
+    # and var share one sample (polars cov pairwise-drops nulls; bare var would
+    # not, and NEITHER skips float NaN), matching a per-asset OLS on the
+    # complete observations. Without the finite test a single NaN cell left
+    # ``_var_x > 0`` true while ``_cov`` went NaN, so the asset emitted a NaN
+    # beta that sailed straight through ``drop_nulls("beta")``.
+    valid_mask = _finite_expr(factor_col) & _finite_expr(return_col)
 
     moments = (
         data.lazy()
@@ -145,12 +168,21 @@ def _common_betas_one(
             .then(1.0 - ss_res / s_yy)
             .otherwise(0.0)
             .alias("r_squared"),
+            # ``None`` (not 0.0) when the SE is undefined: an exact fit
+            # (SSR = 0, R² = 1) or exhausted dof gives no sampling variation
+            # to divide by. Reporting t=0 there reads as "maximally
+            # insignificant" for what is in fact a perfectly determined slope
+            # — the exact inversion of the truth. A null propagates as
+            # "undefined" and is dropped by the cross-asset consumers.
             pl.when((dof > 0) & (ss_res / dof > EPSILON) & (se_beta > EPSILON))
             .then(pl.col("beta") / se_beta)
-            .otherwise(0.0)
+            .otherwise(None)
+            .cast(pl.Float64)
             .alias("t_stat"),
         )
-        .drop_nulls("beta")
+        # Contract: "finite beta or no row". The finite-pair mask above already
+        # rules NaN out of the moments; this makes the guarantee explicit.
+        .filter(pl.col("beta").is_not_null() & pl.col("beta").is_finite())
         .select(
             "asset_id",
             "beta",

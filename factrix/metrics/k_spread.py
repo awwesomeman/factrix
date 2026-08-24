@@ -45,6 +45,8 @@ from factrix.metrics._helpers import (
     _all_dates_degenerate,
     _check_applicable_inference,
     _enforce_scaled_floor,
+    _finite_expr,
+    _finite_values,
     _no_signal_zero_variance,
     _sample_non_overlapping,
     _scaled_periods_threshold,
@@ -68,6 +70,28 @@ applicable_inference: frozenset[NonOverlapping | NeweyWest] = frozenset(
 _K_SPREAD_PERIODS_FLOOR = _scaled_periods_threshold(MIN_PORTFOLIO_PERIODS_HARD)
 
 
+def _finite_mean(series: pl.Series) -> float:
+    """Mean over the finite observations of *series*; NaN when there are none."""
+    vals = _finite_values(series)
+    return float("nan") if len(vals) == 0 else float(np.mean(vals.to_numpy()))
+
+
+def _median_per_date_count(panel: pl.DataFrame) -> int:
+    """Median per-date row count of the cleaned (finite factor+return) panel.
+
+    The cross-section size that actually forms one date's legs. The
+    small-cross-section bootstrap switch keys on this rather than on
+    ``asset_id.n_unique()`` over the whole panel: the heavy-tail rationale is
+    per date (``k`` names per leg out of *today's* names), so a universe that
+    rotated through many tickers but only ever lists a handful at a time must
+    read as thin, not wide.
+    """
+    if panel.is_empty():
+        return 0
+    med = panel.group_by("date").len()["len"].median()
+    return 0 if med is None else int(med)  # type: ignore[arg-type]
+
+
 def _k_spread_threshold(self) -> SampleThreshold:
     periods = _K_SPREAD_PERIODS_FLOOR(self)
     return SampleThreshold(
@@ -88,9 +112,13 @@ def _build_k_spread_series(
     short-circuit diagnostics / ``n_assets`` count. Shared by the
     non-overlap path (sampled panel) and the HAC path (full panel).
     """
-    clean = panel.filter(
-        pl.col(factor_col).is_not_null() & pl.col(return_col).is_not_null()
-    )
+    # NaN is dropped alongside null on BOTH columns. ``rank(descending=True)``
+    # sorts NaN as the largest value, so a NaN factor would take rank 1 and put
+    # a name with no signal at the head of the long leg; a NaN return would
+    # propagate through the leg ``mean`` into the spread. Ranking therefore only
+    # ever sees finite factor values, and ``_n_date`` — the bottom-leg cutoff —
+    # counts exactly those rows.
+    clean = panel.filter(_finite_expr(factor_col) & _finite_expr(return_col))
     if clean.is_empty():
         return None, clean
     # Constant factor: skip ranking (ordinal ties would manufacture a spurious
@@ -194,13 +222,42 @@ def k_spread(
         - \frac1k \sum_{i \in \mathrm{bot}_k} r_{i,t}.$$
 
         ``value = mean_t spread_t``. The headline test follows the shared
-        small-cross-section policy: with ``n_assets < MIN_ASSETS_WARN``
-        the per-date spread is heavy-tailed (few names per leg), so the
+        small-cross-section policy: below ``MIN_ASSETS_WARN`` names the
+        per-date spread is heavy-tailed (few names per leg), so the
         ``t``-test is replaced by a block-bootstrap CI; otherwise the
         non-overlapping ``t`` applies. ``metadata["method"]`` records
         which ran. The contemporaneous cross-sectional dispersion
         $\mathrm{std}_i(r_{i,t})$ is averaged over dates and reported so
         the spread can be judged against the period's return spread.
+
+        **What "small" counts.** The switch reads the median *per-date*
+        number of usable names (``metadata["median_cross_section"]``), not
+        the count of distinct ``asset_id`` values in the panel: the legs
+        are formed date by date, so a universe listing 12 names at a time
+        while rotating through 200 over the sample is thin. The
+        universe-wide count is still what the ``2 * k`` feasibility
+        short-circuit uses — that one is about whether the legs can exist
+        at all.
+
+        **Non-finite observations.** Rows with a null or NaN factor or
+        return are dropped before ranking: ``rank(descending=True)`` sorts
+        NaN as the largest value, so a NaN factor would otherwise take
+        rank 1 and head the long leg. Every series column collapsed to a
+        scalar is then filtered with ``drop_nulls().drop_nans()`` — one
+        NaN in the spread series would make ``_calc_t_stat`` return
+        ``t=0, p=1`` silently or make the bootstrap raise.
+
+        **Which sample each count describes.** ``value``, ``stat``,
+        ``p_value`` and ``n_obs`` all come from the sample the selected
+        inference ran on. ``n_obs`` == ``metadata["n_periods"]`` is the
+        strided count under ``NON_OVERLAPPING`` (and under a bootstrap
+        override) but the *full overlapping* count under ``NEWEY_WEST``,
+        which never touches the strided series;
+        ``metadata["n_periods_strided"]`` always carries the non-overlap
+        count and ``metadata["n_periods_full"]`` the overlapping one on
+        the HAC path. The ``n_dropped`` / ``n_periods_in`` /
+        ``n_periods_out`` keys describe the null-drop on the strided
+        series.
 
     References:
         [Hansen-Hodrick 1980][hansen-hodrick-1980]: overlapping-return
@@ -264,8 +321,8 @@ def k_spread(
             max_assets_per_date=max_per_date,
         )
 
-    spread_vals = series["spread"].drop_nulls()
-    n = len(spread_vals)
+    spread_vals = _finite_values(series["spread"])
+    n_strided = len(spread_vals)
     sc = _enforce_scaled_floor(
         "k_spread",
         data["date"].n_unique(),
@@ -280,38 +337,65 @@ def k_spread(
     # degenerate panel is detected once here and returned as no-signal.
     if _all_dates_degenerate(clean, factor_col):
         return _no_signal_zero_variance(
-            n,
+            n_strided,
             k=k,
-            cross_sectional_dispersion=float(
-                np.mean(series["xs_dispersion"].drop_nulls().to_numpy())
-            ),
-            top_return=float(np.mean(series["top_return"].to_numpy())),
-            bottom_return=float(np.mean(series["bottom_return"].to_numpy())),
+            cross_sectional_dispersion=_finite_mean(series["xs_dispersion"]),
+            top_return=_finite_mean(series["top_return"]),
+            bottom_return=_finite_mean(series["bottom_return"]),
+        )
+    if n_strided == 0:
+        return _short_circuit_output(
+            "k_spread",
+            "insufficient_portfolio_periods",
+            n_obs=0,
+            n_obs_axis="periods",
+            k=k,
+            n_periods_in=series.height,
         )
 
     arr = spread_vals.to_numpy()
     # The HAC path needs the full overlapping spread series (every date);
-    # build it once on the unsampled panel.
+    # build it once on the unsampled panel. Non-finite spreads are filtered out
+    # before the HAC regression for the same reason ``arr`` is cleaned.
     full_series: pl.DataFrame | None = None
     if isinstance(inference, NeweyWest):
         full_series, _ = _build_k_spread_series(data, k, factor_col, return_col)
+        if full_series is not None:
+            full_series = full_series.filter(_finite_expr("spread"))
+    # Thin-cross-section switch keys on the median per-date count of usable
+    # names, not the universe-wide unique asset count (see
+    # ``_median_per_date_count``).
+    median_xs = _median_per_date_count(clean)
     mean_spread, t, p, sig_method, sig_extra, sig_codes = (
         _spread_significance_with_inference(
             inference,
             strided_spread=arr,
             full_spread=full_series,
             forward_periods=forward_periods,
-            n_assets=n_assets,
+            n_assets=median_xs,
             rng_seed=rng_seed,
         )
     )
+    # Sample the headline stat/p actually ran on: full overlapping series under
+    # HAC, strided otherwise. ``value``/``stat``/``p_value``/``n_obs`` all
+    # describe it.
+    n = int(
+        cast(
+            int,
+            sig_extra.get(
+                "n_periods_tested", sig_extra.get("n_periods_full", n_strided)
+            ),
+        )
+    )
 
-    mean_dispersion = float(np.mean(series["xs_dispersion"].drop_nulls().to_numpy()))
-    mean_top = float(np.mean(series["top_return"].drop_nulls().to_numpy()))
-    mean_bottom = float(np.mean(series["bottom_return"].drop_nulls().to_numpy()))
+    mean_dispersion = _finite_mean(series["xs_dispersion"])
+    mean_top = _finite_mean(series["top_return"])
+    mean_bottom = _finite_mean(series["bottom_return"])
 
     metadata: dict[str, object] = {
         "n_periods": n,
+        "n_periods_strided": n_strided,
+        "median_cross_section": median_xs,
         "k": k,
         "stat_type": "t",
         "h0": "mu=0",
@@ -322,10 +406,12 @@ def k_spread(
         **sig_extra,
     }
     warning_codes = list(sig_codes)
+    # Drop stats describe the strided series this consumer collapsed, whatever
+    # sample the headline test ended up running on.
     _surface_null_drop(
         n_periods_in=series.height,
-        n_periods_out=n,
-        drop_reason="null spread observations in the series",
+        n_periods_out=n_strided,
+        drop_reason="null / NaN value observations in the series",
         metric_name="k_spread",
         metadata=metadata,
         warning_codes=warning_codes,

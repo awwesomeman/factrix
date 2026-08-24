@@ -55,3 +55,9 @@ class InferenceResult:
     p_value: float
     metadata: Mapping[str, Any]
     warnings: frozenset[WarningCode]
+    # Point estimate and sample size of the series the test actually ran on.
+    # A stride-based method tests a subsample, so the headline ``value`` /
+    # ``n_obs`` a metric reports must come from here, not from the full
+    # input — otherwise value, stat and n describe different samples.
+    estimate: float | None = None
+    n_obs: int | None = None

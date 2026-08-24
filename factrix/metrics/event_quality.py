@@ -30,16 +30,13 @@ from factrix._axis import (
 )
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
-from factrix._stats import (
-    _BINOMIAL_EXACT_CUTOFF,
-    _binomial_test_method_name,
-    _binomial_two_sided_p,
-)
+from factrix._stats import _binomial_two_sided_p
 from factrix._types import EPSILON, MIN_EVENTS_HARD
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _enforce_min_floor,
     _event_signal_is_discrete,
+    _finite_expr,
     _short_circuit_output,
     _signed_car,
 )
@@ -56,6 +53,42 @@ __all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
 # over events, so a single name with enough events is valid. Density stays SPARSE;
 # the event floor guards thin samples.
 _EQ_CELL = cell(None, FactorDensity.SPARSE, structure=None)
+
+
+def _finite_events(
+    data: pl.DataFrame, factor_col: str, return_col: str
+) -> tuple[pl.DataFrame, int]:
+    """Event rows (``factor != 0``) restricted to finite factor *and* return.
+
+    Single owner for the non-finite boundary in this module. Every metric here
+    reduces ``signed_car = return x sign(factor)`` to a scalar, and each one
+    used to mishandle a hole in that column differently: ``event_hit_rate``
+    scored a NaN as ``not > 0`` and therefore as a *miss* (biasing the rate
+    down and the binomial p towards spurious significance in the negative
+    direction), ``profit_factor`` excluded NaNs from both sums but still
+    divided the story by the unfiltered ``n_obs``, and ``event_skewness``
+    propagated NaN into ``skewtest`` and raised out of ``MetricResult``.
+    Filtering once, immediately after the ``factor != 0`` filter, makes
+    ``value`` / ``stat`` / ``p_value`` / ``n_obs`` share one sample.
+
+    ``factor_col`` needs its own finiteness guard: polars evaluates
+    ``NaN != 0`` as True, so a NaN factor is *not* removed by the event
+    filter and would make ``sign(factor)`` — and hence ``signed_car`` — NaN.
+
+    Returns:
+        ``(events, n_dropped)`` — the filtered frame and the number of event
+        rows removed, for ``metadata["n_events_dropped_non_finite"]``.
+    """
+    events = data.filter(pl.col(factor_col) != 0)
+    n_all = events.height
+    finite = (
+        pl.col(return_col).is_not_null()
+        & pl.col(return_col).is_not_nan()
+        & pl.col(factor_col).is_not_null()
+        & pl.col(factor_col).is_not_nan()
+    )
+    events = events.filter(finite)
+    return events, n_all - events.height
 
 
 @metric(
@@ -77,17 +110,28 @@ def event_hit_rate(
         data: Panel with event density and forward return.
 
     Returns:
-        MetricResult with value=hit rate, stat=z from binomial test.
+        MetricResult with value=hit rate, stat=hit count (the exact
+        binomial test statistic).
 
     Notes:
         ``hits = sum_i 1{signed_car_i > 0}``, ``rate = hits / N``.
-        Two-sided binomial test against ``H0: p = 0.5``: exact below
-        ``_BINOMIAL_EXACT_CUTOFF``, normal-approximation z above
-        (``z = (hits - N/2) / (sqrt(N) / 2)``).
+        Two-sided **exact** binomial test against ``H0: p = 0.5``
+        (``scipy.stats.binomtest``) at every sample size.
 
-        factrix publishes ``stat`` consistent with the test branch
-        (raw hit count for the exact path, z for the normal path) so an
-        exact-binomial p is never paired with a Gaussian z label.
+        factrix uses the exact test unconditionally rather than switching
+        to the normal approximation ``z = (hits - N/2) / (sqrt(N)/2)`` on
+        large samples. The approximation is the mainstream shortcut and is
+        cheaper, but it is anti-conservative in the tails — precisely where
+        the p-value is read — and the exact test costs nothing at
+        event-study sample sizes. ``stat`` is therefore always the raw hit
+        count (``stat_type="binomial_hits"``); no Gaussian z is published,
+        so an exact p can never be paired with an approximate statistic.
+
+        Events whose ``return_col`` or ``factor_col`` is null / NaN are
+        dropped before counting (see :func:`_finite_events`) and reported
+        as ``metadata["n_events_dropped_non_finite"]``. Previously such an
+        event failed ``signed_car > 0`` and was scored as a **miss**, which
+        both depressed the rate and inflated ``N``.
 
         ``return_col`` must be sign-symmetric around zero — ``signed_car =
         return_col * sign(factor_col)``, so an always-positive magnitude
@@ -110,7 +154,7 @@ def event_hit_rate(
         >>> result.name == ""
         True
     """
-    events = data.filter(pl.col(factor_col) != 0)
+    events, n_dropped = _finite_events(data, factor_col, return_col)
 
     n = len(events)
     sc = _enforce_min_floor(
@@ -124,27 +168,20 @@ def event_hit_rate(
     rate = hits / n
     p = _binomial_two_sided_p(hits, n, p0=0.5)
 
-    # Keep stat / stat_type consistent with the test that produced p.
-    if n < _BINOMIAL_EXACT_CUTOFF:
-        stat: float = float(hits)
-        stat_type = "binomial_hits"
-    else:
-        stat = (hits - n * 0.5) / (np.sqrt(n) * 0.5)
-        stat_type = "z"
-
     return MetricResult(
         p_value=p,
         alternative="two-sided",
         value=rate,
         n_obs=n,
         n_obs_axis="events",
-        stat=stat,
+        stat=float(hits),
         metadata={
             "n_events": n,
             "n_hits": hits,
-            "stat_type": stat_type,
+            "n_events_dropped_non_finite": n_dropped,
+            "stat_type": "binomial_hits",
             "h0": "p=0.5",
-            "method": _binomial_test_method_name(n),
+            "method": "binomial exact test",
         },
     )
 
@@ -193,6 +230,12 @@ def event_ic(
         is undefined without magnitude variation, distinct from "too few
         events".
 
+        Events with a null / NaN ``return_col`` or ``factor_col`` are
+        dropped before the correlation (``scipy.stats.spearmanr`` would
+        otherwise return NaN for both ρ and p, and a NaN p raises out of
+        ``MetricResult``); the count is reported as
+        ``metadata["n_events_dropped_non_finite"]``.
+
     Examples:
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
@@ -207,7 +250,7 @@ def event_ic(
     """
     from scipy import stats as sp_stats
 
-    events = data.filter(pl.col(factor_col) != 0)
+    events, n_dropped = _finite_events(data, factor_col, return_col)
     n = len(events)
 
     sc = _enforce_min_floor(
@@ -246,6 +289,7 @@ def event_ic(
         stat=z,
         metadata={
             "n_events": n,
+            "n_events_dropped_non_finite": n_dropped,
             "stat_type": "z",
             "h0": "rho=0",
             "method": "Spearman rank correlation (|density| vs signed_car)",
@@ -290,6 +334,14 @@ def profit_factor(
         both gains and losses are zero, the ratio is undefined and the
         metric returns ``NaN`` with ``metadata["profit_factor_status"]``.
 
+        Events with a non-finite ``return_col`` / ``factor_col`` are
+        dropped up front and counted in
+        ``metadata["n_events_dropped_non_finite"]``. They were already
+        absent from both sums (``NaN > 0`` and ``NaN < 0`` are both
+        False), but used to remain inside ``n_obs`` / ``n_events`` — so
+        ``n_wins + n_losses`` silently failed to reconcile with the
+        advertised sample size.
+
     Examples:
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
@@ -302,7 +354,7 @@ def profit_factor(
         >>> result.name == ""
         True
     """
-    events = data.filter(pl.col(factor_col) != 0)
+    events, n_dropped = _finite_events(data, factor_col, return_col)
     n = len(events)
 
     sc = _enforce_min_floor(
@@ -336,6 +388,7 @@ def profit_factor(
             "total_gains": gains,
             "total_losses": losses,
             "n_events": n,
+            "n_events_dropped_non_finite": n_dropped,
             "n_wins": int(np.sum(signed > 0)),
             "n_losses": int(np.sum(signed < 0)),
             "no_gains": no_gains,
@@ -384,6 +437,13 @@ def event_skewness(
         small samples; reporting an unreliable z would invite
         false-positive significance.
 
+        Events with a non-finite ``return_col`` / ``factor_col`` are
+        dropped before the moments are taken and counted in
+        ``metadata["n_events_dropped_non_finite"]``. A single NaN used to
+        make ``skew`` and the ``skewtest`` p NaN, and a NaN ``p_value``
+        raises ``ValueError`` out of ``MetricResult`` — the metric crashed
+        rather than degrading.
+
     Examples:
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
@@ -398,7 +458,7 @@ def event_skewness(
     """
     from scipy import stats as sp_stats
 
-    events = data.filter(pl.col(factor_col) != 0)
+    events, n_dropped = _finite_events(data, factor_col, return_col)
     n = len(events)
 
     sc = _enforce_min_floor(
@@ -428,6 +488,7 @@ def event_skewness(
         stat=z,
         metadata={
             "n_events": n,
+            "n_events_dropped_non_finite": n_dropped,
             **(
                 {
                     "stat_type": "z",
@@ -491,7 +552,11 @@ def signal_density(
         >>> result.name == ""
         True
     """
-    events = data.filter(pl.col(factor_col) != 0).sort(["asset_id", "date"])
+    # ``NaN != 0`` is True in polars, so a non-finite factor would count as an
+    # event; use the shared finite predicate.
+    events = data.filter(_finite_expr(factor_col) & (pl.col(factor_col) != 0)).sort(
+        ["asset_id", "date"]
+    )
     n_events = len(events)
 
     if n_events < 2:

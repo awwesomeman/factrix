@@ -60,9 +60,11 @@ def event_around_return(
 
     Summarizes per-offset: mean, median, p25, p75, hit_rate, n.
 
-    The primary value is the pre-event leakage score:
-    mean absolute return at pre-event offsets (should be ~0).
-    High leakage → density may be reactive, not predictive.
+    The primary value is the pre-event leakage score: the mean over
+    pre-event offsets of ``|cross-event mean single-bar return|``
+    (should be ~0). It is a mean of per-offset means, not a pre-event
+    CAR — see Notes. High leakage → density may be reactive, not
+    predictive.
 
     Args:
         data: Panel with ``date, asset_id, factor, price``.
@@ -84,6 +86,31 @@ def event_around_return(
         rewarding offsets where positive and negative pre-event drifts
         cancel — leakage with consistent direction would be missed by
         ``mean(|return|)``.
+
+        **What the leakage headline is (and is not).** It is the mean of
+        the *absolute values of per-offset cross-event means* of
+        **single-bar** pre-event returns. It is **not** a pre-event CAR
+        and not a cumulative run-up: ``compute_event_returns`` defines
+        each ``k <= 0`` offset as the one-bar return at that lag
+        (``prices[idx+k] / prices[idx+k-1] - 1``), deliberately, so a
+        single leaking bar stays localised instead of being smeared across
+        every longer lag. Consequences to keep in mind when reading the
+        number:
+
+        - Its scale is one bar's return regardless of how far back the
+          offsets reach, so it does not grow with the pre-event window and
+          is not comparable to a post-event cumulative offset (those *are*
+          cumulative from a common ``idx + 1`` entry).
+        - Averaging ``|mean_k|`` over a sparse offset grid (default
+          ``-6, -3, -1``) samples three isolated bars; it neither covers
+          nor sums the bars between them. A clean score means "these
+          sampled bars show no directional drift", not "the whole
+          pre-event window is flat". Pass a dense negative ``offsets``
+          list to actually sweep the window.
+        - Offsets with fewer than 5 events contribute no ``mean`` and are
+          simply skipped in the average (they appear in ``per_offset``
+          with ``mean=None``), so the headline can rest on fewer offsets
+          than were requested.
 
     Examples:
         >>> import factrix as fx
@@ -147,6 +174,10 @@ def event_around_return(
         value=leakage,
         metadata={
             "per_offset": per_offset,
-            "interpretation": "value = mean |pre-event return|; high = potential leakage",
+            "interpretation": (
+                "value = mean over pre-event offsets of |mean single-bar "
+                "signed return| (not a cumulative pre-event CAR); "
+                "high = potential leakage"
+            ),
         },
     )

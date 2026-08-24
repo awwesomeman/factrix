@@ -35,8 +35,6 @@ of which submodule it physically lives in.
 from __future__ import annotations
 
 from factrix._stats.core import (
-    _BINOMIAL_EXACT_CUTOFF,
-    _binomial_test_method_name,
     _binomial_two_sided_p,
     _calc_t_stat,
     _p_value_from_t,
@@ -61,11 +59,9 @@ from factrix._stats.wald import _wald_p_linear
 
 __all__ = [
     "_ADF_CRITS_CONSTANT",
-    "_BINOMIAL_EXACT_CUTOFF",
     "_adf",
     "_adf_pvalue_interp",
     "_bartlett_lrcov",
-    "_binomial_test_method_name",
     "_binomial_two_sided_p",
     "_calc_t_stat",
     "_driscoll_kraay_cov",

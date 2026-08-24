@@ -258,6 +258,19 @@ def winsorize_forward_return(
     Returns:
         DataFrame with ``forward_return`` clipped in-place.
 
+    Notes:
+        **Quantile interpolation.** The per-date bounds are computed with
+        ``interpolation="linear"`` — the numpy / pandas / alphalens default —
+        rather than polars' own default of ``"nearest"``. With ``"nearest"``
+        the bound snaps to an actually observed value, so on a small
+        cross-section the winsorisation can be a complete no-op: for
+        ``[0, 1, ..., 8, 100]`` at ``upper=0.95`` the nearest-rank quantile is
+        ``100`` itself and the outlier survives untouched, while the linear
+        quantile is ``58.6`` and clips it. Linear interpolation makes the clip
+        level a continuous function of the requested percentile, which is what
+        a per-date winsoriser needs in order to behave consistently as the
+        cross-section size changes.
+
     Examples:
         >>> import factrix as fx
         >>> from factrix.preprocess import (
@@ -276,8 +289,11 @@ def winsorize_forward_return(
     if lower <= 0.0 and upper >= 1.0:
         return data
 
-    lb = pl.col("forward_return").quantile(lower).over("date")
-    ub = pl.col("forward_return").quantile(upper).over("date")
+    # WHY: interpolation="linear" matches numpy / pandas / alphalens. polars
+    # defaults to "nearest", which on small cross-sections snaps the bound to
+    # an existing observation and can fail to clip at all (see Notes).
+    lb = pl.col("forward_return").quantile(lower, interpolation="linear").over("date")
+    ub = pl.col("forward_return").quantile(upper, interpolation="linear").over("date")
 
     return data.with_columns(
         pl.col("forward_return").clip(lb, ub).alias("forward_return")

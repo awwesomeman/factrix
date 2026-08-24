@@ -397,12 +397,35 @@ Kolari, J. W. & Pynnönen, S. (2010). "Event Study Testing with
 Cross-sectional Correlation of Abnormal Returns." *Review of
 Financial Studies* 23(11), 3996–4025.
 
-Clustering-adjustment option on factrix's BMP-style test, scaling
-the BMP $z$ by
-$\sqrt{(1 - \hat r)/(1 + (N_{\mathrm{eff}}-1)\,\hat r)}$ to absorb
-same-date abnormal-return cross-correlation. Recommended when
-factrix's event-date clustering HHI diagnostic flags high
-concentration.
+Clustering-adjustment option on factrix's BMP-style test. K-P scale
+the single-event-day BMP $z$ by
+$\sqrt{(1 - \hat r)/(1 + (N_{\mathrm{eff}}-1)\,\hat r)}$; factrix pools
+SARs across event dates, so it applies only the design-effect part
+$1/\sqrt{1 + (N_{\mathrm{eff}}-1)\,\hat r}$ (see *Statistical methods*
+§6 for why the $(1 - \hat r)$ numerator does not apply to a pooled
+variance). Recommended when factrix's event-date clustering HHI
+diagnostic flags high concentration.
+
+### Shrout & Fleiss (1979)
+[](){ #shrout-fleiss-1979 }
+
+Shrout, P. E. & Fleiss, J. L. (1979). "Intraclass Correlations: Uses in
+Assessing Rater Reliability." *Psychological Bulletin* 86(2), 420–428.
+
+The one-way random-effects ANOVA intraclass correlation ICC(1),
+$(\text{MSB} - \text{MSW}) / (\text{MSB} + (n_0 - 1)\,\text{MSW})$, that
+factrix's `_estimate_within_date_icc` uses for the within-date clustering
+estimate feeding `bmp_z` and `directional_hit_rate`.
+
+### Schwert (1989)
+[](){ #schwert-1989 }
+
+Schwert, G. W. (1989). "Tests for Unit Roots: A Monte Carlo
+Investigation." *Journal of Business & Economic Statistics* 7(2),
+147–159.
+
+Source of the $\lfloor 12 (T/100)^{1/4} \rfloor$ lag ceiling used when
+factrix's ADF test selects its augmentation order by AIC.
 
 ### Sefcik & Thompson (1986)
 [](){ #sefcik-thompson-1986 }

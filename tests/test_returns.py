@@ -218,3 +218,32 @@ class TestComputeAbnormalReturn:
         actual = result["abnormal_return"].to_list()
         for a, e in zip(actual, expected, strict=False):
             assert a == pytest.approx(e)
+
+
+class TestWinsorizeQuantileInterpolation:
+    """Regression: polars' default ``interpolation="nearest"`` can no-op."""
+
+    def _panel(self) -> pl.DataFrame:
+        return pl.DataFrame(
+            {
+                "date": [datetime(2024, 1, 1)] * 10,
+                "forward_return": [float(i) for i in range(9)] + [100.0],
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+    def test_small_cross_section_outlier_is_clipped(self):
+        """With "nearest" the 95th percentile *is* 100.0 → nothing clipped."""
+        out = winsorize_forward_return(self._panel(), lower=0.05, upper=0.95)
+        assert max(out["forward_return"].to_list()) < 100.0
+
+    def test_bounds_match_numpy_linear_quantile(self):
+        import numpy as np
+
+        vals = self._panel()["forward_return"].to_numpy()
+        out = winsorize_forward_return(self._panel(), lower=0.05, upper=0.95)
+        assert max(out["forward_return"].to_list()) == pytest.approx(
+            float(np.quantile(vals, 0.95))
+        )
+        assert min(out["forward_return"].to_list()) == pytest.approx(
+            float(np.quantile(vals, 0.05))
+        )

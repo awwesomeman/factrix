@@ -56,6 +56,27 @@ def compute_caar(
             ``k`` events. On an event-only series the two diverge under
             sparse or clustered events, so the ordinal is what makes the
             forward-return overlap window measurable downstream.
+        n_events_dropped_non_finite: total number of event rows removed
+            before aggregation because ``return_col`` or ``factor_col``
+            was null / NaN. Broadcast as a constant on every row (the
+            count is a whole-frame diagnostic, not a per-date one: a date
+            whose events were *all* non-finite leaves the output entirely,
+            so a per-date column could not carry it). Consumers surface it
+            as ``metadata["n_events_dropped_non_finite"]``.
+
+    Non-finite handling:
+        polars' ``mean`` propagates float ``NaN`` (it only skips nulls), so a
+        single NaN ``return_col`` on one event used to poison that whole
+        date's ``caar`` — and a NaN caar then silently reaches ``_calc_t_stat``
+        downstream, which returns ``t=0, p=1``. Event rows are therefore
+        filtered to finite ``return_col`` **and** finite ``factor_col``
+        before the ``group_by`` (this is the producer boundary that the
+        project convention makes responsible for dropping non-finite values),
+        the surviving per-date mean is taken over finite events only, and the
+        dropped count is both reported on the frame and warned about. Note
+        ``factor_col`` needs its own guard: ``NaN != 0`` evaluates to *True*
+        in polars, so a NaN factor survives the event filter and would make
+        ``_signed_car`` NaN.
     """
     if _is_sparse_magnitude_weighted(data, factor_col):
         warnings.warn(
@@ -67,12 +88,33 @@ def compute_caar(
             UserWarning,
             stacklevel=2,
         )
-    return (
-        data.with_columns(
-            (pl.col("date").rank(method="dense") - 1).alias("date_ordinal")
+    events = data.with_columns(
+        (pl.col("date").rank(method="dense") - 1).alias("date_ordinal")
+    ).filter(pl.col(factor_col) != 0)
+    n_events_in = events.height
+
+    finite = (
+        pl.col(return_col).is_not_null()
+        & pl.col(return_col).is_not_nan()
+        & pl.col(factor_col).is_not_null()
+        & pl.col(factor_col).is_not_nan()
+    )
+    events = events.filter(finite)
+    n_dropped = n_events_in - events.height
+    if n_dropped > 0:
+        warnings.warn(
+            f"compute_caar: dropped {n_dropped} of {n_events_in} event rows with "
+            f"a non-finite '{return_col}' or '{factor_col}' before aggregating. "
+            f"Each per-date caar is the mean over the surviving finite events; "
+            f"the count is reported as the 'n_events_dropped_non_finite' column.",
+            UserWarning,
+            stacklevel=2,
         )
-        .filter(pl.col(factor_col) != 0)
-        .with_columns((pl.col(return_col) * pl.col(factor_col)).alias("_signed_car"))
+
+    return (
+        events.with_columns(
+            (pl.col(return_col) * pl.col(factor_col)).alias("_signed_car")
+        )
         .group_by("date")
         .agg(
             pl.col("_signed_car").mean().alias("caar"),
@@ -80,4 +122,7 @@ def compute_caar(
             pl.col("date_ordinal").first().alias("date_ordinal"),
         )
         .sort("date")
+        .with_columns(
+            pl.lit(n_dropped, dtype=pl.Int64).alias("n_events_dropped_non_finite")
+        )
     )

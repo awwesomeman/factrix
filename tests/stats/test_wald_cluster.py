@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+
 import numpy as np
 import pytest
 from factrix._stats.wald import (
@@ -200,3 +202,93 @@ class TestWaldTwoWayCluster:
             y, X, R=np.array([[1.0, 0.0]]), date_ids=d, asset_ids=a
         )
         assert out == (0.0, 1.0)
+
+
+class TestTwoWayClusterLabelDtypes:
+    """REGRESSION: np.unique(column_stack, axis=0) raises on object/datetime."""
+
+    @staticmethod
+    def _panel(n_dates: int = 20, n_assets: int = 8, seed: int = 5):
+        rng = np.random.default_rng(seed)
+        dates, assets, x, y = [], [], [], []
+        base = np.datetime64("2024-01-01")
+        for t in range(n_dates):
+            for a in range(n_assets):
+                xv = float(rng.standard_normal())
+                dates.append(base + np.timedelta64(t, "D"))
+                assets.append(f"ASSET_{a}")
+                x.append(xv)
+                y.append(0.4 * xv + float(rng.normal(0, 0.3)))
+        X = np.column_stack([np.ones(len(x)), np.asarray(x)])
+        return (
+            np.asarray(y),
+            X,
+            np.asarray(dates, dtype="datetime64[D]"),
+            np.asarray(assets, dtype=object),
+        )
+
+    def test_datetime_dates_and_string_assets(self):
+        y, X, date_ids, asset_ids = self._panel()
+        R = np.array([[0.0, 1.0]])
+        # Old code raised TypeError/ValueError inside np.unique(..., axis=0).
+        W, p = _wald_two_way_cluster(y, X, R=R, date_ids=date_ids, asset_ids=asset_ids)
+        assert np.isfinite(W) and W > 0.0
+        assert 0.0 <= p <= 1.0
+
+    def test_label_encoding_is_dtype_invariant(self):
+        y, X, date_ids, asset_ids = self._panel()
+        R = np.array([[0.0, 1.0]])
+        ref = _wald_two_way_cluster(y, X, R=R, date_ids=date_ids, asset_ids=asset_ids)
+        # Same partition, integer labels -> identical statistic.
+        int_dates = np.unique(date_ids, return_inverse=True)[1].astype(np.int64)
+        int_assets = np.unique(asset_ids, return_inverse=True)[1].astype(np.int64)
+        got = _wald_two_way_cluster(y, X, R=R, date_ids=int_dates, asset_ids=int_assets)
+        assert got[0] == pytest.approx(ref[0])
+        assert got[1] == pytest.approx(ref[1])
+
+    def test_single_cluster_margin_is_degenerate(self):
+        y, X, date_ids, _ = self._panel()
+        one_asset = np.array(["ONLY"] * len(y), dtype=object)
+        assert _wald_two_way_cluster(
+            y, X, R=np.array([[0.0, 1.0]]), date_ids=date_ids, asset_ids=one_asset
+        ) == (0.0, 1.0)
+
+
+class TestTwoWayClusterAgreesWithPooledBeta:
+    """The CGM/Stata small-sample factors must match ``pooled_beta``'s."""
+
+    def test_wald_statistic_equals_pooled_beta_t_squared(self):
+        import polars as pl
+        from factrix.metrics.fm_beta import pooled_beta
+
+        rng = np.random.default_rng(19)
+        n_dates, n_assets = 25, 10
+        rows = []
+        base = datetime(2024, 1, 1)
+        for t in range(n_dates):
+            for a in range(n_assets):
+                f = float(rng.standard_normal())
+                rows.append(
+                    {
+                        "date": base + timedelta(days=t),
+                        "asset_id": f"A{a}",
+                        "factor": f,
+                        "forward_return": 0.3 * f + float(rng.normal(0, 0.5)),
+                    }
+                )
+        panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        result = pooled_beta(panel, cluster_col="date", two_way_cluster_col="asset_id")
+
+        y = panel["forward_return"].to_numpy()
+        X = np.column_stack([np.ones(panel.height), panel["factor"].to_numpy()])
+        W, _ = _wald_two_way_cluster(
+            y,
+            X,
+            R=np.array([[0.0, 1.0]]),
+            date_ids=panel["date"].to_numpy(),
+            asset_ids=panel["asset_id"].to_numpy(),
+        )
+        # Both estimators now apply G/(G-1) per dimension and (N-1)/(N-K)
+        # overall, so W == t^2 exactly. Before the fix the Wald V_DC omitted
+        # every correction and W came out ~10% too large.
+        assert pytest.approx(result.stat**2, rel=1e-9) == W

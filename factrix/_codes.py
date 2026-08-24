@@ -89,7 +89,8 @@ class WarningCode(StrEnum):
     # ``forward_return``. Because forward_return[t] looks ahead to [t+1, t+1+h],
     # the fallback std is lagged by ``forward_periods`` so the estimation window
     # ends before the event's own forward window — but it is still a coarser,
-    # horizon-overlapping volatility proxy than a daily-price std. The z-test is
+    # horizon-overlapping volatility proxy than a price-derived one-period std.
+    # The z-test is
     # returned; supply ``price`` for the clean estimator.
     BMP_RETURN_VOL_FALLBACK = "bmp_return_vol_fallback"
 
@@ -237,7 +238,8 @@ _WARNING_DESCRIPTIONS.update(
         "estimation-window volatility falls back to the per-asset rolling std of "
         "forward_return, lagged by forward_periods so it ends before the event's "
         "forward window. This is a coarser, horizon-overlapping vol proxy than a "
-        "daily-price std — supply price for the clean BMP standardiser.",
+        "price-derived one-period std — supply price for the clean BMP "
+        "standardiser.",
         WarningCode.UPSTREAM_UNAVAILABLE: "DAG-executor consumer skipped because an upstream "
         "producer short-circuited. The downstream MetricResult carries "
         "metadata['upstream'] / ['upstream_reason'] for the original cause.",

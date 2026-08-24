@@ -135,3 +135,21 @@ class TestMissingColumns:
         )
         out = common_asymmetry(df)
         assert out.metadata["reason"] == "no_date_column"
+
+
+class TestNonFiniteInput:
+    """REGRESSION: a NaN cell used to survive ``_aggregate_to_per_date``."""
+
+    def test_nan_cells_are_dropped_not_propagated(self):
+        rng = np.random.default_rng(11)
+        T = 600
+        f = rng.standard_normal(T)
+        r = 0.05 * f + rng.standard_normal(T) * 0.5
+        f_nan, r_nan = f.copy(), r.copy()
+        f_nan[5] = np.nan
+        r_nan[9] = np.nan
+        out = common_asymmetry(_series_panel(f_nan, r_nan), forward_periods=1)
+        assert np.isfinite(out.value)
+        assert np.isfinite(out.stat)
+        assert 0.0 <= out.p_value <= 1.0
+        assert np.isfinite(out.metadata["p_wald_slopes"])
