@@ -415,8 +415,11 @@ def _satterthwaite_df(variances: np.ndarray, n_periods: np.ndarray) -> float:
     tolerance from roughly n ≈ 60 and would pin ν at the floor for
     perfectly healthy data. ``K = 2`` is the pairwise Welch df; ``K > 2``
     is the same Satterthwaite approximation on the diagonal Wald form the
-    omnibus uses (measured 5.4–5.8% at nominal 5% across K = 3–5 and
-    T = 20–150, vs 5.7–6.7% for χ²_{K-1}). Floors at 1.0 so a degenerate
+    omnibus uses. At the slice lengths the public API admits (``ic``
+    floors at 50 periods) ν lands in the hundreds, where ``F_{K-1, ν}``
+    and ``χ²_{K-1}`` are practically the same reference — the point of
+    using it is consistency with the pairwise path and disclosing ν, not
+    a size correction. Floors at 1.0 so a degenerate
     set (all variances zero) cannot hand ``f.sf`` a zero df.
     """
     v = np.asarray(variances, dtype=float)
@@ -578,8 +581,11 @@ def slice_period_joint_test(
         )
         # Same finite-sample reference the pairwise path uses, generalised
         # to K slices: F_{K-1, ν} with the Satterthwaite ν on the diagonal
-        # Wald form, instead of the asymptotic χ²_{K-1} that over-rejected
-        # at short slices (5.7–6.7% for a nominal 5%).
+        # Wald form. Consistency + disclosure, not a size fix: at reachable
+        # slice lengths ν is in the hundreds and F ≈ χ². The joint path's
+        # residual over-rejection (5.8–8.0% at nominal 5%, not converging
+        # in T) comes from understated HAC variances in
+        # ``_analytic_slice_moments``, tracked separately.
         nu = _satterthwaite_df(
             variances, np.array([len(series) for series in series_list])
         )
