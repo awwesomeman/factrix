@@ -83,10 +83,11 @@ def _finite_values(series: pl.Series) -> pl.Series:
     """Series-level twin of :func:`_finite_expr`: drop null, NaN and ±inf.
 
     polars ``drop_nulls`` keeps float NaN, and one NaN reaching ``np.mean`` /
-    ``np.std`` makes ``_calc_t_stat`` return a NaN t — which short-circuits as
-    ``degenerate_variance``, mislabelling missing data as a degenerate sample
-    (or makes the block bootstrap raise). Every series column a metric collapses to a
-    scalar goes through here first, and the resulting length is what the
+    ``np.std`` makes ``_calc_t_stat`` return a NaN t — which withholds the
+    test as ``degenerate_variance``, mislabelling missing data as a
+    dispersion-free sample (or makes the block bootstrap raise). Every series
+    column a metric collapses to a scalar goes through here first, and the
+    resulting length is what the
     metric reports as ``n_obs``.
     """
     s = series.cast(pl.Float64, strict=False)

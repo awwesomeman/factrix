@@ -22,8 +22,9 @@ from factrix._types import EPSILON
 # ``factrix._stats.core._calc_t_stat`` — see its docstring for the
 # scipy / R reference behaviour and why ±inf is not used instead.
 # Callers hold the metric- or inference-level context needed to label the
-# cause, and surface it as ``WarningCode.DEGENERATE_VARIANCE`` or a
-# ``degenerate_variance`` short-circuit.
+# cause and surface it as ``WarningCode.DEGENERATE_VARIANCE``. The two
+# too-short-sample branches also return this sentinel, but that is a data
+# shortage rather than degeneracy, and callers flag it as such.
 _NOT_COMPUTABLE: tuple[float, float, str] = (float("nan"), float("nan"), "")
 
 

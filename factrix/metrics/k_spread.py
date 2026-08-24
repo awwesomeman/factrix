@@ -246,8 +246,8 @@ def k_spread(
         rank 1 and head the long leg. Every series column collapsed to a
         scalar is then filtered with ``drop_nulls().drop_nans()`` — one
         NaN in the spread series would make ``_calc_t_stat`` return NaN —
-        short-circuiting as ``degenerate_variance`` — or make the bootstrap
-        raise.
+        withholding the test as ``degenerate_variance`` — or make the
+        bootstrap raise.
 
         **Which sample each count describes.** ``value``, ``stat``,
         ``p_value`` and ``n_obs`` all come from the sample the selected

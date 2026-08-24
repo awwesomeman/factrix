@@ -143,20 +143,22 @@ class TestNeweyWest:
         )
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS in result.warnings
 
-    def test_degenerate_series_does_not_crash(self) -> None:
-        # NaN, not the former (0.0, 1.0): a series with no dispersion admits no
-        # t, and p=1 would have reported "no signal" for a degenerate sample.
-        # The metric layer turns this into a p_value=None MetricResult.
+    def test_single_observation_is_a_shortage_not_a_degeneracy(self) -> None:
+        # NaN, not the former (0.0, 1.0): the kernel cannot run below three
+        # observations, and p=1 would have read that shortage as "no signal".
+        # It is *not* DEGENERATE_VARIANCE — nothing here shows a collapsed
+        # SE — so only the short-sample code fires.
         result = NEWEY_WEST.compute(
             _series_df(np.array([0.0])), value_col="ic", forward_periods=5
         )
         assert math.isnan(result.stat)
         assert math.isnan(result.p_value)
-        assert WarningCode.DEGENERATE_VARIANCE in result.warnings
+        assert WarningCode.DEGENERATE_VARIANCE not in result.warnings
+        assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS in result.warnings
         assert result.metadata["nw_lags"] == 0
 
     def test_constant_non_zero_series_is_flagged_not_nulled(self) -> None:
-        # The issue-800 shape: identical, non-zero observations. Evidence is
+        # The reported shape: identical, non-zero observations. Evidence is
         # maximal, so the one outcome that must NOT appear is p=1.
         result = NEWEY_WEST.compute(
             _series_df(np.full(40, 0.03)), value_col="ic", forward_periods=5

@@ -54,7 +54,7 @@ class TestTStatFromArray:
         assert math.isnan(_t_stat_from_array(np.array([])))
 
     def test_constant_non_zero_array(self):
-        # The issue-800 shape: every observation identical and non-zero.
+        # The reported shape: every observation identical and non-zero.
         assert math.isnan(_t_stat_from_array(np.full(10, 0.03)))
 
 

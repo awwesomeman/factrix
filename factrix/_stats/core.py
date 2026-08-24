@@ -18,10 +18,10 @@ def _degenerate_t_input(std: float, n: int) -> bool:
     """True when ``(std, n)`` cannot support a t-statistic.
 
     Zero (or EPSILON-small) dispersion and a non-positive sample size are
-    the two regimes where ``mean / (std / √n)`` has no finite value. Callers
-    that own a ``MetricResult`` test this *before* computing and short-circuit
-    with an explicit ``degenerate_variance`` reason; :func:`_calc_t_stat`
-    returning NaN is the backstop for anything that slips past.
+    the two regimes where ``mean / (std / √n)`` has no finite value.
+    :func:`_calc_t_stat` returns NaN on both; callers that own a
+    ``MetricResult`` recognise that NaN afterwards and withhold the test
+    (``factrix.metrics._helpers._degenerate_test_fields``).
     """
     return not (std > EPSILON and n > 0)
 
@@ -42,9 +42,10 @@ def _calc_t_stat(mean: float, std: float, n: int) -> float:
     for a constant non-zero sample; ``nan`` for a constant zero one), while
     R's ``t.test`` refuses with "data are essentially constant". This
     returns NaN — the soft form of R's refusal, and the value that cannot
-    be mistaken for a finding. Metric callers gate on
-    :func:`_degenerate_t_input` first and emit a ``degenerate_variance``
-    short-circuit, so the NaN reaches a caller only as a backstop. ±∞ is
+    be mistaken for a finding. Metric callers pass the NaN to
+    ``factrix.metrics._helpers._degenerate_test_fields``, which keeps the
+    point estimate and reports ``stat=None`` / ``p_value=None`` under a
+    ``degenerate_variance`` warning code. ±∞ is
     deliberately not used: it would spread through serialization,
     aggregation and plotting as a legitimate extreme value.
 

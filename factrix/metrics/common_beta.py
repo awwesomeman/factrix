@@ -118,8 +118,9 @@ def common_beta(common_betas_df: pl.DataFrame) -> MetricResult:
         True
     """
     # ``drop_nans`` as well as ``drop_nulls``: polars keeps float NaN, and a NaN
-    # beta reaching ``_calc_t_stat`` yields a NaN t — which now short-circuits as
-    # ``degenerate_variance``, mislabelling missing data as a degenerate sample.
+    # beta reaching ``_calc_t_stat`` yields a NaN t — which now withholds the
+    # test as ``degenerate_variance``, mislabelling missing data as a
+    # dispersion-free sample.
     betas = common_betas_df["beta"].drop_nulls().drop_nans().to_numpy()
     n = len(betas)
 
