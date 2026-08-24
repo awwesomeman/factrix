@@ -63,11 +63,26 @@ class MetricMeta(type):
             remaining_args = args
 
         if has_first_param:
-            # Instantiate with the remaining fields, then run on the first argument
-            param_names = getattr(cls, "_param_names", ())
+            # Direct-call form takes the data positionally and every knob by
+            # keyword. Positional knobs are rejected rather than mapped: the
+            # old mapping followed ``_param_names`` order, which is NOT the
+            # body's signature order — dataclass field rules re-sort
+            # non-default fields first and ``forward_periods`` is removed as
+            # an injected param — so ``quantile_spread(df, 3)`` silently set
+            # ``n_groups=3`` where the signature promises
+            # ``forward_periods=3``. No repo-internal caller, doc, or test
+            # ever passed a second positional; failing loud costs nothing
+            # and ends the misalignment class outright.
+            if remaining_args:
+                raise TypeError(
+                    f"{cls.__name__}: pass metric parameters by keyword — "
+                    f"got {len(remaining_args)} extra positional "
+                    f"argument(s) after the data. Positional parameters "
+                    f"were previously matched against an internal field "
+                    f"order that differs from the signature, silently "
+                    f"binding values to the wrong parameter."
+                )
             resolved_kwargs = kwargs.copy()
-            for name, val in zip(param_names, remaining_args, strict=False):
-                resolved_kwargs[name] = val
             # A direct call may carry the injected horizon (``forward_periods``) —
             # it is not a constructor field, so route it to the call as the
             # per-invocation horizon rather than into ``cls(**...)``.

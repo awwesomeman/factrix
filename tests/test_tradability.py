@@ -214,12 +214,12 @@ class TestBreakevenCost:
         # rebalance): gross=0.10/period, turnover=0.5/rebalance, fp=1.
         # Traded notional per rebalance = 4*0.5 = 2 (2 legs x sell+buy), so
         # the breakeven one-way cost is 0.10*1/(4*0.5)*10000 = 500 bps.
-        result = breakeven_cost(0.10, 0.5, forward_periods=1)
+        result = breakeven_cost(0.10, turnover=0.5, forward_periods=1)
         assert result.value == pytest.approx(500.0)
         assert result.metadata["forward_periods"] == 1
 
     def test_zero_turnover(self):
-        result = breakeven_cost(0.10, 0.0, forward_periods=1)
+        result = breakeven_cost(0.10, turnover=0.0, forward_periods=1)
         assert result.value == float("inf")
 
     def test_forward_periods_scales_breakeven(self):
@@ -229,25 +229,29 @@ class TestBreakevenCost:
         same breakeven as the forward_periods=1 baseline — the trader earns the spread
         twice before paying the once-per-rebalance cost.
         """
-        baseline = breakeven_cost(0.10, 0.5, forward_periods=1).value
-        scaled = breakeven_cost(0.05, 0.5, forward_periods=2).value
+        baseline = breakeven_cost(0.10, turnover=0.5, forward_periods=1).value
+        scaled = breakeven_cost(0.05, turnover=0.5, forward_periods=2).value
         assert scaled == pytest.approx(baseline)
 
     def test_forward_periods_validation(self):
         with pytest.raises(ValueError, match="forward_periods"):
-            breakeven_cost(0.10, 0.5, forward_periods=0)
+            breakeven_cost(0.10, turnover=0.5, forward_periods=0)
 
 
 class TestNetSpread:
     def test_basic(self):
         # Notional turnover=0.5 (per leg); cost=30bps one-way; fp=1.
         # net = 0.10 - 4*(30/10000)*0.5/1 = 0.10 - 0.006 = 0.094
-        result = net_spread(0.10, 0.5, estimated_cost_bps=30, forward_periods=1)
+        result = net_spread(
+            0.10, turnover=0.5, estimated_cost_bps=30, forward_periods=1
+        )
         assert result.value == pytest.approx(0.094)
         assert result.metadata["forward_periods"] == 1
 
     def test_cost_exceeds_alpha(self):
-        result = net_spread(0.001, 0.5, estimated_cost_bps=100, forward_periods=1)
+        result = net_spread(
+            0.001, turnover=0.5, estimated_cost_bps=100, forward_periods=1
+        )
         assert result.value < 0
 
     def test_forward_periods_amortises_cost(self):
@@ -255,12 +259,16 @@ class TestNetSpread:
         cost drag must shrink by exactly 1/N. Asserting the ratio (rather
         than absolute values) pins the scaling invariant under any rescaling
         of inputs — which is the whole point of the fix."""
-        baseline = net_spread(0.10, 0.5, estimated_cost_bps=30, forward_periods=1)
-        scaled = net_spread(0.10, 0.5, estimated_cost_bps=30, forward_periods=5)
+        baseline = net_spread(
+            0.10, turnover=0.5, estimated_cost_bps=30, forward_periods=1
+        )
+        scaled = net_spread(
+            0.10, turnover=0.5, estimated_cost_bps=30, forward_periods=5
+        )
         assert scaled.metadata["cost_drag"] == pytest.approx(
             baseline.metadata["cost_drag"] / 5
         )
 
     def test_forward_periods_validation(self):
         with pytest.raises(ValueError, match="forward_periods"):
-            net_spread(0.10, 0.5, forward_periods=0)
+            net_spread(0.10, turnover=0.5, forward_periods=0)

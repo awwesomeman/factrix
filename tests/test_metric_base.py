@@ -254,3 +254,61 @@ def test_metric_parameter_ordering_and_reflection():
         from factrix._metric_index import _all_specs
 
         _all_specs.cache_clear()
+
+
+class TestPositionalKnobsRejected:
+    """Metric knobs are keyword-only past the data argument.
+
+    The old positional mapping followed ``_param_names`` order, which is not
+    the body's signature order: dataclass field rules re-sort non-default
+    fields first and ``forward_periods`` is removed as an injected param.
+    Concretely, ``quantile_spread(df, 3)`` — a call that reads as
+    ``forward_periods=3`` straight off the signature — silently bound
+    ``n_groups=3`` and reported numbers for the wrong configuration.
+    """
+
+    @staticmethod
+    def _panel():
+        import factrix as fx
+        from factrix.preprocess import compute_forward_return
+
+        return compute_forward_return(
+            fx.datasets.make_cs_panel(n_assets=30, n_dates=120, seed=0),
+            forward_periods=5,
+        )
+
+    def test_second_positional_raises(self):
+        from factrix.metrics.quantile import quantile_spread
+
+        with pytest.raises(TypeError, match="by keyword"):
+            quantile_spread(self._panel(), 3)
+
+    def test_scalar_metric_second_positional_raises(self):
+        # Scalar-shaped metrics (no DataFrame) go through the same wrapper.
+        from factrix.metrics.tradability import net_spread
+
+        with pytest.raises(TypeError, match="by keyword"):
+            net_spread(0.10, 0.5)
+
+    def test_keyword_call_is_unaffected(self):
+        import warnings
+
+        from factrix.metrics.quantile import quantile_spread
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            result = quantile_spread(self._panel(), forward_periods=3, n_groups=3)
+        assert result["factor"].n_obs is not None
+
+    def test_constructor_form_is_unaffected(self):
+        # ``metric(**knobs)`` then ``instance(data)`` — no data in args, so
+        # the guard must not fire on the plain constructor path.
+        import warnings
+
+        from factrix.metrics.quantile import quantile_spread
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            inst = quantile_spread(n_groups=3)
+            result = inst(self._panel())
+        assert result["factor"].n_obs is not None
