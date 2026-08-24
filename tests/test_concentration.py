@@ -221,3 +221,62 @@ class TestAlphaContributionWeights:
         )
         assert result.metadata["reason"] == "insufficient_top_bucket_periods"
         assert result.n_obs == 0
+
+
+class TestOneSignedFactorWarning:
+    """``abs_factor`` weights assume a zero-centred factor.
+
+    The HHI of |f| is not location-invariant, so a factor that never
+    changes sign gives a concentration reading that is an artefact of its
+    level. Advisory: the metric still runs.
+    """
+
+    @staticmethod
+    def _panel(shift: float):
+        from datetime import datetime, timedelta
+
+        import numpy as np
+        import polars as pl
+
+        rng = np.random.default_rng(0)
+        rows = []
+        for d in range(40):
+            f = rng.standard_normal(30) + shift
+            for a in range(30):
+                rows.append(
+                    {
+                        "date": datetime(2024, 1, 1) + timedelta(days=d),
+                        "asset_id": f"A{a}",
+                        "factor": float(f[a]),
+                        "forward_return": float(rng.normal(0, 0.01)),
+                    }
+                )
+        return pl.DataFrame(rows)
+
+    def test_all_negative_factor_warns(self):
+        import pytest
+        from factrix._codes import WarningCode
+        from factrix.metrics.concentration import top_concentration
+
+        with pytest.warns(UserWarning, match="never changes sign"):
+            result = top_concentration(self._panel(shift=-10.0), forward_periods=1)
+        assert WarningCode.ONE_SIGNED_FACTOR.value in result.warning_codes
+        assert result.value is not None  # advisory only — metric still ran
+
+    def test_centred_factor_does_not_warn(self):
+        from factrix._codes import WarningCode
+        from factrix.metrics.concentration import top_concentration
+
+        result = top_concentration(self._panel(shift=0.0), forward_periods=1)
+        assert WarningCode.ONE_SIGNED_FACTOR.value not in result.warning_codes
+
+    def test_alpha_contribution_is_exempt(self):
+        """The realised-contribution weight does not read |factor| as
+        strength, so a one-signed factor is fine there."""
+        from factrix._codes import WarningCode
+        from factrix.metrics.concentration import top_concentration
+
+        result = top_concentration(
+            self._panel(shift=-10.0), forward_periods=1, weight_by="alpha_contribution"
+        )
+        assert WarningCode.ONE_SIGNED_FACTOR.value not in result.warning_codes

@@ -14,6 +14,8 @@ Notes:
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import polars as pl
 
@@ -40,6 +42,7 @@ from factrix.metrics._helpers import (
     _degenerate_test_fields,
     _enforce_scaled_floor,
     _finite_expr,
+    _finite_values,
     _sample_non_overlapping,
     _scaled_periods_threshold,
     _short_circuit_output,
@@ -86,7 +89,15 @@ def top_concentration(
         weight_by: HHI weight convention.
             - ``"abs_factor"`` (default): weight by ``|factor|``. Answers
               "how concentrated is the density itself in the top bucket".
-              Conservative, density-level.
+              Conservative, density-level. **Assumes a zero-centred
+              factor**: ``|f|`` reads as signal strength only when zero is
+              the neutral point. The HHI of ``|f|`` is not
+              location-invariant — the same top bucket reads eff_n 9.7
+              z-scored, 7.8 shifted by −1, 10.0 shifted by −10 — so on a
+              raw factor whose values never change sign the number is an
+              artefact of the level. Such a factor raises
+              ``WarningCode.ONE_SIGNED_FACTOR``; centre it first
+              (cross-sectional z-score) or use ``alpha_contribution``.
             - ``"alpha_contribution"``: weight by the magnitude of each
               name's realised contribution ``|sign(factor) · forward_return|``.
               Captures **risk-concentration**: the top bucket's realised
@@ -244,6 +255,22 @@ def top_concentration(
         return sc
 
     warning_codes: list[str] = []
+    if weight_by == "abs_factor":
+        finite_f = _finite_values(data[factor_col])
+        n_pos = int((finite_f > 0).sum())
+        n_neg = int((finite_f < 0).sum())
+        if finite_f.len() and (n_pos == 0 or n_neg == 0):
+            warning_codes.append(WarningCode.ONE_SIGNED_FACTOR.value)
+            warnings.warn(
+                f"top_concentration: weight_by='abs_factor' on a factor that "
+                f"never changes sign ({n_pos} positive, {n_neg} negative finite "
+                f"values). |factor| is a density weight only when zero is the "
+                f"neutral point, and the HHI of |f| moves with an arbitrary "
+                f"level shift. Centre the factor (cross-sectional z-score) or "
+                f"use weight_by='alpha_contribution'.",
+                UserWarning,
+                stacklevel=2,
+            )
     warn_code = _warn_below_scaled_floor(
         n_raw_periods,
         MIN_PORTFOLIO_PERIODS_WARN,

@@ -184,6 +184,15 @@ class WarningCode(StrEnum):
     # partitions (sector, size bucket — constant within an asset) keep each
     # asset's history intact and do not trigger.
     SLICE_BOUNDARY_TRUNCATION = "slice_boundary_truncation"
+    # Fired by ``top_concentration`` under ``weight_by="abs_factor"`` when
+    # the factor never changes sign across the panel. |factor| is a
+    # density weight only if zero is the factor's neutral point: the HHI
+    # of |f| is not location-invariant, so a raw (uncentred) factor's
+    # concentration reading moves with an arbitrary shift — on one bucket,
+    # eff_n 9.7 (z-scored) vs 7.8 (shifted by −1) vs 10.0 (shifted by −10).
+    # Advisory: the metric still runs; centre the factor (e.g. z-score
+    # cross-sectionally) or use ``alpha_contribution``.
+    ONE_SIGNED_FACTOR = "one_signed_factor"
 
     @property
     def description(self) -> str:
@@ -301,6 +310,13 @@ _WARNING_DESCRIPTIONS.update(
         "factor variance); the cross-asset aggregate was computed on a shortened "
         "sample. Exact counts are in MetricResult.metadata (n_assets_in / "
         "n_assets_out / dropped_assets / drop_rate / drop_reason).",
+        WarningCode.ONE_SIGNED_FACTOR: "top_concentration ran with "
+        "weight_by='abs_factor' on a factor that never changes sign across the "
+        "panel. |factor| is a density weight only when zero is the factor's "
+        "neutral point; the HHI of |f| is not location-invariant, so an "
+        "uncentred factor's concentration reading moves with an arbitrary "
+        "shift. Centre the factor (cross-sectional z-score) or use "
+        "alpha_contribution.",
         WarningCode.SLICE_BOUNDARY_TRUNCATION: "by_slice partitioned a panel on "
         "a date-axis column (one whose value varies within an asset over time, "
         "e.g. calendar year or regime label) while the metric declares "
