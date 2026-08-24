@@ -420,9 +420,11 @@ Descriptive; period-axis concentration of event dates.
 
 Descriptive; no test.
 
-- *descriptive*: `mfe_p50`, `mae_p75`, `mfe_mae_ratio`, `n_events`.
+- *descriptive*: `mfe_p50`, `mae_p25` (MAE is a signed non-positive
+  excursion, so the *worst* quartile is the 25th percentile),
+  `mfe_mae_ratio` (= `mfe_p50 / |mae_p25|`), `n_events`.
 - *descriptive* (conditional, when σ-normalised inputs available):
-  `mfe_z_p50`, `mae_z_p75`, `mfe_mae_ratio_z`, `n_events_z`.
+  `mfe_z_p50`, `mae_z_p25`, `mfe_mae_ratio_z`, `n_events_z`.
 - `p_value` is `None` — descriptive metric, no hypothesis test.
 ### `oos` (`factrix.metrics.oos_decay`)
 

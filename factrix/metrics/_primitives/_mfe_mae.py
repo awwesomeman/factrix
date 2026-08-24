@@ -59,6 +59,50 @@ def compute_mfe_mae(
     For each event ($\text{factor} \neq 0$), examines the ``window``
     subsequent bars to find the peak gain (MFE) and peak loss (MAE)
     relative to event entry price, adjusted for density direction.
+
+    Entry convention:
+        Entry is the **event bar's own close**, ``prices[idx]``; the
+        excursion path is bars ``idx+1 .. idx+window``. This differs from
+        :func:`~factrix.metrics._primitives._event_returns.compute_event_returns`
+        and the rest of the event primitives, which *enter* at ``idx+1``
+        (the bar after the signal) and so exclude the event-bar gap from
+        the measured move. The two conventions answer different questions
+        and are both kept deliberately:
+
+        - Excursion analysis asks "how far did the trade go against me
+          before it worked?" — a stop-loss / heat question. The trade is
+          assumed filled at the signal bar's close, which is the price the
+          signal was actually observed at, so the overnight gap into
+          ``idx+1`` is part of the adverse excursion a real position would
+          have suffered. Excluding it would understate MAE exactly where
+          MAE is used (stop placement).
+        - The return-profile primitives ask "what is the tradable forward
+          return?" and therefore skip the event bar to stay free of
+          look-ahead in the *return* series.
+
+        Practical consequence: MFE/MAE here are measured over
+        ``window + 1`` bars of price movement (the event-bar close to each
+        subsequent close), not ``window`` bars of post-entry return, and
+        they are *not* directly comparable to
+        ``compute_event_returns(offsets=[window])``.
+
+    Floor convention (Sweeney):
+        ``mfe = max(0, max(signed_returns))`` and
+        ``mae = min(0, min(signed_returns))``, so MFE is non-negative and
+        MAE non-positive by construction, following the original
+        Sweeney (1996) / Tharp definitions: MFE
+        is the *best* the trade ever was and MAE the *worst*, each relative
+        to the entry — a trade that never traded above entry has zero
+        favorable excursion, not a "negative favorable excursion". The
+        earlier unfloored ``max``/``min`` over the realised path let a
+        monotonically losing trade report a *positive* MAE (its least-bad
+        bar) and a monotonically winning trade a *negative* MFE — on the
+        demo event panel roughly 17% of events carried a positive MAE.
+        Those sign-inverted values corrupt every downstream aggregate:
+        ``|MAE|`` quantiles, the MFE/MAE ratio, and any stop-distance read.
+        ``bars_to_mfe`` / ``bars_to_mae`` are ``0`` when the floor binds —
+        the excursion is attained at entry, before any path bar — and
+        otherwise stay 1-based offsets into the post-event window.
     """
     if min_estimation_periods < 2:
         raise ValueError(
@@ -116,10 +160,16 @@ def compute_mfe_mae(
         future_prices = prices[idx + 1 : end_idx]
         signed_returns = direction * (future_prices / entry_price - 1)
 
-        mfe = float(np.max(signed_returns))
-        mae = float(np.min(signed_returns))
-        bars_to_mfe = int(np.argmax(signed_returns)) + 1
-        bars_to_mae = int(np.argmin(signed_returns)) + 1
+        # Sweeney floor: excursions are measured against the entry itself,
+        # so a trade that never traded above (below) entry has zero
+        # favorable (adverse) excursion. bars_to_* = 0 marks "attained at
+        # entry", i.e. the floor bound and no path bar is responsible.
+        raw_mfe = float(np.max(signed_returns))
+        raw_mae = float(np.min(signed_returns))
+        mfe = max(0.0, raw_mfe)
+        mae = min(0.0, raw_mae)
+        bars_to_mfe = int(np.argmax(signed_returns)) + 1 if raw_mfe > 0.0 else 0
+        bars_to_mae = int(np.argmin(signed_returns)) + 1 if raw_mae < 0.0 else 0
 
         est_start = max(0, idx - estimation_window)
         est_prices = prices[est_start:idx]

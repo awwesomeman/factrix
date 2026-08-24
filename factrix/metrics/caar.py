@@ -115,19 +115,42 @@ def caar(
 
     Args:
         caar_df: Output of ``compute_caar()`` with columns ``date, caar,
-            n_events, date_ordinal``.
+            n_events, date_ordinal, n_events_dropped_non_finite``. The last
+            column is optional (hand-built frames omit it); when present its
+            row-0 value is echoed into
+            ``metadata["n_events_dropped_non_finite"]``.
         forward_periods: Sampling interval for non-overlapping dates.
             Maps to ``config.forward_periods`` — the return horizon used
             in ``compute_forward_return``. Distinct from
             ``EventConfig.event_window_post`` which controls MFE/MAE.
 
     Returns:
-        MetricResult with value=mean CAAR, stat=t from non-overlapping sampling.
+        MetricResult with value=mean CAAR **on the non-overlap subsample**,
+        stat=t from that same subsample.
 
     Notes:
         $t = \mathrm{mean}(\mathrm{CAAR}) / (\mathrm{std}(\mathrm{CAAR}) / \sqrt{n})$
         on a non-overlap subsample of the per-event-date $\mathrm{CAAR}$
         series; $H_0: \mathbb{E}[\mathrm{CAAR}] = 0$.
+
+        **One sample behind every field.** ``value``, ``stat``, ``p_value``
+        and ``n_obs`` are all computed on the event-spaced subsample. Earlier
+        versions reported ``value`` as the mean of the *full* event-date
+        series while ``stat``/``p_value``/``n_obs`` came from the subsample,
+        so the published effect size did not belong to the published test —
+        a headline CAAR could be positive while the t-stat that "supports"
+        it was estimated on a different (often much smaller) sample. The
+        full-series mean is still available as
+        ``metadata["mean_caar_full"]`` with its size
+        ``metadata["n_event_periods_full"]``; use it as a descriptive
+        summary only, never as the effect size for the reported $p$.
+
+        Null / NaN ``caar`` rows are dropped **before** the spacing pass.
+        Order matters: the greedy walk keeps the first event of every
+        admissible calendar gap, so a null-caar date filtered afterwards
+        would still have consumed its slot and blocked the next usable
+        event — silently shrinking the subsample and shifting which dates
+        it contains. Dropping first lets a usable neighbour take the slot.
 
         The subsample is drawn **calendar-aware**: the CAAR series is
         event-date-indexed (``compute_caar`` keeps only ``factor != 0``
@@ -187,7 +210,13 @@ def caar(
         >>> result.name == ""
         True
     """
-    vals = caar_df["caar"].drop_nulls()
+    # Drop non-finite caar dates up front so every downstream step — the
+    # floor check, the spacing pass, the headline mean and the t-test — sees
+    # the same usable sample. polars' drop_nulls does not remove float NaN,
+    # hence the paired drop_nans (project convention for SERIES consumers).
+    n_event_periods_full = caar_df.height
+    caar_df = caar_df.filter(pl.col("caar").is_not_null() & pl.col("caar").is_not_nan())
+    vals = caar_df["caar"]
     n = len(vals)
     # Total underlying events behind the event-date portfolio. compute_caar
     # supplies the per-date n_events; a hand-built caar_df without it falls
@@ -222,7 +251,7 @@ def caar(
             stacklevel=2,
         )
 
-    mean_caar = float(vals.mean())  # type: ignore[arg-type]
+    mean_caar_full = float(vals.mean())  # type: ignore[arg-type]
     # Normal input arrives from compute_caar carrying date_ordinal (the
     # full-calendar position). A hand-built caar_df that bypasses
     # compute_caar lacks it; fall back to the dense rank of the event dates
@@ -231,11 +260,15 @@ def caar(
         caar_df = caar_df.with_columns(
             (pl.col("date").rank(method="dense") - 1).alias("date_ordinal")
         )
-    sampled = _sample_event_spaced(caar_df, forward_periods)["caar"].drop_nulls()
+    # caar_df is already free of null/NaN caar (filtered above), so the
+    # spacing pass allocates its slots to usable dates only.
+    sampled = _sample_event_spaced(caar_df, forward_periods)["caar"]
     n_sampled = len(sampled)
 
+    # Headline value comes from the *tested* sample, not the full series.
+    mean_caar = float(sampled.mean()) if n_sampled else float("nan")  # type: ignore[arg-type]
     t = (
-        _calc_t_stat(float(sampled.mean()), float(sampled.std()), n_sampled)  # type: ignore[arg-type]
+        _calc_t_stat(mean_caar, float(sampled.std()), n_sampled)  # type: ignore[arg-type]
         if n_sampled >= 2
         else 0.0
     )
@@ -245,10 +278,19 @@ def caar(
         "n_event_periods": n,
         "total_events": total_events,
         "n_event_periods_sampled": n_sampled,
+        # Full (pre-spacing) event-date series, kept for description only:
+        # it is NOT the sample behind stat / p_value / n_obs.
+        "mean_caar_full": mean_caar_full,
+        "n_event_periods_full": n_event_periods_full,
+        "n_event_periods_dropped_non_finite": n_event_periods_full - n,
         "stat_type": "t",
         "h0": "mu=0",
         "method": "non-overlapping t-test",
     }
+    if "n_events_dropped_non_finite" in caar_df.columns and caar_df.height:
+        metadata["n_events_dropped_non_finite"] = int(
+            caar_df["n_events_dropped_non_finite"][0]
+        )
 
     return MetricResult(
         p_value=p,
@@ -315,10 +357,13 @@ def bmp_z(
         kolari_pynnonen_adjust: When True, apply the
             [Kolari-Pynnönen (2010)][kolari-pynnonen-2010] adjustment for
             cross-sectional correlation of SAR:
-            $z_{\mathrm{KP}} = z_{\mathrm{BMP}} \cdot \sqrt{(1 - \hat r) / (1 + (N_{\mathrm{eff}} - 1) \cdot \hat r)}$
-            where $\hat r$ is the ICC-style within-date correlation of
-            SAR and
-            ``N_eff`` is the average events per event date. Vanilla BMP
+            $z_{\mathrm{KP}} = z_{\mathrm{BMP}} / \sqrt{1 + (N_{\mathrm{eff}} - 1) \cdot \hat r}$
+            where $\hat r$ is the one-way-ANOVA ICC(1) estimate of the
+            within-date correlation of SAR and
+            ``N_eff`` is the average events per event date. This is the
+            plain design-effect deflator. The published K-P statistic
+            carries an extra $(1 - \hat r)$ in the numerator, which
+            factrix deliberately omits — see Notes for why. Vanilla BMP
             overstates significance when events cluster on the same
             date (earnings season, macro release), inflating z by
             factors of 1.5-2×. Enable this when the event-study
@@ -358,7 +403,33 @@ def bmp_z(
         $\mathrm{SAR}_i = \mathrm{AR}^{\mathrm{signed}}_i / \sigma_i$; aggregate to
         $z = \mathrm{mean}(\mathrm{SAR}) / (\mathrm{std}(\mathrm{SAR}) / \sqrt{N})$.
         With ``kolari_pynnonen_adjust=True``, scale $z$ by
-        $\sqrt{(1 - \hat r) / (1 + (N_{\mathrm{eff}} - 1)\, \hat r)}$.
+        $1 / \sqrt{1 + (N_{\mathrm{eff}} - 1)\, \hat r}$.
+
+        **Which K-P deflator.** Kolari-Pynnönen's published statistic
+        multiplies by $\sqrt{(1 - \hat r) / (1 + (N_{\mathrm{eff}} - 1)\hat r)}$.
+        The $(1 - \hat r)$ numerator belongs to their setting, where the
+        SAR variance is estimated *within a single event date*: a
+        one-date cross-sectional variance under equicorrelation estimates
+        only the idiosyncratic share $(1 - \hat r)\sigma^2$, so the
+        numerator restores the missing between-date component. factrix
+        pools SAR across all event dates, so ``std_sar`` already contains
+        that component and re-applying $(1 - \hat r)$ would deflate $z$
+        twice — anti-powered rather than merely conservative. The variant
+        implemented here is therefore the pure design-effect deflator
+        $1/\sqrt{1 + (N_{\mathrm{eff}} - 1)\hat r}$, the standard
+        clustered-sampling correction for a pooled variance. Callers who
+        need the literal published constant can recover it from
+        ``metadata["stat_uncorrected"]`` and
+        ``metadata["kolari_pynnonen_r"]``.
+
+        **Event validity.** An event enters the test only when its
+        estimation-window vol is finite and above ``EPSILON`` *and* its
+        signed AR is finite. The two rejection reasons are reported
+        separately (``n_dropped_no_vol`` / ``n_dropped_non_finite_return``,
+        summing to ``n_dropped``) because they mean different things: the
+        first is a short history, the second is a hole in ``return_col``.
+        Both must be excluded — a NaN SAR propagates through mean/std and
+        turns $z$ into a silent 0 with $p = 1$.
 
         factrix simplifies the original BMP by omitting the prediction-
         error term from the standardiser (using mean-adjusted residuals
@@ -450,9 +521,25 @@ def bmp_z(
         (pl.col(return_col) * pl.col(factor_col).sign()).alias("_signed_ar")
     )
 
-    valid = events.filter(
-        pl.col("_est_vol").is_not_null() & (pl.col("_est_vol") > EPSILON)
+    # A usable event needs BOTH an estimation-window vol and a finite signed
+    # AR. Filtering on the vol alone let a null/NaN return_col through: the
+    # SAR became NaN, mean/std of SAR became NaN, and _calc_t_stat silently
+    # returned z=0, p=1 while n_obs still advertised the full event count.
+    # is_not_nan() is required alongside is_not_null() because polars treats
+    # float NaN as a value, not a null.
+    vol_ok = (
+        pl.col("_est_vol").is_not_null()
+        & pl.col("_est_vol").is_not_nan()
+        & (pl.col("_est_vol") > EPSILON)
     )
+    ar_ok = pl.col("_signed_ar").is_not_null() & pl.col("_signed_ar").is_not_nan()
+
+    n_dropped_no_vol = events.filter(~vol_ok).height
+    # Counted on the vol-ok subset so the two reasons partition the drops
+    # and sum to n_dropped.
+    n_dropped_non_finite_return = events.filter(vol_ok & ~ar_ok).height
+
+    valid = events.filter(vol_ok & ar_ok)
 
     n_valid = len(valid)
     sc = _enforce_min_floor(
@@ -474,6 +561,8 @@ def bmp_z(
     metadata: dict = {
         "n_events": n_valid,
         "n_dropped": len(events) - n_valid,
+        "n_dropped_no_vol": n_dropped_no_vol,
+        "n_dropped_non_finite_return": n_dropped_non_finite_return,
         "std_sar": std_sar,
         "estimation_window": estimation_window,
         "stat_type": "z",

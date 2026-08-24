@@ -74,7 +74,7 @@ title: factrix.metrics.mfe_mae
 
     out = mfe_mae(per_event)
     print(out.value,
-          out.metadata["mfe_p50"], out.metadata["mae_p75"],
+          out.metadata["mfe_p50"], out.metadata["mae_p25"],
           out.metadata.get("mfe_mae_ratio_z"))
     # 1.27  0.024  -0.019  1.31   (approximate)
     ```

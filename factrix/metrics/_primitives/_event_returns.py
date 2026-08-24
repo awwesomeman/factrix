@@ -32,7 +32,47 @@ def compute_event_returns(
     factor_col: str = "factor",
     price_col: str = "price",
 ) -> pl.DataFrame:
-    r"""Per-event return at multiple time offsets relative to event date."""
+    r"""Per-event return at multiple time offsets relative to event date.
+
+    Offsets are **asymmetric by design**: post-event offsets are cumulative
+    from a common entry, pre-event offsets are single-bar returns. Read the
+    output curve accordingly — it is not a CAR path on both sides of zero.
+
+    Post-event (``k > 0``) — cumulative holding return::
+
+        entry = prices[idx + 1]                 # bar after the event
+        signed_return = sign(factor) * (prices[idx + 1 + k] / entry - 1)
+
+    Every positive offset shares the same entry, so ``k`` measures a
+    ``k``-bar *cumulative* move and the post-event offsets form a growth
+    path: ``k = 6`` includes everything ``k = 3`` measured. Entry is
+    ``idx + 1`` (not the event bar) so the series is free of look-ahead —
+    only prices strictly after the signal enter the return.
+
+    Pre-event (``k <= 0``) — single-bar return at that offset::
+
+        signed_return = sign(factor) * (prices[idx + k] / prices[idx + k - 1] - 1)
+
+    Each negative offset is an *independent one-bar* return at that lag,
+    **not** a cumulative run-up into the event. ``k = -6`` is the return of
+    the bar six periods before the event, not the six-bar move ending at the
+    event. This is what the pre-event window is used for: leakage detection
+    asks "is any individual pre-event bar already drifting in the signal's
+    direction?", and a cumulative pre-event CAR would smear a single leaky
+    bar across every longer lag, making the leaking bar impossible to
+    localise. The cost is that the two sides of the curve are not on a
+    common scale — post-event values grow with ``|k|`` while pre-event
+    values do not — so never subtract or concatenate them into one CAR
+    series.
+
+    Note that the two branches also differ in which bar is the base:
+    post-event returns are all based at ``idx + 1`` (skipping the event
+    bar), while a pre-event return at ``k`` is based at ``idx + k - 1``.
+    ``k = 0`` therefore yields the event bar's own return
+    (``prices[idx] / prices[idx - 1] - 1``), a value that *does* include
+    information from the signal bar and is excluded from the default
+    offsets for that reason.
+    """
     if offsets is None:
         offsets = [-6, -3, -1, 1, 6, 12, 24]
 

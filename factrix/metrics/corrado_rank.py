@@ -53,7 +53,7 @@ def corrado_rank(
 
     Formula:
         For each asset $i$, rank ``return`` across the full sample
-        (event + non-event), transform to
+        (event + non-event, **finite observations only**), transform to
         $U_{i,t} = \mathrm{rank} / (T+1) - 0.5$, and on event rows
         form $U_{\text{event,signed}} = U_{\text{event}} \cdot \mathrm{sign}(\text{factor})$.
         Test statistic
@@ -79,6 +79,22 @@ def corrado_rank(
         robustness screen against parametric BMP / CAAR rather than a
         substitute for a reference event-study package when strict
         size control matters.
+
+        **Non-finite returns.** Ranks are formed over the finite
+        ``return_col`` values only (per asset), and $T$ in the
+        $\mathrm{rank}/(T+1)$ normalisation is the count of those finite
+        values — so a gap in the return series shifts neither the ranks of
+        its neighbours nor the uniform scaling. Non-finite event rows (and
+        rows with a non-finite factor, which survive the ``!= 0`` filter
+        because ``NaN != 0`` is True) are excluded from
+        $U_{\text{event}}$ and from the pooled ``std(U_all)``, and the
+        excluded event count is reported as
+        ``metadata["n_events_dropped_non_finite"]``;
+        ``metadata["n_total_obs"]`` counts the finite cells actually behind
+        the denominator. This matters because polars ranks a float ``NaN``
+        as the largest value rather than treating it as missing: left
+        unmasked, every NaN return would enter the test as a maximal
+        positive rank deviation.
 
         Short-circuits to ``MetricResult`` with
         ``metadata["reason"]="insufficient_events"`` when
@@ -109,16 +125,36 @@ def corrado_rank(
         >>> result.name == ""
         True
     """
+    # Rank only the finite returns. Ranking `return_col` directly is wrong
+    # twice over: a null return produces a null rank, which turns std(u_all)
+    # into NaN and hands _calc_t_stat a NaN (silently z=0, p=0.5); and a
+    # float NaN is not a null to polars, so it ranks as the *largest* value
+    # in the asset and is quietly kept as a genuine top-decile observation.
+    # Masking to null first makes both cases explicit and excludable, and
+    # `count()` (non-null count) then supplies the correct T for the
+    # rank / (T + 1) normalisation.
+    finite_return = pl.col(return_col).is_not_null() & pl.col(return_col).is_not_nan()
     ranked = data.with_columns(
+        pl.when(finite_return).then(pl.col(return_col)).alias("_finite_return")
+    ).with_columns(
         (
-            pl.col(return_col).rank(method="average").over("asset_id")
-            / (pl.col(return_col).count().over("asset_id") + 1)
+            pl.col("_finite_return").rank(method="average").over("asset_id")
+            / (pl.col("_finite_return").count().over("asset_id") + 1)
             - 0.5
         ).alias("_rank_u")
     )
 
-    events = ranked.filter(pl.col(factor_col) != 0)
+    all_events = ranked.filter(pl.col(factor_col) != 0)
+    # `NaN != 0` is True in polars, so a NaN factor survives the event filter;
+    # guard it here as well or sign(factor) turns u_event into NaN.
+    events = all_events.filter(
+        pl.col("_rank_u").is_not_null()
+        & pl.col("_rank_u").is_not_nan()
+        & pl.col(factor_col).is_not_null()
+        & pl.col(factor_col).is_not_nan()
+    )
     n_events = len(events)
+    n_events_dropped_non_finite = len(all_events) - n_events
 
     sc = _enforce_min_floor(
         corrado_rank,
@@ -133,7 +169,7 @@ def corrado_rank(
 
     u_event = events["_rank_u"].to_numpy() * np.sign(events[factor_col].to_numpy())
 
-    u_all = ranked["_rank_u"].to_numpy()
+    u_all = ranked["_rank_u"].drop_nulls().drop_nans().to_numpy()
     std_u = float(np.std(u_all))
 
     if std_u < EPSILON:
@@ -160,7 +196,8 @@ def corrado_rank(
         stat=z,
         metadata={
             "n_events": n_events,
-            "n_total_obs": len(ranked),
+            "n_total_obs": len(u_all),
+            "n_events_dropped_non_finite": n_events_dropped_non_finite,
             "stat_type": "z",
             "h0": "mu_rank<=0",
             "method": "Corrado (1989) rank test",

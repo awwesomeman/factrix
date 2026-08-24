@@ -687,3 +687,191 @@ class TestEventIc:
         from factrix.metrics import event_ic as eic
 
         assert callable(eic)
+
+
+# ---------------------------------------------------------------------------
+# Non-finite handling / same-sample contract (regression)
+# ---------------------------------------------------------------------------
+
+
+def _caar_series(
+    caar_values: list[float | None],
+    ordinals: list[int] | None = None,
+) -> pl.DataFrame:
+    """Hand-built compute_caar-shaped frame (date, caar, n_events, ordinal)."""
+    n = len(caar_values)
+    ords = list(range(n)) if ordinals is None else ordinals
+    base = datetime(2020, 1, 1)
+    return pl.DataFrame(
+        {
+            "date": [base + timedelta(days=o) for o in ords],
+            "caar": caar_values,
+            "n_events": [1] * n,
+            "date_ordinal": ords,
+        }
+    ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+
+class TestComputeCaarNonFinite:
+    """A single NaN/null return must not poison its date's caar mean."""
+
+    def _two_event_date(self, bad: float | None) -> pl.DataFrame:
+        # One date, two events: one good return, one non-finite.
+        return pl.DataFrame(
+            {
+                "date": [datetime(2020, 1, 1)] * 2 + [datetime(2020, 1, 2)] * 2,
+                "asset_id": ["A", "B", "A", "B"],
+                "factor": [1.0, 1.0, 1.0, 1.0],
+                "forward_return": [0.02, bad, 0.04, 0.06],
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+    @pytest.mark.parametrize("bad", [float("nan"), None])
+    def test_non_finite_return_does_not_poison_date_mean(self, bad):
+        with pytest.warns(UserWarning, match="non-finite"):
+            out = compute_caar(self._two_event_date(bad)).sort("date")
+        # Old behaviour: NaN propagated through mean() -> caar NaN.
+        assert out["caar"][0] == pytest.approx(0.02)
+        assert out["caar"][1] == pytest.approx(0.05)
+        assert out["n_events"][0] == 1  # only the finite event survives
+        assert out["n_events"][1] == 2
+        assert out["n_events_dropped_non_finite"][0] == 1
+
+    def test_nan_factor_is_dropped(self):
+        # NaN != 0 is True in polars, so a NaN factor survives the event
+        # filter and would make signed_car NaN.
+        df = pl.DataFrame(
+            {
+                "date": [datetime(2020, 1, 1)] * 2,
+                "asset_id": ["A", "B"],
+                "factor": [1.0, float("nan")],
+                "forward_return": [0.02, 0.03],
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        with pytest.warns(UserWarning, match="non-finite"):
+            out = compute_caar(df)
+        assert out["caar"][0] == pytest.approx(0.02)
+        assert out["n_events_dropped_non_finite"][0] == 1
+
+    def test_clean_panel_reports_zero_dropped_and_no_warning(self, strong_signal):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            out = compute_caar(strong_signal)
+        assert out["n_events_dropped_non_finite"][0] == 0
+
+
+class TestCaarSameSampleContract:
+    """value / stat / p_value / n_obs must all describe one sample."""
+
+    def test_value_is_the_subsample_mean_not_the_full_mean(self):
+        # Odd rows carry a large caar, even rows a small one. With
+        # forward_periods=2 the spacing pass keeps only the even ordinals,
+        # so the subsample mean is well away from the full-series mean.
+        vals = [0.10 if i % 2 else 0.0 for i in range(40)]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            result = caar(_caar_series(vals), forward_periods=2)
+
+        kept = vals[::2]
+        assert result.metadata["n_event_periods_sampled"] == len(kept)
+        assert result.value == pytest.approx(float(np.mean(kept)))
+        assert result.n_obs == len(kept)
+        # Full-series mean is preserved, explicitly labelled, and different.
+        assert result.metadata["mean_caar_full"] == pytest.approx(float(np.mean(vals)))
+        assert result.metadata["n_event_periods_full"] == len(vals)
+        assert result.value != pytest.approx(result.metadata["mean_caar_full"])
+
+    def test_value_matches_stat_on_the_same_sample(self):
+        rng = np.random.default_rng(11)
+        vals = list(rng.normal(0.01, 0.02, 60))
+        series = _caar_series(vals)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            result = caar(series, forward_periods=3)
+
+        kept = np.array(vals[::3])
+        assert result.value == pytest.approx(float(kept.mean()))
+        assert result.stat == pytest.approx(
+            _calc_t_stat(float(kept.mean()), float(kept.std(ddof=1)), len(kept))
+        )
+        assert result.p_value == pytest.approx(_p_value_from_t(result.stat, len(kept)))
+
+    @pytest.mark.parametrize("bad", [float("nan"), None])
+    def test_non_finite_caar_dropped_before_spacing(self, bad):
+        # Ordinals 0..19; the bad row sits at ordinal 0. With fp=2 the greedy
+        # walk keeps 0,2,4,... If the drop happened *after* spacing, ordinal 0
+        # would consume its slot and then be filtered, leaving 9 observations.
+        # Dropping first lets ordinal 1 take the slot -> 10 observations.
+        vals: list[float | None] = [bad] + [0.01 * (i + 1) for i in range(19)]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            result = caar(_caar_series(vals), forward_periods=2)
+
+        assert result.metadata["n_event_periods_full"] == 20
+        assert result.metadata["n_event_periods"] == 19
+        assert result.metadata["n_event_periods_dropped_non_finite"] == 1
+        assert result.metadata["n_event_periods_sampled"] == 10
+        assert result.n_obs == 10
+        assert math.isfinite(result.value)
+        assert math.isfinite(result.stat)
+        # A NaN reaching _calc_t_stat silently returns t=0, p=1.
+        assert result.stat != 0.0
+
+    def test_dropped_event_count_surfaces_from_compute_caar(self):
+        df = pl.DataFrame(
+            {
+                "date": [datetime(2020, 1, 1) + timedelta(days=i) for i in range(20)]
+                * 2,
+                "asset_id": ["A"] * 20 + ["B"] * 20,
+                "factor": [1.0] * 40,
+                "forward_return": [0.01] * 39 + [float("nan")],
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            result = caar(compute_caar(df), forward_periods=1)
+        assert result.metadata["n_events_dropped_non_finite"] == 1
+
+
+class TestBmpZNonFiniteReturns:
+    def _poison_one_event(self, panel: pl.DataFrame) -> pl.DataFrame:
+        # Take a late event so its estimation window is populated — an
+        # early-history event would be dropped for "no vol" instead and the
+        # non-finite-return branch would never be exercised.
+        events = panel.filter(pl.col("factor") != 0).sort("date")
+        target = events.row(events.height - 1, named=True)
+        return panel.with_columns(
+            pl.when(
+                (pl.col("date") == pl.lit(target["date"]).cast(panel.schema["date"]))
+                & (pl.col("asset_id") == target["asset_id"])
+            )
+            .then(pl.lit(float("nan")))
+            .otherwise(pl.col("forward_return"))
+            .alias("forward_return")
+        )
+
+    def test_non_finite_return_excluded_from_the_test(self, strong_signal):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            clean = bmp_z(strong_signal, forward_periods=5)
+            result = bmp_z(self._poison_one_event(strong_signal), forward_periods=5)
+
+        # Old behaviour: NaN SAR -> mean/std NaN -> z=0, p=1 at full n_obs.
+        assert math.isfinite(result.stat)
+        assert math.isfinite(result.value)
+        assert result.stat != 0.0
+        assert result.p_value < 1.0
+        assert result.metadata["n_dropped_non_finite_return"] >= 1
+        assert result.n_obs < clean.n_obs
+        assert (
+            result.metadata["n_dropped"]
+            == result.metadata["n_dropped_no_vol"]
+            + result.metadata["n_dropped_non_finite_return"]
+        )
+
+    def test_clean_panel_has_no_non_finite_drops(self, strong_signal):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            result = bmp_z(strong_signal, forward_periods=5)
+        assert result.metadata["n_dropped_non_finite_return"] == 0
+        assert result.metadata["n_dropped"] == result.metadata["n_dropped_no_vol"]
