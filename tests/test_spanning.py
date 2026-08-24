@@ -461,3 +461,53 @@ class TestOlsAlphaFiniteContract:
         candidate, _ = self._design()
         result = ols_alpha(candidate, np.empty((len(candidate), 0)))
         assert result.alpha == pytest.approx(float(np.mean(candidate)))
+
+
+class TestAlphaTIsHac:
+    """``alpha_t`` divides by a Newey-West HAC SE, not the homoskedastic OLS SE.
+
+    Nothing in a ``(date, spread)`` input can prove the series is
+    non-overlapping, so the SE must not depend on that assumption. Under
+    positive serial correlation the HAC SE is wider and the t smaller; on
+    iid input the two agree closely.
+    """
+
+    @staticmethod
+    def _ols_t(y: np.ndarray, X: np.ndarray) -> float:
+        beta = np.linalg.lstsq(X, y, rcond=None)[0]
+        resid = y - X @ beta
+        sigma2 = resid @ resid / (len(y) - X.shape[1])
+        se = np.sqrt(sigma2 * np.linalg.inv(X.T @ X)[0, 0])
+        return float(beta[0] / se)
+
+    def test_autocorrelated_residuals_shrink_the_t(self):
+        from factrix._ols import ols_alpha
+
+        rng = np.random.default_rng(0)
+        n = 240
+        eps = np.empty(n)
+        eps[0] = rng.standard_normal()
+        for t in range(1, n):
+            eps[t] = 0.7 * eps[t - 1] + rng.standard_normal()
+        y = 0.3 + eps
+        X = np.ones((n, 1))
+        hac_t = ols_alpha(y, np.empty((n, 0))).alpha_t
+        assert 0 < hac_t < self._ols_t(y, X)
+
+    def test_iid_residuals_agree_with_ols_on_average(self):
+        """On iid input the HAC and OLS t agree in expectation.
+
+        A single draw can differ by ±20% (the HAC SE is a noisier estimate
+        on iid data — that is its known small-sample cost), so the
+        agreement is asserted on the mean ratio over many draws, not on
+        one series.
+        """
+        from factrix._ols import ols_alpha
+
+        n = 240
+        ratios = []
+        for seed in range(200):
+            y = 0.3 + np.random.default_rng(seed).standard_normal(n)
+            hac_t = ols_alpha(y, np.empty((n, 0))).alpha_t
+            ratios.append(hac_t / self._ols_t(y, np.ones((n, 1))))
+        assert 0.95 <= float(np.mean(ratios)) <= 1.10
