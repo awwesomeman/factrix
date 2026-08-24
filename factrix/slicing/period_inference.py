@@ -285,12 +285,14 @@ def slice_period_pairwise_test(
         reference_dist, df_num, df_denom, multiplicity)``; one row per
         ordered slice pair ``(a, b)``. ``n_periods_*`` are each slice's own
         date counts (disjoint spans differ in length). ``mean_diff`` is the
-        signed ``μ_a − μ_b``; ``stat`` the studentized contrast on a χ²₁
-        scale. The mechanism columns disclose the path (constant across
-        rows): ``stat_type="wald"``, ``df_num=1`` and ``df_denom=None``
-        (the disjoint-sample reference has no finite-cluster denominator);
-        ``reference_dist`` is ``"bootstrap_null"`` (``method="bootstrap"``)
-        or ``"chi2"`` (``method="analytic"``, asymptotic χ²₁); and
+        signed ``μ_a − μ_b``; ``stat`` the studentized contrast
+        ``(μ_a − μ_b)² / (v_a + v_b)``. The mechanism columns disclose the
+        path: ``stat_type="wald"``, ``df_num=1``; ``reference_dist`` is
+        ``"bootstrap_null"`` (``method="bootstrap"``, ``df_denom=None``) or
+        ``"f"`` (``method="analytic"``: ``F_{1, ν}`` with the per-pair
+        Welch-Satterthwaite ``ν`` in ``df_denom`` — two disjoint slices with
+        their own HAC variances is the Welch two-sample setting, and the
+        asymptotic χ²₁ used earlier over-rejected at short slices); and
         ``multiplicity`` the family-wise correction (``"romano_wolf"`` for
         ``"bootstrap"``, ``"holm"`` for ``"analytic"``).
 
@@ -329,7 +331,12 @@ def slice_period_pairwise_test(
                 col = np.zeros(_N_RESAMPLES)
             else:
                 t = diff_obs / se
-                col = (d - d.mean()) / se
+                # Centre on the OBSERVED difference, not the bootstrap mean:
+                # the studentised null draw is (θ* − θ̂) / se* (Efron-Tibshirani
+                # §16), and it is what ``_wald_bootstrap_omnibus`` already does
+                # via ``boot - obs_means``. Centring on ``d.mean()`` was an
+                # implicit bias correction the omnibus path did not apply.
+                col = (d - diff_obs) / se
             t_obs.append(t)
             boot_cols.append(col)
             mean_diffs.append(diff_obs)
@@ -345,22 +352,34 @@ def slice_period_pairwise_test(
         mean_diffs = []
         stats = []
         p_raw = []
+        df_denoms = []
         for i, j in pairs:
             diff_obs = float(means[i] - means[j])
             se2 = float(variances[i] + variances[j])
+            # Two disjoint slices with their own HAC variances is the Welch
+            # two-sample setting, so the finite-sample reference is
+            # F_{1, ν} with the Welch-Satterthwaite ν rather than the
+            # asymptotic χ²₁ (which over-rejects at short slices: 6.8% at
+            # T = 8 for a nominal 5%, vs 4.8% here). Same F reference the
+            # cross-sectional sibling in ``slicing.inference`` uses; ν is
+            # per pair because the two slices differ in length.
+            nu = _welch_df(
+                float(variances[i]), n_periods[i], float(variances[j]), n_periods[j]
+            )
             if se2 <= EPSILON:
                 chi = 0.0
                 p = 1.0
             else:
                 chi = diff_obs * diff_obs / se2
-                p = float(sp_stats.chi2.sf(chi, df=1))
+                p = float(sp_stats.f.sf(chi, dfn=1, dfd=nu))
             mean_diffs.append(diff_obs)
             stats.append(chi)
             p_raw.append(p)
+            df_denoms.append(nu)
         p_adj = holm_adjusted_p(p_raw)
 
     n_pairs = len(pairs)
-    reference_dist = "bootstrap_null" if method == "bootstrap" else "chi2"
+    reference_dist = "bootstrap_null" if method == "bootstrap" else "f"
     multiplicity = "romano_wolf" if method == "bootstrap" else "holm"
     return pl.DataFrame(
         {
@@ -375,10 +394,24 @@ def slice_period_pairwise_test(
             "stat_type": ["wald"] * n_pairs,
             "reference_dist": [reference_dist] * n_pairs,
             "df_num": [1] * n_pairs,
-            "df_denom": [None] * n_pairs,
+            "df_denom": ([None] * n_pairs if method == "bootstrap" else df_denoms),
             "multiplicity": [multiplicity] * n_pairs,
         }
     )
+
+
+def _welch_df(var_a: float, n_a: int, var_b: float, n_b: int) -> float:
+    """Welch-Satterthwaite denominator df for a two-sample mean contrast.
+
+    ``var_*`` are the (HAC) variances *of the mean*, so the classic
+    ``s²/n`` terms are already folded in. Floors at 1.0 so a degenerate
+    pair cannot hand ``f.sf`` a zero df.
+    """
+    num = (var_a + var_b) ** 2
+    den = (var_a**2) / max(n_a - 1, 1) + (var_b**2) / max(n_b - 1, 1)
+    if den <= EPSILON or not np.isfinite(num):
+        return 1.0
+    return max(float(num / den), 1.0)
 
 
 def _analytic_slice_moments(

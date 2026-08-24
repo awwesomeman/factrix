@@ -31,7 +31,7 @@ _PAIRWISE_COLS = [
 
 @pytest.mark.parametrize(
     ("method", "reference_dist", "multiplicity"),
-    [("bootstrap", "bootstrap_null", "romano_wolf"), ("analytic", "chi2", "holm")],
+    [("bootstrap", "bootstrap_null", "romano_wolf"), ("analytic", "f", "holm")],
 )
 def test_two_slice_returns_one_row(
     method: str, reference_dist: str, multiplicity: str
@@ -47,8 +47,38 @@ def test_two_slice_returns_one_row(
     assert out["stat_type"][0] == "wald"
     assert out["reference_dist"][0] == reference_dist
     assert out["df_num"][0] == 1
-    assert out["df_denom"][0] is None
+    if method == "bootstrap":
+        assert out["df_denom"][0] is None
+    else:
+        # Welch-Satterthwaite ν: strictly between 1 and the pooled n_a+n_b-2.
+        nu = out["df_denom"][0]
+        assert (
+            nu is not None
+            and 1.0 <= nu <= out["n_periods_a"][0] + out["n_periods_b"][0] - 2
+        )
     assert out["multiplicity"][0] == multiplicity
+
+
+def test_analytic_reference_is_welch_f() -> None:
+    """The analytic p is ``F_{1, ν}`` on the disclosed ``df_denom``, not χ²₁.
+
+    Two disjoint slices with their own HAC variances is the Welch two-sample
+    setting. The earlier asymptotic χ²₁ over-rejected at short slices (6.8%
+    at T=8 for nominal 5%; Welch F gives 4.8%), and the disclosed ``ν`` is
+    what lets a reader recompute the p from ``stat`` alone.
+    """
+    from scipy import stats as sp_stats
+
+    df = build_disjoint_period_panel(
+        seed=4, spans={"a": (45, 0.1), "b": (90, 0.1)}, label_col="regime"
+    )
+    out = slice_period_pairwise_test(
+        df, ic(), by="regime", factor_col="factor", method="analytic"
+    )
+    stat, nu, p = out["stat"][0], out["df_denom"][0], out["p_raw"][0]
+    assert p == pytest.approx(float(sp_stats.f.sf(stat, dfn=1, dfd=nu)))
+    # Unequal slice lengths must give a non-integer, pair-specific ν.
+    assert nu != pytest.approx(round(nu))
 
 
 def test_three_slice_returns_three_rows() -> None:
