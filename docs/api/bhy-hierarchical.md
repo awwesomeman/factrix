@@ -4,11 +4,21 @@ title: factrix.multi_factor.bhy_hierarchical
 
 ::: factrix.multi_factor.bhy_hierarchical
 
-Two-stage false discovery rate (FDR) for factor sets with natural group structure (factor
+Two-layer false discovery rate (FDR) for factor sets with natural group structure (factor
 families, regions, sectors). Outer Benjamini-Hochberg-Yekutieli (BHY) on
 [Simes (1986)](https://academic.oup.com/biomet/article/73/3/751/277681)
-group representatives + inner BHY within each passing group, per
-[Yekutieli (2008)](https://www.tandfonline.com/doi/abs/10.1198/jasa.2007.ap06035).
+group representatives, inner BHY within each group, and a member's
+adjusted *p* is the max of the two.
+
+The layered design follows
+[Yekutieli (2008)](https://www.tandfonline.com/doi/abs/10.1198/jasa.2007.ap06035),
+but the procedure is **not** Yekutieli's: his inner layer runs at a
+selection-adjusted `q · R / G` (`R` selected groups of `G`), where this
+uses the nominal `q` at both layers and relies on the max against the
+outer adjusted *p* instead. Overall FDR control is therefore empirical
+rather than inherited from that paper — see the function docstring for
+the simulated realised FDR and the power comparison against the
+`q · R / G` variant.
 
 ```python
 import dataclasses

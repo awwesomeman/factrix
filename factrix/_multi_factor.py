@@ -1171,13 +1171,36 @@ def bhy_hierarchical(
     group: str,
     q: float = 0.05,
 ) -> dict[str, HierarchicalBhyResult]:
-    """Yekutieli (2008) two-stage hierarchical BHY, one screen per metric.
+    """Two-layer hierarchical BHY screen, one per metric.
 
-    Controls group-level FDR ≤ ``q`` on the outer layer (Simes group
-    representative + BHY) and within-group FDR ≤ ``q`` on the inner
-    layer (BHY restricted to passing groups). Flat BHY across the
-    whole input loses group-level interpretability and pays full
-    m-correction even when most groups are dead.
+    Each group is represented by the Simes combination of its members'
+    p-values; BHY runs across those representatives (outer layer) and
+    again within each group (inner layer); a member's adjusted p is the
+    **max** of the two. Flat BHY across the whole input loses
+    group-level interpretability and pays full m-correction even when
+    most groups are dead.
+
+    **Attribution.** This is *not* the Yekutieli (2008) two-stage
+    procedure, which this docstring previously named. Yekutieli's inner
+    layer runs at a selection-adjusted level ``q · R / G`` (``R``
+    selected groups out of ``G``) — see also Benjamini-Bogomolov (2014)
+    on selective inference across families. The construction here uses
+    the nominal ``q`` at both layers and instead takes the max against
+    the outer adjusted p, which is a different route to the same goal.
+
+    **FDR control.** The max is what does the work: a member's adjusted
+    p is never below the outer BHY adjusted p for its group, so the
+    rejected set lives inside the groups the outer BHY layer already
+    passed, and BHY controls that layer's FDR under *arbitrary*
+    dependence. That is an argument for conservatism, not a proof of
+    overall FDR ≤ q — treat the guarantee as empirical. Simulation over
+    group counts, group sizes, sparsity, and equicorrelated
+    within-group dependence puts realised FDR at 0.026–0.078 against a
+    nominal 0.10, including the configuration selective inference is
+    weakest on (one strong non-null in an otherwise dead selected
+    group); see ``TestHierarchicalFdrControl``. Power runs *above* the
+    ``q · R / G`` variant in the same configurations (e.g. 0.75 vs 0.55),
+    so the selection adjustment is not being skipped for free.
 
     Args:
         results: :class:`EvaluationResult` records. Each is assigned
@@ -1189,7 +1212,8 @@ def bhy_hierarchical(
         metrics: ``list[str]`` — one hierarchical screen per
             metric; return dict keyed by ``label``.
         group: Single key naming the group axis.
-        q: Nominal FDR target shared by both layers. Must satisfy
+        q: Nominal FDR target applied at both layers (no selection
+            rescaling — see Attribution above). Must satisfy
             ``0 < q < 1``.
 
     Returns:

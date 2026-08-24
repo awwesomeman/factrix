@@ -1,5 +1,6 @@
 """Tests for factrix.metrics.spanning."""
 
+import math
 import warnings
 from datetime import datetime, timedelta
 
@@ -410,3 +411,53 @@ class TestAlignSpreadSeriesRegressions:
         res = spanning_alpha(nan_cand)
         assert np.isfinite(res.value)
         assert res.n_obs == cand.height - 1
+
+
+class TestOlsAlphaFiniteContract:
+    """``ols_alpha`` refuses non-finite input rather than returning NaN.
+
+    ``np.linalg.lstsq`` does not raise on NaN — it returns a NaN solution,
+    so the NaN surfaced as a NaN alpha and t far from its cause. The guard
+    was previously a property of ``spanning``'s call sites (all three filter
+    first, and the module comment says why), which left any fourth caller
+    exposed. Same fail-loud contract as ``_stats.hac._require_finite``.
+    """
+
+    @staticmethod
+    def _design(n: int = 30):
+        rng = np.random.default_rng(0)
+        return rng.normal(size=n), rng.normal(size=(n, 2))
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+    def test_non_finite_candidate_raises(self, bad):
+        from factrix._ols import ols_alpha
+
+        candidate, base = self._design()
+        candidate[5] = bad
+        with pytest.raises(ValueError, match="candidate must be finite"):
+            ols_alpha(candidate, base)
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf")])
+    def test_non_finite_base_matrix_raises(self, bad):
+        from factrix._ols import ols_alpha
+
+        candidate, base = self._design()
+        base[7, 1] = bad
+        with pytest.raises(ValueError, match="base_matrix must be finite"):
+            ols_alpha(candidate, base)
+
+    def test_clean_input_is_unaffected(self):
+        from factrix._ols import ols_alpha
+
+        candidate, base = self._design()
+        result = ols_alpha(candidate, base)
+        assert math.isfinite(result.alpha)
+        assert math.isfinite(result.alpha_t)
+
+    def test_empty_base_matrix_still_works(self):
+        """The no-regressor path (intercept only) must not trip the guard."""
+        from factrix._ols import ols_alpha
+
+        candidate, _ = self._design()
+        result = ols_alpha(candidate, np.empty((len(candidate), 0)))
+        assert result.alpha == pytest.approx(float(np.mean(candidate)))
