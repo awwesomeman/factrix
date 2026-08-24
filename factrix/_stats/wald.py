@@ -43,7 +43,7 @@ def _wald_p_linear(
     R: np.ndarray,
     q: np.ndarray | float = 0.0,
     *,
-    df_denom: int | None = None,
+    df_denom: float | None = None,
 ) -> tuple[float, float]:
     """Wald test of the linear restriction ``Rβ = q``.
 
