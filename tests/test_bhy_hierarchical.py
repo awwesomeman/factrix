@@ -146,29 +146,34 @@ def test_group_equal_to_factor_raises_on_group_field():
 
 
 class TestHierarchicalFdrControl:
-    """Realised FDR of the two-layer construction against its nominal q.
+    """Realised FDR of the selective two-layer construction against nominal q.
 
-    ``bhy_hierarchical`` uses the nominal ``q`` at BOTH layers and takes the
-    max against the outer adjusted p, rather than Yekutieli (2008)'s
-    selection-adjusted inner level ``q · R / G``. That means overall FDR
-    control is not inherited from the paper and has to be measured. These
-    tests pin the measurement so a future change to either layer cannot
-    quietly break it.
-
-    The procedure is exercised through the same primitives
-    ``_bhy_hierarchical_one`` composes (``simes_p`` / ``bhy_adjusted_p``),
-    which keeps the simulation cheap enough for CI while testing the
-    construction that matters.
+    The inner layer runs at Benjamini-Bogomolov's ``q · R / G``. An earlier
+    nominal-q-at-both-layers construction was measured to exceed q on small
+    groups of correlated members — the library's modal input — and that
+    scan is pinned below as the regression guard. The procedure is
+    exercised through the same primitives ``_bhy_hierarchical_one``
+    composes (``simes_p`` / ``bhy_adjusted_p`` / the selection scale), which
+    keeps the simulation cheap enough for CI while testing the construction
+    that matters; ``test_small_correlated_groups_through_public_api`` runs
+    one point through ``bhy_hierarchical`` itself so the helper cannot
+    drift from the shipped code.
     """
 
     @staticmethod
-    def _adjusted(p_by_group: list[np.ndarray]) -> list[np.ndarray]:
+    def _adjusted(p_by_group: list[np.ndarray], q: float) -> list[np.ndarray]:
         from factrix.stats.multiple_testing import bhy_adjusted_p, simes_p
 
         group_simes = np.array([simes_p(g) for g in p_by_group])
         inner = [bhy_adjusted_p(g) for g in p_by_group]
         outer = bhy_adjusted_p(group_simes)
-        return [np.maximum(outer[i], inner[i]) for i in range(len(p_by_group))]
+        n_groups = len(p_by_group)
+        n_selected = int(np.sum(outer <= q))
+        scale = n_groups / n_selected if n_selected else np.inf
+        return [
+            np.maximum(outer[i], np.minimum(1.0, inner[i] * scale))
+            for i in range(n_groups)
+        ]
 
     @classmethod
     def _realised_fdr(
@@ -202,7 +207,7 @@ class TestHierarchicalFdrControl:
                     z = rng.normal(size=size)
                 p_by_group.append(sp_stats.norm.sf(z + is_nn * effect))
                 truth.append(is_nn)
-            rejected = np.concatenate([a <= q for a in cls._adjusted(p_by_group)])
+            rejected = np.concatenate([a <= q for a in cls._adjusted(p_by_group, q)])
             is_nn_all = np.concatenate(truth)
             n_rej = int(rejected.sum())
             fdps.append(
@@ -278,40 +283,56 @@ class TestHierarchicalFdrControl:
         )
         assert fdr <= 0.10
 
-    def test_not_dominated_by_the_selection_adjusted_variant(self):
-        """The nominal-q-plus-max route must not be strictly worse.
+    @pytest.mark.parametrize("rho", [0.5, 0.7, 0.9])
+    def test_small_correlated_groups_control_fdr(self, rho):
+        """The regime that broke the nominal-q construction.
 
-        If it controlled FDR only by being uniformly more conservative than
-        Yekutieli's q·R/G inner level, the honest fix would be to adopt that
-        level instead. It is not: it detects at least as much.
+        ``G = 30`` groups of 4, five live with one true effect each,
+        equicorrelated members. Under nominal q at both layers realised FDR
+        was 1.09x / 1.18x / 1.14x nominal at rho 0.5 / 0.7 / 0.9 — a family
+        of four correlated factor variants is exactly this shape. The
+        selective inner level must hold it under q.
         """
-        from factrix.stats.multiple_testing import bhy_adjusted_p, simes_p
+        fdr = self._realised_fdr(
+            n_groups=30,
+            size=4,
+            live_groups=5,
+            non_null_per_group=1,
+            effect=3.5,
+            q=0.10,
+            rho=rho,
+            reps=1500,
+            seed=11,
+        )
+        assert fdr <= 0.10
+
+    def test_small_correlated_groups_through_public_api(self):
+        """One point of the scan through ``bhy_hierarchical`` on real inputs,
+        so the simulation helper cannot silently diverge from shipped code."""
         from scipy import stats as sp_stats
 
-        q, n_groups, size = 0.10, 20, 10
-        rng = np.random.default_rng(3)
-        power_max, power_scaled, reps = 0.0, 0.0, 200
-        for _ in range(reps):
-            p_by_group, truth = [], []
+        make_spec("ic")
+        rng = np.random.default_rng(5)
+        q, n_groups, size, live, effect, rho = 0.10, 30, 4, 5, 3.5, 0.7
+        fdps = []
+        for _ in range(150):
+            results, truth = [], {}
             for g in range(n_groups):
-                is_nn = np.arange(size) < (5 if g < 4 else 0)
-                p_by_group.append(sp_stats.norm.sf(rng.normal(size=size) + is_nn * 3.0))
-                truth.append(is_nn)
-            is_nn_all = np.concatenate(truth)
-
-            rej_max = np.concatenate([a <= q for a in self._adjusted(p_by_group)])
-
-            group_simes = np.array([simes_p(g) for g in p_by_group])
-            selected = bhy_adjusted_p(group_simes) <= q
-            n_sel = int(selected.sum())
-            rej_scaled = np.concatenate(
-                [
-                    (bhy_adjusted_p(g) <= q * n_sel / n_groups)
-                    if (selected[i] and n_sel)
-                    else np.zeros(size, dtype=bool)
-                    for i, g in enumerate(p_by_group)
-                ]
+                z = np.sqrt(rho) * rng.normal() + np.sqrt(1 - rho) * rng.normal(
+                    size=size
+                )
+                for j in range(size):
+                    is_nn = g < live and j == 0
+                    p = float(sp_stats.norm.sf(z[j] + (effect if is_nn else 0.0)))
+                    name = f"f{g}_{j}"
+                    results.append(
+                        make_result(factor=name, p=p, metric="ic", params={"family": g})
+                    )
+                    truth[name] = is_nn
+            out = bhy_hierarchical(results, metrics=["ic"], group="family", q=q)["ic"]
+            survivors = [r.factor for r in out.survivors]
+            n_rej = len(survivors)
+            fdps.append(
+                0.0 if n_rej == 0 else sum(1 for f in survivors if not truth[f]) / n_rej
             )
-            power_max += (rej_max & is_nn_all).sum() / max(is_nn_all.sum(), 1)
-            power_scaled += (rej_scaled & is_nn_all).sum() / max(is_nn_all.sum(), 1)
-        assert power_max / reps >= power_scaled / reps
+        assert float(np.mean(fdps)) <= q

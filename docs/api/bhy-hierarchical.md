@@ -7,25 +7,19 @@ title: factrix.multi_factor.bhy_hierarchical
 Two-layer false discovery rate (FDR) for factor sets with natural group structure (factor
 families, regions, sectors). Outer Benjamini-Hochberg-Yekutieli (BHY) on
 [Simes (1986)](https://academic.oup.com/biomet/article/73/3/751/277681)
-group representatives, inner BHY within each group, and a member's
-adjusted *p* is the max of the two.
+group representatives, then inner BHY within each selected group at the
+**selective level `q · R / G`** (`R` groups the outer layer selected of `G`),
+per [Benjamini-Bogomolov (2014)](https://doi.org/10.1111/rssb.12028) — the
+[Yekutieli (2008)](https://www.tandfonline.com/doi/abs/10.1198/jasa.2007.ap06035)
+hierarchical framework with the selection adjustment that makes the
+member-level guarantee hold.
 
-The layered design follows
-[Yekutieli (2008)](https://www.tandfonline.com/doi/abs/10.1198/jasa.2007.ap06035),
-but the procedure is **not** Yekutieli's: his inner layer runs at a
-selection-adjusted `q · R / G` (`R` selected groups of `G`), where this
-uses the nominal `q` at both layers and relies on the max against the
-outer adjusted *p* instead.
-
-Overall FDR control is therefore **empirical, not proved**. Measured
-realised FDR is 0.026–0.078 against a nominal 0.10 across group counts,
-sizes, sparsity, within-group dependence, and selected fractions down to
-`R / G = 0.01`; power also runs above the `q · R / G` variant. See the
-function docstring for the reasoning and `TestHierarchicalFdrControl` for
-the measurement. **If you need a guarantee backed by a theorem, use flat
-[`bhy`](bhy.md)** — it controls FDR ≤ q under arbitrary dependence, at
-the cost of the group-level interpretation this procedure exists to
-provide.
+Measured realised FDR stays under nominal across group counts, sizes,
+sparsity, selected fractions down to `R / G = 0.01`, and — the regime
+that broke the earlier nominal-`q` variant — small groups of strongly
+correlated members (0.03–0.04 vs nominal 0.10 at `size = 4`, `rho ≥ 0.5`).
+The selective level costs power only on large groups with dense signal;
+for those, flat [`bhy`](bhy.md) is both higher-power and theorem-backed.
 
 ```python
 import dataclasses
@@ -89,11 +83,19 @@ Per group $g$ with $m_g$ member p-values:
 3. Inner BHY within each group gives $p_{\text{inner},i}^{\text{adj}}$
    for member $i$ of group $g(i)$.
 
-4. The cell-level adjusted p is the max-of-layers fold
+4. Let $R$ be the number of groups with $p_{\text{outer},g}^{\text{adj}} \le q$.
+   The cell-level adjusted p folds both layers with the
+   Benjamini-Bogomolov selection scale $G / R$ on the inner term:
 
     $$
-    p_i^{\text{adj}} = \max\bigl(p_{\text{outer},g(i)}^{\text{adj}},\; p_{\text{inner},i}^{\text{adj}}\bigr)
+    p_i^{\text{adj}} = \max\Bigl(p_{\text{outer},g(i)}^{\text{adj}},\;
+    \min\bigl(1,\; p_{\text{inner},i}^{\text{adj}} \cdot G / R\bigr)\Bigr)
     $$
+
+   so that `adj_p[i] <= q` is exactly "outer passed at $q$ **and** inner
+   passed at $q \cdot R / G$". Because $R$ depends on $q$, the returned
+   array is defined at the supplied $q$ — re-screen at another level by
+   calling again, not by re-thresholding.
 
    This preserves the universal `survivor[i] iff adj_p[i] <= q`
    duality while encoding the two-layer logic:
