@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import numpy as np
 import polars as pl
 import pytest
+from factrix._codes import WarningCode
 from factrix.metrics.corrado_rank import corrado_rank
 
 
@@ -23,6 +24,17 @@ def _panel(returns: np.ndarray, factor: np.ndarray) -> pl.DataFrame:
     )
 
 
+def _tail_returns(rng: np.random.Generator, sign: float, k: int) -> np.ndarray:
+    """``k`` returns deep in the ``sign`` tail, spread rather than identical.
+
+    The spread is load-bearing: the denominator is the time-series SD of the
+    per-event-date mean rank, so ``k`` identical event returns give it zero
+    dispersion and the metric (correctly) short-circuits as degenerate. Real
+    event returns are never all the same value.
+    """
+    return sign * (5.0 + rng.uniform(0.0, 2.0, size=k))
+
+
 def _directional_panel(sign: float, n: int = 300, seed: int = 0) -> pl.DataFrame:
     """Baseline noise returns with a handful of events whose own return is
     shifted well into the tail in the direction ``sign * factor``, so the
@@ -33,7 +45,7 @@ def _directional_panel(sign: float, n: int = 300, seed: int = 0) -> pl.DataFrame
     factor = np.zeros(n)
     event_idx = np.arange(10, n, 30)
     factor[event_idx] = sign
-    returns[event_idx] = sign * 5.0  # push into the extreme tail
+    returns[event_idx] = _tail_returns(rng, sign, len(event_idx))
     return _panel(returns, factor)
 
 
@@ -48,7 +60,8 @@ class TestOneSidedPValue:
         returns = rng.normal(size=n)
         factor = np.zeros(n)
         event_idx = np.arange(10, n, 30)
-        returns[event_idx] = 5.0  # events are the largest returns...
+        # events are the largest returns...
+        returns[event_idx] = _tail_returns(rng, 1.0, len(event_idx))
         factor[event_idx] = -1.0  # ...but the factor calls them down
 
         result = corrado_rank(_panel(returns, factor))
@@ -90,9 +103,9 @@ class TestNonFiniteReturns:
         rng = np.random.default_rng(seed)
         returns = rng.normal(size=n)
         factor = np.zeros(n)
-        event_idx = np.arange(10, n, 30)
+        event_idx = np.arange(10, n, 20)
         factor[event_idx] = 1.0
-        returns[event_idx] = 5.0
+        returns[event_idx] = _tail_returns(rng, 1.0, len(event_idx))
         returns[0] = hole  # a non-event row
         return _panel(returns, factor)
 
@@ -112,7 +125,7 @@ class TestNonFiniteReturns:
         null_result = corrado_rank(self._panel_with_hole(None))
         assert nan_result.stat == pytest.approx(null_result.stat)
         assert nan_result.value == pytest.approx(null_result.value)
-        # The non-finite cell is excluded from the pooled-std denominator.
+        # The non-finite cell is excluded from the ranked sample.
         assert nan_result.metadata["n_total_obs"] == 299
 
     @pytest.mark.parametrize("hole", [float("nan"), None])
@@ -121,9 +134,9 @@ class TestNonFiniteReturns:
         n = 300
         returns = rng.normal(size=n)
         factor = np.zeros(n)
-        event_idx = np.arange(10, n, 30)
+        event_idx = np.arange(10, n, 20)
         factor[event_idx] = 1.0
-        returns[event_idx] = 5.0
+        returns[event_idx] = _tail_returns(rng, 1.0, len(event_idx))
         returns[event_idx[0]] = hole  # poison one *event*
 
         result = corrado_rank(_panel(returns, factor))
@@ -140,9 +153,9 @@ class TestNonFiniteReturns:
         n = 300
         returns = rng.normal(size=n)
         factor = np.zeros(n)
-        event_idx = np.arange(10, n, 30)
+        event_idx = np.arange(10, n, 20)
         factor[event_idx] = 1.0
-        returns[event_idx] = 5.0
+        returns[event_idx] = _tail_returns(rng, 1.0, len(event_idx))
         factor[1] = float("nan")
 
         result = corrado_rank(_panel(returns, factor))
@@ -155,3 +168,141 @@ class TestNonFiniteReturns:
         result = corrado_rank(_directional_panel(sign=1.0))
         assert result.metadata["n_events_dropped_non_finite"] == 0
         assert result.metadata["n_total_obs"] == 300
+
+
+class TestClusterRobustDenominator:
+    """The denominator must absorb same-date event clustering.
+
+    ``corrado_rank`` exists as the nonparametric fallback for exactly the
+    regime where ``caar``'s t-test breaks down — clustered event dates. A
+    pooled std over every ``(asset, date)`` rank cell ignored that
+    clustering, so the metric was liberal in the one situation it was
+    recommended for. The unit of inference is now the event DATE.
+    """
+
+    @staticmethod
+    def _clustered_panel(events_per_date: int, n_dates: int = 200, seed: int = 0):
+        """Panel where every event date carries ``events_per_date`` events.
+
+        Same-date events share one common shock, so they are far from
+        independent draws — the shape a pooled denominator misreads.
+        """
+        rng = np.random.default_rng(seed)
+        n_assets = 20
+        event_dates = set(range(10, n_dates, 5))
+        rows = []
+        for d in range(n_dates):
+            shock = rng.normal() * 3.0 if d in event_dates else 0.0
+            for a in range(n_assets):
+                is_event = d in event_dates and a < events_per_date
+                rows.append(
+                    {
+                        "date": datetime(2020, 1, 1) + timedelta(days=d),
+                        "asset_id": f"A{a}",
+                        "factor": 1.0 if is_event else 0.0,
+                        "forward_return": float(
+                            rng.normal() + (shock if is_event else 0.0)
+                        ),
+                    }
+                )
+        return pl.DataFrame(rows)
+
+    def test_n_obs_counts_event_dates_not_events(self):
+        result = corrado_rank(self._clustered_panel(events_per_date=4))
+        assert result.n_obs_axis == "periods"
+        assert result.n_obs == result.metadata["n_event_dates"]
+        # Four events per date: the event count is 4x the date count, and
+        # using it as the sample size is what inflated z.
+        assert result.metadata["n_events"] == 4 * result.metadata["n_event_dates"]
+        assert result.metadata["events_per_date_max"] == 4
+
+    def test_clustering_does_not_inflate_the_statistic(self):
+        """Piling more correlated events onto the same dates must not buy
+        significance. Under the pooled denominator it did: N_events grew
+        while the denominator stayed put, so z scaled with sqrt(N_events).
+        """
+        z_light = corrado_rank(self._clustered_panel(events_per_date=1)).stat
+        z_heavy = corrado_rank(self._clustered_panel(events_per_date=8)).stat
+        # Same dates, same common shocks — 8x the events adds no independent
+        # information, so z must not scale up with the event count.
+        assert abs(z_heavy) < abs(z_light) * np.sqrt(8.0)
+
+    def test_sparse_event_dates_still_run_with_a_warning(self):
+        """A quarterly-cadence factor must not be locked out.
+
+        The floor is ``caar``'s ``MIN_EVENTS_HARD``, shared because both
+        metrics test an event-date series. A private, stricter floor here
+        would have short-circuited factors that ``caar`` reports on happily
+        — corrado_rank serves every sparse cell (single-asset TIMESERIES,
+        wide PANEL, COMMON broadcast), so its floor has to be the general
+        one.
+        """
+        rng = np.random.default_rng(2)
+        rows = []
+        event_days = {20, 110, 200, 290, 380, 470}  # ~quarterly, 6 dates
+        for d in range(540):
+            for a in range(8):
+                is_event = d in event_days
+                rows.append(
+                    {
+                        "date": datetime(2020, 1, 1) + timedelta(days=d),
+                        "asset_id": f"A{a}",
+                        "factor": 1.0 if is_event else 0.0,
+                        "forward_return": float(
+                            rng.normal() + (2.0 if is_event else 0.0)
+                        ),
+                    }
+                )
+        with pytest.warns(UserWarning, match="n_event_dates=6"):
+            result = corrado_rank(pl.DataFrame(rows))
+        assert result.n_obs == 6
+        assert result.stat is not None
+        assert WarningCode.FEW_EVENTS.value in result.warning_codes
+
+    def test_common_scope_whole_cross_section_on_event_dates(self):
+        """COMMON-scope factors fire on every asset at once.
+
+        That is Corrado's original event-time layout — one full
+        cross-section per event date — so the per-date collapse is the
+        identity on the cross-sectional mean and the test must simply work.
+        """
+        rng = np.random.default_rng(4)
+        rows = []
+        event_days = set(range(10, 200, 4))
+        for d in range(200):
+            shock = 1.5 if d in event_days else 0.0
+            for a in range(15):
+                rows.append(
+                    {
+                        "date": datetime(2020, 1, 1) + timedelta(days=d),
+                        "asset_id": f"A{a}",
+                        "factor": 1.0 if d in event_days else 0.0,
+                        "forward_return": float(rng.normal() + shock),
+                    }
+                )
+        result = corrado_rank(pl.DataFrame(rows))
+        assert result.n_obs == len(event_days)
+        assert result.metadata["events_per_date_mean"] == pytest.approx(15.0)
+        assert result.stat > 0
+        assert result.p_value < 0.05
+
+    def test_too_few_event_dates_short_circuits(self):
+        """Many events on a handful of dates cannot estimate a time-series SD."""
+        rng = np.random.default_rng(0)
+        rows = []
+        for d in range(60):
+            for a in range(20):
+                is_event = d in (5, 10, 15) and a < 10
+                rows.append(
+                    {
+                        "date": datetime(2020, 1, 1) + timedelta(days=d),
+                        "asset_id": f"A{a}",
+                        "factor": 1.0 if is_event else 0.0,
+                        "forward_return": float(rng.normal()),
+                    }
+                )
+        result = corrado_rank(pl.DataFrame(rows))
+        # 30 events, but only 3 dates behind the SD.
+        assert result.metadata["reason"] == "insufficient_event_dates"
+        assert result.metadata["n_events"] == 30
+        assert result.n_obs == 3

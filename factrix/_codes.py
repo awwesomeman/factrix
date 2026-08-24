@@ -45,10 +45,11 @@ class WarningCode(StrEnum):
     # semantics coincide numerically. All-non-negative columns
     # (``{0, 1}`` / ``{0, R≥0}``) do not trigger — no flip ambiguity.
     SPARSE_MAGNITUDE_WEIGHTED = "sparse_magnitude_weighted"
-    # Fired by ``caar`` (significance test) when the per-event-date series
-    # length sits in ``[MIN_EVENTS_HARD, MIN_EVENTS_WARN)`` — the t-stat
-    # is returned but the Brown-Warner (1985) convention treats sub-30
-    # event-date counts as power-thin for the asymptotic t-distribution.
+    # Fired by ``caar`` (significance test) and ``corrado_rank``, both of
+    # which test a per-event-date series, when its length sits in
+    # ``[MIN_EVENTS_HARD, MIN_EVENTS_WARN)`` — the statistic is returned
+    # but the Brown-Warner (1985) convention treats sub-30 event-date
+    # counts as power-thin for the asymptotic reference distribution.
     # Below the HARD floor the primitive short-circuits to NaN instead.
     # Naming follows the ``<axis>_<condition>`` grammar; the Brown-Warner
     # method reference lives in this gloss rather than the member name.
@@ -220,12 +221,13 @@ _WARNING_DESCRIPTIONS.update(
         "clean ±1 ternary; statistic is magnitude-weighted (Sefcik-Thompson) "
         "rather than textbook MacKinlay signed CAAR — apply .sign() before "
         "calling for sign-flip semantics.",
-        WarningCode.FEW_EVENTS: "CAAR significance test with MIN_EVENTS_HARD ≤ "
-        "n_event_periods < MIN_EVENTS_WARN (4..29). caar is an equal-weight "
-        "calendar-time portfolio across event periods, so this counts the "
-        "number of periods with an event, not events; a sub-30 series is "
-        "power-thin for the asymptotic t-distribution — read borderline "
-        "p-values cautiously.",
+        WarningCode.FEW_EVENTS: "caar / corrado_rank significance test with "
+        "MIN_EVENTS_HARD ≤ n_event_periods < MIN_EVENTS_WARN (4..29). Both "
+        "test an event-date series — caar an equal-weight calendar-time "
+        "portfolio, corrado_rank the per-date mean signed rank — so this "
+        "counts the number of periods with an event, not events; a sub-30 "
+        "series is power-thin for the asymptotic distribution — read "
+        "borderline p-values cautiously.",
         WarningCode.BORDERLINE_PORTFOLIO_PERIODS: "top_concentration with MIN_PORTFOLIO_PERIODS_HARD "
         "≤ n_periods < MIN_PORTFOLIO_PERIODS_WARN (3..19); one-sided t-test "
         "on the per-date diversification ratio is returned but df=n-1 inflates "
