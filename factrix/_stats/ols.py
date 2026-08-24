@@ -11,6 +11,7 @@ from __future__ import annotations
 import numpy as np
 from scipy import stats as sp_stats
 
+from factrix._stats.hac import _require_finite
 from factrix._types import EPSILON
 
 
@@ -30,7 +31,17 @@ def _ols_nw_slope_t(
 
     Returns ``(0.0, 0.0, 1.0, np.zeros(n))`` for n < 3 or degenerate
     inputs (``Var(x) ≈ 0``).
+
+    Raises:
+        ValueError: ``y`` or ``x`` holds a non-finite value. A NaN flows
+            through ``np.mean`` / ``np.dot`` and slips past the
+            ``sxx < EPSILON`` degeneracy guard (every comparison with NaN
+            is False), surfacing as a NaN β / t far from the cause. Same
+            contract as ``_newey_west_se``; callers drop or impute
+            upstream.
     """
+    y = _require_finite(y, "_ols_nw_slope_t")
+    x = _require_finite(x, "_ols_nw_slope_t")
     n = len(y)
     if n < 3 or len(x) != n:
         return 0.0, 0.0, 1.0, np.zeros(n)
@@ -82,7 +93,15 @@ def _ols_nw_multivariate(
 
     Returns ``(zeros(k), zeros((k,k)), zeros(n))`` if ``X'X`` is singular
     (e.g. perfectly collinear columns) or ``n < k + 1``.
+
+    Raises:
+        ValueError: ``y`` or ``X`` holds a non-finite value. ``np.linalg.inv``
+            does not raise on a NaN-bearing matrix — it returns a NaN inverse,
+            so the singularity branch never fires and a NaN β / V_hac is
+            returned silently. Same contract as ``_newey_west_se``.
     """
+    y = _require_finite(y, "_ols_nw_multivariate")
+    X = _require_finite(X, "_ols_nw_multivariate")
     n, k = X.shape
     if len(y) != n or n < k + 1:
         return np.zeros(k), np.zeros((k, k)), np.zeros(n)
