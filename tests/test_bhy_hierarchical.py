@@ -336,3 +336,47 @@ class TestHierarchicalFdrControl:
                 0.0 if n_rej == 0 else sum(1 for f in survivors if not truth[f]) / n_rej
             )
         assert float(np.mean(fdps)) <= q
+
+
+class TestSelectedGroupCount:
+    """``n_selected_groups`` is ``R``, the term the inner level scales by."""
+
+    def test_reproduces_the_inner_level_by_hand(self):
+        """R is reported so a user can recompute the adjusted p-values.
+
+        The inner level is ``q · R / G``. ``G`` is ``len(n_tests)`` and the
+        raw p-values are on the entries, but ``R`` is not otherwise
+        recoverable — without it the documented formula is unverifiable.
+        """
+        from factrix.stats.multiple_testing import bhy_adjusted_p, simes_p
+
+        make_spec("ic")
+        q = 0.10
+        live = _grouped({"a1": 0.0001, "a2": 0.30}, "live", "ic")
+        dead = _grouped({"b1": 0.60, "b2": 0.80}, "dead1", "ic") + _grouped(
+            {"c1": 0.70, "c2": 0.90}, "dead2", "ic"
+        )
+        out = bhy_hierarchical(live + dead, metrics=["ic"], group="family", q=q)["ic"]
+
+        groups = [[0.0001, 0.30], [0.60, 0.80], [0.70, 0.90]]
+        outer = bhy_adjusted_p(np.array([simes_p(g) for g in groups]))
+        assert out.n_selected_groups == int((outer <= q).sum())
+        assert len(out.n_tests) == 3
+
+        scale = 3 / out.n_selected_groups
+        expected = [
+            max(outer[gi], min(1.0, adj * scale))
+            for gi, g in enumerate(groups)
+            for adj in bhy_adjusted_p(np.array(g))
+        ]
+        assert out.adj_p_all == pytest.approx(expected)
+
+    def test_zero_when_no_group_passes(self):
+        make_spec("ic")
+        results = _grouped({"a1": 0.7, "a2": 0.8}, "g1", "ic") + _grouped(
+            {"b1": 0.75, "b2": 0.85}, "g2", "ic"
+        )
+        out = bhy_hierarchical(results, metrics=["ic"], group="family", q=0.05)["ic"]
+        assert out.n_selected_groups == 0
+        assert not out.survivors
+        assert not np.isnan(out.adj_p_all).any()

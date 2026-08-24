@@ -588,14 +588,22 @@ class HierarchicalBhyResult(_FdrResultBase):
 
     Attributes:
         group: ``params`` key naming the group axis.
+        n_selected_groups: ``R`` — groups the outer layer passed at ``q``.
+            Reported because the inner level is ``q · R / G`` and ``R`` is
+            the one term in it not otherwise recoverable from this result
+            (``G`` is ``len(n_tests)``), so without it the adjusted
+            p-values cannot be reproduced by hand. ``0`` means no group
+            passed and nothing survives.
     """
 
     group: str
+    n_selected_groups: int
 
     def _header(self) -> str:
         return (
             f"metric={self.metric_name}, n={len(self.survivors)}, "
-            f"q={self.q:g}, group={self.group!r}"
+            f"q={self.q:g}, group={self.group!r}, "
+            f"selected_groups={self.n_selected_groups}/{len(self.n_tests)}"
         )
 
     def _rows(self) -> tuple[tuple[str, ...], list[tuple[str, ...]]]:
@@ -1354,6 +1362,7 @@ def _bhy_hierarchical_one(
             adj_p_all[idx] = max(outer_adj[g_idx], inner_selective)
 
     return HierarchicalBhyResult(
+        n_selected_groups=n_selected,
         metric_name=metric,
         entries=[e.result for e in entries],
         adj_p_all=adj_p_all,
