@@ -32,7 +32,25 @@ def ols_alpha(
     Returns:
         _OLSResult with alpha, t_stat, betas, R², and residual degrees of
         freedom ``df_resid = n_obs - (1 + n_base_factors)``.
+
+    Raises:
+        ValueError: ``candidate`` or ``base_matrix`` holds a non-finite
+            value. ``np.linalg.lstsq`` does not raise on NaN input — it
+            returns a NaN solution, so an unguarded NaN became a NaN alpha
+            and a NaN t far from the cause. The guard lives in the kernel
+            rather than at the call sites: ``spanning`` filtered before all
+            three of its calls and its own comment says why, which made the
+            protection a property of those callers instead of the function,
+            and left any fourth caller exposed. Same contract as
+            ``factrix._stats.hac._require_finite``.
     """
+    candidate = np.asarray(candidate, dtype=float)
+    base_matrix = np.asarray(base_matrix, dtype=float)
+    if candidate.size and not np.all(np.isfinite(candidate)):
+        raise ValueError("ols_alpha: candidate must be finite (no NaN / inf).")
+    if base_matrix.size and not np.all(np.isfinite(base_matrix)):
+        raise ValueError("ols_alpha: base_matrix must be finite (no NaN / inf).")
+
     n_obs = len(candidate)
     if n_obs < 3:
         return _OLSResult(alpha=0.0, alpha_t=0.0)

@@ -579,21 +579,31 @@ class HierarchicalBhyResult(_FdrResultBase):
 
     Shares ``metric_name`` / ``entries`` / ``adj_p_all`` / ``q`` /
     ``n_tests`` with :class:`_FdrResultBase`. ``adj_p_all`` is
-    ``max(outer_adj_p[group], inner_adj_p[i])`` aligned with ``entries``
-    so ``entry[i] survives iff adj_p_all[i] <= q``; ``q`` is shared by both
+    ``max(outer_adj_p[group], min(1, inner_adj_p[i] · G / R))`` aligned
+    with ``entries`` so ``entry[i] survives iff adj_p_all[i] <= q`` — at
+    the ``q`` the screen ran at, since ``R`` (groups selected by the outer
+    layer) depends on it; ``q`` is shared by both
     layers; ``n_tests`` is the per-group inner family size keyed by
     ``(group_value,)`` — covering *all* input groups, not just survivors.
 
     Attributes:
         group: ``params`` key naming the group axis.
+        n_selected_groups: ``R`` — groups the outer layer passed at ``q``.
+            Reported because the inner level is ``q · R / G`` and ``R`` is
+            the one term in it not otherwise recoverable from this result
+            (``G`` is ``len(n_tests)``), so without it the adjusted
+            p-values cannot be reproduced by hand. ``0`` means no group
+            passed and nothing survives.
     """
 
     group: str
+    n_selected_groups: int
 
     def _header(self) -> str:
         return (
             f"metric={self.metric_name}, n={len(self.survivors)}, "
-            f"q={self.q:g}, group={self.group!r}"
+            f"q={self.q:g}, group={self.group!r}, "
+            f"selected_groups={self.n_selected_groups}/{len(self.n_tests)}"
         )
 
     def _rows(self) -> tuple[tuple[str, ...], list[tuple[str, ...]]]:
@@ -1177,13 +1187,48 @@ def bhy_hierarchical(
     group: str,
     q: float = 0.05,
 ) -> dict[str, HierarchicalBhyResult]:
-    """Yekutieli (2008) two-stage hierarchical BHY, one screen per metric.
+    """Two-layer hierarchical BHY screen with selective inference, one per metric.
 
-    Controls group-level FDR ≤ ``q`` on the outer layer (Simes group
-    representative + BHY) and within-group FDR ≤ ``q`` on the inner
-    layer (BHY restricted to passing groups). Flat BHY across the
-    whole input loses group-level interpretability and pays full
-    m-correction even when most groups are dead.
+    Each group is represented by the Simes combination of its members'
+    p-values; BHY runs across those representatives (outer layer) and
+    again within each group (inner layer). Flat BHY across the whole
+    input loses group-level interpretability and pays full m-correction
+    even when most groups are dead.
+
+    **Selection adjustment.** The inner layer runs at
+    ``q · R / G`` — ``R`` groups the outer layer selected out of ``G`` —
+    per [Benjamini-Bogomolov (2014)][benjamini-bogomolov-2014]
+    (the Yekutieli (2008) hierarchical framework with the selective
+    inner level). A member's adjusted p is
+    ``max(outer_adj[group], min(1, inner_adj · G / R))``, so
+    ``survivor iff adj_p <= q`` holds at the supplied ``q``. Because
+    ``R`` depends on ``q``, the adjusted p-values are defined *at* that
+    ``q``: re-screening at another level is a new call, not a threshold
+    change on the returned array.
+
+    **Why the selective level, not the nominal q at both layers.** An
+    earlier version used the nominal ``q`` for the inner family and took
+    the max against the outer adjusted p. That bounds the *group*-level
+    error rate but not member-level FDR — a correctly-passed group can
+    still contribute many false member rejections — and it was measured
+    to break on the library's modal input: small groups of correlated
+    members (a family of four momentum variants is ``size = 4`` with high
+    within-group correlation). At ``G = 30`` groups of 4, five live, one
+    true effect each, realised FDR was 1.09× / 1.18× / 1.14× the nominal
+    0.10 at ``rho = 0.5 / 0.7 / 0.9``. The selective level restores control
+    there (0.03–0.04) at *no* power cost in that regime (0.619 vs 0.619).
+
+    The cost lands elsewhere: on large groups with dense signal
+    (``size = 10``, half the members non-null, independent) the nominal-q
+    construction detected more (0.75 vs 0.55) while still controlling
+    FDR. That edge was real, but a procedure whose headline guarantee
+    fails on its typical input cannot keep it. For dense, large families
+    flat :func:`bhy` is the higher-power alternative that also carries a
+    theorem-backed guarantee.
+
+    ``TestHierarchicalFdrControl`` pins realised FDR across group counts,
+    sizes, sparsity, selected fraction down to ``R / G = 0.01``, and the
+    small-correlated-group scan above.
 
     Args:
         results: :class:`EvaluationResult` records. Each is assigned
@@ -1195,7 +1240,8 @@ def bhy_hierarchical(
         metrics: ``list[str]`` — one hierarchical screen per
             metric; return dict keyed by ``label``.
         group: Single key naming the group axis.
-        q: Nominal FDR target shared by both layers. Must satisfy
+        q: Nominal FDR target. The outer layer runs at ``q``; the inner
+            layer at the selective ``q · R / G``. Must satisfy
             ``0 < q < 1``.
 
     Returns:
@@ -1300,12 +1346,23 @@ def _bhy_hierarchical_one(
 
     outer_adj = bhy_adjusted_p(group_simes)
 
+    # Benjamini-Bogomolov (2014) selection adjustment: the inner family runs
+    # at level q · R / G, R = groups the outer layer selected at q. Expressed
+    # as an adjusted p so ``survivor iff adj_p <= q`` still holds:
+    # ``inner_adj <= q·R/G``  <=>  ``inner_adj · G/R <= q``. With R = 0 no
+    # group passed, so every member is at 1.0 and nothing survives — the
+    # outer layer already guarantees that, the scale just keeps it explicit.
+    n_selected = int(np.sum(outer_adj <= q))
+    selection_scale = n_groups / n_selected if n_selected else np.inf
+
     adj_p_all = np.empty(len(entries), dtype=np.float64)
     for g_idx, gkey in enumerate(group_keys_ordered):
         for j, idx in enumerate(buckets[gkey]):
-            adj_p_all[idx] = max(outer_adj[g_idx], inner_adjs[g_idx][j])
+            inner_selective = min(1.0, inner_adjs[g_idx][j] * selection_scale)
+            adj_p_all[idx] = max(outer_adj[g_idx], inner_selective)
 
     return HierarchicalBhyResult(
+        n_selected_groups=n_selected,
         metric_name=metric,
         entries=[e.result for e in entries],
         adj_p_all=adj_p_all,
