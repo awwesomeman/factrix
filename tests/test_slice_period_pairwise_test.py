@@ -70,7 +70,7 @@ def test_analytic_reference_is_welch_f() -> None:
     from scipy import stats as sp_stats
 
     df = build_disjoint_period_panel(
-        seed=4, spans={"a": (45, 0.1), "b": (90, 0.1)}, label_col="regime"
+        seed=4, spans={"a": (60, 0.1), "b": (120, 0.1)}, label_col="regime"
     )
     out = slice_period_pairwise_test(
         df, ic(), by="regime", factor_col="factor", method="analytic"
