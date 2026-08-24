@@ -1,8 +1,9 @@
 """``BlockBootstrap`` — empirical p via dependent-block resampling.
 
 Names the block-bootstrap inference path for the paired-diff slice
-test. Numerics — Politis-Romano stationary scheme, Künsch fixed
-scheme, Politis-White automatic block length — live in
+test. Numerics — Politis-Romano stationary scheme, Politis-Romano
+circular fixed-length scheme, Politis-White automatic block length —
+live in
 ``factrix._stats.bootstrap``; this module is the dispatch handle
 exposed to family functions / slice-test functions.
 
@@ -27,9 +28,13 @@ class BlockBootstrap:
       geometric block lengths with mean ``L``; each resample is itself a
       stationary process. Default; preferred when downstream stats (CI,
       Sharpe) rely on stationarity.
-    - ``"fixed"`` ([Künsch (1989)][kunsch-1989]) — deterministic block
-      length ``L``; cleaner for variance estimation; loses stationarity
-      at block joins but tighter at small ``B``.
+    - ``"fixed"`` ([Politis-Romano (1992)][politis-romano-1992]) —
+      deterministic block length ``L`` with circular wrap, so every
+      observation is resampled with equal weight; cleaner for variance
+      estimation; loses stationarity at block joins but tighter at small
+      ``B``. This is the circular block bootstrap, not [Künsch
+      (1989)][kunsch-1989]'s moving-block scheme — the name ``"fixed"``
+      refers to the deterministic block *length*, not to Künsch.
 
     Block length resolves automatically from the input series via
     [Politis-White (2004)][politis-white-2004] when ``block_length="auto"``;

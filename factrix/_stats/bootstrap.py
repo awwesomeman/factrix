@@ -8,9 +8,12 @@ selector and a paired-diff empirical p-value:
   geometric block lengths with mean ``L``. Resamples are themselves
   stationary processes; preferred when downstream estimators rely on
   stationarity (CI for serially-correlated means, Sharpe).
-- **Fixed scheme** ([Künsch (1989)][kunsch-1989]) — deterministic block length ``L``.
-  Cleaner for variance estimation; loses stationarity at the join
-  points but tighter at small ``B``.
+- **Fixed scheme** ([Politis-Romano (1992)][politis-romano-1992]) —
+  deterministic block length ``L``, starts uniform over all ``n``
+  positions and wrapped modulo ``n`` (the *circular* block bootstrap, not
+  Künsch's moving-block scheme: wrapping keeps every observation equally
+  weighted). Cleaner for variance estimation; loses stationarity at the
+  join points but tighter at small ``B``.
 
 The public ``factrix.stats.bootstrap`` module ships standalone
 ``stationary_bootstrap_resamples`` / ``bootstrap_mean_ci`` for callers
@@ -19,9 +22,9 @@ private module is consumed by the procedure that backs the
 ``BlockBootstrap`` Estimator.
 
 References:
-    - Künsch, H. R. (1989). "The jackknife and the bootstrap for
-      general stationary observations." Annals of Statistics, 17(3),
-      1217–1241.
+    - Politis, D. N. & Romano, J. P. (1992). "A Circular Block-
+      Resampling Procedure for Stationary Data." In Exploring the Limits
+      of Bootstrap, 263–270. Wiley.
     - Politis, D. N. & Romano, J. P. (1994). "The Stationary
       Bootstrap." Journal of the American Statistical Association,
       89(428), 1303–1313.
@@ -70,7 +73,8 @@ def _politis_white_block_length(
     flat-top kernel estimates of, respectively, the first derivative
     and variance of the spectral density at frequency 0. Caller picks
     ``scheme`` because ``D̂`` differs by a factor (``2 g(0)²`` for
-    stationary, ``(4/3) g(0)²`` for fixed/circular blocks; PW eq 9 / 12).
+    stationary, ``(4/3) g(0)²`` for the fixed-length circular blocks;
+    PW eq 9 / 12).
 
     Falls back to ``max(1, 1.75 · T^(1/3))`` (the widely-cited practical
     PW approximation, also used by ``factrix.stats.bootstrap``) when
@@ -183,13 +187,23 @@ def _fixed_block_indices(
     block_length: int,
     rng: np.random.Generator,
 ) -> np.ndarray:
-    """[Künsch (1989)][kunsch-1989] fixed-block index matrix, shape ``(B, n)``.
+    """[Politis-Romano (1992)][politis-romano-1992] circular fixed-block
+    index matrix, shape ``(B, n)``.
 
     Picks ``ceil(n / L)`` random block starts per resample, lays the
     blocks contiguously (modulo ``n`` for circular wrap), then truncates
     to length ``n``. Each resample is composed of ``ceil(n/L)`` blocks
     of identical length ``L`` — the cleaner variance-estimation path
     when serial correlation has a known horizon.
+
+    Starts are uniform over all ``n`` positions and wrap, which makes
+    this the circular block bootstrap rather than [Künsch
+    (1989)][kunsch-1989]'s moving-block scheme (starts restricted to
+    ``n - L + 1`` positions, leaving the first and last ``L - 1``
+    observations under-represented). The distinction is load-bearing for
+    the block-length selector: ``_politis_white_block_length(...,
+    scheme="fixed")`` uses PW's ``(4/3) g(0)²`` constant, which is
+    derived for circular blocks.
     """
     if block_length < 1:
         raise ValueError(f"block_length must be >= 1; got {block_length!r}")
@@ -229,7 +243,9 @@ def _block_bootstrap_diff_p(
             integer directly.
         n_resamples: ``B``. [Politis-White (2004)][politis-white-2004] recommends ≥ 999 for two-sided
             5% tests; default matches.
-        scheme: ``"fixed"`` (Künsch) or ``"stationary"`` (Politis-Romano).
+        scheme: ``"fixed"`` (fixed-length circular blocks,
+            Politis-Romano 1992) or ``"stationary"`` (geometric blocks,
+            Politis-Romano 1994).
         rng_seed: ``None`` draws from system entropy; the resolved seed
             is returned in the metadata dict so the caller can record it.
 

@@ -738,8 +738,24 @@ scale to factrix's MAD-based winsorisation.
 Künsch, H. R. (1989). "The Jackknife and the Bootstrap for General
 Stationary Observations." *Annals of Statistics* 17(3), 1217–1241.
 
-Fixed-block (moving-block) bootstrap for stationary time series;
-underlies factrix's deterministic block-bootstrap scheme.
+Originates the fixed-length moving-block bootstrap, where blocks are
+drawn only from starts that fit inside the sample. factrix's
+``scheme="fixed"`` implements the circular variant below, not this one;
+kept as the origin of the fixed-length block idea.
+
+### Politis & Romano (1992)
+[](){ #politis-romano-1992 }
+
+Politis, D. N. & Romano, J. P. (1992). "A Circular Block-Resampling
+Procedure for Stationary Data." In *Exploring the Limits of Bootstrap*,
+LePage, R. & Billard, L. (eds.), Wiley, 263–270.
+
+Circular block bootstrap: fixed-length blocks whose starts are uniform
+over all ``n`` positions and wrap modulo ``n``, so every observation is
+resampled with equal weight (the moving-block scheme under-weights the
+two tails). Underlies factrix's ``scheme="fixed"`` block bootstrap, and
+supplies the ``(4/3)·g(0)²`` variance constant its automatic
+block-length selector uses.
 
 ### Politis & Romano (1994)
 [](){ #politis-romano-1994 }
