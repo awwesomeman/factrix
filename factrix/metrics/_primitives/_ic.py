@@ -50,7 +50,14 @@ def compute_ic(
         Dict mapping each factor name to a DataFrame with columns
         ``date, ic, tie_ratio, n_assets`` sorted by date, plus an internal
         ``_drop_stats`` diagnostic struct column. Dates with fewer than
-        ``MIN_IC_ASSETS_HARD`` assets are dropped; dates below
+        ``MIN_IC_ASSETS_HARD`` assets are dropped, as are *degenerate*
+        cross-sections — dates where every valid factor value (or every
+        valid return) is identical, so the rank correlation is undefined
+        (``pl.corr`` yields ``NaN`` for a zero-variance operand). Dropping
+        them at the source keeps the ``ic`` column free of ``NaN``, which
+        polars ``drop_nulls`` would otherwise let through to every
+        downstream consumer (mean, HAC t-test, bootstrap, hit rate) as a
+        silently poisoned observation. Dates below
         ``MIN_IC_ASSETS_WARN`` survive but are surfaced by downstream IC
         consumers as thin-cross-section warnings. ``_drop_stats``
         records how many were dropped (the aggregate drop-rate schema).
@@ -115,11 +122,17 @@ def compute_ic(
         .sort("date")
     ).collect()
     n_periods_in = grouped.height
-    drop_reason = f"n_assets below MIN_IC_ASSETS_HARD ({MIN_IC_ASSETS_HARD})"
+    drop_reason = (
+        f"n_assets below MIN_IC_ASSETS_HARD ({MIN_IC_ASSETS_HARD}) or degenerate "
+        "cross-section (zero factor / return rank variance, IC undefined)"
+    )
 
     return {
         f: _attach_drop_stats(
-            grouped.filter(pl.col(f"_n_assets__{f}") >= MIN_IC_ASSETS_HARD).select(
+            grouped.filter(
+                (pl.col(f"_n_assets__{f}") >= MIN_IC_ASSETS_HARD)
+                & pl.col(f"_ic__{f}").is_not_nan()
+            ).select(
                 pl.col("date"),
                 pl.col(f"_ic__{f}").alias("ic"),
                 pl.col(f"_tie__{f}").alias("tie_ratio"),

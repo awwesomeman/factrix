@@ -238,14 +238,54 @@ class TestCrossSectionalCorrection:
         assert "Kolari-Pynnönen" in m["method"]
 
     def test_applies_documented_kp_scale(self):
-        # The reported statistic is exactly the raw S_n times the
-        # Kolari-Pynnönen factor √((1-r)/(1+(n_eff-1)r)) from metadata.
+        # The reported statistic is exactly the raw S_n times the design-effect
+        # deflator 1/sqrt(1+(n_eff-1)r) from metadata (K-P without the (1-r)
+        # numerator: the pooled variance already holds the between-date part).
         result = directional_hit_rate(self._panel(common_weight=0.5, seed=3))
         m = result.metadata
         assert m["kolari_pynnonen_applied"] is True
         r, n_eff = m["kolari_pynnonen_r"], m["kolari_pynnonen_n_eff"]
-        scale = math.sqrt((1.0 - r) / (1.0 + (n_eff - 1.0) * r))
+        scale = 1.0 / math.sqrt(1.0 + (n_eff - 1.0) * r)
         assert result.stat == pytest.approx(m["stat_uncorrected"] * scale)
+
+    def test_icc_near_zero_under_independence(self):
+        # iid hits: the ANOVA ICC(1) must not be biased to 1/(k+1) (the
+        # naive between/total ratio was), so the deflator stays ~ 1.
+        import numpy as np
+        import polars as pl
+        from factrix.metrics._helpers import _estimate_within_date_icc
+
+        rng = np.random.default_rng(0)
+        k, T = 5, 400
+        df = pl.DataFrame(
+            {
+                "date": np.repeat(np.arange(T), k),
+                "_hit": rng.integers(0, 2, size=k * T).astype(float),
+            }
+        )
+        r_hat, n_eff, src = _estimate_within_date_icc(df, "_hit")
+        assert src == "icc"
+        assert n_eff == pytest.approx(k)
+        assert r_hat < 0.03
+
+    def test_nan_rows_are_dropped_not_read_as_negative(self):
+        import polars as pl
+
+        panel = self._panel(common_weight=0.0, seed=1)
+        clean = directional_hit_rate(panel, forward_periods=1)
+        dirty = panel.with_columns(
+            pl.when(pl.int_range(pl.len()) % 7 == 0)
+            .then(float("nan"))
+            .otherwise(pl.col("forward_return"))
+            .alias("forward_return")
+        )
+        r = directional_hit_rate(dirty, forward_periods=1)
+        ref = directional_hit_rate(
+            dirty.filter(pl.col("forward_return").is_not_nan()), forward_periods=1
+        )
+        assert r.n_obs == ref.n_obs < clean.n_obs
+        assert r.value == pytest.approx(ref.value)
+        assert r.stat == pytest.approx(ref.stat)
 
 
 class TestDispatch:

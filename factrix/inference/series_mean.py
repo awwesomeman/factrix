@@ -36,15 +36,17 @@ if TYPE_CHECKING:
 
 
 def _clean_series(data: pl.DataFrame, value_col: str) -> pl.Series:
-    """Date-sorted, null-dropped values of ``value_col``.
+    """Date-sorted values of ``value_col`` with nulls *and* NaNs dropped.
 
-    Order is fixed (sort → drop-null) so the stride / HAC lag math sees a
+    Order is fixed (sort → drop) so the stride / HAC lag math sees a
     time-coherent series regardless of caller row order. Sorting is mean-
     and OLS-invariant but load-bearing for the autocovariance terms.
+    polars ``drop_nulls`` keeps float NaN, and a single NaN would poison the
+    mean, the HAC variance and the bootstrap centring, so it is dropped too.
     """
     if data["date"].is_sorted():
-        return data[value_col].drop_nulls()
-    return data.sort("date").get_column(value_col).drop_nulls()
+        return data[value_col].drop_nulls().drop_nans()
+    return data.sort("date").get_column(value_col).drop_nulls().drop_nans()
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,9 +75,16 @@ class NonOverlapping:
         self, data: pl.DataFrame, *, value_col: str, forward_periods: int
     ) -> InferenceResult:
         from factrix._stats import _p_value_from_t, _t_stat_from_array
+        from factrix.metrics._helpers import _sample_non_overlapping
 
-        vals = _clean_series(data, value_col).to_numpy()
-        sampled = vals[::forward_periods]
+        # Stride on the *calendar* (every h-th unique date) before dropping
+        # non-finite rows, so a dropped observation cannot shift the sampling
+        # phase; striding the cleaned row index would silently re-align the
+        # subsample to overlapping windows.
+        n_full = len(_clean_series(data, value_col))
+        sampled = _clean_series(
+            _sample_non_overlapping(data, forward_periods), value_col
+        ).to_numpy()
         n_sampled = len(sampled)
 
         t_stat = _t_stat_from_array(sampled)
@@ -88,9 +97,11 @@ class NonOverlapping:
         return InferenceResult(
             stat=t_stat,
             p_value=p_value,
+            estimate=float(sampled.mean()) if n_sampled else None,
+            n_obs=n_sampled,
             metadata={
                 "stride": forward_periods,
-                "n_obs_original": len(vals),
+                "n_obs_original": n_full,
                 "n_obs_sampled": n_sampled,
             },
             warnings=warnings,
@@ -141,6 +152,8 @@ class NeweyWest:
             p_value=p_value,
             metadata={"nw_lags": nw_lags},
             warnings=warnings,
+            estimate=float(vals.mean()) if n else None,
+            n_obs=n,
         )
 
 
@@ -242,6 +255,8 @@ class StationaryBootstrap:
             p_value=p_value,
             metadata=dict(boot_metadata),
             warnings=warnings,
+            estimate=float(vals.mean()) if n else None,
+            n_obs=n,
         )
 
 

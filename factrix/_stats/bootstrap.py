@@ -81,7 +81,7 @@ def _politis_white_block_length(
     x = np.asarray(values, dtype=float)
     n = len(x)
     fallback = max(1.0, 1.75 * n ** (1.0 / 3.0)) if n >= 1 else 1.0
-    if n < 4:
+    if n < 4 or not np.all(np.isfinite(x)):
         return fallback
 
     x = x - float(np.mean(x))
@@ -102,13 +102,18 @@ def _politis_white_block_length(
     K_T = max(5, int(np.ceil(np.log10(n))))
     threshold = 2.0 * np.sqrt(np.log10(n) / n)
     m_pick = None
-    for m in range(0, max(k_max - K_T, 1)):
+    for m in range(0, max(k_max - K_T + 1, 1)):
         window = rho[m + 1 : m + 1 + K_T]
         if window.size and np.all(np.abs(window) < threshold):
             m_pick = m
             break
     if m_pick is None:
-        return fallback
+        # No insignificant run found (strongly persistent series): Patton's
+        # reference code / ``arch`` take the largest significant lag as m̂.
+        sig = np.nonzero(np.abs(rho[1:]) >= threshold)[0]
+        if sig.size == 0:
+            return fallback
+        m_pick = int(sig[-1]) + 1
     # PW (2004) §4 doubles the chosen index for the kernel bandwidth.
     M = max(2 * m_pick, 2)
     M = min(M, k_max)
@@ -132,9 +137,16 @@ def _politis_white_block_length(
     if ratio <= 0.0 or not np.isfinite(ratio):
         return fallback
     L = (ratio ** (1.0 / 3.0)) * (n ** (1.0 / 3.0))
-    if not np.isfinite(L) or L < 1.0:
+    if not np.isfinite(L):
         return fallback
-    return float(min(L, n / 2.0))
+    # A plug-in estimate below one block is a *valid* answer (no usable
+    # dependence — the iid bootstrap is right), not a degenerate one: clamp
+    # to 1 as ``arch`` / Patton do. Substituting the generic
+    # ``1.75·T^(1/3)`` rule here (an earlier factrix behaviour) replaced a
+    # data-driven L≈1 with blocks an order of magnitude longer on ~40% of
+    # iid series and inflated the bootstrap test's size (8.7% at nominal
+    # 5% on T=120).
+    return float(min(max(L, 1.0), n / 2.0))
 
 
 def _stationary_block_indices(
@@ -228,6 +240,11 @@ def _block_bootstrap_diff_p(
         metadata even when the caller passed ``rng_seed=None``).
     """
     diff = np.asarray(diff, dtype=float)
+    # A NaN would make ``centred`` all-NaN, every ``|boot| >= |obs|`` test
+    # False and the reported p collapse to ``1 / (B + 1)`` — the *strongest*
+    # possible significance from a series that carries no information.
+    if diff.size and not np.all(np.isfinite(diff)):
+        raise ValueError("_block_bootstrap_diff_p: diff must be finite (no NaN / inf).")
     n = len(diff)
     if n < 2:
         return 1.0, {

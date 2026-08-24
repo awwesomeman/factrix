@@ -86,3 +86,14 @@ class TestHansenHodrickTTest:
         t_iid, _, _, _ = _hansen_hodrick_t_test(x, forward_periods=1)
         t_overlap, _, _, _ = _hansen_hodrick_t_test(x, forward_periods=12)
         assert abs(t_overlap) <= abs(t_iid) + 1e-9
+
+
+def test_hansen_hodrick_rejects_non_finite():
+    import pytest
+
+    with pytest.raises(ValueError, match="finite"):
+        _hansen_hodrick_se(np.array([0.1, float("nan"), 0.2]), forward_periods=2)
+    with pytest.raises(ValueError, match="finite"):
+        _hansen_hodrick_t_test(
+            np.array([0.1, float("nan"), 0.2, 0.3]), forward_periods=2
+        )

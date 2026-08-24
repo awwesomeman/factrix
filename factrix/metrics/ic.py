@@ -293,7 +293,7 @@ def ic(
     median_tie = _warn_if_high_ic_tie_ratio(ic_df, "ic")
     # Mean is order-invariant; the inference method owns date-ordering for
     # its stride / lag math.
-    ic_vals = ic_df["ic"].drop_nulls()
+    ic_vals = ic_df["ic"].drop_nulls().drop_nans()
     n = len(ic_vals)
     raw_min = inference.min_input_periods(forward_periods)
     if n < raw_min:
@@ -307,7 +307,8 @@ def ic(
                 forward_periods=forward_periods,
                 hint=(
                     "every cross-section has fewer than MIN_IC_ASSETS_HARD valid "
-                    "(factor, return) pairs, so no per-date IC survived. IC "
+                    "(factor, return) pairs or a degenerate (constant) factor / "
+                    "return, so no per-date IC survived. IC "
                     "needs a wide cross-section; for few-asset panels (e.g. "
                     "asset allocation) use a time-series metric such as "
                     "directional_hit_rate or common_quantile_spread."
@@ -337,9 +338,16 @@ def ic(
             forward_periods=forward_periods,
         )
 
-    mean_ic = float(ic_vals.mean())  # type: ignore[arg-type]
+    # value / stat / p / n_obs must describe the *same* sample. A stride-based
+    # inference tests a calendar subsample, so its own estimate and count are
+    # the headline; the full-series mean is kept for reference.
+    mean_ic_full = float(ic_vals.mean())  # type: ignore[arg-type]
+    mean_ic = result.estimate if result.estimate is not None else mean_ic_full
+    n_tested = result.n_obs if result.n_obs is not None else n
     metadata: dict[str, object] = {
-        "n_periods": n,
+        "n_periods": n_tested,
+        "n_periods_full": n,
+        "mean_ic_full": mean_ic_full,
         "forward_periods": forward_periods,
         # stat / stat_type must reflect the test actually run — NonOverlapping
         # / NeweyWest report a t-ratio, StationaryBootstrap reports the
@@ -364,7 +372,7 @@ def ic(
         p_value=result.p_value,
         alternative="two-sided",
         value=mean_ic,
-        n_obs=n,
+        n_obs=n_tested,
         n_obs_axis="periods",
         stat=result.stat,
         metadata=metadata,
@@ -429,7 +437,7 @@ def ic_ir(
         True
     """
     median_tie = _warn_if_high_ic_tie_ratio(ic_df, "ic_ir")
-    ic_vals = ic_df["ic"].drop_nulls()
+    ic_vals = ic_df["ic"].drop_nulls().drop_nans()
     n = len(ic_vals)
     sc = _enforce_min_floor(ic_ir, "ic_ir", n, "insufficient_ic_periods")
     if sc is not None:

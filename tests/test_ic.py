@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import numpy as np
 import polars as pl
 import pytest
+from factrix.inference import NeweyWest, NonOverlapping, StationaryBootstrap
 from factrix.metrics.ic import compute_ic, ic, ic_ir
 
 
@@ -41,6 +42,50 @@ class TestComputeIC:
         df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = compute_ic(df)["factor"]
         assert len(result) == 0
+
+    def test_drops_degenerate_constant_cross_section(self):
+        """A date whose factor is identical across every asset has an undefined
+        rank correlation (``pl.corr`` → NaN). It must be dropped at the source
+        — ``drop_nulls`` downstream would not remove a float NaN — and counted
+        in ``_drop_stats`` like the asset-floor drop.
+        """
+        n_assets, n_dates = 6, 12
+        rows = []
+        for d in range(n_dates):
+            for i in range(n_assets):
+                rows.append(
+                    {
+                        "date": datetime(2024, 1, 1) + timedelta(days=d),
+                        "asset_id": f"A{i}",
+                        # every 3rd date is a constant cross-section
+                        "factor": 1.0 if d % 3 == 0 else float(i) + 0.1 * d,
+                        "forward_return": float(i) * 0.01 - 0.02 * d,
+                    }
+                )
+        df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        result = compute_ic(df)["factor"]
+        assert result.height == 8
+        assert result["ic"].is_nan().sum() == 0
+        assert result["ic"].null_count() == 0
+        stats = result["_drop_stats"][0]
+        assert stats["n_periods_in"] == 12
+        assert stats["n_periods_out"] == 8
+        assert stats["dropped_periods"] == 4
+        assert "degenerate" in stats["drop_reason"]
+
+    def test_constant_return_cross_section_dropped(self):
+        """Symmetric case: a constant *return* also makes ρ undefined."""
+        rows = [
+            {
+                "date": datetime(2024, 1, 1),
+                "asset_id": f"A{i}",
+                "factor": float(i),
+                "forward_return": 0.0,
+            }
+            for i in range(5)
+        ]
+        df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        assert compute_ic(df)["factor"].height == 0
 
     def test_gate_counts_valid_pairs_not_rows(self):
         """The cross-section floor gates on the per-date *valid-pair* count, not
@@ -493,6 +538,9 @@ class TestICDispatch:
     These pin the result so the dispatch refactor stays numerically
     equivalent to the previously-inlined non-overlapping OLS t-test
     (to floating-point ULP — polars vs numpy variance reduction order).
+    ``value`` is the mean of the *strided* subsample the t-test ran on
+    (h=5 -> 35 of 174 dates); the full-series mean lives in
+    ``metadata["mean_ic_full"]``.
     """
 
     def _ic_df(self):
@@ -509,7 +557,7 @@ class TestICDispatch:
         ("forward_periods", "value", "stat", "p_value"),
         [
             (1, 0.049163258267725024, 5.404723194889399, 2.1264376169332541e-07),
-            (5, 0.049163258267725024, 4.136962357146272, 0.00021830177834358518),
+            (5, 0.05749179559306142, 4.136962357146272, 0.00021830177834358518),
         ],
     )
     def test_regression_pins_dispatch_output(
@@ -520,3 +568,79 @@ class TestICDispatch:
         assert result.stat == pytest.approx(stat, rel=1e-12)
         assert result.p_value == pytest.approx(p_value, rel=1e-12)
         assert result.metadata["method"] == "non-overlapping t-test"
+        assert result.metadata["mean_ic_full"] == pytest.approx(
+            0.049163258267725024, rel=1e-12
+        )
+        assert result.n_obs == result.metadata["n_periods"]
+        assert (
+            result.metadata["n_periods_full"] == 174
+        )  # 180 dates - 6 forward-return tail rows
+
+    def test_value_stat_n_obs_share_one_sample(self):
+        """A strided test must report the subsample's mean and size as the
+        headline, not the full-series mean next to a subsample t."""
+        n = 200
+        vals = [0.05 if i % 5 else -0.20 for i in range(n)]
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n)]
+        df = pl.DataFrame({"date": dates, "ic": vals}).with_columns(
+            pl.col("date").cast(pl.Datetime("ms"))
+        )
+        r = ic(df, forward_periods=5)
+        assert r.n_obs == 40
+        assert r.value == pytest.approx(-0.20)
+        assert r.stat == 0.0  # zero-variance subsample -> degenerate t
+        assert r.metadata["mean_ic_full"] == pytest.approx(0.0)
+
+    def test_stride_is_calendar_aligned_after_a_dropped_row(self):
+        """Dropping a NaN row must not shift the sampling phase."""
+        n = 200
+        vals = [0.05 if i % 5 else -0.20 for i in range(n)]
+        vals[2] = float("nan")
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n)]
+        df = pl.DataFrame({"date": dates, "ic": vals}).with_columns(
+            pl.col("date").cast(pl.Datetime("ms"))
+        )
+        r = ic(df, forward_periods=5)
+        assert r.value == pytest.approx(-0.20)
+        assert r.n_obs == 40
+
+
+class TestICNaNRobustness:
+    """A hand-built IC series carrying float NaN (not null) must be treated
+    like a missing observation by every consumer, never as a value."""
+
+    @staticmethod
+    def _series_with_nan(n: int = 60, every: int = 5) -> pl.DataFrame:
+        rng = np.random.default_rng(0)
+        vals = list(rng.normal(0.05, 0.1, n))
+        for i in range(0, n, every):
+            vals[i] = float("nan")
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n)]
+        return pl.DataFrame({"date": dates, "ic": vals}).with_columns(
+            pl.col("date").cast(pl.Datetime("ms"))
+        )
+
+    @pytest.mark.parametrize(
+        "inference",
+        [NonOverlapping(), NeweyWest(), StationaryBootstrap()],
+        ids=["non_overlapping", "newey_west", "stationary_bootstrap"],
+    )
+    def test_ic_matches_nan_free_series(self, inference):
+        dirty = self._series_with_nan()
+        clean = dirty.filter(pl.col("ic").is_not_nan())
+        r_dirty = ic(dirty, forward_periods=1, inference=inference)
+        r_clean = ic(clean, forward_periods=1, inference=inference)
+        assert math.isfinite(r_dirty.value)
+        assert r_dirty.value == pytest.approx(r_clean.value)
+        assert r_dirty.n_obs == r_clean.n_obs == clean.height
+        if not isinstance(inference, StationaryBootstrap):
+            # bootstrap draws a fresh seed per call; the others are deterministic
+            assert r_dirty.p_value == pytest.approx(r_clean.p_value)
+
+    def test_ic_ir_matches_nan_free_series(self):
+        dirty = self._series_with_nan()
+        clean = dirty.filter(pl.col("ic").is_not_nan())
+        r_dirty, r_clean = ic_ir(dirty), ic_ir(clean)
+        assert math.isfinite(r_dirty.value)
+        assert r_dirty.value == pytest.approx(r_clean.value)
+        assert r_dirty.n_obs == clean.height

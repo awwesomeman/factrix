@@ -176,3 +176,17 @@ class TestBlockBootstrapDiffP:
         diff = np.full(100, 100.0)  # huge mean → all bootstrap means 0
         p, _ = _block_bootstrap_diff_p(diff, n_resamples=99, rng_seed=0)
         assert p == pytest.approx(1.0 / 100.0)
+
+
+class TestRejectsNonFinite:
+    def test_diff_p_rejects_nan(self):
+        """An all-NaN centring makes every ``|boot| >= |obs|`` test False and
+        the empirical p collapse to ``1 / (B + 1)`` — spurious maximal
+        significance — so a NaN must be refused, not tolerated."""
+        diff = np.array([0.1, 0.2, float("nan"), 0.3, 0.1, 0.2])
+        with pytest.raises(ValueError, match="finite"):
+            _block_bootstrap_diff_p(diff, rng_seed=0)
+
+    def test_politis_white_falls_back_on_nan(self):
+        x = np.array([0.1, float("nan"), 0.2, 0.3, 0.4, 0.5, 0.6, 0.7])
+        assert _politis_white_block_length(x) == pytest.approx(1.75 * 8 ** (1 / 3))

@@ -40,6 +40,7 @@ from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _enforce_min_floor,
     _estimate_within_date_icc,
+    _finite_expr,
     _kp_cluster_scale,
     _sample_non_overlapping,
     _short_circuit_output,
@@ -118,13 +119,18 @@ def directional_hit_rate(
         trial as independent over-states the effective sample on a panel —
         same-date returns share shocks, so the trials are correlated and
         $\widehat{\operatorname{var}}(\hat P)$ understates the true
-        variance. $S_n$ is therefore deflated by the Kolari-Pynnönen (2010)
-        factor $\sqrt{(1 - \hat r)/(1 + (\bar m - 1)\hat r)}$, where
-        $\hat r$ is the within-date intraclass correlation of the sign-hit
-        indicator and $\bar m$ the mean assets-per-date — the same
-        correction :func:`~factrix.metrics.caar.bmp_z` applies to clustered
-        SARs. A single-asset series has one trial per date, so $\hat r$ is
-        undefined and $S_n$ is left exact (the canonical PT setting).
+        variance. $S_n$ is therefore deflated by the design-effect factor
+        $1/\sqrt{1 + (n_0 - 1)\hat r}$, where $\hat r$ is the one-way
+        ANOVA ICC(1) of the sign-hit indicator within dates and $n_0$ the
+        (unbalanced-design) assets-per-date — the same correction
+        :func:`~factrix.metrics.caar.bmp_z` applies to clustered SARs. This
+        is the Kolari-Pynnönen (2010) adjustment *without* its
+        $(1 - \hat r)$ numerator: that term corrects a single-event-day
+        variance, whereas the pooled-across-dates variance used here already
+        contains the between-date component (see
+        :func:`~factrix.metrics._helpers._kp_cluster_scale`). A single-asset
+        series has one trial per date, so $\hat r$ is undefined and $S_n$ is
+        left exact (the canonical PT setting).
 
         The test is **one-sided**: a large positive $S_n$ signals genuine
         directional skill, so $p = \Pr(Z > S_n)$. A factor expected to be
@@ -172,15 +178,17 @@ def directional_hit_rate(
         )
 
     sampled = _sample_non_overlapping(data, forward_periods)
-    paired = sampled.select(
-        pl.col("date"),
-        pl.col(factor_col).sign().alias("_x_sign"),
-        pl.col(return_col).sign().alias("_y_sign"),
-    ).filter(
-        pl.col("_x_sign").is_not_null()
-        & pl.col("_y_sign").is_not_null()
-        & (pl.col("_x_sign") != 0)
-        & (pl.col("_y_sign") != 0)
+    # ``sign()`` maps NaN to NaN (not null) and ``NaN != 0`` is True, so a
+    # non-finite factor / return would survive the filter and then read as a
+    # *negative* sign in the numpy ``> 0`` test below. Require finite values.
+    paired = (
+        sampled.filter(_finite_expr(factor_col) & _finite_expr(return_col))
+        .select(
+            pl.col("date"),
+            pl.col(factor_col).sign().alias("_x_sign"),
+            pl.col(return_col).sign().alias("_y_sign"),
+        )
+        .filter((pl.col("_x_sign") != 0) & (pl.col("_y_sign") != 0))
     )
 
     n = paired.height

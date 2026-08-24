@@ -2,6 +2,7 @@
 
 import math
 
+import pytest
 from factrix._results import MetricResult
 from factrix.metrics.oos_decay import oos_decay
 
@@ -78,3 +79,61 @@ class TestOOSDecay:
             "mean_oos",
             "survival_threshold",
         }
+
+
+def test_oos_decay_ignores_nan_observations():
+    """Float NaN must be dropped like a null, not fed into the IS / OOS means."""
+    from datetime import datetime, timedelta
+
+    import numpy as np
+    import polars as pl
+    import pytest
+
+    rng = np.random.default_rng(1)
+    vals = list(rng.normal(0.05, 0.02, 80))
+    dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(80)]
+    clean = pl.DataFrame({"date": dates, "value": vals}).with_columns(
+        pl.col("date").cast(pl.Datetime("ms"))
+    )
+    dirty_vals = vals + [float("nan")] * 10
+    dirty_dates = dates + [dates[-1] + timedelta(days=i + 1) for i in range(10)]
+    dirty = pl.DataFrame({"date": dirty_dates, "value": dirty_vals}).with_columns(
+        pl.col("date").cast(pl.Datetime("ms"))
+    )
+    r_dirty, r_clean = oos_decay(dirty), oos_decay(clean)
+    assert math.isfinite(r_dirty.value)
+    assert r_dirty.value == pytest.approx(r_clean.value)
+    assert r_dirty.n_obs == r_clean.n_obs == 80
+
+
+class TestIsRatioValidation:
+    """Regression: is_ratio=1.0 produced an empty OOS slice → TypeError."""
+
+    @pytest.mark.parametrize("is_ratio", [1.0, 0.0, -0.1, 1.5])
+    def test_out_of_range_is_ratio_raises(self, is_ratio, ic_series_positive):
+        with pytest.raises(ValueError, match="is_ratio"):
+            oos_decay(ic_series_positive, is_ratio=is_ratio)
+
+    def test_extreme_ratio_short_circuits_instead_of_splitting_to_one(self):
+        """A one-observation window is not a window."""
+        from datetime import datetime, timedelta
+
+        import polars as pl
+
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(12)]
+        series = pl.DataFrame(
+            {"date": dates, "value": [0.01 * (i + 1) for i in range(12)]}
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+        result = oos_decay(series, is_ratio=0.95)
+        assert result.metadata["reason"] == "insufficient_oos_periods"
+        assert result.metadata["status"] == "VETOED"
+        assert math.isnan(result.value)
+
+        low = oos_decay(series, is_ratio=0.05)
+        assert low.metadata["reason"] == "insufficient_oos_periods"
+
+    def test_balanced_ratio_still_computes(self, ic_series_positive):
+        result = oos_decay(ic_series_positive, is_ratio=0.5)
+        assert result.metadata.get("reason") is None
+        assert math.isfinite(result.value)

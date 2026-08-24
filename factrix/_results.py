@@ -11,7 +11,7 @@ import html
 import math
 from collections.abc import Hashable, Mapping
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 import polars as pl
 
@@ -20,6 +20,11 @@ from factrix._codes import WarningCode
 from factrix._types import SampleAxis
 
 PValueAlternative = Literal["two-sided", "greater", "less"]
+
+# Runtime mirror of ``PValueAlternative`` — a Literal is erased at runtime, so
+# a typo'd alternative would otherwise flow through to ``to_frame`` / ``to_dict``
+# and be read as a direction that was never tested.
+_ALTERNATIVES: frozenset[str] = frozenset(get_args(PValueAlternative))
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,7 +48,10 @@ class MetricResult:
             Fama-MacBeth ``n_obs`` is periods; a pooled-OLS one is
             ``(date, asset)`` pairs), so producers stamp the axis
             alongside the count. ``None`` exactly when ``n_obs`` is.
-        stat: Test statistic (t, z, W, chi2, ...), when applicable.
+        stat: Test statistic (t, z, W, chi2, ...), when applicable. Must be
+            finite; ``NaN`` is accepted as the "estimator ran but could not
+            form the statistic" marker, ``±Inf`` is rejected (it only ever
+            arises from an unguarded division by a zero standard error).
         metadata: Estimator-specific context beyond the top-level fields
             (``stat_type``, ``h0``, ``method`` are the standard keys).
         warning_codes: Per-metric advisory :class:`WarningCode` values
@@ -69,12 +77,38 @@ class MetricResult:
                 "MetricResult: p_value and alternative must either both be "
                 "provided or both be None."
             )
+        # WHY: bool is a subclass of float's numeric tower — `True` passes the
+        # [0, 1] range check and then serialises as a probability of 1.0.
+        if isinstance(self.p_value, bool):
+            raise ValueError(
+                "MetricResult: p_value must be a float probability, not a bool; "
+                f"got {self.p_value!r}."
+            )
         if self.p_value is not None and (
             not math.isfinite(self.p_value) or not 0.0 <= self.p_value <= 1.0
         ):
             raise ValueError(
                 "MetricResult: p_value must be finite and lie in [0, 1]; "
                 f"got {self.p_value!r}."
+            )
+        if self.alternative is not None and self.alternative not in _ALTERNATIVES:
+            raise ValueError(
+                "MetricResult: alternative must be one of "
+                f"{sorted(_ALTERNATIVES)}; got {self.alternative!r}."
+            )
+        if self.n_obs is not None and self.n_obs < 0:
+            raise ValueError(
+                f"MetricResult: n_obs must be non-negative; got {self.n_obs!r}."
+            )
+        # WHY: NaN is a legitimate `stat` — an estimator that ran but could not
+        # form its statistic reports NaN, the same "computed, undefined" marker
+        # `value` uses on a short-circuit. ±Inf is not: it always comes from a
+        # division by an unguarded zero standard error, which silently reads
+        # out as infinite significance downstream.
+        if self.stat is not None and math.isinf(self.stat):
+            raise ValueError(
+                "MetricResult: stat must be finite (NaN allowed for a statistic "
+                f"that could not be formed); got {self.stat!r}."
             )
 
     def __repr__(self) -> str:
@@ -327,7 +361,7 @@ class EvaluationResult:
 
         metric_rows = []
         for name, out in sorted(self.metrics.items()):
-            val_repr = "null" if math.isnan(out.value) else f"{out.value:.4g}"
+            val_repr = _html_value(out.value)
             p_repr = f"{out.p_value:.4g}" if isinstance(out.p_value, float) else ""
             alternative = out.alternative or ""
             metric_rows.append(
@@ -376,6 +410,23 @@ class EvaluationResult:
             f"{metric_table}{warnings_block}{plan_block}"
             "</div>"
         )
+
+
+def _html_value(value: object) -> str:
+    """Cell text for a metric ``value`` in ``_repr_html_``.
+
+    ``value`` is annotated ``float``, but structural metrics reach the HTML
+    repr with whatever their producer put there (a bare ``None`` on a
+    hand-built result, a label). ``math.isnan`` raises ``TypeError`` on those,
+    which took down the whole notebook repr; fall back to the escaped ``str``.
+    """
+    if value is None:
+        return "null"
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return html.escape(str(value))
+    if math.isnan(value):
+        return "null"
+    return f"{value:.4g}"
 
 
 _TO_FRAME_SCHEMA: dict[str, pl.DataType | type[pl.DataType]] = {

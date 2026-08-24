@@ -205,3 +205,14 @@ class TestStationaryBootstrap:
         assert STATIONARY_BOOTSTRAP.min_input_periods(
             5
         ) == NEWEY_WEST.min_input_periods(5)
+
+
+class TestCleanSeriesDropsNaN:
+    def test_nan_dropped_alongside_null(self) -> None:
+        from factrix.inference.series_mean import _clean_series
+
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(5)]
+        df = pl.DataFrame(
+            {"date": dates, "v": [1.0, float("nan"), None, 2.0, 3.0]}
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        assert _clean_series(df, "v").to_list() == [1.0, 2.0, 3.0]

@@ -193,10 +193,12 @@ class TestEvaluationResultToDict:
         assert back["plan"] == "1. ic [per-factor]"
 
     def test_nonfinite_floats_become_null(self):
+        # `stat` may be NaN ("ran, could not form the statistic") but never
+        # ±Inf — see TestMetricResultFieldContract.
         bad = MetricResult(
             value=float("nan"),
-            stat=float("inf"),
-            metadata={"p_value": float("nan")},
+            stat=float("nan"),
+            metadata={"p_value": float("nan"), "se": float("inf")},
             name="ic",
         )
         g = MappingProxyType({"ic": bad})
@@ -204,6 +206,7 @@ class TestEvaluationResultToDict:
         assert d["metrics"]["ic"]["value"] is None
         assert d["metrics"]["ic"]["stat"] is None
         assert d["metrics"]["ic"]["p_value"] is None
+        assert d["metrics"]["ic"]["metadata"]["se"] is None
         json.dumps(d)
 
 
@@ -259,3 +262,59 @@ class TestMetricResultNameField:
     def test_carries_name(self):
         out = MetricResult(value=0.1, name="ic")
         assert out.name == "ic"
+
+
+class TestMetricResultFieldContract:
+    """``__post_init__`` guards on fields other than ``p_value``."""
+
+    def test_rejects_unknown_alternative(self):
+        with pytest.raises(ValueError, match="alternative must be one of"):
+            MetricResult(value=0.0, p_value=0.5, alternative="bigger")  # type: ignore[arg-type]
+
+    @pytest.mark.parametrize("alternative", ["two-sided", "greater", "less"])
+    def test_accepts_declared_alternatives(self, alternative):
+        out = MetricResult(value=0.0, p_value=0.5, alternative=alternative)
+        assert out.alternative == alternative
+
+    def test_rejects_negative_n_obs(self):
+        with pytest.raises(ValueError, match="n_obs must be non-negative"):
+            MetricResult(value=0.0, n_obs=-1)
+
+    def test_accepts_zero_n_obs(self):
+        assert MetricResult(value=float("nan"), n_obs=0).n_obs == 0
+
+    @pytest.mark.parametrize("p_value", [True, False])
+    def test_rejects_bool_p_value(self, p_value: bool):
+        with pytest.raises(ValueError, match="not a bool"):
+            MetricResult(value=0.0, p_value=p_value, alternative="two-sided")
+
+    @pytest.mark.parametrize("stat", [float("inf"), float("-inf")])
+    def test_rejects_infinite_stat(self, stat: float):
+        with pytest.raises(ValueError, match="stat must be finite"):
+            MetricResult(value=0.0, stat=stat)
+
+    def test_allows_nan_stat(self):
+        """A NaN stat is the "ran but could not form the statistic" marker."""
+        import math
+
+        out = MetricResult(value=0.0, stat=float("nan"))
+        assert math.isnan(out.stat)
+
+
+class TestReprHtmlValueTolerance:
+    def test_non_float_value_does_not_raise(self):
+        """``value`` is annotated float but structural metrics carry payloads;
+        ``math.isnan`` on a non-float used to blow up the whole repr."""
+        g = MappingProxyType(
+            {
+                "structural": MetricResult(value="selected", name="structural"),  # type: ignore[arg-type]
+                "missing": MetricResult(value=None, name="missing"),  # type: ignore[arg-type]
+            }
+        )
+        out = _sample_result(g)._repr_html_()
+        assert "selected" in out
+        assert "null" in out
+
+    def test_nan_value_renders_null(self):
+        g = MappingProxyType({"ic": MetricResult(value=float("nan"), name="ic")})
+        assert "null" in _sample_result(g)._repr_html_()

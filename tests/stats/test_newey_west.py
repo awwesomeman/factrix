@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 from factrix._stats import (
     _newey_west_se,
     _newey_west_t_test,
@@ -61,3 +62,16 @@ class TestNewyWestTForwardPeriods:
         t_naive, _, _ = _newey_west_t_test(x)
         t_hac, _, _ = _newey_west_t_test(x, forward_periods=20)
         assert abs(t_hac) <= abs(t_naive) + 1e-9
+
+
+class TestRejectsNonFinite:
+    """A NaN slips past the ``se < EPSILON`` guard (``max(nan, 0.0)`` is nan)
+    and surfaces as a NaN t / p far from the cause; fail loudly instead."""
+
+    def test_se_rejects_nan(self):
+        with pytest.raises(ValueError, match="finite"):
+            _newey_west_se(np.array([0.1, float("nan"), 0.2, 0.3]))
+
+    def test_t_test_rejects_inf(self):
+        with pytest.raises(ValueError, match="finite"):
+            _newey_west_t_test(np.array([0.1, float("inf"), 0.2, 0.3, 0.1]))

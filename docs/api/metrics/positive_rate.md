@@ -25,14 +25,17 @@ title: factrix.metrics.positive_rate
     return series. Reports the fraction of periods with `value > 0`
     against $H_0: p = 0.5$.
 
--   __Two-branch test under one $p$-value__
+-   __Exact binomial at every $n$__
 
     ---
 
-    Below `_BINOMIAL_EXACT_CUTOFF` the test is the exact two-sided
-    binomial; above the cutoff it switches to the normal-approximation
-    $z$. `stat` / `stat_type` track the branch actually taken, so a
-    reader can never see `stat=z` paired with an exact-binomial $p$.
+    The $p$-value is the exact two-sided binomial test
+    (`scipy.stats.binomtest`) at every sample size; `stat` is the hit
+    count (`stat_type="binomial_hits"`), the test's sufficient
+    statistic. An earlier version switched to the uncorrected
+    normal-approximation $z$ above $n = 20$; that branch was
+    anti-conservative (e.g. $n=20$, 15 hits: $p = 0.025$ vs exact
+    $0.041$) and has been removed — the exact test is $O(n)$ and free.
 
 -   __Non-overlap stride matches the IC pipeline__
 

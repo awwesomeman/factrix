@@ -12,7 +12,6 @@ Notes:
 
 from __future__ import annotations
 
-import numpy as np
 import polars as pl
 
 from factrix._axis import (
@@ -24,11 +23,7 @@ from factrix._axis import (
 )
 from factrix._metric_index import cell
 from factrix._results import MetricResult
-from factrix._stats import (
-    _BINOMIAL_EXACT_CUTOFF,
-    _binomial_test_method_name,
-    _binomial_two_sided_p,
-)
+from factrix._stats import _binomial_two_sided_p
 from factrix._types import MIN_SERIES_PERIODS_HARD
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
@@ -99,13 +94,17 @@ def positive_rate(
 
     Notes:
         ``rate = (#{t : value_t > 0}) / n`` on a non-overlapping subsample
-        at stride ``forward_periods``. Two-sided binomial test against
-        ``H0: p = 0.5``: exact binomial below ``_BINOMIAL_EXACT_CUTOFF``,
-        normal-approximation z-test ``(rate - 0.5) sqrt(n) / 0.5`` above.
+        at stride ``forward_periods``. Two-sided **exact** binomial test
+        against ``H0: p = 0.5`` (:func:`scipy.stats.binomtest`) at every
+        ``n``; ``stat`` is the hit count (``stat_type="binomial_hits"``) —
+        the sufficient statistic of the test actually run — never a
+        Gaussian ``z``.
 
-        factrix reports the actual statistic (hits or z) consistent with
-        the test branch taken, so a reader cannot mistake an exact-binomial
-        p for a Gaussian z. Non-overlap stride mirrors the information coefficient (IC) pipeline so
+        Why exact rather than the normal-approximation score test: the
+        uncorrected ``z = (rate - 0.5)·√n / 0.5`` is anti-conservative
+        (``n=20, 15 hits``: ``p=0.025`` vs exact ``0.041``), and the
+        exact test is negligible in cost at any series length. Non-overlap
+        stride mirrors the information coefficient (IC) pipeline so
         autocorrelation from overlapping forward returns does not leak in.
 
     References:
@@ -143,7 +142,9 @@ def positive_rate(
         return sc
 
     sampled = _sample_non_overlapping(series, forward_periods)
-    vals = sampled[value_col].drop_nulls()
+    # polars ``drop_nulls`` keeps float NaN; a NaN would count as a non-hit in
+    # ``vals > 0`` and bias the rate toward 0, so drop it alongside nulls.
+    vals = sampled[value_col].drop_nulls().drop_nans()
     n = len(vals)
     # Secondary degeneracy guard: null-drop can leave the sampled series below
     # the effective floor even when the raw panel cleared it; the binomial
@@ -161,28 +162,20 @@ def positive_rate(
     rate = hits / n
     p = _binomial_two_sided_p(hits, n, p0=0.5)
 
-    # stat / stat_type must reflect the test actually run, so a reader
-    # never sees stat=z paired with an exact-binomial p (the z↔p normal
-    # identity would silently break). Under the exact branch we publish
-    # the hit count as the statistic and flag stat_type accordingly.
-    if n < _BINOMIAL_EXACT_CUTOFF:
-        stat: float = float(hits)
-        stat_type = "binomial_hits"
-    else:
-        stat = float((rate - 0.5) * np.sqrt(n) / 0.5)
-        stat_type = "z"
-
+    # The exact test's sufficient statistic is the hit count; publishing a
+    # Gaussian z next to an exact p would break the z↔p identity a reader
+    # expects, so stat_type names the count explicitly.
     metadata: dict[str, object] = {
         "n_hits": hits,
-        "stat_type": stat_type,
+        "stat_type": "binomial_hits",
         "h0": "p=0.5",
-        "method": _binomial_test_method_name(n),
+        "method": "binomial exact test",
     }
     warning_codes: list[str] = []
     _surface_null_drop(
         n_periods_in=len(sampled),
         n_periods_out=n,
-        drop_reason="null value observations in the series",
+        drop_reason="null / NaN value observations in the series",
         metric_name="positive_rate",
         metadata=metadata,
         warning_codes=warning_codes,
@@ -193,7 +186,7 @@ def positive_rate(
         value=rate,
         n_obs=n,
         n_obs_axis="periods",
-        stat=stat,
+        stat=float(hits),
         metadata=metadata,
         warning_codes=tuple(warning_codes),
     )

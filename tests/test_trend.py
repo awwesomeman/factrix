@@ -94,3 +94,47 @@ class TestTheilSenSlope:
         result = ic_trend(_make_series([math.nan] * 30))
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "insufficient_trend_periods"
+
+
+class TestDegenerateTheilSenCI:
+    """Regression: a zero-width CI reported p=1.0 next to ci_excludes_zero."""
+
+    def test_perfect_line_is_decisive_not_p_one(self):
+        result = ic_trend(_make_series([0.01 * i for i in range(20)]))
+        assert result.metadata["ci_low"] == result.metadata["ci_high"]
+        assert result.metadata["ci_excludes_zero"] is True
+        assert result.p_value == 0.0
+        # slope / 0 has no finite t; MetricResult rejects a non-finite stat.
+        assert result.stat is None
+        assert "degenerate" in result.metadata["method"]
+
+    def test_perfect_downtrend_is_decisive(self):
+        result = ic_trend(_make_series([-0.01 * i for i in range(20)]))
+        assert result.value < 0
+        assert result.p_value == 0.0
+        assert result.stat is None
+
+    def test_flat_series_stays_insignificant(self):
+        """Zero-width CI around a *zero* slope is the opposite case."""
+        result = ic_trend(_make_series([0.05] * 20))
+        assert result.value == pytest.approx(0.0, abs=1e-12)
+        assert result.stat == 0.0
+        assert result.p_value == 1.0
+        assert result.metadata["ci_excludes_zero"] is False
+
+    def test_p_value_uses_n_minus_2_dof(self):
+        """SE is normal-derived, but the tail is t(n - 2) — slope + intercept."""
+        import numpy as np
+        from scipy import stats as sp_stats
+
+        rng = np.random.default_rng(3)
+        vals = (0.001 * np.arange(40) + rng.standard_normal(40) * 0.01).tolist()
+        result = ic_trend(_make_series(vals), adf_threshold=None)
+        assert result.stat is not None
+        n = result.n_obs
+        expected = float(2 * sp_stats.t.sf(abs(result.stat), n - 2))
+        assert result.p_value == pytest.approx(expected)
+        # ...and is not the old n - 1 tail.
+        assert result.p_value != pytest.approx(
+            float(2 * sp_stats.t.sf(abs(result.stat), n - 1))
+        )
