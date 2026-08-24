@@ -445,8 +445,15 @@ class TestNonFiniteRejectedByEveryKernel:
 
     @pytest.mark.parametrize("name,kernel", KERNELS, ids=[k[0] for k in KERNELS])
     def test_clean_input_still_works(self, name, kernel):
-        """The guard must not reject the boundary values 0 and 1."""
-        assert kernel(np.array([0.0, 0.5, 1.0])) is not None
+        """The guard must not reject the boundary values 0 and 1.
+
+        Asserting finiteness rather than merely "returned something": the
+        defect this class guards against is a NaN travelling through a
+        kernel, so a test that accepts a NaN return would not notice the
+        guard being removed and the NaN reappearing.
+        """
+        out = np.asarray(kernel(np.array([0.0, 0.5, 1.0])), dtype=float)
+        assert np.all(np.isfinite(out))
 
     def test_romano_wolf_guards_both_arguments(self):
         """Romano-Wolf takes statistics, not p-values, so it carries its own
