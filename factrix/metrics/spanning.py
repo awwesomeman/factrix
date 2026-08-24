@@ -223,11 +223,14 @@ def spanning_alpha(
         common-date intersected spread series. Test ``H0: alpha = 0`` via
         ``t = alpha / SE(alpha)`` from the OLS covariance.
 
-        factrix uses plain OLS standard errors here rather than Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC):
-        the inputs are non-overlap quantile spreads (single-period stride)
-        so MA(h-1) overlap is absent. Callers feeding HAC-relevant
-        overlapping series should either pre-resample or wrap the call
-        with their own HAC SE.
+        The alpha t-stat uses a Newey-West HAC standard error (Bartlett
+        kernel, automatic bandwidth) — the convention for spanning alphas
+        in the factor-model literature. An earlier version used the
+        homoskedastic OLS SE on the stated assumption that inputs are
+        non-overlap spreads; nothing in a ``(date, spread)`` frame can
+        verify that, so the SE is now robust to whatever the caller
+        passes. On a genuinely non-overlapping series the two agree to
+        within the 1–2 lags the auto bandwidth selects.
 
     References:
         - [Barillas & Shanken (2017)][barillas-shanken-2017]. "Which
@@ -306,7 +309,7 @@ def spanning_alpha(
         metadata={
             "stat_type": "t",
             "h0": "alpha=0",
-            "method": "OLS spanning regression",
+            "method": "OLS spanning regression, Newey-West HAC SE",
             "n_base_factors": base_matrix.shape[1],
             "base_factors": base_names,
             "betas": beta_dict,

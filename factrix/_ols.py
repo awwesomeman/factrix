@@ -9,6 +9,8 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from factrix._stats.constants import auto_bartlett
+from factrix._stats.ols import _ols_nw_multivariate
 from factrix._types import EPSILON
 
 
@@ -27,11 +29,28 @@ def ols_alpha(
     candidate: np.ndarray,
     base_matrix: np.ndarray,
 ) -> _OLSResult:
-    """Ordinary least squares (OLS) regression: candidate = alpha + beta @ base + epsilon.
+    """OLS regression ``candidate = alpha + beta @ base + epsilon`` with a HAC t on alpha.
+
+    Point estimates are plain OLS. ``alpha_t`` divides by the Newey-West
+    HAC standard error (Bartlett kernel, [Newey-West (1994)][newey-west-1994]
+    automatic bandwidth) rather than the homoskedastic OLS SE. Spanning
+    alphas are routinely reported with HAC t-stats (Barillas-Shanken,
+    Fama-French). The cost on a genuinely non-overlapping, homoskedastic
+    series is the usual small-sample HAC noise: at ``n = 120`` iid the
+    HAC t has empirical size 6.7% at a nominal 5% (OLS ≈ 5%), the same
+    mild anti-conservatism every other HAC path in factrix carries and
+    ``statistical-methods`` §6 discloses. An overlapping or
+    heteroskedastic series is corrected instead of silently over-stated,
+    which is the trade this buys. An earlier version used the
+    OLS SE on the stated assumption that callers pass non-overlap spreads;
+    nothing in the ``(date, spread)`` input could verify that, so the
+    assumption was retired rather than documented harder.
 
     Returns:
-        _OLSResult with alpha, t_stat, betas, R², and residual degrees of
-        freedom ``df_resid = n_obs - (1 + n_base_factors)``.
+        _OLSResult with alpha, HAC t_stat, betas, R², and residual degrees
+        of freedom ``df_resid = n_obs - (1 + n_base_factors)`` (the
+        reference the t is read against — see ``_stats.hac`` on why the
+        full-count df is kept).
 
     Raises:
         ValueError: ``candidate`` or ``base_matrix`` holds a non-finite
@@ -83,13 +102,11 @@ def ols_alpha(
             alpha=alpha, alpha_t=0.0, betas=betas, r_squared=r_squared, df_resid=dof
         )
 
-    try:
-        xtx_inv = np.linalg.inv(X.T @ X)
-        se_alpha = float(np.sqrt(sigma2 * xtx_inv[0, 0]))
-    except np.linalg.LinAlgError:
-        return _OLSResult(
-            alpha=alpha, alpha_t=0.0, betas=betas, r_squared=r_squared, df_resid=dof
-        )
+    # HAC covariance of the OLS coefficients; ``_ols_nw_multivariate`` returns
+    # zeros when X'X is singular, which the EPSILON guard below turns into
+    # the same degenerate result the OLS path produced.
+    _, v_hac, _ = _ols_nw_multivariate(candidate, X, lags=auto_bartlett(n_obs))
+    se_alpha = float(np.sqrt(max(v_hac[0, 0], 0.0)))
 
     if se_alpha < EPSILON:
         return _OLSResult(
