@@ -170,8 +170,9 @@ def corrado_rank(
         True
     """
     # Rank only the finite returns. Ranking `return_col` directly is wrong
-    # twice over: a null return produces a null rank, which turns std(u_all)
-    # into NaN and hands _calc_t_stat a NaN (NaN z, NaN p); and a
+    # twice over: a null return produces a null rank, which propagates into
+    # that date's mean and turns the event-date SD into NaN, handing
+    # _calc_t_stat a NaN (NaN z, NaN p); and a
     # float NaN is not a null to polars, so it ranks as the *largest* value
     # in the asset and is quietly kept as a genuine top-decile observation.
     # Masking to null first makes both cases explicit and excludable, and
@@ -233,7 +234,7 @@ def corrado_rank(
     n_event_dates = len(u_bar)
     events_per_date = per_date["_k"].to_numpy()
 
-    u_all = ranked["_rank_u"].drop_nulls().drop_nans().to_numpy()
+    n_total_obs = int(ranked["_rank_u"].drop_nulls().drop_nans().len())
 
     # The date series carries the test, so the floor moves onto dates: 396
     # events spread over 3 days estimate the time-series SD from 3 points.
@@ -301,7 +302,7 @@ def corrado_rank(
             "n_events": n_events,
             "events_per_date_mean": float(np.mean(events_per_date)),
             "events_per_date_max": int(np.max(events_per_date)),
-            "n_total_obs": len(u_all),
+            "n_total_obs": n_total_obs,
             "n_events_dropped_non_finite": n_events_dropped_non_finite,
             "stat_type": "z",
             "h0": "mu_rank<=0",
