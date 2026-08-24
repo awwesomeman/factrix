@@ -357,13 +357,30 @@ when the textbook form is required.
 [](){ #corrado-rank }
 
 `corrado_rank`. Replaces returns with their uniform rank within
-the (estimation ∪ event) window, then runs the cross-event $t$ on the
-ranks ([Corrado 1989][corrado-1989]). Robust to extreme returns,
-non-normality, and cross-asset heteroscedasticity. factrix adds the
-direction adjustment of [Corrado-Zivney 1992][corrado-zivney-1992]
-for two-sided signed signals — the rank itself is signed by
-$\text{sign}(\text{factor})$ before the cross-event aggregation, not
-the underlying return.
+the (estimation ∪ event) window, averages each event date's ranks into
+one observation, then runs the $z$ on that event-date series
+([Corrado 1989][corrado-1989]). Robust to extreme returns,
+non-normality, cross-asset heteroscedasticity, and **same-date event
+clustering** — the last because collapsing each date first puts the
+within-date correlation into the denominator, which is what makes this
+the honest fallback when `clustering_hhi` says `caar`'s $t$ cannot be
+trusted. `n_obs` therefore counts event *dates*, and a factor firing on
+fewer than `MIN_EVENTS_HARD` dates short-circuits rather than estimating
+a time-series SD from a handful of points — the same floor `caar` applies
+to its own event-date series.
+
+factrix adds the direction adjustment of
+[Corrado-Zivney 1992][corrado-zivney-1992] for two-sided signed signals —
+the rank itself is signed by $\text{sign}(\text{factor})$ before
+aggregation, not the underlying return.
+
+The denominator follows the *intent* of Corrado's eq. (5) (time-series SD
+of a cross-sectional mean) rather than its literal form: Corrado's design
+is event-time aligned so every date's cross-section is the full universe,
+whereas a calendar-time sparse panel has thin event dates against full
+non-event ones. Taking the SD over all dates there would understate the
+relevant dispersion several-fold, so it is taken over the event-date
+series, whose scale matches the numerator by construction.
 
 ## 6. Known simplifications (deliberately retained)
 

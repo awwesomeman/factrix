@@ -49,7 +49,7 @@ contrasts, not a sidecar to a primary value.
 | [`fm_beta_sign_consistency`][factrix.metrics.fm_beta.fm_beta_sign_consistency] | none — descriptive | — | fraction with expected sign |
 | [`caar`][factrix.metrics.caar.caar] | non-overlapping `t` on event-date CAAR | `p_value` | mean(CAAR) |
 | [`bmp_z`][factrix.metrics.caar.bmp_z] | BMP cross-sectional `z` on SAR | `p_value` | mean(SAR) |
-| [`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank] | nonparametric rank `z` | `p_value` | mean(U × sign(factor)) |
+| [`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank] | nonparametric rank `z` on the event-date series (cluster-robust) | `p_value` | mean(per-date mean U × sign(factor)) |
 | [`positive_rate`][factrix.metrics.positive_rate.positive_rate] | binomial test (or normal `z`) | `p_value` | hit rate ∈ [0, 1] |
 | [`directional_hit_rate`][factrix.metrics.directional_hit_rate.directional_hit_rate] | Pesaran-Timmermann `z` (one-sided) | `p_value` | directional hit rate ∈ [0, 1] |
 | [`event_hit_rate`][factrix.metrics.event_quality.event_hit_rate] | binomial test (or normal `z`) | `p_value` | hit rate ∈ [0, 1] |
@@ -185,8 +185,15 @@ Boehmer-Musumeci-Poulsen standardised-abnormal-return cross-sectional
 #### `corrado_rank` (emits `MetricResult.name = "corrado_rank"`)
 
 - *primary*: `p_value` — Corrado nonparametric rank `z`.
-- *descriptive*: `n_events`, `n_total_obs` (finite return cells behind the
-  rank denominator), `n_events_dropped_non_finite`.
+- *sample*: `n_event_dates` — distinct event dates, and the sample behind
+  `stat` / `p_value` / `n_obs` (axis `periods`). Same-date events are
+  averaged into one observation before the test, so the event date is the
+  unit of inference and within-date clustering lands in the denominator.
+- *descriptive*: `n_events` (raw event rows — `n_event_dates` times the mean
+  events per date, **not** the test's sample size), `events_per_date_mean`,
+  `events_per_date_max` (clustering profile; read them together with
+  `clustering_hhi`), `n_total_obs` (finite return cells behind the ranks),
+  `n_events_dropped_non_finite`.
 
 ### `positive_rate` (`factrix.metrics.positive_rate`)
 

@@ -183,7 +183,9 @@ def caar(
         optional Kolari-Pynnönen clustering correction — use it when events
         are heavily clustered or across-events power is wanted; and
         ``corrado_rank`` is the non-parametric rank test robust to
-        heavy-tailed event returns. The per-date portfolio breadth behind
+        heavy-tailed event returns, and — because it tests the event-date
+        series rather than pooled event rows — to same-date clustering as
+        well. The per-date portfolio breadth behind
         this test is surfaced as ``n_events`` (the ``compute_caar`` series)
         and ``total_events`` (this result's metadata).
 
