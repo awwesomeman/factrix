@@ -178,9 +178,9 @@ def compute_mfe_mae(
             prior = est_prices[:-1]
             safe = prior > EPSILON
             if safe.sum() >= min_estimation_periods:
-                daily_rets = (est_prices[1:][safe] / prior[safe]) - 1.0
-                if len(daily_rets) >= 2:
-                    est_sigma = float(np.std(daily_rets, ddof=1))
+                period_rets = (est_prices[1:][safe] / prior[safe]) - 1.0
+                if len(period_rets) >= 2:
+                    est_sigma = float(np.std(period_rets, ddof=1))
         window_scale = (
             est_sigma * np.sqrt(window)
             if est_sigma > 0 and np.isfinite(est_sigma)

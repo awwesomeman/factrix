@@ -34,6 +34,20 @@ The five sections are the only first-class disciplines in factrix:
 5. **Event-study cross-sectional inference** — CAAR cross-event $t$,
    BMP-style standardised AR, Corrado rank.
 
+!!! note "Every estimator here is frequency-agnostic"
+    No estimator in factrix reads the calendar. `date` is only an ordering
+    key, and every window, lag, horizon and stride (`forward_periods`,
+    `estimation_window`, `window`, Bartlett lags, block lengths) is a count
+    of **panel rows**, i.e. of whatever period one row represents. There is
+    no annualisation factor, no trading-day constant and no date
+    arithmetic anywhere in the library, so `forward_periods=5` is five days
+    on a daily panel and five months on a monthly one. Where a docstring
+    says "one period" it means one row; "within-date" means "among the rows
+    sharing one timestamp", whatever that timestamp's granularity. The
+    caller owns frequency consistency between the factor, the return and
+    the price column — see
+    [Preparing data](../guides/preparing-data.md).
+
 ---
 
 ## 1. HAC SE under overlapping returns

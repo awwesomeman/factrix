@@ -125,8 +125,8 @@ def directional_hit_rate(
         (unbalanced-design) assets-per-date — the same correction
         :func:`~factrix.metrics.caar.bmp_z` applies to clustered SARs. This
         is the Kolari-Pynnönen (2010) adjustment *without* its
-        $(1 - \hat r)$ numerator: that term corrects a single-event-day
-        variance, whereas the pooled-across-dates variance used here already
+        $(1 - \hat r)$ numerator: that term corrects a variance estimated on a
+        single event date, whereas the pooled-across-dates variance used here already
         contains the between-date component (see
         :func:`~factrix.metrics._helpers._kp_cluster_scale`). A single-asset
         series has one trial per date, so $\hat r$ is undefined and $S_n$ is

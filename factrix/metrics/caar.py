@@ -334,7 +334,8 @@ def bmp_z(
     window ends before each event's own forward return (which spans
     ``(t, t+h]``) rather than leaking the event AR into its own
     standardiser; it remains a coarser, horizon-overlapping vol proxy
-    than a daily-price std and raises ``WarningCode.BMP_RETURN_VOL_FALLBACK``
+    than a price-derived one-period std and raises
+    ``WarningCode.BMP_RETURN_VOL_FALLBACK``
     (``metadata["vol_source"]`` records which path ran).
 
     Steps:
@@ -351,8 +352,9 @@ def bmp_z(
             estimation window.
         estimation_window: Number of periods before each event for
             volatility estimation (default 60).
-        forward_periods: Return horizon for vol scaling (default 5).
-            When using price-derived daily vol, scales by
+        forward_periods: Return horizon for vol scaling (default 5),
+            counted in panel rows — not calendar days. When using
+            price-derived one-period vol, scales by
             ``1/sqrt(forward_periods)`` to match per-period forward_return.
         kolari_pynnonen_adjust: When True, apply the
             [Kolari-Pynnönen (2010)][kolari-pynnonen-2010] adjustment for
@@ -399,7 +401,8 @@ def bmp_z(
     Notes:
         For each event $i$: estimate pre-event vol $\sigma_i$ over the
         ``estimation_window``, scaled to the forward horizon by
-        $1/\sqrt{h}$ (with $h$ = ``forward_periods``) when daily prices are available;
+        $1/\sqrt{h}$ (with $h$ = ``forward_periods``) when a ``price`` column is
+        available;
         $\mathrm{SAR}_i = \mathrm{AR}^{\mathrm{signed}}_i / \sigma_i$; aggregate to
         $z = \mathrm{mean}(\mathrm{SAR}) / (\mathrm{std}(\mathrm{SAR}) / \sqrt{N})$.
         With ``kolari_pynnonen_adjust=True``, scale $z$ by
@@ -469,18 +472,20 @@ def bmp_z(
     if uses_price:
         sorted_df = sorted_df.with_columns(
             (pl.col("price") / pl.col("price").shift(1).over("asset_id") - 1).alias(
-                "_daily_ret"
+                "_period_ret"
             )
         )
         # WHY: forward_return = (price[t+1+forward_periods]/price[t+1] - 1)
-        # / forward_periods has std ≈ σ_daily / sqrt(forward_periods).
-        # Scale estimation vol to match.
+        # / forward_periods has std ≈ σ_1 / sqrt(forward_periods), where σ_1 is
+        # the one-period (one-row) return std. Scale estimation vol to match.
+        # "One period" is whatever the panel's own frequency is — factrix never
+        # reads the calendar, so this holds for daily, weekly or monthly rows.
         vol_scale = 1.0 / np.sqrt(forward_periods)
-        # Price daily returns at [t-forward_periods+1, t] precede the event window (t, t+h],
-        # so no extra lag is needed.
+        # Price one-period returns at [t-forward_periods+1, t] precede the event
+        # window (t, t+h], so no extra lag is needed.
         vol_lag = 0
     else:
-        sorted_df = sorted_df.with_columns(pl.col(return_col).alias("_daily_ret"))
+        sorted_df = sorted_df.with_columns(pl.col(return_col).alias("_period_ret"))
         vol_scale = 1.0
         # WHY: forward_return[t] realises over (t+1, t+1+h], so a rolling std
         # ending at row t would standardise the event AR with a window that
@@ -498,7 +503,7 @@ def bmp_z(
 
     # With price the window [t-N+1, t] already precedes the event window; the
     # fallback adds a forward_periods lag (see above) so it too ends pre-event.
-    est_vol_expr = pl.col("_daily_ret").rolling_std(
+    est_vol_expr = pl.col("_period_ret").rolling_std(
         window_size=estimation_window, min_samples=20
     )
     if vol_lag:
@@ -579,7 +584,8 @@ def bmp_z(
             f"to the per-asset rolling std of '{return_col}', lagged by "
             f"forward_periods={forward_periods} so the window ends before each "
             f"event's forward return. This is a coarser, horizon-overlapping vol "
-            f"proxy than a daily-price std — supply 'price' for the clean BMP "
+            f"proxy than a price-derived one-period std — supply 'price' for the "
+            f"clean BMP "
             f"standardiser.",
             UserWarning,
             stacklevel=2,

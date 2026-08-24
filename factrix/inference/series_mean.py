@@ -113,7 +113,7 @@ class NeweyWest:
     """Newey-West (1987) HAC SE inference: t-test on the full series with a Bartlett-kernel HAC variance.
 
     Keeps every observation and absorbs the autocorrelation induced by
-    overlapping ``forward_periods``-day returns through HAC standard
+    overlapping ``forward_periods``-period returns through HAC standard
     errors rather than dropping samples. Bandwidth is the
     [Newey-West (1994)][newey-west-1994] automatic Bartlett rule
     (``auto_bartlett``) floored at ``forward_periods - 1`` for the

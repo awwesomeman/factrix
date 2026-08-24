@@ -652,7 +652,8 @@ def _kp_cluster_scale(r_hat: float, n_eff: float) -> float:
 
     Why not the full Kolari-Pynnönen (2010) factor
     $\sqrt{(1 - \bar r)/(1 + (N - 1)\bar r)}$: K-P's $(1 - \bar r)$
-    numerator corrects a *single-event-day* cross-sectional variance, which
+    numerator corrects a cross-sectional variance estimated on a *single
+    event date*, which
     under clustering estimates only $\sigma^2 (1 - \bar r)$. factrix pools
     SARs / hit indicators across many event dates, so the pooled variance
     already contains the between-date component and is an unbiased
