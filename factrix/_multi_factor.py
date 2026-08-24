@@ -48,12 +48,6 @@ if TYPE_CHECKING:
     from factrix._results import EvaluationResult
 
 
-_NOT_METRICSPEC_EXPECTED = (
-    "metric label instance (str / Callable not accepted — pick the spec from "
-    "fx.metrics.spec_by_name())"
-)
-
-
 def _validate_metric_list(value: Any, *, func_name: str, field: str) -> list[str]:
     """Shared validator: ``list[str]`` canonical form.
 

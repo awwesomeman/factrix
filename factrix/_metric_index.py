@@ -59,8 +59,8 @@ _METRICS_DIR = _REPO_ROOT / "factrix" / "metrics"
 # :func:`docs_anchor_for`: docs-root-relative path +
 # mkdocstrings symbol fragment. Centralised here so a future docs URL
 # change touches one literal — external prose in
-# ``factrix._describe.list_metrics`` and ``docs/api/metric-output.md``
-# cite this constant by name rather than restating the string.
+# ``docs/api/metric-output.md`` cites this constant by name rather than
+# restating the string.
 DOCS_ANCHOR_FMT: str = "api/metrics/{module}.md#factrix.metrics.{module}.{name}"
 
 # ---------------------------------------------------------------------------
