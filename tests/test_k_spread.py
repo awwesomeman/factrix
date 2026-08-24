@@ -259,8 +259,11 @@ class TestInference:
         nw = k_spread(panel, forward_periods=5, k=5, inference=fx.inference.NEWEY_WEST)
         assert nw.metadata["method"] == "Newey-West HAC t-test"
         assert "nw_lags" in nw.metadata
-        # HAC keeps every date; the full series is longer than the strided one.
-        assert nw.metadata["n_periods_full"] > nw.metadata["n_periods"]
+        # HAC keeps every date; the full series is longer than the strided one,
+        # and n_obs / n_periods must describe the sample the test ran on.
+        assert nw.metadata["n_periods_full"] > nw.metadata["n_periods_strided"]
+        assert nw.metadata["n_periods"] == nw.metadata["n_periods_full"]
+        assert nw.n_obs == nw.metadata["n_periods_full"]
 
     def test_small_cross_section_bootstrap_overrides_requested_hac(self):
         import factrix as fx
@@ -306,3 +309,88 @@ class TestDispatch:
         er = results["factor"]
         assert er.metrics["tks"].name == "tks"
         assert not math.isnan(er.metrics["tks"].value)
+
+
+class TestNonFiniteFactors:
+    """``rank(descending=True)`` sorts NaN as the largest value."""
+
+    @staticmethod
+    def _panel(bad_factor):
+        rows = []
+        for d in range(60):
+            day = date(2021, 1, 1) + timedelta(days=d)
+            for a in range(10):
+                # Factor and return are perfectly aligned: the top-2 names
+                # (A8, A9) earn +0.10, the bottom-2 (A0, A1) earn -0.10.
+                rows.append(
+                    {
+                        "date": day,
+                        "asset_id": f"A{a}",
+                        "factor": bad_factor if a == 5 else float(a),
+                        "forward_return": 0.10 if a >= 8 else (-0.10 if a < 2 else 0.0),
+                    }
+                )
+        return pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+    def test_nan_factor_does_not_lead_the_long_leg(self):
+        """A NaN factor used to take rank 1 and drag a 0.0-return name into
+        the long leg, halving the measured spread."""
+        clean = k_spread(self._panel(5.0), forward_periods=1, k=2)
+        with_nan = k_spread(self._panel(float("nan")), forward_periods=1, k=2)
+        assert clean.value == pytest.approx(0.20)
+        assert with_nan.value == pytest.approx(0.20)
+        assert with_nan.metadata["top_return"] == pytest.approx(0.10)
+
+    def test_null_and_nan_factors_are_treated_alike(self):
+        nan_result = k_spread(self._panel(float("nan")), forward_periods=1, k=2)
+        null_result = k_spread(self._panel(None), forward_periods=1, k=2)
+        assert nan_result.value == pytest.approx(null_result.value)
+        assert nan_result.metadata["median_cross_section"] == 9
+
+    def test_nan_return_does_not_poison_the_leg_mean(self):
+        rows = []
+        for d in range(60):
+            day = date(2021, 1, 1) + timedelta(days=d)
+            for a in range(10):
+                ret = 0.10 if a >= 8 else (-0.10 if a < 2 else 0.0)
+                rows.append(
+                    {
+                        "date": day,
+                        "asset_id": f"A{a}",
+                        "factor": float(a),
+                        # A middle name (never in a leg) has a NaN return; it
+                        # would still NaN out xs_dispersion.
+                        "forward_return": float("nan") if a == 5 else ret,
+                    }
+                )
+        panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        result = k_spread(panel, forward_periods=1, k=2)
+        assert result.value == pytest.approx(0.20)
+        assert math.isfinite(result.metadata["cross_sectional_dispersion"])
+
+
+class TestSmallCrossSectionKeying:
+    def test_rotating_universe_still_counts_as_thin(self):
+        """12 names per date, 720 distinct asset_ids over the sample.
+
+        The switch used to read ``asset_id.n_unique()`` over the whole panel
+        (720 -> "wide", parametric t); the heavy-tail rationale is per date,
+        where only 12 names back each leg.
+        """
+        rng = np.random.default_rng(7)
+        rows = []
+        for d in range(60):
+            day = date(2021, 1, 1) + timedelta(days=d)
+            for a in range(12):
+                rows.append(
+                    {
+                        "date": day,
+                        "asset_id": f"A{d * 12 + a:05d}",
+                        "factor": float(rng.normal()),
+                        "forward_return": float(rng.normal()) * 0.02,
+                    }
+                )
+        panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        result = k_spread(panel, forward_periods=1, k=3)
+        assert result.metadata["median_cross_section"] == 12
+        assert result.metadata["method"] == "block-bootstrap CI"

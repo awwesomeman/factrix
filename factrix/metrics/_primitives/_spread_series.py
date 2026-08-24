@@ -19,6 +19,7 @@ from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     MIN_GROUP_ASSETS,
     _assign_quantile_groups_batch,
+    _finite_expr,
     _median_universe_size,
     _sample_non_overlapping,
 )
@@ -78,6 +79,13 @@ def compute_spread_series(
         spread series free of MA(h-1) autocorrelation so downstream
         non-overlap t-tests are valid without heteroskedasticity-and-autocorrelation-consistent (HAC).
 
+        **Non-finite handling.** A NaN ``return_col`` value is treated as
+        missing (polars ``mean`` propagates NaN, so one bad print would
+        otherwise NaN out the bucket mean and the spread); a null or NaN
+        factor lands in no bucket and is excluded from ``_n_assets`` /
+        ``_n_unique`` too, so those diagnostics describe the cross-section
+        that was actually ranked.
+
     Examples:
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
@@ -121,6 +129,14 @@ def compute_spread_series(
             stacklevel=2,
         )
 
+    # Neutralise non-finite returns at the producer boundary: polars ``mean``
+    # propagates float NaN, so one NaN return would turn a whole bucket mean —
+    # and every spread built from it — into NaN. Nulls are what the aggregation
+    # skips, so NaN is mapped onto null here rather than downstream.
+    sampled = sampled.with_columns(
+        pl.when(_finite_expr(return_col)).then(pl.col(return_col)).alias(return_col)
+    )
+
     grouped = _assign_quantile_groups_batch(sampled, cols, n_groups, tie_policy)
 
     top_group = n_groups - 1
@@ -131,13 +147,13 @@ def compute_spread_series(
         pl.col(return_col).mean().alias("universe_return"),
     ]
     for f in cols:
-        agg_exprs.append(
-            pl.col(f)
-            .filter(pl.col(f).is_not_null())
-            .n_unique()
-            .alias(f"_n_unique__{f}")
-        )
-        agg_exprs.append(pl.col(f).count().alias(f"_n_assets__{f}"))
+        # Both counts are over *finite* factor values: ``count`` counts a NaN
+        # (it is not null) and ``n_unique`` would score NaN as a distinct
+        # value, so a NaN-poisoned date would look wider and more varied than
+        # the cross-section that actually gets bucketed.
+        finite_f = _finite_expr(f)
+        agg_exprs.append(pl.col(f).filter(finite_f).n_unique().alias(f"_n_unique__{f}"))
+        agg_exprs.append(pl.col(f).filter(finite_f).len().alias(f"_n_assets__{f}"))
         agg_exprs.append(
             pl.col(return_col)
             .filter(pl.col(f"_group__{f}") == top_group)

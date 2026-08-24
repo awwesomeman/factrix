@@ -28,7 +28,7 @@ from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._types import MIN_EVENTS_HARD
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _enforce_min_floor
+from factrix.metrics._helpers import _enforce_min_floor, _finite_expr
 
 __all__ = [
     "clustering_hhi",
@@ -75,7 +75,10 @@ def clustering_hhi(
         $\mathrm{HHI} = \sum_d s_d^2$ where
         $s_d = (\text{events on date } d) / \text{total}$; ranges from
         $1/D$ (uniform across $D$ event dates) to $1.0$ (all events on
-        a single date).
+        a single date). An event is a **finite non-zero** ``factor_col``
+        observation: null and NaN factors are excluded rather than counted
+        as events (a bare ``factor != 0`` predicate is True for NaN in
+        polars as in numpy).
         ``effective_n_periods`` $= 1 / \mathrm{HHI}$;
         ``hhi_normalized`` $= (\mathrm{HHI} - 1/D) / (1 - 1/D)$ rescales
         to $[0, 1]$.
@@ -93,7 +96,12 @@ def clustering_hhi(
         >>> result.name == ""
         True
     """
-    events = data.filter(pl.col(factor_col) != 0)
+    # ``factor != 0`` is True for a float NaN, so a bare inequality would count
+    # a non-finite factor as an event and inflate the date histogram. Events are
+    # the *finite* non-zero rows: a null / NaN factor is "no observation", not
+    # "an event", so it is excluded from ``n_events`` and from the per-date
+    # shares alike.
+    events = data.filter(_finite_expr(factor_col) & (pl.col(factor_col) != 0))
     n_events = len(events)
 
     sc = _enforce_min_floor(

@@ -287,8 +287,10 @@ def notional_turnover(
 
     ``(k − m) / k`` for ``k`` names in today's tail and ``m`` carry-overs
     equals the fraction of that leg that must be traded under equal
-    weighting. Averaging the two legs keeps the ``× 2`` factor in
-    ``breakeven_cost = spread / (2 × turnover) × 1e4`` consistent.
+    weighting. Averaging the two legs (rather than summing) is what makes
+    τ a **per-leg** replaced fraction, which is the input
+    ``breakeven_cost`` / ``net_spread`` expect: they multiply it back up
+    by ``4`` (2 legs × 2 trades per replacement).
 
     Args:
         data: Panel with ``date, asset_id, factor``.
@@ -315,10 +317,13 @@ def notional_turnover(
             turnover_t = (top_churn + bot_churn) / 2
             value = mean_t turnover_t
 
-        factrix averages the two legs (rather than summing) to keep the
-        ``× 2`` factor in ``breakeven_cost = spread / (2 × turnover)``
-        consistent with single-leg rather than round-trip cost
-        accounting. Names dropped from ``Q_top(t-1)`` / ``Q_bot(t-1)`` by
+        factrix averages the two legs (rather than summing) so that ``value``
+        is a **per-leg** replaced fraction in [0, 1]. The consumers restore
+        the missing factors: ``breakeven_cost`` and ``net_spread`` both use
+        ``4 × turnover`` = 2 legs × 2 trades (sell the leaver, buy the
+        joiner) with a one-way cost per trade. Summing the legs here
+        instead would double-count against those coefficients.
+        Names dropped from ``Q_top(t-1)`` / ``Q_bot(t-1)`` by
         delisting before ``t`` are silently missed on the sell side — a
         real portfolio would still book that liquidation cost.
 
@@ -451,9 +456,10 @@ def breakeven_cost(
 
     No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because this is a scalar diagnostic function rather than a panel-based metric.
 
-    ``Breakeven = Gross_Spread × forward_periods / (2 × Turnover)``
+    ``Breakeven = Gross_Spread × forward_periods / (4 × Turnover)``
 
-    If the actual trading cost is below this, the factor's alpha survives.
+    If the actual **one-way** trading cost is below this, the factor's
+    alpha survives.
 
     Expects ``turnover`` to be a **notional** fraction ∈ [0, 1] — the
     share of the equal-weight Q1/Q_n portfolio replaced per rebalance.
@@ -477,10 +483,30 @@ def breakeven_cost(
 
     Notes:
         ``breakeven_bps = (gross_spread × forward_periods) /
-        (2 × turnover) × 1e4``. Multiplying spread by ``forward_periods``
+        (4 × turnover) × 1e4``. Multiplying spread by ``forward_periods``
         lifts the per-period spread to the per-rebalance scale matching
-        ``turnover``; ``× 2`` is the long+short single-leg pair; ``× 1e4``
-        converts to bps.
+        ``turnover``; ``× 1e4`` converts to bps.
+
+        **Where the 4 comes from** (the mirror of ``net_spread``'s cost
+        drag — the two must use the same coefficient or breakeven does not
+        solve ``net = 0``):
+
+        1. ``turnover`` τ from ``notional_turnover`` is the mean **per-leg**
+           fraction of the portfolio replaced per rebalance — the two legs
+           are averaged, not summed.
+        2. Replacing a fraction τ of a leg is a sell of the leaver plus a
+           buy of the joiner: **2τ** of traded notional per leg.
+        3. A $1 long / $1 short spread holds two legs: **4τ** of traded
+           notional per rebalance per $1 of gross exposure.
+        4. The returned cost is therefore the **one-way (per-trade)** cost
+           each of those trades may bear.
+
+        The alternative convention states costs per **round trip** (buy +
+        sell as one number), under which the coefficient is ``2`` and the
+        breakeven figure doubles. factrix reports one-way because that is
+        how the half-spread-plus-impact estimates this function is fed
+        (and ``net_spread``'s ``estimated_cost_bps`` default) are quoted;
+        halve a round-trip quote before comparing it to this number.
 
         factrix expects ``turnover`` to be a notional fraction in [0, 1]
         (output of ``notional_turnover``); feeding the rank-stability
@@ -511,9 +537,11 @@ def breakeven_cost(
             },
         )
 
-    # WHY: ×2 because long-short trades both sides; ×forward_periods lifts the
-    # per-period spread to per-rebalance to align with turnover; ×10000 → bps.
-    be_bps = (gross_spread * forward_periods / (2 * turnover)) * 10000
+    # WHY: ×4 = 2 legs × 2 trades (sell the leaver, buy the joiner) per unit of
+    # per-leg turnover; ×forward_periods lifts the per-period spread to
+    # per-rebalance to align with turnover; ×10000 → bps. See Notes for the
+    # full derivation.
+    be_bps = (gross_spread * forward_periods / (4 * turnover)) * 10000
 
     return MetricResult(
         value=be_bps,
@@ -542,17 +570,18 @@ def net_spread(
 
     No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because this is a scalar diagnostic function rather than a panel-based metric.
 
-    ``Net = Gross_Spread - 2 × cost_bps × Turnover / forward_periods``
+    ``Net = Gross_Spread - 4 × cost_bps × Turnover / forward_periods``
 
-    The ``2 ×`` accounts for both legs of the long-short portfolio
-    needing to be traded (long side + short side) at each rebalance.
-    Default ``estimated_cost_bps=30`` is a conservative single-leg
+    The ``4 ×`` is ``2 legs × 2 trades``: ``turnover`` is the mean
+    **per-leg** fraction replaced per rebalance, each replacement is a
+    sell plus a buy, and a $1/$1 long-short holds two legs (see Notes).
+    Default ``estimated_cost_bps=30`` is a conservative **one-way**
     mid-cap US equity estimate (half-spread + impact) sized to give a
     useful headline number; override with a venue-specific estimate
     when available.
 
     Time-scale alignment: ``gross_spread`` is per-period (forward_return
-    is divided by ``forward_periods`` upstream) but ``2 × cost × turnover`` is the cost paid
+    is divided by ``forward_periods`` upstream) but ``4 × cost × turnover`` is the cost paid
     once per N-period rebalance. Dividing by ``forward_periods`` amortises
     that cost back to per-period. Without it, net is over-charged by N×
     and any factor with h ≥ 2 is artificially killed.
@@ -565,7 +594,10 @@ def net_spread(
     Args:
         gross_spread: Per-period mean long-short spread.
         turnover: Notional turnover ∈ [0, 1] from ``notional_turnover()``.
-        estimated_cost_bps: Estimated single-leg trading cost in bps.
+        estimated_cost_bps: Estimated **one-way** (per-trade) trading cost
+            in bps — what a single buy or a single sell costs, e.g.
+            half-spread + impact. Halve a round-trip quote before passing
+            it here.
         forward_periods: Holding period matching the upstream
             ``compute_forward_return`` and ``notional_turnover`` stride.
 
@@ -573,11 +605,37 @@ def net_spread(
         MetricResult with value = net spread (per-period).
 
     Notes:
-        ``net = gross_spread - 2 × (cost_bps / 1e4) × turnover /
+        ``net = gross_spread - 4 × (cost_bps / 1e4) × turnover /
         forward_periods``. Cost is incurred once per ``forward_periods``-
         period rebalance, so dividing by ``forward_periods`` amortises it
         back to the per-period scale of ``gross_spread``. Without the
         amortisation any factor with ``h >= 2`` is over-charged by ``h x``.
+
+        **Where the 4 comes from.** Each step of the accounting, in order:
+
+        1. **Turnover definition.** τ from ``notional_turnover`` is the
+           mean **per-leg** fraction of the portfolio replaced per
+           rebalance — ``(top_churn + bot_churn) / 2``, an average of the
+           two legs, not their sum.
+        2. **Trades per rebalance.** Replacing a fraction τ of a leg means
+           selling the names that left and buying the names that joined:
+           two trades, not one.
+        3. **Traded notional.** So one leg trades ``2τ`` of its notional
+           per rebalance, and the $1 long / $1 short spread — two legs —
+           trades ``4τ`` per $1 of gross spread exposure.
+        4. **Cost.** ``estimated_cost_bps`` is the **one-way** cost of a
+           single trade, so the drag is ``4 τ c``.
+
+        The alternative convention quotes ``estimated_cost_bps`` as a
+        **round-trip** cost (one buy *and* its later sell priced together),
+        under which the coefficient is ``2 τ c`` — the pre-0.20 factrix
+        behaviour. factrix picks the one-way convention because the
+        estimates practitioners have to hand (half-spread, per-order
+        impact, per-share commission, and the default ``30`` bps here) are
+        one-way quantities; charging them ``2 τ`` under-states the drag by
+        exactly half. ``breakeven_cost`` inverts the *same* coefficient, so
+        the two remain consistent: the breakeven bps it returns is the
+        one-way cost at which this function's ``net`` reaches zero.
 
         factrix expects ``turnover`` to be a notional fraction (output of
         ``notional_turnover``); rank-stability ``rank_turnover()`` over-states
@@ -599,7 +657,10 @@ def net_spread(
     """
     if forward_periods < 1:
         raise ValueError(f"forward_periods must be ≥ 1, got {forward_periods!r}")
-    cost_drag = 2 * (estimated_cost_bps / 10000) * turnover / forward_periods
+    # 4 × τ × c: τ is the mean per-leg replaced fraction, each replacement is a
+    # sell plus a buy (2τ traded notional per leg) and the $1/$1 long-short
+    # holds two legs. See Notes for the derivation.
+    cost_drag = 4 * (estimated_cost_bps / 10000) * turnover / forward_periods
     net = gross_spread - cost_drag
 
     return MetricResult(

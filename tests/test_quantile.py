@@ -367,7 +367,12 @@ class TestQuantileSpreadInference:
         )["factor"]
         assert nw.metadata["method"] == "Newey-West HAC t-test"
         assert "nw_lags" in nw.metadata
-        assert nw.metadata["n_periods_full"] > nw.metadata["n_periods"]
+        # HAC keeps every date, so the reported sample IS the full one: n_obs /
+        # n_periods must describe the series the test actually ran on, while
+        # n_periods_strided keeps the (shorter) non-overlap count for reference.
+        assert nw.metadata["n_periods_full"] > nw.metadata["n_periods_strided"]
+        assert nw.metadata["n_periods"] == nw.metadata["n_periods_full"]
+        assert nw.n_obs == nw.metadata["n_periods_full"]
 
     def test_small_cross_section_bootstrap_overrides_requested_hac(self):
         import factrix as fx
@@ -444,3 +449,186 @@ class TestThinQuantileGroups:
             quantile_spread(self._thin_panel(), forward_periods=5, n_groups=5)
         msgs = [str(w.message) for w in caught if "assets per group" in str(w.message)]
         assert msgs and "Reduce n_groups to ~" in msgs[0]
+
+
+def _long_panel(rows_per_date, n_dates=60, start=None):
+    """Panel builder: ``rows_per_date(date_index)`` -> list of row dicts."""
+    base = start or datetime(2024, 1, 1)
+    rows = []
+    for d in range(n_dates):
+        date = base + timedelta(days=d)
+        for row in rows_per_date(d):
+            rows.append({"date": date, **row})
+    return pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+
+class TestQuantileSpreadVWMissingReturns:
+    """``sum(w*r)/sum(w)`` must run both sums over the same names."""
+
+    @staticmethod
+    def _rows(missing_top_return):
+        def build(_d):
+            out = []
+            for i in range(10):
+                # Top bucket (n_groups=5, 10 names) = assets 8, 9.
+                ret = 0.10
+                if missing_top_return and i == 9:
+                    ret = None
+                out.append(
+                    {
+                        "asset_id": f"A{i}",
+                        "factor": float(i + 1),
+                        "forward_return": 0.0 if i < 2 else ret,
+                        # A9 carries most of the top bucket's weight.
+                        "market_cap": 9.0 if i == 9 else 1.0,
+                    }
+                )
+            return out
+
+        return build
+
+    def test_missing_return_leaves_the_denominator(self):
+        """A9 has 90% of the top-bucket weight and no return.
+
+        Old behaviour kept its weight in the denominator, so the top-bucket
+        return read 0.10*1/10 = 0.01 instead of the 0.10 actually observed —
+        the spread was diluted by exactly the missing weight share.
+        """
+        panel = _long_panel(self._rows(missing_top_return=True))
+        result = quantile_spread_vw(
+            panel, forward_periods=1, n_groups=5, lag_weights=False
+        )
+        # Top bucket return is A8's 0.10; bottom bucket is 0.0 -> spread 0.10.
+        assert result.value == pytest.approx(0.10)
+
+    def test_matches_the_no_missing_case(self):
+        with_missing = quantile_spread_vw(
+            _long_panel(self._rows(missing_top_return=True)),
+            forward_periods=1,
+            n_groups=5,
+            lag_weights=False,
+        )
+        without = quantile_spread_vw(
+            _long_panel(self._rows(missing_top_return=False)),
+            forward_periods=1,
+            n_groups=5,
+            lag_weights=False,
+        )
+        assert with_missing.value == pytest.approx(without.value)
+
+    def test_nan_return_is_treated_as_missing(self):
+        def build(_d):
+            return [
+                {
+                    "asset_id": f"A{i}",
+                    "factor": float(i + 1),
+                    "forward_return": (
+                        float("nan") if i == 9 else (0.0 if i < 2 else 0.10)
+                    ),
+                    "market_cap": 9.0 if i == 9 else 1.0,
+                }
+                for i in range(10)
+            ]
+
+        result = quantile_spread_vw(
+            _long_panel(build), forward_periods=1, n_groups=5, lag_weights=False
+        )
+        assert result.value == pytest.approx(0.10)
+        assert math.isfinite(result.stat)
+
+    def test_all_returns_missing_on_a_date_yields_no_observation(self):
+        """An empty leg must be null, never a manufactured 0.0 spread.
+
+        ``sum()`` of an all-null polars column is 0, so the unguarded ratio
+        produced 0/0 = NaN which ``drop_nulls`` kept — the date was counted in
+        ``n_obs`` and dragged the mean and t-stat toward zero.
+        """
+
+        def build(d):
+            missing = d % 2 == 0
+            return [
+                {
+                    "asset_id": f"A{i}",
+                    "factor": float(i + 1),
+                    "forward_return": None if missing else (0.0 if i < 2 else 0.10),
+                    "market_cap": 1.0,
+                }
+                for i in range(10)
+            ]
+
+        with pytest.warns(UserWarning, match="of periods dropped"):
+            result = quantile_spread_vw(
+                _long_panel(build), forward_periods=1, n_groups=5, lag_weights=False
+            )
+        assert result.n_obs == 30
+        assert result.value == pytest.approx(0.10)
+        assert result.metadata["n_periods"] == result.n_obs
+
+
+class TestQuantileSpreadNonFiniteSeries:
+    def test_nan_spread_is_dropped_not_silently_zeroing_the_t_stat(self):
+        """One NaN in the spread series used to give t=0, p=1."""
+        series = pl.DataFrame(
+            {
+                "date": [datetime(2024, 1, 1) + timedelta(days=i) for i in range(40)],
+                "top_return": [0.02] * 40,
+                "bottom_return": [0.01] * 40,
+                "universe_return": [0.015] * 40,
+                "spread": [float("nan")] + [0.01 + 0.001 * (i % 5) for i in range(39)],
+                "_zero_variance_factor": [False] * 40,
+                "_n_assets": [10] * 40,
+            }
+        )
+        panel = _long_panel(
+            lambda _d: [
+                {
+                    "asset_id": f"A{i}",
+                    "factor": float(i),
+                    "forward_return": 0.01,
+                }
+                for i in range(10)
+            ],
+            n_dates=40,
+        )
+        result = quantile_spread(
+            panel,
+            forward_periods=1,
+            n_groups=5,
+            _precomputed_series={"factor": series},
+        )["factor"]
+        expected = float(np.mean([0.01 + 0.001 * (i % 5) for i in range(39)]))
+        assert result.n_obs == 39
+        assert result.value == pytest.approx(expected)
+        # The old code averaged the NaN in: value NaN, and _calc_t_stat's NaN
+        # guard silently returned t=0, p=1 on a strongly positive spread.
+        assert result.stat > 5.0
+        assert result.p_value < 0.01
+        assert "NaN" in result.metadata["drop_reason"]
+
+
+class TestSmallCrossSectionKeying:
+    """The bootstrap switch reads the per-date cross-section, not the panel."""
+
+    def test_rotating_universe_still_counts_as_thin(self):
+        """12 names per date, but 240 distinct asset_ids over the sample.
+
+        ``asset_id.n_unique()`` over the panel says 240 (wide, run the t-test);
+        the median per-date cross-section says 12 (thin, bootstrap it). The
+        heavy-tail rationale is per date, so the bootstrap must fire.
+        """
+        rng = np.random.default_rng(3)
+
+        def build(d):
+            return [
+                {
+                    "asset_id": f"A{d * 12 + i:04d}",
+                    "factor": float(rng.normal()),
+                    "forward_return": float(rng.normal()) * 0.02,
+                }
+                for i in range(12)
+            ]
+
+        panel = _long_panel(build, n_dates=200)
+        result = quantile_spread(panel, forward_periods=1, n_groups=3)["factor"]
+        assert result.metadata["median_cross_section"] == 12
+        assert result.metadata["method"] == "block-bootstrap CI"

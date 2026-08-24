@@ -15,6 +15,7 @@ from factrix._metric_index import cell
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _assign_quantile_groups,
+    _finite_expr,
     _sample_non_overlapping,
 )
 
@@ -61,6 +62,14 @@ def compute_group_returns(
         aggregation order); the two differ when bucket cardinality moves
         across dates.
 
+        **Unbucketed names are excluded.** A name whose factor is null or
+        NaN on a date gets no quantile group, and those rows are dropped
+        before aggregation — the returned frame carries exactly the groups
+        ``0..n_groups-1`` that were populated, never a ``group=None`` row.
+        Non-finite ``return_col`` values are likewise treated as missing
+        (polars ``mean`` does *not* skip float NaN, so a single NaN return
+        would otherwise poison the whole bucket mean).
+
     Examples:
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
@@ -82,7 +91,16 @@ def compute_group_returns(
     )
 
     return (
-        grouped.group_by("_group")
+        # Unbucketed names (null / NaN factor → null ``_group``) would otherwise
+        # surface as an extra ``group=None`` row that no downstream consumer
+        # expects: monotonicity would read it as a bucket, plots as a category.
+        # Non-finite returns are neutralised to null so the bucket mean is a
+        # mean over the observed returns (polars ``mean`` propagates NaN).
+        grouped.filter(pl.col("_group").is_not_null())
+        .with_columns(
+            pl.when(_finite_expr(return_col)).then(pl.col(return_col)).alias(return_col)
+        )
+        .group_by("_group")
         .agg(pl.col(return_col).mean().alias("mean_return"))
         .sort("_group")
         .rename({"_group": "group"})

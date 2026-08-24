@@ -38,6 +38,7 @@ from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _compute_tie_ratio,
     _enforce_scaled_floor,
+    _finite_expr,
     _sample_non_overlapping,
     _scaled_periods_threshold,
     _short_circuit_output,
@@ -110,12 +111,34 @@ def top_concentration(
         one-sided against $H_0: \mathbb{E}[r] \geq 0.5$: rejecting flags
         concentration.
 
-        factrix uses ``rank(method="average")`` for the top-bucket cutoff
-        — ``tie_policy`` from Config does not apply because HHI measures
-        concentration *among* the selected stocks, not their bucketing.
-        ``tie_ratio`` is still recorded in metadata as a data-quality
-        diagnostic (high tie_ratio → unstable membership across
-        re-rankings).
+        **Membership is a count, not a percent-rank threshold.** With
+        $n_t$ *finite* factor values on date $t$, the bucket is the
+        $k_t = \max(1, \lfloor n_t \cdot q_{\mathrm{top}} \rfloor)$
+        highest by descending ordinal rank. The alternative — an
+        inclusive percent-rank cutoff
+        $\mathrm{rank}/n \geq 1 - q_{\mathrm{top}}$ — is off by one
+        (n=10, q=0.2 selects 3 names; n=100 selects 21), because the
+        boundary rank itself satisfies the inequality. factrix takes the
+        strict count so the bucket size matches the requested fraction at
+        every $n$. Null and NaN factor values are excluded from $n_t$ and
+        can never be selected; counting them (``pl.len()``) would shrink
+        every bucket on a partially missing date and empty it outright
+        once more than $1 - q_{\mathrm{top}}$ of the names are missing.
+
+        ``tie_policy`` from Config does not apply to that cutoff —
+        ordinal ranking is used unconditionally, because HHI measures
+        concentration *among* the selected stocks rather than their
+        bucketing, and an average-rank cutoff would return a variable
+        number of names. ``tie_ratio`` is still recorded in metadata as a
+        data-quality diagnostic (high tie_ratio → unstable membership
+        across re-rankings).
+
+        **Non-finite weights.** Under ``weight_by="alpha_contribution"`` a
+        selected name with no realised return has no weight. Such names
+        are removed from the HHI *and* from ``n_top``, so
+        $n^{\mathrm{eff}}_t / n^{\mathrm{top}}_t$ compares like with like;
+        ``metadata["n_top_members_dropped"]`` records how many
+        (date, asset) pairs went that way.
 
     Examples:
         >>> import factrix as fx
@@ -141,12 +164,37 @@ def top_concentration(
     filtered = _sample_non_overlapping(data, forward_periods)
     tie_ratio = _compute_tie_ratio(filtered, factor_col)
 
-    q1 = filtered.with_columns(
-        (
-            pl.col(factor_col).rank(method="average").over("date")
-            / pl.len().over("date")
-        ).alias("_pct_rank")
-    ).filter(pl.col("_pct_rank") >= (1 - q_top))
+    # Top-bucket membership: the strict count cutoff ``k = max(1, floor(n·q_top))``
+    # on the *finite* per-date cross-section (``n`` counts neither nulls nor
+    # NaNs — ``pl.len()`` would, shrinking or emptying the bucket on a partially
+    # missing date), selected by descending ordinal rank so exactly ``k`` names
+    # are taken. A percent-rank threshold (``rank/n >= 1 - q_top``) is off by one
+    # in the inclusive direction: at n=10, q=0.2 it takes 3 names, at n=100 it
+    # takes 21.
+    finite_factor = _finite_expr(factor_col)
+    q1 = (
+        filtered.with_columns(
+            pl.when(finite_factor).then(pl.col(factor_col)).alias("_f_valid")
+        )
+        .with_columns(
+            # ``count`` (non-null) not ``len`` (all rows): the whole point of
+            # ``_f_valid`` is that non-finite factors are nulled out.
+            pl.col("_f_valid").count().over("date").alias("_n_valid"),
+            pl.col("_f_valid")
+            .rank(method="ordinal", descending=True)
+            .over("date")
+            .alias("_top_rank"),
+        )
+        .with_columns(
+            ((pl.col("_n_valid") * q_top).floor().cast(pl.Int64))
+            .clip(lower_bound=1)
+            .alias("_k_top")
+        )
+        .filter(
+            pl.col("_top_rank").is_not_null()
+            & (pl.col("_top_rank") <= pl.col("_k_top"))
+        )
+    )
 
     if weight_by == "alpha_contribution":
         weighted = q1.with_columns(
@@ -154,6 +202,15 @@ def top_concentration(
         )
     else:
         weighted = q1.with_columns(pl.col(factor_col).abs().alias("_raw_weight"))
+
+    # A null / NaN weight (``alpha_contribution`` on a name with no realised
+    # return) contributes nothing to the HHI numerator but would still be
+    # counted by ``pl.len()`` in ``n_top`` — biasing the eff_n / n_top
+    # diversification ratio downward. Drop such names from BOTH sides and
+    # record how many went.
+    n_top_selected = weighted.height
+    weighted = weighted.filter(_finite_expr("_raw_weight"))
+    n_top_dropped = n_top_selected - weighted.height
 
     hhi_per_date = (
         weighted.with_columns(
@@ -201,6 +258,20 @@ def top_concentration(
     if warn_code is not None:
         warning_codes.append(warn_code)
 
+    if hhi_per_date.is_empty():
+        # Every date lost its top bucket (all-null factor, or all-null weights
+        # under ``alpha_contribution``): there is no ratio series to average.
+        return _short_circuit_output(
+            "top_concentration",
+            "insufficient_top_bucket_periods",
+            alternative="less",
+            n_obs=0,
+            n_obs_axis="periods",
+            tie_ratio=tie_ratio,
+            weight_by=weight_by,
+            n_top_members_dropped=n_top_dropped,
+        )
+
     eff_n_arr = hhi_per_date["eff_n"].to_numpy()
     n_top_arr = hhi_per_date["n_top"].to_numpy()
     mean_eff_n = float(np.mean(eff_n_arr))
@@ -227,6 +298,12 @@ def top_concentration(
         "ratio_eff_to_total": ratio,
         "tie_ratio": tie_ratio,
         "weight_by": weight_by,
+        "q_top": q_top,
+        # Top-bucket membership bookkeeping: how many (date, asset) pairs the
+        # count cutoff selected, and how many of those were dropped for a
+        # non-finite weight (both HHI and n_top exclude them).
+        "n_top_members_selected": n_top_selected,
+        "n_top_members_dropped": n_top_dropped,
     }
     return MetricResult(
         p_value=p,
