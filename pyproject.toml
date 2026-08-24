@@ -51,6 +51,10 @@ dev = [
     "mypy>=1.20",
     "build",
     "twine",
+    # polars resolves tz-aware dtypes through zoneinfo, which has no system
+    # IANA database on Windows; without this the tz-aware dtype tests abort
+    # with a pyo3 PanicException rather than a normal failure.
+    "tzdata>=2025.1",
 ]
 docs = [
     "mkdocs-material>=9.5",
