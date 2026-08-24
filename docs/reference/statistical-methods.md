@@ -426,6 +426,25 @@ gap matters. Distinct from the single-restriction NW-HAC **Wald** tests
 (`common_quantile_spread`, `common_asymmetry`), which *do* use a finite-sample
 $F_{r,\,T-k}$ reference.
 
+Measured on the `spanning_alpha` path (true null, one base factor, 4000
+draws), the anti-conservatism is mild on iid residuals and substantial on
+autocorrelated ones — empirical size at a nominal 5%:
+
+| residuals | $n=60$ | $n=120$ | $n=240$ |
+|---|---|---|---|
+| iid | 0.071 | 0.065 | 0.054 |
+| AR(0.6) | 0.185 | 0.135 | 0.115 |
+
+The iid column is the small-sample noise described above and shrinks
+normally. The AR column converges slowly enough to matter at realistic
+sample lengths, and is a property of the Bartlett kernel rather than of
+any one metric, so every HAC path listed here inherits it. It is
+disclosed rather than corrected: a finite-sample fix (fixed-$b$ critical
+values, or Andrews-Monahan prewhitening) would change every HAC $p$-value
+in the library and is a project rather than a patch. Read HAC $p$-values
+near the threshold as optimistic when the input is persistent — the
+`persistence` diagnostic in section 4 flags exactly that case.
+
 ## 7. Missing-value convention (null vs NaN)
 
 polars distinguishes `null` (missing) from float `NaN` (a value), and

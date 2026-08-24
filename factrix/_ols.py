@@ -35,16 +35,39 @@ def ols_alpha(
     HAC standard error (Bartlett kernel, [Newey-West (1994)][newey-west-1994]
     automatic bandwidth) rather than the homoskedastic OLS SE. Spanning
     alphas are routinely reported with HAC t-stats (Barillas-Shanken,
-    Fama-French). The cost on a genuinely non-overlapping, homoskedastic
-    series is the usual small-sample HAC noise: at ``n = 120`` iid the
-    HAC t has empirical size 6.7% at a nominal 5% (OLS ≈ 5%), the same
-    mild anti-conservatism every other HAC path in factrix carries and
-    ``statistical-methods`` §6 discloses. An overlapping or
-    heteroskedastic series is corrected instead of silently over-stated,
-    which is the trade this buys. An earlier version used the
-    OLS SE on the stated assumption that callers pass non-overlap spreads;
-    nothing in the ``(date, spread)`` input could verify that, so the
-    assumption was retired rather than documented harder.
+    Fama-French).
+
+    **The trade, measured.** Empirical size at a nominal 5% under a true
+    null (``alpha = 0``, one base factor, 4000 draws, read against
+    ``t(n - k)``):
+
+    | residuals | OLS | HAC |
+    |---|---|---|
+    | iid, n=60 | 0.047 | 0.071 |
+    | iid, n=120 | 0.052 | 0.065 |
+    | iid, n=240 | 0.047 | 0.054 |
+    | AR(0.6), n=60 | 0.337 | 0.185 |
+    | AR(0.6), n=120 | 0.332 | 0.135 |
+    | AR(0.6), n=240 | 0.330 | 0.115 |
+
+    On the case the retired assumption was written for — iid, genuinely
+    non-overlapping — HAC costs 1–2 points of size, the usual small-sample
+    HAC noise every other HAC path in factrix carries and
+    ``statistical-methods`` §6 discloses. On the case the assumption was
+    silently covering, the OLS SE rejects at **33%** and does not improve
+    with more data, because it is estimating the wrong quantity: the
+    autocorrelation is in the residuals, and more of them does not help.
+    Trading ~1.5 points for ~20 is not a close call.
+
+    HAC is not itself well calibrated on the autocorrelated case (0.115 at
+    n=240 and converging slowly); it is merely far closer. That residual
+    gap is a Bartlett small-sample property shared by every HAC path here,
+    not something specific to spanning.
+
+    An earlier version used the OLS SE on the stated assumption that
+    callers pass non-overlap spreads; nothing in the ``(date, spread)``
+    input could verify that, so the assumption was retired rather than
+    documented harder.
 
     Returns:
         _OLSResult with alpha, HAC t_stat, betas, R², and residual degrees

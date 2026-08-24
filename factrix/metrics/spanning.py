@@ -229,8 +229,11 @@ def spanning_alpha(
         homoskedastic OLS SE on the stated assumption that inputs are
         non-overlap spreads; nothing in a ``(date, spread)`` frame can
         verify that, so the SE is now robust to whatever the caller
-        passes. On a genuinely non-overlapping series the two agree to
-        within the 1–2 lags the auto bandwidth selects.
+        passes. On a genuinely non-overlapping iid series the HAC t costs
+        1–2 points of size (6.5% at ``n = 120`` against a nominal 5%); on
+        one with AR(0.6) residuals the OLS SE it replaces rejects at 33%
+        and does not improve with sample size. See
+        :func:`factrix._ols.ols_alpha` for the measured table.
 
     References:
         - [Barillas & Shanken (2017)][barillas-shanken-2017]. "Which
