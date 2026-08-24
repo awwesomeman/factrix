@@ -366,8 +366,9 @@ def slice_period_pairwise_test(
             # ``slicing.inference`` and because the disclosed ν lets a
             # reader recompute p from ``stat``. ν is per pair because the
             # two slices differ in length.
-            nu = _welch_df(
-                float(variances[i]), n_periods[i], float(variances[j]), n_periods[j]
+            nu = _satterthwaite_df(
+                np.array([variances[i], variances[j]]),
+                np.array([n_periods[i], n_periods[j]]),
             )
             if se2 <= EPSILON:
                 chi = 0.0
@@ -403,27 +404,34 @@ def slice_period_pairwise_test(
     )
 
 
-def _welch_df(var_a: float, n_a: int, var_b: float, n_b: int) -> float:
-    """Welch-Satterthwaite denominator df for a two-sample mean contrast.
+def _satterthwaite_df(variances: np.ndarray, n_periods: np.ndarray) -> float:
+    """Welch-Satterthwaite denominator df for a contrast of K slice means.
 
-    ``var_*`` are the (HAC) variances *of the mean*, so the classic
+    ``variances`` are the (HAC) variances *of the mean*, so the classic
     ``s²/n`` terms are already folded in. The ratio is computed on the
-    variance *shares* ``w = var / (var_a + var_b)`` so it is scale-free:
-    ``var_*`` shrinks like ``σ²/n`` and the raw ``Σ var²/(n-1)``
-    denominator like ``σ⁴/n³``, which for a per-period σ ≈ 0.1 drops
-    below any absolute tolerance from roughly n ≈ 60 and would pin ν at
-    the floor for perfectly healthy data. Floors at 1.0 so a degenerate
-    pair (both variances zero) cannot hand ``f.sf`` a zero df.
+    variance *shares* ``w = var / Σ var`` so it is scale-free: ``var_*``
+    shrinks like ``σ²/n`` and the raw ``Σ var²/(n-1)`` denominator like
+    ``σ⁴/n³``, which for a per-period σ ≈ 0.1 drops below any absolute
+    tolerance from roughly n ≈ 60 and would pin ν at the floor for
+    perfectly healthy data. ``K = 2`` is the pairwise Welch df; ``K > 2``
+    is the same Satterthwaite approximation on the diagonal Wald form the
+    omnibus uses. At the slice lengths the public API admits (``ic``
+    floors at 50 periods) ν lands in the hundreds, where ``F_{K-1, ν}``
+    and ``χ²_{K-1}`` are practically the same reference — the point of
+    using it is consistency with the pairwise path and disclosing ν, not
+    a size correction. Floors at 1.0 so a degenerate
+    set (all variances zero) cannot hand ``f.sf`` a zero df.
     """
-    total = var_a + var_b
+    v = np.asarray(variances, dtype=float)
+    n = np.asarray(n_periods, dtype=float)
+    total = float(v.sum())
     if not np.isfinite(total) or total <= 0.0:
         return 1.0
-    w_a = var_a / total
-    w_b = var_b / total
-    den = (w_a**2) / max(n_a - 1, 1) + (w_b**2) / max(n_b - 1, 1)
+    w = v / total
+    den = float(np.sum(w**2 / np.maximum(n - 1.0, 1.0)))
     if not np.isfinite(den) or den <= 0.0:
         return 1.0
-    return max(1.0 / float(den), 1.0)
+    return max(1.0 / den, 1.0)
 
 
 def _analytic_slice_moments(
@@ -538,11 +546,11 @@ def slice_period_joint_test(
         multiplicity)``. ``stat`` is the joint Wald statistic. The mechanism
         columns
         disclose the reference: ``stat_type="wald"``, ``df_num=K-1``
-        (restriction rank) and ``df_denom=None`` (disjoint samples have no
-        finite-cluster denominator); ``reference_dist`` is ``"chi2"`` —
-        ``p_value`` from the χ²_{K-1} survival function — for
-        ``method="analytic"``, or ``"bootstrap_null"`` for
-        ``method="bootstrap"``. ``multiplicity`` is ``None`` — a single
+        (restriction rank); ``reference_dist`` is ``"f"`` for
+        ``method="analytic"`` — ``p_value`` from ``F_{K-1, ν}`` with the
+        Satterthwaite ``ν`` in ``df_denom``, the K-slice form of the
+        pairwise Welch reference — or ``"bootstrap_null"`` (``df_denom``
+        ``None``) for ``method="bootstrap"``. ``multiplicity`` is ``None`` — a single
         omnibus has no family-internal correction.
 
     Raises:
@@ -571,7 +579,18 @@ def slice_period_joint_test(
         means, variances = _analytic_slice_moments(
             series_list, _read_forward_periods_stamp(data)
         )
-        stat, p = _wald_p_linear(means, np.diag(variances), restriction)
+        # Same finite-sample reference the pairwise path uses, generalised
+        # to K slices: F_{K-1, ν} with the Satterthwaite ν on the diagonal
+        # Wald form. Consistency + disclosure, not a size fix: at reachable
+        # slice lengths ν is in the hundreds and F ≈ χ². The joint path's
+        # residual over-rejection (5.8–8.0% at nominal 5%, not converging
+        # in T) comes from understated HAC variances in
+        # ``_analytic_slice_moments``, tracked separately.
+        nu = _satterthwaite_df(
+            variances, np.array([len(series) for series in series_list])
+        )
+        stat, p = _wald_p_linear(means, np.diag(variances), restriction, df_denom=nu)
+        df_denom = nu
 
     return pl.DataFrame(
         {
@@ -579,9 +598,9 @@ def slice_period_joint_test(
             "stat": [stat],
             "p_value": [p],
             "stat_type": ["wald"],
-            "reference_dist": ["bootstrap_null" if method == "bootstrap" else "chi2"],
+            "reference_dist": ["bootstrap_null" if method == "bootstrap" else "f"],
             "df_num": [k - 1],
-            "df_denom": [None],
+            "df_denom": [None if method == "bootstrap" else df_denom],
             "multiplicity": [None],
         }
     )

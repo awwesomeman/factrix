@@ -37,10 +37,41 @@ def test_single_row_shape(method: str) -> None:
     assert out["df_num"][0] == 2
     assert out["stat_type"][0] == "wald"
     assert out["reference_dist"][0] == (
-        "bootstrap_null" if method == "bootstrap" else "chi2"
+        "bootstrap_null" if method == "bootstrap" else "f"
     )
-    assert out["df_denom"][0] is None
+    if method == "bootstrap":
+        assert out["df_denom"][0] is None
+    else:
+        # Satterthwaite ν on three 80-period slices: well above the 1.0
+        # floor (which is the degenerate value) and at most the pooled dof.
+        assert 50.0 < out["df_denom"][0] <= 3 * 80 - 3
     assert out["multiplicity"][0] is None
+
+
+def test_analytic_omnibus_reference_is_satterthwaite_f() -> None:
+    """The analytic omnibus p is ``F_{K-1, ν}`` on the disclosed ``df_denom``.
+
+    Same finite-sample reference as the pairwise path, generalised to K
+    slices; the earlier asymptotic χ²_{K-1} over-rejected at short slices.
+    """
+    from scipy import stats as sp_stats
+
+    df = build_disjoint_period_panel(
+        seed=5,
+        spans={"a": (60, 0.1), "b": (90, 0.1), "c": (120, 0.1)},
+        label_col="regime",
+    )
+    out = slice_period_joint_test(
+        df, ic(), by="regime", factor_col="factor", method="analytic"
+    )
+    k, stat, nu, p = (
+        out["k_slices"][0],
+        out["stat"][0],
+        out["df_denom"][0],
+        out["p_value"][0],
+    )
+    assert p == pytest.approx(float(sp_stats.f.sf(stat / (k - 1), dfn=k - 1, dfd=nu)))
+    assert nu != pytest.approx(round(nu))  # unequal slices → fractional ν
 
 
 @pytest.mark.parametrize("method", ["bootstrap", "analytic"])

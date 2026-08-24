@@ -102,16 +102,27 @@ def test_welch_df_does_not_collapse_at_long_slices() -> None:
         assert nu == pytest.approx(298.0, rel=0.05)
 
 
-def test_welch_df_is_scale_free() -> None:
-    """Rescaling both variances by a constant leaves ν unchanged."""
-    from factrix.slicing.period_inference import _welch_df
+def test_satterthwaite_df_is_scale_free() -> None:
+    """Rescaling all variances by a constant leaves ν unchanged.
 
-    base = _welch_df(2.0e-4, 60, 5.0e-4, 120)
+    The df is computed on variance *shares*, so there is no absolute
+    quantity to underflow against a tolerance — the defect that pinned
+    ν at 1.0 on larger slices before the shares form was adopted.
+    """
+    import numpy as np
+    from factrix.slicing.period_inference import _satterthwaite_df
+
+    v = np.array([2.0e-4, 5.0e-4])
+    n = np.array([60, 120])
+    base = _satterthwaite_df(v, n)
     assert base > 1.0
     for scale in (1e-6, 1e-3, 1e3):
-        assert _welch_df(2.0e-4 * scale, 60, 5.0e-4 * scale, 120) == pytest.approx(base)
-    # Only a genuinely degenerate pair (both variances zero) hits the floor.
-    assert _welch_df(0.0, 60, 0.0, 120) == 1.0
+        assert _satterthwaite_df(v * scale, n) == pytest.approx(base)
+    # Only a genuinely degenerate set (all variances zero) hits the floor.
+    assert _satterthwaite_df(np.zeros(2), n) == 1.0
+    # K = 3 is the same function the omnibus uses; still scale-free.
+    v3, n3 = np.array([1e-4, 2e-4, 3e-4]), np.array([60, 90, 120])
+    assert _satterthwaite_df(v3 * 1e-5, n3) == pytest.approx(_satterthwaite_df(v3, n3))
 
 
 def test_three_slice_returns_three_rows() -> None:
