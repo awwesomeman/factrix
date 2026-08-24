@@ -255,19 +255,30 @@ def top_concentration(
         return sc
 
     warning_codes: list[str] = []
+    one_signed_meta: dict[str, int] = {}
     if weight_by == "abs_factor":
         finite_f = _finite_values(data[factor_col])
         n_pos = int((finite_f > 0).sum())
         n_neg = int((finite_f < 0).sum())
         if finite_f.len() and (n_pos == 0 or n_neg == 0):
             warning_codes.append(WarningCode.ONE_SIGNED_FACTOR.value)
+            one_signed_meta = {
+                "n_positive_factor_values": n_pos,
+                "n_negative_factor_values": n_neg,
+            }
+            # Constant message, counts in metadata: Python de-duplicates
+            # warnings per (text, category, module, lineno), so interpolating
+            # the counts made every call a distinct warning and a by_slice
+            # sweep or multi-factor evaluate emitted one per call instead of
+            # one per session.
             warnings.warn(
-                f"top_concentration: weight_by='abs_factor' on a factor that "
-                f"never changes sign ({n_pos} positive, {n_neg} negative finite "
-                f"values). |factor| is a density weight only when zero is the "
-                f"neutral point, and the HHI of |f| moves with an arbitrary "
-                f"level shift. Centre the factor (cross-sectional z-score) or "
-                f"use weight_by='alpha_contribution'.",
+                "top_concentration: weight_by='abs_factor' on a factor that "
+                "never changes sign. |factor| is a density weight only when "
+                "zero is the neutral point, and the HHI of |f| moves with an "
+                "arbitrary level shift. Centre the factor (cross-sectional "
+                "z-score) or use weight_by='alpha_contribution'. Counts are "
+                "in metadata['n_positive_factor_values'] / "
+                "['n_negative_factor_values'].",
                 UserWarning,
                 stacklevel=2,
             )
@@ -332,6 +343,8 @@ def top_concentration(
         # non-finite weight (both HHI and n_top exclude them).
         "n_top_members_selected": n_top_selected,
         "n_top_members_dropped": n_top_dropped,
+        # Present only when ONE_SIGNED_FACTOR fired; the sign split behind it.
+        **one_signed_meta,
     }
     # A uniform factor gives every date the same diversification ratio: the
     # ratio itself is still the answer, the one-sided t is not computable.

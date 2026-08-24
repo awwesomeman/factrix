@@ -232,7 +232,7 @@ class TestOneSignedFactorWarning:
     """
 
     @staticmethod
-    def _panel(shift: float):
+    def _panel(shift: float, n_assets: int = 30):
         from datetime import datetime, timedelta
 
         import numpy as np
@@ -241,8 +241,8 @@ class TestOneSignedFactorWarning:
         rng = np.random.default_rng(0)
         rows = []
         for d in range(40):
-            f = rng.standard_normal(30) + shift
-            for a in range(30):
+            f = rng.standard_normal(n_assets) + shift
+            for a in range(n_assets):
                 rows.append(
                     {
                         "date": datetime(2024, 1, 1) + timedelta(days=d),
@@ -262,6 +262,49 @@ class TestOneSignedFactorWarning:
             result = top_concentration(self._panel(shift=-10.0), forward_periods=1)
         assert WarningCode.ONE_SIGNED_FACTOR.value in result.warning_codes
         assert result.value is not None  # advisory only — metric still ran
+
+    def test_counts_land_in_metadata_and_the_message_is_constant(self):
+        """Counts belong in metadata so the warning text can de-duplicate.
+
+        Python keys its duplicate filter on (text, category, module, lineno).
+        Interpolating the sign counts made the text vary with the panel, so a
+        ``by_slice`` sweep or a multi-factor ``evaluate`` — where each call
+        sees a different number of values — emitted one warning per call
+        instead of one per session. Two panels of *different sizes* are what
+        exercises that; two identical calls de-duplicate either way.
+        """
+        import warnings as _warnings
+
+        from factrix._codes import WarningCode
+        from factrix.metrics.concentration import top_concentration
+
+        small = self._panel(shift=-10.0, n_assets=30)
+        large = self._panel(shift=-10.0, n_assets=45)
+        with _warnings.catch_warnings(record=True) as caught:
+            _warnings.simplefilter("default")
+            first = top_concentration(small, forward_periods=1)
+            second = top_concentration(large, forward_periods=1)
+
+        one_signed = [w for w in caught if "never changes sign" in str(w.message)]
+        assert len(one_signed) == 1, (
+            "panels of different sizes must still produce one de-duplicated "
+            f"warning; got {[str(w.message) for w in one_signed]}"
+        )
+        assert not any(ch.isdigit() for ch in str(one_signed[0].message))
+
+        assert first.metadata["n_negative_factor_values"] == 30 * 40
+        assert second.metadata["n_negative_factor_values"] == 45 * 40
+        for result in (first, second):
+            assert WarningCode.ONE_SIGNED_FACTOR.value in result.warning_codes
+            assert result.metadata["n_positive_factor_values"] == 0
+
+    def test_counts_absent_when_the_factor_is_two_sided(self):
+        """The keys are conditional — they describe why the code fired."""
+        from factrix.metrics.concentration import top_concentration
+
+        result = top_concentration(self._panel(shift=0.0), forward_periods=1)
+        assert "n_positive_factor_values" not in result.metadata
+        assert "n_negative_factor_values" not in result.metadata
 
     def test_centred_factor_does_not_warn(self):
         from factrix._codes import WarningCode
