@@ -62,6 +62,45 @@ class TestPolitisWhiteBlockLength:
             _politis_white_block_length(rng.standard_normal(200), scheme="other")  # type: ignore[arg-type]
 
 
+class TestPolitisWhiteUpperBound:
+    """The upper clamp is arch's ``b_max = ceil(min(3·√n, n/3))``.
+
+    Verified against ``arch.bootstrap._single_optimal_block`` source (line
+    ``b_max = np.ceil(min(3 * np.sqrt(nobs), nobs / 3))``), replacing an
+    earlier looser ``n / 2``. The bound exists to keep enough effective
+    blocks per resample: at ``L = n/2`` a resample is ~2 blocks and the
+    empirical p is built on coin flips.
+    """
+
+    def test_bound_binds_on_short_trending_series(self):
+        # A short random walk pushes the plug-in L past the bound; at n=20
+        # the old n/2 bound allowed L=10 (2 blocks per resample), the arch
+        # bound caps it at ceil(min(3*sqrt(20), 20/3)) = 7. Seed chosen so
+        # the unclamped estimate genuinely exceeds the bound.
+        n = 20
+        x = np.cumsum(np.random.default_rng(156).standard_normal(n))
+        L = _politis_white_block_length(x)
+        assert pytest.approx(np.ceil(min(3 * np.sqrt(n), n / 3))) == L
+        assert n / 2 > L
+
+    def test_iid_series_is_untouched_by_the_bound(self):
+        # The bound only matters for extreme persistence; iid resolves to
+        # the lower clamp region far below it.
+        x = np.random.default_rng(3).standard_normal(120)
+        assert _politis_white_block_length(x) < 5.0
+
+    def test_moderately_persistent_series_is_untouched(self):
+        # AR(0.6) at n=300 sits well inside both the old and new bounds:
+        # the alignment must not move the common case.
+        rng = np.random.default_rng(7)
+        x = np.empty(300)
+        x[0] = rng.standard_normal()
+        for t in range(1, 300):
+            x[t] = 0.6 * x[t - 1] + rng.standard_normal()
+        L = _politis_white_block_length(x)
+        assert 1.0 < L < np.ceil(min(3 * np.sqrt(300), 100))
+
+
 class TestFixedBlockIndices:
     def test_shape_and_range(self):
         rng = np.random.default_rng(seed=0)

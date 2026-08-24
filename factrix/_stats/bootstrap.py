@@ -150,7 +150,18 @@ def _politis_white_block_length(
     # data-driven L≈1 with blocks an order of magnitude longer on ~40% of
     # iid series and inflated the bootstrap test's size (8.7% at nominal
     # 5% on T=120).
-    return float(min(max(L, 1.0), n / 2.0))
+    #
+    # The upper bound is ``arch``'s ``b_max = ceil(min(3·√n, n/3))``
+    # (``arch.bootstrap._single_optimal_block``, verified against the
+    # source), replacing an earlier looser ``n / 2``. Bounding L relative
+    # to n is what keeps enough effective blocks (~n/L) for the resample
+    # variance to mean anything: at L = n/2 a resample is ~2 blocks and
+    # the empirical p is built on coin flips. Only extremely persistent
+    # series reach either bound (3·√n < n/3 from n = 81 up; at n = 120
+    # the bound tightens from 60 to 33), so iid and moderately dependent
+    # series are untouched.
+    b_max = float(np.ceil(min(3.0 * np.sqrt(n), n / 3.0)))
+    return float(min(max(L, 1.0), b_max))
 
 
 def _stationary_block_indices(
