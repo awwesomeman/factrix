@@ -454,6 +454,17 @@ def custom_ic(panel):
 fx.metrics.register(custom_ic)
 ```
 
+Resolve a registered spec by its label with `fx.spec_by_name()`, which
+returns the full `dict[str, MetricSpec]` registry keyed by metric name —
+the lookup the DAG executor itself uses, and the way to inspect a custom
+metric's declared cell after registration:
+
+```python
+specs = fx.spec_by_name()
+specs["custom_ic"].cell        # the declared analysis cell
+sorted(specs)                  # every metric label factrix knows
+```
+
 ---
 
 ### Preprocessing
