@@ -127,7 +127,7 @@ def corrado_rank(
     """
     # Rank only the finite returns. Ranking `return_col` directly is wrong
     # twice over: a null return produces a null rank, which turns std(u_all)
-    # into NaN and hands _calc_t_stat a NaN (silently z=0, p=0.5); and a
+    # into NaN and hands _calc_t_stat a NaN (NaN z, NaN p); and a
     # float NaN is not a null to polars, so it ranks as the *largest* value
     # in the asset and is quietly kept as a genuine top-decile observation.
     # Masking to null first makes both cases explicit and excludable, and

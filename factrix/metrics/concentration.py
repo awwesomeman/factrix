@@ -37,6 +37,7 @@ from factrix._types import (
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _compute_tie_ratio,
+    _degenerate_test_fields,
     _enforce_scaled_floor,
     _finite_expr,
     _sample_non_overlapping,
@@ -305,13 +306,18 @@ def top_concentration(
         "n_top_members_selected": n_top_selected,
         "n_top_members_dropped": n_top_dropped,
     }
+    # A uniform factor gives every date the same diversification ratio: the
+    # ratio itself is still the answer, the one-sided t is not computable.
+    stat, p_out, alternative = _degenerate_test_fields(
+        t, p, "less", metadata, warning_codes
+    )
     return MetricResult(
-        p_value=p,
-        alternative="less",
+        p_value=p_out,
+        alternative=alternative,
         value=mean_eff_n,
         n_obs=n,
         n_obs_axis="periods",
-        stat=t,
+        stat=stat,
         metadata=metadata,
         warning_codes=tuple(warning_codes),
     )

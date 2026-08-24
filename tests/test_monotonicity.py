@@ -18,6 +18,31 @@ class TestComputeMonotonicity:
         result = monotonicity(perfect, forward_periods=1, n_groups=5)["factor"]
         assert result.value == pytest.approx(1.0)
 
+    def test_perfect_monotonicity_keeps_its_value_and_withholds_the_test(
+        self, noisy_panel
+    ):
+        """+1 on every period is maximal evidence, and has no t.
+
+        The measurement (avg monotonicity = 1.0) survives; the hypothesis
+        test does not, because a constant series has no dispersion to form
+        an SE from. What must never appear is the old t=0 / p=1, which read
+        a perfectly ordered factor as "no signal".
+        """
+        import polars as pl
+        from factrix._codes import WarningCode
+
+        perfect = noisy_panel.with_columns(
+            pl.col("factor").rank(method="average").over("date").alias("forward_return")
+        )
+        result = monotonicity(perfect, forward_periods=1, n_groups=5)["factor"]
+        assert result.value == pytest.approx(1.0)
+        assert result.metadata["mean_signed"] == pytest.approx(1.0)
+        assert result.stat is None
+        assert result.p_value is None
+        assert result.alternative is None
+        assert WarningCode.DEGENERATE_VARIANCE.value in result.warning_codes
+        assert result.metadata["signal_status"] == "degenerate_zero_variance"
+
     def test_inverse_monotonic(self, noisy_panel):
         import polars as pl
 

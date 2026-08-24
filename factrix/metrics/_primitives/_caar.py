@@ -67,8 +67,9 @@ def compute_caar(
     Non-finite handling:
         polars' ``mean`` propagates float ``NaN`` (it only skips nulls), so a
         single NaN ``return_col`` on one event used to poison that whole
-        date's ``caar`` — and a NaN caar then silently reaches ``_calc_t_stat``
-        downstream, which returns ``t=0, p=1``. Event rows are therefore
+        date's ``caar`` — and a NaN caar then reaches ``_calc_t_stat``
+        downstream, which returns NaN and short-circuits the metric as
+        ``degenerate_variance``, mislabelling missing data as degeneracy. Event rows are therefore
         filtered to finite ``return_col`` **and** finite ``factor_col``
         before the ``group_by`` (this is the producer boundary that the
         project convention makes responsible for dropping non-finite values),

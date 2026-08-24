@@ -41,6 +41,7 @@ def make_result(
     params: dict[str, Any] | None = None,
     result_metadata: dict[str, Any] | None = None,
     extra_outputs: dict[str, MetricResult] | None = None,
+    warning_codes: tuple[str, ...] = (),
 ) -> EvaluationResult:
     """Build an :class:`EvaluationResult` for testing.
 
@@ -59,6 +60,7 @@ def make_result(
         n_obs=100,
         name=metric,
         metadata=output_metadata,
+        warning_codes=warning_codes,
     )
     outputs = {metric: primary_out}
     if extra_outputs:

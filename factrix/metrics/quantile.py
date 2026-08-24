@@ -41,6 +41,7 @@ from factrix.metrics._helpers import (
     _assign_quantile_groups,
     _check_applicable_inference,
     _compute_tie_ratio,
+    _degenerate_test_fields,
     _enforce_scaled_floor,
     _finite_expr,
     _finite_values,
@@ -107,7 +108,12 @@ def _median_finite_cross_section(panel: pl.DataFrame, factor_col: str) -> int:
 
 
 def _excess_leg_test(arr: np.ndarray) -> tuple[float, float, float]:
-    """``(mean, t, p)`` for a long/short excess leg, NaN-safe on an empty leg."""
+    """``(mean, t, p)`` for a long/short excess leg, NaN-safe on an empty leg.
+
+    Descriptive metadata only — the headline test is the spread, not a leg —
+    so a degenerate leg is reported as ``t = p = NaN`` (``_calc_t_stat``'s
+    not-computable value) rather than short-circuiting the whole metric.
+    """
     n_leg = int(arr.size)
     if n_leg == 0:
         nan = float("nan")
@@ -206,8 +212,9 @@ def quantile_spread(
 
         **Non-finite observations.** Every series column consumed here is
         filtered with ``drop_nulls().drop_nans()``: polars' ``drop_nulls``
-        keeps float NaN, and one NaN in the spread would silently return
-        ``t=0, p=1`` from the t-path or raise in the bootstrap path.
+        keeps float NaN, and one NaN in the spread would make the t-path
+        report ``degenerate_variance`` (mislabelling missing data as a
+        dispersion-free sample) or raise in the bootstrap path.
 
         **Thin cross-sections** are judged by the median *per-date* count
         of finite factor values (``metadata["median_cross_section"]``),
@@ -442,13 +449,18 @@ def _quantile_spread_from_series(
         metadata=metadata,
         warning_codes=warning_codes,
     )
+    # A NaN headline stat means the tested spread series carries no dispersion
+    # (or the HAC SE collapsed): ``mean_spread`` still stands, the t does not.
+    stat, p_out, alternative = _degenerate_test_fields(
+        t, p, "two-sided", metadata, warning_codes
+    )
     return MetricResult(
-        p_value=p,
-        alternative="two-sided",
+        p_value=p_out,
+        alternative=alternative,
         value=mean_spread,
         n_obs=n,
         n_obs_axis="periods",
-        stat=t,
+        stat=stat,
         metadata=metadata,
         warning_codes=tuple(warning_codes),
     )
@@ -706,13 +718,18 @@ def quantile_spread_vw(
         metadata=metadata,
         warning_codes=warning_codes,
     )
+    # A NaN headline stat means the tested spread series carries no dispersion
+    # (or the HAC SE collapsed): ``mean_spread`` still stands, the t does not.
+    stat, p_out, alternative = _degenerate_test_fields(
+        t, p, "two-sided", metadata, warning_codes
+    )
     return MetricResult(
-        p_value=p,
-        alternative="two-sided",
+        p_value=p_out,
+        alternative=alternative,
         value=mean_spread,
         n_obs=n,
         n_obs_axis="periods",
-        stat=t,
+        stat=stat,
         metadata=metadata,
         warning_codes=tuple(warning_codes),
     )

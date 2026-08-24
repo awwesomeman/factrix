@@ -541,7 +541,8 @@ The canonical glosses live in `factrix._codes.WarningCode.description` and are r
 | `few_events` | CAAR significance test with 4..29 event periods; sub-30 series is power-thin for the asymptotic t. |
 | `borderline_portfolio_periods` | `top_concentration` with 3..19 periods; one-sided t-test returned but df=n-1 inflates t_crit. |
 | `few_directional_pairs` | `directional_hit_rate` with 10..29 pooled non-overlapping (date, asset) pairs; PT normal approximation is power-thin below ~30. |
-| `rect_kernel_negative_variance` | Rectangular-kernel HAC variance came out negative (no PSD guarantee); clamped to 0 → SE=0, t=0, p=1.0 (conservative). |
+| `rect_kernel_negative_variance` | Rectangular-kernel HAC variance came out negative (no PSD guarantee); clamped to 0 → SE=0, so the t-test is not computable (also flagged `degenerate_variance`). |
+| `degenerate_variance` | The sample admits no t-statistic: every observation identical (zero dispersion) or the HAC SE collapsed to zero. The metric keeps its `value` but returns `stat=None` / `p_value=None` — an identical, non-zero sample is degenerate in the *maximum*-evidence direction, so `t=0, p=1` would invert the reading. |
 | `bmp_return_vol_fallback` | `bmp_z` ran without a `price` column; estimation-window vol falls back to lagged rolling std of `forward_return` (coarser proxy). |
 | `upstream_unavailable` | DAG consumer skipped because an upstream producer short-circuited; cause in `metadata['upstream_reason']`. |
 | `metric_unavailable` | Metric short-circuited on its OWN precondition (missing input/config or insufficient sample); cause in `metadata['reason']`. |

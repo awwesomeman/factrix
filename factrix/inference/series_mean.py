@@ -23,6 +23,7 @@ directly.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
@@ -91,8 +92,13 @@ class NonOverlapping:
         p_value = _p_value_from_t(t_stat, n_sampled)
 
         warnings: frozenset[WarningCode] = frozenset()
+        # A NaN t means the strided subsample admits no test at all (every
+        # survivor identical). Flag it rather than let a NaN p read as a
+        # merely uninformative result.
+        if math.isnan(t_stat) and n_sampled:
+            warnings |= frozenset({WarningCode.DEGENERATE_VARIANCE})
         if 0 < n_sampled < self.min_periods:
-            warnings = frozenset({WarningCode.UNRELIABLE_SE_SHORT_PERIODS})
+            warnings |= frozenset({WarningCode.UNRELIABLE_SE_SHORT_PERIODS})
 
         return InferenceResult(
             stat=t_stat,
@@ -144,8 +150,10 @@ class NeweyWest:
         t_stat, p_value, _ = _newey_west_t_test(vals, lags=nw_lags)
 
         warnings: frozenset[WarningCode] = frozenset()
+        if math.isnan(t_stat) and n:
+            warnings |= frozenset({WarningCode.DEGENERATE_VARIANCE})
         if 0 < n < self.min_periods:
-            warnings = frozenset({WarningCode.UNRELIABLE_SE_SHORT_PERIODS})
+            warnings |= frozenset({WarningCode.UNRELIABLE_SE_SHORT_PERIODS})
 
         return InferenceResult(
             stat=t_stat,
@@ -166,6 +174,9 @@ class HansenHodrick:
     ([Andrews 1991][andrews-1991] §3): on short / mildly anti-correlated
     samples the estimate can come out negative; ``compute`` clamps the
     variance to 0 and surfaces ``WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE``.
+    A clamped (or otherwise zero) SE leaves no computable t, so ``stat`` /
+    ``p_value`` are NaN and ``WarningCode.DEGENERATE_VARIANCE`` is raised
+    alongside.
 
     Exported for explicit / comparison use but **not** in any metric's
     ``inference=`` union today: ``NeweyWest`` (Bartlett, PSD-guaranteed) is
@@ -196,6 +207,8 @@ class HansenHodrick:
         warnings: frozenset[WarningCode] = frozenset()
         if clamped:
             warnings |= frozenset({WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE})
+        if math.isnan(t_stat) and len(vals):
+            warnings |= frozenset({WarningCode.DEGENERATE_VARIANCE})
         if 0 < len(vals) < self.min_periods:
             warnings |= frozenset({WarningCode.UNRELIABLE_SE_SHORT_PERIODS})
 

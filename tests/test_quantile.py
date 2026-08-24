@@ -533,8 +533,13 @@ class TestQuantileSpreadVWMissingReturns:
         result = quantile_spread_vw(
             _long_panel(build), forward_periods=1, n_groups=5, lag_weights=False
         )
+        from factrix._codes import WarningCode
+
         assert result.value == pytest.approx(0.10)
-        assert math.isfinite(result.stat)
+        # The fixture repeats one date's panel, so the spread is a constant
+        # 0.10: the value is real, the t is not computable.
+        assert result.stat is None
+        assert WarningCode.DEGENERATE_VARIANCE.value in result.warning_codes
 
     def test_all_returns_missing_on_a_date_yields_no_observation(self):
         """An empty leg must be null, never a manufactured 0.0 spread.
@@ -567,7 +572,11 @@ class TestQuantileSpreadVWMissingReturns:
 
 class TestQuantileSpreadNonFiniteSeries:
     def test_nan_spread_is_dropped_not_silently_zeroing_the_t_stat(self):
-        """One NaN in the spread series used to give t=0, p=1."""
+        """One NaN in the spread series must not reach the t-stat.
+
+        It used to give t=0 / p=1; it would now give a degenerate_variance
+        result with stat=None. Either way the NaN belongs dropped upstream.
+        """
         series = pl.DataFrame(
             {
                 "date": [datetime(2024, 1, 1) + timedelta(days=i) for i in range(40)],
@@ -599,8 +608,8 @@ class TestQuantileSpreadNonFiniteSeries:
         expected = float(np.mean([0.01 + 0.001 * (i % 5) for i in range(39)]))
         assert result.n_obs == 39
         assert result.value == pytest.approx(expected)
-        # The old code averaged the NaN in: value NaN, and _calc_t_stat's NaN
-        # guard silently returned t=0, p=1 on a strongly positive spread.
+        # The old code averaged the NaN in: value NaN, and _calc_t_stat's
+        # degeneracy guard erased the t on a strongly positive spread.
         assert result.stat > 5.0
         assert result.p_value < 0.01
         assert "NaN" in result.metadata["drop_reason"]

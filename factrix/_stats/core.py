@@ -14,8 +14,39 @@ from scipy import stats as sp_stats
 from factrix._types import DDOF, EPSILON
 
 
+def _degenerate_t_input(std: float, n: int) -> bool:
+    """True when ``(std, n)`` cannot support a t-statistic.
+
+    Zero (or EPSILON-small) dispersion and a non-positive sample size are
+    the two regimes where ``mean / (std / √n)`` has no finite value. Callers
+    that own a ``MetricResult`` test this *before* computing and short-circuit
+    with an explicit ``degenerate_variance`` reason; :func:`_calc_t_stat`
+    returning NaN is the backstop for anything that slips past.
+    """
+    return not (std > EPSILON and n > 0)
+
+
 def _calc_t_stat(mean: float, std: float, n: int) -> float:
-    """Compute t-statistic with EPSILON guard against near-zero std.
+    """Compute t-statistic, or NaN when the sample cannot support one.
+
+    A near-zero ``std`` is **not** evidence of a null effect. When every
+    observation is identical and non-zero the sample is degenerate in the
+    *maximum*-evidence direction (``t → ±∞``), and when it is identical and
+    zero the ratio is an undefined ``0/0``. An earlier version returned
+    ``0.0`` for both, which downstream turned into ``p = 1`` — reporting
+    "no predictive power" for a sample that carries either overwhelming or
+    undefined evidence, never the null.
+
+    Reference behaviour splits on the same input but never lands on
+    ``t = 0``: ``scipy.stats.ttest_1samp`` propagates (``t ≈ 1.3e16, p ≈ 0``
+    for a constant non-zero sample; ``nan`` for a constant zero one), while
+    R's ``t.test`` refuses with "data are essentially constant". This
+    returns NaN — the soft form of R's refusal, and the value that cannot
+    be mistaken for a finding. Metric callers gate on
+    :func:`_degenerate_t_input` first and emit a ``degenerate_variance``
+    short-circuit, so the NaN reaches a caller only as a backstop. ±∞ is
+    deliberately not used: it would spread through serialization,
+    aggregation and plotting as a legitimate extreme value.
 
     Args:
         mean: Sample mean.
@@ -23,11 +54,11 @@ def _calc_t_stat(mean: float, std: float, n: int) -> float:
         n: Sample size.
 
     Returns:
-        t-statistic, or 0.0 if std is near-zero or n ≤ 0.
+        t-statistic, or NaN when :func:`_degenerate_t_input` holds.
     """
-    if std > EPSILON and n > 0:
-        return float(mean / (std / np.sqrt(n)))
-    return 0.0
+    if _degenerate_t_input(std, n):
+        return float("nan")
+    return float(mean / (std / np.sqrt(n)))
 
 
 def _t_stat_from_array(values: np.ndarray) -> float:
@@ -37,10 +68,11 @@ def _t_stat_from_array(values: np.ndarray) -> float:
         values: 1-D numeric array with at least 2 elements.
 
     Returns:
-        t-statistic of the mean, or 0.0 if insufficient data.
+        t-statistic of the mean, or NaN if the sample is too short (< 2)
+        or degenerate — see :func:`_calc_t_stat` for why not 0.0.
     """
     if len(values) < 2:
-        return 0.0
+        return float("nan")
     return _calc_t_stat(
         float(np.mean(values)),
         float(np.std(values, ddof=DDOF)),

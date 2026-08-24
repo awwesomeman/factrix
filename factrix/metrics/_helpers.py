@@ -83,8 +83,9 @@ def _finite_values(series: pl.Series) -> pl.Series:
     """Series-level twin of :func:`_finite_expr`: drop null, NaN and ±inf.
 
     polars ``drop_nulls`` keeps float NaN, and one NaN reaching ``np.mean`` /
-    ``np.std`` makes ``_calc_t_stat`` return ``t=0, p=1`` silently (or makes
-    the block bootstrap raise). Every series column a metric collapses to a
+    ``np.std`` makes ``_calc_t_stat`` return a NaN t — which short-circuits as
+    ``degenerate_variance``, mislabelling missing data as a degenerate sample
+    (or makes the block bootstrap raise). Every series column a metric collapses to a
     scalar goes through here first, and the resulting length is what the
     metric reports as ``n_obs``.
     """
@@ -300,6 +301,10 @@ def _short_circuit_output(
         - ``insufficient_<thing>`` — data shortage (dropped from BHY)
         - ``no_<thing>`` — missing input / missing config / missing data
 
+    A sample that is large enough but carries no dispersion is *not* a
+    short-circuit: see :func:`_degenerate_test_fields`, which keeps the
+    point estimate and withholds only the test.
+
     ``value=NaN`` (not 0.0) because 0.0 is a legal factor-metric outcome
     (IC exactly 0, β exactly 0, spread exactly 0) indistinguishable from
     a silent short-circuit. NaN propagates through downstream aggregations
@@ -389,6 +394,62 @@ def _no_signal_zero_variance(n_periods: int, **extra: object) -> MetricResult:
             **extra,
         },
     )
+
+
+# ``metadata["signal_status"]`` value marking a result whose point estimate is
+# real but whose hypothesis test does not exist. Sits alongside
+# ``_no_signal_zero_variance``'s ``"no_signal_zero_variance_factor"``: both
+# describe a zero-variance sample, but that one *is* a null finding (a constant
+# factor makes the spread identically zero, so t=0 / p=1 is honest) while this
+# one carries a non-zero point estimate no test can speak to.
+DEGENERATE_SIGNAL_STATUS = "degenerate_zero_variance"
+
+
+def _degenerate_test_fields(
+    stat: float,
+    p_value: float,
+    alternative: PValueAlternative,
+    metadata: dict[str, object],
+    warning_codes: list[str],
+) -> tuple[float | None, float | None, PValueAlternative | None]:
+    """Drop the hypothesis-test fields when the sample admits no statistic.
+
+    Pass what ``_calc_t_stat`` (or a HAC t-test) just returned together with
+    the p derived from it. When ``stat`` is finite the triple comes back
+    unchanged; when it is NaN the caller gets ``(None, None, None)`` and this
+    stamps ``metadata["signal_status"]`` plus a ``DEGENERATE_VARIANCE``
+    warning code (both containers are mutated in place, as the
+    ``_surface_*`` helpers do).
+
+    **Why the test dies but the result lives.** A zero-dispersion sample is
+    not a null result: every observation identical and non-zero is degeneracy
+    in the *maximum*-evidence direction (``t → ±∞``); identical and zero is an
+    undefined ``0/0``. Reporting ``t = 0, p = 1`` for either — the behaviour
+    this replaced — read "no predictive power" off a sample that carried
+    neither. ``scipy.stats.ttest_1samp`` propagates instead (``t ≈ 1e16`` /
+    ``nan``) and R's ``t.test`` refuses outright ("data are essentially
+    constant"); neither lands on the null.
+
+    So the *test* is withheld — ``p_value=None`` is the repo's existing
+    "this result carries no hypothesis test" shape, shared with
+    ``_short_circuit_output(descriptive=True)``. The *point estimate* is not:
+    a factor that is perfectly monotonic every period has a real
+    ``value = 1.0``, and a full short-circuit to ``value=NaN`` would discard a
+    genuine measurement — the mirror image of the bug being fixed. Callers
+    keep their normal ``value`` / ``n_obs`` / ``metadata`` and pass the
+    returned triple straight into ``MetricResult``.
+
+    ±inf is deliberately not used in place of NaN anywhere in this path: it
+    would spread through serialization, aggregation and plotting as a
+    legitimate extreme value.
+    """
+    if not math.isnan(stat):
+        return stat, p_value, alternative
+    metadata["signal_status"] = DEGENERATE_SIGNAL_STATUS
+    code = WarningCode.DEGENERATE_VARIANCE.value
+    if code not in warning_codes:
+        warning_codes.append(code)
+    return None, None, None
 
 
 def _enforce_min_floor(

@@ -48,6 +48,7 @@ from factrix._types import (
 from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
+    _degenerate_test_fields,
     _enforce_min_floor,
     _estimate_within_date_icc,
     _kp_cluster_scale,
@@ -270,7 +271,7 @@ def caar(
     t = (
         _calc_t_stat(mean_caar, float(sampled.std()), n_sampled)  # type: ignore[arg-type]
         if n_sampled >= 2
-        else 0.0
+        else float("nan")
     )
     p = _p_value_from_t(t, n_sampled)
 
@@ -292,13 +293,18 @@ def caar(
             caar_df["n_events_dropped_non_finite"][0]
         )
 
+    # Fewer than two spaced event dates, or an identical CAAR on all of them:
+    # ``mean_caar`` still stands, the t does not exist.
+    stat, p_out, alternative = _degenerate_test_fields(
+        t, p, "two-sided", metadata, warning_codes
+    )
     return MetricResult(
-        p_value=p,
-        alternative="two-sided",
+        p_value=p_out,
+        alternative=alternative,
         value=mean_caar,
         n_obs=n_sampled,
         n_obs_axis="events",
-        stat=t,
+        stat=stat,
         metadata=metadata,
         warning_codes=tuple(warning_codes),
     )
@@ -614,14 +620,18 @@ def bmp_z(
         z = z_bmp
 
     p = _p_value_from_z(z)
-
+    # An identical standardized AR across every event zeroes the BMP
+    # cross-sectional denominator: ``mean_sar`` is real, the z is not.
+    stat, p_out, alternative = _degenerate_test_fields(
+        z, p, "two-sided", metadata, warning_codes
+    )
     return MetricResult(
-        p_value=p,
-        alternative="two-sided",
+        p_value=p_out,
+        alternative=alternative,
         value=mean_sar,
         n_obs=n_valid,
         n_obs_axis="events",
-        stat=z,
+        stat=stat,
         metadata=metadata,
         warning_codes=tuple(warning_codes),
     )
