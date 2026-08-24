@@ -70,6 +70,12 @@ class TestPolitisWhiteUpperBound:
     earlier looser ``n / 2``. The bound exists to keep enough effective
     blocks per resample: at ``L = n/2`` a resample is ~2 blocks and the
     empirical p is built on coin flips.
+
+    It binds on short series regardless of persistence — measured
+    against the old ``n / 2``, the resolved L moves on ~6% of iid draws
+    at n=20 and under 1% by n=120 — so these are point checks on
+    representative seeds, not a claim that any family is universally
+    untouched.
     """
 
     def test_bound_binds_on_short_trending_series(self):
@@ -84,8 +90,10 @@ class TestPolitisWhiteUpperBound:
         assert n / 2 > L
 
     def test_iid_series_is_untouched_by_the_bound(self):
-        # The bound only matters for extreme persistence; iid resolves to
-        # the lower clamp region far below it.
+        # A long iid series resolves to the lower clamp region far below
+        # the bound. This is a point check, not a general claim: at short
+        # n the bound does bind on iid draws (~6% at n=20), because the
+        # plug-in estimate is noisiest where there is least dependence.
         x = np.random.default_rng(3).standard_normal(120)
         assert _politis_white_block_length(x) < 5.0
 

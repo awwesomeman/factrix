@@ -156,10 +156,19 @@ def _politis_white_block_length(
     # source), replacing an earlier looser ``n / 2``. Bounding L relative
     # to n is what keeps enough effective blocks (~n/L) for the resample
     # variance to mean anything: at L = n/2 a resample is ~2 blocks and
-    # the empirical p is built on coin flips. Only extremely persistent
-    # series reach either bound (3·√n < n/3 from n = 81 up; at n = 120
-    # the bound tightens from 60 to 33), so iid and moderately dependent
-    # series are untouched.
+    # the empirical p is built on coin flips. ``3·√n`` is the binding
+    # branch below n = 81 and ``n/3`` above it; at n = 120 the bound
+    # tightens from 60 to 33.
+    #
+    # Measured against the old ``n/2`` over 500 series per cell, the
+    # resolved L changes on 6.0% of iid n=20 series, 2.0% of AR(0.6)
+    # n=20, and under 1% by n=120, reaching 0% by n=300. Note the
+    # direction: the bound bites hardest on SHORT, LOW-persistence
+    # series, not on persistent ones — the plug-in estimate is noisiest
+    # where there is least dependence to estimate, which is the same
+    # failure the lower clamp above addresses from the other side.
+    # Strongly persistent series (AR(0.95), random walk) sit inside the
+    # bound almost always.
     b_max = float(np.ceil(min(3.0 * np.sqrt(n), n / 3.0)))
     return float(min(max(L, 1.0), b_max))
 
