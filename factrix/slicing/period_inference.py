@@ -59,6 +59,7 @@ Matrix-row: slice_period_pairwise_test, slice_period_joint_test | (*, *, *, *, *
 
 from __future__ import annotations
 
+import warnings
 from itertools import combinations
 from typing import Literal
 
@@ -92,6 +93,16 @@ Method = Literal["bootstrap", "analytic"]
 
 _N_RESAMPLES = 999
 _SCHEME: Scheme = "stationary"
+
+# Slice length below which the joint test's realised size exceeds ~1.5× its
+# nominal level on a true null with K >= 3 slices. Set from the measured
+# K × T grid (500 seeds each, iid per-date IC, nominal 5%): K=5 rejects 9.4% /
+# 8.2% / 5.4% / 5.6% and K=3 6.2% / 7.8% / 5.4% / 3.8% at T = 50 / 90 / 150 /
+# 250, while K=2 stays within 4.6–5.8% throughout. The excess is the
+# per-slice Bartlett HAC variance estimate's small-sample noise (effective
+# df ≈ 21 at T=50, not T-1) inverted across K-1 restrictions; the bootstrap
+# path shows the same 12% at K=5, T=50, so it is not a routing fix.
+_JOINT_SHORT_SLICE_PERIODS = 150
 
 
 def _validate_method(method: str, func_name: str) -> None:
@@ -519,8 +530,8 @@ def slice_period_joint_test(
     because the slices are independent samples, the cross-slice covariance
     is **block-diagonal** — ``Var(μ_k)`` on the diagonal, zero off it. Both
     methods share the same Wald quadratic form; they differ in how the null
-    is referenced, mirroring the pairwise path: ``"analytic"`` uses the
-    χ²_{K-1} asymptotic distribution, while ``"bootstrap"`` calibrates the
+    is referenced, mirroring the pairwise path: ``"analytic"`` uses an
+    ``F_{K-1, ν}`` reference with a Satterthwaite ``ν``, while ``"bootstrap"`` calibrates the
     statistic against its own block-bootstrap null (so a short-regime
     omnibus stays small-sample robust instead of leaning on χ²
     asymptotics). Useful for **regime analysis**: a single test of "does
@@ -561,12 +572,49 @@ def slice_period_joint_test(
             metric's own ``SampleThreshold`` floor (the size at which
             :func:`factrix.by_slice` short-circuits the metric to NaN).
         TypeError: Metric is not slice-test-eligible.
+
+    Warns:
+        UserWarning: ``K >= 3`` and the shortest slice has fewer than 150
+            periods. Measured size on a true null (iid per-date IC, nominal
+            5%, 500 seeds per cell), rows ``K``, columns ``T``::
+
+                K / T     50     90    150    250
+                2        .046   .058   .052   .046
+                3        .062   .078   .054   .038
+                5        .094   .082   .054   .056
+
+            The excess is not the reference distribution (``F`` and χ²
+            agree at these ν) and not the aggregation (with the true
+            variances the same statistic rejects 3.8%): each slice's
+            Bartlett HAC variance is a noisy small-sample estimate —
+            effective df ≈ 21 at ``T = 50`` rather than ``T - 1`` — and
+            inverting K-1 of them inflates the Wald. The bootstrap path
+            carries the same noise (12% at ``K=5, T=50``), so switching
+            method does not help; a longer slice does. Prewhitening,
+            plug-in bandwidths and finite-sample F references were each
+            measured and none calibrates this case. Pairwise contrasts on
+            the same slices sit at 5–6% and are the better-calibrated read.
     """
     _validate_metric_instance(metric, "slice_period_joint_test")
     _validate_method(method, "slice_period_joint_test")
     labels, series_list = _build_per_slice_series(
         data, metric, by, factor_col=factor_col, func_name="slice_period_joint_test"
     )
+    k = len(series_list)
+    shortest = min(len(series) for series in series_list)
+    if k >= 3 and shortest < _JOINT_SHORT_SLICE_PERIODS:
+        warnings.warn(
+            f"slice_period_joint_test: {k} slices with the shortest at "
+            f"{shortest} periods (< {_JOINT_SHORT_SLICE_PERIODS}). On a true "
+            f"null the joint test over-rejects here — measured 8–9% at a "
+            f"nominal 5% for K=5 with 50–90-period slices, under both "
+            f"methods — because each slice's HAC variance is a noisy "
+            f"small-sample estimate inverted across K-1 restrictions. Read "
+            f"the p-value as indicative; pairwise contrasts on the same "
+            f"slices are better calibrated.",
+            UserWarning,
+            stacklevel=2,
+        )
     k = len(labels)
     restriction = _equality_restriction(k)
 
@@ -583,8 +631,8 @@ def slice_period_joint_test(
         # to K slices: F_{K-1, ν} with the Satterthwaite ν on the diagonal
         # Wald form. Consistency + disclosure, not a size fix: at reachable
         # slice lengths ν is in the hundreds and F ≈ χ². The joint path's
-        # residual over-rejection (5.8–8.0% at nominal 5%, not converging
-        # in T) comes from understated HAC variances in
+        # residual over-rejection (up to ~9% at nominal 5% on short slices,
+        # converging by T ≈ 150) comes from understated HAC variances in
         # ``_analytic_slice_moments``, tracked separately.
         nu = _satterthwaite_df(
             variances, np.array([len(series) for series in series_list])
