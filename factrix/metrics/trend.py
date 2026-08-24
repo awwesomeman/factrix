@@ -27,10 +27,10 @@ from factrix._axis import (
 )
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
-from factrix._stats import _adf, _p_value_from_t
-from factrix._types import EPSILON
+from factrix._stats import _adf
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
+    _degenerate_test_fields,
     _enforce_min_floor,
     _resolve_series_value_col,
     _surface_null_drop,
@@ -95,35 +95,36 @@ def ic_trend(
 
     Notes:
         Theil-Sen median pairwise slope: ``slope = median{(y_j - y_i) /
-        (j - i) : i < j}``. Approximate t-stat is reconstructed from the
-        rank-based 95% confidence interval ``[low, high]``:
-        ``SE ≈ (high - low) / 2 / 1.96`` and ``t ≈ slope / SE``. An ADF
-        unit-root pre-check on the input flags series for which the slope
-        null is rejected at inflated rates regardless of the true trend.
+        (j - i) : i < j}`` ([Sen (1968)][sen-1968]) reports the trend's
+        *magnitude*; significance comes from the Mann-Kendall test
+        ([Mann (1945)][mann-1945], [Kendall (1975)][kendall-1975]) on the
+        same ranks — ``stat`` is Kendall's ``tau`` between the sequence
+        index and the series, ``p_value`` its two-sided p (exact for
+        small ``n``, tie-corrected asymptotic otherwise, via
+        ``scipy.stats.kendalltau``). That is the standard pairing for a
+        non-parametric trend test: one rank-based framework supplies both
+        numbers. An ADF unit-root pre-check on the input flags series for
+        which the trend null is rejected at inflated rates regardless of
+        the true trend.
 
-        **Mixed reference distributions.** The SE above is backed out from
-        scipy's *normal*-based 95% rank CI (hence the 1.96), while the
-        p-value is then read off a ``t(n - 2)`` tail — two estimates the
-        slope *and* the intercept, so ``n - 2``, not the ``n - 1`` of a
-        one-sample mean test. Mixing a normal-derived SE with a t reference
-        is deliberate: it is the conservative direction (t has fatter tails
-        than the normal the SE came from) and it keeps small-``n`` trend
-        p-values from being read as exact. The alternative — a pure z-test
-        — would be internally consistent but anti-conservative at the
-        ``min_periods=10`` floor this metric allows.
+        **Why not a t backed out of the CI.** An earlier version derived
+        ``SE ≈ (ci_high - ci_low) / 2 / 1.96`` from scipy's normal-based
+        95% rank interval and read ``slope / SE`` against ``t(n - 2)``.
+        Under a true null that combination rejected 2.4–3.8% at a nominal
+        5% for ``n = 10–30`` — conservative, but by mixing a normal-derived
+        SE with a t reference rather than by design, and it made a
+        perfectly linear series (zero-width CI) a special case that had to
+        be hand-mapped to ``p = 0``. Mann-Kendall sits at 4.6–5.4% on the
+        same nulls and handles the perfect line naturally (``tau = ±1``,
+        exact p).
 
-        **Degenerate confidence interval.** A perfectly linear series (or
-        any series whose pairwise slopes all agree) makes scipy return
-        ``low_slope == high_slope``, i.e. ``margin == 0`` and ``SE == 0``.
-        The old code silently mapped that to ``t = 0`` and ``p = 1.0`` while
-        simultaneously reporting ``ci_excludes_zero=True`` — maximal
-        evidence read out as "no evidence". A zero-width CI around a
-        non-zero slope is instead treated as *decisive*: ``p_value = 0.0``
-        and ``stat = None``, because the t-statistic ``slope / 0`` has no
-        finite value and :class:`~factrix._results.MetricResult` rejects a
-        non-finite ``stat``. ``metadata["method"]`` records the degenerate
-        branch. A zero-width CI around a *zero* slope (a flat series) is the
-        opposite case and keeps ``stat = 0.0`` / ``p = 1.0``.
+        **Constant series.** A flat series has no rank ordering to test:
+        ``tau`` is undefined, so ``stat`` / ``p_value`` are ``None`` with
+        ``WarningCode.DEGENERATE_VARIANCE``, while ``value`` (the zero
+        slope) is still reported — the same convention every other metric
+        uses for a dispersion-free sample. The Theil-Sen CI is kept in
+        ``metadata`` as a descriptive interval; ``ci_excludes_zero`` is
+        informational and no longer drives the p.
 
         factrix uses Theil-Sen rather than OLS because its 29.3% breakdown
         point absorbs information coefficient (IC) outliers (e.g. COVID-era spikes) that would
@@ -195,33 +196,23 @@ def ic_trend(
         low_slope < 0 and high_slope < 0
     )
 
-    # WHY: derive an approximate t-stat from the CI for the significance flag.
-    # slope ± margin = CI → margin = (high - low) / 2 → SE ≈ margin / 1.96
-    margin = (high_slope - low_slope) / 2
-    degenerate_ci = margin < EPSILON
+    # Significance from the Mann-Kendall test, the standard partner of the
+    # Theil-Sen (Sen 1968) slope: both are rank-based, so the p and the
+    # slope come from one framework. An earlier version backed an SE out
+    # of scipy's normal-based 95% CI and read it against t(n-2) — under
+    # a true null that rejected 2.4–3.8% at nominal 5% for n=10–30 where
+    # Mann-Kendall sits at 4.6–5.4%. scipy's kendalltau is exact for small
+    # n and asymptotic (tie-corrected) otherwise; ``tau`` is NaN only when
+    # the series is constant, which ``_degenerate_test_fields`` maps to a
+    # withheld test rather than a fabricated p.
+    mk = sp_stats.kendalltau(x, vals)
+    tau = float(mk.statistic)
+    p = float(mk.pvalue)
 
-    approx_t: float | None
-    if not degenerate_ci:
-        # dof = n - 2: the trend fit estimates a slope *and* an intercept.
-        approx_t = slope / (margin / 1.96)
-        p = _p_value_from_t(approx_t, n, dof=n - 2)
-    elif abs(slope) > EPSILON:
-        # Zero-width CI around a non-zero slope: every pairwise slope agrees.
-        approx_t = None
-        p = 0.0
-    else:
-        approx_t = 0.0
-        p = 1.0
-
-    method = (
-        "theil-sen degenerate (zero-width) CI"
-        if degenerate_ci
-        else "theil-sen CI approximation"
-    )
     metadata: dict = {
-        "stat_type": "t",
-        "h0": "slope=0",
-        "method": method,
+        "stat_type": "kendall_tau",
+        "h0": "tau=0",
+        "method": "theil-sen slope + mann-kendall test",
         "n_periods": n,
         "ci_low": low_slope,
         "ci_high": high_slope,
@@ -242,13 +233,18 @@ def ic_trend(
         metadata=metadata,
         warning_codes=warning_codes,
     )
+    # A constant series has no rank ordering to test: tau is NaN. Keep the
+    # (zero) slope and withhold the test, as every other metric does.
+    stat, p_out, alternative = _degenerate_test_fields(
+        tau, p, "two-sided", metadata, warning_codes
+    )
     return MetricResult(
-        p_value=p,
-        alternative="two-sided",
+        p_value=p_out,
+        alternative=alternative,
         value=slope,
         n_obs=n,
         n_obs_axis="periods",
-        stat=approx_t,
+        stat=stat,
         metadata=metadata,
         warning_codes=tuple(warning_codes),
     )

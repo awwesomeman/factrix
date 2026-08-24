@@ -787,6 +787,26 @@ Kendall's Tau." *Journal of the American Statistical Association*
 Theil-Sen median-slope estimator; the basis of factrix's
 breakdown-robust IC-trend slope.
 
+### Mann (1945)
+[](){ #mann-1945 }
+
+Mann, H. B. (1945). "Nonparametric Tests Against Trend." *Econometrica*
+13(3), 245–259.
+
+Rank-based test for monotonic trend; with Kendall (1975) the standard
+significance partner of the Theil-Sen slope, and the source of
+`ic_trend`'s `p_value`.
+
+### Kendall (1975)
+[](){ #kendall-1975 }
+
+Kendall, M. G. (1975). *Rank Correlation Methods* (4th ed.). Charles
+Griffin, London.
+
+Distribution of the Mann-Kendall statistic under ties; the
+tie-corrected asymptotic p `scipy.stats.kendalltau` supplies for
+`ic_trend`.
+
 ---
 
 ## Unit-root, predictive regression, and persistence
