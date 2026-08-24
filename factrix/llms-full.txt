@@ -566,6 +566,7 @@ The canonical glosses live in `factrix._codes.WarningCode.description` and are r
 | `excessive_period_drops` | An upstream PANEL→SERIES primitive dropped > `DROP_RATE_WARN_THRESHOLD` of dates; counts in `metadata` (`n_periods_in/out`, ...). |
 | `excessive_asset_drops` | An upstream primitive dropped > `DROP_RATE_WARN_THRESHOLD` of assets (e.g. `compute_common_betas`); counts in `metadata` (`n_assets_in/out`, ...). |
 | `slice_boundary_truncation` | `by_slice` partitioned on a date-axis column while the metric aggregates across dates; each slice sees truncated boundary history. |
+| `one_signed_factor` | `top_concentration` with `weight_by='abs_factor'` on a factor that never changes sign; \|f\| is a density weight only around a zero neutral point, so an uncentred factor's HHI moves with an arbitrary shift — z-score it or use `alpha_contribution`. |
 
 ---
 
