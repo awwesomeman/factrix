@@ -50,12 +50,13 @@ def test_two_slice_returns_one_row(
     if method == "bootstrap":
         assert out["df_denom"][0] is None
     else:
-        # Welch-Satterthwaite ν: strictly between 1 and the pooled n_a+n_b-2.
+        # Welch-Satterthwaite ν: two equal-length slices of equal per-period
+        # variance give ν ≈ 2(n−1). A wide-but-open lower bound (``1.0 <=``)
+        # would silently accept the degenerate floor, so anchor at the
+        # theoretical value instead.
         nu = out["df_denom"][0]
-        assert (
-            nu is not None
-            and 1.0 <= nu <= out["n_periods_a"][0] + out["n_periods_b"][0] - 2
-        )
+        n_a, n_b = out["n_periods_a"][0], out["n_periods_b"][0]
+        assert nu is not None and nu == pytest.approx(n_a + n_b - 2, rel=0.1)
     assert out["multiplicity"][0] == multiplicity
 
 
@@ -63,9 +64,8 @@ def test_analytic_reference_is_welch_f() -> None:
     """The analytic p is ``F_{1, ν}`` on the disclosed ``df_denom``, not χ²₁.
 
     Two disjoint slices with their own HAC variances is the Welch two-sample
-    setting. The earlier asymptotic χ²₁ over-rejected at short slices (6.8%
-    at T=8 for nominal 5%; Welch F gives 4.8%), and the disclosed ``ν`` is
-    what lets a reader recompute the p from ``stat`` alone.
+    setting, and the disclosed ``ν`` is what lets a reader recompute the p
+    from ``stat`` alone.
     """
     from scipy import stats as sp_stats
 
@@ -79,6 +79,39 @@ def test_analytic_reference_is_welch_f() -> None:
     assert p == pytest.approx(float(sp_stats.f.sf(stat, dfn=1, dfd=nu)))
     # Unequal slice lengths must give a non-integer, pair-specific ν.
     assert nu != pytest.approx(round(nu))
+
+
+def test_welch_df_does_not_collapse_at_long_slices() -> None:
+    """ν must track 2(n−1) at long slices, not fall to the 1.0 floor.
+
+    The HAC variances of the mean shrink like σ²/n, so any absolute
+    tolerance on the raw Welch denominator (∝ σ⁴/n³) trips on healthy data
+    once the slices are long enough — pinning ν at 1.0 and turning the
+    reference into F₁,₁, which has essentially no power. Regression for
+    the scale-free share-based formula.
+    """
+    df = build_disjoint_period_panel(
+        seed=7,
+        spans={"a": (150, 0.1), "b": (150, 0.1), "c": (150, 0.1)},
+        label_col="regime",
+    )
+    out = slice_period_pairwise_test(
+        df, ic(), by="regime", factor_col="factor", method="analytic"
+    )
+    for nu in out["df_denom"].to_list():
+        assert nu == pytest.approx(298.0, rel=0.05)
+
+
+def test_welch_df_is_scale_free() -> None:
+    """Rescaling both variances by a constant leaves ν unchanged."""
+    from factrix.slicing.period_inference import _welch_df
+
+    base = _welch_df(2.0e-4, 60, 5.0e-4, 120)
+    assert base > 1.0
+    for scale in (1e-6, 1e-3, 1e3):
+        assert _welch_df(2.0e-4 * scale, 60, 5.0e-4 * scale, 120) == pytest.approx(base)
+    # Only a genuinely degenerate pair (both variances zero) hits the floor.
+    assert _welch_df(0.0, 60, 0.0, 120) == 1.0
 
 
 def test_three_slice_returns_three_rows() -> None:

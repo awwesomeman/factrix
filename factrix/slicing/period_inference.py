@@ -359,10 +359,13 @@ def slice_period_pairwise_test(
             # Two disjoint slices with their own HAC variances is the Welch
             # two-sample setting, so the finite-sample reference is
             # F_{1, ν} with the Welch-Satterthwaite ν rather than the
-            # asymptotic χ²₁ (which over-rejects at short slices: 6.8% at
-            # T = 8 for a nominal 5%, vs 4.8% here). Same F reference the
-            # cross-sectional sibling in ``slicing.inference`` uses; ν is
-            # per pair because the two slices differ in length.
+            # asymptotic χ²₁. At the smallest slice the metric floors
+            # admit (50 periods) the two are within simulation noise
+            # (6.4% vs 6.6% null size at nominal 5%); the F reference is
+            # kept for consistency with the cross-sectional sibling in
+            # ``slicing.inference`` and because the disclosed ν lets a
+            # reader recompute p from ``stat``. ν is per pair because the
+            # two slices differ in length.
             nu = _welch_df(
                 float(variances[i]), n_periods[i], float(variances[j]), n_periods[j]
             )
@@ -404,14 +407,23 @@ def _welch_df(var_a: float, n_a: int, var_b: float, n_b: int) -> float:
     """Welch-Satterthwaite denominator df for a two-sample mean contrast.
 
     ``var_*`` are the (HAC) variances *of the mean*, so the classic
-    ``s²/n`` terms are already folded in. Floors at 1.0 so a degenerate
-    pair cannot hand ``f.sf`` a zero df.
+    ``s²/n`` terms are already folded in. The ratio is computed on the
+    variance *shares* ``w = var / (var_a + var_b)`` so it is scale-free:
+    ``var_*`` shrinks like ``σ²/n`` and the raw ``Σ var²/(n-1)``
+    denominator like ``σ⁴/n³``, which for a per-period σ ≈ 0.1 drops
+    below any absolute tolerance from roughly n ≈ 60 and would pin ν at
+    the floor for perfectly healthy data. Floors at 1.0 so a degenerate
+    pair (both variances zero) cannot hand ``f.sf`` a zero df.
     """
-    num = (var_a + var_b) ** 2
-    den = (var_a**2) / max(n_a - 1, 1) + (var_b**2) / max(n_b - 1, 1)
-    if den <= EPSILON or not np.isfinite(num):
+    total = var_a + var_b
+    if not np.isfinite(total) or total <= 0.0:
         return 1.0
-    return max(float(num / den), 1.0)
+    w_a = var_a / total
+    w_b = var_b / total
+    den = (w_a**2) / max(n_a - 1, 1) + (w_b**2) / max(n_b - 1, 1)
+    if not np.isfinite(den) or den <= 0.0:
+        return 1.0
+    return max(1.0 / float(den), 1.0)
 
 
 def _analytic_slice_moments(
