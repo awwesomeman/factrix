@@ -96,45 +96,64 @@ class TestTheilSenSlope:
         assert result.metadata["reason"] == "insufficient_trend_periods"
 
 
-class TestDegenerateTheilSenCI:
-    """Regression: a zero-width CI reported p=1.0 next to ci_excludes_zero."""
+class TestPerfectAndFlatSeries:
+    """Perfect lines are decisive; a flat series has no test to run."""
 
-    def test_perfect_line_is_decisive_not_p_one(self):
+    def test_perfect_line_is_decisive(self):
         result = ic_trend(_make_series([0.01 * i for i in range(20)]))
-        assert result.metadata["ci_low"] == result.metadata["ci_high"]
         assert result.metadata["ci_excludes_zero"] is True
-        assert result.p_value == 0.0
-        # slope / 0 has no finite t; MetricResult rejects a non-finite stat.
-        assert result.stat is None
-        assert "degenerate" in result.metadata["method"]
+        # Kendall tau = +1 exactly; exact-p for n=20 is ~1e-11.
+        assert result.stat == pytest.approx(1.0)
+        assert result.p_value < 1e-6
 
     def test_perfect_downtrend_is_decisive(self):
         result = ic_trend(_make_series([-0.01 * i for i in range(20)]))
         assert result.value < 0
-        assert result.p_value == 0.0
-        assert result.stat is None
+        assert result.stat == pytest.approx(-1.0)
+        assert result.p_value < 1e-6
 
-    def test_flat_series_stays_insignificant(self):
-        """Zero-width CI around a *zero* slope is the opposite case."""
+    def test_flat_series_withholds_the_test(self):
+        """No rank ordering in a constant series: value kept, test withheld —
+        the same convention every other metric uses for zero dispersion."""
+        from factrix._codes import WarningCode
+
         result = ic_trend(_make_series([0.05] * 20))
         assert result.value == pytest.approx(0.0, abs=1e-12)
-        assert result.stat == 0.0
-        assert result.p_value == 1.0
+        assert result.stat is None
+        assert result.p_value is None
+        assert WarningCode.DEGENERATE_VARIANCE.value in result.warning_codes
         assert result.metadata["ci_excludes_zero"] is False
 
-    def test_p_value_uses_n_minus_2_dof(self):
-        """SE is normal-derived, but the tail is t(n - 2) — slope + intercept."""
+
+class TestMannKendallReference:
+    def test_p_is_mann_kendall_on_the_index(self):
+        """p and stat come from ``kendalltau(index, series)``, one framework
+        with the Theil-Sen slope — not an SE backed out of the CI."""
         import numpy as np
         from scipy import stats as sp_stats
 
         rng = np.random.default_rng(3)
         vals = (0.001 * np.arange(40) + rng.standard_normal(40) * 0.01).tolist()
         result = ic_trend(_make_series(vals), adf_threshold=None)
-        assert result.stat is not None
-        n = result.n_obs
-        expected = float(2 * sp_stats.t.sf(abs(result.stat), n - 2))
-        assert result.p_value == pytest.approx(expected)
-        # ...and is not the old n - 1 tail.
-        assert result.p_value != pytest.approx(
-            float(2 * sp_stats.t.sf(abs(result.stat), n - 1))
+        mk = sp_stats.kendalltau(np.arange(40), np.asarray(vals))
+        assert result.stat == pytest.approx(float(mk.statistic))
+        assert result.p_value == pytest.approx(float(mk.pvalue))
+        assert result.metadata["stat_type"] == "kendall_tau"
+
+    def test_null_size_is_calibrated(self):
+        """Under iid noise the 5% test rejects ~5%, not the 2–4% the old
+        CI-derived t did at small n."""
+        import numpy as np
+
+        rng = np.random.default_rng(0)
+        rej = np.mean(
+            [
+                ic_trend(
+                    _make_series(rng.standard_normal(20).tolist()),
+                    adf_threshold=None,
+                ).p_value
+                < 0.05
+                for _ in range(300)
+            ]
         )
+        assert 0.025 <= rej <= 0.08

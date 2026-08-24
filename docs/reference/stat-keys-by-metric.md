@@ -68,7 +68,7 @@ contrasts, not a sidecar to a primary value.
 | [`oos_decay`][factrix.metrics.oos_decay.oos_decay] | none — descriptive | — | survival = \|mean_oos\| / \|mean_is\| |
 | [`spanning_alpha`][factrix.metrics.spanning.spanning_alpha] | OLS `t` on α | `p_value` | spanning α |
 | [`greedy_forward_selection`][factrix.metrics.spanning.greedy_forward_selection] | none — selection meta | — | (NaN; results in metadata) |
-| [`ic_trend`][factrix.metrics.trend.ic_trend] | Theil-Sen slope `t` (CI-based) | `p_value` | Theil-Sen slope |
+| [`ic_trend`][factrix.metrics.trend.ic_trend] | Mann-Kendall `tau` on the index | `p_value` | Theil-Sen slope |
 | [`predictive_beta`][factrix.metrics.predictive_beta.predictive_beta] | Newey-West HAC `t` on single-asset predictive slope | `p_value` | predictive beta |
 | [`common_beta`][factrix.metrics.common_beta.common_beta] | cross-asset `t` on per-asset β | `p_value` | mean(β) |
 | [`common_beta_sign_consistency`][factrix.metrics.common_beta.common_beta_sign_consistency] | none — descriptive | — | max(p, 1-p) on sign fraction |
@@ -471,13 +471,14 @@ Stepwise selection meta-metric; descriptive `MetricResult` with
 
 #### `ic_trend`
 
-Theil-Sen median slope on the IC series. The reported `MetricResult.stat`
-is the slope-`t` derived from the rank-based confidence interval (read
-against `t(n-2)`). When the CI has zero width around a non-zero slope
-(every pairwise slope identical) the `t` is undefined: `stat` is `None`,
-`p_value` is `0.0`, and `method` names the degenerate branch.
+Theil-Sen median slope on the IC series for magnitude; significance from
+the Mann-Kendall test on the same ranks. `MetricResult.stat` is Kendall's
+`tau` between the sequence index and the series, `p_value` its two-sided
+p (exact for small `n`, tie-corrected asymptotic otherwise). A constant
+series has no rank ordering to test: `stat` / `p_value` are `None` with
+`degenerate_variance`, `value` (the zero slope) is kept.
 
-- *primary*: `p_value` — slope significance from the Theil-Sen CI.
+- *primary*: `p_value` — Mann-Kendall trend significance.
 - *descriptive*: `n_periods`, `ci_low`, `ci_high`,
   `ci_excludes_zero`, `intercept`.
 - *descriptive* (conditional, augmented Dickey-Fuller (ADF) run): `adf_stat`, `adf_p`,
