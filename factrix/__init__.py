@@ -1187,4 +1187,5 @@ __all__ = [
     # Metric registration surface
     "MetricSpec",
     "metric_spec",
+    "spec_by_name",
 ]

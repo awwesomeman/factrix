@@ -128,6 +128,32 @@ def test_insufficient_short_circuits_are_dropped_from_family():
     assert [r.factor for r in out.survivors] == ["valid"]
 
 
+def test_degenerate_variance_results_are_dropped_from_family():
+    """A dispersion-free result carries no hypothesis, so it must not count.
+
+    Its ``p_value`` is None (no test exists), which would otherwise abort the
+    whole call in ``_resolve_p_value``. Treated like a data shortage instead:
+    substituted with an inert 1.0 and left out of the BHY denominator, so a
+    degenerate factor cannot dilute the others' adjusted p-values.
+    """
+    from factrix._codes import WarningCode
+
+    make_spec("ic")
+    valid = make_result(factor="valid", p=0.01, metric="ic")
+    degenerate = make_result(
+        factor="flat",
+        p=None,
+        metric="ic",
+        value=-0.20,
+        metadata={"signal_status": "degenerate_zero_variance"},
+        warning_codes=(WarningCode.DEGENERATE_VARIANCE.value,),
+    )
+    out = bhy([valid, degenerate], metrics=["ic"], q=0.05)["ic"]
+
+    assert out.n_tests == {(): 1}
+    assert [r.factor for r in out.survivors] == ["valid"]
+
+
 def test_expand_over_forward_periods_partitions_by_horizon():
     make_spec("ic")
     results = [

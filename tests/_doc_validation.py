@@ -14,7 +14,9 @@ as a test module.
 from __future__ import annotations
 
 import importlib
+import pathlib
 import re
+from collections.abc import Iterable
 
 import factrix
 
@@ -88,6 +90,54 @@ def imports(text: str) -> list[tuple[str, str | None]]:
     for m in BARE_IMPORT_RE.finditer(text):
         out.append((m.group(1), None))
     return out
+
+
+# Logger names live in the ``factrix.*`` string namespace but are NOT symbol
+# paths — ``logging.getLogger("factrix.dag")`` names a node in the logging
+# hierarchy, and no ``factrix.dag`` module exists or should. They appear in
+# three shapes: a literal ``getLogger`` argument, an f-string one
+# (``f"factrix.metric.{name}"``, truncated at the brace below), and a
+# ``*_LOGGER_NAME`` constant. Prose in ``_logging.py`` also names them.
+#
+# These are discovered from the source rather than kept as an allowlist, so a
+# newly added logger is exempt automatically instead of failing the symbol
+# check until someone edits a list in the tests.
+LOGGER_GETLOGGER_RE = re.compile(r'getLogger\(\s*f?"(factrix[^"{]*)')
+LOGGER_CONST_RE = re.compile(r'_LOGGER_NAME\s*=\s*"(factrix[^"]*)"')
+
+
+def logger_namespaces(paths: Iterable[pathlib.Path]) -> set[str]:
+    """Return the ``factrix.*`` logging-hierarchy names used in ``paths``.
+
+    A name ending in ``.`` came from an f-string truncated at its first
+    placeholder (``factrix.metric.``) and matches by prefix; the rest match
+    exactly. Both are stripped of the leading ``factrix.`` so they compare
+    against the chains :func:`referenced_chains` produces.
+    """
+    names: set[str] = set()
+    for path in paths:
+        text = path.read_text()
+        names.update(LOGGER_GETLOGGER_RE.findall(text))
+        names.update(LOGGER_CONST_RE.findall(text))
+    return {n.removeprefix("factrix.") for n in names if n != "factrix."}
+
+
+def is_logger_name(chain: tuple[str, ...], namespaces: set[str]) -> bool:
+    """True when ``chain`` names a logger rather than a symbol.
+
+    A truncated (f-string) namespace matches both its own stem and anything
+    beneath it: ``getLogger(f"factrix.metric.{name}")`` yields the namespace
+    ``metric.``, while the reference scanner stops at the brace and produces
+    the chain ``metric`` — so the stem has to match too.
+    """
+    dotted = ".".join(chain)
+    for ns in namespaces:
+        if ns.endswith("."):
+            if dotted == ns.rstrip(".") or dotted.startswith(ns):
+                return True
+        elif dotted == ns:
+            return True
+    return False
 
 
 def resolves(chain: tuple[str, ...]) -> bool:

@@ -7,6 +7,8 @@ default profile. Available via
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import polars as pl
 from scipy import stats as sp_stats
@@ -15,10 +17,16 @@ from factrix._axis import (
     Aggregation,
     FactorDensity,
 )
+from factrix._codes import WarningCode
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat
-from factrix._types import EPSILON, MIN_EVENTS_HARD
+from factrix._types import (
+    DDOF,
+    EPSILON,
+    MIN_EVENTS_HARD,
+    MIN_EVENTS_WARN,
+)
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import _enforce_min_floor, _short_circuit_output
 
@@ -47,9 +55,11 @@ def corrado_rank(
     The static event floor (sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD)) gates the rank test on the count of non-zero (event) observations.
 
     A non-parametric alternative to the CAAR t-test. Robust to extreme
-    returns, non-normal distributions, and cross-asset
-    heteroscedasticity. Direction-adjusted for two-sided signals
-    (extension of the original one-directional test).
+    returns, non-normal distributions, cross-asset heteroscedasticity,
+    **and same-date event clustering** — the regime where the parametric
+    ``caar`` t-test is unreliable and this metric is the recommended
+    fallback. Direction-adjusted for two-sided signals (extension of the
+    original one-directional test).
 
     Formula:
         For each asset $i$, rank ``return`` across the full sample
@@ -57,7 +67,12 @@ def corrado_rank(
         $U_{i,t} = \mathrm{rank} / (T+1) - 0.5$, and on event rows
         form $U_{\text{event,signed}} = U_{\text{event}} \cdot \mathrm{sign}(\text{factor})$.
         Test statistic
-        $z = \mathrm{mean}(U_{\text{event,signed}}) / (\mathrm{std}(U_{\text{all}}) / \sqrt{N_{\text{events}}})$.
+        Same-date events are then averaged into one observation per event
+        date, $\bar{U}_d$, and the test runs on that date series:
+
+        $z = \mathrm{mean}(\bar{U}_d) / (\mathrm{std}(\bar{U}_d) / \sqrt{D})$,
+        $D$ = number of event dates.
+
         ``p_value`` is **one-sided** (``H0: mean_u <= 0``): the direction
         adjustment already folds sign into $z$, so a factor that
         anti-predicts returns a negative $z$ rather than a small two-sided
@@ -71,14 +86,36 @@ def corrado_rank(
         MetricResult with value=mean rank deviation, stat=z.
 
     Notes:
-        factrix uses the **pooled** std of ``U_all`` across all
-        ``(asset, date)`` cells in the denominator, instead of the
-        time-series std of the cross-sectional mean used by Corrado
-        (1989) eq. (5). The two coincide under iid ranks but diverge
-        when event-date clustering is present; treat this as a
-        robustness screen against parametric BMP / CAAR rather than a
-        substitute for a reference event-study package when strict
-        size control matters.
+        **The event date is the unit of inference.** Events sharing a date
+        share whatever moved the market that day, so they are not
+        independent draws. Collapsing each date's cross-section to
+        $\bar{U}_d$ before taking the time-series SD folds that
+        within-date correlation into the denominator; ``n_obs`` therefore
+        counts event *dates* (axis ``"periods"``), with the raw event count
+        kept in ``metadata["n_events"]`` alongside
+        ``events_per_date_mean`` / ``events_per_date_max``.
+
+        An earlier version divided by the **pooled** std of ``U_all`` over
+        every ``(asset, date)`` cell and scaled by $\sqrt{N_{events}}$.
+        That ignores clustering entirely: piling k correlated events onto
+        one date grew $N_{events}$ without growing the denominator, so $z$
+        scaled with $\sqrt{k}$ for no new information. Under a simulated
+        null with 6 events per date it rejected at 22% against a nominal
+        one-sided 5%; the date-clustered denominator gives 3%. The metric
+        was liberal in precisely the regime it is recommended for.
+
+        This is the *intent* of Corrado (1989) eq. (5) — a time-series SD
+        of a cross-sectional mean — but not its literal form. Corrado's
+        design is event-time aligned, so every date's cross-section is the
+        full set of N names and the SD may be taken over the whole sample
+        period. In a calendar-time sparse panel the event dates carry a
+        handful of names while a generic date carries the full universe, so
+        an SD taken over all dates is the SD of a much better-averaged
+        quantity: on the demo panel (50 names/day, 1.57 events/day) it
+        understates the relevant dispersion ~5.7x, i.e. it would be *more*
+        liberal than the pooled std it replaced. The SD is therefore taken
+        over the event-date series itself, whose scale matches the
+        numerator by construction.
 
         **Non-finite returns.** Ranks are formed over the finite
         ``return_col`` values only (per asset), and $T$ in the
@@ -98,15 +135,22 @@ def corrado_rank(
 
         Short-circuits to ``MetricResult`` with
         ``metadata["reason"]="insufficient_events"`` when
-        ``N_events < MIN_EVENTS_HARD``, and
-        ``"degenerate_rank_variance"`` when ``std(U_all) < EPSILON``.
+        ``N_events < MIN_EVENTS_HARD``;
+        ``"insufficient_event_dates"`` when fewer than
+        ``MIN_EVENTS_HARD`` distinct event dates survive (the time-series
+        SD cannot be estimated from a handful of dates, however many events
+        sit on them) — the same floor ``caar`` applies to its own event-date
+        series, and ``WarningCode.FEW_EVENTS`` fires in
+        ``[MIN_EVENTS_HARD, MIN_EVENTS_WARN)``; and
+        ``"degenerate_rank_variance"`` when ``std(U_bar_d) < EPSILON``.
 
     References:
         - [Corrado (1989)][corrado-1989]. "A Nonparametric Test for
           Abnormal Security-price Performance in Event Studies."
           *Journal of Financial Economics* 23(2), 385–395. The
-          nonparametric rank test factrix implements with a pooled-std
-          denominator simplification.
+          The nonparametric rank test factrix implements, with the
+          denominator taken over the event-date series rather than the
+          full sample period (see Notes).
         - [Corrado & Zivney (1992)][corrado-zivney-1992]. "The
           Specification and Power of the Sign Test in Event Study
           Hypothesis Tests Using Daily Stock Returns." *Journal of
@@ -126,8 +170,9 @@ def corrado_rank(
         True
     """
     # Rank only the finite returns. Ranking `return_col` directly is wrong
-    # twice over: a null return produces a null rank, which turns std(u_all)
-    # into NaN and hands _calc_t_stat a NaN (silently z=0, p=0.5); and a
+    # twice over: a null return produces a null rank, which propagates into
+    # that date's mean and turns the event-date SD into NaN, handing
+    # _calc_t_stat a NaN (NaN z, NaN p); and a
     # float NaN is not a null to polars, so it ranks as the *largest* value
     # in the asset and is quietly kept as a genuine top-decile observation.
     # Masking to null first makes both cases explicit and excludable, and
@@ -167,22 +212,79 @@ def corrado_rank(
     if sc is not None:
         return sc
 
-    u_event = events["_rank_u"].to_numpy() * np.sign(events[factor_col].to_numpy())
+    # Collapse each event date's cross-section to ONE observation before
+    # testing. Same-date events share whatever moved the market that day, so
+    # they are not independent draws; averaging them first makes the event
+    # DATE the unit of inference and folds the within-date correlation into
+    # the denominator, which is the whole point of reaching for this metric
+    # when ``clustering_hhi`` is high.
+    per_date = (
+        events.select(
+            "date",
+            (pl.col("_rank_u") * pl.col(factor_col).sign()).alias("_u_signed"),
+        )
+        .group_by("date")
+        .agg(
+            pl.col("_u_signed").mean().alias("_u_bar"),
+            pl.len().alias("_k"),
+        )
+        .sort("date")
+    )
+    u_bar = per_date["_u_bar"].to_numpy()
+    n_event_dates = len(u_bar)
+    events_per_date = per_date["_k"].to_numpy()
 
-    u_all = ranked["_rank_u"].drop_nulls().drop_nans().to_numpy()
-    std_u = float(np.std(u_all))
+    n_total_obs = int(ranked["_rank_u"].drop_nulls().drop_nans().len())
+
+    # The date series carries the test, so the floor moves onto dates: 396
+    # events spread over 3 days estimate the time-series SD from 3 points.
+    # Same constants as ``caar``, deliberately — ``caar`` also tests an
+    # event-DATE series, so the two share an axis and stay comparable. A
+    # private floor here would have made a quarterly-earnings factor (a few
+    # event dates a year) short-circuit under corrado_rank while caar
+    # happily reported on the same sample.
+    if n_event_dates < MIN_EVENTS_HARD:
+        return _short_circuit_output(
+            "corrado_rank",
+            "insufficient_event_dates",
+            alternative="greater",
+            n_obs=n_event_dates,
+            n_obs_axis="periods",
+            min_required=MIN_EVENTS_HARD,
+            n_events=n_events,
+        )
+
+    warning_codes: list[str] = []
+    if n_event_dates < MIN_EVENTS_WARN:
+        warning_codes.append(WarningCode.FEW_EVENTS.value)
+        warnings.warn(
+            f"corrado_rank: n_event_dates={n_event_dates} below "
+            f"MIN_EVENTS_WARN={MIN_EVENTS_WARN}. The denominator is the "
+            f"time-series SD of the per-event-date mean rank, so this counts "
+            f"event *dates*, not events (n_events={n_events}): piling more "
+            f"same-date events on does not add sample. z is returned but the "
+            f"normal approximation is power-thin here.",
+            UserWarning,
+            stacklevel=2,
+        )
+
+    mean_u = float(np.mean(u_bar))
+    std_u = float(np.std(u_bar, ddof=DDOF))
 
     if std_u < EPSILON:
         return _short_circuit_output(
             "corrado_rank",
             "degenerate_rank_variance",
             alternative="greater",
+            n_obs=n_event_dates,
+            n_obs_axis="periods",
             std_u=std_u,
+            n_events=n_events,
+            n_event_dates=n_event_dates,
         )
 
-    mean_u = float(np.mean(u_event))
-    z = _calc_t_stat(mean_u, std_u, n_events)
-    # One-sided: u_event is already direction-adjusted by sign(factor), so
+    z = _calc_t_stat(mean_u, std_u, n_event_dates)
+    # One-sided: u_bar is already direction-adjusted by sign(factor), so
     # z > 0 signals genuine directional skill and z < 0 signals a factor that
     # anti-predicts — a two-sided p would read the latter as "significant".
     p = float(sp_stats.norm.sf(z))
@@ -191,12 +293,16 @@ def corrado_rank(
         p_value=p,
         alternative="greater",
         value=mean_u,
-        n_obs=n_events,
-        n_obs_axis="events",
+        n_obs=n_event_dates,
+        n_obs_axis="periods",
         stat=z,
+        warning_codes=tuple(warning_codes),
         metadata={
+            "n_event_dates": n_event_dates,
             "n_events": n_events,
-            "n_total_obs": len(u_all),
+            "events_per_date_mean": float(np.mean(events_per_date)),
+            "events_per_date_max": int(np.max(events_per_date)),
+            "n_total_obs": n_total_obs,
             "n_events_dropped_non_finite": n_events_dropped_non_finite,
             "stat_type": "z",
             "h0": "mu_rank<=0",

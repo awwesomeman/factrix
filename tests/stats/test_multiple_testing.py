@@ -408,3 +408,67 @@ class TestSimesP:
     def test_empty_raises(self):
         with pytest.raises(ValueError, match="non-empty"):
             simes_p([])
+
+
+class TestNonFiniteRejectedByEveryKernel:
+    """Every multiple-testing kernel refuses non-finite p-values.
+
+    ``_multi_factor.py`` reaches these through five call sites (``bhy``,
+    ``bhy_across_metrics``, both partial-conjunction paths, and
+    ``_bhy_hierarchical_one``) and carries no non-finite check of its own
+    beyond ``_validate_q``. That is fine *because* the guard lives in the
+    kernel — the v0.20.0 convention — but nothing pinned it: the existing
+    coverage only exercised out-of-range values on ``bhy_adjust``, so
+    dropping ``_validate_p_values`` from any of the other three would have
+    gone unnoticed and returned a NaN adjusted p instead of raising.
+    """
+
+    KERNELS = (
+        ("simes_p", simes_p),
+        ("bhy_adjusted_p", bhy_adjusted_p),
+        ("bhy_adjust", bhy_adjust),
+        ("holm_adjusted_p", holm_adjusted_p),
+        ("partial_conjunction_p", lambda a: partial_conjunction_p(a, min_pass=2)),
+    )
+
+    @pytest.mark.parametrize("name,kernel", KERNELS, ids=[k[0] for k in KERNELS])
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+    def test_non_finite_raises(self, name, kernel, bad):
+        with pytest.raises(ValueError, match="must all lie in"):
+            kernel(np.array([0.1, bad, 0.3]))
+
+    @pytest.mark.parametrize("name,kernel", KERNELS, ids=[k[0] for k in KERNELS])
+    @pytest.mark.parametrize("bad", [-0.1, 1.5])
+    def test_out_of_range_raises(self, name, kernel, bad):
+        with pytest.raises(ValueError, match="must all lie in"):
+            kernel(np.array([0.1, bad, 0.3]))
+
+    @pytest.mark.parametrize("name,kernel", KERNELS, ids=[k[0] for k in KERNELS])
+    def test_clean_input_still_works(self, name, kernel):
+        """The guard must not reject the boundary values 0 and 1.
+
+        Asserting finiteness rather than merely "returned something": the
+        defect this class guards against is a NaN travelling through a
+        kernel, so a test that accepts a NaN return would not notice the
+        guard being removed and the NaN reappearing.
+        """
+        out = np.asarray(kernel(np.array([0.0, 0.5, 1.0])), dtype=float)
+        assert np.all(np.isfinite(out))
+
+    def test_romano_wolf_guards_both_arguments(self):
+        """Romano-Wolf takes statistics, not p-values, so it carries its own
+        guard rather than ``_validate_p_values`` — pinned here so the family
+        is covered end to end."""
+        rng = np.random.default_rng(0)
+        statistics = np.array([2.5, 1.0, 3.0])
+        bootstrap = rng.normal(size=(200, 3))
+
+        bad_stats = statistics.copy()
+        bad_stats[1] = float("nan")
+        with pytest.raises(ValueError, match="statistics must be finite"):
+            romano_wolf_adjusted_p(bad_stats, bootstrap)
+
+        bad_boot = bootstrap.copy()
+        bad_boot[5, 1] = float("inf")
+        with pytest.raises(ValueError, match="bootstrap_statistics must be finite"):
+            romano_wolf_adjusted_p(statistics, bad_boot)

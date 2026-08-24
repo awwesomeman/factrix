@@ -585,11 +585,20 @@ class TestICDispatch:
         df = pl.DataFrame({"date": dates, "ic": vals}).with_columns(
             pl.col("date").cast(pl.Datetime("ms"))
         )
+        from factrix._codes import WarningCode
+
         r = ic(df, forward_periods=5)
         assert r.n_obs == 40
         assert r.value == pytest.approx(-0.20)
-        assert r.stat == 0.0  # zero-variance subsample -> degenerate t
         assert r.metadata["mean_ic_full"] == pytest.approx(0.0)
+        # Every strided survivor is -0.20: no dispersion, so no t exists. The
+        # headline mean is still reported; the test is withheld rather than
+        # faked as t=0 / p=1, which read a constant -20% IC as "no signal".
+        assert r.stat is None
+        assert r.p_value is None
+        assert r.alternative is None
+        assert WarningCode.DEGENERATE_VARIANCE.value in r.warning_codes
+        assert r.metadata["signal_status"] == "degenerate_zero_variance"
 
     def test_stride_is_calendar_aligned_after_a_dropped_row(self):
         """Dropping a NaN row must not shift the sampling phase."""

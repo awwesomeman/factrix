@@ -45,10 +45,11 @@ class WarningCode(StrEnum):
     # semantics coincide numerically. All-non-negative columns
     # (``{0, 1}`` / ``{0, R≥0}``) do not trigger — no flip ambiguity.
     SPARSE_MAGNITUDE_WEIGHTED = "sparse_magnitude_weighted"
-    # Fired by ``caar`` (significance test) when the per-event-date series
-    # length sits in ``[MIN_EVENTS_HARD, MIN_EVENTS_WARN)`` — the t-stat
-    # is returned but the Brown-Warner (1985) convention treats sub-30
-    # event-date counts as power-thin for the asymptotic t-distribution.
+    # Fired by ``caar`` (significance test) and ``corrado_rank``, both of
+    # which test a per-event-date series, when its length sits in
+    # ``[MIN_EVENTS_HARD, MIN_EVENTS_WARN)`` — the statistic is returned
+    # but the Brown-Warner (1985) convention treats sub-30 event-date
+    # counts as power-thin for the asymptotic reference distribution.
     # Below the HARD floor the primitive short-circuits to NaN instead.
     # Naming follows the ``<axis>_<condition>`` grammar; the Brown-Warner
     # method reference lives in this gloss rather than the member name.
@@ -80,9 +81,20 @@ class WarningCode(StrEnum):
     # produces a negative variance-of-mean estimate on short / mildly
     # anti-correlated samples. Unlike the Bartlett kernel, the rectangular
     # kernel carries no PSD guarantee (Andrews 1991 §3); the primitive
-    # clamps variance to 0.0 and the t-test returns t=0, p=1.0 (cannot
-    # reject), the conservative direction.
+    # clamps variance to 0.0, which leaves no SE to divide by, so the t-test
+    # is not computable and DEGENERATE_VARIANCE is raised alongside this code.
+    # (It formerly returned t=0, p=1.0 — "conservative", but it read an
+    # estimator breakdown as a non-rejection.)
     RECT_KERNEL_NEGATIVE_VARIANCE = "rect_kernel_negative_variance"
+    # Fired by a series-mean inference member when the sample admits no
+    # t-statistic: every observation identical (zero dispersion), or a HAC
+    # SE that collapses to zero. An identical-and-non-zero sample is
+    # degenerate in the *maximum*-evidence direction, so the former
+    # ``t=0, p=1`` inverted the reading. On an ``InferenceResult`` the stat
+    # and p are NaN; a metric carrying this code keeps its ``value`` but
+    # reports ``stat=None`` / ``p_value=None`` (see
+    # ``factrix.metrics._helpers._degenerate_test_fields``).
+    DEGENERATE_VARIANCE = "degenerate_variance"
 
     # Fired by ``bmp_z`` when no ``price`` column is present and the
     # estimation-window volatility falls back to the per-asset rolling std of
@@ -209,12 +221,13 @@ _WARNING_DESCRIPTIONS.update(
         "clean ±1 ternary; statistic is magnitude-weighted (Sefcik-Thompson) "
         "rather than textbook MacKinlay signed CAAR — apply .sign() before "
         "calling for sign-flip semantics.",
-        WarningCode.FEW_EVENTS: "CAAR significance test with MIN_EVENTS_HARD ≤ "
-        "n_event_periods < MIN_EVENTS_WARN (4..29). caar is an equal-weight "
-        "calendar-time portfolio across event periods, so this counts the "
-        "number of periods with an event, not events; a sub-30 series is "
-        "power-thin for the asymptotic t-distribution — read borderline "
-        "p-values cautiously.",
+        WarningCode.FEW_EVENTS: "caar / corrado_rank significance test with "
+        "MIN_EVENTS_HARD ≤ n_event_periods < MIN_EVENTS_WARN (4..29). Both "
+        "test an event-date series — caar an equal-weight calendar-time "
+        "portfolio, corrado_rank the per-date mean signed rank — so this "
+        "counts the number of periods with an event, not events; a sub-30 "
+        "series is power-thin for the asymptotic distribution — read "
+        "borderline p-values cautiously.",
         WarningCode.BORDERLINE_PORTFOLIO_PERIODS: "top_concentration with MIN_PORTFOLIO_PERIODS_HARD "
         "≤ n_periods < MIN_PORTFOLIO_PERIODS_WARN (3..19); one-sided t-test "
         "on the per-date diversification ratio is returned but df=n-1 inflates "
@@ -232,8 +245,15 @@ _WARNING_DESCRIPTIONS.update(
         "asset pairs after factor/return ties are removed. Below the HARD "
         "floor the metric short-circuits to NaN.",
         WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE: "Rectangular-kernel HAC variance-of-mean came out "
-        "negative (no PSD guarantee, Andrews 1991); clamped to 0 → SE=0, t=0, p=1.0. "
+        "negative (no PSD guarantee, Andrews 1991); clamped to 0 → SE=0, so the t-test "
+        "is not computable and returns NaN (also flagged degenerate_variance). "
         "Fires only on short / mildly anti-correlated samples.",
+        WarningCode.DEGENERATE_VARIANCE: "The sample admits no t-statistic: every "
+        "observation is identical (zero dispersion) or the HAC SE collapsed to zero. "
+        "The metric keeps its value and reports stat=None / p_value=None (NaN on a "
+        "raw InferenceResult) — an identical, non-zero sample is degenerate in the "
+        "maximum-evidence direction, not evidence of a null, so t=0 / p=1 would "
+        "invert the reading.",
         WarningCode.BMP_RETURN_VOL_FALLBACK: "bmp_z ran without a price column: the "
         "estimation-window volatility falls back to the per-asset rolling std of "
         "forward_return, lagged by forward_periods so it ends before the event's "

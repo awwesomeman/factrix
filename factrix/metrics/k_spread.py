@@ -44,6 +44,7 @@ from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _all_dates_degenerate,
     _check_applicable_inference,
+    _degenerate_test_fields,
     _enforce_scaled_floor,
     _finite_expr,
     _finite_values,
@@ -244,8 +245,9 @@ def k_spread(
         NaN as the largest value, so a NaN factor would otherwise take
         rank 1 and head the long leg. Every series column collapsed to a
         scalar is then filtered with ``drop_nulls().drop_nans()`` — one
-        NaN in the spread series would make ``_calc_t_stat`` return
-        ``t=0, p=1`` silently or make the bootstrap raise.
+        NaN in the spread series would make ``_calc_t_stat`` return NaN —
+        withholding the test as ``degenerate_variance`` — or make the
+        bootstrap raise.
 
         **Which sample each count describes.** ``value``, ``stat``,
         ``p_value`` and ``n_obs`` all come from the sample the selected
@@ -416,13 +418,18 @@ def k_spread(
         metadata=metadata,
         warning_codes=warning_codes,
     )
+    # A NaN headline stat means the tested spread series carries no dispersion
+    # (or the HAC SE collapsed): ``mean_spread`` still stands, the t does not.
+    stat, p_out, alternative = _degenerate_test_fields(
+        t, p, "two-sided", metadata, warning_codes
+    )
     return MetricResult(
         value=mean_spread,
-        p_value=p,
-        alternative="two-sided",
+        p_value=p_out,
+        alternative=alternative,
         n_obs=n,
         n_obs_axis="periods",
-        stat=t,
+        stat=stat,
         metadata=metadata,
         warning_codes=tuple(warning_codes),
     )

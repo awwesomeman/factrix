@@ -50,6 +50,7 @@ from factrix.metrics._helpers import (
     _DROP_STATS_COL,
     TIE_RATIO_WARN_THRESHOLD,
     _check_applicable_inference,
+    _degenerate_test_fields,
     _enforce_min_floor,
     _read_drop_stats,
     _short_circuit_output,
@@ -368,13 +369,19 @@ def ic(
     for code in result.warnings:
         if code.value not in warning_codes:
             warning_codes.append(code.value)
+    # The chosen inference could not form a statistic: a strided subsample or
+    # full series with no dispersion, or a HAC SE that collapsed to zero.
+    # ``mean_ic`` still describes the sample; the test is withheld.
+    stat, p_out, alternative = _degenerate_test_fields(
+        result.stat, result.p_value, "two-sided", metadata, warning_codes
+    )
     return MetricResult(
-        p_value=result.p_value,
-        alternative="two-sided",
+        p_value=p_out,
+        alternative=alternative,
         value=mean_ic,
         n_obs=n_tested,
         n_obs_axis="periods",
-        stat=result.stat,
+        stat=stat,
         metadata=metadata,
         warning_codes=tuple(warning_codes),
     )

@@ -11,6 +11,7 @@ Verifies:
 
 from __future__ import annotations
 
+import math
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -65,6 +66,11 @@ class TestProtocolIdentity:
         assert isinstance(NON_OVERLAPPING, NonOverlapping)
         assert isinstance(NEWEY_WEST, NeweyWest)
         assert isinstance(STATIONARY_BOOTSTRAP, StationaryBootstrap)
+
+
+def _same(a: float, b: float) -> bool:
+    """Equality that treats NaN as a value (the not-computable sentinel)."""
+    return (math.isnan(a) and math.isnan(b)) or a == b
 
 
 class TestNonOverlapping:
@@ -137,13 +143,29 @@ class TestNeweyWest:
         )
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS in result.warnings
 
-    def test_degenerate_series_does_not_crash(self) -> None:
+    def test_single_observation_is_a_shortage_not_a_degeneracy(self) -> None:
+        # NaN, not the former (0.0, 1.0): the kernel cannot run below three
+        # observations, and p=1 would have read that shortage as "no signal".
+        # It is *not* DEGENERATE_VARIANCE — nothing here shows a collapsed
+        # SE — so only the short-sample code fires.
         result = NEWEY_WEST.compute(
             _series_df(np.array([0.0])), value_col="ic", forward_periods=5
         )
-        assert result.stat == 0.0
-        assert result.p_value == 1.0
+        assert math.isnan(result.stat)
+        assert math.isnan(result.p_value)
+        assert WarningCode.DEGENERATE_VARIANCE not in result.warnings
+        assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS in result.warnings
         assert result.metadata["nw_lags"] == 0
+
+    def test_constant_non_zero_series_is_flagged_not_nulled(self) -> None:
+        # The reported shape: identical, non-zero observations. Evidence is
+        # maximal, so the one outcome that must NOT appear is p=1.
+        result = NEWEY_WEST.compute(
+            _series_df(np.full(40, 0.03)), value_col="ic", forward_periods=5
+        )
+        assert result.p_value != 1.0
+        assert math.isnan(result.p_value)
+        assert WarningCode.DEGENERATE_VARIANCE in result.warnings
 
 
 class TestHansenHodrick:
@@ -157,8 +179,10 @@ class TestHansenHodrick:
         t_direct, p_direct, _, clamped = _hansen_hodrick_t_test(
             series, forward_periods=forward_periods
         )
-        assert result.stat == t_direct
-        assert result.p_value == p_direct
+        # ``==`` is not enough: a clamped kernel makes both sides NaN, and the
+        # point of the test is that compute delegates rather than recomputes.
+        assert _same(result.stat, t_direct)
+        assert _same(result.p_value, p_direct)
         assert result.metadata == {"kernel": "rectangular", "variance_clamped": clamped}
 
     def test_clamp_surfaces_warning(self) -> None:

@@ -100,7 +100,7 @@ Min sample*. `MIN_*` constants resolve to values in the
 | [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | per-offset `K` | `K ≥ MIN_EVENTS_HARD` |
 | [`mfe_mae`][factrix.metrics.mfe_mae.mfe_mae] | `K` | `K ≥ MIN_EVENTS_HARD`; `price` column required |
 | [`clustering_hhi`][factrix.metrics.clustering_hhi.clustering_hhi] | `K`, `n_assets` | `n_assets >= 2`; `K >= MIN_EVENTS_HARD` |
-| [`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank] | `K` | `K ≥ MIN_EVENTS_HARD` |
+| [`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank] | `D` (event dates) | `K ≥ MIN_EVENTS_HARD` **and** `D ≥ MIN_EVENTS_HARD` |
 
 ### TS-β family — Cell: Common × Continuous
 
@@ -231,7 +231,14 @@ A few specific caveats worth flagging:
   power at `K ≥ 50` and use `K ≥ 30` as the conventional minimum; in
   `K ∈ [4, 30)` the parametric `caar` is under-powered and
   `WarningCode.FEW_EVENTS` fires. The `bmp_z` /
-  `corrado_rank` siblings only partly mitigate.
+  `corrado_rank` siblings only partly mitigate. `corrado_rank` applies the
+  same pair of floors on its own axis: its denominator is the
+  time-series SD of the per-event-date mean rank, so it needs
+  `D ≥ MIN_EVENTS_HARD` distinct event *dates* however many events sit
+  on them (short-circuiting with `reason="insufficient_event_dates"`
+  otherwise) and fires `FEW_EVENTS` in `D ∈ [4, 30)`. Sharing `caar`'s
+  constants is deliberate — both test an event-date series, so the two
+  stay directly comparable on the same sample.
 - **`MIN_PORTFOLIO_PERIODS_HARD = 3` / `MIN_PORTFOLIO_PERIODS_WARN = 20`**
   in `top_concentration` and `common_quantile_spread`. Below 3 there is
   no spread / concentration t to compute; in `[3, 20)` the metric
@@ -359,4 +366,10 @@ the inner event. The chosen mitigation depends on the metric:
 Operationally: trust `caar` *p*-values when `clustering_hhi`
 Herfindahl-Hirschman index (HHI) is low and `signal_density` shows events well-spaced per asset;
 otherwise downweight the parametric *p* and lean on `corrado_rank`
-or external block-bootstrap.
+or external block-bootstrap. `corrado_rank` earns that recommendation:
+it averages same-date events into one observation and takes the SD over
+the event-date series, so within-date correlation lands in the
+denominator rather than being ignored. The price is degrees of freedom —
+clustered events buy no extra sample, so `n_obs` counts dates, and a
+factor firing on only a few dates short-circuits rather than reporting a
+`z` estimated from a handful of points.

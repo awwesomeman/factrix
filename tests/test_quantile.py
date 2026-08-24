@@ -533,8 +533,13 @@ class TestQuantileSpreadVWMissingReturns:
         result = quantile_spread_vw(
             _long_panel(build), forward_periods=1, n_groups=5, lag_weights=False
         )
+        from factrix._codes import WarningCode
+
         assert result.value == pytest.approx(0.10)
-        assert math.isfinite(result.stat)
+        # The fixture repeats one date's panel, so the spread is a constant
+        # 0.10: the value is real, the t is not computable.
+        assert result.stat is None
+        assert WarningCode.DEGENERATE_VARIANCE.value in result.warning_codes
 
     def test_all_returns_missing_on_a_date_yields_no_observation(self):
         """An empty leg must be null, never a manufactured 0.0 spread.
@@ -565,9 +570,72 @@ class TestQuantileSpreadVWMissingReturns:
         assert result.metadata["n_periods"] == result.n_obs
 
 
+class TestUniverseReturnRankedOnly:
+    """``universe_return`` averages only the cross-section the factor ranked.
+
+    Rows whose factor is null / NaN land in no bucket, but an earlier
+    version still averaged their returns into the shared universe mean —
+    so ``long_alpha`` / ``short_alpha`` benchmarked the legs against names
+    the factor never saw. With half the panel unranked at a +5% return
+    level, a long leg with zero true excess reported ~-2.5% "alpha". The
+    headline spread was unaffected (the universe cancels in the sum),
+    which is why nothing else caught it.
+    """
+
+    @staticmethod
+    def _half_ranked_panel():
+        rng = np.random.default_rng(0)
+        rows = []
+        for d in range(120):
+            for a in range(20):
+                ranked = a < 10
+                rows.append(
+                    {
+                        "date": datetime(2024, 1, 1) + timedelta(days=d),
+                        "asset_id": f"A{a}",
+                        "factor": float(a) if ranked else None,
+                        # Unranked names sit at a very different return level:
+                        # if they leak into the universe they shift it ~+2.5%.
+                        "forward_return": float(
+                            rng.normal(0.0 if ranked else 0.05, 0.01)
+                        ),
+                    }
+                )
+        return pl.DataFrame(rows)
+
+    def test_unranked_names_do_not_shift_the_leg_benchmark(self):
+        result = quantile_spread(
+            self._half_ranked_panel(), forward_periods=1, n_groups=5
+        )["factor"]
+        md = result.metadata
+        # Ranked names all sit at ~0%: both excess legs are genuinely ~0.
+        assert abs(md["long_alpha"]) < 0.005
+        assert abs(md["short_alpha"]) < 0.005
+        # The decomposition identity must survive the universe change.
+        assert md["long_alpha"] + md["short_alpha"] == pytest.approx(result.value)
+
+    def test_series_universe_matches_ranked_mean(self):
+        from factrix.metrics.quantile import compute_spread_series
+
+        panel = self._half_ranked_panel()
+        series = compute_spread_series(panel, forward_periods=1, n_groups=5)["factor"]
+        expected = (
+            panel.filter(pl.col("factor").is_not_null())
+            .group_by("date")
+            .agg(pl.col("forward_return").mean().alias("ranked_mean"))
+            .sort("date")
+        )
+        joined = series.join(expected, on="date")
+        assert ((joined["universe_return"] - joined["ranked_mean"]).abs() < 1e-12).all()
+
+
 class TestQuantileSpreadNonFiniteSeries:
     def test_nan_spread_is_dropped_not_silently_zeroing_the_t_stat(self):
-        """One NaN in the spread series used to give t=0, p=1."""
+        """One NaN in the spread series must not reach the t-stat.
+
+        It used to give t=0 / p=1; it would now give a degenerate_variance
+        result with stat=None. Either way the NaN belongs dropped upstream.
+        """
         series = pl.DataFrame(
             {
                 "date": [datetime(2024, 1, 1) + timedelta(days=i) for i in range(40)],
@@ -599,8 +667,8 @@ class TestQuantileSpreadNonFiniteSeries:
         expected = float(np.mean([0.01 + 0.001 * (i % 5) for i in range(39)]))
         assert result.n_obs == 39
         assert result.value == pytest.approx(expected)
-        # The old code averaged the NaN in: value NaN, and _calc_t_stat's NaN
-        # guard silently returned t=0, p=1 on a strongly positive spread.
+        # The old code averaged the NaN in: value NaN, and _calc_t_stat's
+        # degeneracy guard erased the t on a strongly positive spread.
         assert result.stat > 5.0
         assert result.p_value < 0.01
         assert "NaN" in result.metadata["drop_reason"]

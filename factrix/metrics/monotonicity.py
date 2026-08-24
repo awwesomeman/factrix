@@ -36,6 +36,7 @@ from factrix._types import (
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _assign_quantile_groups_batch,
+    _degenerate_test_fields,
     _enforce_scaled_floor,
     _sample_non_overlapping,
     _scaled_periods_threshold,
@@ -221,23 +222,32 @@ def monotonicity(
         std_mono = float(np.std(mono_arr, ddof=DDOF))
         t = _calc_t_stat(mean_mono, std_mono, len(mono_arr))
         p = _p_value_from_t(t, len(mono_arr))
+        metadata: dict[str, object] = {
+            "method": "t-test on per-period signed monotonicity",
+            "stat_type": "t",
+            "h0": "mu=0",
+            "mean_signed": mean_mono,
+            "n_valid_periods": len(mono_arr),
+            "n_groups": n_groups,
+            "tie_ratio": tie_ratios[f],
+            "tie_policy": tie_policy,
+        }
+        # An identical signed monotonicity on every period (a perfectly
+        # ordered factor, say) leaves no dispersion to test — ``avg_mono``
+        # still describes it, the t does not exist.
+        warning_codes: list[str] = []
+        stat, p_out, alternative = _degenerate_test_fields(
+            t, p, "two-sided", metadata, warning_codes
+        )
         results[f] = MetricResult(
-            p_value=p,
-            alternative="two-sided",
+            p_value=p_out,
+            alternative=alternative,
             value=avg_mono,
             n_obs=len(mono_arr),
             n_obs_axis="periods",
-            stat=t,
-            metadata={
-                "method": "t-test on per-period signed monotonicity",
-                "stat_type": "t",
-                "h0": "mu=0",
-                "mean_signed": mean_mono,
-                "n_valid_periods": len(mono_arr),
-                "n_groups": n_groups,
-                "tie_ratio": tie_ratios[f],
-                "tie_policy": tie_policy,
-            },
+            stat=stat,
+            metadata=metadata,
+            warning_codes=tuple(warning_codes),
         )
 
     return results

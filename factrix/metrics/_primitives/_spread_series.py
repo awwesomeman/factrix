@@ -83,8 +83,9 @@ def compute_spread_series(
         missing (polars ``mean`` propagates NaN, so one bad print would
         otherwise NaN out the bucket mean and the spread); a null or NaN
         factor lands in no bucket and is excluded from ``_n_assets`` /
-        ``_n_unique`` too, so those diagnostics describe the cross-section
-        that was actually ranked.
+        ``_n_unique`` **and** ``universe_return``, so both the diagnostics
+        and the benchmark the long / short legs are measured against
+        describe the cross-section that was actually ranked.
 
     Examples:
         >>> import factrix as fx
@@ -142,16 +143,24 @@ def compute_spread_series(
     top_group = n_groups - 1
     bottom_group = 0
 
-    # Per-factor top / bottom means + a single shared universe mean.
-    agg_exprs: list[pl.Expr] = [
-        pl.col(return_col).mean().alias("universe_return"),
-    ]
+    # Per-factor top / bottom / universe means. The universe is per factor
+    # and restricted to rows whose factor is finite — the same cross-section
+    # the bucketing ranks. An earlier version shared one unfiltered mean
+    # across factors, which benchmarked the long / short legs against names
+    # the factor never ranked: with half the panel unranked and carrying a
+    # different return level, a leg with zero true excess reported the gap
+    # to the unranked names as alpha (the headline spread was unaffected —
+    # the universe cancels in ``long_alpha + short_alpha``).
+    agg_exprs: list[pl.Expr] = []
     for f in cols:
-        # Both counts are over *finite* factor values: ``count`` counts a NaN
-        # (it is not null) and ``n_unique`` would score NaN as a distinct
-        # value, so a NaN-poisoned date would look wider and more varied than
-        # the cross-section that actually gets bucketed.
+        # Counts and the universe are over *finite* factor values: ``count``
+        # counts a NaN (it is not null) and ``n_unique`` would score NaN as
+        # a distinct value, so a NaN-poisoned date would look wider and more
+        # varied than the cross-section that actually gets bucketed.
         finite_f = _finite_expr(f)
+        agg_exprs.append(
+            pl.col(return_col).filter(finite_f).mean().alias(f"_universe__{f}")
+        )
         agg_exprs.append(pl.col(f).filter(finite_f).n_unique().alias(f"_n_unique__{f}"))
         agg_exprs.append(pl.col(f).filter(finite_f).len().alias(f"_n_assets__{f}"))
         agg_exprs.append(
@@ -173,14 +182,14 @@ def compute_spread_series(
         f: wide.select(
             pl.col("date"),
             pl.when((pl.col(f"_n_assets__{f}") > 0) & (pl.col(f"_n_unique__{f}") <= 1))
-            .then(pl.col("universe_return"))
+            .then(pl.col(f"_universe__{f}"))
             .otherwise(pl.col(f"_top__{f}"))
             .alias("top_return"),
             pl.when((pl.col(f"_n_assets__{f}") > 0) & (pl.col(f"_n_unique__{f}") <= 1))
-            .then(pl.col("universe_return"))
+            .then(pl.col(f"_universe__{f}"))
             .otherwise(pl.col(f"_bot__{f}"))
             .alias("bottom_return"),
-            pl.col("universe_return"),
+            pl.col(f"_universe__{f}").alias("universe_return"),
             pl.when((pl.col(f"_n_assets__{f}") > 0) & (pl.col(f"_n_unique__{f}") <= 1))
             .then(pl.lit(0.0))
             .otherwise(pl.col(f"_top__{f}") - pl.col(f"_bot__{f}"))

@@ -271,7 +271,8 @@ def spanning_alpha(
     else:
         # Consumer-side non-finite guard: polars ``drop_nulls`` keeps float
         # NaN, which would propagate through ``_ols_alpha`` into a NaN alpha
-        # and a silent t=0 / p=1. The multi-series path drops NaN inside
+        # and a NaN t, which surfaces as a degenerate_variance result rather
+        # than an alpha. The multi-series path drops NaN inside
         # ``_align_spread_series``; this branch bypasses it.
         candidate_arr = factor_spread["spread"].drop_nulls().drop_nans().to_numpy()
         base_arrays = {}
