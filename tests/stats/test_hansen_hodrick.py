@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 from factrix._stats import (
     _hansen_hodrick_se,
@@ -66,19 +68,24 @@ class TestHansenHodrickTTest:
         assert abs(se_nw - se_hh) < 1e-12
         assert abs(t) > 1.0  # mean=0.3, n=150 — clearly non-zero
 
-    def test_clamped_returns_p_one(self):
+    def test_clamped_returns_not_computable(self):
+        # Clamping the negative rectangular-kernel variance leaves SE=0, so
+        # there is no t to report. NaN, not the former (0.0, 1.0): a zero SE
+        # is degeneracy, and p=1 would have read it as "cannot reject".
         x = np.array([1.0, -1.0] * 50)
         t, p, marker, clamped = _hansen_hodrick_t_test(x, forward_periods=2)
         assert clamped is True
-        assert t == 0.0
-        assert p == 1.0
+        assert math.isnan(t)
+        assert math.isnan(p)
         assert marker == ""
 
     def test_short_sample(self):
         t, p, marker, clamped = _hansen_hodrick_t_test(
             np.array([1.0, 2.0]), forward_periods=2
         )
-        assert (t, p, marker, clamped) == (0.0, 1.0, "", False)
+        assert math.isnan(t)
+        assert math.isnan(p)
+        assert (marker, clamped) == ("", False)
 
     def test_overlap_inflates_se_lowers_t(self):
         rng = np.random.default_rng(11)

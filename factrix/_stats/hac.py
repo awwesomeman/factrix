@@ -14,6 +14,19 @@ from factrix._stats.constants import auto_bartlett
 from factrix._stats.core import _p_value_from_t, _significance_marker
 from factrix._types import EPSILON
 
+# Shared "this sample admits no t-statistic" return for the HAC t-tests:
+# a sample too short for the kernel, or one whose HAC SE collapses to zero.
+# NaN rather than the former ``(0.0, 1.0)``: a zero-SE sample is degenerate
+# in the maximum-evidence direction (or an undefined 0/0), never the null,
+# so reporting ``p = 1`` inverted the meaning. Matches
+# ``factrix._stats.core._calc_t_stat`` — see its docstring for the
+# scipy / R reference behaviour and why ±inf is not used instead.
+# Callers hold the metric- or inference-level context needed to label the
+# cause and surface it as ``WarningCode.DEGENERATE_VARIANCE``. The two
+# too-short-sample branches also return this sentinel, but that is a data
+# shortage rather than degeneracy, and callers flag it as such.
+_NOT_COMPUTABLE: tuple[float, float, str] = (float("nan"), float("nan"), "")
+
 
 def _require_finite(values: np.ndarray, func_name: str) -> np.ndarray:
     """Coerce to a float array and reject non-finite entries.
@@ -111,14 +124,16 @@ def _newey_west_t_test(
             consistent under the MA(h-1) overlap structure.
 
     Returns:
-        (t_stat, p_value, significance_marker)
+        ``(t_stat, p_value, significance_marker)``. A sample too short to
+        run the kernel (``n < 3``) or one whose HAC SE collapses to zero
+        returns ``(nan, nan, "")`` — see the degeneracy note below.
     """
     from factrix._logging import get_metrics_logger
 
     values = _require_finite(values, "_newey_west_t_test")
     n = len(values)
     if n < 3:
-        return 0.0, 1.0, ""
+        return _NOT_COMPUTABLE
 
     effective_lags = _resolve_nw_lags(n, lags, forward_periods)
     logger = get_metrics_logger()
@@ -136,7 +151,7 @@ def _newey_west_t_test(
     mean = float(np.mean(values))
     se = _newey_west_se(values, lags, forward_periods=forward_periods)
     if se < EPSILON:
-        return 0.0, 1.0, ""
+        return _NOT_COMPUTABLE
 
     t = mean / se
     p = _p_value_from_t(t, n)
@@ -309,18 +324,17 @@ def _hansen_hodrick_t_test(
     variance has no PSD guarantee and callers must surface the clamp
     case as a warning rather than silently treat it as a non-rejection.
     SE → 0 (whether by near-zero raw variance or by clamping) returns
-    ``(0.0, 1.0, "", clamped)`` — the conservative "cannot reject"
-    direction.
+    ``(nan, nan, "", clamped)`` — see the degeneracy note below.
     """
     values = _require_finite(values, "_hansen_hodrick_t_test")
     n = len(values)
     if n < 3 or forward_periods < 1:
-        return 0.0, 1.0, "", False
+        return (*_NOT_COMPUTABLE, False)
 
     mean = float(np.mean(values))
     se, clamped = _hansen_hodrick_se(values, forward_periods)
     if se < EPSILON:
-        return 0.0, 1.0, "", clamped
+        return (*_NOT_COMPUTABLE, clamped)
 
     t = mean / se
     p = _p_value_from_t(t, n)

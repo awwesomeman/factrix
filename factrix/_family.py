@@ -31,6 +31,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from factrix._codes import WarningCode
 from factrix._errors import UserInputError, _api_docs_path
 
 if TYPE_CHECKING:
@@ -318,6 +319,14 @@ def _resolve_p_value(
         ) from None
 
     p = out.p_value
+    if p is None and WarningCode.DEGENERATE_VARIANCE.value in out.warning_codes:
+        # A dispersion-free sample carries no test (see
+        # ``factrix.metrics._helpers._degenerate_test_fields``). Treat it the
+        # way a data shortage is treated rather than aborting the whole
+        # family: 1.0 is the inert placeholder, and
+        # ``_is_inactive_hypothesis`` keeps it out of the BHY denominator so
+        # it cannot dilute the other factors' adjusted p-values.
+        return 1.0
     if p is None:
         raise UserInputError(
             func_name=func_name,

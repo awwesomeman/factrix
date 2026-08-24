@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import polars as pl
 
+from factrix._codes import WarningCode
 from factrix._errors import UserInputError, _api_docs_path
 from factrix._family import (
     _attach_p_values,
@@ -685,9 +686,7 @@ def bhy(
         entries = _attach_p_values(partition, func_name="bhy", metric=spec)
         active_buckets: dict[tuple[Any, ...], list[int]] = {
             bucket_key: [
-                i
-                for i in ix
-                if not _is_insufficient_short_circuit(entries[i].result, spec)
+                i for i in ix if not _is_inactive_hypothesis(entries[i].result, spec)
             ]
             for bucket_key, ix in buckets.items()
         }
@@ -718,10 +717,23 @@ def bhy(
     return out
 
 
-def _is_insufficient_short_circuit(result: EvaluationResult, metric: str) -> bool:
-    """Return True when a metric output is a data-shortage placeholder."""
-    reason = result.metrics[metric].metadata.get("reason")
-    return isinstance(reason, str) and reason.startswith("insufficient_")
+def _is_inactive_hypothesis(result: EvaluationResult, metric: str) -> bool:
+    """Return True when a metric output is a placeholder, not a real test.
+
+    Two shapes qualify. A data-shortage short-circuit (``insufficient_*``)
+    never ran the test for want of observations. A ``degenerate_variance``
+    result had the observations but no dispersion, so no statistic exists
+    (see ``factrix.metrics._helpers._degenerate_test_fields``); its
+    ``p_value`` is ``None`` and ``_resolve_p_value`` substitutes an inert
+    1.0. Neither is a hypothesis that was genuinely on the table, so both
+    stay out of the BHY denominator — counting them would shrink every
+    other factor's adjusted p for free.
+    """
+    out = result.metrics[metric]
+    reason = out.metadata.get("reason")
+    if isinstance(reason, str) and reason.startswith("insufficient_"):
+        return True
+    return WarningCode.DEGENERATE_VARIANCE.value in out.warning_codes
 
 
 def _normalize_metric_hypotheses(
@@ -749,7 +761,7 @@ def _normalize_metric_hypotheses(
                     p_value=float(p_value),
                     identifier=(*partition_entry.identifier, ("metric", metric)),
                     expand_over_values=partition_entry.expand_over_values,
-                    is_active=not _is_insufficient_short_circuit(
+                    is_active=not _is_inactive_hypothesis(
                         partition_entry.result, metric
                     ),
                 )

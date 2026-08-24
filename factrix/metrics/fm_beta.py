@@ -51,6 +51,7 @@ from factrix._stats.constants import MIN_PERIODS_WARN
 from factrix._types import DDOF, EPSILON, ShankenVarSource
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
+    _degenerate_test_fields,
     _enforce_min_floor,
     _finite_expr,
     _short_circuit_output,
@@ -354,13 +355,18 @@ def fm_beta(
         expected_warnings=expected_warnings,
     )
     _surface_drop_stats(beta_df, "fm_beta", metadata, warning_codes)
+    # A flat β series (or one whose Bartlett HAC SE collapses) admits no t;
+    # ``mean_beta`` is still the premium estimate.
+    stat, p_out, alternative = _degenerate_test_fields(
+        t, p_final, "two-sided", metadata, warning_codes
+    )
     return MetricResult(
-        p_value=p_final,
-        alternative="two-sided",
+        p_value=p_out,
+        alternative=alternative,
         value=mean_beta,
         n_obs=n,
         n_obs_axis="periods",
-        stat=t,
+        stat=stat,
         metadata=metadata,
         warning_codes=tuple(warning_codes),
     )

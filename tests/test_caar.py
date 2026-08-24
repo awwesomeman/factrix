@@ -814,7 +814,8 @@ class TestCaarSameSampleContract:
         assert result.n_obs == 10
         assert math.isfinite(result.value)
         assert math.isfinite(result.stat)
-        # A NaN reaching _calc_t_stat silently returns t=0, p=1.
+        # A NaN reaching _calc_t_stat returns a NaN t, which would surface as
+        # a degenerate_variance result with stat=None instead of a real one.
         assert result.stat != 0.0
 
     def test_dropped_event_count_surfaces_from_compute_caar(self):

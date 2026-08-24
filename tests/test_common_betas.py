@@ -383,8 +383,9 @@ class TestCommonBetasNonFinite:
                 assert n_out[a] == n_clean[a]
 
     def test_common_beta_consumer_drops_nan_betas(self):
-        # Hand-built frame: a NaN beta reaching _calc_t_stat silently returns
-        # t=0 / p=1 with a NaN value.
+        # Hand-built frame: a NaN beta reaching _calc_t_stat returns a NaN t,
+        # which surfaces as degenerate_variance — missing data mislabelled as
+        # a dispersion-free sample. Dropping it upstream is the fix.
         df = pl.DataFrame(
             {
                 "asset_id": ["A", "B", "C", "D"],

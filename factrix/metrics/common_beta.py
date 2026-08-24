@@ -43,6 +43,7 @@ from factrix._stats import (
 from factrix._types import DDOF, EPSILON
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
+    _degenerate_test_fields,
     _enforce_min_floor,
     _finite_expr,
     _short_circuit_output,
@@ -117,8 +118,9 @@ def common_beta(common_betas_df: pl.DataFrame) -> MetricResult:
         True
     """
     # ``drop_nans`` as well as ``drop_nulls``: polars keeps float NaN, and a NaN
-    # beta reaching ``_calc_t_stat`` silently returns t=0 / p=1 with a NaN
-    # ``value`` — a "no effect" verdict manufactured out of missing data.
+    # beta reaching ``_calc_t_stat`` yields a NaN t — which now withholds the
+    # test as ``degenerate_variance``, mislabelling missing data as a
+    # dispersion-free sample.
     betas = common_betas_df["beta"].drop_nulls().drop_nans().to_numpy()
     n = len(betas)
 
@@ -145,13 +147,18 @@ def common_beta(common_betas_df: pl.DataFrame) -> MetricResult:
     _surface_drop_stats(
         common_betas_df, "common_beta", metadata, warning_codes, axis="assets"
     )
+    # Every asset carrying an identical β leaves no cross-asset dispersion:
+    # ``mean_b`` is still the profile, the t is not computable.
+    stat, p_out, alternative = _degenerate_test_fields(
+        t, p, "two-sided", metadata, warning_codes
+    )
     return MetricResult(
-        p_value=p,
-        alternative="two-sided",
+        p_value=p_out,
+        alternative=alternative,
         value=mean_b,
         n_obs=n,
         n_obs_axis="assets",
-        stat=t,
+        stat=stat,
         metadata=metadata,
         warning_codes=tuple(warning_codes),
     )
