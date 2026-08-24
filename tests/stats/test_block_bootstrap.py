@@ -166,6 +166,63 @@ class TestBlockBootstrapDiffP:
         assert m_fixed["scheme"] == "fixed"
         assert m_fixed["block_length"] == 5
 
+    def test_stationary_auto_block_length_is_not_discretized(self):
+        """The stationary L is a geometric MEAN, so it must stay fractional.
+
+        Rounding it discretizes the renewal probability ``p_new = 1 / L``
+        for no reason, and put this function out of step with the two other
+        consumers of the same estimate.
+        """
+        rng = np.random.default_rng(seed=7)
+        # AR(1): persistent enough that Politis-White lands off an integer.
+        x = np.empty(300)
+        x[0] = rng.standard_normal()
+        for t in range(1, 300):
+            x[t] = 0.6 * x[t - 1] + rng.standard_normal()
+
+        expected = _politis_white_block_length(x, scheme="stationary")
+        assert expected != round(expected), "fixture must exercise a fractional L"
+
+        _p, meta = _block_bootstrap_diff_p(x, n_resamples=199, rng_seed=0)
+        assert meta["block_length"] == pytest.approx(expected)
+
+    def test_stationary_auto_matches_period_inference(self):
+        """Both auto paths resolve the same series to the same block length.
+
+        ``slicing.period_inference`` passes the Politis-White float straight
+        to ``_stationary_block_indices``; before the fix this function
+        rounded it first, so the two re-sampled the same series with
+        different effective block lengths.
+        """
+        from factrix.slicing.period_inference import _SCHEME
+
+        rng = np.random.default_rng(seed=11)
+        x = np.empty(300)
+        x[0] = rng.standard_normal()
+        for t in range(1, 300):
+            x[t] = 0.6 * x[t - 1] + rng.standard_normal()
+
+        _p, meta = _block_bootstrap_diff_p(
+            x, n_resamples=199, rng_seed=0, scheme=_SCHEME
+        )
+        assert meta["block_length"] == pytest.approx(
+            _politis_white_block_length(x, scheme=_SCHEME)
+        )
+
+    def test_fixed_auto_block_length_stays_integral(self):
+        """The fixed scheme's L IS a block size, so rounding is correct there."""
+        rng = np.random.default_rng(seed=7)
+        x = np.empty(300)
+        x[0] = rng.standard_normal()
+        for t in range(1, 300):
+            x[t] = 0.6 * x[t - 1] + rng.standard_normal()
+
+        _p, meta = _block_bootstrap_diff_p(
+            x, n_resamples=199, rng_seed=0, scheme="fixed"
+        )
+        L = meta["block_length"]
+        assert int(L) == L
+
     def test_short_series_returns_one(self):
         p, meta = _block_bootstrap_diff_p(np.array([0.5]))
         assert p == 1.0

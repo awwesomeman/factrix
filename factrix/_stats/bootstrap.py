@@ -238,9 +238,10 @@ def _block_bootstrap_diff_p(
         diff: 1-D paired-difference series (already date-aligned by
             caller — the bootstrap does not re-align).
         block_length: ``"auto"`` runs Politis-White; ``int >= 1`` uses
-            the supplied length unchanged. Stationary scheme uses the
-            mean of the geometric distribution; fixed scheme uses the
-            integer directly.
+            the supplied length unchanged. Under ``"stationary"`` the
+            resolved value is the *mean* of the geometric block-length
+            distribution and stays fractional; under ``"fixed"`` it is a
+            literal block size and is rounded to an integer.
         n_resamples: ``B``. [Politis-White (2004)][politis-white-2004] recommends ≥ 999 for two-sided
             5% tests; default matches.
         scheme: ``"fixed"`` (fixed-length circular blocks,
@@ -251,9 +252,11 @@ def _block_bootstrap_diff_p(
 
     Returns:
         ``(p_value, metadata)`` — p in ``[1/(B+1), 1]``; metadata
-        records the resolved block length, scheme, n_resamples, and the
-        actual seed used (so the run is reproducible from the logged
-        metadata even when the caller passed ``rng_seed=None``).
+        records the resolved block length (a float: fractional under
+        ``"stationary"``, integral under ``"fixed"``), scheme,
+        n_resamples, and the actual seed used (so the run is reproducible
+        from the logged metadata even when the caller passed
+        ``rng_seed=None``).
     """
     diff = np.asarray(diff, dtype=float)
     # A NaN would make ``centred`` all-NaN, every ``|boot| >= |obs|`` test
@@ -264,19 +267,28 @@ def _block_bootstrap_diff_p(
     n = len(diff)
     if n < 2:
         return 1.0, {
-            "block_length": 0,
+            "block_length": 0.0,
             "n_resamples": 0,
             "scheme": scheme,
             "rng_seed": rng_seed if rng_seed is not None else -1,
         }
 
+    L: float
     if block_length == "auto":
-        L_float = _politis_white_block_length(diff, scheme=scheme)
-        L = max(1, round(L_float))
+        L_auto = _politis_white_block_length(diff, scheme=scheme)
+        # Only the fixed scheme's L is a block *size* and has to be integral.
+        # The stationary scheme's is the MEAN of a geometric distribution —
+        # ``_stationary_block_indices`` only ever reads it as
+        # ``p_new = 1 / L`` — so rounding discretizes the renewal probability
+        # for nothing: L=3.4 turns p_new 0.294 into 0.333. It also put this
+        # function out of step with the other two consumers of the same
+        # estimate, ``stationary_bootstrap_resamples`` and
+        # ``slicing.period_inference``, which both pass the float through.
+        L = max(1.0, L_auto) if scheme == "stationary" else float(max(1, round(L_auto)))
     else:
-        L = int(block_length)
-        if L < 1:
-            raise ValueError(f"block_length must be >= 1; got {L!r}")
+        L = float(int(block_length))
+        if L < 1.0:
+            raise ValueError(f"block_length must be >= 1; got {block_length!r}")
 
     # Resolve seed up front so it can be reported back even when None.
     # `secrets.randbits(32)` is the purpose-built "give me a random int
@@ -288,9 +300,9 @@ def _block_bootstrap_diff_p(
     # Centre under H0 (mean=0) before resampling.
     centred = diff - float(np.mean(diff))
     if scheme == "stationary":
-        idx = _stationary_block_indices(n, n_resamples, float(L), rng)
+        idx = _stationary_block_indices(n, n_resamples, L, rng)
     else:
-        idx = _fixed_block_indices(n, n_resamples, L, rng)
+        idx = _fixed_block_indices(n, n_resamples, int(L), rng)
     resamples = centred[idx]
     boot_means = resamples.mean(axis=1)
 
