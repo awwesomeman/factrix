@@ -1,9 +1,11 @@
 """Shared helpers for doc-validation tests.
 
-Used by ``test_docs_llms.py`` (validates ``factrix/llms-full.txt``) and
-``test_docs_pages.py`` (walks all ``docs/**/*.md``). Pure regex + attribute
-walking; no fixtures, intentionally not in ``conftest.py`` so it stays
-out of the pytest collection path.
+Used by ``test_docs_llms.py`` (validates ``factrix/llms-full.txt``),
+``test_docs_pages.py`` (walks all ``docs/**/*.md``), and
+``test_docs_bibliography.py`` (walks citations in both docs pages and
+``factrix/**/*.py``). Pure regex + attribute walking; no fixtures,
+intentionally not in ``conftest.py`` so it stays out of the pytest
+collection path.
 
 The leading underscore in the filename keeps pytest from collecting it
 as a test module.
@@ -31,6 +33,36 @@ BARE_IMPORT_RE = re.compile(
     r"^import\s+(factrix(?:\.[A-Za-z_][A-Za-z0-9_]*)*)(?:\s+as\s+\w+)?\s*$",
     re.MULTILINE,
 )
+
+
+# Bibliography citations are written ``[Author (Year)][author-year]`` and
+# resolve through mkdocs-autorefs to an explicit anchor in
+# ``docs/reference/bibliography.md``. Requiring the 4-digit year (with an
+# optional ``a``/``b`` suffix disambiguating same-year works) is what makes
+# the pattern unambiguous: ordinary subscript chains such as ``values[i][0]``
+# or ``params[row][j]`` cannot match it, because no subscript ends in
+# ``-1234``. ``test_docs_bibliography.py`` pins the two conventions this
+# relies on.
+#
+# The label half deliberately tolerates newlines: docstrings wrapped at 88
+# columns split it across lines in 7 places, putting the author on one line
+# and ``(1989)][kunsch-1989]`` on the next, and a newline-free pattern
+# silently skips those. Only the slug is captured, so a label spanning
+# further than intended cannot corrupt the result, and the length bound keeps
+# an unclosed ``[`` in prose from scanning the rest of the file.
+CITATION_RE = re.compile(r"\[[^\]]{1,200}\]\[([a-z][a-z0-9-]*-\d{4}[a-z]?)\]")
+# Explicit anchor definition, e.g. ``[](){ #politis-romano-1992 }``.
+ANCHOR_RE = re.compile(r"\[\]\(\)\{ #([a-z0-9-]+) \}")
+
+
+def citations(text: str) -> set[str]:
+    """Return the bibliography anchor slugs cited in ``text``."""
+    return set(CITATION_RE.findall(text))
+
+
+def anchors(text: str) -> set[str]:
+    """Return the explicit anchor slugs defined in ``text``."""
+    return set(ANCHOR_RE.findall(text))
 
 
 def referenced_chains(text: str) -> set[tuple[str, ...]]:
