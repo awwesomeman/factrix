@@ -52,6 +52,7 @@ from factrix._types import DDOF, EPSILON, ShankenVarSource
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _enforce_min_floor,
+    _finite_expr,
     _short_circuit_output,
     _surface_drop_stats,
     _warn_below_floor,
@@ -598,6 +599,15 @@ def pooled_beta(
         with ``G`` the number of clusters; two-way:
         ``df = min(G_A, G_B) - 1`` per [Thompson (2011)][thompson-2011].
 
+        Sample definition: the regression runs on the **finite** ``(factor,
+        return)`` pairs. polars' ``drop_nulls`` keeps float ``NaN`` (unlike
+        pandas, where ``NaN`` *is* the null marker), so factrix filters on
+        ``is_not_null() & is_finite()``; the count removed is reported as
+        ``metadata["dropped_pairs"]`` when non-zero. The
+        alternative — propagating ``NaN`` into ``lstsq`` — yields a ``NaN``
+        slope that ``MetricResult`` rejects outright, turning one bad cell
+        into a hard failure of the whole panel.
+
         factrix reports ``stat = None`` (rather than 0) when ``G < 3``
         because the cluster-robust variance is undefined with too few
         clusters; falling back to a homoskedastic SE in that regime
@@ -635,12 +645,16 @@ def pooled_beta(
         >>> result.name == ""
         True
     """
-    # Pooled OLS is estimated on the complete (factor, return) pairs: drop
-    # incomplete rows up front so a null factor or return cannot feed a NaN into
-    # ``lstsq`` (poisoning the slope) and so ``n_obs`` — the pairs-axis floor —
-    # counts what the regression actually uses. Dropping on ``data`` keeps the
+    # Pooled OLS is estimated on the FINITE (factor, return) pairs: drop
+    # incomplete rows up front so a null / NaN / ±inf factor or return cannot
+    # feed a NaN into ``lstsq`` (which returns a NaN slope, and ``MetricResult``
+    # then rejects the non-finite value) and so ``n_obs`` — the pairs-axis floor
+    # — counts what the regression actually uses. Dropping on ``data`` keeps the
     # downstream cluster / Driscoll-Kraay arrays positionally aligned.
-    data = data.drop_nulls([return_col, factor_col])
+    # ``drop_nulls`` alone is not enough: polars keeps float NaN.
+    n_rows_in = data.height
+    data = data.filter(_finite_expr(return_col) & _finite_expr(factor_col))
+    n_non_finite_dropped = n_rows_in - data.height
     y = data[return_col].to_numpy().astype(np.float64)
     x = data[factor_col].to_numpy().astype(np.float64)
     n_obs = len(y)
@@ -787,6 +801,8 @@ def pooled_beta(
     }
     if non_psd_fallback:
         metadata["variance_non_psd_fallback"] = f"one_way_{cluster_col}"
+    if n_non_finite_dropped:
+        metadata["dropped_pairs"] = n_non_finite_dropped
 
     return MetricResult(
         p_value=p,
@@ -826,9 +842,16 @@ def fm_beta_sign_consistency(
     you must supply the a-priori expected sign. Typical use: paired with
     a prior on factor direction to check stability.
 
-    Short-circuits to NaN when no non-null $\beta$ observations exist.
+    Short-circuits to NaN when no finite $\beta$ observations exist.
 
     Notes:
+        Non-finite $\beta_t$ (null **or** ``NaN``) are excluded from both the
+        numerator and $n$. polars' ``drop_nulls`` keeps ``NaN``, and
+        ``NaN > 0`` is ``False``, so a ``NaN`` beta used to be scored as a
+        wrong-sign period *and* counted in ``n_obs`` — a double penalty for a
+        period that simply has no estimate. Treating it as missing is the
+        pandas-equivalent behaviour.
+
         ``value`` $= \mathrm{mean}_t \mathbb{1}\{\mathrm{sign}(\beta_t) = s^\star\}$
         over the FM per-date beta series. Range $[0, 1]$; $1.0$ = beta
         always agrees with the prior. Descriptive (no formal $H_0$);
@@ -857,7 +880,10 @@ def fm_beta_sign_consistency(
         >>> result.name == ""
         True
     """
-    betas = beta_df["beta"].drop_nulls().to_numpy()
+    # ``drop_nans`` as well as ``drop_nulls``: a NaN beta is neither positive
+    # nor negative, so it would silently be counted as a wrong-sign period AND
+    # inflate ``n_obs``, biasing the ratio downwards.
+    betas = beta_df["beta"].drop_nulls().drop_nans().to_numpy()
     n = len(betas)
     sc = _enforce_min_floor(
         fm_beta_sign_consistency, "fm_beta_sign_consistency", n, "no_beta_observations"

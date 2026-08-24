@@ -318,3 +318,95 @@ class TestSpanningEvaluate:
         # so the shared payload (metadata dict) is the same object for every
         # factor — only the per-label name stamp on the MetricResult differs.
         assert result1.metadata is result2.metadata
+
+
+class TestAlignSpreadSeriesRegressions:
+    """Regressions for ``_align_spread_series`` (v0.19.x alignment bugs)."""
+
+    @staticmethod
+    def _linked_pair(n: int = 120) -> tuple[pl.DataFrame, pl.DataFrame]:
+        """base ~ N(0,1); candidate = 0.5 * base + tiny noise, same dates."""
+        rng = np.random.default_rng(2024)
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n)]
+        base_vals = rng.normal(0.0, 1.0, n)
+        cand_vals = 0.5 * base_vals + rng.normal(0.0, 1e-4, n)
+        base = pl.DataFrame({"date": dates, "spread": base_vals}).with_columns(
+            pl.col("date").cast(pl.Datetime("ms"))
+        )
+        cand = pl.DataFrame({"date": dates, "spread": cand_vals}).with_columns(
+            pl.col("date").cast(pl.Datetime("ms"))
+        )
+        return base, cand
+
+    def test_shuffled_input_matches_sorted_input(self):
+        # REGRESSION: ``common_dates.join(series, ...)`` relied on polars
+        # preserving the left frame's row order, which 1.40 does not. A
+        # shuffled base frame came back permuted relative to the candidate,
+        # collapsing the true 0.5 slope to ~0.001.
+        base, cand = self._linked_pair()
+        sorted_res = spanning_alpha(cand, base_spreads={"base": base})
+        shuffled_base = base.sample(fraction=1.0, shuffle=True, seed=7)
+        assert shuffled_base["date"].to_list() != base["date"].to_list()
+        shuffled_res = spanning_alpha(cand, base_spreads={"base": shuffled_base})
+
+        assert shuffled_res.value == pytest.approx(sorted_res.value)
+        assert shuffled_res.stat == pytest.approx(sorted_res.stat)
+        assert shuffled_res.metadata["betas"]["base"] == pytest.approx(0.5, abs=1e-3)
+
+    def test_shuffled_candidate_matches_sorted(self):
+        base, cand = self._linked_pair()
+        sorted_res = spanning_alpha(cand, base_spreads={"base": base})
+        shuffled_cand = cand.sample(fraction=1.0, shuffle=True, seed=13)
+        shuffled_res = spanning_alpha(shuffled_cand, base_spreads={"base": base})
+        assert shuffled_res.value == pytest.approx(sorted_res.value)
+        assert shuffled_res.stat == pytest.approx(sorted_res.stat)
+
+    def test_greedy_forward_selection_shares_the_fix(self):
+        # greedy_forward_selection goes through the same helper.
+        base, cand = self._linked_pair()
+        kwargs = {"suppress_snooping_warning": True}
+        ordered = greedy_forward_selection(
+            {"cand": cand}, base_spreads={"base": base}, **kwargs
+        )
+        shuffled = greedy_forward_selection(
+            {"cand": cand.sample(fraction=1.0, shuffle=True, seed=3)},
+            base_spreads={"base": base.sample(fraction=1.0, shuffle=True, seed=4)},
+            **kwargs,
+        )
+        assert shuffled.value == ordered.value
+        assert [c.factor_name for c in shuffled.metadata["all_candidates"]] == [
+            c.factor_name for c in ordered.metadata["all_candidates"]
+        ]
+
+    def test_duplicate_dates_raise(self):
+        # REGRESSION: duplicate dates produced arrays of unequal length and
+        # np.column_stack crashed far from the cause.
+        base, cand = self._linked_pair()
+        dup_base = pl.concat([base, base.head(1)])
+        with pytest.raises(ValueError, match="duplicate dates"):
+            spanning_alpha(cand, base_spreads={"base": dup_base})
+
+    def test_nan_spread_dropped_not_propagated(self):
+        base, cand = self._linked_pair()
+        nan_base = base.with_columns(
+            pl.when(pl.int_range(pl.len()) == 5)
+            .then(float("nan"))
+            .otherwise(pl.col("spread"))
+            .alias("spread")
+        )
+        res = spanning_alpha(cand, base_spreads={"base": nan_base})
+        assert np.isfinite(res.value)
+        assert np.isfinite(res.stat)
+        assert res.n_obs == len(base) - 1
+
+    def test_nan_spread_dropped_without_base(self):
+        _base, cand = self._linked_pair()
+        nan_cand = cand.with_columns(
+            pl.when(pl.int_range(pl.len()) == 3)
+            .then(float("nan"))
+            .otherwise(pl.col("spread"))
+            .alias("spread")
+        )
+        res = spanning_alpha(nan_cand)
+        assert np.isfinite(res.value)
+        assert res.n_obs == cand.height - 1

@@ -176,3 +176,35 @@ class TestMissingColumns:
         )
         out = common_quantile_spread(df)
         assert out.metadata["reason"] == "no_factor_column"
+
+
+class TestNonFiniteInput:
+    """REGRESSION: a NaN cell used to survive ``_aggregate_to_per_date``."""
+
+    def test_nan_return_row_is_dropped_not_propagated(self):
+        rng = np.random.default_rng(42)
+        T = 600
+        f = rng.standard_normal(T)
+        r = 0.10 * f + rng.standard_normal(T) * 0.5
+        clean = common_quantile_spread(_series_panel(f, r), n_groups=5)
+
+        r_nan = r.copy()
+        r_nan[17] = np.nan
+        poisoned = common_quantile_spread(_series_panel(f, r_nan), n_groups=5)
+
+        assert np.isfinite(poisoned.value)
+        assert np.isfinite(poisoned.stat)
+        assert poisoned.p_value < 1.0
+        # One period lost, everything else materially unchanged.
+        assert poisoned.value == pytest.approx(clean.value, rel=0.05)
+
+    def test_nan_factor_row_is_dropped_not_propagated(self):
+        rng = np.random.default_rng(7)
+        T = 600
+        f = rng.standard_normal(T)
+        r = 0.10 * f + rng.standard_normal(T) * 0.5
+        f_nan = f.copy()
+        f_nan[3] = np.nan
+        out = common_quantile_spread(_series_panel(f_nan, r), n_groups=5)
+        assert np.isfinite(out.value)
+        assert np.isfinite(out.stat)

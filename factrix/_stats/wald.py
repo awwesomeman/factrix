@@ -179,13 +179,15 @@ def _cluster_meat(
     X: np.ndarray,
     u: np.ndarray,
     cluster_ids: np.ndarray,
-) -> np.ndarray:
-    """One-way cluster meat matrix ``Σ_g (X_g' u_g)(X_g' u_g)'``.
+) -> tuple[np.ndarray, int]:
+    """One-way cluster meat matrix ``Σ_g (X_g' u_g)(X_g' u_g)'`` and ``G``.
 
     Sandwich pieces are cached at the cluster level; complexity is
     O(n · k²) regardless of cluster count. Used as the building block
     for both single-cluster and [Cameron-Gelbach-Miller (2011)][cameron-gelbach-miller-2011]
-    two-way cluster covariance.
+    two-way cluster covariance. Returns the uncorrected meat plus the
+    cluster count ``G``, which the caller needs for the ``G/(G-1)``
+    finite-sample factor.
     """
     _, k = X.shape
     score = X * u[:, None]
@@ -195,7 +197,23 @@ def _cluster_meat(
         mask = cluster_ids == g
         s_g = score[mask].sum(axis=0)
         meat += np.outer(s_g, s_g)
-    return meat
+    return meat, len(unique)
+
+
+def _encode_pair_ids(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """Integer id per distinct ``(a, b)`` pair, dtype-agnostic.
+
+    ``np.unique(np.column_stack([a, b]), axis=0)`` raises for
+    ``object``/``datetime64`` label arrays (and silently up-casts mixed
+    dtypes), so each side is factorised to integer codes first and the
+    pair is then encoded as ``code_a * (max_b + 1) + code_b``. Same
+    pattern as ``factrix.metrics.fm_beta.pooled_beta``.
+    """
+    _, ids_a = np.unique(np.asarray(a), return_inverse=True)
+    _, ids_b = np.unique(np.asarray(b), return_inverse=True)
+    ids_a = np.ravel(ids_a).astype(np.int64)
+    ids_b = np.ravel(ids_b).astype(np.int64)
+    return ids_a * (int(ids_b.max()) + 1) + ids_b
 
 
 def _wald_two_way_cluster(
@@ -220,6 +238,27 @@ def _wald_two_way_cluster(
     ``_wald_p_linear`` (CGM construction is theoretically symmetric
     but the subtraction can introduce floating-point asymmetry that
     breaks the inverse).
+
+    Notes:
+        Finite-sample correction: each meat component carries its own
+        ``G/(G-1)`` factor and the whole sandwich carries ``(N-1)/(N-K)`` —
+        the CGM / Stata ``vce(cluster …)`` convention, and byte-for-byte the
+        same factors :func:`factrix.metrics.fm_beta.pooled_beta` applies on
+        its two-way path, so the two estimators now agree on identical input.
+        This routine previously omitted the correction entirely and returned
+        an anti-conservative (too small) ``V_DC`` — the asymptotic
+        no-correction variant is defensible only as ``G → ∞``, which is
+        never the regime a factor panel with a few hundred dates is in.
+
+        Cluster labels of any dtype are accepted: both margins are factorised
+        with ``np.unique(..., return_inverse=True)`` before the intersection
+        id is formed. The natural-looking
+        ``np.unique(np.column_stack([date_ids, asset_ids]), axis=0)`` raises
+        outright for ``datetime64`` dates paired with string asset ids —
+        i.e. for every realistic panel.
+
+        With fewer than 2 clusters on either margin the correction and the
+        F reference are both undefined; ``(0.0, 1.0)`` is returned.
 
     Args:
         y: ``(n,)`` outcome vector.
@@ -259,21 +298,33 @@ def _wald_two_way_cluster(
     beta = XtX_inv @ (X.T @ y)
     resid = y - X @ beta
 
-    M_date = _cluster_meat(X, resid, date_ids)
-    M_asset = _cluster_meat(X, resid, asset_ids)
-    # Intersection cluster = HC0 when each row is a unique (date,
-    # asset) cell. Build a composite scalar ID via np.unique pair-encoding
-    # so panels with repeated (date, asset) cells (e.g. multiple events
-    # per asset-date) still cluster correctly without object-dtype
-    # comparison surprises.
-    _, combined_ids = np.unique(
-        np.column_stack([np.asarray(date_ids), np.asarray(asset_ids)]),
-        axis=0,
-        return_inverse=True,
-    )
-    M_intersection = _cluster_meat(X, resid, combined_ids)
+    M_date, g_date = _cluster_meat(X, resid, date_ids)
+    M_asset, g_asset = _cluster_meat(X, resid, asset_ids)
+    # Intersection cluster = HC0 when each row is a unique (date, asset) cell.
+    # Build a composite scalar ID by factorising each side to integer codes
+    # first: ``np.unique(column_stack([...]), axis=0)`` raises on object /
+    # datetime64 label arrays, which is exactly what a real panel carries
+    # (datetime dates, string asset ids). Panels with repeated (date, asset)
+    # cells (e.g. multiple events per asset-date) still cluster correctly.
+    combined_ids = _encode_pair_ids(date_ids, asset_ids)
+    M_intersection, g_inter = _cluster_meat(X, resid, combined_ids)
 
-    V_dc = XtX_inv @ (M_date + M_asset - M_intersection) @ XtX_inv
+    # CGM / Stata small-sample correction, applied per cluster dimension and
+    # then once on the observation axis — identical to the factors
+    # ``factrix.metrics.fm_beta.pooled_beta`` uses, so the two estimators now
+    # agree on the same panel.
+    if min(g_date, g_asset) < 2:
+        # G = 1 on either margin: G/(G-1) is undefined and the F reference has
+        # zero denominator dof. Nothing is estimable; report the degenerate
+        # (0, 1) rather than a correction-free number that looks like a result.
+        return 0.0, 1.0
+    c_obs = (n - 1) / (n - k)
+    meat = (
+        (g_date / (g_date - 1)) * M_date
+        + (g_asset / (g_asset - 1)) * M_asset
+        - (g_inter / max(g_inter - 1, 1)) * M_intersection
+    )
+    V_dc = c_obs * XtX_inv @ meat @ XtX_inv
     V_dc = 0.5 * (V_dc + V_dc.T)
     # CGM caveat: the subtraction can leave V_DC non-PSD on small
     # samples. Symmetrising fixes asymmetry but not negative-definite
@@ -285,5 +336,4 @@ def _wald_two_way_cluster(
     # Finite-sample F reference: the effective cluster count under two-way
     # clustering is the smaller margin (Cameron-Miller 2015), so df_denom =
     # min(G_date, G_asset) - 1.
-    n_clusters = min(len(np.unique(date_ids)), len(np.unique(asset_ids)))
-    return _wald_p_linear(beta, V_dc, R, q, df_denom=n_clusters - 1)
+    return _wald_p_linear(beta, V_dc, R, q, df_denom=min(g_date, g_asset) - 1)

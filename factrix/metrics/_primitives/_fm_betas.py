@@ -15,7 +15,7 @@ from factrix._axis import (
 )
 from factrix._metric_index import cell
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _attach_drop_stats
+from factrix.metrics._helpers import _attach_drop_stats, _finite_expr
 
 # Minimum complete (factor, return) pairs per date to estimate a slope.
 # Two parameters (intercept + slope) leave one residual degree of freedom
@@ -63,12 +63,26 @@ def compute_fm_betas(
         Dict mapping each factor name to a DataFrame with columns
         ``date, beta, n_assets`` sorted by date, plus an internal
         ``_drop_stats`` diagnostic struct column. A date is emitted only
-        when it has at least ``MIN_FM_ASSETS_HARD`` complete
+        when it has at least ``MIN_FM_ASSETS_HARD`` **finite**
         ``(factor, return)`` pairs and a non-degenerate cross-sectional
         spread; dates with zero factor variance (no identifiable slope)
-        are dropped. Dates below ``MIN_FM_ASSETS_WARN`` survive but are
-        surfaced by downstream FM consumers as thin-cross-section warnings.
-        ``_drop_stats`` records the per-factor aggregate drop count.
+        are dropped. ``n_assets`` is the finite-pair count actually used
+        by the regression. Dates below ``MIN_FM_ASSETS_WARN`` survive but
+        are surfaced by downstream FM consumers as thin-cross-section
+        warnings. ``_drop_stats`` records the per-factor aggregate drop
+        count, which now also covers dates lost to non-finite cells.
+
+    Notes:
+        "Complete pair" means *finite* pair here — non-null **and** neither
+        NaN nor ±inf. The mainstream pandas/statsmodels convention treats
+        NaN as the sole missing marker and never sees a distinction; polars
+        keeps NaN as a real float value, so a single NaN cell previously
+        left ``var(x) > 0`` while ``cov(x, y)`` went NaN and the date
+        emitted a NaN beta that survived ``drop_nulls``. Dropping the
+        offending rows (rather than voiding the whole date, the other
+        defensible choice) keeps the estimator's sample definition
+        identical to a pandas ``dropna()`` cross-section and is why the
+        pair count doubles as the effective ``n``.
     """
     cols = list(factor_cols)
     if not cols:
@@ -76,11 +90,13 @@ def compute_fm_betas(
 
     agg_exprs: list[pl.Expr] = []
     for f in cols:
-        # Restrict every moment to the pairwise-complete (factor, return) set
-        # so the slope numerator and denominator share one sample — polars'
-        # ``cov`` already pairwise-drops, but ``var`` would otherwise keep
-        # factor-present / return-null rows and bias the ratio.
-        both = pl.col(f).is_not_null() & pl.col(return_col).is_not_null()
+        # Restrict every moment to the pairwise-FINITE (factor, return) set so
+        # the slope numerator and denominator share one sample — polars' ``cov``
+        # already pairwise-drops nulls, but ``var`` would otherwise keep
+        # factor-present / return-null rows and bias the ratio, and neither
+        # skips float NaN: a single NaN cell makes ``cov`` NaN while ``var``
+        # stays > 0, so ``beta`` came out NaN and survived ``drop_nulls``.
+        both = _finite_expr(f) & _finite_expr(return_col)
         xf = pl.col(f).filter(both)
         yf = pl.col(return_col).filter(both)
         var_f = xf.var()
@@ -102,8 +118,9 @@ def compute_fm_betas(
     # differs per factor (each factor has its own ``_cnt`` and null betas).
     n_periods_in = wide.height
     drop_reason = (
-        f"n_assets below MIN_FM_ASSETS_HARD ({MIN_FM_ASSETS_HARD}) or "
-        f"degenerate cross-sectional variance"
+        f"n_assets below MIN_FM_ASSETS_HARD ({MIN_FM_ASSETS_HARD}) after "
+        f"dropping non-finite (factor, return) pairs, or degenerate "
+        f"cross-sectional variance"
     )
 
     return {
@@ -114,7 +131,9 @@ def compute_fm_betas(
                 pl.col(f"_beta__{f}").alias("beta"),
             )
             .filter(pl.col("_cnt") >= MIN_FM_ASSETS_HARD)
-            .drop_nulls("beta")
+            # Belt-and-braces: the finite-pair mask already rules NaN out of
+            # the moments, but the emitted contract is "finite beta or no row".
+            .filter(pl.col("beta").is_not_null() & pl.col("beta").is_finite())
             .select("date", "beta", pl.col("_cnt").alias("n_assets")),
             n_in=n_periods_in,
             drop_reason=drop_reason,
