@@ -48,7 +48,7 @@ _MEMBERS_BLOCK = re.compile(r"members:\n((?: +- \w+\n)+)")
 
 
 def _parse_members(md_path: Path) -> list[str]:
-    m = _MEMBERS_BLOCK.search(md_path.read_text())
+    m = _MEMBERS_BLOCK.search(md_path.read_text(encoding="utf-8"))
     if m is None:
         return []
     return re.findall(r"- (\w+)", m.group(1))
