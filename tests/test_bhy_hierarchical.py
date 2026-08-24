@@ -243,6 +243,27 @@ class TestHierarchicalFdrControl:
         )
         assert fdr <= q
 
+    @pytest.mark.parametrize("n_groups,live", [(50, 1), (100, 1), (50, 2)])
+    def test_tiny_selected_fraction_controls_fdr(self, n_groups, live):
+        """``R / G`` down to 0.01 — where a missing q·R/G bites hardest.
+
+        Yekutieli's inner level shrinks with the selected fraction precisely
+        because a small ``R`` means the selection was aggressive. Using the
+        nominal q instead is the divergence this procedure takes, so the
+        smallest realistic ``R / G`` is the configuration that has to hold.
+        The docstring quotes 0.01; this is what makes that claim checkable.
+        """
+        fdr = self._realised_fdr(
+            n_groups=n_groups,
+            size=20,
+            live_groups=live,
+            non_null_per_group=1,
+            effect=7.0,
+            q=0.10,
+            reps=300,
+        )
+        assert fdr <= 0.10
+
     def test_within_group_dependence_controls_fdr(self):
         """Equicorrelated members — BHY's arbitrary-dependence guarantee is
         the reason the outer layer is BHY rather than BH."""

@@ -15,10 +15,17 @@ The layered design follows
 but the procedure is **not** Yekutieli's: his inner layer runs at a
 selection-adjusted `q · R / G` (`R` selected groups of `G`), where this
 uses the nominal `q` at both layers and relies on the max against the
-outer adjusted *p* instead. Overall FDR control is therefore empirical
-rather than inherited from that paper — see the function docstring for
-the simulated realised FDR and the power comparison against the
-`q · R / G` variant.
+outer adjusted *p* instead.
+
+Overall FDR control is therefore **empirical, not proved**. Measured
+realised FDR is 0.026–0.078 against a nominal 0.10 across group counts,
+sizes, sparsity, within-group dependence, and selected fractions down to
+`R / G = 0.01`; power also runs above the `q · R / G` variant. See the
+function docstring for the reasoning and `TestHierarchicalFdrControl` for
+the measurement. **If you need a guarantee backed by a theorem, use flat
+[`bhy`](bhy.md)** — it controls FDR ≤ q under arbitrary dependence, at
+the cost of the group-level interpretation this procedure exists to
+provide.
 
 ```python
 import dataclasses

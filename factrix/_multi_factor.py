@@ -1188,19 +1188,32 @@ def bhy_hierarchical(
     the nominal ``q`` at both layers and instead takes the max against
     the outer adjusted p, which is a different route to the same goal.
 
-    **FDR control.** The max is what does the work: a member's adjusted
-    p is never below the outer BHY adjusted p for its group, so the
-    rejected set lives inside the groups the outer BHY layer already
-    passed, and BHY controls that layer's FDR under *arbitrary*
-    dependence. That is an argument for conservatism, not a proof of
-    overall FDR ≤ q — treat the guarantee as empirical. Simulation over
-    group counts, group sizes, sparsity, and equicorrelated
-    within-group dependence puts realised FDR at 0.026–0.078 against a
-    nominal 0.10, including the configuration selective inference is
-    weakest on (one strong non-null in an otherwise dead selected
-    group); see ``TestHierarchicalFdrControl``. Power runs *above* the
-    ``q · R / G`` variant in the same configurations (e.g. 0.75 vs 0.55),
-    so the selection adjustment is not being skipped for free.
+    **FDR control is empirical here — there is no proof, and none is
+    claimed.** What the max buys is that a member's adjusted p never
+    falls below the outer BHY adjusted p for its group, so nothing is
+    rejected inside a group the outer layer did not pass. That bounds
+    the *group*-level error rate, which is not the same quantity: a
+    correctly-passed group can still contribute many false member-level
+    rejections, and closing that gap is exactly what Yekutieli's
+    ``q · R / G`` inner level is for.
+
+    So the guarantee rests on measurement. Simulation across group
+    counts, group sizes, sparsity, three nominal levels, and
+    equicorrelated within-group dependence puts realised FDR at
+    0.026–0.078 against a nominal 0.10 — including the two
+    configurations selective inference is weakest on: one strong
+    non-null inside an otherwise dead selected group, and a selected
+    fraction as low as ``R / G = 0.01``. Power also runs *above* the
+    ``q · R / G`` variant in the same configurations (0.75 vs 0.55 at 20
+    groups of 10), so the selection adjustment is not being skipped for
+    free. ``TestHierarchicalFdrControl`` pins the measurement.
+
+    **If you need a guarantee backed by a theorem rather than a
+    simulation, use flat** :func:`bhy` **over the same results.** It
+    controls FDR ≤ q under arbitrary dependence by
+    Benjamini-Yekutieli (2001), at the cost of the group-level
+    interpretation and the full m-correction this procedure exists to
+    avoid.
 
     Args:
         results: :class:`EvaluationResult` records. Each is assigned
