@@ -37,7 +37,8 @@ typical usage patterns in a single fetch. Two access paths::
 
     # Local — shipped inside the wheel as package data
     import importlib.resources
-    text = importlib.resources.files("factrix").joinpath("llms-full.txt").read_text()
+    ref = importlib.resources.files("factrix").joinpath("llms-full.txt")
+    text = ref.read_text(encoding="utf-8")  # the file is utf-8, not locale
 """
 
 import dataclasses
