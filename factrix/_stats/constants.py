@@ -32,3 +32,12 @@ def auto_bartlett(T: int) -> int:
     heteroskedasticity-and-autocorrelation-consistent (HAC) sum always includes the first autocovariance.
     """
     return max(1, int(4 * (T / 100) ** (2 / 9)))
+
+
+# Lag-1 autocorrelation of a per-date series above which no HAC path in the
+# library is calibrated. Measured (nominal 5%, true null, per-date IC series):
+# at phi = 0 every inference sits at 5–9%; at phi = 0.6 Newey-West rejects
+# 13–17%, the stationary bootstrap 12–19% and a plain t 32–34%; at phi = 0.85
+# NW 32–34%, bootstrap 20–32%, plain t 55–61%. The kernel-level AR(0.3) row is
+# already 8–11%, so 0.3 is where the excess starts rather than where it peaks.
+PERSISTENT_SERIES_AUTOCORR: float = 0.3

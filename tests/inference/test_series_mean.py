@@ -240,3 +240,42 @@ class TestCleanSeriesDropsNaN:
             {"date": dates, "v": [1.0, float("nan"), None, 2.0, 3.0]}
         ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         assert _clean_series(df, "v").to_list() == [1.0, 2.0, 3.0]
+
+
+class TestPersistenceScreen:
+    """Every series-mean member flags a persistent input series.
+
+    Above ``PERSISTENT_SERIES_AUTOCORR`` none of the members is calibrated
+    (NW 13–17%, bootstrap 12–19%, plain t 32–34% at nominal 5% for phi=0.6),
+    so the code is raised regardless of which member ran; it is advice to
+    raise the hurdle, not a reason to switch member.
+    """
+
+    @staticmethod
+    def _ar1(phi: float, n: int = 240, seed: int = 0) -> np.ndarray:
+        rng = np.random.default_rng(seed)
+        e = np.empty(n)
+        e[0] = rng.standard_normal()
+        for t in range(1, n):
+            e[t] = phi * e[t - 1] + rng.standard_normal() * np.sqrt(1 - phi * phi)
+        return e
+
+    @pytest.mark.parametrize(
+        "member", [NON_OVERLAPPING, NEWEY_WEST, HansenHodrick(), STATIONARY_BOOTSTRAP]
+    )
+    def test_persistent_series_is_flagged(self, member) -> None:
+        result = member.compute(
+            _series_df(self._ar1(0.85)), value_col="ic", forward_periods=1
+        )
+        assert WarningCode.SERIAL_CORRELATION_DETECTED in result.warnings
+
+    @pytest.mark.parametrize(
+        "member", [NON_OVERLAPPING, NEWEY_WEST, HansenHodrick(), STATIONARY_BOOTSTRAP]
+    )
+    def test_iid_series_is_not_flagged(self, member) -> None:
+        result = member.compute(
+            _series_df(np.random.default_rng(3).standard_normal(240)),
+            value_col="ic",
+            forward_periods=1,
+        )
+        assert WarningCode.SERIAL_CORRELATION_DETECTED not in result.warnings

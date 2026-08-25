@@ -21,6 +21,13 @@ class WarningCode(StrEnum):
     # (Stambaugh-style persistent-regressor flag, section 5.2 / 7.3).
     # Not raised for SPARSE.
     PERSISTENT_REGRESSOR = "persistent_regressor"
+    # Fired by the series-mean inference members and ``fm_beta`` when the
+    # tested per-date series has lag-1 autocorrelation above
+    # ``PERSISTENT_SERIES_AUTOCORR`` (0.3). In that regime no path in the
+    # library is calibrated — Newey-West, the stationary bootstrap and the
+    # plain t all over-reject, by 2–4x nominal at phi = 0.6 and worse above —
+    # so the practitioner response is a raised hurdle (Harvey-Liu-Zhu 2016:
+    # t > 3) or a longer sample, not a different inference member.
     SERIAL_CORRELATION_DETECTED = "serial_correlation_detected"
     # Single cross-asset n_assets guard for PANEL common_continuous: the cross-asset
     # t-test on E[β] runs for any n_assets >= 2 (this axis never raises) but its t_crit
@@ -209,7 +216,13 @@ _WARNING_DESCRIPTIONS.update(
         "primitive inference (MIN_FM_PERIODS_WARN); both default to 30.",
         WarningCode.EVENT_WINDOW_OVERLAP: "Adjacent events sit within forward_periods; AR windows overlap.",
         WarningCode.PERSISTENT_REGRESSOR: "ADF p exceeds the configured threshold on the continuous factor; beta may carry Stambaugh bias.",
-        WarningCode.SERIAL_CORRELATION_DETECTED: "Ljung-Box p < 0.05 on residuals; NW lag may be under-set.",
+        WarningCode.SERIAL_CORRELATION_DETECTED: "The tested per-date series has "
+        "lag-1 autocorrelation above PERSISTENT_SERIES_AUTOCORR (0.3). No HAC or "
+        "bootstrap path is calibrated here — measured 13–17% (NW), 12–19% "
+        "(bootstrap) and 32–34% (plain t) at a nominal 5% for phi=0.6, worse "
+        "above — so read the p-value against a raised hurdle (Harvey-Liu-Zhu "
+        "2016: t > 3) or lengthen the sample; switching inference member does "
+        "not fix it.",
         WarningCode.FEW_ASSETS: "Cross-section asset count is below the "
         "relevant WARN floor (panel-wide MIN_ASSETS_WARN=30, per-date "
         "MIN_IC_ASSETS_WARN=10, or per-date MIN_FM_ASSETS_WARN=10). The "

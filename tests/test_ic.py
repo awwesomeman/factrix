@@ -653,3 +653,39 @@ class TestICNaNRobustness:
         assert math.isfinite(r_dirty.value)
         assert r_dirty.value == pytest.approx(r_clean.value)
         assert r_dirty.n_obs == clean.height
+
+
+class TestPersistentIcSeriesWarning:
+    """The persistence screen reaches ``ic`` through the inference member.
+
+    A persistent per-date IC series (regime-like signal strength) is the
+    regime where no inference option is calibrated; an overlapping
+    forward-return panel is NOT — its IC series has lag-1 autocorrelation
+    ≈ 0 — so the screen must fire on the former and stay silent on the
+    latter.
+    """
+
+    def test_persistent_ic_series_raises_the_code(self):
+        from factrix._codes import WarningCode
+        from factrix.metrics._primitives import compute_ic
+
+        from tests._slice_panel import build_autocorrelated_ic_panel
+
+        panel = build_autocorrelated_ic_panel(
+            n_dates=240, seed=0, signal={"x": 0.0}, label_col="lbl", phi=0.85
+        )
+        result = ic(compute_ic(panel)["factor"], forward_periods=1)
+        assert WarningCode.SERIAL_CORRELATION_DETECTED.value in result.warning_codes
+
+    def test_overlapping_forward_returns_do_not_trip_the_screen(self):
+        import factrix as fx
+        from factrix._codes import WarningCode
+        from factrix.metrics._primitives import compute_ic
+        from factrix.preprocess import compute_forward_return
+
+        panel = compute_forward_return(
+            fx.datasets.make_cs_panel(n_assets=40, n_dates=300, seed=0),
+            forward_periods=5,
+        )
+        result = ic(compute_ic(panel)["factor"], forward_periods=5)
+        assert WarningCode.SERIAL_CORRELATION_DETECTED.value not in result.warning_codes

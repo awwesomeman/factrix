@@ -44,10 +44,11 @@ from factrix._codes import WarningCode
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import (
+    _lag1_autocorr,
     _newey_west_t_test,
     _p_value_from_t,
 )
-from factrix._stats.constants import MIN_PERIODS_WARN
+from factrix._stats.constants import MIN_PERIODS_WARN, PERSISTENT_SERIES_AUTOCORR
 from factrix._types import DDOF, EPSILON, ShankenVarSource
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
@@ -300,6 +301,17 @@ def fm_beta(
         forward_periods=forward_periods,
     )
     actual_lags = _resolve_nw_lags(n, newey_west_lags, forward_periods)
+    if _lag1_autocorr(betas) > PERSISTENT_SERIES_AUTOCORR:
+        warning_codes.append(WarningCode.SERIAL_CORRELATION_DETECTED.value)
+        warnings.warn(
+            f"fm_beta: the per-date beta series has lag-1 autocorrelation "
+            f"{_lag1_autocorr(betas):.2f} (> {PERSISTENT_SERIES_AUTOCORR}). No HAC "
+            f"path is calibrated in this regime — Newey-West rejects 13–17% at a "
+            f"nominal 5% for phi=0.6 and ~30% at 0.85 — so read the p-value "
+            f"against a raised hurdle (t > 3) or lengthen the sample.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     p_final = p
     metadata: dict = {
