@@ -278,7 +278,15 @@ def event_ic(
     rho = float(rho)
     p = float(p)
 
-    z = np.arctanh(rho) * np.sqrt(n - 3) if abs(rho) < 1.0 - 1e-10 and n > 3 else 0.0
+    # Fisher z is undefined at |rho| = 1 (arctanh diverges) and needs n > 3.
+    # ``None`` rather than 0.0: a perfect rank correlation is maximal
+    # evidence, and reporting z = 0 beside scipy's p < 0.001 is an
+    # internally contradictory result. The p-value is scipy's and stands.
+    z: float | None = (
+        float(np.arctanh(rho) * np.sqrt(n - 3))
+        if abs(rho) < 1.0 - 1e-10 and n > 3
+        else None
+    )
 
     return MetricResult(
         p_value=p,

@@ -24,6 +24,7 @@ References:
 from __future__ import annotations
 
 import logging
+import math
 import warnings
 from dataclasses import dataclass, field
 
@@ -41,7 +42,11 @@ from factrix._ols import ols_alpha as _ols_alpha
 from factrix._results import MetricResult
 from factrix._stats import _p_value_from_t
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _enforce_min_floor, _short_circuit_output
+from factrix.metrics._helpers import (
+    _degenerate_test_fields,
+    _enforce_min_floor,
+    _short_circuit_output,
+)
 from factrix.metrics.quantile import compute_spread_series
 
 __all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
@@ -302,22 +307,32 @@ def spanning_alpha(
     # single-sample n - 1: the alpha t-stat is built on the full design matrix.
     p = _p_value_from_t(ols.alpha_t, n_obs, dof=ols.df_resid)
 
+    metadata: dict = {
+        "stat_type": "t",
+        "h0": "alpha=0",
+        "method": "OLS spanning regression, Newey-West HAC SE",
+        "n_base_factors": base_matrix.shape[1],
+        "base_factors": base_names,
+        "betas": beta_dict,
+        "r_squared": ols.r_squared,
+    }
+    # A rank-deficient design (collinear base factors) leaves no fit, so
+    # ``alpha`` and its t are NaN: withhold the test rather than report the
+    # zeros that would read as "adds exactly nothing".
+    warning_codes: list[str] = []
+    stat, p_out, alternative = _degenerate_test_fields(
+        ols.alpha_t, p, "two-sided", metadata, warning_codes
+    )
+
     return MetricResult(
-        p_value=p,
-        alternative="two-sided",
+        p_value=p_out,
+        alternative=alternative,
         value=ols.alpha,
         n_obs=n_obs,
         n_obs_axis="periods",
-        stat=ols.alpha_t,
-        metadata={
-            "stat_type": "t",
-            "h0": "alpha=0",
-            "method": "OLS spanning regression, Newey-West HAC SE",
-            "n_base_factors": base_matrix.shape[1],
-            "base_factors": base_names,
-            "betas": beta_dict,
-            "r_squared": ols.r_squared,
-        },
+        stat=stat,
+        metadata=metadata,
+        warning_codes=tuple(warning_codes),
     )
 
 
@@ -561,7 +576,11 @@ def _backward_eliminate(
 
             ols = _ols_alpha(selected_arrays[name], base_matrix)
 
-            if abs(ols.alpha_t) < threshold:
+            # NaN t means the fit could not be formed on this subset
+            # (rank-deficient once the other selections are in the design).
+            # Drop rather than keep: an unevaluable factor has not earned
+            # its place, and ``NaN < threshold`` is False, which would.
+            if not math.isfinite(ols.alpha_t) or abs(ols.alpha_t) < threshold:
                 selected_names.remove(name)
                 del selected_arrays[name]
                 result.eliminated_factors.append(

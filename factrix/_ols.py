@@ -75,6 +75,11 @@ def ols_alpha(
         reference the t is read against — see ``_stats.hac`` on why the
         full-count df is kept).
 
+    A fit that cannot be formed -- fewer than three observations, or a
+    rank-deficient design -- returns ``alpha`` and ``alpha_t`` as NaN.
+    Callers withhold the test rather than reporting the zeros an earlier
+    version returned, which claimed the factor added exactly nothing.
+
     Raises:
         ValueError: ``candidate`` or ``base_matrix`` holds a non-finite
             value. ``np.linalg.lstsq`` does not raise on NaN input — it
@@ -95,7 +100,7 @@ def ols_alpha(
 
     n_obs = len(candidate)
     if n_obs < 3:
-        return _OLSResult(alpha=0.0, alpha_t=0.0)
+        return _OLSResult(alpha=float("nan"), alpha_t=float("nan"))
 
     ones = np.ones((n_obs, 1))
     X = np.hstack([ones, base_matrix]) if base_matrix.shape[1] > 0 else ones
@@ -103,7 +108,11 @@ def ols_alpha(
     try:
         beta, _, _, _ = np.linalg.lstsq(X, candidate, rcond=None)
     except np.linalg.LinAlgError:
-        return _OLSResult(alpha=0.0, alpha_t=0.0)
+        # Rank-deficient design (collinear base factors, or a base factor
+        # equal to the candidate). The fit does not exist, so neither does
+        # alpha: NaN rather than 0.0, which would read as "this factor adds
+        # exactly nothing" -- a decisive claim from a failed computation.
+        return _OLSResult(alpha=float("nan"), alpha_t=float("nan"))
 
     alpha = float(beta[0])
     betas = [float(b) for b in beta[1:]]
@@ -117,12 +126,23 @@ def ols_alpha(
 
     dof = n_obs - X.shape[1]
     if dof <= 0:
-        return _OLSResult(alpha=alpha, alpha_t=0.0, betas=betas, r_squared=r_squared)
+        # No residual degrees of freedom: the design saturates the sample,
+        # so there is nothing left to estimate a standard error from.
+        return _OLSResult(
+            alpha=alpha, alpha_t=float("nan"), betas=betas, r_squared=r_squared
+        )
 
     sigma2 = ss_res / dof
     if sigma2 < EPSILON:
+        # Residuals vanished -- a perfect (typically rank-deficient) fit.
+        # ``lstsq`` does not raise there, it returns a minimum-norm
+        # solution, so this is the branch collinear designs actually reach.
         return _OLSResult(
-            alpha=alpha, alpha_t=0.0, betas=betas, r_squared=r_squared, df_resid=dof
+            alpha=alpha,
+            alpha_t=float("nan"),
+            betas=betas,
+            r_squared=r_squared,
+            df_resid=dof,
         )
 
     # HAC covariance of the OLS coefficients; ``_ols_nw_multivariate`` returns
@@ -132,8 +152,17 @@ def ols_alpha(
     se_alpha = float(np.sqrt(max(v_hac[0, 0], 0.0)))
 
     if se_alpha < EPSILON:
+        # A collapsed HAC SE -- a perfect fit, or a design so nearly
+        # rank-deficient that the residuals vanish -- leaves no t. NaN, not
+        # 0.0: the alpha itself is real (a duplicated base column still
+        # yields an intercept), so reporting t = 0 turns a live estimate
+        # into a decisive "not significant". Same rule as ``_calc_t_stat``.
         return _OLSResult(
-            alpha=alpha, alpha_t=0.0, betas=betas, r_squared=r_squared, df_resid=dof
+            alpha=alpha,
+            alpha_t=float("nan"),
+            betas=betas,
+            r_squared=r_squared,
+            df_resid=dof,
         )
 
     return _OLSResult(
