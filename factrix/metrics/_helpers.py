@@ -39,7 +39,6 @@ if TYPE_CHECKING:
 from factrix._metric_index import SampleThreshold
 from factrix._results import MetricResult, PValueAlternative
 from factrix._stats import _calc_t_stat, _p_value_from_t
-from factrix._stats.constants import MIN_ASSETS_WARN
 from factrix._types import DDOF, EPSILON, KPSource, SampleAxis
 
 # Median-across-dates tie_ratio above this triggers a UserWarning when
@@ -58,12 +57,6 @@ DROP_RATE_WARN_THRESHOLD = 0.05
 # Internal diagnostic column a PANEL→SERIES primitive attaches to each per-factor
 # frame, carrying the canonical drop-stat struct from its ``.filter(...)`` step.
 _DROP_STATS_COL = "_drop_stats"
-
-# Fixed bootstrap seed for the small-cross-section significance path.
-# A spread metric's headline p must be reproducible run-to-run, so the
-# block-bootstrap branch draws from a fixed seed rather than system
-# entropy; the resolved seed is echoed into metadata for the record.
-_SPREAD_BOOTSTRAP_SEED = 0
 
 
 def _finite_expr(col: str) -> pl.Expr:
@@ -97,51 +90,38 @@ def _finite_values(series: pl.Series) -> pl.Series:
 def _spread_significance(
     spread: np.ndarray,
     n_assets: int,
-    *,
-    rng_seed: int = _SPREAD_BOOTSTRAP_SEED,
 ) -> tuple[float, float, str, dict[str, object], tuple[str, ...]]:
     """Headline significance for a per-date long-short spread series.
 
-    Returns ``(stat, p_value, method, extra_metadata, warning_codes)``.
+    Returns ``(stat, p_value, method, extra_metadata, warning_codes)`` —
+    the non-overlapping ``t`` on the strided series, with the single
+    cross-section code (``FEW_ASSETS``) attached when
+    ``n_assets < MIN_ASSETS_WARN``. The warning is advisory: a thin
+    cross-section means each leg's mean rests on a handful of names, so the
+    spread is a noisier *estimate*, not a differently-distributed one.
 
-    Small cross-sections (``n_assets < MIN_ASSETS_WARN``) switch the
-    headline test from the non-overlapping ``t`` to a block-bootstrap
-    CI: with few names per leg the per-date spread is heavy-tailed, so
-    the ``t``-test's normality assumption is unreliable while the
-    block bootstrap (Politis-Romano stationary scheme) is
-    distribution-free and preserves any residual serial dependence.
-    Larger cross-sections keep the cheaper ``t``-test. ``stat`` is the
-    ``t`` statistic in both branches as a descriptive standardised
-    effect size; in the bootstrap branch ``p_value`` comes from the
-    resampling (``extra_metadata["p_value_t"]`` keeps the parametric ``p``
-    for reference). The chosen path is named in the returned ``method``.
-
-    The switch fires exactly when :func:`cross_section_tier` flags the
-    cross-section (``n_assets < MIN_ASSETS_WARN``), so the returned
-    ``warning_codes`` carry the single ``FEW_ASSETS`` code. This
-    surfaces the method change as a :class:`Warning` on the result rather
-    than leaving it buried in metadata; severity is read from ``n_assets``.
+    An earlier version switched thin cross-sections to a block-bootstrap
+    CI on the grounds that few names per leg make the spread heavy-tailed
+    and the ``t`` unreliable. Measured, that was backwards on both counts.
+    The ``t``-test is size-robust to heavy tails — on t(3) input it rejects
+    3–4% at a nominal 5% — while the bootstrap p carries the usual small-n
+    distortion (iid input: 13.6% at ``n = 12``, 9.8% at 30, 7.4% at 60,
+    5.2% only by 120) and the strided spread series is short exactly when
+    ``forward_periods`` is large. Through the public path the bootstrap
+    branch rejected 8–20% against the ``t`` branch's 7–9%. And the switch
+    keyed on the cross-section while the bootstrap's validity depends on
+    the number of periods, so it was effectively random which estimator a
+    panel got. Removing it returns the plain ``t`` that spread metrics
+    conventionally report; whether a long-series bootstrap route is worth
+    offering is a separate, larger routing question.
     """
     n = len(spread)
     mean = float(np.mean(spread))
     std = float(np.std(spread, ddof=DDOF))
     t = _calc_t_stat(mean, std, n)
-
-    if n_assets >= MIN_ASSETS_WARN:
-        return t, _p_value_from_t(t, n), "non-overlapping t-test", {}, ()
-
-    from factrix._stats.bootstrap import _block_bootstrap_diff_p
-
-    p_boot, boot_meta = _block_bootstrap_diff_p(spread, rng_seed=rng_seed)
-    extra: dict[str, object] = {
-        "p_value_t": _p_value_from_t(t, n),
-        "bootstrap_block_length": boot_meta["block_length"],
-        "bootstrap_n_resamples": boot_meta["n_resamples"],
-        "bootstrap_seed": boot_meta["rng_seed"],
-    }
     tier: WarningCode | None = cross_section_tier(n_assets)
     codes = (tier.value,) if tier is not None else ()
-    return t, float(p_boot), "block-bootstrap CI", extra, codes
+    return t, _p_value_from_t(t, n), "non-overlapping t-test", {}, codes
 
 
 def _check_applicable_inference(
@@ -175,7 +155,6 @@ def _spread_significance_with_inference(
     full_spread: pl.DataFrame | None,
     forward_periods: int,
     n_assets: int,
-    rng_seed: int = _SPREAD_BOOTSTRAP_SEED,
 ) -> tuple[float, float, float, str, dict[str, object], tuple[str, ...]]:
     """Single headline-significance chokepoint shared by every spread metric.
 
@@ -184,46 +163,32 @@ def _spread_significance_with_inference(
     inference: the full-sample mean for the HAC path, the non-overlap mean
     otherwise.
 
-    Two deliberate layers — both ``quantile_spread`` and ``k_spread`` route
-    here so the policy lives in one place:
-
-    1. **Small-cross-section fallback (automatic, data-driven).** When the
-       cross-section is thin (``n_assets < MIN_ASSETS_WARN``) the per-date
-       spread is heavy-tailed, so the distribution-free block-bootstrap CI
-       overrides whatever ``inference`` was requested — HAC / OLS-t correct
-       *autocorrelation*, not tail thickness. The switch emits the
-       ``FEW_ASSETS`` tier code (never silent); a requested-but-overridden
-       HAC is additionally flagged ``inference_overridden``.
-    2. **Inference family (user-selected).** With an adequate cross-section
-       the requested member runs: ``NonOverlapping`` reproduces the
-       non-overlap t **bit-for-bit** (``_t_stat_from_array`` is the same
-       ``_calc_t_stat`` formula on the same strided values, so the default
-       stays byte-identical), while ``NeweyWest`` keeps the *full*
-       overlapping ``full_spread`` series and HAC-corrects the MA(h-1) SE.
+    Both ``quantile_spread`` and ``k_spread`` route here so the policy
+    lives in one place. The requested member runs: ``NonOverlapping``
+    reproduces the non-overlap t **bit-for-bit** (``_t_stat_from_array`` is
+    the same ``_calc_t_stat`` formula on the same strided values, so the
+    default stays byte-identical), while ``NeweyWest`` keeps the *full*
+    overlapping ``full_spread`` series and HAC-corrects the MA(h-1) SE. A
+    thin cross-section (``n_assets < MIN_ASSETS_WARN``) attaches
+    ``FEW_ASSETS`` on either path and changes nothing else — the automatic
+    block-bootstrap fallback that used to override the requested member
+    there was removed after measurement (see :func:`_spread_significance`).
 
     The two series inputs are a perf split, not duplicated logic: the cheap
     panel-stride feeds ``strided_spread`` for the common path; the full
     series is built (h× more bucketing) only when the HAC path needs it.
     ``full_spread`` is ``None`` off the HAC path; a missing one degrades to
-    the non-overlap path defensively. The block bootstrap is intentionally
-    *not* a family member — it is an automatic small-cross-section fallback,
-    not a blind-selectable method.
+    the non-overlap path defensively and is flagged ``inference_overridden``.
     """
     from factrix.inference import NeweyWest
 
     strided_mean = float(np.mean(strided_spread))
-    use_hac = (
-        isinstance(inference, NeweyWest)
-        and n_assets >= MIN_ASSETS_WARN
-        and full_spread is not None
-    )
+    use_hac = isinstance(inference, NeweyWest) and full_spread is not None
     if not use_hac:
-        t, p, method, extra, codes = _spread_significance(
-            strided_spread, n_assets, rng_seed=rng_seed
-        )
+        t, p, method, extra, codes = _spread_significance(strided_spread, n_assets)
         if isinstance(inference, NeweyWest):
-            # Requested HAC but the small-cross-section bootstrap (or a
-            # missing full series) took precedence — surface the override.
+            # Requested HAC but no full series was supplied — surface the
+            # degradation rather than report the non-overlap t as HAC.
             extra = {
                 **extra,
                 "inference_requested": inference.summary,
@@ -246,6 +211,9 @@ def _spread_significance_with_inference(
         "n_periods_tested": len(full_vals),
     }
     codes = tuple(code.value for code in res.warnings)
+    tier: WarningCode | None = cross_section_tier(n_assets)
+    if tier is not None and tier.value not in codes:
+        codes = (*codes, tier.value)
     return full_mean, res.stat, res.p_value, inference.summary, extra, codes
 
 

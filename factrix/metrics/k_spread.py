@@ -5,7 +5,7 @@ Notes:
     bottom ``k`` names by factor rank, take the mean-return difference
     (cross-section step), then test the per-date spread series across
     time. Small cross-sections switch the headline test to a
-    block-bootstrap CI.
+    ``FEW_ASSETS`` advisory.
 
     **Input.** DataFrame with ``date, asset_id, factor, forward_return``.
 
@@ -81,9 +81,9 @@ def _median_per_date_count(panel: pl.DataFrame) -> int:
     """Median per-date row count of the cleaned (finite factor+return) panel.
 
     The cross-section size that actually forms one date's legs. The
-    small-cross-section bootstrap switch keys on this rather than on
-    ``asset_id.n_unique()`` over the whole panel: the heavy-tail rationale is
-    per date (``k`` names per leg out of *today's* names), so a universe that
+    ``FEW_ASSETS`` advisory keys on this rather than on
+    ``asset_id.n_unique()`` over the whole panel: what matters is per date
+    (``k`` names per leg out of *today's* names), so a universe that
     rotated through many tickers but only ever lists a handful at a time must
     read as thin, not wide.
     """
@@ -179,7 +179,6 @@ def k_spread(
     k: int = 5,
     factor_col: str = "factor",
     return_col: str = "forward_return",
-    rng_seed: int = 0,
     inference: NonOverlapping | NeweyWest = NON_OVERLAPPING,
 ) -> MetricResult:
     r"""Fixed-K Top-K vs Bottom-K long-short spread.
@@ -199,8 +198,6 @@ def k_spread(
             disjoint legs — dates with fewer are dropped.
         factor_col: Ranking column (default ``"factor"``).
         return_col: Realised-return column (default ``"forward_return"``).
-        rng_seed: Seed for the small-N block-bootstrap branch
-            (reproducible by default).
         inference: Headline significance method. ``fx.inference.NON_OVERLAPPING``
             (default) runs the OLS t-test on the non-overlap stride;
             ``fx.inference.NEWEY_WEST`` keeps every date and HAC-corrects the
@@ -222,16 +219,15 @@ def k_spread(
         $$\text{spread}_t = \frac1k \sum_{i \in \mathrm{top}_k} r_{i,t}
         - \frac1k \sum_{i \in \mathrm{bot}_k} r_{i,t}.$$
 
-        ``value = mean_t spread_t``. The headline test follows the shared
-        small-cross-section policy: below ``MIN_ASSETS_WARN`` names the
-        per-date spread is heavy-tailed (few names per leg), so the
-        ``t``-test is replaced by a block-bootstrap CI; otherwise the
-        non-overlapping ``t`` applies. ``metadata["method"]`` records
-        which ran. The contemporaneous cross-sectional dispersion
-        $\mathrm{std}_i(r_{i,t})$ is averaged over dates and reported so
-        the spread can be judged against the period's return spread.
+        ``value = mean_t spread_t``. The headline test is the non-overlapping
+        ``t`` on the strided spread series (or Newey-West HAC on the full
+        series under ``inference=NEWEY_WEST``); a thin cross-section attaches
+        ``FEW_ASSETS`` and changes nothing else. The contemporaneous
+        cross-sectional dispersion $\mathrm{std}_i(r_{i,t})$ is averaged
+        over dates and reported so the spread can be judged against the
+        period's return spread.
 
-        **What "small" counts.** The switch reads the median *per-date*
+        **What "small" counts.** The advisory reads the median *per-date*
         number of usable names (``metadata["median_cross_section"]``), not
         the count of distinct ``asset_id`` values in the panel: the legs
         are formed date by date, so a universe listing 12 names at a time
@@ -375,7 +371,6 @@ def k_spread(
             full_spread=full_series,
             forward_periods=forward_periods,
             n_assets=median_xs,
-            rng_seed=rng_seed,
         )
     )
     # Sample the headline stat/p actually ran on: full overlapping series under

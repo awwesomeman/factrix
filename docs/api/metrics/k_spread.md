@@ -39,10 +39,11 @@ title: factrix.metrics.k_spread
 
     ---
 
-    The headline test follows the shared small-cross-section policy
-    (`_spread_significance`): with `n_assets < MIN_ASSETS_WARN` the per-date
-    spread is heavy-tailed (few names per leg), so the non-overlapping `t` is
-    replaced by a block-bootstrap CI; `metadata["method"]` records which ran.
+    The headline test is the non-overlapping `t` on the strided spread
+    series (`_spread_significance`); with `n_assets < MIN_ASSETS_WARN`
+    the metric attaches `few_assets` — the spread is a noisier estimate with
+    few names per leg — and changes nothing else. `metadata["method"]`
+    records the inference member that ran.
     Dates with fewer than `2·k` names are dropped; if none qualify the metric
     short-circuits with `max_assets_per_date`.
 
@@ -69,7 +70,7 @@ title: factrix.metrics.k_spread
 
     out = k_spread(panel, forward_periods=5, k=3)
     print(out.value, out.metadata["method"], out.metadata["cross_sectional_dispersion"])
-    # 0.0018  block-bootstrap CI  0.041   (approximate)
+    # 0.0018  non-overlapping t-test  0.041   (approximate)
     ```
 
 ## See also

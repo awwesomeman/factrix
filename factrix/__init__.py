@@ -186,9 +186,8 @@ def evaluate(
             ``expected=True`` (read the alert view via
             ``result.unexpected_warnings``), so nothing leaves the audit
             trail — the declaration says "this regime is expected", not
-            "pretend it is absent". Inference is untouched (e.g. the
-            small-cross-section block-bootstrap switch still fires and stays
-            readable in ``metadata["method"]``); only the human-facing
+            "pretend it is absent". Inference is untouched (the method that
+            ran stays readable in ``metadata["method"]``); only the human-facing
             channels go quiet — the per-run ``UserWarning`` echoes stop and
             repr emphasis moves to unexpected warnings. Unknown codes are
             rejected (typo guard). Default ``()`` — behavior is completely

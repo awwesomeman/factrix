@@ -93,10 +93,10 @@ def _median_finite_cross_section(panel: pl.DataFrame, factor_col: str) -> int:
 
     The size of the cross-section that is actually ranked on a typical date
     — not ``asset_id.n_unique()`` over the whole panel, which counts every
-    name that ever appeared. The small-cross-section bootstrap switch keys
-    on this: the heavy-tail rationale is about how many names back a single
-    date's bucket mean, so a 12-name-per-date universe that rotated through
-    200 tickers over the sample is thin, not wide.
+    name that ever appeared. The ``FEW_ASSETS`` advisory keys on this: how
+    many names back a single date's bucket mean is a per-date quantity, so a
+    12-name-per-date universe that rotated through 200 tickers over the
+    sample is thin, not wide.
     """
     if panel.is_empty():
         return 0
@@ -180,9 +180,8 @@ def quantile_spread(
         heteroskedasticity-and-autocorrelation-consistent (HAC) route is
         the sibling that keeps the full overlapping series instead of
         striding — select it via ``inference=fx.inference.NEWEY_WEST``.
-        Because HAC corrects autocorrelation rather than heavy tails, the
-        small-cross-section block bootstrap still wins when it fires and the
-        requested HAC is flagged ``inference_overridden`` in metadata.
+        A thin cross-section (``median_cross_section < MIN_ASSETS_WARN``)
+        attaches ``FEW_ASSETS`` on either route and changes nothing else.
 
         Long/short alpha decomposition stays a descriptive OLS t-test on
         ``top_return - universe_return`` and ``universe_return -
@@ -369,13 +368,12 @@ def _quantile_spread_from_series(
         )
 
     arr = spread_vals.to_numpy()
-    # Headline test: ``inference`` selects non-overlap t vs Newey-West HAC;
-    # a thin cross-section switches either to a block-bootstrap CI (shared
-    # policy with k_spread). ``mean_spread`` is the full-sample mean under HAC,
-    # the non-overlap mean otherwise. The thin-cross-section switch keys on the
-    # median *per-date* finite-factor count, not the universe-wide unique asset
-    # count: the heavy-tail rationale is per-date (how many names back one
-    # bucket mean), so a rotating universe must not read as wide.
+    # Headline test: ``inference`` selects non-overlap t vs Newey-West HAC.
+    # ``mean_spread`` is the full-sample mean under HAC, the non-overlap mean
+    # otherwise. The FEW_ASSETS advisory keys on the median *per-date*
+    # finite-factor count, not the universe-wide unique asset count: how many
+    # names back one bucket mean is a per-date quantity, so a rotating
+    # universe must not read as wide.
     n_assets = _median_finite_cross_section(sampled, factor_col)
     # Non-finite spreads must not reach the HAC regression either — same reason
     # the strided array is cleaned above.

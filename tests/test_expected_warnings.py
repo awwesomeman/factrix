@@ -116,7 +116,8 @@ class TestDeclaredStudy:
         other = [w for w in res.warnings if w.code is not WarningCode.FEW_ASSETS]
         assert all(not w.expected for w in other)
 
-    def test_inference_switch_stays_readable(self):
+    def test_thin_cross_section_keeps_the_t_test(self):
+        """Declaring the regime expected does not change the test that ran."""
         panel = _thin_panel()
         results = fx.evaluate(
             panel,
@@ -125,8 +126,8 @@ class TestDeclaredStudy:
             expected_warnings=("few_assets",),
         )
         meta = results["factor"].metrics["spread"].metadata
-        assert meta["method"] == "block-bootstrap CI"
-        assert "p_value_t" in meta
+        assert meta["method"] == "non-overlapping t-test"
+        assert "p_value_t" not in meta
 
     def test_p_value_identical_to_undeclared_run(self):
         """The declaration changes reporting only — never the inference."""

@@ -374,17 +374,18 @@ class TestQuantileSpreadInference:
         assert nw.metadata["n_periods"] == nw.metadata["n_periods_full"]
         assert nw.n_obs == nw.metadata["n_periods_full"]
 
-    def test_small_cross_section_bootstrap_overrides_requested_hac(self):
+    def test_small_cross_section_keeps_requested_hac_and_warns(self):
         import factrix as fx
+        from factrix._codes import WarningCode
 
         raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=400, seed=6)
         panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
         nw = quantile_spread(
             panel, forward_periods=5, n_groups=5, inference=fx.inference.NEWEY_WEST
         )["factor"]
-        assert nw.metadata["method"] == "block-bootstrap CI"
-        assert nw.metadata["inference_overridden"] is True
-        assert nw.metadata["inference_requested"] == "Newey-West HAC t-test"
+        assert nw.metadata["method"] == "Newey-West HAC t-test"
+        assert "inference_overridden" not in nw.metadata
+        assert WarningCode.FEW_ASSETS.value in nw.warning_codes
 
     def test_unapplicable_inference_raises_not_silent_fallback(self):
         import factrix as fx
@@ -675,15 +676,17 @@ class TestQuantileSpreadNonFiniteSeries:
 
 
 class TestSmallCrossSectionKeying:
-    """The bootstrap switch reads the per-date cross-section, not the panel."""
+    """The FEW_ASSETS advisory reads the per-date cross-section, not the panel."""
 
     def test_rotating_universe_still_counts_as_thin(self):
         """12 names per date, but 240 distinct asset_ids over the sample.
 
-        ``asset_id.n_unique()`` over the panel says 240 (wide, run the t-test);
-        the median per-date cross-section says 12 (thin, bootstrap it). The
-        heavy-tail rationale is per date, so the bootstrap must fire.
+        ``asset_id.n_unique()`` over the panel says 240 (wide, silent); the
+        median per-date cross-section says 12 (thin, warn). How many names
+        back a bucket mean is a per-date quantity, so the advisory must fire.
         """
+        from factrix._codes import WarningCode
+
         rng = np.random.default_rng(3)
 
         def build(d):
@@ -699,4 +702,38 @@ class TestSmallCrossSectionKeying:
         panel = _long_panel(build, n_dates=200)
         result = quantile_spread(panel, forward_periods=1, n_groups=3)["factor"]
         assert result.metadata["median_cross_section"] == 12
-        assert result.metadata["method"] == "block-bootstrap CI"
+        assert WarningCode.FEW_ASSETS.value in result.warning_codes
+
+
+class TestSmallCrossSectionSize:
+    """Realised size of the headline t on a thin cross-section (characterisation).
+
+    Measured through the public path on a true null (500 seeds): the t
+    branch sits at 7–9%, where the removed block-bootstrap branch sat at
+    8–20%. Band asserts the measured order of magnitude at 120 reps.
+    """
+
+    def test_thin_cross_section_t_is_roughly_calibrated(self):
+        import warnings
+
+        import factrix as fx
+        from factrix.preprocess import compute_forward_return
+
+        reps, rejected = 120, 0
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            for seed in range(reps):
+                panel = compute_forward_return(
+                    fx.datasets.make_cs_panel(
+                        n_assets=12,
+                        n_dates=157,
+                        ic_target=0.0,
+                        signal_horizon=5,
+                        seed=seed,
+                    ),
+                    forward_periods=5,
+                )
+                out = quantile_spread(panel, forward_periods=5, n_groups=2)["factor"]
+                assert out.metadata["method"] == "non-overlapping t-test"
+                rejected += out.p_value is not None and out.p_value < 0.05
+        assert 0.01 <= rejected / reps <= 0.16
