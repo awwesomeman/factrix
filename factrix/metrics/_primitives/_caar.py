@@ -42,7 +42,7 @@ def compute_caar(
             abnormal return on that date.
         n_events: number of events (non-zero factor rows) collapsed into
             this date's ``caar``. The downstream ``caar()`` test is an
-            equal-weight calendar-time portfolio across event *dates*, so
+            equal-weight calendar-time portfolio across event *periods*, so
             this count is the per-period portfolio breadth — surfaced for
             transparency (a date built on 1 event vs 500 is otherwise
             indistinguishable), not used to weight or drop dates.

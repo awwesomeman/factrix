@@ -197,8 +197,8 @@ class DataProperties:
             matching those metrics' ``factor != 0`` event filter. For a
             dense continuous factor this is ~``n_pairs`` (the event
             axis only gates SPARSE-cell metrics). ``caar`` counts event
-            *dates* rather than rows, so its pre-flight reads this as a
-            loose upper bound; its in-body short-circuit on event dates
+            *periods* rather than rows, so its pre-flight reads this as a
+            loose upper bound; its in-body short-circuit on event periods
             stays authoritative.
         sparse_ratio: Zero-ratio in the ``factor`` column (denominator
             is non-null cell count). ``math.nan`` for an empty data.

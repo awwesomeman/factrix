@@ -91,7 +91,7 @@ Min sample*. `MIN_*` constants resolve to values in the
 
 | Metric | Sample axis | Min sample |
 |---|---|---|
-| [`bmp_z`][factrix.metrics.caar.bmp_z] | `K` | `K ≥ MIN_EVENTS_HARD`; `estimation_window` periods per asset |
+| [`bmp_z`][factrix.metrics.caar.bmp_z] | `K`; `D` (event periods) when events cluster | `K ≥ MIN_EVENTS_HARD`; `estimation_window` periods per asset; warns on `D < MIN_EVENTS_WARN` when `D < K` |
 | [`event_hit_rate`][factrix.metrics.event_quality.event_hit_rate] | `K` | `K ≥ MIN_EVENTS_HARD` |
 | [`event_ic`][factrix.metrics.event_quality.event_ic] | `K` | `K ≥ MIN_EVENTS_HARD` |
 | [`profit_factor`][factrix.metrics.event_quality.profit_factor] | `K` | `K ≥ MIN_EVENTS_HARD` |
@@ -231,7 +231,12 @@ A few specific caveats worth flagging:
   power at `K ≥ 50` and use `K ≥ 30` as the conventional minimum; in
   `K ∈ [4, 30)` the parametric `caar` is under-powered and
   `WarningCode.FEW_EVENTS` fires. The `bmp_z` /
-  `corrado_rank` siblings only partly mitigate. `corrado_rank` applies the
+  `corrado_rank` siblings only partly mitigate: `bmp_z` pools events and
+  keeps its hard floor on the event count, but once events share periods
+  fires `FEW_EVENTS` on the distinct event periods `D < 30` (its measured
+  residual after the Kolari-Pynnönen adjustment tracks `D` and clears by
+  ~15 at both 4 and 10 events per period; 30 is the shared floor, reused
+  rather than a second constant). `corrado_rank` applies the
   same pair of floors on its own axis: its denominator is the
   time-series SD of the per-event-period mean rank, so it needs
   `D ≥ MIN_EVENTS_HARD` distinct event *periods* however many events sit
@@ -363,7 +368,7 @@ the inner event. The chosen mitigation depends on the metric:
 | Metric | Behaviour under within-asset overlap |
 |---|---|
 | [`caar`][factrix.metrics.caar.caar] | Per-event-period CS-mean is computed first, then a calendar-aware non-overlap subsample keeps event periods at least `forward_periods` calendar periods apart before the t-test. This avoids overlap-induced dependence while preserving the event-only mean; dense zero-fill and NW HAC are not used on this path. Within-asset clustering can still make event rows dependent, so read the vanilla t-test cautiously when event calendars are crowded. |
-| [`bmp_z`][factrix.metrics.caar.bmp_z] | The Kolari-Pynnönen adjustment (on by default; `kolari_pynnonen_adjust=False` for unadjusted BMP) corrects the BMP statistic for cross-sectional dependence on the same event period — measured 21.5% → 5.0% size at 4 events per period, 40% → 4.5% at 10, identity at 1. It does **not** correct same-asset event clustering, and it cannot manufacture independent periods: with 4 events per period the adjusted test's residual tracks the number of distinct event periods (2 / 4 / 10: 20.7% / 14.3% / 8.0%), which `FEW_EVENTS` (keyed on event count) does not see — 40 events over 10 periods clears `MIN_EVENTS_WARN` and is still 1.6× nominal. |
+| [`bmp_z`][factrix.metrics.caar.bmp_z] | The Kolari-Pynnönen adjustment (on by default; `kolari_pynnonen_adjust=False` for unadjusted BMP) corrects the BMP statistic for cross-sectional dependence on the same event period — measured 21.5% → 5.0% size at 4 events per period, 40% → 4.5% at 10, identity at 1. It does **not** correct same-asset event clustering, and it cannot manufacture independent periods: with 4 events per period the adjusted test's residual tracks the number of distinct event periods (4 / 8 / 15 / 30: 15.2% / 10.7% / 5.5% / 5.8%; at 10 per period 8 / 15 / 30: 9.2% / 5.8% / 6.8%; 400 reps), clearing by ~15 periods at either cluster strength, so when events share periods `FEW_EVENTS` fires on `n_event_periods < MIN_EVENTS_WARN`, not on the event count — the shared 30 floor is conservative inside [15, 30), not a measured edge. |
 | [`event_hit_rate`][factrix.metrics.event_quality.event_hit_rate], [`event_ic`][factrix.metrics.event_quality.event_ic] | Each event row is counted independently; same-asset overlapping events double-contribute to the binomial / Spearman statistic. The null implicitly assumes independence — under heavy clustering the variance is understated. |
 | [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | Same: each `(asset, event_date)` row is independent in the binomial null at every offset. Adjacent-offset hit rates are also serially correlated within the same event (k=6 and k=12 share the t+1 entry price), which the binomial null does not adjust for. |
 | [`clustering_hhi`][factrix.metrics.clustering_hhi.clustering_hhi] | Quantifies cross-sectional concentration on event periods only. Does not detect within-asset temporal clustering — pair with `signal_density` for the asset-axis view. |

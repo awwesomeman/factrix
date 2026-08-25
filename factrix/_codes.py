@@ -60,6 +60,9 @@ class WarningCode(StrEnum):
     # but the Brown-Warner (1985) convention treats sub-30 event-period
     # counts as power-thin for the asymptotic reference distribution.
     # Below the HARD floor the primitive short-circuits to NaN instead.
+    # ``bmp_z`` pools events but fires it on the same axis once events
+    # share periods: the effective sample is then the distinct event
+    # periods, not the event count.
     # Naming follows the ``<axis>_<condition>`` grammar; the Brown-Warner
     # method reference lives in this gloss rather than the member name.
     FEW_EVENTS = "few_events"
@@ -245,13 +248,19 @@ _WARNING_DESCRIPTIONS.update(
         "clean ±1 ternary; statistic is magnitude-weighted (Sefcik-Thompson) "
         "rather than textbook MacKinlay signed CAAR — apply .sign() before "
         "calling for sign-flip semantics.",
-        WarningCode.FEW_EVENTS: "caar / corrado_rank significance test with "
-        "MIN_EVENTS_HARD ≤ n_event_periods < MIN_EVENTS_WARN (4..29). Both "
+        WarningCode.FEW_EVENTS: "caar / corrado_rank / bmp_z significance test "
+        "with n_event_periods < MIN_EVENTS_WARN (30). caar and corrado_rank "
         "test an event-period series — caar an equal-weight calendar-time "
         "portfolio, corrado_rank the per-period mean signed rank — so this "
-        "counts the number of periods with an event, not events; a sub-30 "
-        "series is power-thin for the asymptotic distribution — read "
-        "borderline p-values cautiously.",
+        "counts the number of periods with an event, not events, and fires "
+        "in [MIN_EVENTS_HARD, MIN_EVENTS_WARN). bmp_z pools events but, once "
+        "events share periods, its effective sample is the distinct event "
+        "periods too (the Kolari-Pynnönen adjustment cannot manufacture "
+        "independent periods; measured ~11% size at 8 periods, clearing by "
+        "~15, nominal 5%), so it fires on the same axis — there the shared "
+        "30 floor is conservative, not a measured edge. A sub-30 series is "
+        "power-thin for the asymptotic distribution — read borderline "
+        "p-values cautiously.",
         WarningCode.BORDERLINE_PORTFOLIO_PERIODS: "top_concentration with MIN_PORTFOLIO_PERIODS_HARD "
         "≤ n_periods < MIN_PORTFOLIO_PERIODS_WARN (3..19); the one-sided t-test "
         "on the per-period diversification ratio is returned but df=n-1 inflates "

@@ -170,12 +170,12 @@ def caar(
         around; the greedy calendar walk keeps the event-only mean intact.
 
         ``caar`` is an **equal-weight calendar-time portfolio** test: the
-        inference unit is the event *date*. Same-period events are collapsed
+        inference unit is the event *period*. Same-period events are collapsed
         to one cross-asset mean (which absorbs same-period cross-sectional
         correlation by construction), and the t-test runs across those
-        dates — so ``n`` counts event *dates* (the number of periods with
-        an event), not events. It uses non-overlap resampling rather than
-        Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent
+        periods — so ``n`` counts event *periods* (the number of periods with
+        an event), not events, and ``n_obs_axis`` is ``"periods"``. It uses
+        non-overlap resampling rather than Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent
         (HAC), the same convention as ``ic``.
 
         The across-events siblings are complementary, not redundant:
@@ -234,7 +234,7 @@ def caar(
             "caar",
             "insufficient_event_periods",
             n_obs=n,
-            n_obs_axis="events",
+            n_obs_axis="periods",
             min_required=raw_min_hard,
             forward_periods=forward_periods,
         )
@@ -245,7 +245,7 @@ def caar(
         warnings.warn(
             f"caar: n_event_periods={n} below the MIN_EVENTS_WARN-scaled floor="
             f"{raw_min_warn}. caar is an equal-weight calendar-time portfolio "
-            f"across event *dates*, so this counts the number of periods with "
+            f"across event *periods*, so this counts the number of periods with "
             f"an event, not events; a sub-30 series is "
             f"power-thin for the asymptotic t-distribution. t-stat returned "
             f"but read p-values cautiously. For an across-events test under "
@@ -305,7 +305,7 @@ def caar(
         alternative=alternative,
         value=mean_caar,
         n_obs=n_sampled,
-        n_obs_axis="events",
+        n_obs_axis="periods",
         stat=stat,
         metadata=metadata,
         warning_codes=tuple(warning_codes),
@@ -378,10 +378,19 @@ def bmp_z(
             are correlated the effective sample is closer to the number of
             distinct event *periods* than to the event count, and the
             adjusted test's residual tracks that — 4 events per period over
-            2 / 4 / 10 periods: 20.7% / 14.3% / 8.0%. ``FEW_EVENTS`` is
-            keyed on the event count and does not see this: 40 events over
-            10 periods is above ``MIN_EVENTS_WARN`` and still 1.6× nominal.
-            Read ``n_events`` against the number of distinct event periods.
+            4 / 8 / 15 / 30 periods: 15.2% / 10.7% / 5.5% / 5.8%, and 10
+            events per period over 8 / 15 / 30: 9.2% / 5.8% / 6.8% (400
+            reps, SE ≈ 1.1–1.8 pp). The residual depends on the period
+            count, not on how many events share each period, and is gone
+            by ~15 periods either way. So when events share periods,
+            ``FEW_EVENTS`` fires on ``metadata["n_event_periods"]``
+            (distinct event periods) below ``MIN_EVENTS_WARN``, not on
+            ``n_events``; with one event per period the two coincide and
+            the hard floor on ``n_events`` is the only gate. The measured
+            edge is ~15; ``MIN_EVENTS_WARN`` (30) is the floor ``caar`` and
+            ``corrado_rank`` already apply on this axis, reused so the three
+            event-study tests share one grammar — inside [15, 30) the
+            warning is conservative, not a measured miscalibration.
             ``False`` gives the unadjusted BMP for reproducing a
             source that reports it; ``metadata["kolari_pynnonen_applied"]``
             / ``["kolari_pynnonen_r"]`` disclose which statistic ran.
@@ -588,10 +597,12 @@ def bmp_z(
     std_sar = float(np.std(sar, ddof=DDOF))
 
     z_bmp = _calc_t_stat(mean_sar, std_sar, n_valid)
+    n_event_periods = int(valid["date"].n_unique())
 
     warning_codes: list[str] = []
     metadata: dict = {
         "n_events": n_valid,
+        "n_event_periods": n_event_periods,
         "n_dropped": len(events) - n_valid,
         "n_dropped_no_vol": n_dropped_no_vol,
         "n_dropped_non_finite_return": n_dropped_non_finite_return,
@@ -639,6 +650,27 @@ def bmp_z(
             )
     else:
         z = z_bmp
+
+    # Once events share periods the effective sample is closer to the number
+    # of distinct event periods than to the event count (KP deflates z for
+    # the shared shock but cannot manufacture independent periods), so the
+    # advisory reads that axis. With one event per period the two coincide
+    # and the event-count hard floor is the only gate.
+    if n_event_periods < n_valid and n_event_periods < MIN_EVENTS_WARN:
+        warning_codes.append(WarningCode.FEW_EVENTS.value)
+        warnings.warn(
+            f"bmp_z: n_event_periods={n_event_periods} below "
+            f"MIN_EVENTS_WARN={MIN_EVENTS_WARN} with n_events={n_valid}. "
+            f"Same-period events share a common shock, so the effective "
+            f"sample is closer to the number of distinct event periods than "
+            f"to the event count; the Kolari-Pynnönen adjustment removes the "
+            f"shared-shock inflation but not the small-sample residual "
+            f"(measured ~11% at 8 periods, ~15% at 4, clearing by ~15; "
+            f"nominal 5%). z is returned but read borderline p-values "
+            f"cautiously.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     p = _p_value_from_z(z)
     # An identical standardized AR across every event zeroes the BMP
