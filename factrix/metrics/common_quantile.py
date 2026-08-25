@@ -222,12 +222,14 @@ def common_quantile_spread(
     counts = np.bincount(bucket_idx, minlength=n_groups).astype(int)
 
     # Spearman across K bucket means: non-parametric shape check, K small.
+    # Not computable (K < 3, or identical bucket means) stays NaN in both
+    # fields rather than a p = 1 that reads as "no monotonic shape".
     if n_groups >= 3:
         rho_res = sp_stats.spearmanr(np.arange(n_groups), beta)
         rho = float(rho_res.statistic)
-        rho_p = float(rho_res.pvalue) if not np.isnan(rho_res.pvalue) else 1.0
+        rho_p = float(rho_res.pvalue)
     else:
-        rho, rho_p = float("nan"), 1.0
+        rho, rho_p = float("nan"), float("nan")
 
     warning_codes: list[str] = []
     metadata: dict[str, object] = {

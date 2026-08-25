@@ -338,3 +338,40 @@ def test_runs_at_metric_floor() -> None:
         df, ic(), by="regime", factor_col="factor", rng_seed=19
     )
     assert out.height == 1
+
+
+@pytest.mark.parametrize("method", ["bootstrap", "analytic"])
+def test_constant_slices_carry_nan_not_a_non_rejection(method: str):
+    """Two slices whose per-period IC is exactly 1 every period have no
+    contrast variance: NaN stat / p under either method, and the computable
+    pairs still get their multiplicity adjustment over the reduced family."""
+    import warnings
+
+    df = build_disjoint_period_panel(
+        seed=3,
+        spans={"a": (60, 0.1), "b": (60, 0.1), "c": (60, 0.1)},
+        label_col="regime",
+    )
+    # forward_return = factor inside a and b → IC = 1.0 on every period.
+    df = df.with_columns(
+        pl.when(pl.col("regime").is_in(["a", "b"]))
+        .then(pl.col("factor"))
+        .otherwise(pl.col("forward_return"))
+        .alias("forward_return")
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        out = slice_period_pairwise_test(
+            df, ic(), by="regime", factor_col="factor", method=method, rng_seed=1
+        )
+    is_ab = (pl.col("slice_a") == "a") & (pl.col("slice_b") == "b")
+    ab = out.filter(is_ab)
+    assert ab.height == 1
+    assert (
+        np.isnan(ab["stat"][0])
+        and np.isnan(ab["p_raw"][0])
+        and np.isnan(ab["p_adj"][0])
+    )
+    rest = out.filter(~is_ab)
+    assert rest.height == 2
+    assert np.isfinite(rest["p_adj"].to_numpy()).all()

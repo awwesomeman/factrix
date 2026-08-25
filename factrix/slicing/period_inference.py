@@ -338,8 +338,10 @@ def slice_period_pairwise_test(
             d = boot[i] - boot[j]
             se = float(d.std(ddof=1))
             if se < EPSILON:
-                t = 0.0
-                col = np.zeros(_N_RESAMPLES)
+                # No resampling dispersion in the contrast: no test. NaN,
+                # not t = 0 / p = 1 — see ``_stats.wald._NOT_COMPUTABLE``.
+                t = float("nan")
+                col = np.full(_N_RESAMPLES, float("nan"))
             else:
                 t = diff_obs / se
                 # Centre on the OBSERVED difference, not the bootstrap mean:
@@ -351,10 +353,23 @@ def slice_period_pairwise_test(
             t_obs.append(t)
             boot_cols.append(col)
             mean_diffs.append(diff_obs)
-            extreme = int(np.sum(np.abs(col) >= abs(t)))
-            p_raw.append((extreme + 1.0) / (_N_RESAMPLES + 1.0))
-        boot_matrix = np.column_stack(boot_cols)
-        p_adj = romano_wolf_adjusted_p(t_obs, boot_matrix, one_sided=False)
+            if np.isnan(t):
+                p_raw.append(float("nan"))
+            else:
+                extreme = int(np.sum(np.abs(col) >= abs(t)))
+                p_raw.append((extreme + 1.0) / (_N_RESAMPLES + 1.0))
+        # Romano-Wolf runs over the computable pairs; a collapsed pair stays
+        # NaN in stat / p_raw / p_adj.
+        t_arr = np.asarray(t_obs, dtype=float)
+        computable = np.isfinite(t_arr)
+        p_adj = np.full(len(pairs), float("nan"))
+        if computable.any():
+            boot_matrix = np.column_stack(
+                [boot_cols[k] for k in np.flatnonzero(computable)]
+            )
+            p_adj[computable] = romano_wolf_adjusted_p(
+                t_arr[computable], boot_matrix, one_sided=False
+            )
         stats = [float(t * t) for t in t_obs]
     else:
         means, variances = _analytic_slice_moments(
@@ -382,8 +397,10 @@ def slice_period_pairwise_test(
                 np.array([n_periods[i], n_periods[j]]),
             )
             if se2 <= EPSILON:
-                chi = 0.0
-                p = 1.0
+                # Both slices constant: no contrast variance, no test. NaN,
+                # not (0, 1) — see ``_stats.wald._NOT_COMPUTABLE``.
+                chi = float("nan")
+                p = float("nan")
             else:
                 chi = diff_obs * diff_obs / se2
                 p = float(sp_stats.f.sf(chi, dfn=1, dfd=nu))
@@ -391,7 +408,12 @@ def slice_period_pairwise_test(
             stats.append(chi)
             p_raw.append(p)
             df_denoms.append(nu)
-        p_adj = holm_adjusted_p(p_raw)
+        # Holm runs over the computable pairs; a collapsed pair stays NaN.
+        p_raw_arr = np.asarray(p_raw, dtype=float)
+        computable = np.isfinite(p_raw_arr)
+        p_adj = np.full(len(p_raw), float("nan"))
+        if computable.any():
+            p_adj[computable] = holm_adjusted_p(p_raw_arr[computable])
 
     n_pairs = len(pairs)
     reference_dist = "bootstrap_null" if method == "bootstrap" else "f"
@@ -496,13 +518,14 @@ def _wald_bootstrap_omnibus(
     mean, so the contrasts are null). Keeps the ``"bootstrap"`` omnibus
     bootstrap-native — consistent with the pairwise path — rather than
     falling back to the χ² asymptotics the ``"analytic"`` path uses.
-    Returns ``(W, p)``; ``(0.0, 1.0)`` on a singular middle matrix.
+    Returns ``(W, p)``; ``(nan, nan)`` on a singular middle matrix (no
+    test — see ``_stats.wald._NOT_COMPUTABLE``).
     """
     middle = restriction @ np.diag(variances) @ restriction.T
     try:
         middle_inv = np.linalg.inv(middle)
     except np.linalg.LinAlgError:
-        return 0.0, 1.0
+        return float("nan"), float("nan")
     contrast = restriction @ obs_means
     stat = float(contrast @ middle_inv @ contrast)
     # Recentre each slice's draws to its own mean → null contrasts, then
