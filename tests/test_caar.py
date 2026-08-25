@@ -876,3 +876,72 @@ class TestBmpZNonFiniteReturns:
             result = bmp_z(strong_signal, forward_periods=5)
         assert result.metadata["n_dropped_non_finite_return"] == 0
         assert result.metadata["n_dropped"] == result.metadata["n_dropped_no_vol"]
+
+
+class TestKolariPynnonenDefault:
+    """The KP adjustment is on by default and only moves clustered inputs.
+
+    Measured on a true null with cross-sectional correlation 0.5 (300
+    reps): 1 event/date → identical to unadjusted BMP (the ICC is not
+    estimable, ``kolari_pynnonen_applied`` is False); 4 events/date →
+    21.5% → 5.0%. Bands pin the measured order of magnitude at 120 reps.
+    """
+
+    @staticmethod
+    def _null_panel(seed: int, k_per_date: int, n_dates: int = 200, n_assets: int = 20):
+        from datetime import datetime, timedelta
+
+        rng = np.random.default_rng(seed)
+        event_dates = set(range(70, n_dates, 4))
+        rows = []
+        for d in range(n_dates):
+            common = rng.normal()
+            for a in range(n_assets):
+                is_event = d in event_dates and a < k_per_date
+                ret = np.sqrt(0.5) * common + np.sqrt(0.5) * rng.normal()
+                rows.append(
+                    {
+                        "date": datetime(2020, 1, 1) + timedelta(days=d),
+                        "asset_id": f"A{a}",
+                        "factor": 1.0 if is_event else 0.0,
+                        "forward_return": float(0.01 * ret),
+                    }
+                )
+        return pl.DataFrame(rows)
+
+    def test_default_is_on_and_disclosed(self):
+        result = bmp_z(self._null_panel(0, 4), forward_periods=1, estimation_window=60)
+        assert result.metadata["kolari_pynnonen_applied"] is True
+        assert "kolari_pynnonen_r" in result.metadata
+
+    def test_one_event_per_date_is_the_identity(self):
+        panel = self._null_panel(1, 1)
+        on = bmp_z(panel, forward_periods=1, estimation_window=60)
+        off = bmp_z(
+            panel, forward_periods=1, estimation_window=60, kolari_pynnonen_adjust=False
+        )
+        assert on.metadata["kolari_pynnonen_applied"] is False
+        assert on.stat == pytest.approx(off.stat)
+        assert on.p_value == pytest.approx(off.p_value)
+
+    def test_clustered_null_size_band(self):
+        import warnings
+
+        reps = 120
+        rej_on = rej_off = 0
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            for seed in range(reps):
+                panel = self._null_panel(1000 + seed, 4)
+                on = bmp_z(panel, forward_periods=1, estimation_window=60)
+                off = bmp_z(
+                    panel,
+                    forward_periods=1,
+                    estimation_window=60,
+                    kolari_pynnonen_adjust=False,
+                )
+                rej_on += on.p_value < 0.05
+                rej_off += off.p_value < 0.05
+        # measured 0.215 unadjusted vs 0.050 adjusted at 300 reps
+        assert 0.12 <= rej_off / reps <= 0.32
+        assert 0.01 <= rej_on / reps <= 0.11

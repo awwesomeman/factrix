@@ -40,5 +40,5 @@ macro state should be routed as a dense directional signal instead.
 
 Because every event shares the same date across assets, this cell is
 especially exposed to event-date clustering — prefer
-`caar.bmp_z(kolari_pynnonen_adjust=True)` over the vanilla $t$-test
+`caar.bmp_z` (Kolari-Pynnönen adjustment on by default) over the vanilla $t$-test
 and read [`clustering`](clustering_hhi.md) first.

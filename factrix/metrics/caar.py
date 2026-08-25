@@ -179,9 +179,9 @@ def caar(
         (HAC), the same convention as ``ic``.
 
         The across-events siblings are complementary, not redundant:
-        ``bmp_z`` is the across-events standardized-AR z-test with an
-        optional Kolari-Pynnönen clustering correction — use it when events
-        are heavily clustered or across-events power is wanted; and
+        ``bmp_z`` is the across-events standardized-AR z-test with the
+        Kolari-Pynnönen clustering correction on by default — use it when
+        events are heavily clustered or across-events power is wanted; and
         ``corrado_rank`` is the non-parametric rank test robust to
         heavy-tailed event returns, and — because it tests the event-date
         series rather than pooled event rows — to same-date clustering as
@@ -325,7 +325,7 @@ def bmp_z(
     return_col: str = "forward_return",
     estimation_window: int = 60,
     forward_periods: int = 5,
-    kolari_pynnonen_adjust: bool = False,
+    kolari_pynnonen_adjust: bool = True,
     include_prediction_error_variance: bool = False,
 ) -> MetricResult:
     r"""Boehmer-Musumeci-Poulsen Standardized Abnormal Return test.
@@ -364,9 +364,22 @@ def bmp_z(
             counted in panel rows — not calendar days. When using
             price-derived one-period vol, scales by
             ``1/sqrt(forward_periods)`` to match per-period forward_return.
-        kolari_pynnonen_adjust: When True, apply the
+        kolari_pynnonen_adjust: On by default. Apply the
             [Kolari-Pynnönen (2010)][kolari-pynnonen-2010] adjustment for
-            cross-sectional correlation of SAR:
+            cross-sectional correlation of SAR. BMP assumes events are
+            cross-sectionally independent; same-date events (earnings
+            season, index rebalances, macro releases) share a common shock
+            and break that. Measured on a true null with ρ = 0.5 (nominal
+            5%): 1 event/date 6.0% either way (the adjustment is the
+            identity when nothing shares a date — ``kolari_pynnonen_applied``
+            is ``False``); 4/date **21.5% → 5.0%**; 10/date **40% → 4.5%**.
+            Near the event floor it under-corrects rather than
+            over-corrects (8 events over 2 dates: 32.7% → 20.7%), so it is
+            necessary but not sufficient there — ``FEW_EVENTS`` still
+            applies. ``False`` gives the unadjusted BMP for reproducing a
+            source that reports it; ``metadata["kolari_pynnonen_applied"]``
+            / ``["kolari_pynnonen_r"]`` disclose which statistic ran.
+            Formula:
             $z_{\mathrm{KP}} = z_{\mathrm{BMP}} / \sqrt{1 + (N_{\mathrm{eff}} - 1) \cdot \hat r}$
             where $\hat r$ is the one-way-ANOVA ICC(1) estimate of the
             within-date correlation of SAR and
