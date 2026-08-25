@@ -22,7 +22,9 @@ class WarningCode(StrEnum):
     # Not raised for SPARSE.
     PERSISTENT_REGRESSOR = "persistent_regressor"
     # Fired by the series-mean inference members and ``fm_beta`` when the
-    # tested per-date series has lag-1 autocorrelation above
+    # tested per-date series — the series the mean test runs on (IC series,
+    # per-date betas, spread series), not the raw factor / return columns —
+    # has lag-1 autocorrelation above
     # ``PERSISTENT_SERIES_AUTOCORR`` (0.3). In that regime no path in the
     # library is calibrated — Newey-West, the stationary bootstrap and the
     # plain t all over-reject, by 2–4x nominal at phi = 0.6 and worse above —
