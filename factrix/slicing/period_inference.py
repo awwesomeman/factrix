@@ -600,11 +600,10 @@ def slice_period_joint_test(
     labels, series_list = _build_per_slice_series(
         data, metric, by, factor_col=factor_col, func_name="slice_period_joint_test"
     )
-    k = len(series_list)
     shortest = min(len(series) for series in series_list)
-    if k >= 3 and shortest < _JOINT_SHORT_SLICE_PERIODS:
+    if len(series_list) >= 3 and shortest < _JOINT_SHORT_SLICE_PERIODS:
         warnings.warn(
-            f"slice_period_joint_test: {k} slices with the shortest at "
+            f"slice_period_joint_test: {len(series_list)} slices with the shortest at "
             f"{shortest} periods (< {_JOINT_SHORT_SLICE_PERIODS}). On a true "
             f"null the joint test over-rejects here — measured 8–9% at a "
             f"nominal 5% for K=5 with 50–90-period slices, under both "
@@ -632,8 +631,9 @@ def slice_period_joint_test(
         # Wald form. Consistency + disclosure, not a size fix: at reachable
         # slice lengths ν is in the hundreds and F ≈ χ². The joint path's
         # residual over-rejection (up to ~9% at nominal 5% on short slices,
-        # converging by T ≈ 150) comes from understated HAC variances in
-        # ``_analytic_slice_moments``, tracked separately.
+        # converging by T ≈ 150) comes from the *noise* of each slice's
+        # small-sample HAC variance estimate (effective df ≈ 21 at T = 50),
+        # not from bias — see the Warns block on ``slice_period_joint_test``.
         nu = _satterthwaite_df(
             variances, np.array([len(series) for series in series_list])
         )

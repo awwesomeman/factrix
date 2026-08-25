@@ -210,9 +210,10 @@ class TestShortSliceDisclosure:
     """Short slices with K >= 3 warn, and the measured size band is pinned.
 
     The characterisation test asserts the *measured* band, not ``<= nominal``:
-    this path is known to over-reject on short slices, and the point of the
-    pin is that any future improvement (or regression) shows up as a
-    failure rather than being absorbed by a loose bound.
+    this path is known to over-reject on short slices. At 120 reps the band
+    is ~±2.5 SE wide, so it pins the order of magnitude and catches a large
+    regression (or a large improvement, which should prompt re-measuring
+    the grid) — it will not detect a shift of a percentage point or two.
     """
 
     @staticmethod
