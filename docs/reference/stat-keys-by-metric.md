@@ -59,8 +59,8 @@ contrasts, not a sidecar to a primary value.
 | [`signal_density`][factrix.metrics.event_quality.signal_density] | none — descriptive | — | mean bars per event |
 | [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | none — descriptive | — | mean leakage score |
 | [`monotonicity`][factrix.metrics.monotonicity.monotonicity] | cross-asset `t` on signed Spearman | `p_value` | mean \|Spearman\| |
-| [`quantile_spread`][factrix.metrics.quantile.quantile_spread] | NW HAC `t` on top-bottom spread (block-bootstrap CI when small cross-section) | `p_value` | mean(spread) |
-| [`k_spread`][factrix.metrics.k_spread.k_spread] | non-overlapping `t` on top-K−bottom-K spread (block-bootstrap CI when small cross-section) | `p_value` | mean(spread) |
+| [`quantile_spread`][factrix.metrics.quantile.quantile_spread] | non-overlapping `t` on top-bottom spread (NW HAC under `NEWEY_WEST`) | `p_value` | mean(spread) |
+| [`k_spread`][factrix.metrics.k_spread.k_spread] | non-overlapping `t` on top-K−bottom-K spread (NW HAC under `NEWEY_WEST`) | `p_value` | mean(spread) |
 | [`quantile_spread_vw`][factrix.metrics.quantile.quantile_spread_vw] | NW HAC `t` on vw spread | `p_value` | mean(vw spread) |
 | [`top_concentration`][factrix.metrics.concentration.top_concentration] | one-sided `t` on diversity ratio | `p_value` | mean(eff_n) = mean(1/HHI) |
 | [`clustering_hhi`][factrix.metrics.clustering_hhi.clustering_hhi] | none — descriptive | — | event-date Herfindahl-Hirschman index (HHI) |
@@ -326,9 +326,10 @@ consistency are read separately.
 #### `quantile_spread`
 
 - *primary*: `p_value` — non-overlapping `t`-test on the
-  (top − bottom) spread series. Small cross-sections
-  (`median_cross_section < MIN_ASSETS_WARN`) switch to a
-  block-bootstrap CI; see the shared small-N keys below.
+  (top − bottom) spread series (Newey-West HAC on the full series under
+  `inference=NEWEY_WEST`). Small cross-sections
+  (`median_cross_section < MIN_ASSETS_WARN`) attach `few_assets` and
+  change nothing else; see the shared small-N note below.
 - *secondary-test*: `long_alpha`, `long_stat`, `long_p_value` —
   long-leg attribution (mean excess and `t` / p-value), on
   `n_periods_long_leg` observations.
@@ -366,8 +367,7 @@ Fixed-K (top-K − bottom-K) long-short spread; the small-N sibling of
 `quantile_spread`.
 
 - *primary*: `p_value` — non-overlapping `t`-test on the spread
-  series, or a block-bootstrap CI in the small-cross-section regime
-  (`method` records which).
+  series (`method` records the inference member that ran).
 - *descriptive*: `k` (names per leg), `cross_sectional_dispersion`
   (mean per-date cross-sectional return std), `top_return`,
   `bottom_return`, `n_periods` (**the sample the headline test ran on**,
@@ -382,18 +382,18 @@ Fixed-K (top-K − bottom-K) long-short spread; the small-N sibling of
   but no cross-sectional variation. This is a valid `p_value = 1.0`
   result, not a short-circuit `reason`.
 
-#### Shared small-N significance keys
+#### Shared small-N note
 
-Both `quantile_spread` and `k_spread` switch the headline test to a
-block-bootstrap CI when the **median per-date** cross-section
-(`median_cross_section`) is below `MIN_ASSETS_WARN` — the heavy-tail
-rationale is per date, so a rotating universe with many lifetime
-`asset_id`s but few names quoted at a time still counts as thin. In that branch
-they additionally emit `p_value_t` (the parametric `t` p-value kept
-for reference), `bootstrap_block_length`, `bootstrap_n_resamples`,
-and `bootstrap_seed`. The switch is **not** silent: the single
-cross-section code (`few_assets`) is attached to `warning_codes`,
-so the method change surfaces as a `Warning` on the result.
+Both `quantile_spread` and `k_spread` attach `few_assets` when the
+**median per-date** cross-section (`median_cross_section`) is below
+`MIN_ASSETS_WARN` — how many names back a bucket mean is a per-date
+quantity, so a rotating universe with many lifetime `asset_id`s but few
+names quoted at a time still counts as thin. The warning is advisory; the
+headline test does not change. An earlier automatic switch to a
+block-bootstrap CI in this regime was removed after measurement: the
+bootstrap p rejected 8–20% at a nominal 5% against the `t`'s 7–9%, and
+its heavy-tail rationale had the size direction backwards (the `t` is
+size-robust to heavy tails; the small-`n` bootstrap is not).
 
 ### `concentration` (`factrix.metrics.concentration`)
 

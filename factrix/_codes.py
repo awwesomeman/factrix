@@ -42,7 +42,7 @@ class WarningCode(StrEnum):
     # bucket: each bucket mean rests on a handful of names, so the spread can be
     # dominated by individual assets. Advisory only — the spread is still
     # computed. Distinct from FEW_ASSETS (which keys off the absolute
-    # cross-section size driving the inference switch): a wide panel cut into
+    # cross-section size): a wide panel cut into
     # many buckets can trip this without tripping FEW_ASSETS.
     THIN_QUANTILE_GROUPS = "thin_quantile_groups"
     # Fired when a sparse ``factor`` column carries mixed signs but is

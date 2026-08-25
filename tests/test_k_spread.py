@@ -71,17 +71,22 @@ class TestSmallNSignificanceSwitch:
         assert result.metadata["method"] == "non-overlapping t-test"
         assert "p_value_t" not in result.metadata
 
-    def test_small_cross_section_uses_block_bootstrap(self):
+    def test_small_cross_section_keeps_the_t_test_and_warns(self):
+        """No automatic bootstrap switch: the t stays, FEW_ASSETS is attached.
+
+        The switch was removed after measurement — the bootstrap p rejected
+        8–20% at a nominal 5% on thin cross-sections against the t's 7–9%,
+        and its heavy-tail rationale had the size direction backwards.
+        """
         rng = np.random.default_rng(3)
         factor = np.arange(20, dtype=float)
         returns = rng.normal(0.001, 0.02, size=(40, 20))
         panel = _panel_from_matrix(factor, returns)
         result = k_spread(panel, forward_periods=1, k=5)
 
-        assert result.metadata["method"] == "block-bootstrap CI"
-        assert "p_value_t" in result.metadata  # parametric p retained for reference
-        assert result.metadata["bootstrap_seed"] == 0
-        # the method switch surfaces as a cross-section warning, not silently
+        assert result.metadata["method"] == "non-overlapping t-test"
+        assert "p_value_t" not in result.metadata
+        # the thin cross-section surfaces as a warning, not as a different test
         assert "few_assets" in result.warning_codes
         # reproducible run-to-run under the fixed seed
         again = k_spread(panel, forward_periods=1, k=5)
@@ -207,17 +212,19 @@ class TestUnderfilledDatesDropped:
 
 
 class TestQuantileSpreadSharesPolicy:
-    """The small-N bootstrap switch is shared with quantile_spread."""
+    """The small-N policy (warn, keep the t) is shared with quantile_spread."""
 
-    def test_quantile_spread_switches_on_small_cross_section(self):
+    def test_quantile_spread_warns_without_switching_on_small_cross_section(self):
+        from factrix._codes import WarningCode
+
         rng = np.random.default_rng(6)
         factor = np.arange(20, dtype=float)
         returns = rng.normal(0.001, 0.02, size=(40, 20))
         out = quantile_spread(
             _panel_from_matrix(factor, returns), forward_periods=1, n_groups=5
         )["factor"]
-        assert out.metadata["method"] == "block-bootstrap CI"
-        assert "p_value_t" in out.metadata
+        assert out.metadata["method"] == "non-overlapping t-test"
+        assert WarningCode.FEW_ASSETS.value in out.warning_codes
 
     def test_quantile_spread_keeps_t_test_on_large_cross_section(self):
         rng = np.random.default_rng(7)
@@ -265,15 +272,16 @@ class TestInference:
         assert nw.metadata["n_periods"] == nw.metadata["n_periods_full"]
         assert nw.n_obs == nw.metadata["n_periods_full"]
 
-    def test_small_cross_section_bootstrap_overrides_requested_hac(self):
+    def test_small_cross_section_keeps_requested_hac_and_warns(self):
         import factrix as fx
+        from factrix._codes import WarningCode
 
         raw = fx.datasets.make_cs_panel(n_assets=15, n_dates=400, seed=4)
         panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
         nw = k_spread(panel, forward_periods=5, k=3, inference=fx.inference.NEWEY_WEST)
-        assert nw.metadata["method"] == "block-bootstrap CI"
-        assert nw.metadata["inference_overridden"] is True
-        assert nw.metadata["inference_requested"] == "Newey-West HAC t-test"
+        assert nw.metadata["method"] == "Newey-West HAC t-test"
+        assert "inference_overridden" not in nw.metadata
+        assert WarningCode.FEW_ASSETS.value in nw.warning_codes
 
     def test_unapplicable_inference_raises_not_silent_fallback(self):
         import factrix as fx
@@ -371,11 +379,13 @@ class TestNonFiniteFactors:
 
 class TestSmallCrossSectionKeying:
     def test_rotating_universe_still_counts_as_thin(self):
+        from factrix._codes import WarningCode
+
         """12 names per date, 720 distinct asset_ids over the sample.
 
-        The switch used to read ``asset_id.n_unique()`` over the whole panel
-        (720 -> "wide", parametric t); the heavy-tail rationale is per date,
-        where only 12 names back each leg.
+        The advisory used to read ``asset_id.n_unique()`` over the whole panel
+        (720 -> "wide", no warning); the thin-cross-section rationale is per
+        date, where only 12 names back each leg.
         """
         rng = np.random.default_rng(7)
         rows = []
@@ -393,4 +403,4 @@ class TestSmallCrossSectionKeying:
         panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = k_spread(panel, forward_periods=1, k=3)
         assert result.metadata["median_cross_section"] == 12
-        assert result.metadata["method"] == "block-bootstrap CI"
+        assert WarningCode.FEW_ASSETS.value in result.warning_codes
