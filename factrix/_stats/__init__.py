@@ -43,7 +43,7 @@ from factrix._stats.core import (
     _t_stat_from_array,
     _t_test_summary,
 )
-from factrix._stats.diagnostics import _ljung_box
+from factrix._stats.diagnostics import _lag1_autocorr, _ljung_box
 from factrix._stats.hac import (
     _bartlett_lrcov,
     _driscoll_kraay_cov,
@@ -67,6 +67,7 @@ __all__ = [
     "_driscoll_kraay_cov",
     "_hansen_hodrick_se",
     "_hansen_hodrick_t_test",
+    "_lag1_autocorr",
     "_ljung_box",
     "_newey_west_se",
     "_newey_west_t_test",

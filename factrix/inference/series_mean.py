@@ -28,7 +28,12 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
 from factrix._codes import WarningCode
-from factrix._stats.constants import MIN_PERIODS_HARD, MIN_PERIODS_WARN
+from factrix._stats.constants import (
+    MIN_PERIODS_HARD,
+    MIN_PERIODS_WARN,
+    PERSISTENT_SERIES_AUTOCORR,
+)
+from factrix._stats.diagnostics import _lag1_autocorr
 from factrix._types import MIN_SERIES_PERIODS_HARD
 from factrix.inference._base import InferenceResult
 
@@ -92,6 +97,13 @@ class NonOverlapping:
         p_value = _p_value_from_t(t_stat, n_sampled)
 
         warnings: frozenset[WarningCode] = frozenset()
+        # Persistence screen on the STRIDED sample — the series the t-test
+        # runs on. Striding an AR(phi) series at h leaves autocorrelation
+        # phi^h, so a highly persistent full series can hand this test a
+        # near-iid subsample: AR(0.6) at h=21 sits at 4.5% (calibrated) and
+        # must not be flagged, while the same series at h=1 (32.9%) must be.
+        if _lag1_autocorr(sampled) > PERSISTENT_SERIES_AUTOCORR:
+            warnings |= frozenset({WarningCode.SERIAL_CORRELATION_DETECTED})
         # A NaN t on a subsample long enough to test means no dispersion at
         # all (every survivor identical). Flag it rather than let a NaN p read
         # as a merely uninformative result. Below two survivors the NaN is a
@@ -152,6 +164,10 @@ class NeweyWest:
         t_stat, p_value, _ = _newey_west_t_test(vals, lags=nw_lags)
 
         warnings: frozenset[WarningCode] = frozenset()
+        # Persistence screen: above PERSISTENT_SERIES_AUTOCORR no member of
+        # this family is calibrated (see WarningCode.SERIAL_CORRELATION_DETECTED).
+        if _lag1_autocorr(vals) > PERSISTENT_SERIES_AUTOCORR:
+            warnings |= frozenset({WarningCode.SERIAL_CORRELATION_DETECTED})
         # ``n < 3`` is a shortage the kernel cannot run on, flagged by
         # UNRELIABLE_SE_SHORT_PERIODS; only a NaN above that floor is a
         # collapsed HAC SE.
@@ -210,6 +226,10 @@ class HansenHodrick:
         )
 
         warnings: frozenset[WarningCode] = frozenset()
+        # Persistence screen: above PERSISTENT_SERIES_AUTOCORR no member of
+        # this family is calibrated (see WarningCode.SERIAL_CORRELATION_DETECTED).
+        if _lag1_autocorr(vals) > PERSISTENT_SERIES_AUTOCORR:
+            warnings |= frozenset({WarningCode.SERIAL_CORRELATION_DETECTED})
         if clamped:
             warnings |= frozenset({WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE})
         # As in ``NeweyWest``: only a NaN from a sample the kernel could
@@ -267,8 +287,12 @@ class StationaryBootstrap:
         p_value, boot_metadata = _block_bootstrap_diff_p(vals)
 
         warnings: frozenset[WarningCode] = frozenset()
+        # Persistence screen: above PERSISTENT_SERIES_AUTOCORR no member of
+        # this family is calibrated (see WarningCode.SERIAL_CORRELATION_DETECTED).
+        if _lag1_autocorr(vals) > PERSISTENT_SERIES_AUTOCORR:
+            warnings |= frozenset({WarningCode.SERIAL_CORRELATION_DETECTED})
         if 0 < n < self.min_periods:
-            warnings = frozenset({WarningCode.UNRELIABLE_SE_SHORT_PERIODS})
+            warnings |= frozenset({WarningCode.UNRELIABLE_SE_SHORT_PERIODS})
 
         return InferenceResult(
             stat=float(vals.mean()) if n else float("nan"),

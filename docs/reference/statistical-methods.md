@@ -462,6 +462,38 @@ that df were each measured; none calibrates the iid short-slice case
 size sweep tracker). The function warns in this regime and the
 characterisation test pins the measured band; pairwise contrasts on the
 same slices (5–6%) are the better-calibrated read.
+### Persistent per-date series: no HAC or bootstrap path is calibrated
+
+Every mean test on a per-date series (`ic` under any inference member,
+the spread metrics, `fm_beta`) is measured on a true null against the
+series' own persistence (`build_autocorrelated_ic_panel`, nominal 5%):
+
+| lag-1 φ | `NEWEY_WEST` | `STATIONARY_BOOTSTRAP` | plain *t* |
+|---|---|---|---|
+| 0 | 7–9% | 7–9% | 7–9% |
+| 0.6 | 13–17% | 12–19% | 32–34% |
+| 0.85 | 32–34% | 20–32% | 55–61% |
+
+Above φ ≈ 0.3 the Bartlett kernel's small-sample understatement of the
+long-run variance is no longer a nuisance but the dominant term, and the
+block bootstrap inherits it. This is the well-documented short-sample
+behaviour of Newey-West, not a factrix defect, and the field's response
+is not a different kernel: report the *t* against a raised hurdle
+([Harvey, Liu & Zhu (2016)][harvey-liu-zhu-2016]: *t* > 3) or lengthen
+the sample. factrix screens the tested series' lag-1 autocorrelation
+and raises `WarningCode.SERIAL_CORRELATION_DETECTED` above
+`PERSISTENT_SERIES_AUTOCORR` (0.3) so the regime is never silent.
+
+Measured but deliberately **not** adopted: the Newey-West (1994) plug-in
+bandwidth (worse than the fixed rule on iid input), longer Bartlett
+bandwidths (no change on real overlapping series), and the Hansen-Hodrick
+flat kernel (matches NW on real overlapping series; no PSD guarantee).
+Andrews-Monahan (1992) AR(1) prewhitening is the one kernel change the
+measurements support — on pure AR(1) input it brings NW back to its
+iid baseline (φ = 0.85: 29% → 9–11%), and on the realistic IC fixture it
+halves the excess (33% → 16%) with no cost on iid or overlapping input.
+It changes every HAC *t* in the library and is tracked as a separate
+decision.
 
 ## 7. Missing-value convention (null vs NaN)
 

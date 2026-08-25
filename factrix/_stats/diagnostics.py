@@ -1,4 +1,4 @@
-"""Residual diagnostics — Ljung-Box portmanteau autocorrelation test."""
+"""Residual diagnostics — Ljung-Box portmanteau test and lag-1 autocorrelation."""
 
 from __future__ import annotations
 
@@ -47,3 +47,26 @@ def _ljung_box(
         q += rho_k * rho_k / (n - k)
     q *= n * (n + 2)
     return h, float(q), float(sp_stats.chi2.sf(q, df=h))
+
+
+def _lag1_autocorr(values: np.ndarray) -> float:
+    """Sample lag-1 autocorrelation of a 1-D series; ``0.0`` when undefined.
+
+    The persistence screen behind ``WarningCode.SERIAL_CORRELATION_DETECTED``:
+    a single number that separates the regime where the HAC / bootstrap
+    mean tests are roughly calibrated (≈ 0) from the one where none of them
+    is (≥ 0.3). It is computed on the series the test actually runs on —
+    the metric's per-date series (the IC series, the per-date beta series,
+    the spread series), *not* the raw factor or return columns, whose
+    persistence can differ by an order of magnitude from the series that
+    is averaged. Returns ``0.0`` for ``n < 3`` or a zero-variance series so a
+    degenerate input never trips the screen on its own.
+    """
+    x = np.asarray(values, dtype=float)
+    if x.size < 3:
+        return 0.0
+    xc = x - x.mean()
+    denom = float(xc @ xc)
+    if denom < EPSILON:
+        return 0.0
+    return float((xc[1:] @ xc[:-1]) / denom)
