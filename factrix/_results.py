@@ -256,6 +256,8 @@ class EvaluationResult:
         | column | dtype | source |
         |---|---|---|
         | ``factor`` | str | :attr:`factor` |
+        | ``forward_periods`` | i64 | :attr:`forward_periods` |
+        | *one column per* :attr:`params` *key* | inferred | :attr:`params` value |
         | ``n_assets`` | i64 | :attr:`n_assets` |
         | ``metric_name`` | str | ``MetricResult.name`` |
         | ``value`` | f64 \| null | ``MetricResult.value`` |
@@ -268,9 +270,26 @@ class EvaluationResult:
         | ``reason`` | str \| null | short-circuit reason when not applicable |
         | ``warning_codes`` | list[str] | per-metric warning codes — bundle records sourced on this metric, unioned (de-duplicated, first-seen order) with ``MetricResult.warning_codes`` |
 
+        The leading ``factor`` / ``forward_periods`` / :attr:`params` block is
+        the **hypothesis identity** — the same tuple :meth:`to_dict` and
+        :func:`factrix.compare` carry. Without it, stacking the three results of
+        an ``evaluate_horizons`` sweep produced three indistinguishable rows.
+
         Designed for stacking across factors:
         ``pl.concat([r.to_frame() for r in results.values()])``
+        (results whose :attr:`params` keys differ need
+        ``pl.concat(..., how="diagonal")``, as in :func:`factrix.compare`).
+
+        Raises:
+            ValueError: a :attr:`params` key collides with a fixed column name.
         """
+        collisions = sorted(set(self.params) & set(_TO_FRAME_SCHEMA))
+        if collisions:
+            raise ValueError(
+                f"EvaluationResult.to_frame(): params key(s) {collisions} collide "
+                f"with fixed column name(s); rename the params key(s). Reserved: "
+                f"{sorted(_TO_FRAME_SCHEMA)}"
+            )
         by_metric: dict[str, list[str]] = {}
         for w in self.warnings:
             if w.source is None:
@@ -279,12 +298,21 @@ class EvaluationResult:
         rows = [
             {
                 "factor": self.factor,
+                "forward_periods": self.forward_periods,
+                **dict(self.params),
                 "n_assets": self.n_assets,
                 **_output_row(key, out, by_metric),
             }
             for key, out in self.metrics.items()
         ]
-        return pl.DataFrame(rows, schema=_TO_FRAME_SCHEMA)
+        schema: dict[str, pl.DataType | type[pl.DataType] | None] = {
+            "factor": pl.Utf8,
+            "forward_periods": pl.Int64,
+            # params values are caller-supplied Hashables — let polars infer.
+            **dict.fromkeys(self.params),
+            **{k: v for k, v in _TO_FRAME_SCHEMA.items() if k != "factor"},
+        }
+        return pl.DataFrame(rows, schema=schema)
 
     def to_dict(self) -> dict[str, Any]:
         """JSON-friendly nested dict view.

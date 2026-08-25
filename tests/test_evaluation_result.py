@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from collections.abc import Mapping
 from types import MappingProxyType
@@ -89,6 +90,7 @@ class TestEvaluationResultToFrame:
         df = r.to_frame()
         assert df.columns == [
             "factor",
+            "forward_periods",
             "n_assets",
             "metric_name",
             "value",
@@ -109,7 +111,37 @@ class TestEvaluationResultToFrame:
         assert df.schema["is_applicable"] == pl.Boolean
         assert df.schema["reason"] == pl.Utf8
         assert df.schema["warning_codes"] == pl.List(pl.Utf8)
+        assert df.schema["forward_periods"] == pl.Int64
         assert df.height == 2
+
+    def test_carries_hypothesis_identity(self):
+        """(factor, forward_periods, *params) — the same tuple to_dict and
+        compare carry. Without it an evaluate_horizons stack is unreadable."""
+        r = dataclasses.replace(
+            _sample_result(_sample_group()), params={"universe": "tw50", "k": 3}
+        )
+        df = r.to_frame()
+        assert df.columns[:4] == ["factor", "forward_periods", "universe", "k"]
+        row = df.row(0, named=True)
+        assert row["forward_periods"] == 5
+        assert (row["universe"], row["k"]) == ("tw50", 3)
+
+    def test_horizon_stack_is_distinguishable(self):
+        frames = [
+            dataclasses.replace(
+                _sample_result(_sample_group()), forward_periods=h
+            ).to_frame()
+            for h in (1, 5, 20)
+        ]
+        stacked = pl.concat(frames)
+        assert sorted(set(stacked["forward_periods"])) == [1, 5, 20]
+
+    def test_params_key_colliding_with_fixed_column_raises(self):
+        r = dataclasses.replace(
+            _sample_result(_sample_group()), params={"value": 1, "n_obs": 2}
+        )
+        with pytest.raises(ValueError, match=r"collide with fixed column"):
+            r.to_frame()
 
     def test_n_obs_carries_per_metric_sample_size(self):
         ic_out = MetricResult(value=0.05, n_obs=114, name="ic")

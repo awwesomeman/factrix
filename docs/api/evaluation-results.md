@@ -13,8 +13,12 @@ title: factrix.EvaluationResult
 ### `to_frame()`
 Converts the metric results into a stable, long-form Polars `pl.DataFrame`. This makes it easy to stack results across multiple factors using `pl.concat([r.to_frame() for r in results])` before writing to disk (e.g., Parquet).
 
+The leading `factor` / `forward_periods` / `params` block is the **hypothesis identity** — the same `(factor, forward_periods, *params)` tuple `to_dict()` and [`compare()`](compare.md) carry. Without it, the three results of an `evaluate_horizons` sweep stack into three indistinguishable rows.
+
 **Schema:**
 - `factor` (`str`): The factor column name.
+- `forward_periods` (`i64`): The panel's overlap horizon.
+- one column per `params` key (dtype inferred): the caller-supplied hypothesis knobs. A `params` key colliding with a fixed column name above raises `ValueError`. Results whose `params` keys differ need `pl.concat(..., how="diagonal")`.
 - `n_assets` (`i64`): Total unique assets.
 - `metric_name` (`str`): The metric identifier.
 - `value` (`f64` | `null`): The calculated metric value (NaN/Inf are normalized to `null`).
@@ -25,7 +29,7 @@ Converts the metric results into a stable, long-form Polars `pl.DataFrame`. This
 - `n_obs_axis` (`str` | `null`): The dimension `n_obs` counts along — `periods` / `events` / `pairs` / `assets`. A bare count is uninterpretable without it (a Fama-MacBeth `n_obs` is `periods`; a pooled-OLS one is `(date, asset)` `pairs`). `null` exactly when `n_obs` is.
 - `is_applicable` (`bool`): `false` when `strict=False` returned a short-circuit placeholder for an unsupported metric/input combination.
 - `reason` (`str` | `null`): Short-circuit reason when `is_applicable` is `false`.
-- `warning_codes` (`list[str]`): List of warnings attached to the metric.
+- `warning_codes` (`list[str]`): Warnings attached to the metric — the bundle-level `Warning` records sourced on it, unioned (de-duplicated, first-seen order) with the producer's own `MetricResult.warning_codes`.
 
 ### `to_dict()`
 Converts the result into a JSON-friendly nested dictionary. It normalizes floats (e.g., `NaN` and `Inf` to `None`) so that it can be serialized directly using standard `json.dumps` without raising errors.
