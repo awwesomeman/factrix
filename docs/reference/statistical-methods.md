@@ -488,15 +488,33 @@ Measured but deliberately **not** adopted: the Newey-West (1994) plug-in
 bandwidth (worse than the fixed rule on iid input), longer Bartlett
 bandwidths (no change on real overlapping series), and the Hansen-Hodrick
 flat kernel (matches NW on real overlapping series; no PSD guarantee).
-**Adopted:** [Andrews-Monahan (1992)][andrews-monahan-1992] AR(1)
-prewhitening inside `_newey_west_se` — the univariate mean-SE kernel
-behind `NEWEY_WEST` (`ic`, the spread metrics) and `fm_beta`. In factor
-terms: a persistent IC or spread series (a signal whose strength drifts
-in regimes) used to produce t-stats that looked one to three times as
-significant as the evidence warranted; the prewhitened SE strips the
-drift component first, so the t reflects the number of genuinely
-independent periods. Measured against the plain Bartlett estimate
-(nominal 5%):
+**Default is plain Newey-West; Andrews-Monahan prewhitening is measured
+and available, not on.** Neither estimator is right everywhere. Plain
+Newey-West at the automatic bandwidth understates the long-run variance
+of a persistent series at the sample sizes factor research works with
+(AR(0.6): 50% of the truth at `n = 50`, 61% at `n = 150`), so a drifting
+IC or spread series produces a *t* that looks one to three times as
+significant as the evidence warrants. [Andrews-Monahan
+(1992)][andrews-monahan-1992] AR(1) prewhitening — strip the drift
+component before the kernel sees it, then recolour — removes most of that
+but not all of it, and none of it near a unit root. It is implemented
+behind a private flag on `_newey_west_se` (the univariate mean-SE kernel
+behind `NEWEY_WEST` and `fm_beta`) so both estimators are measured and
+pinned side by side.
+
+The default stays plain Newey-West because **matching published
+factor-research numbers is a core use of this library**, and the
+convention in that literature is plain Newey-West with a lag rule; the
+tool ecosystem is split (R's `sandwich::NeweyWest` defaults prewhitening
+on, statsmodels and Stata's `newey` do not implement it). This is a
+convention choice, not a correctness claim — and it follows a line every
+deliberate deviation in factrix has respected so far: BHY, the sample
+floors and the persistence screen are all *additive* (they warn or
+refuse); none silently moves a number a user is comparing to a paper.
+Prewhitening by default would have been the first to cross it, on
+exactly the input users most often compare. What the default gets wrong
+on persistent input is therefore surfaced by `SERIAL_CORRELATION_DETECTED`
+rather than corrected. Against the plain Bartlett estimate (nominal 5%):
 
 | input | n | plain Bartlett | prewhitened |
 |---|---|---|---|
@@ -523,15 +541,13 @@ biased down (φ̂ ≈ 0.96 at true φ = 0.99), so the ±0.97 clip never bites
 and the recolouring stays bounded (SE ratio 1.7–3.0×) — there is no
 over-correction risk, but there is also no rescue: pure AR(1), n = 240,
 prewhitened rejects 17% at φ = 0.95, 50% at 0.99, and 99.8% at a true
-unit root, the same as plain Bartlett. Adopting prewhitening therefore
-does **not** relax `SERIAL_CORRELATION_DETECTED`; the screen matters
-more, because a user who knows the kernel is prewhitened will assume the
-problem is solved. The multivariate `_nw_hac_vector_mean` (period-slice moments)
+unit root, the same as plain Bartlett. No kernel change — this one or
+any future one — relaxes `SERIAL_CORRELATION_DETECTED`: a user who knows
+the kernel was improved will assume a persistent series is handled.
+Should the default ever change, the multivariate `_nw_hac_vector_mean`
 and the regression kernels `_ols_nw_slope_t` / `_ols_nw_multivariate`
-(`predictive_beta`, `common_*`, `spanning_alpha`) remain plain Bartlett:
-a vector series needs a VAR(1) fit and regression scores a different
-derivation, and neither has been measured. That asymmetry is deliberate
-and tracked.
+would need their own measurement first — a vector series needs a VAR(1)
+fit and regression scores a different derivation.
 
 ## 7. Missing-value convention (null vs NaN)
 
