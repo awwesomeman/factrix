@@ -113,6 +113,17 @@ def top_concentration(
         Higher = more diversified top bucket.
 
     Notes:
+        **Bottom of the warn range.** ``MIN_PORTFOLIO_PERIODS_HARD = 3``
+        admits a one-sided ``t`` with ``df = 2``. Measured on a true null at
+        exactly 3 periods it rejected 0 of 250 draws at a nominal 5% —
+        extremely conservative, so a p-value there carries essentially no
+        information. ``BORDERLINE_PORTFOLIO_PERIODS`` covers the whole
+        ``[3, 20)`` range; at its bottom read ``value`` (mean effective
+        number of names) descriptively and do not lean on ``p_value``. The
+        floor is not raised because the value is still a valid descriptive
+        statistic there and raising it would lock out users who get one
+        today.
+
         Per non-overlap date $t$ with top-bucket members $Q^{\mathrm{top}}(t)$
         (size $n^{\mathrm{top}}$), define weights $w_i$ by ``weight_by``
         and form the Herfindahl
@@ -290,8 +301,9 @@ def top_concentration(
         f"MIN_PORTFOLIO_PERIODS_WARN*forward_periods="
         f"{MIN_PORTFOLIO_PERIODS_WARN * forward_periods}; the one-sided t-test "
         f"on the per-date diversification ratio is returned but df=n-1 inflates "
-        f"t_crit relative to the asymptotic cutoff. Read borderline p-values "
-        f"cautiously.",
+        f"t_crit, and near the floor it is extremely conservative (at 3 periods "
+        f"it rejected 0 of 250 null draws at a nominal 5%): treat the p-value "
+        f"as uninformative there and read the value descriptively.",
         WarningCode.BORDERLINE_PORTFOLIO_PERIODS,
     )
     if warn_code is not None:

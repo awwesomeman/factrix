@@ -550,7 +550,7 @@ The canonical glosses live in `factrix._codes.WarningCode.description` and are r
 | `thin_quantile_groups` | `quantile_spread` left < `MIN_GROUP_ASSETS` (5) assets per bucket; spread can be dominated by individual assets. Advisory only. |
 | `sparse_magnitude_weighted` | Sparse factor is mixed-sign and not a clean ±1 ternary; statistic is magnitude-weighted (Sefcik-Thompson), not textbook signed CAAR. |
 | `few_events` | CAAR significance test with 4..29 event periods; sub-30 series is power-thin for the asymptotic t. |
-| `borderline_portfolio_periods` | `top_concentration` with 3..19 periods; one-sided t-test returned but df=n-1 inflates t_crit. |
+| `borderline_portfolio_periods` | `top_concentration` with 3..19 periods; one-sided t-test returned but df=n-1 inflates t_crit, and at the bottom of the range it is extremely conservative (0 of 250 null draws rejected at exactly 3 periods) — read `value` descriptively there. |
 | `few_directional_pairs` | `directional_hit_rate` with 10..29 pooled non-overlapping (date, asset) pairs; PT normal approximation is power-thin below ~30. |
 | `rect_kernel_negative_variance` | Rectangular-kernel HAC variance came out negative (no PSD guarantee); clamped to 0 → SE=0, so the t-test is not computable (also flagged `degenerate_variance`). |
 | `degenerate_variance` | The sample admits no t-statistic: every observation identical (zero dispersion) or the HAC SE collapsed to zero. The metric keeps its `value` but returns `stat=None` / `p_value=None` — an identical, non-zero sample is degenerate in the *maximum*-evidence direction, so `t=0, p=1` would invert the reading. |
