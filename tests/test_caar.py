@@ -947,3 +947,68 @@ class TestKolariPynnonenDefault:
         # measured 0.215 unadjusted vs 0.050 adjusted at 300 reps
         assert 0.12 <= rej_off / reps <= 0.32
         assert 0.01 <= rej_on / reps <= 0.11
+
+
+class TestBmpZEventPeriodAdvisory:
+    """Once events share periods, ``bmp_z``'s effective sample is the
+    distinct event periods, and ``FEW_EVENTS`` reads that axis.
+
+    Measured on a true null with cross-sectional correlation 0.5, 4 events
+    per period, KP on (400 reps): 4 / 8 / 15 / 30 / 60 periods → 15.2% /
+    10.7% / 5.5% / 5.8% / 5.0%, and 10 per period, 8 / 15 / 30 → 9.2% /
+    5.8% / 6.8%, at a nominal 5% (SE 1.1–1.8 pp) — the residual follows
+    the period count, not the cluster strength. The band
+    below pins the 8-period point at 100 reps; at that count the band is
+    about ±5 SE wide, so it detects a lost order of magnitude (the
+    advisory regime collapsing to nominal, or blowing past 20%), not a
+    few-point drift.
+    """
+
+    # ``_null_panel`` places events every 4 rows from row 70, so the
+    # number of distinct event periods is (n_dates - 70) / 4 rounded up.
+    _panel = staticmethod(TestKolariPynnonenDefault._null_panel)
+
+    def test_clustered_below_warn_fires_on_event_periods(self):
+        with pytest.warns(UserWarning, match="n_event_periods=8 below"):
+            result = bmp_z(
+                self._panel(0, 4, n_dates=102), forward_periods=1, estimation_window=60
+            )
+        assert result.metadata["n_event_periods"] == 8
+        assert result.metadata["n_events"] == 32
+        assert "few_events" in result.warning_codes
+        # The hard floor and n_obs stay on the event count.
+        assert result.n_obs == 32
+        assert result.n_obs_axis == "events"
+
+    def test_clustered_at_warn_is_clean(self):
+        result = bmp_z(
+            self._panel(0, 4, n_dates=190), forward_periods=1, estimation_window=60
+        )
+        assert result.metadata["n_event_periods"] == 30
+        assert "few_events" not in result.warning_codes
+
+    def test_one_event_per_period_does_not_fire(self):
+        # 20 events over 20 periods: no clustering, so the event-count
+        # floor is the only gate and the period advisory stays silent.
+        result = bmp_z(
+            self._panel(0, 1, n_dates=150), forward_periods=1, estimation_window=60
+        )
+        assert result.metadata["n_event_periods"] == result.metadata["n_events"] == 20
+        assert "few_events" not in result.warning_codes
+
+    def test_eight_period_null_size_band(self):
+        import warnings
+
+        reps = 100
+        rej = 0
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            for seed in range(reps):
+                r = bmp_z(
+                    self._panel(2000 + seed, 4, n_dates=102),
+                    forward_periods=1,
+                    estimation_window=60,
+                )
+                rej += r.p_value < 0.05
+        # measured 0.107 (SE 0.015) at 400 reps
+        assert 0.03 <= rej / reps <= 0.20

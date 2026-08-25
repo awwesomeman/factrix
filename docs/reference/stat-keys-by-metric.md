@@ -153,7 +153,7 @@ Descriptive; no test.
 
 - *primary*: `p_value` — non-overlapping `t` on per-event-period CAAR.
   `value`, `stat`, `p_value` and `n_obs` all describe the event-spaced
-  subsample.
+  subsample (`n_obs_axis = "periods"`).
 - *descriptive*: `n_event_periods` (number of periods with an event),
   `total_events` (underlying events behind the portfolio),
   `n_event_periods_sampled`, `mean_caar_full` / `n_event_periods_full`
@@ -169,8 +169,10 @@ Boehmer-Musumeci-Poulsen standardised-abnormal-return cross-sectional
 `z` test, with optional Kolari-Pynnönen clustering adjustment.
 
 - *primary*: `p_value`.
-- *descriptive*: `n_events`, `n_dropped` (= `n_dropped_no_vol` +
-  `n_dropped_non_finite_return`), `std_sar`,
+- *descriptive*: `n_events`, `n_event_periods` (distinct event periods —
+  the effective sample once events cluster; `FEW_EVENTS` fires on it when
+  below `MIN_EVENTS_WARN` and events share periods), `n_dropped`
+  (= `n_dropped_no_vol` + `n_dropped_non_finite_return`), `std_sar`,
   `estimation_window`, `include_prediction_error_variance`,
   `vol_source` (`"price"` or `"forward_return"`), `vol_estimation_lag`
   (rows the fallback std is lagged so its window ends before the event;
