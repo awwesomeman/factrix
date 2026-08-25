@@ -445,6 +445,24 @@ in the library and is a project rather than a patch. Read HAC $p$-values
 near the threshold as optimistic when the input is persistent — the
 `persistence` diagnostic in section 4 flags exactly that case.
 
+### Joint period test on short slices: known over-rejection
+
+`slice_period_joint_test` with `K ≥ 3` slices shorter than ~150 periods
+over-rejects on a true null — measured 8–9% at a nominal 5% for `K = 5`
+with 50–90-period slices, converging to ~5.5% by `T = 150`; `K = 2` is
+calibrated throughout. The cause is the per-slice Bartlett HAC variance
+estimate, whose effective degrees of freedom at `T = 50` are ≈ 21 rather
+than `T − 1`: with the *true* variances the same Wald statistic rejects
+3.8%, so neither the aggregation nor the `F` reference is at fault. The
+bootstrap path inherits the same noise (12% at `K = 5`, `T = 50`).
+Andrews-Monahan prewhitening, the Newey-West (1994) plug-in bandwidth, a
+Hotelling-style `F` on the HAC effective df, and a Satterthwaite ν on
+that df were each measured; none calibrates the iid short-slice case
+(prewhitening is the right tool for *autocorrelated* input — see the HAC
+size sweep tracker). The function warns in this regime and the
+characterisation test pins the measured band; pairwise contrasts on the
+same slices (5–6%) are the better-calibrated read.
+
 ## 7. Missing-value convention (null vs NaN)
 
 polars distinguishes `null` (missing) from float `NaN` (a value), and

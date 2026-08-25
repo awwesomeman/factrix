@@ -204,3 +204,71 @@ def test_raises_when_slice_below_metric_floor() -> None:
     )
     with pytest.raises(ValueError, match="sample floor"):
         slice_period_joint_test(df, ic(), by="regime", factor_col="factor", rng_seed=11)
+
+
+class TestShortSliceDisclosure:
+    """Short slices with K >= 3 warn, and the measured size band is pinned.
+
+    The characterisation test asserts the *measured* band, not ``<= nominal``:
+    this path is known to over-reject on short slices. At 120 reps the band
+    is ~±2.5 SE wide, so it pins the order of magnitude and catches a large
+    regression (or a large improvement, which should prompt re-measuring
+    the grid) — it will not detect a shift of a percentage point or two.
+    """
+
+    @staticmethod
+    def _null_panel(seed: int, k: int, t: int):
+        return build_disjoint_period_panel(
+            seed=seed, spans={f"s{i}": (t, 0.1) for i in range(k)}, label_col="regime"
+        )
+
+    def test_short_slices_with_three_or_more_warn(self):
+        with pytest.warns(UserWarning, match="over-rejects"):
+            slice_period_joint_test(
+                self._null_panel(0, 3, 60),
+                ic(),
+                by="regime",
+                factor_col="factor",
+                method="analytic",
+            )
+
+    @pytest.mark.parametrize(("k", "t"), [(2, 60), (3, 150)])
+    def test_no_warning_outside_the_regime(self, k, t):
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            slice_period_joint_test(
+                self._null_panel(0, k, t),
+                ic(),
+                by="regime",
+                factor_col="factor",
+                method="analytic",
+            )
+
+    @pytest.mark.parametrize(
+        ("k", "t", "low", "high"),
+        [
+            # measured 0.094 at 500 seeds; band is ~±2.5 SE at 120 reps
+            (5, 50, 0.04, 0.16),
+            # measured 0.052 at 500 seeds
+            (2, 150, 0.01, 0.11),
+        ],
+    )
+    def test_realised_size_band(self, k, t, low, high):
+        import warnings
+
+        reps = 120
+        rejected = 0
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            for seed in range(reps):
+                out = slice_period_joint_test(
+                    self._null_panel(30000 + seed, k, t),
+                    ic(),
+                    by="regime",
+                    factor_col="factor",
+                    method="analytic",
+                )
+                rejected += out["p_value"][0] < 0.05
+        assert low <= rejected / reps <= high
