@@ -287,6 +287,14 @@ def _short_circuit_output(
     (`oos_decay`, `clustering_hhi`, ...) so callers cannot mis-route the
     short-circuit into BHY / gate logic expecting a probability.
 
+    Every short-circuit carries :attr:`WarningCode.METRIC_UNAVAILABLE` on the
+    result's ``warning_codes``. The bundle-level :class:`Warning` the executor
+    attaches for the same event is keyed on the caller's *label*, so a caller
+    holding only the ``MetricResult`` (a standalone call, a stacked
+    ``to_frame`` row, a hand-rolled screen) would otherwise see a clean
+    ``warning_codes=()`` on a metric that never ran. ``metadata['reason']``
+    stays the specific cause.
+
     Use this instead of hand-rolling ``MetricResult(value=float("nan"),
     p_value=1.0, stat=None, metadata={"reason": ..., "p_value": 1.0, ...})``.
     """
@@ -311,6 +319,7 @@ def _short_circuit_output(
         n_obs_axis=n_obs_axis,
         stat=None,
         metadata=metadata,
+        warning_codes=(WarningCode.METRIC_UNAVAILABLE.value,),
     )
 
 

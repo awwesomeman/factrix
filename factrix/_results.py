@@ -266,7 +266,7 @@ class EvaluationResult:
         | ``n_obs_axis`` | str \| null | ``MetricResult.n_obs_axis`` — axis ``n_obs`` counts along (``periods`` / ``events`` / ``pairs`` / ``assets``) |
         | ``is_applicable`` | bool | false for ``strict=False`` short-circuits |
         | ``reason`` | str \| null | short-circuit reason when not applicable |
-        | ``warning_codes`` | list[str] | per-metric warning codes |
+        | ``warning_codes`` | list[str] | per-metric warning codes — bundle records sourced on this metric, unioned (de-duplicated, first-seen order) with ``MetricResult.warning_codes`` |
 
         Designed for stacking across factors:
         ``pl.concat([r.to_frame() for r in results.values()])``
@@ -451,6 +451,11 @@ def _output_row(
     warnings_by_metric: Mapping[str, list[str]],
 ) -> dict[str, Any]:
     label = out.name or key
+    # Union of the bundle-level records keyed on this metric and the codes the
+    # producer stamped on the output itself, first-seen order, de-duplicated:
+    # a short-circuit surfaces METRIC_UNAVAILABLE on both sides and must not
+    # appear twice in the row.
+    codes = dict.fromkeys((*warnings_by_metric.get(label, []), *out.warning_codes))
     return {
         "metric_name": label,
         "value": _float_or_none(out.value),
@@ -461,7 +466,7 @@ def _output_row(
         "n_obs_axis": out.n_obs_axis,
         "is_applicable": out.is_applicable,
         "reason": out.reason,
-        "warning_codes": list(warnings_by_metric.get(label, [])),
+        "warning_codes": list(codes),
     }
 
 

@@ -3,8 +3,10 @@
 import math
 from datetime import datetime, timedelta
 
+import factrix as fx
 import polars as pl
 import pytest
+from factrix._codes import WarningCode
 from factrix.metrics._helpers import (
     TIE_RATIO_WARN_THRESHOLD,
     _assign_quantile_groups,
@@ -12,8 +14,10 @@ from factrix.metrics._helpers import (
     _compute_tie_ratio,
     _sample_event_spaced,
     _sample_non_overlapping,
+    _short_circuit_output,
     _warn_high_tie_ratio,
 )
+from factrix.preprocess import compute_forward_return
 
 
 def _ord_frame(ordinals: list[int]) -> pl.DataFrame:
@@ -264,3 +268,34 @@ class TestWarnHighTieRatio:
     def test_silent_on_nan(self, recwarn):
         _warn_high_tie_ratio(float("nan"), "quantile_spread", "ordinal")
         assert not recwarn.list
+
+
+class TestShortCircuitWarningCodes:
+    def test_short_circuit_carries_metric_unavailable(self):
+        out = _short_circuit_output("vw", "no_weight_column", missing_column="mktcap")
+        assert out.warning_codes == (WarningCode.METRIC_UNAVAILABLE.value,)
+        assert out.metadata["reason"] == "no_weight_column"
+
+    def test_descriptive_short_circuit_also_carries_it(self):
+        out = _short_circuit_output("hhi", "insufficient_events", descriptive=True)
+        assert out.warning_codes == (WarningCode.METRIC_UNAVAILABLE.value,)
+        assert out.p_value is None
+
+    def test_evaluate_metric_result_carries_the_bundle_code(self):
+        from factrix.metrics import quantile_spread_vw
+
+        panel = compute_forward_return(
+            fx.datasets.make_cs_panel(n_assets=20, n_dates=120, seed=1),
+            forward_periods=5,
+        )
+        er = fx.evaluate(
+            panel,
+            metrics={"vw": quantile_spread_vw()},
+            factor_cols=["factor"],
+            strict=False,
+        )["factor"]
+        assert WarningCode.METRIC_UNAVAILABLE.value in er.metrics["vw"].warning_codes
+        # The bundle-level record and the per-metric code agree, and to_frame
+        # does not duplicate the code.
+        row = er.to_frame().row(0, named=True)
+        assert row["warning_codes"] == [WarningCode.METRIC_UNAVAILABLE.value]
