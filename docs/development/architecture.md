@@ -16,7 +16,7 @@ factor per `(scope, density, structure)` cell from the cell's mainstream
 metric (information coefficient (IC) / FM-λ / CAAR / TS-β). Dense
 time-series mainstream metrics use Newey-West (NW)
 heteroskedasticity-and-autocorrelation-consistent (HAC) inference; CAAR uses
-calendar-aware non-overlap sampling on the event-date series. Realistic execution simulation,
+calendar-aware non-overlap sampling on the event-period series. Realistic execution simulation,
 tradability proxies, and portfolio construction are out of scope — feed
 screened factors into Zipline / Backtrader / `vectorbt` downstream.
 
@@ -170,7 +170,7 @@ Dispatch runs through the DAG executor
 Both structures produce real `MetricResult.p_value` values — neither is degraded.
 
 `(INDIVIDUAL, DENSE, *) × n_assets == 1` is mathematically undefined (no
-cross-sectional dispersion → IC and per-date ordinary least squares (OLS) undefined). The IC / FM
+cross-sectional dispersion → IC and per-period ordinary least squares (OLS) undefined). The IC / FM
 specs declare `cell.structure = PANEL`, so under `strict=True` evaluate raises
 `IncompatibleAxisError`; under `strict=False` the metric short-circuits to a NaN
 `MetricResult` with a `reason`. Explicit and user-correctable, never a silent rewrite.
@@ -223,9 +223,9 @@ identifiers must use an axis token, with two deliberate registers/exceptions:
 | Axis token | Dimension |
 |------------|-----------|
 | `periods`  | time-series length (T; number of dates / draws) |
-| `assets`   | cross-sectional asset count (`n_assets` per date) |
+| `assets`   | cross-sectional asset count (`n_assets` per period) |
 | `pairs`    | complete `(factor, return)` pairs (FM cross-section) |
-| `events`   | event-date count |
+| `events`   | event-period count |
 
 Four layers, one grammar:
 
@@ -266,7 +266,7 @@ must be the one the statistic is actually *estimated* on — the complete
 observations after pairwise null-drop, not the raw row count. `forward_return`
 is null-clean before it reaches a metric, but factor nulls are not dropped
 upstream and are normal in real research, so a cross-sectional reduction counts
-the **valid `(factor, return)` cross-section per date**: `compute_fm_betas`
+the **valid `(factor, return)` cross-section per period**: `compute_fm_betas`
 (`MIN_FM_ASSETS_HARD`) and `compute_ic` (`MIN_IC_ASSETS_HARD`) both gate on that
 pairwise-complete count, dropping a date with many names but a factor defined
 for few rather than leaking a high-variance estimate. Counting null-padded rows
@@ -297,7 +297,7 @@ internally by the primitives that procedures wrap:
 
 - `MIN_IC_ASSETS_HARD = 2`, `MIN_IC_ASSETS_WARN = 10` — `compute_ic` drops
   only dates with fewer than 2 complete `(factor, return)` pairs, the true
-  computability floor for a per-date Spearman IC. Dates with 2..9 complete
+  computability floor for a per-period Spearman IC. Dates with 2..9 complete
   pairs are retained, and IC consumers / `inspect_data` surface
   `WarningCode.FEW_ASSETS` because the cross-section is statistically thin.
 - `MIN_SERIES_PERIODS_HARD = 10` — shared periods-axis floor for
@@ -339,7 +339,7 @@ resolves to one meaning on sight:
 - **`…_df` suffix → DataFrame.** A *named* frame keeps the informative idiom
   (`ic_df`, `caar_df`, `beta_df`, `common_betas_df`) — the prefix is the content, the
   `_df` says "frame". A *standalone* frame uses **`data`**, or a semantic noun where
-  one reads better (`panel`, `per_date`, `factor_panel`, `subset`, `residuals`).
+  one reads better (`panel`, `per_period`, `factor_panel`, `subset`, `residuals`).
 - **bare `df` / `_df` → banned.** The unqualified token is exactly the ambiguous
   case (could be either register), so factrix never declares a parameter, local,
   dataclass field, or dict / column key named `df` or `_df`.
@@ -487,15 +487,15 @@ Two regimes, each with concrete sub-forms. Pipeline pseudocode tags each
 step with `(cross-section step)` or `(time-series step)` inline:
 
 - **cross-section step** — aggregate over assets at a fixed date
-  - `per-date` — applied to every date (continuous panel)
-  - `per-event-date` — restricted to dates where `factor != 0` (sparse cells)
+  - `per-period` — applied to every date (continuous panel)
+  - `per-event-period` — restricted to dates where `factor != 0` (sparse cells)
 - **time-series step** — aggregate over the time axis
   - `per-asset` — fix one asset, aggregate its full date sequence
     (`filter(asset_id == X)`)
   - on a previously-built time-indexed series — e.g. NW HAC t-test on
     `IC[t]` or `β[i]` after the upstream step has produced the series
 
-Unqualified `per-event` is **not** used — always written as `per-event-date`
+Unqualified `per-event` is **not** used — always written as `per-event-period`
 to keep the regime unambiguous.
 
 ### Inference selection (`inference=`)
@@ -511,30 +511,30 @@ metric's union.
 ### `individual_continuous(IC)` — cross-section first
 
 ```
-per-date Spearman across n_assets         (cross-section step)
+per-period Spearman across n_assets         (cross-section step)
                                        →  n_periods-length IC time series
                                        →  NW HAC t-test on mean(IC)        (time-series step)
 ```
 
 Failure modes:
 
-- per-date pairwise-complete `n_assets` < 2 → `MIN_IC_ASSETS_HARD` drops that
+- per-period pairwise-complete `n_assets` < 2 → `MIN_IC_ASSETS_HARD` drops that
   date; if every date drops, output is NaN with `insufficient_ic_assets`.
-- per-date pairwise-complete `2 ≤ n_assets < 10` → IC is returned with
+- per-period pairwise-complete `2 ≤ n_assets < 10` → IC is returned with
   `WarningCode.FEW_ASSETS` keyed to `MIN_IC_ASSETS_WARN`.
 
 ### `individual_continuous(FM)` — cross-section first
 
 ```
-per-date OLS R = α + β·FactorDensity across n_assets   (cross-section step)
+per-period OLS R = α + β·FactorDensity across n_assets   (cross-section step)
                                               →  n_periods-length λ time series
                                               →  NW HAC t-test on mean(λ)   (time-series step)
 ```
 
 Failure modes:
 
-- per-date `n_assets` < 3 → `MIN_FM_ASSETS_HARD` drops that date.
-- per-date `3 <= n_assets < 10` → FM beta is returned with
+- per-period `n_assets` < 3 → `MIN_FM_ASSETS_HARD` drops that date.
+- per-period `3 <= n_assets < 10` → FM beta is returned with
   `WarningCode.FEW_ASSETS` keyed to `MIN_FM_ASSETS_WARN` because
   df = `n_assets` - 2 is minimal.
 - `n_periods < MIN_FM_PERIODS_HARD = 4` → short-circuit to insufficient
@@ -546,25 +546,25 @@ Failure modes:
 ### `individual_sparse` (CAAR PANEL) — cross-section first (events)
 
 ```
-per-event-date mean of signed_car = return × factor      (cross-section step)
-                                                       →  event-date-indexed CAAR
-calendar-aware non-overlap subsample by date_ordinal        →  independent event-date sample
+per-event-period mean of signed_car = return × factor      (cross-section step)
+                                                       →  event-period-indexed CAAR
+calendar-aware non-overlap subsample by date_ordinal        →  independent event-period sample
                                                        →  OLS t-test on mean(CAAR)      (event-time step)
 ```
 
-The CAAR series is **event-date-indexed**: `compute_caar` filters to
-`factor != 0`, collapses same-date events to one cross-asset mean, and
-retains each event date's `date_ordinal` on the full panel calendar. The
+The CAAR series is **event-period-indexed**: `compute_caar` filters to
+`factor != 0`, collapses same-period events to one cross-asset mean, and
+retains each event period's `date_ordinal` on the full panel calendar. The
 `caar` procedure then takes a greedy non-overlap subsample where consecutive
-kept event dates are at least `forward_periods` calendar periods apart. This
+kept event periods are at least `forward_periods` calendar periods apart. This
 keeps the event-only mean estimator intact while avoiding overlap-induced
 dependence from forward-return windows; dense zero-fill is deliberately not
 used because non-event zeros would dominate the sparse event mean.
 
 Magnitude is preserved as a weight in `signed_car` (no `.sign()` coercion
 at this layer — `compute_caar`'s docstring carries the input-form
-behaviour table). User-facing `MEAN` reports the per-event-date mean (the
-average effect on event days); `n_obs` reflects the non-overlap event-date
+behaviour table). User-facing `MEAN` reports the per-event-period mean (the
+average effect on event days); `n_obs` reflects the non-overlap event-period
 sample the t-stat is computed on.
 
 Failure modes:
@@ -613,8 +613,8 @@ Failure modes:
 
 - The same sparse event-count guards as `individual_sparse` apply:
   `MIN_EVENTS_HARD` hard floor and `MIN_EVENTS_WARN` warning for CAAR.
-- Same-date event clustering is more likely because every asset shares the
-  event date; use `clustering_hhi` and prefer `bmp_z` (its Kolari-Pynnönen
+- Same-period event clustering is more likely because every asset shares the
+  event period; use `clustering_hhi` and prefer `bmp_z` (its Kolari-Pynnönen
   adjustment is on by default) when the HHI is high.
 - Metrics that require a panel asset cross-section, such as
   `clustering_hhi`, remain unavailable on `n_assets == 1` even though most sparse
@@ -655,7 +655,7 @@ statistically equivalent). Sparse metrics that require a cross-asset panel, such
 as `clustering_hhi`, still raise / short-circuit on the cell mismatch. The
 series is the **full period grid** with
 zero-padding on non-event periods (distinct from the CAAR computation, which
-works on the event-date-only series). Factor magnitudes are
+works on the event-period-only series). Factor magnitudes are
 preserved (no `.sign()` coercion at this layer).
 
 Failure modes:

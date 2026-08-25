@@ -6,7 +6,7 @@ one date-aware input contract::
 
     compute(data: pl.DataFrame, *, value_col: str, forward_periods: int) -> InferenceResult
 
-``compute`` owns date-sort + null-drop (callers pass the raw per-date
+``compute`` owns date-sort + null-drop (callers pass the raw per-period
 DataFrame). ``NonOverlapping`` strides the cleaned series at
 ``forward_periods`` (sub-sampling away the MA(h-1) overlap), while
 ``NeweyWest`` / ``HansenHodrick`` keep every observation and correct the

@@ -5,8 +5,8 @@ stocks or broadly distributed, using Herfindahl-Hirschman index (HHI)
 inverse.
 
 Notes:
-    **Pipeline.** Per-date HHI inverse on top-bucket weights
-    (cross-section step) → per-date ratio series, then non-overlapping
+    **Pipeline.** Per-period HHI inverse on top-bucket weights
+    (cross-section step) → per-period ratio series, then non-overlapping
     sample; across-time t against ``H₀: ratio ≥ 0.5``.
 
     **Input.** DataFrame with ``date, asset_id, factor, forward_return``.
@@ -60,7 +60,7 @@ __all__ = [
     ),
     aggregation=Aggregation.CS_THEN_TS,
     # Periods floor scales with the non-overlap stride (see ``quantile``): the
-    # per-date HHI series is sub-sampled at ``forward_periods``, so the HARD and
+    # per-period HHI series is sub-sampled at ``forward_periods``, so the HARD and
     # WARN floors and their in-body gates share ``MIN_PORTFOLIO_PERIODS_*`` +
     # ``_scaled_min_periods``.
     sample_threshold=_scaled_periods_threshold(
@@ -129,7 +129,7 @@ def top_concentration(
         and form the Herfindahl
         $\mathrm{HHI}_t = \sum_i (w_i / \sum_j w_j)^2$. Effective
         independent bets $n^{\mathrm{eff}}_t = 1 / \mathrm{HHI}_t$.
-        Per-date diversification ratio
+        Per-period diversification ratio
         $r_t = n^{\mathrm{eff}}_t / n^{\mathrm{top}}$ is averaged and tested
         one-sided against $H_0: \mathbb{E}[r] \geq 0.5$: rejecting flags
         concentration.
@@ -188,7 +188,7 @@ def top_concentration(
     tie_ratio = _compute_tie_ratio(filtered, factor_col)
 
     # Top-bucket membership: the strict count cutoff ``k = max(1, floor(n·q_top))``
-    # on the *finite* per-date cross-section (``n`` counts neither nulls nor
+    # on the *finite* per-period cross-section (``n`` counts neither nulls nor
     # NaNs — ``pl.len()`` would, shrinking or emptying the bucket on a partially
     # missing date), selected by descending ordinal rank so exactly ``k`` names
     # are taken. A percent-rank threshold (``rank/n >= 1 - q_top``) is off by one
@@ -300,7 +300,7 @@ def top_concentration(
         f"top_concentration: {n_raw_periods} raw dates below "
         f"MIN_PORTFOLIO_PERIODS_WARN*forward_periods="
         f"{MIN_PORTFOLIO_PERIODS_WARN * forward_periods}; the one-sided t-test "
-        f"on the per-date diversification ratio is returned but df=n-1 inflates "
+        f"on the per-period diversification ratio is returned but df=n-1 inflates "
         f"t_crit, and near the floor it is extremely conservative (at 3 periods "
         f"it rejected 0 of 250 null draws at a nominal 5%): treat the p-value "
         f"as uninformative there and read the value descriptively.",
@@ -330,7 +330,7 @@ def top_concentration(
     ratio = mean_eff_n / max(mean_n_top, 1)
 
     # WHY: t-stat tests H₀: ratio ≥ 0.5 (well-diversified).
-    # Per-date ratio = eff_n / n_top; if mean ratio < 0.5 with significant t,
+    # Per-period ratio = eff_n / n_top; if mean ratio < 0.5 with significant t,
     # alpha is concentrated in a few stocks.
     ratio_arr = eff_n_arr / np.maximum(n_top_arr, 1)
     n = len(ratio_arr)

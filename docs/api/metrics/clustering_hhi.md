@@ -18,7 +18,7 @@ title: factrix.metrics.clustering_hhi
 
     ---
 
-    Read `value` (Herfindahl-Hirschman index (HHI) on the event-date histogram) and
+    Read `value` (Herfindahl-Hirschman index (HHI) on the event-period histogram) and
     `metadata["effective_n_periods"]` $= 1 / \mathrm{HHI}$. High HHI →
     events concentrate in few dates → cross-event independence under
     `caar`'s $t$-test is violated and the statistic may be inflated.
@@ -28,13 +28,13 @@ title: factrix.metrics.clustering_hhi
     ---
 
     When `hhi_normalized` is high ($\geq 0.3$ is the threshold the BMP
-    docstring calls out), `bmp_z` absorbs same-date shock sharing in
+    docstring calls out), `bmp_z` absorbs same-period shock sharing in
     the $z$ statistic through its Kolari-Pynnönen adjustment (on by
     default).
 
 </div>
 
-## Worked example — HHI on event dates
+## Worked example — HHI on event periods
 
 !!! example "clustering_hhi on a synthetic event panel"
 

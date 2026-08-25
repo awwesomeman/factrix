@@ -314,7 +314,7 @@ class TestQuantileSpreadVW:
         assert result.p_value is not None and math.isfinite(result.p_value)
 
     def test_per_date_assets_below_n_groups_short_circuits(self):
-        # Three valid names per date cannot fill five quantile buckets.
+        # Three valid names per period cannot fill five quantile buckets.
         dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(8)]
         rows = [
             {
@@ -676,14 +676,14 @@ class TestQuantileSpreadNonFiniteSeries:
 
 
 class TestSmallCrossSectionKeying:
-    """The FEW_ASSETS advisory reads the per-date cross-section, not the panel."""
+    """The FEW_ASSETS advisory reads the per-period cross-section, not the panel."""
 
     def test_rotating_universe_still_counts_as_thin(self):
-        """12 names per date, but 240 distinct asset_ids over the sample.
+        """12 names per period, but 240 distinct asset_ids over the sample.
 
         ``asset_id.n_unique()`` over the panel says 240 (wide, silent); the
-        median per-date cross-section says 12 (thin, warn). How many names
-        back a bucket mean is a per-date quantity, so the advisory must fire.
+        median per-period cross-section says 12 (thin, warn). How many names
+        back a bucket mean is a per-period quantity, so the advisory must fire.
         """
         from factrix._codes import WarningCode
 

@@ -11,7 +11,7 @@ combines two traits:
    entries and any real value otherwise (`{0, 1}` for a pure event flag
    is the simplest form), like [Individual sparse](individual-sparse.md).
 2. **Common scope**: the same value is broadcast to every asset on an
-   event date rather than varying cross-sectionally.
+   event period rather than varying cross-sectionally.
 
 The sparse side of this contract is still zero-value based: `0` is the
 non-event state, while null means missing factor data. Fill nulls to `0` only
@@ -39,6 +39,6 @@ the `common_continuous` OLS-beta path. A dense always-in-market `{-1, +1}`
 macro state should be routed as a dense directional signal instead.
 
 Because every event shares the same date across assets, this cell is
-especially exposed to event-date clustering — prefer
+especially exposed to event-period clustering — prefer
 `caar.bmp_z` (Kolari-Pynnönen adjustment on by default) over the vanilla $t$-test
 and read [`clustering`](clustering_hhi.md) first.

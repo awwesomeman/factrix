@@ -34,7 +34,7 @@ def auto_bartlett(T: int) -> int:
     return max(1, int(4 * (T / 100) ** (2 / 9)))
 
 
-# Lag-1 autocorrelation of the tested per-date series (IC series, per-date
+# Lag-1 autocorrelation of the tested per-period series (IC series, per-period
 # betas, spread series) above which a trending / regime-like series makes the
 # mean test look more significant than it is. One constant for every path,
 # set by the path it protects LEAST well; the prewhitened Newey-West path is

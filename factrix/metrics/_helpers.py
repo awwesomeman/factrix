@@ -91,7 +91,7 @@ def _spread_significance(
     spread: np.ndarray,
     n_assets: int,
 ) -> tuple[float, float, str, dict[str, object], tuple[str, ...]]:
-    """Headline significance for a per-date long-short spread series.
+    """Headline significance for a per-period long-short spread series.
 
     Returns ``(stat, p_value, method, extra_metadata, warning_codes)`` —
     the non-overlapping ``t`` on the strided series, with the single
@@ -320,7 +320,7 @@ def _all_dates_degenerate(panel: pl.DataFrame, factor_col: str) -> bool:
     A zero-variance (constant) factor carries no ranking signal: under
     ordinal tie-breaking it manufactures a spurious spread from row order,
     and under average tie-breaking every name shares a bucket so the
-    top/bottom legs are empty. Spread metrics test this per date — all
+    top/bottom legs are empty. Spread metrics test this per period — all
     dates degenerate — and short-circuit to an explicit no-signal result
     (:func:`_no_signal_zero_variance`) instead of ranking. Nulls are
     excluded so an all-null date counts as degenerate, not as variation.
@@ -591,7 +591,7 @@ def _estimate_within_date_icc(
 ) -> tuple[float | None, float, KPSource]:
     r"""One-way ANOVA intraclass correlation ICC(1) of ``value_col`` within dates.
 
-    Shared cross-sectional-correlation estimator for same-date pooled
+    Shared cross-sectional-correlation estimator for same-period pooled
     observations (``bmp_z`` SAR, ``directional_hit_rate`` sign-hit indicator).
     With $K$ dates, $n_d$ observations on date $d$, $N = \sum n_d$:
 
@@ -613,10 +613,10 @@ def _estimate_within_date_icc(
     Why ANOVA rather than the naive ``var(date means) / total`` ratio: under
     independence the variance of a date mean is $\sigma^2_w / n_d$, not
     zero, so the naive ratio converges to $1/(n_d + 1)$ — e.g. $0.17$ at
-    five names per date — and the downstream Kolari-Pynnönen deflator then
+    five names per period — and the downstream Kolari-Pynnönen deflator then
     fires at full strength on data with no clustering at all (an earlier
     factrix version did exactly this and was ~5× under-sized). The ANOVA
-    estimator subtracts the within-date component and is unbiased at
+    estimator subtracts the within-period component and is unbiased at
     $\hat r = 0$ under independence.
 
     Args:
@@ -635,7 +635,7 @@ def _estimate_within_date_icc(
           statistic uncorrected).
     """
     finite = pl.col(value_col).is_not_null() & pl.col(value_col).is_not_nan()
-    per_date = (
+    per_period = (
         data.filter(finite)
         .group_by("date")
         .agg(
@@ -644,11 +644,11 @@ def _estimate_within_date_icc(
             pl.len().alias("n"),
         )
     )
-    if per_date.height == 0:
+    if per_period.height == 0:
         return None, 0.0, "no_multi_event_dates"
 
-    n_d = per_date["n"].to_numpy().astype(float)
-    m_d = per_date["m"].to_numpy().astype(float)
+    n_d = per_period["n"].to_numpy().astype(float)
+    m_d = per_period["m"].to_numpy().astype(float)
     k_dates = len(n_d)
     n_total = float(n_d.sum())
     n_multi = int((n_d >= 2).sum())
@@ -660,7 +660,7 @@ def _estimate_within_date_icc(
 
     grand = float((n_d * m_d).sum() / n_total)
     msb = float((n_d * (m_d - grand) ** 2).sum() / (k_dates - 1))
-    v_d = per_date["v"].fill_null(0.0).to_numpy().astype(float)
+    v_d = per_period["v"].fill_null(0.0).to_numpy().astype(float)
     msw = float(((n_d - 1.0) * v_d).sum() / (n_total - k_dates))
     n0 = float((n_total - (n_d**2).sum() / n_total) / (k_dates - 1))
 
@@ -672,10 +672,10 @@ def _estimate_within_date_icc(
 
 
 def _kp_cluster_scale(r_hat: float, n_eff: float) -> float:
-    r"""Design-effect deflator for a pooled statistic under within-date correlation.
+    r"""Design-effect deflator for a pooled statistic under within-period correlation.
 
     $1 / \sqrt{1 + (N_{\mathrm{eff}} - 1)\,\hat r} \le 1$: the multiplier
-    that deflates a pooled ``mean / (sd / √N)`` statistic for within-date
+    that deflates a pooled ``mean / (sd / √N)`` statistic for within-period
     intraclass correlation $\hat r$ and cluster size $N_{\mathrm{eff}}$
     from :func:`_estimate_within_date_icc` (Kish design effect). At
     $\hat r = 0$ (no clustering) it is 1 — the statistic is unchanged.
@@ -683,9 +683,9 @@ def _kp_cluster_scale(r_hat: float, n_eff: float) -> float:
     Why not the full Kolari-Pynnönen (2010) factor
     $\sqrt{(1 - \bar r)/(1 + (N - 1)\bar r)}$: K-P's $(1 - \bar r)$
     numerator corrects a cross-sectional variance estimated on a *single
-    event date*, which
+    event period*, which
     under clustering estimates only $\sigma^2 (1 - \bar r)$. factrix pools
-    SARs / hit indicators across many event dates, so the pooled variance
+    SARs / hit indicators across many event periods, so the pooled variance
     already contains the between-date component and is an unbiased
     estimate of $\sigma^2$; applying the $(1 - \bar r)$ term on top
     double-counts and over-deflates. The design-effect form is the
@@ -779,21 +779,21 @@ def _sample_event_spaced(
 ) -> pl.DataFrame:
     """Greedily keep event rows ``>= forward_periods`` calendar steps apart.
 
-    The event-date counterpart of :func:`_sample_non_overlapping`. That
+    The event-period counterpart of :func:`_sample_non_overlapping`. That
     helper keeps every N-th *unique date* (index distance), which is correct
     on a calendar-dense series but mis-samples an event-only series whose
     dates are irregular: sparse events get further thinned (power loss) and
     clustered events inside one forward-return window are admitted as
     independent (iid assumption violated, ``t`` inflated).
 
-    This pass instead walks the event dates in order and keeps an event only
+    This pass instead walks the event periods in order and keeps an event only
     when its calendar gap — the difference in ``ordinal_col``, the position
     on the full underlying calendar — to the previously kept event is
     ``>= forward_periods``. The first event is always kept. The result is a
     maximal subset whose consecutive kept dates are at least one full
     forward-return horizon apart, so the surviving observations no longer
     share overlapping forward-return windows ([Brown-Warner (1985)][brown-warner-1985]
-    non-overlap sampling, made calendar-aware for the event-date axis).
+    non-overlap sampling, made calendar-aware for the event-period axis).
 
     ``forward_periods <= 1`` is a no-op (consecutive events already
     independent); an empty frame returns unchanged. ``data`` must be sorted by
@@ -865,7 +865,7 @@ def _assign_quantile_groups(
     n_groups: int = 5,
     tie_policy: str = "ordinal",
 ) -> pl.DataFrame:
-    """Assign quantile group labels (0 = bottom, n_groups-1 = top) per date.
+    """Assign quantile group labels (0 = bottom, n_groups-1 = top) per period.
 
     ``tie_policy="ordinal"`` (default): break ties deterministically by
     row order → balanced group sizes, but tied assets end up in different
@@ -895,7 +895,7 @@ def _assign_quantile_groups(
     return (
         data.with_columns(
             rank_expr,
-            # Denominator is the per-date *finite* factor count, not the row
+            # Denominator is the per-period *finite* factor count, not the row
             # count: a null / NaN factor gets a null rank (it never lands in a
             # bucket), so counting it would shrink every quantile width and
             # leave the top bucket unreachable (max rank / n_assets < 1).
@@ -917,7 +917,7 @@ def _assign_quantile_groups_batch(
     n_groups: int,
     tie_policy: str = "ordinal",
 ) -> pl.DataFrame:
-    """Assign per-date quantile groups for N factors in one polars pass.
+    """Assign per-period quantile groups for N factors in one polars pass.
 
     Batch counterpart of :func:`_assign_quantile_groups`. Emits
     one ``_group__<factor_col>`` column per factor; the shared
@@ -935,7 +935,7 @@ def _assign_quantile_groups_batch(
         .alias(f"_rank__{f}")
         for f in factor_cols
     ]
-    # Per-date *finite* count is per factor: each factor may null / NaN out a
+    # Per-period *finite* count is per factor: each factor may null / NaN out a
     # different set of assets, and a null-inclusive denominator would shrink the
     # quantile widths and leave the top bucket unreachable (see
     # :func:`_assign_quantile_groups`).
@@ -959,7 +959,7 @@ def _compute_tie_ratio(
 ) -> float:
     """Median-across-dates tie ratio ``1 - n_unique / n`` for ``factor_col``.
 
-    A float in [0, 1]: 0 means every per-date cross-section has unique
+    A float in [0, 1]: 0 means every per-period cross-section has unique
     factor values (no ties); 1 means every cross-section is fully
     degenerate. Returns ``nan`` when the panel is empty (no dates).
 
@@ -973,7 +973,7 @@ def _compute_tie_ratio(
     # Nulls are not a "value": they must count neither as a distinct level
     # nor in the denominator, or a sparse factor reads as tied.
     finite = _finite_expr(factor_col)
-    per_date = (
+    per_period = (
         data.group_by("date")
         .agg(
             pl.col(factor_col).filter(finite).n_unique().alias("_u"),
@@ -984,7 +984,7 @@ def _compute_tie_ratio(
             (1.0 - pl.col("_u") / pl.col("_n")).alias("_tr"),
         )
     )
-    med = per_date["_tr"].median()
+    med = per_period["_tr"].median()
     return float("nan") if med is None else float(med)  # type: ignore[arg-type]
 
 
@@ -1091,7 +1091,7 @@ def _attach_drop_stats(
     and the predicate (``drop_reason``); ``n_<axis>_out`` is the surviving row
     count (``frame.height``). The five stats are broadcast as a single
     ``_drop_stats`` struct column so the diagnostic rides the existing
-    ``dict[str, pl.DataFrame]`` contract (cf. the per-date ``tie_ratio`` column).
+    ``dict[str, pl.DataFrame]`` contract (cf. the per-period ``tie_ratio`` column).
     A consumer reads row 0 via :func:`_read_drop_stats`; a fully-dropped
     (0-row) frame carries an empty column and is never read because the
     consumer short-circuits first.
@@ -1298,7 +1298,7 @@ MIN_GROUP_ASSETS = 5
 
 
 def _median_universe_size(data: pl.DataFrame) -> int:
-    """Median number of unique assets per date."""
+    """Median number of unique assets per period."""
     return int(
         data.group_by("date")
         .agg(pl.col("asset_id").n_unique().alias("n"))["n"]

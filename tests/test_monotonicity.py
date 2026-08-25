@@ -144,7 +144,7 @@ class TestMonotonicityBatch:
 
 
 class TestBatchTieRatio:
-    """``_compute_tie_ratios_batch`` reports the per-date-then-median tie ratio."""
+    """``_compute_tie_ratios_batch`` reports the per-period-then-median tie ratio."""
 
     def test_batch_matches_single_factor_per_date_median(self):
         from datetime import datetime, timedelta
@@ -154,8 +154,8 @@ class TestBatchTieRatio:
         from factrix.metrics.monotonicity import _compute_tie_ratios_batch
 
         # f_cont: continuous, unique within each date but the same value set
-        # recurs across dates → per-date tie ratio 0. A global n_unique/len would
-        # report ~1 here (spurious). f_bucket: 3 buckets → genuine per-date ties.
+        # recurs across dates → per-period tie ratio 0. A global n_unique/len would
+        # report ~1 here (spurious). f_bucket: 3 buckets → genuine per-period ties.
         n_assets, n_dates = 100, 40
         dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
         rows = [
@@ -173,7 +173,7 @@ class TestBatchTieRatio:
         batch = _compute_tie_ratios_batch(df, ["f_cont", "f_bucket"])
         assert batch["f_cont"] == pytest.approx(_compute_tie_ratio(df, "f_cont"))
         assert batch["f_bucket"] == pytest.approx(_compute_tie_ratio(df, "f_bucket"))
-        # The continuous factor has no within-date ties — must not be flagged.
+        # The continuous factor has no within-period ties — must not be flagged.
         assert batch["f_cont"] == pytest.approx(0.0)
 
     def test_empty_frame_returns_nan(self):

@@ -163,7 +163,7 @@ diagnostics that factrix implements at the metric layer.
 Fama, E. F. & MacBeth, J. D. (1973). "Risk, Return, and Equilibrium:
 Empirical Tests." *Journal of Political Economy* 81(3), 607–636.
 
-Two-stage λ procedure: per-date cross-sectional regression then
+Two-stage λ procedure: per-period cross-sectional regression then
 time-series t-test on E[λ]. The FM cell uses this with NW HAC at
 stage 2.
 
@@ -300,7 +300,7 @@ Case of Event Studies." *Journal of Financial Economics* 14(1),
 Simulation framework against which event-study tests are evaluated.
 The cross-sectional `t` on CAAR is reasonably specified at moderate
 `K` under no event-induced variance and is mis-specified under
-variance inflation around the event date — the BW1985 documentation
+variance inflation around the event period — the BW1985 documentation
 of this failure is the motivation for the
 [Boehmer-Musumeci-Poulsen 1991][boehmer-musumeci-poulsen-1991]
 standardised AR test that factrix implements.
@@ -400,10 +400,10 @@ Financial Studies* 23(11), 3996–4025.
 Clustering-adjustment option on factrix's BMP-style test. K-P scale
 the single-event-day BMP $z$ by
 $\sqrt{(1 - \hat r)/(1 + (N_{\mathrm{eff}}-1)\,\hat r)}$; factrix pools
-SARs across event dates, so it applies only the design-effect part
+SARs across event periods, so it applies only the design-effect part
 $1/\sqrt{1 + (N_{\mathrm{eff}}-1)\,\hat r}$ (see *Statistical methods*
 §6 for why the $(1 - \hat r)$ numerator does not apply to a pooled
-variance). Recommended when factrix's event-date clustering HHI
+variance). Recommended when factrix's event-period clustering HHI
 diagnostic flags high concentration.
 
 ### Shrout & Fleiss (1979)
@@ -414,7 +414,7 @@ Assessing Rater Reliability." *Psychological Bulletin* 86(2), 420–428.
 
 The one-way random-effects ANOVA intraclass correlation ICC(1),
 $(\text{MSB} - \text{MSW}) / (\text{MSB} + (n_0 - 1)\,\text{MSW})$, that
-factrix's `_estimate_within_date_icc` uses for the within-date clustering
+factrix's `_estimate_within_date_icc` uses for the within-period clustering
 estimate feeding `bmp_z` and `directional_hit_rate`.
 
 ### Schwert (1989)
@@ -450,8 +450,8 @@ Jaffe, J. F. (1974). "Special Information and Insider Trading."
 Calendar-time portfolio approach to event studies — recasts event-indexed
 inference by forming each calendar period's portfolio of all firms with a
 recent event and analysing portfolio returns. Historical background for
-factrix's event-date CAAR aggregation: factrix collapses same-date events to
-one event-date mean, then uses calendar-aware non-overlap sampling rather
+factrix's event-period CAAR aggregation: factrix collapses same-period events to
+one event-period mean, then uses calendar-aware non-overlap sampling rather
 than dense zero-fill HAC.
 
 ### Mandelker (1974)
@@ -462,7 +462,7 @@ Mandelker, G. (1974). "Risk and Return: The Case of Merging Firms."
 
 Independent contemporaneous calendar-time portfolio paper; cited alongside
 Jaffe (1974) as the joint origin of the calendar-time inference idea that
-factrix's sparse-panel CAAR adapts at the event-date aggregation layer.
+factrix's sparse-panel CAAR adapts at the event-period aggregation layer.
 
 ### Fama (1998)
 [](){ #fama-1998 }
@@ -476,7 +476,7 @@ buy-and-hold abnormal returns (BHARs), strongly recommending the
 calendar-time approach on the grounds that monthly returns are less
 susceptible to the bad-model problem and that monthly portfolio formation
 automatically absorbs cross-correlations of event-firm abnormal returns.
-Factrix cites this as background for same-date event aggregation and for
+Factrix cites this as background for same-period event aggregation and for
 reading clustered event calendars cautiously; the implemented CAAR t-test
 uses calendar-aware non-overlap sampling, not a dense HAC path.
 
@@ -691,7 +691,7 @@ Huber, P. J. (1964). "Robust Estimation of a Location Parameter."
 M-estimator framework for robust location estimation under
 contaminated-normal models. Foundational for the broader "robustify
 the central tendency before it gates downstream inference" stance
-that factrix applies to per-date cross-sections — the MAD-as-scale
+that factrix applies to per-period cross-sections — the MAD-as-scale
 lineage itself runs through [Hampel (1974)][hampel-1974], not this
 paper.
 
@@ -713,7 +713,7 @@ Estimation." *Journal of the American Statistical Association*
 Influence-function framework for local-robustness analysis and the
 canonical reference popularising the median absolute deviation as a
 robust scale estimator (attributing the MAD itself to Gauss).
-Supplies the conceptual language factrix uses for per-date
+Supplies the conceptual language factrix uses for per-period
 robustification of scale and for breakdown-point claims on
 estimators such as Theil-Sen (the breakdown-point concept itself
 predates this paper — Hampel 1968 / 1971 — but the 1974 paper places

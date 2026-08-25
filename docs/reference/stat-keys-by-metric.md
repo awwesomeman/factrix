@@ -42,14 +42,14 @@ contrasts, not a sidecar to a primary value.
 |---|---|---|---|
 | [`directional_pair_accuracy`][factrix.metrics.directional_pair_accuracy.directional_pair_accuracy] | none; descriptive | n/a | pooled pairwise ordering accuracy |
 | [`common_beta_profile`][factrix.metrics.common_beta.common_beta_profile] | none; descriptive | n/a | positive-minus-negative beta mean spread |
-| [`ic`][factrix.metrics.ic.ic] | `t` on per-date information coefficient (IC) series (non-overlapping default, Newey-West HAC if configured) | `p_value` | mean(IC) |
+| [`ic`][factrix.metrics.ic.ic] | `t` on per-period information coefficient (IC) series (non-overlapping default, Newey-West HAC if configured) | `p_value` | mean(IC) |
 | [`ic_ir`][factrix.metrics.ic.ic_ir] | none — descriptive | — | mean(IC) / std(IC) |
-| [`fm_beta`][factrix.metrics.fm_beta.fm_beta] | NW HAC `t` on per-date λ | `p_value` | mean(β) |
+| [`fm_beta`][factrix.metrics.fm_beta.fm_beta] | NW HAC `t` on per-period λ | `p_value` | mean(β) |
 | [`pooled_beta`][factrix.metrics.fm_beta.pooled_beta] | clustered ordinary least squares (OLS) `t` (or `None` if G < 3) | `p_value` | pooled β |
 | [`fm_beta_sign_consistency`][factrix.metrics.fm_beta.fm_beta_sign_consistency] | none — descriptive | — | fraction with expected sign |
-| [`caar`][factrix.metrics.caar.caar] | non-overlapping `t` on event-date CAAR | `p_value` | mean(CAAR) |
+| [`caar`][factrix.metrics.caar.caar] | non-overlapping `t` on event-period CAAR | `p_value` | mean(CAAR) |
 | [`bmp_z`][factrix.metrics.caar.bmp_z] | BMP cross-sectional `z` on SAR | `p_value` | mean(SAR) |
-| [`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank] | nonparametric rank `z` on the event-date series (cluster-robust) | `p_value` | mean(per-date mean U × sign(factor)) |
+| [`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank] | nonparametric rank `z` on the event-period series (cluster-robust) | `p_value` | mean(per-period mean U × sign(factor)) |
 | [`positive_rate`][factrix.metrics.positive_rate.positive_rate] | binomial test (or normal `z`) | `p_value` | hit rate ∈ [0, 1] |
 | [`directional_hit_rate`][factrix.metrics.directional_hit_rate.directional_hit_rate] | Pesaran-Timmermann `z` (one-sided) | `p_value` | directional hit rate ∈ [0, 1] |
 | [`event_hit_rate`][factrix.metrics.event_quality.event_hit_rate] | binomial test (or normal `z`) | `p_value` | hit rate ∈ [0, 1] |
@@ -63,7 +63,7 @@ contrasts, not a sidecar to a primary value.
 | [`k_spread`][factrix.metrics.k_spread.k_spread] | non-overlapping `t` on top-K−bottom-K spread (NW HAC under `NEWEY_WEST`) | `p_value` | mean(spread) |
 | [`quantile_spread_vw`][factrix.metrics.quantile.quantile_spread_vw] | NW HAC `t` on vw spread | `p_value` | mean(vw spread) |
 | [`top_concentration`][factrix.metrics.concentration.top_concentration] | one-sided `t` on diversity ratio | `p_value` | mean(eff_n) = mean(1/HHI) |
-| [`clustering_hhi`][factrix.metrics.clustering_hhi.clustering_hhi] | none — descriptive | — | event-date Herfindahl-Hirschman index (HHI) |
+| [`clustering_hhi`][factrix.metrics.clustering_hhi.clustering_hhi] | none — descriptive | — | event-period Herfindahl-Hirschman index (HHI) |
 | [`mfe_mae`][factrix.metrics.mfe_mae.mfe_mae] | none — descriptive | — | MFE_p50 / \|MAE_p75\| |
 | [`oos_decay`][factrix.metrics.oos_decay.oos_decay] | none — descriptive | — | survival = \|mean_oos\| / \|mean_is\| |
 | [`spanning_alpha`][factrix.metrics.spanning.spanning_alpha] | OLS `t` on α | `p_value` | spanning α |
@@ -86,24 +86,24 @@ contrasts, not a sidecar to a primary value.
 
 #### `ic`
 
-- *primary*: `p_value` — `t`-test on the per-date IC series (non-overlapping stride with stride `forward_periods` by default, or Newey-West HAC if configured).
-- *descriptive*: `n_periods` (the sample the `value` / `stat` / `p_value` describe — the strided subsample under `NonOverlapping`, the full series under `NeweyWest` / `StationaryBootstrap`; equals `n_obs`), `n_periods_full` and `mean_ic_full` (the full per-date series, for reference), `forward_periods`, `tie_ratio` (median across dates), `min_assets_per_period` / `warn_assets_per_period` when the upstream IC series carries per-date asset counts, `stat_type` (`"t"`), `h0` (`"mu=0"`), `method`.
-- *warning*: `WarningCode.FEW_ASSETS` when retained per-date IC cross-sections are below `MIN_IC_ASSETS_WARN`.
-- *short-circuit*: `reason` `insufficient_ic_periods` (too few dates) carries `min_required`; `insufficient_ic_assets` (every cross-section below `MIN_IC_ASSETS_HARD`, so no per-date IC survived — common on one-valid-pair panels) carries `min_assets_required`.
+- *primary*: `p_value` — `t`-test on the per-period IC series (non-overlapping stride with stride `forward_periods` by default, or Newey-West HAC if configured).
+- *descriptive*: `n_periods` (the sample the `value` / `stat` / `p_value` describe — the strided subsample under `NonOverlapping`, the full series under `NeweyWest` / `StationaryBootstrap`; equals `n_obs`), `n_periods_full` and `mean_ic_full` (the full per-period series, for reference), `forward_periods`, `tie_ratio` (median across periods), `min_assets_per_period` / `warn_assets_per_period` when the upstream IC series carries per-period asset counts, `stat_type` (`"t"`), `h0` (`"mu=0"`), `method`.
+- *warning*: `WarningCode.FEW_ASSETS` when retained per-period IC cross-sections are below `MIN_IC_ASSETS_WARN`.
+- *short-circuit*: `reason` `insufficient_ic_periods` (too few periods) carries `min_required`; `insufficient_ic_assets` (every cross-section below `MIN_IC_ASSETS_HARD`, so no per-period IC survived — common on one-valid-pair panels) carries `min_assets_required`.
 
 #### `ic_ir`
 
 Descriptive metric — `MetricResult.stat` is `None` and no `p_value`
 is emitted.
 
-- *descriptive*: `mean_ic`, `std_ic`, `n_periods`, `tie_ratio`, `min_assets_per_period` / `warn_assets_per_period` when the upstream IC series carries per-date asset counts.
-- *warning*: `WarningCode.FEW_ASSETS` when retained per-date IC cross-sections are below `MIN_IC_ASSETS_WARN`.
+- *descriptive*: `mean_ic`, `std_ic`, `n_periods`, `tie_ratio`, `min_assets_per_period` / `warn_assets_per_period` when the upstream IC series carries per-period asset counts.
+- *warning*: `WarningCode.FEW_ASSETS` when retained per-period IC cross-sections are below `MIN_IC_ASSETS_WARN`.
 
 ### `fm_beta` family (`factrix.metrics.fm_beta`)
 
 #### `fm_beta` (emits `MetricResult.name = "fm_beta"`)
 
-- *primary*: `p_value` — NW HAC `t` on per-date λ. With
+- *primary*: `p_value` — NW HAC `t` on per-period λ. With
   `is_estimated_factor=True` the Shanken EIV correction is applied
   post-hoc and the corrected `p_value` replaces the raw value.
 - *secondary-test* (conditional, Shanken applied):
@@ -111,7 +111,7 @@ is emitted.
 - *descriptive*: `n_periods`, `newey_west_lags`, `forward_periods`,
   `is_estimated_factor`, `warning_codes` (conditional),
   `min_assets_per_period` / `warn_assets_per_period` when the upstream
-  FM beta series carries per-date asset counts.
+  FM beta series carries per-period asset counts.
 - *descriptive* (conditional, Shanken applied): `shanken_c`,
   `shanken_factor_return_var`, `shanken_factor_return_var_source`.
 - *descriptive* (conditional, σ²_f ≈ 0): `shanken_correction` =
@@ -145,20 +145,20 @@ Descriptive; no test.
 
 - *descriptive*: `expected_sign`, `n_periods`,
   `min_assets_per_period` / `warn_assets_per_period` when the upstream
-  FM beta series carries per-date asset counts.
+  FM beta series carries per-period asset counts.
 
 ### `caar` family (`factrix.metrics.caar`)
 
 #### `caar`
 
-- *primary*: `p_value` — non-overlapping `t` on per-event-date CAAR.
+- *primary*: `p_value` — non-overlapping `t` on per-event-period CAAR.
   `value`, `stat`, `p_value` and `n_obs` all describe the event-spaced
   subsample.
 - *descriptive*: `n_event_periods` (number of periods with an event),
   `total_events` (underlying events behind the portfolio),
   `n_event_periods_sampled`, `mean_caar_full` / `n_event_periods_full`
-  (the full per-date series, for reference),
-  `n_event_periods_dropped_non_finite` (null / NaN `caar` dates dropped
+  (the full per-period series, for reference),
+  `n_event_periods_dropped_non_finite` (null / NaN `caar` periods dropped
   before spacing), `n_events_dropped_non_finite` (events with a non-finite
   return or factor dropped by `compute_caar`),
   `warning_codes` (conditional, e.g. `FEW_EVENTS`).
@@ -185,13 +185,13 @@ Boehmer-Musumeci-Poulsen standardised-abnormal-return cross-sectional
 #### `corrado_rank` (emits `MetricResult.name = "corrado_rank"`)
 
 - *primary*: `p_value` — Corrado nonparametric rank `z`.
-- *sample*: `n_event_dates` — distinct event dates, and the sample behind
-  `stat` / `p_value` / `n_obs` (axis `periods`). Same-date events are
-  averaged into one observation before the test, so the event date is the
-  unit of inference and within-date clustering lands in the denominator.
-- *descriptive*: `n_events` (raw event rows — `n_event_dates` times the mean
-  events per date, **not** the test's sample size), `events_per_date_mean`,
-  `events_per_date_max` (clustering profile; read them together with
+- *sample*: `n_event_periods` — distinct event periods, and the sample behind
+  `stat` / `p_value` / `n_obs` (axis `periods`). Same-period events are
+  averaged into one observation before the test, so the event period is the
+  unit of inference and within-period clustering lands in the denominator.
+- *descriptive*: `n_events` (raw event rows — `n_event_periods` times the mean
+  events per period, **not** the test's sample size), `events_per_period_mean`,
+  `events_per_period_max` (clustering profile; read them together with
   `clustering_hhi`), `n_total_obs` (finite return cells behind the ranks),
   `n_events_dropped_non_finite`.
 
@@ -221,8 +221,8 @@ Pesaran-Timmermann `z` statistic (`stat_type="z"`), tested one-sided.
 - *descriptive*: `p_correct` (realised hit rate), `p_expected`
   (hit rate under directional independence), `p_up_pred` (fraction of
   positive predictions), `p_up_real` (fraction of positive realisations),
-  `kolari_pynnonen_r` (within-date ICC of the sign-hit indicator, `None`
-  on a single-asset series), `kolari_pynnonen_n_eff` (mean assets-per-date),
+  `kolari_pynnonen_r` (within-period ICC of the sign-hit indicator, `None`
+  on a single-asset series), `kolari_pynnonen_n_eff` (mean assets-per-period),
   `kolari_pynnonen_applied` (whether the Kolari-Pynnönen deflation fired).
 - *descriptive* (conditional, adjustment applied): `stat_uncorrected`
   (the raw `S_n` before the cross-sectional-correlation deflation).
@@ -232,7 +232,7 @@ Pesaran-Timmermann `z` statistic (`stat_type="z"`), tested one-sided.
 #### `directional_pair_accuracy`
 
 Descriptive small-N ordering diagnostic. `MetricResult.value` is pooled
-comparable-pair accuracy. `p_value` and `stat` are `None` because same-date
+comparable-pair accuracy. `p_value` and `stat` are `None` because same-period
 asset pairs are not treated as independent Bernoulli trials.
 
 - *descriptive*: `method`, `n_pairs`, `n_raw_pairs`, `n_periods`,
@@ -340,7 +340,7 @@ consistency are read separately.
   equal to `n_obs`: the strided series under `NON_OVERLAPPING`, the full
   overlapping series under `NEWEY_WEST`), `n_periods_strided` (the
   non-overlap count, always present), `median_cross_section` (median
-  per-date count of finite factor values — what the small-N switch
+  per-period count of finite factor values — what the small-N switch
   reads), `tie_ratio`, `tie_policy`, `method`.
 - *descriptive*: `n_periods_in`, `n_periods_out`, `n_dropped`,
   `drop_rate`, `drop_reason` — the null/NaN-drop bookkeeping on the
@@ -369,11 +369,11 @@ Fixed-K (top-K − bottom-K) long-short spread; the small-N sibling of
 - *primary*: `p_value` — non-overlapping `t`-test on the spread
   series (`method` records the inference member that ran).
 - *descriptive*: `k` (names per leg), `cross_sectional_dispersion`
-  (mean per-date cross-sectional return std), `top_return`,
+  (mean per-period cross-sectional return std), `top_return`,
   `bottom_return`, `n_periods` (**the sample the headline test ran on**,
   equal to `n_obs`: strided under `NON_OVERLAPPING`, full overlapping
   under `NEWEY_WEST`), `n_periods_strided`, `median_cross_section`
-  (median per-date count of usable names — what the small-N switch
+  (median per-period count of usable names — what the small-N switch
   reads), `method`. The `k`-too-large short-circuit reports
   `max_assets_per_date`; the no-surviving-periods short-circuit reports
   `n_periods_in`.
@@ -385,8 +385,8 @@ Fixed-K (top-K − bottom-K) long-short spread; the small-N sibling of
 #### Shared small-N note
 
 Both `quantile_spread` and `k_spread` attach `few_assets` when the
-**median per-date** cross-section (`median_cross_section`) is below
-`MIN_ASSETS_WARN` — how many names back a bucket mean is a per-date
+**median per-period** cross-section (`median_cross_section`) is below
+`MIN_ASSETS_WARN` — how many names back a bucket mean is a per-period
 quantity, so a rotating universe with many lifetime `asset_id`s but few
 names quoted at a time still counts as thin. The warning is advisory; the
 headline test does not change. An earlier automatic switch to a
@@ -405,7 +405,7 @@ diversity ratio (effective-n / n_top, derived from HHI) falls
 
 - *primary*: `p_value` — one-sided `t`.
 - *descriptive*: `mean_n_top`, `ratio_eff_to_total`, `tie_ratio`,
-  `weight_by`, `q_top` (requested top fraction; per date the bucket is
+  `weight_by`, `q_top` (requested top fraction; per period the bucket is
   the `max(1, floor(n · q_top))` highest finite factor values),
   `n_top_members_selected` / `n_top_members_dropped` ((date, asset)
   pairs the cutoff selected, and how many of those were excluded from
@@ -416,7 +416,7 @@ diversity ratio (effective-n / n_top, derived from HHI) falls
 
 #### `clustering_hhi` (emits `MetricResult.name = "clustering_hhi"`)
 
-Descriptive; period-axis concentration of event dates.
+Descriptive; period-axis concentration of event periods.
 
 - *descriptive*: `n_events`, `n_event_periods`, `effective_n_periods`,
   `hhi_normalized`, `cluster_window`.

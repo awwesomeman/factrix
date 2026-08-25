@@ -2,7 +2,7 @@
 
 The sibling :mod:`factrix.slicing.inference` pair
 (:func:`slice_pairwise_test` / :func:`slice_joint_test`) is
-**cross-sectional**: it inner-joins each slice's per-date series on
+**cross-sectional**: it inner-joins each slice's per-period series on
 ``date`` and runs a joint Newey-West HAC + slice-cluster Wald. Its maths
 assumes the slices share dates (sector, size bucket, liquidity tier) so
 cross-slice covariance enters through the joint HAC.
@@ -24,7 +24,7 @@ These are kept as a **separate, explicit** function pair (not folded into
 the cross-sectional pair via date-overlap auto-routing) so the two
 statistical assumptions never hide behind one name.
 
-Both consume the same per-slice per-date series as the cross-sectional
+Both consume the same per-slice per-period series as the cross-sectional
 pair (metric producer → ``per_date_series``) but **do not inner-join** —
 each slice keeps its own dates. A two-valued ``method`` flag selects the
 standard-error / p estimator:
@@ -96,7 +96,7 @@ _SCHEME: Scheme = "stationary"
 
 # Slice length below which the joint test's realised size exceeds ~1.5× its
 # nominal level on a true null with K >= 3 slices. Set from the measured
-# K × T grid (500 seeds each, iid per-date IC, nominal 5%): K=5 rejects 9.4% /
+# K × T grid (500 seeds each, iid per-period IC, nominal 5%): K=5 rejects 9.4% /
 # 8.2% / 5.4% / 5.6% and K=3 6.2% / 7.8% / 5.4% / 3.8% at T = 50 / 90 / 150 /
 # 250, while K=2 stays within 4.6–5.8% throughout. The excess is the
 # per-slice Bartlett HAC variance estimate's small-sample noise (effective
@@ -135,18 +135,18 @@ def _require_slice_floor(
     *,
     func_name: str,
 ) -> None:
-    """Raise when any slice's per-date series is below the metric's own floor.
+    """Raise when any slice's per-period series is below the metric's own floor.
 
     ``by_slice`` short-circuits a thin metric to NaN via the metric body; the
-    date-disjoint slice tests build each slice's per-date series directly and
+    date-disjoint slice tests build each slice's per-period series directly and
     would otherwise return a calibrated-looking p-value on a sub-floor regime.
     Reuse the metric's own :class:`SampleThreshold` — the single source of
     truth both paths read — so they agree on what counts as a thin sample, and
     refuse (rather than emit) the contrast at that size: the inferential path
-    must be at least as protective as the descriptive one. The per-date series
+    must be at least as protective as the descriptive one. The per-period series
     length is the slice's time-axis sample, so only the time-series floors
     (``min_periods`` / ``min_events``) bind — the cross-section floors
-    (``min_assets`` / ``min_pairs``) describe within-date width, which the
+    (``min_assets`` / ``min_pairs``) describe within-period width, which the
     series has already collapsed.
     """
     threshold = _resolve_sample_threshold(metric)
@@ -181,13 +181,13 @@ def _build_per_slice_series(
     factor_col: str,
     func_name: str,
 ) -> tuple[list[str], list[np.ndarray]]:
-    """Partition ``data`` by ``by`` and build each slice's per-date series.
+    """Partition ``data`` by ``by`` and build each slice's per-period series.
 
     Mirrors the cross-sectional :func:`_build_per_date_panel` front-end
     (producer → ``per_date_series``) but **does not inner-join on date** —
     each slice keeps its own (disjoint) dates. Returns
     ``(labels, [series_k])`` with each ``series_k`` a 1-D ``np.ndarray``
-    of that slice's per-date metric values.
+    of that slice's per-period metric values.
 
     Raises ``UserInputError`` if ``factor_col`` is absent; ``ValueError``
     on <2 slice values or any slice with <2 dates; ``TypeError`` (via
@@ -216,7 +216,7 @@ def _build_per_slice_series(
         if s.shape[0] < 2:
             raise ValueError(
                 f"{func_name}: slice {lbl!r} has <2 dates ({s.shape[0]}); "
-                f"each disjoint slice needs ≥2 per-date observations for a "
+                f"each disjoint slice needs ≥2 per-period observations for a "
                 f"within-slice variance estimate."
             )
         series_list.append(np.asarray(s, dtype=float))
@@ -261,7 +261,7 @@ def slice_period_pairwise_test(
     """Pairwise cross-slice contrasts for a **date-disjoint** partition.
 
     Date-disjoint counterpart of :func:`slice_pairwise_test`: partitions
-    a raw panel on ``by``, builds each slice's per-date metric series via
+    a raw panel on ``by``, builds each slice's per-period metric series via
     the metric's producer, and contrasts every slice pair as **independent
     samples** (no date inner-join). The right tool for **regime analysis**
     (bull / bear, high-vol / low-vol) and other time-disjoint splits
@@ -311,7 +311,7 @@ def slice_period_pairwise_test(
         UserInputError: ``metric`` is not a metric instance, ``factor_col``
             is absent, or ``method`` is invalid.
         ValueError: Fewer than two slice values, any slice with fewer than
-            two dates, or any slice whose per-date series is below the
+            two dates, or any slice whose per-period series is below the
             metric's own ``SampleThreshold`` floor (the size at which
             :func:`factrix.by_slice` short-circuits the metric to NaN).
         TypeError: Metric is not slice-test-eligible (no ``per_date_series``
@@ -568,14 +568,14 @@ def slice_period_joint_test(
         UserInputError: ``metric`` is not a metric instance, ``factor_col``
             is absent, or ``method`` is invalid.
         ValueError: Fewer than two slice values, any slice with fewer than
-            two dates, or any slice whose per-date series is below the
+            two dates, or any slice whose per-period series is below the
             metric's own ``SampleThreshold`` floor (the size at which
             :func:`factrix.by_slice` short-circuits the metric to NaN).
         TypeError: Metric is not slice-test-eligible.
 
     Warns:
         UserWarning: ``K >= 3`` and the shortest slice has fewer than 150
-            periods. Measured size on a true null (iid per-date IC, nominal
+            periods. Measured size on a true null (iid per-period IC, nominal
             5%, 500 seeds per cell), rows ``K``, columns ``T``::
 
                 K / T     50     90    150    250

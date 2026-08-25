@@ -3,13 +3,13 @@
 Notes:
     **Pipeline.** Per non-overlapping date, select the top ``k`` and
     bottom ``k`` names by factor rank, take the mean-return difference
-    (cross-section step), then test the per-date spread series across
+    (cross-section step), then test the per-period spread series across
     time. Small cross-sections switch the headline test to a
     ``FEW_ASSETS`` advisory.
 
     **Input.** DataFrame with ``date, asset_id, factor, forward_return``.
 
-    **Output.** Mean spread, with the per-date cross-sectional return
+    **Output.** Mean spread, with the per-period cross-sectional return
     dispersion reported alongside.
 
     The small-`n_assets` counterpart of
@@ -78,11 +78,11 @@ def _finite_mean(series: pl.Series) -> float:
 
 
 def _median_per_date_count(panel: pl.DataFrame) -> int:
-    """Median per-date row count of the cleaned (finite factor+return) panel.
+    """Median per-period row count of the cleaned (finite factor+return) panel.
 
     The cross-section size that actually forms one date's legs. The
     ``FEW_ASSETS`` advisory keys on this rather than on
-    ``asset_id.n_unique()`` over the whole panel: what matters is per date
+    ``asset_id.n_unique()`` over the whole panel: what matters is per period
     (``k`` names per leg out of *today's* names), so a universe that
     rotated through many tickers but only ever lists a handful at a time must
     read as thin, not wide.
@@ -105,7 +105,7 @@ def _k_spread_threshold(self) -> SampleThreshold:
 def _build_k_spread_series(
     panel: pl.DataFrame, k: int, factor_col: str, return_col: str
 ) -> tuple[pl.DataFrame | None, pl.DataFrame]:
-    """Per-date Top-K/Bottom-K spread series from a (possibly sampled) panel.
+    """Per-period Top-K/Bottom-K spread series from a (possibly sampled) panel.
 
     Returns ``(series, clean)``: ``series`` has ``date, top_return,
     bottom_return, xs_dispersion, spread`` (``None`` when no date clears the
@@ -209,7 +209,7 @@ def k_spread(
         MetricResult with value = mean spread, ``stat`` = ``t`` on the
         spread series, p-value from the cross-section-aware significance
         path. ``metadata["cross_sectional_dispersion"]`` carries the
-        mean per-date cross-sectional standard deviation of returns.
+        mean per-period cross-sectional standard deviation of returns.
 
     Notes:
         Per qualifying date ``t`` (universe size ``n_assets_t >= 2 * k``), with
@@ -227,7 +227,7 @@ def k_spread(
         over dates and reported so the spread can be judged against the
         period's return spread.
 
-        **What "small" counts.** The advisory reads the median *per-date*
+        **What "small" counts.** The advisory reads the median *per-period*
         number of usable names (``metadata["median_cross_section"]``), not
         the count of distinct ``asset_id`` values in the panel: the legs
         are formed date by date, so a universe listing 12 names at a time
@@ -291,7 +291,7 @@ def k_spread(
     sampled = _sample_non_overlapping(data, forward_periods)
     series, clean = _build_k_spread_series(sampled, k, factor_col, return_col)
     n_assets = clean["asset_id"].n_unique()
-    # Real per-date asset count (not the universe-wide unique count): both
+    # Real per-period asset count (not the universe-wide unique count): both
     # insufficient-assets short-circuits report it under the same reason.
     max_per_date_value = (
         clean.group_by("date").len()["len"].max() if not clean.is_empty() else None
@@ -360,7 +360,7 @@ def k_spread(
         full_series, _ = _build_k_spread_series(data, k, factor_col, return_col)
         if full_series is not None:
             full_series = full_series.filter(_finite_expr("spread"))
-    # Thin-cross-section switch keys on the median per-date count of usable
+    # Thin-cross-section switch keys on the median per-period count of usable
     # names, not the universe-wide unique asset count (see
     # ``_median_per_date_count``).
     median_xs = _median_per_date_count(clean)

@@ -88,7 +88,7 @@ class TestComputeIC:
         assert compute_ic(df)["factor"].height == 0
 
     def test_gate_counts_valid_pairs_not_rows(self):
-        """The cross-section floor gates on the per-date *valid-pair* count, not
+        """The cross-section floor gates on the per-period *valid-pair* count, not
         the raw row count: a date with many names but only one valid pair must
         be dropped because its IC is undefined.
         """
@@ -172,17 +172,17 @@ class TestComputeIC:
     def test_output_schema(self, noisy_panel):
         result = compute_ic(noisy_panel)["factor"]
         # ``_drop_stats`` is an internal diagnostic struct column appended by
-        # the primitive; ``n_assets`` carries the per-date valid-pair count.
+        # the primitive; ``n_assets`` carries the per-period valid-pair count.
         assert result.columns == ["date", "ic", "tie_ratio", "n_assets", "_drop_stats"]
         assert result["date"].dtype == pl.Datetime("ms")
 
     def test_tie_ratio_zero_on_unique_factor(self, noisy_panel):
         result = compute_ic(noisy_panel)["factor"]
-        # noisy_panel factor is continuous noise — no per-date ties expected.
+        # noisy_panel factor is continuous noise — no per-period ties expected.
         assert result["tie_ratio"].max() == pytest.approx(0.0)
 
     def test_tie_ratio_detects_bucketed_factor(self):
-        """Bucketed factor → tie_ratio surfaces non-trivially per date."""
+        """Bucketed factor → tie_ratio surfaces non-trivially per period."""
         n_assets = 12
         dates = [datetime(2024, 1, 1) + timedelta(days=d) for d in range(5)]
         rows = [
@@ -221,7 +221,7 @@ class TestComputeIC:
         from factrix.inference import NEWEY_WEST
         from factrix.metrics.ic import ic, ic_ir
 
-        # 12 assets bucketed into 2 buckets per date → tie_ratio = 1 - 2/12
+        # 12 assets bucketed into 2 buckets per period → tie_ratio = 1 - 2/12
         # ≈ 0.83 (well above the 0.3 threshold).
         n_assets = 12
         dates = [datetime(2024, 1, 1) + timedelta(days=d) for d in range(40)]
@@ -658,7 +658,7 @@ class TestICNaNRobustness:
 class TestPersistentIcSeriesWarning:
     """The persistence screen reaches ``ic`` through the inference member.
 
-    A persistent per-date IC series (regime-like signal strength) is the
+    A persistent per-period IC series (regime-like signal strength) is the
     regime where no inference option is calibrated; an overlapping
     forward-return panel is NOT — its IC series has lag-1 autocorrelation
     ≈ 0 — so the screen must fire on the former and stay silent on the

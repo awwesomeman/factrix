@@ -320,12 +320,12 @@ class TestCaar:
         result = caar(caar_df)
         n_events_panel = strong_signal.filter(pl.col("factor") != 0).height
         assert result.metadata["total_events"] == n_events_panel
-        # Multi-asset clustering: far more events than event dates.
+        # Multi-asset clustering: far more events than event periods.
         assert result.metadata["total_events"] > result.metadata["n_event_periods"]
 
     def test_total_events_falls_back_without_n_events_column(self):
         # Hand-built caar_df bypassing compute_caar has no n_events column;
-        # total_events degrades to the event-date count rather than raising.
+        # total_events degrades to the event-period count rather than raising.
         rng = np.random.default_rng(0)
         n = 40
         dates = [datetime(2020, 1, 1) + timedelta(days=i) for i in range(n)]
@@ -552,13 +552,13 @@ class TestBmpTest:
             )
 
     def test_kolari_pynnonen_skipped_without_clusters(self):
-        """No multi-event dates → r̂ undefined → correction bypassed."""
+        """No multi-event periods → r̂ undefined → correction bypassed."""
         from datetime import datetime, timedelta
 
         rng = np.random.default_rng(0)
         dates = [datetime(2020, 1, 1) + timedelta(days=i) for i in range(120)]
         rows = []
-        # One event per date on a single asset: no same-date clustering.
+        # One event per period on a single asset: no same-period clustering.
         price = 100.0
         for i, d in enumerate(dates):
             ret = float(0.001 + 0.02 * rng.standard_normal())
@@ -888,16 +888,18 @@ class TestKolariPynnonenDefault:
     """
 
     @staticmethod
-    def _null_panel(seed: int, k_per_date: int, n_dates: int = 200, n_assets: int = 20):
+    def _null_panel(
+        seed: int, k_per_period: int, n_dates: int = 200, n_assets: int = 20
+    ):
         from datetime import datetime, timedelta
 
         rng = np.random.default_rng(seed)
-        event_dates = set(range(70, n_dates, 4))
+        event_periods = set(range(70, n_dates, 4))
         rows = []
         for d in range(n_dates):
             common = rng.normal()
             for a in range(n_assets):
-                is_event = d in event_dates and a < k_per_date
+                is_event = d in event_periods and a < k_per_period
                 ret = np.sqrt(0.5) * common + np.sqrt(0.5) * rng.normal()
                 rows.append(
                     {

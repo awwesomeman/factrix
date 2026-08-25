@@ -23,11 +23,11 @@ title: factrix.metrics.caar
 
 <div class="grid cards" markdown>
 
--   __Per-event-date CAAR series__
+-   __Per-event-period CAAR series__
 
     ---
 
-    The per-event-date weighted abnormal return series from a
+    The per-event-period weighted abnormal return series from a
     long-format panel. Consumed by `caar` for the significance test, and
     (where the magnitude-weighted form is wanted) available for
     per-slice summaries.
@@ -37,7 +37,7 @@ title: factrix.metrics.caar
     ---
 
     Test $H_0: \mathbb{E}[\mathrm{CAAR}] = 0$ on the every-`forward_periods`
-    subsample of the per-event-date CAAR series to avoid the
+    subsample of the per-event-period CAAR series to avoid the
     autocorrelation induced by overlapping forward returns. Default
     parametric test for the event-sparse cell.
 
@@ -48,7 +48,7 @@ title: factrix.metrics.caar
     Standardise each event's abnormal return by the asset's pre-event
     residual volatility before pooling. Robust to event-induced
     variance inflation that biases the ordinary CAAR $t$-test. The
-    Kolari-Pynnönen same-date-correlation adjustment is on by default
+    Kolari-Pynnönen same-period-correlation adjustment is on by default
     (identity when no two events share a period; 21.5% → 5.0% size at 4
     events per period on a null); `kolari_pynnonen_adjust=False` gives the
     unadjusted BMP for matching a source that reports it.
@@ -68,20 +68,20 @@ title: factrix.metrics.caar
 
 | Goal                                                         | Function       |
 |--------------------------------------------------------------|----------------|
-| Per-event-date CAAR table for downstream inspection / slicing | `compute_caar` |
+| Per-event-period CAAR table for downstream inspection / slicing | `compute_caar` |
 | Mean-CAAR significance, deterministic non-overlap subsample   | `caar`         |
 | Variance-robust event-induced significance (BMP standardised $z$) | `bmp_z`     |
 
 ## Event counts
 
-`compute_caar` collapses same-date event rows before the `caar` test runs.
+`compute_caar` collapses same-period event rows before the `caar` test runs.
 The event-study path therefore exposes these related counts:
 
 | Field | Where to read it | Meaning |
 |---|---|---|
-| `n_events` | `compute_caar(...).select("date", "n_events")` | Raw event rows collapsed into each event date |
+| `n_events` | `compute_caar(...).select("date", "n_events")` | Raw event rows collapsed into each event period |
 | `total_events` | `caar(...).metadata["total_events"]` | Sum of raw non-zero event rows behind the study |
-| `n_event_periods` | `caar(...).metadata["n_event_periods"]` | Distinct event dates in the CAAR series |
+| `n_event_periods` | `caar(...).metadata["n_event_periods"]` | Distinct event periods in the CAAR series |
 | `n_event_periods_sampled` | `caar(...).metadata["n_event_periods_sampled"]` | Event dates kept by the calendar-aware non-overlap sampler used for the t-test |
 
 `MetricResult.n_obs` equals `n_event_periods_sampled`, because that is the
@@ -97,7 +97,7 @@ the expected return direction, not just the raw event type. If `+1` means
 another, map the raw event into an asset-specific expected-return signal before
 calling `compute_caar`, `event_hit_rate`, or `profit_factor`.
 
-## Worked example — per-event-date CAAR then mean significance
+## Worked example — per-event-period CAAR then mean significance
 
 !!! example "compute_caar → caar on a synthetic event panel"
 
@@ -129,7 +129,7 @@ calling `compute_caar`, `event_hit_rate`, or `profit_factor`.
     print(out.value, out.stat, out.p_value)
     # 0.0039  6.42  1.4e-09   (approximate)
 
-    # Variance-robust alternative when same-date clustering is high:
+    # Variance-robust alternative when same-period clustering is high:
     z_bmp = bmp_z(panel, estimation_window=60, forward_periods=5,
                      kolari_pynnonen_adjust=True)
     ```

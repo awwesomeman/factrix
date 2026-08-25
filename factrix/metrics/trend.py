@@ -145,7 +145,7 @@ def ic_trend(
         used by ``_adf_pvalue_interp``.
 
     Examples:
-        Trend on the per-date IC series produced by
+        Trend on the per-period IC series produced by
         :func:`~factrix.metrics.ic.compute_ic`:
 
         >>> import factrix as fx
@@ -171,7 +171,7 @@ def ic_trend(
     sorted_s = series.sort("date").drop_nulls(subset=[value_col])
     vals = sorted_s[value_col].to_numpy()
     # polars drop_nulls does not drop float NaN; an all-NaN IC series
-    # (e.g. from a constant factor whose per-date rank correlation is
+    # (e.g. from a constant factor whose per-period rank correlation is
     # degenerate) would otherwise flow into theilslopes and _adf and
     # trip LAPACK DLASCL before any short-circuit could save us.
     vals = vals[np.isfinite(vals)]
