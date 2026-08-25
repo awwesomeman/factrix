@@ -63,6 +63,13 @@ class TestNewyWestTForwardPeriods:
         t_hac, _, _ = _newey_west_t_test(x, forward_periods=20)
         assert abs(t_hac) <= abs(t_naive) + 1e-9
 
+    def test_prewhitening_widens_se_on_a_persistent_series(self):
+        """Opt-in Andrews-Monahan recolouring recovers the long-run variance
+        the Bartlett kernel truncates away on a near-unit-root series."""
+        rng = np.random.default_rng(0)
+        x = np.cumsum(rng.standard_normal(200)) * 0.05 + 0.02
+        assert _newey_west_se(x, prewhiten=True) > _newey_west_se(x)
+
 
 class TestRejectsNonFinite:
     """A NaN slips past the ``se < EPSILON`` guard (``max(nan, 0.0)`` is nan)
