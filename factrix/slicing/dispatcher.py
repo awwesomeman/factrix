@@ -12,20 +12,19 @@ Matrix-row: by_slice | (*, *, *, *) | dispatcher | none (no cross-slice test) | 
 
 from __future__ import annotations
 
+import dataclasses
 import warnings
 from typing import TYPE_CHECKING
 
 import polars as pl
 
 from factrix._codes import WarningCode
+from factrix._results import Warning
 from factrix.slicing._primitive import _slice_by
 
 if TYPE_CHECKING:
     from factrix._results import EvaluationResult
     from factrix.metrics._base import MetricBase
-
-# Single-metric label used inside the per-slice evaluate call.
-_METRIC_LABEL = "metric"
 
 
 def by_slice(
@@ -91,6 +90,9 @@ def by_slice(
         ``dict[str, EvaluationResult]`` — the same shape as
         :func:`factrix.evaluate`, keyed by stringified slice value (an
         ``Int64`` decile column yields ``"1".."10"``) rather than factor.
+        Inside each bundle the metric is keyed by its **registered spec
+        name** (``ic()`` → ``"ic"``), so stacked ``to_frame`` rows from two
+        ``by_slice`` runs stay distinguishable.
         Iteration order matches polars ``partition_by(as_dict=True)``. For
         a cross-slice comparison table, stack the per-slice frames with
         the standard ``EvaluationResult.to_frame`` idiom and tag each row
@@ -133,22 +135,47 @@ def by_slice(
     import factrix  # local import: evaluate lives at top level (import cycle)
 
     sliced = _slice_by(data, by)
-    _warn_date_axis_truncation(data, metric, by)
+    label = _metric_label(metric)
+    truncation = _warn_date_axis_truncation(data, metric, by)
 
     results: dict[str, EvaluationResult] = {}
     for key, sub_df in sliced.items():
         bundle = factrix.evaluate(
             sub_df,
-            metrics={_METRIC_LABEL: metric},
+            metrics={label: metric},
             factor_cols=[factor_col],
             forward_periods=forward_periods,
             strict=strict,
         )
-        results[key] = bundle[factor_col]
+        result = bundle[factor_col]
+        if truncation is not None:
+            result = dataclasses.replace(
+                result, warnings=[*result.warnings, truncation]
+            )
+        results[key] = result
     return results
 
 
-def _warn_date_axis_truncation(data: pl.DataFrame, metric: MetricBase, by: str) -> None:
+def _metric_label(metric: MetricBase) -> str:
+    """Registered spec name of ``metric`` — the key its results are stored under.
+
+    ``by_slice`` keys the returned ``EvaluationResult`` by slice value, so the
+    per-slice ``metrics`` dict is the only place the metric's identity appears.
+    Using the spec name (rather than a fixed placeholder) makes stacked
+    ``to_frame`` rows from two ``by_slice`` runs distinguishable, and matches
+    what ``evaluate`` does when the caller passes no explicit label.
+    """
+    try:
+        return type(metric).spec().name
+    except (AttributeError, TypeError):
+        # Not a metric instance — ``evaluate`` raises the canonical error below;
+        # the placeholder only has to survive until then.
+        return "metric"
+
+
+def _warn_date_axis_truncation(
+    data: pl.DataFrame, metric: MetricBase, by: str
+) -> Warning | None:
     """Warn when a cross-date metric is sliced on a date axis.
 
     Emits :class:`~factrix._codes.WarningCode.SLICE_BOUNDARY_TRUNCATION`
@@ -157,21 +184,28 @@ def _warn_date_axis_truncation(data: pl.DataFrame, metric: MetricBase, by: str) 
     its value varies within an asset over time, so partitioning truncates
     each asset's history. A cross-sectional ``by`` (constant within an
     asset) keeps history intact and does not warn.
+
+    Returns the :class:`~factrix._results.Warning` record ``by_slice`` attaches
+    to every slice's :class:`~factrix._results.EvaluationResult` (``None`` when
+    the condition does not hold), alongside the ``UserWarning`` echo. The echo
+    alone was unreadable programmatically: the condition is a property of the
+    ``(metric, by)`` pair, so it applies to every slice, and a caller scanning
+    ``result.warnings`` must see it there like any other bundle warning.
     """
     try:
         spec = type(metric).spec()
     except (AttributeError, TypeError):
-        return  # not a metric instance; evaluate raises the canonical error
+        return None  # not a metric instance; evaluate raises the canonical error
     if not spec.slice_boundary_sensitive:
-        return
+        return None
     if "asset_id" not in data.columns:
-        return  # cannot classify the axis without an asset dimension
+        return None  # cannot classify the axis without an asset dimension
     n_assets = data.select("asset_id").n_unique()
     n_asset_by_pairs = data.select("asset_id", by).n_unique()
     if n_asset_by_pairs <= n_assets:
-        return  # by is constant within each asset → cross-sectional
+        return None  # by is constant within each asset → cross-sectional
     name = spec.name
-    warnings.warn(
+    message = (
         f"by_slice: {name!r} depends on intact date ordering, "
         f"but {by!r} is a date-axis partition (its value varies within an "
         f"asset over time). Each slice is evaluated on its own rows only, so "
@@ -180,7 +214,11 @@ def _warn_date_axis_truncation(data: pl.DataFrame, metric: MetricBase, by: str) 
         f"differs from the full-sample value decomposed by period "
         f"({WarningCode.SLICE_BOUNDARY_TRUNCATION.value}). For a cross-"
         f"sectional partition (constant within an asset, e.g. sector) this "
-        f"warning does not apply.",
-        UserWarning,
-        stacklevel=2,
+        f"warning does not apply."
+    )
+    warnings.warn(message, UserWarning, stacklevel=3)
+    return Warning(
+        code=WarningCode.SLICE_BOUNDARY_TRUNCATION,
+        source=name,
+        message=message,
     )

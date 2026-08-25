@@ -118,7 +118,7 @@ panel_reg = panel.join(vol_labels, on="date", how="inner")
 # --- Dispatcher: per-regime IC, raw panel in, dict[str, EvaluationResult] out
 per_regime = by_slice(panel_reg, ic(), by="regime", factor_col="value")
 for label, result in per_regime.items():
-    m = result.metrics["metric"]
+    m = result.metrics["ic"]
     print(label, m.value, m.stat)
 
 # Cross-slice comparison table (stack EvaluationResult.to_frame, tag the slice)
