@@ -120,6 +120,20 @@ def _adf(y: np.ndarray, lags: int | None = None) -> tuple[float, float]:
     Lean-dependency implementation: no statsmodels. Sufficient for
     flagging "likely persistent" factors before downstream regressions;
     not a substitute for a full unit-root toolkit.
+
+    **Why ``(0.0, 1.0)`` here and NaN everywhere else.** A short or
+    non-finite input returns ``tau = 0, p = 1`` rather than the NaN the
+    other statistics use for a test that cannot be formed
+    (``_calc_t_stat``, ``_wald_p_linear``, the HAC t-tests). That is
+    deliberate and depends on how the result is read: this is a *screen*,
+    not a reported statistic. ``p = 1`` fails to reject the unit-root null,
+    which raises ``WarningCode.PERSISTENT_REGRESSOR`` and makes the caller
+    treat the factor as persistent — the cautious direction on an input the
+    test could not evaluate. The NaN convention exists because a fabricated
+    ``p`` there would read as evidence of *no* effect; here the fabricated
+    ``p`` reads as evidence of a *problem*, so the two conventions point the
+    same way. Do not "fix" this to NaN without also deciding what the
+    persistence screen should do when it has no answer.
     """
     y = np.asarray(y, dtype=np.float64)
     # Defence-in-depth for callers that didn't pre-filter: NaN / Inf
