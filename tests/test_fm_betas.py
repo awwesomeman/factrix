@@ -319,3 +319,68 @@ class TestNonFinitePassThrough:
         # n_obs, giving 4/5 = 0.8 instead of 4/4 = 1.0.
         assert result.value == pytest.approx(1.0)
         assert result.n_obs == 4
+
+
+class TestClusterMeatSegmentSum:
+    """``_cluster_meat`` is a segment sum, not a per-cluster mask loop.
+
+    The masked loop was ``O(G · N)`` and made ``pooled_beta`` roughly an
+    order of magnitude slower than every other metric on a panel with one
+    cluster per period.
+    """
+
+    @staticmethod
+    def _naive(X, resid, clusters):
+        unique = np.unique(clusters)
+        k = X.shape[1]
+        meat = np.zeros((k, k))
+        for c in unique:
+            mask = clusters == c
+            score = X[mask].T @ resid[mask]
+            meat += np.outer(score, score)
+        return meat, len(unique)
+
+    @pytest.mark.parametrize("k", [1, 2, 3])
+    def test_matches_the_naive_loop(self, k):
+        from factrix.metrics.fm_beta import _cluster_meat
+
+        rng = np.random.default_rng(7)
+        n = 500
+        X = rng.normal(size=(n, k))
+        resid = rng.normal(size=n)
+        clusters = rng.integers(0, 37, size=n)
+
+        meat, g = _cluster_meat(X, resid, clusters)
+        ref_meat, ref_g = self._naive(X, resid, clusters)
+        assert g == ref_g
+        assert np.allclose(meat, ref_meat)
+
+    def test_matches_on_datetime_cluster_keys(self):
+        from factrix.metrics.fm_beta import _cluster_meat
+
+        rng = np.random.default_rng(11)
+        n = 400
+        dates = np.array(
+            [
+                np.datetime64(datetime(2024, 1, 1) + timedelta(days=int(i % 25)))
+                for i in range(n)
+            ]
+        )
+        X = np.column_stack([np.ones(n), rng.normal(size=n)])
+        resid = rng.normal(size=n)
+
+        meat, g = _cluster_meat(X, resid, dates)
+        ref_meat, ref_g = self._naive(X, resid, dates)
+        assert g == ref_g == 25
+        assert np.allclose(meat, ref_meat)
+
+    def test_single_cluster_is_the_full_outer_product(self):
+        from factrix.metrics.fm_beta import _cluster_meat
+
+        rng = np.random.default_rng(3)
+        X = rng.normal(size=(20, 2))
+        resid = rng.normal(size=20)
+        meat, g = _cluster_meat(X, resid, np.zeros(20, dtype=int))
+        score = X.T @ resid
+        assert g == 1
+        assert np.allclose(meat, np.outer(score, score))
