@@ -301,11 +301,12 @@ def fm_beta(
         forward_periods=forward_periods,
     )
     actual_lags = _resolve_nw_lags(n, newey_west_lags, forward_periods)
-    if _lag1_autocorr(betas) > PERSISTENT_SERIES_AUTOCORR:
+    beta_autocorr = _lag1_autocorr(betas)
+    if beta_autocorr > PERSISTENT_SERIES_AUTOCORR:
         warning_codes.append(WarningCode.SERIAL_CORRELATION_DETECTED.value)
         warnings.warn(
             f"fm_beta: the per-date beta series has lag-1 autocorrelation "
-            f"{_lag1_autocorr(betas):.2f} (> {PERSISTENT_SERIES_AUTOCORR}). No HAC "
+            f"{beta_autocorr:.2f} (> {PERSISTENT_SERIES_AUTOCORR}). No HAC "
             f"path is calibrated in this regime — Newey-West rejects 13–17% at a "
             f"nominal 5% for phi=0.6 and ~30% at 0.85 — so read the p-value "
             f"against a raised hurdle (t > 3) or lengthen the sample.",

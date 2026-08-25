@@ -40,4 +40,7 @@ def auto_bartlett(T: int) -> int:
 # 13–17%, the stationary bootstrap 12–19% and a plain t 32–34%; at phi = 0.85
 # NW 32–34%, bootstrap 20–32%, plain t 55–61%. The kernel-level AR(0.3) row is
 # already 8–11%, so 0.3 is where the excess starts rather than where it peaks.
+# The screen is one-sided: only positive persistence was measured. Strong
+# NEGATIVE autocorrelation also breaks HAC calibration (it is what drives
+# RECT_KERNEL_NEGATIVE_VARIANCE) and is deliberately not covered here.
 PERSISTENT_SERIES_AUTOCORR: float = 0.3

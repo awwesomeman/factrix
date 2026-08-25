@@ -87,8 +87,7 @@ class NonOverlapping:
         # non-finite rows, so a dropped observation cannot shift the sampling
         # phase; striding the cleaned row index would silently re-align the
         # subsample to overlapping windows.
-        full = _clean_series(data, value_col).to_numpy()
-        n_full = len(full)
+        n_full = len(_clean_series(data, value_col))
         sampled = _clean_series(
             _sample_non_overlapping(data, forward_periods), value_col
         ).to_numpy()
@@ -98,9 +97,12 @@ class NonOverlapping:
         p_value = _p_value_from_t(t_stat, n_sampled)
 
         warnings: frozenset[WarningCode] = frozenset()
-        # Persistence screen: above PERSISTENT_SERIES_AUTOCORR no member of
-        # this family is calibrated (see WarningCode.SERIAL_CORRELATION_DETECTED).
-        if _lag1_autocorr(full) > PERSISTENT_SERIES_AUTOCORR:
+        # Persistence screen on the STRIDED sample — the series the t-test
+        # runs on. Striding an AR(phi) series at h leaves autocorrelation
+        # phi^h, so a highly persistent full series can hand this test a
+        # near-iid subsample: AR(0.6) at h=21 sits at 4.5% (calibrated) and
+        # must not be flagged, while the same series at h=1 (32.9%) must be.
+        if _lag1_autocorr(sampled) > PERSISTENT_SERIES_AUTOCORR:
             warnings |= frozenset({WarningCode.SERIAL_CORRELATION_DETECTED})
         # A NaN t on a subsample long enough to test means no dispersion at
         # all (every survivor identical). Flag it rather than let a NaN p read

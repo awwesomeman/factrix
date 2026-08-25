@@ -279,3 +279,27 @@ class TestPersistenceScreen:
             forward_periods=1,
         )
         assert WarningCode.SERIAL_CORRELATION_DETECTED not in result.warnings
+
+    @pytest.mark.parametrize(
+        ("phi", "h", "flagged"),
+        [
+            # Reviewer's table: lag-1 of the strided sample vs realised size.
+            (0.6, 1, True),  # sample lag-1 0.585, size 32.9%
+            (0.6, 5, False),  # 0.051, size 7.9%
+            (0.6, 21, False),  # -0.098, size 4.5% — a flag here is a false alarm
+            (0.85, 5, True),  # 0.386, size 24.3%
+            (0.85, 21, False),  # -0.070, size 5.9%
+        ],
+    )
+    def test_non_overlapping_screens_the_strided_sample(self, phi, h, flagged):
+        """``NonOverlapping`` exists to buy independence by striding; the
+        screen must judge the subsample the t runs on, not the full series,
+        or it fires exactly when the member has done its job."""
+        result = NON_OVERLAPPING.compute(
+            # 240 * h input rows -> ~240 strided points, so the sample lag-1
+            # estimate is stable at every h.
+            _series_df(self._ar1(phi, n=240 * h)),
+            value_col="ic",
+            forward_periods=h,
+        )
+        assert (WarningCode.SERIAL_CORRELATION_DETECTED in result.warnings) is flagged
