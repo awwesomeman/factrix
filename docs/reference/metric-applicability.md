@@ -242,7 +242,12 @@ A few specific caveats worth flagging:
 - **`MIN_PORTFOLIO_PERIODS_HARD = 3` / `MIN_PORTFOLIO_PERIODS_WARN = 20`**
   in `top_concentration` and `common_quantile_spread`. Below 3 there is
   no spread / concentration t to compute; in `[3, 20)` the metric
-  returns the stat with `WarningCode.BORDERLINE_PORTFOLIO_PERIODS`.
+  returns the stat with `WarningCode.BORDERLINE_PORTFOLIO_PERIODS`. At
+  the bottom of that range the `top_concentration` test is extremely
+  conservative — at exactly 3 periods it rejected 0 of 250 null draws at
+  a nominal 5% — so read `value` descriptively there; the other floors
+  measure 3–9% at their HARD floor on a null, consistent with their WARN
+  disclosures.
   **`MIN_OOS_PERIODS_HARD = 5`** in `oos_decay` remains
   single-tier — the metric is now descriptive-only (no `p_value` in
   metadata), so a literature power floor is moot. Treat its output as

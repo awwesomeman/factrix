@@ -253,9 +253,12 @@ _WARNING_DESCRIPTIONS.update(
         "series is power-thin for the asymptotic distribution — read "
         "borderline p-values cautiously.",
         WarningCode.BORDERLINE_PORTFOLIO_PERIODS: "top_concentration with MIN_PORTFOLIO_PERIODS_HARD "
-        "≤ n_periods < MIN_PORTFOLIO_PERIODS_WARN (3..19); one-sided t-test "
+        "≤ n_periods < MIN_PORTFOLIO_PERIODS_WARN (3..19); the one-sided t-test "
         "on the per-date diversification ratio is returned but df=n-1 inflates "
-        "t_crit relative to the asymptotic cutoff.",
+        "t_crit, and at the bottom of the range it is extremely conservative: "
+        "at exactly 3 periods it rejected 0 of 250 null draws at a nominal 5%, "
+        "so a p-value there carries essentially no information. Treat value "
+        "as descriptive until the series is well inside the range.",
         WarningCode.FEW_DIRECTIONAL_PAIRS: "directional_hit_rate with MIN_DIRECTIONAL_PAIRS_HARD "
         "≤ n_pairs < MIN_DIRECTIONAL_PAIRS_WARN (10..29); the Pesaran-Timmermann "
         "hit rate is returned but n counts pooled non-overlapping (date, asset) "
