@@ -153,3 +153,17 @@ class TestNonFiniteInput:
         assert np.isfinite(out.stat)
         assert 0.0 <= out.p_value <= 1.0
         assert np.isfinite(out.metadata["p_wald_slopes"])
+
+
+class TestDegenerateContrast:
+    def test_constant_return_withholds_the_test(self):
+        # Long and short legs return the identical constant → the contrast
+        # variance is zero. asym_value is a real number; t / p are not.
+        T = 60
+        rng = np.random.default_rng(0)
+        factor = np.sign(rng.standard_normal(T))
+        result = common_asymmetry(_series_panel(factor, np.full(T, 0.01)))
+        assert np.isfinite(result.value)
+        assert result.stat is None
+        assert result.p_value is None
+        assert "degenerate_variance" in result.warning_codes

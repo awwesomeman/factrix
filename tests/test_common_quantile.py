@@ -208,3 +208,19 @@ class TestNonFiniteInput:
         out = common_quantile_spread(_series_panel(f_nan, r), n_groups=5)
         assert np.isfinite(out.value)
         assert np.isfinite(out.stat)
+
+
+class TestDegenerateContrast:
+    def test_constant_return_withholds_the_test(self):
+        # Every bucket mean identical → zero contrast variance. The spread
+        # is a real 0.0; the t / p are not a result and must not read as
+        # "not significant" (the former t=0 / p=1).
+        T = 60
+        factor = np.random.default_rng(0).standard_normal(T)
+        result = common_quantile_spread(
+            _series_panel(factor, np.full(T, 0.01)), n_groups=5
+        )
+        assert result.value == pytest.approx(0.0)
+        assert result.stat is None
+        assert result.p_value is None
+        assert "degenerate_variance" in result.warning_codes

@@ -549,7 +549,9 @@ Two complementary methods:
 - **Method B** (conditional, ≥ 2 distinct values per side):
   Wald F (finite-sample `F_{r, T−k}`) on `H₀: β_pos = β_neg`.
 
-- *primary*: `p_value` — Method A.
+- *primary*: `p_value` — Method A. `stat` / `p_value` are `None` with
+  `degenerate_variance` when the contrast's HAC variance collapses (e.g.
+  a constant return); `value` is kept.
 - *secondary-test* (conditional, Method B ran):
   `method_b`, `stat_type_method_b`, `beta_pos`, `beta_neg`,
   `p_wald_slopes`.
@@ -563,7 +565,10 @@ Two complementary methods:
 #### `common_quantile_spread`
 
 - *primary*: `p_value` — Wald F (NW HAC, finite-sample `F_{r, T−k}`) on
-  `H₀: β_top = β_bottom` from an OLS fit on bucket dummies.
+  `H₀: β_top = β_bottom` from an OLS fit on bucket dummies. `stat` /
+  `p_value` are `None` with `degenerate_variance` when the contrast's HAC
+  variance collapses (e.g. identical bucket means every period); `value`
+  is kept.
 - *secondary-test*: `spearman_rho`, `spearman_p` — small-sample
   Spearman of (bucket-idx, mean-return) for monotonicity diagnostic.
 - *descriptive*: `n_groups`, `n_periods`, `n_distinct_factor`,

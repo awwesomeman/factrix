@@ -54,6 +54,7 @@ from factrix._types import MIN_PORTFOLIO_PERIODS_HARD
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _aggregate_to_per_date,
+    _degenerate_test_fields,
     _enforce_min_floor,
     _short_circuit_output,
 )
@@ -216,11 +217,12 @@ def common_asymmetry(
     R_a[0, 1] = 1.0
     asym_value = float(beta_a[0] + beta_a[1])
     asym_var = float((R_a @ V_a @ R_a.T)[0, 0])
-    asym_se = float(np.sqrt(asym_var)) if asym_var > 0 else 0.0
-    asym_t = asym_value / asym_se if asym_se > 0 else 0.0
     # Finite-sample F_{r, T-k} reference (k = X_a regressors), matching the
     # cluster-Wald paths; the asymptotic χ² over-rejects on short T.
     _, p_a = _wald_p_linear(beta_a, V_a, R_a, q=0.0, df_denom=n_periods - X_a.shape[1])
+    # A collapsed contrast variance admits no t and no Wald p: NaN here, and
+    # the test fields are withheld below rather than reported as t=0 / p=1.
+    asym_t = asym_value / float(np.sqrt(asym_var)) if np.isfinite(p_a) else float("nan")
 
     e_long = float(beta_a[0])
     e_short = float(beta_a[1])
@@ -256,26 +258,32 @@ def common_asymmetry(
             h0_method_b="beta_pos = beta_neg",
         )
 
+    warning_codes: list[str] = []
+    metadata: dict[str, object] = {
+        "stat_type": "wald (NW HAC)",
+        "h0": "beta_long + beta_short = 0",
+        "method": "method A: dummy regression on sign(factor)",
+        "beta_long": e_long,
+        "beta_short": e_short,
+        "abs_short_over_long": abs_ratio,
+        **({"beta_zero": float(beta_a[2])} if n_zero > 0 else {}),
+        "n_pos": n_pos,
+        "n_neg": n_neg,
+        "n_zero": n_zero,
+        "n_periods": n_periods,
+        "nw_lags_used": lags,
+        **method_b,
+    }
+    stat, p_out, alternative = _degenerate_test_fields(
+        asym_t, p_a, "two-sided", metadata, warning_codes
+    )
     return MetricResult(
-        p_value=p_a,
-        alternative="two-sided",
+        p_value=p_out,
+        alternative=alternative,
         value=asym_value,
         n_obs=n_periods,
         n_obs_axis="periods",
-        stat=asym_t,
-        metadata={
-            "stat_type": "wald (NW HAC)",
-            "h0": "beta_long + beta_short = 0",
-            "method": "method A: dummy regression on sign(factor)",
-            "beta_long": e_long,
-            "beta_short": e_short,
-            "abs_short_over_long": abs_ratio,
-            **({"beta_zero": float(beta_a[2])} if n_zero > 0 else {}),
-            "n_pos": n_pos,
-            "n_neg": n_neg,
-            "n_zero": n_zero,
-            "n_periods": n_periods,
-            "nw_lags_used": lags,
-            **method_b,
-        },
+        stat=stat,
+        metadata=metadata,
+        warning_codes=tuple(warning_codes),
     )

@@ -36,6 +36,17 @@ from scipy import stats as sp_stats
 from factrix._stats.constants import auto_bartlett
 from factrix._types import EPSILON
 
+# Shared "this sample admits no Wald statistic" return: a singular middle
+# matrix ``R V R'``, a singular ``X'X``, too few clusters for the
+# finite-sample correction, or a CGM two-way covariance that came out
+# non-finite / negative-definite. NaN rather than the former ``(0.0, 1.0)``:
+# a restriction whose covariance collapsed is degenerate, never the null, so
+# ``p = 1`` read "no effect" off a sample that carried no test. Matches
+# ``factrix._stats.core._calc_t_stat`` and ``hac._NOT_COMPUTABLE``; callers
+# hold the metric-level context and surface it as
+# ``WarningCode.DEGENERATE_VARIANCE``.
+_NOT_COMPUTABLE: tuple[float, float] = (float("nan"), float("nan"))
+
 
 def _wald_p_linear(
     beta: np.ndarray,
@@ -64,22 +75,31 @@ def _wald_p_linear(
 
     ``W`` itself is returned unchanged in both cases; only the p-value differs.
 
-    Returns ``(0.0, 1.0)`` if the middle matrix is singular (degenerate
-    restriction) or ``df_denom`` is given but non-positive.
+    Returns ``(nan, nan)`` if the middle matrix is singular or any
+    restriction's SE is at ``EPSILON`` (degenerate restriction), or
+    ``df_denom`` is given but non-positive — see ``_NOT_COMPUTABLE``.
     """
     R = np.atleast_2d(R)
     r = R.shape[0]
     diff = R @ beta - np.atleast_1d(q)
     middle = R @ V @ R.T
+    # A restriction whose own standard error is at floating-point residue
+    # (``sqrt(var) <= EPSILON``, the same rule ``_calc_t_stat`` applies to a
+    # std) has no test: inverting the residue returns W ~ 1e32 / p = 0, which
+    # is the mirror image of the (0, 1) this replaced, not a result.
+    if not np.all(np.isfinite(middle)) or np.any(
+        np.sqrt(np.clip(np.diag(middle), 0.0, None)) <= EPSILON
+    ):
+        return _NOT_COMPUTABLE
     try:
         middle_inv = np.linalg.inv(middle)
     except np.linalg.LinAlgError:
-        return 0.0, 1.0
+        return _NOT_COMPUTABLE
     W = float(diff @ middle_inv @ diff)
     if df_denom is None:
         p = float(sp_stats.chi2.sf(W, df=r))
     elif df_denom < 1:
-        return 0.0, 1.0
+        return _NOT_COMPUTABLE
     else:
         p = float(sp_stats.f.sf(W / r, dfn=r, dfd=df_denom))
     return W, p
@@ -162,15 +182,15 @@ def _wald_nw_cluster_means(
         ``(W, p)`` with the Wald statistic ``W`` and a finite-sample
         p-value. The covariance is a one-way (date) cluster estimate with
         ``G = T`` clusters, so the reference is ``F = W / r ~ F_{r, T-1}``
-        rather than the over-rejecting asymptotic χ². Returns ``(0.0,
-        1.0)`` on degenerate input (T < 2 or singular middle matrix).
+        rather than the over-rejecting asymptotic χ². Returns ``(nan,
+        nan)`` on degenerate input (T < 2 or singular middle matrix).
     """
     Y = np.asarray(per_date_metric, dtype=float)
     if Y.ndim != 2:
         raise ValueError(f"per_date_metric must be 2-D (T, K); got shape {Y.shape}.")
     n_clusters = Y.shape[0]
     if n_clusters < 2:
-        return 0.0, 1.0
+        return _NOT_COMPUTABLE
     mean, V = _nw_hac_vector_mean(Y, lags=lags)
     return _wald_p_linear(mean, V, R, q, df_denom=n_clusters - 1)
 
@@ -258,7 +278,7 @@ def _wald_two_way_cluster(
         i.e. for every realistic panel.
 
         With fewer than 2 clusters on either margin the correction and the
-        F reference are both undefined; ``(0.0, 1.0)`` is returned.
+        F reference are both undefined; ``(nan, nan)`` is returned.
 
     Args:
         y: ``(n,)`` outcome vector.
@@ -274,8 +294,9 @@ def _wald_two_way_cluster(
         p-value. With two-way clustering the effective cluster count is
         ``min(G_date, G_asset)``, so the reference is ``F = W / r ~
         F_{r, min(G_date, G_asset) - 1}`` rather than the over-rejecting
-        asymptotic χ². Returns ``(0.0, 1.0)`` if ``X'X`` is singular or
-        ``n < k + 1``.
+        asymptotic χ². Returns ``(nan, nan)`` if ``X'X`` is singular,
+        ``n < k + 1``, or the CGM covariance is non-finite /
+        negative-definite.
     """
     y = np.asarray(y, dtype=float)
     X = np.asarray(X, dtype=float)
@@ -283,7 +304,7 @@ def _wald_two_way_cluster(
     asset_ids = np.asarray(asset_ids)
     n, k = X.shape
     if len(y) != n or n < k + 1:
-        return 0.0, 1.0
+        return _NOT_COMPUTABLE
     if len(date_ids) != n or len(asset_ids) != n:
         raise ValueError(
             f"date_ids / asset_ids length must match X rows ({n}); got "
@@ -294,7 +315,7 @@ def _wald_two_way_cluster(
     try:
         XtX_inv = np.linalg.inv(XtX)
     except np.linalg.LinAlgError:
-        return 0.0, 1.0
+        return _NOT_COMPUTABLE
     beta = XtX_inv @ (X.T @ y)
     resid = y - X @ beta
 
@@ -315,9 +336,9 @@ def _wald_two_way_cluster(
     # agree on the same panel.
     if min(g_date, g_asset) < 2:
         # G = 1 on either margin: G/(G-1) is undefined and the F reference has
-        # zero denominator dof. Nothing is estimable; report the degenerate
-        # (0, 1) rather than a correction-free number that looks like a result.
-        return 0.0, 1.0
+        # zero denominator dof. Nothing is estimable; report NaN rather than
+        # a correction-free number that looks like a result.
+        return _NOT_COMPUTABLE
     c_obs = (n - 1) / (n - k)
     meat = (
         (g_date / (g_date - 1)) * M_date
@@ -328,11 +349,11 @@ def _wald_two_way_cluster(
     V_dc = 0.5 * (V_dc + V_dc.T)
     # CGM caveat: the subtraction can leave V_DC non-PSD on small
     # samples. Symmetrising fixes asymmetry but not negative-definite
-    # diagonals; `_wald_p_linear` returns (0, 1) on a singular middle.
+    # diagonals; `_wald_p_linear` returns NaN on a singular middle.
     if not np.all(np.isfinite(V_dc)):
-        return 0.0, 1.0
+        return _NOT_COMPUTABLE
     if np.any(np.diag(V_dc) < -EPSILON):
-        return 0.0, 1.0
+        return _NOT_COMPUTABLE
     # Finite-sample F reference: the effective cluster count under two-way
     # clustering is the smaller margin (Cameron-Miller 2015), so df_denom =
     # min(G_date, G_asset) - 1.
