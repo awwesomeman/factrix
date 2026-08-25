@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import numpy as np
 import polars as pl
 import pytest
+from factrix._errors import UserInputError
 from factrix._results import MetricResult
 from factrix.metrics.spanning import (
     SpanningResult,
@@ -32,7 +33,8 @@ def _make_spread_series(
 class TestSpanningTest:
     def test_significant_alpha(self):
         factor = _make_spread_series(100, 0.02, 0.005, 42)
-        result = spanning_alpha(factor)
+        base = _make_spread_series(100, 0.0, 0.005, 7)
+        result = spanning_alpha(factor, base_spreads={"base": base})
         assert result.value != 0.0
         assert abs(result.stat) > 2.0
 
@@ -52,15 +54,22 @@ class TestSpanningTest:
         result = spanning_alpha(candidate, base_spreads={"base": base})
         assert abs(result.stat) < 2.0
 
-    def test_no_base(self):
+    def test_no_base_is_not_computable(self):
+        # No base model → no incremental alpha to estimate. The metric must
+        # short-circuit rather than silently report the raw spread mean.
         factor = _make_spread_series(100, 0.02, 0.005, 42)
-        result = spanning_alpha(factor, base_spreads=None)
-        assert result.metadata["n_base_factors"] == 0
+        for base in (None, {}):
+            result = spanning_alpha(factor, base_spreads=base)
+            assert math.isnan(result.value)
+            assert result.stat is None
+            assert result.metadata["reason"] == "no_base_factors"
+            assert "n_base_factors" not in result.metadata
 
     def test_returns_metric_output(self):
 
         factor = _make_spread_series(100, 0.02, 0.005, 42)
-        result = spanning_alpha(factor)
+        base = _make_spread_series(100, 0.0, 0.005, 7)
+        result = spanning_alpha(factor, base_spreads={"base": base})
         assert isinstance(result, MetricResult)
 
     def test_pvalue_uses_regression_dof(self):
@@ -345,6 +354,36 @@ class TestSpanningEvaluate:
         # factor — only the per-label name stamp on the MetricResult differs.
         assert result1.metadata is result2.metadata
 
+    def test_evaluate_spanning_alpha_reports_unavailable(self):
+        # ``evaluate`` has no channel for base spreads, so the metric must
+        # report itself not-computable instead of silently returning the raw
+        # spread mean as an "alpha".
+        import factrix as fx
+
+        panel = fx.datasets.make_cs_panel(n_assets=20, n_dates=60)
+        panel = fx.preprocess.compute_forward_return(panel, forward_periods=2)
+        with pytest.raises(UserInputError, match="no_base_factors"):
+            fx.evaluate(
+                panel,
+                metrics={"span": spanning_alpha()},
+                factor_cols=["factor"],
+                forward_periods=2,
+            )
+        results = fx.evaluate(
+            panel,
+            metrics={"span": spanning_alpha()},
+            factor_cols=["factor"],
+            forward_periods=2,
+            strict=False,
+        )
+        er = results["factor"]
+        res = er.metrics["span"]
+        assert math.isnan(res.value)
+        assert res.metadata["reason"] == "no_base_factors"
+        assert any(
+            w.code == fx.WarningCode.METRIC_UNAVAILABLE for w in er.warnings
+        )
+
 
 class TestAlignSpreadSeriesRegressions:
     """Regressions for ``_align_spread_series`` (v0.19.x alignment bugs)."""
@@ -425,15 +464,15 @@ class TestAlignSpreadSeriesRegressions:
         assert np.isfinite(res.stat)
         assert res.n_obs == len(base) - 1
 
-    def test_nan_spread_dropped_without_base(self):
-        _base, cand = self._linked_pair()
+    def test_nan_spread_dropped_in_candidate(self):
+        base, cand = self._linked_pair()
         nan_cand = cand.with_columns(
             pl.when(pl.int_range(pl.len()) == 3)
             .then(float("nan"))
             .otherwise(pl.col("spread"))
             .alias("spread")
         )
-        res = spanning_alpha(nan_cand)
+        res = spanning_alpha(nan_cand, base_spreads={"base": base})
         assert np.isfinite(res.value)
         assert res.n_obs == cand.height - 1
 

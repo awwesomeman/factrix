@@ -218,10 +218,20 @@ def spanning_alpha(
     Args:
         factor_spread: DataFrame with ``date, spread`` for the candidate factor.
         base_spreads: Mapping of base factor name → DataFrame with ``date, spread``.
-            If None or empty, tests whether the factor has nonzero mean return.
+            Required: with no base factors there is nothing to span against,
+            so the metric short-circuits (see Returns).
 
     Returns:
-        MetricResult with value=alpha, t_stat, significance.
+        MetricResult with value=alpha, t_stat, significance. When
+        ``base_spreads`` is missing or empty the alpha is not defined —
+        regressing the candidate spread on nothing returns its own mean, not
+        an incremental alpha — so the metric short-circuits to the standard
+        not-computable result (``value=NaN``, ``metadata["reason"] =
+        "no_base_factors"``). ``factrix.evaluate`` has no channel for
+        injecting base spreads, so this metric is only computable when called
+        directly; through ``evaluate`` it reports itself unavailable via
+        :attr:`~factrix.WarningCode.METRIC_UNAVAILABLE` rather than silently
+        returning the raw spread mean.
 
     Notes:
         Run ordinary least squares (OLS) ``r_t = alpha + sum_k beta_k * base_k(t) + eps_t`` on
@@ -258,36 +268,38 @@ def spanning_alpha(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> spread = compute_spread_series(panel, forward_periods=5)["factor"]
-        >>> result = spanning_alpha(spread)
+        >>> spreads = compute_spread_series(panel, factor_cols=["factor", "base"])
+        >>> result = spanning_alpha(
+        ...     spreads["factor"], base_spreads={"base": spreads["base"]}
+        ... )
         >>> result.name == ""
         True
     """
-    if base_spreads is None:
-        base_spreads = {}
+    if not base_spreads:
+        # Regressing the candidate spread on an empty design returns its own
+        # mean, not an incremental alpha. Reporting that as a spanning alpha
+        # (with ``n_base_factors=0``) would read as "survives the base model"
+        # for a caller — notably ``evaluate``, which cannot supply base
+        # spreads at all — who never supplied a base model.
+        return _short_circuit_output(
+            "spanning_alpha",
+            "no_base_factors",
+            n_obs=0,
+            n_obs_axis="periods",
+        )
 
-    if base_spreads:
-        all_series = {"_candidate_": factor_spread, **base_spreads}
-        _common_dates, arrays = _align_spread_series(all_series)
-        if "_candidate_" not in arrays:
-            return _short_circuit_output(
-                "spanning_alpha",
-                "no_overlapping_dates_with_candidate",
-                n_obs=0,
-                n_obs_axis="periods",
-            )
-        candidate_arr = arrays.pop("_candidate_")
-        base_arrays = arrays
-        base_matrix = np.column_stack(list(base_arrays.values()))
-    else:
-        # Consumer-side non-finite guard: polars ``drop_nulls`` keeps float
-        # NaN, which would propagate through ``_ols_alpha`` into a NaN alpha
-        # and a NaN t, which surfaces as a degenerate_variance result rather
-        # than an alpha. The multi-series path drops NaN inside
-        # ``_align_spread_series``; this branch bypasses it.
-        candidate_arr = factor_spread["spread"].drop_nulls().drop_nans().to_numpy()
-        base_arrays = {}
-        base_matrix = np.empty((len(candidate_arr), 0))
+    all_series = {"_candidate_": factor_spread, **base_spreads}
+    _common_dates, arrays = _align_spread_series(all_series)
+    if "_candidate_" not in arrays:
+        return _short_circuit_output(
+            "spanning_alpha",
+            "no_overlapping_dates_with_candidate",
+            n_obs=0,
+            n_obs_axis="periods",
+        )
+    candidate_arr = arrays.pop("_candidate_")
+    base_arrays = arrays
+    base_matrix = np.column_stack(list(base_arrays.values()))
 
     sc = _enforce_min_floor(
         spanning_alpha,
