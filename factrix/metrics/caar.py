@@ -1,13 +1,13 @@
 r"""CAAR (Cumulative Average Abnormal Return) significance tests.
 
 Tests $H_0$: event abnormal return = 0, using two complementary methods:
-    compute_caar — per-event-date weighted abnormal return series
+    compute_caar — per-event-period weighted abnormal return series
     caar         — CAAR t-test (parametric, non-overlapping sampling)
     bmp_z     — BMP standardized AR test (robust to event-induced variance)
 
 Notes:
     `caar` and `bmp_z` are complementary inferential tests on the
-    per-event-date abnormal-return series. `caar` is the parametric
+    per-event-period abnormal-return series. `caar` is the parametric
     cross-event $t$-test; `bmp_z` is the standardized-AR $z$-test that
     is robust to event-induced variance.
 
@@ -66,7 +66,7 @@ __all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
 ]
 
 # structure=None (event-axis): caar/bmp_z aggregate over the event cross-section
-# (event dates / events), not the asset cross-section, so they run on single-asset
+# (event periods / events), not the asset cross-section, so they run on single-asset
 # multi-event data too. Density stays SPARSE — the event-shaped signal — and the
 # event-count floor guards thin samples.
 _CAAR_CELL = cell(None, FactorDensity.SPARSE, structure=None)
@@ -82,7 +82,7 @@ per_date_series = per_date_series_rename("caar")
 
 
 def _caar_sample_threshold(self: MetricBase) -> SampleThreshold:
-    """Dynamic event floor for ``caar``: the raw event-date count scales with
+    """Dynamic event floor for ``caar``: the raw event-period count scales with
     ``forward_periods`` because the t-test runs on a non-overlap subsample
     (stride ``forward_periods``). Delegates to the same ``_scaled_min_periods``
     the in-body short-circuit reads, so pre-flight and run-time floors agree.
@@ -108,11 +108,11 @@ def caar(
 ) -> MetricResult:
     r"""CAAR significance: is mean CAAR significantly different from zero?
 
-    The event floor is dynamic — the minimum event-date count scales with the
+    The event floor is dynamic — the minimum event-period count scales with the
     forward_periods parameter (non-overlapping stride) — so it is declared as a
     resolver (a callable sample_threshold) rather than a constant. Pre-flight
     counts non-zero factor rows as a loose upper bound; this in-body short-circuit
-    on event dates stays authoritative.
+    on event periods stays authoritative.
 
     Args:
         caar_df: Output of ``compute_caar()`` with columns ``date, caar,
@@ -131,12 +131,12 @@ def caar(
 
     Notes:
         $t = \mathrm{mean}(\mathrm{CAAR}) / (\mathrm{std}(\mathrm{CAAR}) / \sqrt{n})$
-        on a non-overlap subsample of the per-event-date $\mathrm{CAAR}$
+        on a non-overlap subsample of the per-event-period $\mathrm{CAAR}$
         series; $H_0: \mathbb{E}[\mathrm{CAAR}] = 0$.
 
         **One sample behind every field.** ``value``, ``stat``, ``p_value``
         and ``n_obs`` are all computed on the event-spaced subsample. Earlier
-        versions reported ``value`` as the mean of the *full* event-date
+        versions reported ``value`` as the mean of the *full* event-period
         series while ``stat``/``p_value``/``n_obs`` came from the subsample,
         so the published effect size did not belong to the published test —
         a headline CAAR could be positive while the t-stat that "supports"
@@ -154,7 +154,7 @@ def caar(
         it contains. Dropping first lets a usable neighbour take the slot.
 
         The subsample is drawn **calendar-aware**: the CAAR series is
-        event-date-indexed (``compute_caar`` keeps only ``factor != 0``
+        event-period-indexed (``compute_caar`` keeps only ``factor != 0``
         rows), so its dates are calendar-irregular. Sampling every
         ``forward_periods``-th *row* (index distance) would mis-handle both
         regimes — sparse events get further thinned (power loss), clustered
@@ -170,8 +170,8 @@ def caar(
         around; the greedy calendar walk keeps the event-only mean intact.
 
         ``caar`` is an **equal-weight calendar-time portfolio** test: the
-        inference unit is the event *date*. Same-date events are collapsed
-        to one cross-asset mean (which absorbs same-date cross-sectional
+        inference unit is the event *date*. Same-period events are collapsed
+        to one cross-asset mean (which absorbs same-period cross-sectional
         correlation by construction), and the t-test runs across those
         dates — so ``n`` counts event *dates* (the number of periods with
         an event), not events. It uses non-overlap resampling rather than
@@ -183,9 +183,9 @@ def caar(
         Kolari-Pynnönen clustering correction on by default — use it when
         events are heavily clustered or across-events power is wanted; and
         ``corrado_rank`` is the non-parametric rank test robust to
-        heavy-tailed event returns, and — because it tests the event-date
-        series rather than pooled event rows — to same-date clustering as
-        well. The per-date portfolio breadth behind
+        heavy-tailed event returns, and — because it tests the event-period
+        series rather than pooled event rows — to same-period clustering as
+        well. The per-period portfolio breadth behind
         this test is surfaced as ``n_events`` (the ``compute_caar`` series)
         and ``total_events`` (this result's metadata).
 
@@ -221,9 +221,9 @@ def caar(
     caar_df = caar_df.filter(pl.col("caar").is_not_null() & pl.col("caar").is_not_nan())
     vals = caar_df["caar"]
     n = len(vals)
-    # Total underlying events behind the event-date portfolio. compute_caar
-    # supplies the per-date n_events; a hand-built caar_df without it falls
-    # back to one-event-per-date (n).
+    # Total underlying events behind the event-period portfolio. compute_caar
+    # supplies the per-period n_events; a hand-built caar_df without it falls
+    # back to one-event-per-period (n).
     total_events = (
         int(caar_df["n_events"].sum()) if "n_events" in caar_df.columns else n
     )
@@ -257,7 +257,7 @@ def caar(
     mean_caar_full = float(vals.mean())  # type: ignore[arg-type]
     # Normal input arrives from compute_caar carrying date_ordinal (the
     # full-calendar position). A hand-built caar_df that bypasses
-    # compute_caar lacks it; fall back to the dense rank of the event dates
+    # compute_caar lacks it; fall back to the dense rank of the event periods
     # themselves — event-index spacing is less calendar-aware, but never raises.
     if "date_ordinal" not in caar_df.columns:
         caar_df = caar_df.with_columns(
@@ -281,7 +281,7 @@ def caar(
         "n_event_periods": n,
         "total_events": total_events,
         "n_event_periods_sampled": n_sampled,
-        # Full (pre-spacing) event-date series, kept for description only:
+        # Full (pre-spacing) event-period series, kept for description only:
         # it is NOT the sample behind stat / p_value / n_obs.
         "mean_caar_full": mean_caar_full,
         "n_event_periods_full": n_event_periods_full,
@@ -295,7 +295,7 @@ def caar(
             caar_df["n_events_dropped_non_finite"][0]
         )
 
-    # Fewer than two spaced event dates, or an identical CAAR on all of them:
+    # Fewer than two spaced event periods, or an identical CAAR on all of them:
     # ``mean_caar`` still stands, the t does not exist.
     stat, p_out, alternative = _degenerate_test_fields(
         t, p, "two-sided", metadata, warning_codes
@@ -388,8 +388,8 @@ def bmp_z(
             Formula:
             $z_{\mathrm{KP}} = z_{\mathrm{BMP}} / \sqrt{1 + (N_{\mathrm{eff}} - 1) \cdot \hat r}$
             where $\hat r$ is the one-way-ANOVA ICC(1) estimate of the
-            within-date correlation of SAR and
-            ``N_eff`` is the average events per event date. This is the
+            within-period correlation of SAR and
+            ``N_eff`` is the average events per event period. This is the
             plain design-effect deflator. The published K-P statistic
             carries an extra $(1 - \hat r)$ in the numerator, which
             factrix deliberately omits — see Notes for why. Vanilla BMP
@@ -397,7 +397,7 @@ def bmp_z(
             date (earnings season, macro release), inflating z by
             factors of 1.5-2×. Enable this when the event-study
             ``clustering_hhi`` diagnostic is high (≥ 0.3) or when you
-            otherwise expect same-date shock sharing.
+            otherwise expect same-period shock sharing.
         include_prediction_error_variance: When True, inflate the
             per-event standardiser by $\sqrt{1 + 1/T_{\mathrm{est}}}$
             (with $T_{\mathrm{est}}$ = ``estimation_window``) to absorb
@@ -438,11 +438,11 @@ def bmp_z(
         **Which K-P deflator.** Kolari-Pynnönen's published statistic
         multiplies by $\sqrt{(1 - \hat r) / (1 + (N_{\mathrm{eff}} - 1)\hat r)}$.
         The $(1 - \hat r)$ numerator belongs to their setting, where the
-        SAR variance is estimated *within a single event date*: a
+        SAR variance is estimated *within a single event period*: a
         one-date cross-sectional variance under equicorrelation estimates
         only the idiosyncratic share $(1 - \hat r)\sigma^2$, so the
         numerator restores the missing between-date component. factrix
-        pools SAR across all event dates, so ``std_sar`` already contains
+        pools SAR across all event periods, so ``std_sar`` already contains
         that component and re-applying $(1 - \hat r)$ would deflate $z$
         twice — anti-powered rather than merely conservative. The variant
         implemented here is therefore the pure design-effect deflator
@@ -465,7 +465,7 @@ def bmp_z(
         error term from the standardiser (using mean-adjusted residuals
         rather than market-model residuals) — adequate for the default
         Brown-Warner / MacKinlay event-study path; pair with the K-P
-        adjustment when ``clustering_hhi`` flags same-date shock sharing.
+        adjustment when ``clustering_hhi`` flags same-period shock sharing.
         Pass ``include_prediction_error_variance=True`` for the strict
         BMP denominator $\sigma_i \cdot \sqrt{1 + 1/T_{\mathrm{est}}}$.
 

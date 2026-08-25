@@ -27,14 +27,14 @@ factrix expresses sample-size gates on four sample axes (see
 grammar):
 
 - `assets` / `n_assets` — assets in the panel (`asset_id` unique count), or
-  the pairwise-complete per-date asset count for IC / FM primitives.
-- `periods` / `T` — date count (`date` unique count), reported in runtime
+  the pairwise-complete per-period asset count for IC / FM primitives.
+- `periods` / `T` — period count (`date` unique count), reported in runtime
   metadata as `n_periods`.
 - `pairs` / `n_pairs` — complete `(date, asset)` observations, or
   metric-specific comparable pairs such as directional trials.
 - `events` / `K` — non-zero event count for `Sparse` factors
-  (`filter(factor != 0).height`) or event-date count where the metric collapses
-  same-date events.
+  (`filter(factor != 0).height`) or event-period count where the metric collapses
+  same-period events.
 
 Derived effective counts such as `T/h` are not independent axes. They are
 period-axis counts after a horizon / non-overlap stride (`forward_periods = h`)
@@ -71,11 +71,11 @@ Min sample*. `MIN_*` constants resolve to values in the
 
 | Metric | Sample axis | Min sample |
 |---|---|---|
-| [`quantile_spread`][factrix.metrics.quantile.quantile_spread] | `T/h` | `T/h >= MIN_PORTFOLIO_PERIODS_HARD`; per-date `n_assets >= n_groups` |
+| [`quantile_spread`][factrix.metrics.quantile.quantile_spread] | `T/h` | `T/h >= MIN_PORTFOLIO_PERIODS_HARD`; per-period `n_assets >= n_groups` |
 | [`quantile_spread_vw`][factrix.metrics.quantile.quantile_spread_vw] | `T/h` | as `quantile_spread` |
-| [`k_spread`][factrix.metrics.k_spread.k_spread] | `T/h` | `T/h >= MIN_PORTFOLIO_PERIODS_HARD`; per-date `n_assets >= 2 * k` |
-| [`directional_pair_accuracy`][factrix.metrics.directional_pair_accuracy.directional_pair_accuracy] | comparable within-date asset pairs | non-overlapping pairs `>= MIN_PAIR_ACCURACY_PAIRS_HARD`; warn if below `MIN_PAIR_ACCURACY_PAIRS_WARN` |
-| [`monotonicity`][factrix.metrics.monotonicity.monotonicity] | `T/h` | per-date `n_assets >= n_groups`; series `>= MIN_MONOTONICITY_PERIODS_HARD` |
+| [`k_spread`][factrix.metrics.k_spread.k_spread] | `T/h` | `T/h >= MIN_PORTFOLIO_PERIODS_HARD`; per-period `n_assets >= 2 * k` |
+| [`directional_pair_accuracy`][factrix.metrics.directional_pair_accuracy.directional_pair_accuracy] | comparable within-period asset pairs | non-overlapping pairs `>= MIN_PAIR_ACCURACY_PAIRS_HARD`; warn if below `MIN_PAIR_ACCURACY_PAIRS_WARN` |
+| [`monotonicity`][factrix.metrics.monotonicity.monotonicity] | `T/h` | per-period `n_assets >= n_groups`; series `>= MIN_MONOTONICITY_PERIODS_HARD` |
 | [`top_concentration`][factrix.metrics.concentration.top_concentration] | `T/h` | `T/h ≥ MIN_PORTFOLIO_PERIODS_HARD`; warn if `T/h < MIN_PORTFOLIO_PERIODS_WARN` |
 
 ### Tradability — Cell: Individual × Continuous
@@ -100,7 +100,7 @@ Min sample*. `MIN_*` constants resolve to values in the
 | [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | per-offset `K` | `K ≥ MIN_EVENTS_HARD` |
 | [`mfe_mae`][factrix.metrics.mfe_mae.mfe_mae] | `K` | `K ≥ MIN_EVENTS_HARD`; `price` column required |
 | [`clustering_hhi`][factrix.metrics.clustering_hhi.clustering_hhi] | `K`, `n_assets` | `n_assets >= 2`; `K >= MIN_EVENTS_HARD` |
-| [`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank] | `D` (event dates) | `K ≥ MIN_EVENTS_HARD` **and** `D ≥ MIN_EVENTS_HARD` |
+| [`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank] | `D` (event periods) | `K ≥ MIN_EVENTS_HARD` **and** `D ≥ MIN_EVENTS_HARD` |
 
 ### TS-β family — Cell: Common × Continuous
 
@@ -151,8 +151,8 @@ below.
 
 | Constant | Value | Axis | Tier | Source module | Used by |
 |---|---|---|---|---|---|
-| `MIN_IC_ASSETS_HARD` | 2 | per-date `n_assets` | hard | `factrix/_types.py` | `compute_ic` (drops dates with pairwise-complete `n_assets < 2`) → consumed by `ic`, `ic_ir` |
-| `MIN_IC_ASSETS_WARN` | 10 | per-date `n_assets` | warn | `factrix/_types.py` | `ic`, `ic_ir`, `inspect_data`; tags `WarningCode.FEW_ASSETS` when retained IC dates have `n_assets < 10` |
+| `MIN_IC_ASSETS_HARD` | 2 | per-period `n_assets` | hard | `factrix/_types.py` | `compute_ic` (drops periods with pairwise-complete `n_assets < 2`) → consumed by `ic`, `ic_ir` |
+| `MIN_IC_ASSETS_WARN` | 10 | per-period `n_assets` | warn | `factrix/_types.py` | `ic`, `ic_ir`, `inspect_data`; tags `WarningCode.FEW_ASSETS` when retained IC periods have `n_assets < 10` |
 | `MIN_SERIES_PERIODS_HARD` | 10 | `T` | hard | `factrix/_types.py` | `ic` post-stride sampled IC series, `positive_rate`, and series-mean non-overlap pre-flight |
 | `MIN_DIRECTIONAL_PAIRS_HARD` | 10 | pooled pairs | hard | `factrix/_types.py` | `directional_hit_rate` |
 | `MIN_DIRECTIONAL_PAIRS_WARN` | 30 | pooled pairs | warn | `factrix/_types.py` | `directional_hit_rate`; tags `WarningCode.FEW_DIRECTIONAL_PAIRS` |
@@ -167,23 +167,23 @@ below.
 | `MIN_PERIODS_HARD` | 20 | `T` | hard | `factrix/_stats/constants.py` | Shared hard floor for HAC / time-series inference |
 | `MIN_PERIODS_WARN` | 30 | `T` | warn | `factrix/_stats/constants.py` | Shared warn floor for HAC / time-series inference; tags `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` |
 | `MIN_ASSETS_WARN` | 30 | `n_assets` | warn | `factrix/_stats/constants.py` | PANEL `common_continuous`; tags `WarningCode.FEW_ASSETS` (severity from `n_assets`) |
-| `MIN_FM_ASSETS_HARD` | 3 | per-date `n_assets` | hard | `factrix/metrics/_primitives/_fm_betas.py` | `compute_fm_betas` (drops dates with pairwise-complete `n_assets < 3`) -> consumed by `fm_beta`, `fm_beta_sign_consistency` |
-| `MIN_FM_ASSETS_WARN` | 10 | per-date `n_assets` | warn | `factrix/metrics/_primitives/_fm_betas.py` | `fm_beta`, `fm_beta_sign_consistency`, `inspect_data`; tags `WarningCode.FEW_ASSETS` when retained FM dates have `n_assets < 10` |
+| `MIN_FM_ASSETS_HARD` | 3 | per-period `n_assets` | hard | `factrix/metrics/_primitives/_fm_betas.py` | `compute_fm_betas` (drops periods with pairwise-complete `n_assets < 3`) -> consumed by `fm_beta`, `fm_beta_sign_consistency` |
+| `MIN_FM_ASSETS_WARN` | 10 | per-period `n_assets` | warn | `factrix/metrics/_primitives/_fm_betas.py` | `fm_beta`, `fm_beta_sign_consistency`, `inspect_data`; tags `WarningCode.FEW_ASSETS` when retained FM periods have `n_assets < 10` |
 | `MIN_FM_PERIODS_HARD` | 4 | `T` (λ series) | hard | `factrix/metrics/fm_beta.py` | `fm_beta`, `fm_beta_sign_consistency` |
 | `MIN_FM_PERIODS_WARN` | 30 | `T` (λ series) | warn | `factrix/metrics/fm_beta.py` | `fm_beta` (Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) over-rejects below); ties to `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` |
 | `MIN_COMMON_BETA_PERIODS_HARD` | 20 | `T` per asset | hard | `factrix/metrics/_primitives/_common_betas.py` | `compute_common_betas` (drops assets with `T < 20`); upstream of `common_beta`, `common_beta_profile`, `common_beta_r_squared`, `common_beta_sign_consistency` |
 
 Naming caveats:
 
-- `MIN_IC_ASSETS_HARD` (2) gates the **per-date** pairwise-complete
-  asset count for IC (dates below it are dropped). `MIN_IC_ASSETS_WARN`
-  (10) is the reliability floor: dates still run, but `ic` / `ic_ir`
+- `MIN_IC_ASSETS_HARD` (2) gates the **per-period** pairwise-complete
+  asset count for IC (periods below it are dropped). `MIN_IC_ASSETS_WARN`
+  (10) is the reliability floor: periods still run, but `ic` / `ic_ir`
   surface `WarningCode.FEW_ASSETS`. Both are distinct from the
   panel-wide `n_assets` cross-asset guard, which lives solely on
   `MIN_ASSETS_WARN`.
-- `MIN_FM_ASSETS_HARD` (3) gates the **per-date** pairwise-complete
-  asset count for FM per-date OLS. `MIN_FM_ASSETS_WARN` (10) mirrors the
-  IC thin-cross-section tier: dates still run, but `fm_beta` /
+- `MIN_FM_ASSETS_HARD` (3) gates the **per-period** pairwise-complete
+  asset count for FM per-period OLS. `MIN_FM_ASSETS_WARN` (10) mirrors the
+  IC thin-cross-section tier: periods still run, but `fm_beta` /
   `fm_beta_sign_consistency` surface `WarningCode.FEW_ASSETS`.
 - `MIN_ASSETS_WARN = 30` is a single warn floor (no `_HARD`) — the `n_assets`
   axis only **warns** (small `n_assets` is well-defined statistics, just
@@ -233,11 +233,11 @@ A few specific caveats worth flagging:
   `WarningCode.FEW_EVENTS` fires. The `bmp_z` /
   `corrado_rank` siblings only partly mitigate. `corrado_rank` applies the
   same pair of floors on its own axis: its denominator is the
-  time-series SD of the per-event-date mean rank, so it needs
-  `D ≥ MIN_EVENTS_HARD` distinct event *dates* however many events sit
-  on them (short-circuiting with `reason="insufficient_event_dates"`
+  time-series SD of the per-event-period mean rank, so it needs
+  `D ≥ MIN_EVENTS_HARD` distinct event *periods* however many events sit
+  on them (short-circuiting with `reason="insufficient_event_periods"`
   otherwise) and fires `FEW_EVENTS` in `D ∈ [4, 30)`. Sharing `caar`'s
-  constants is deliberate — both test an event-date series, so the two
+  constants is deliberate — both test an event-period series, so the two
   stay directly comparable on the same sample.
 - **`MIN_PORTFOLIO_PERIODS_HARD = 3` / `MIN_PORTFOLIO_PERIODS_WARN = 20`**
   in `top_concentration` and `common_quantile_spread`. Below 3 there is
@@ -317,7 +317,7 @@ abnormal returns) throughout. **BHAR** (buy-and-hold abnormal return —
 compounded `∏(1 + r) − 1` minus benchmark) is **not** computed by any
 metric. Two implications:
 
-- The `caar` *t*-test is the cross-event mean of per-event-date CAAR,
+- The `caar` *t*-test is the cross-event mean of per-event-period CAAR,
   not BHAR. CAR is appropriate for short-horizon windows (the bias
   between CAR and BHAR is `O(h²)` for horizon `h`); for multi-year
   buy-and-hold studies, compute BHAR externally.
@@ -341,7 +341,7 @@ Conventions:
 
 - **Length**: per-asset `T ≥ 30` non-event observations is the
   literature default (Brown-Warner 1985 §2.B).
-- **Alignment**: ends one period before the event date; gap-before
+- **Alignment**: ends one period before the event period; gap-before
   -event of zero (no skip period). Users running a skip-period
   convention must pre-shift the panel.
 - **Overlap exclusion**: factrix's primitives do **not** drop
@@ -362,19 +362,19 @@ the inner event. The chosen mitigation depends on the metric:
 
 | Metric | Behaviour under within-asset overlap |
 |---|---|
-| [`caar`][factrix.metrics.caar.caar] | Per-event-date CS-mean is computed first, then a calendar-aware non-overlap subsample keeps event dates at least `forward_periods` calendar periods apart before the t-test. This avoids overlap-induced dependence while preserving the event-only mean; dense zero-fill and NW HAC are not used on this path. Within-asset clustering can still make event rows dependent, so read the vanilla t-test cautiously when event calendars are crowded. |
-| [`bmp_z`][factrix.metrics.caar.bmp_z] | The Kolari-Pynnönen adjustment (on by default; `kolari_pynnonen_adjust=False` for unadjusted BMP) corrects the BMP statistic for cross-sectional dependence on the same event date — measured 21.5% → 5.0% size at 4 events per period, 40% → 4.5% at 10, identity at 1. It does **not** correct same-asset event clustering, and it cannot manufacture independent periods: with 4 events per period the adjusted test's residual tracks the number of distinct event periods (2 / 4 / 10: 20.7% / 14.3% / 8.0%), which `FEW_EVENTS` (keyed on event count) does not see — 40 events over 10 periods clears `MIN_EVENTS_WARN` and is still 1.6× nominal. |
+| [`caar`][factrix.metrics.caar.caar] | Per-event-period CS-mean is computed first, then a calendar-aware non-overlap subsample keeps event periods at least `forward_periods` calendar periods apart before the t-test. This avoids overlap-induced dependence while preserving the event-only mean; dense zero-fill and NW HAC are not used on this path. Within-asset clustering can still make event rows dependent, so read the vanilla t-test cautiously when event calendars are crowded. |
+| [`bmp_z`][factrix.metrics.caar.bmp_z] | The Kolari-Pynnönen adjustment (on by default; `kolari_pynnonen_adjust=False` for unadjusted BMP) corrects the BMP statistic for cross-sectional dependence on the same event period — measured 21.5% → 5.0% size at 4 events per period, 40% → 4.5% at 10, identity at 1. It does **not** correct same-asset event clustering, and it cannot manufacture independent periods: with 4 events per period the adjusted test's residual tracks the number of distinct event periods (2 / 4 / 10: 20.7% / 14.3% / 8.0%), which `FEW_EVENTS` (keyed on event count) does not see — 40 events over 10 periods clears `MIN_EVENTS_WARN` and is still 1.6× nominal. |
 | [`event_hit_rate`][factrix.metrics.event_quality.event_hit_rate], [`event_ic`][factrix.metrics.event_quality.event_ic] | Each event row is counted independently; same-asset overlapping events double-contribute to the binomial / Spearman statistic. The null implicitly assumes independence — under heavy clustering the variance is understated. |
 | [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | Same: each `(asset, event_date)` row is independent in the binomial null at every offset. Adjacent-offset hit rates are also serially correlated within the same event (k=6 and k=12 share the t+1 entry price), which the binomial null does not adjust for. |
-| [`clustering_hhi`][factrix.metrics.clustering_hhi.clustering_hhi] | Quantifies cross-sectional concentration on event dates only. Does not detect within-asset temporal clustering — pair with `signal_density` for the asset-axis view. |
+| [`clustering_hhi`][factrix.metrics.clustering_hhi.clustering_hhi] | Quantifies cross-sectional concentration on event periods only. Does not detect within-asset temporal clustering — pair with `signal_density` for the asset-axis view. |
 
 Operationally: trust `caar` *p*-values when `clustering_hhi`
 Herfindahl-Hirschman index (HHI) is low and `signal_density` shows events well-spaced per asset;
 otherwise downweight the parametric *p* and lean on `corrado_rank`
 or external block-bootstrap. `corrado_rank` earns that recommendation:
-it averages same-date events into one observation and takes the SD over
-the event-date series, so within-date correlation lands in the
+it averages same-period events into one observation and takes the SD over
+the event-period series, so within-period correlation lands in the
 denominator rather than being ignored. The price is degrees of freedom —
-clustered events buy no extra sample, so `n_obs` counts dates, and a
-factor firing on only a few dates short-circuits rather than reporting a
+clustered events buy no extra sample, so `n_obs` counts periods, and a
+factor firing on only a few periods short-circuits rather than reporting a
 `z` estimated from a handful of points.

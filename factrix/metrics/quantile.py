@@ -4,7 +4,7 @@ All spread series are time-indexed (``date, value``) and can be fed
 into any ``series/`` tool.
 
 Notes:
-    **Pipeline.** Per-date long-short spread on quantile groups
+    **Pipeline.** Per-period long-short spread on quantile groups
     (cross-section step), then non-overlapping t on the spread series.
 
     **Input.** DataFrame with ``date, asset_id, factor, forward_return``.
@@ -89,21 +89,21 @@ applicable_inference: frozenset[NonOverlapping | NeweyWest] = frozenset(
 
 
 def _median_finite_cross_section(panel: pl.DataFrame, factor_col: str) -> int:
-    """Median per-date count of finite ``factor_col`` values.
+    """Median per-period count of finite ``factor_col`` values.
 
     The size of the cross-section that is actually ranked on a typical date
     — not ``asset_id.n_unique()`` over the whole panel, which counts every
     name that ever appeared. The ``FEW_ASSETS`` advisory keys on this: how
-    many names back a single date's bucket mean is a per-date quantity, so a
-    12-name-per-date universe that rotated through 200 tickers over the
+    many names back a single date's bucket mean is a per-period quantity, so a
+    12-name-per-period universe that rotated through 200 tickers over the
     sample is thin, not wide.
     """
     if panel.is_empty():
         return 0
-    per_date = panel.group_by("date").agg(_finite_expr(factor_col).sum().alias("_n"))[
+    per_period = panel.group_by("date").agg(_finite_expr(factor_col).sum().alias("_n"))[
         "_n"
     ]
-    med = per_date.median()
+    med = per_period.median()
     return 0 if med is None else int(med)  # type: ignore[arg-type]
 
 
@@ -158,11 +158,11 @@ def quantile_spread(
     """long-short spread (per-period mean).
 
     Args:
-        inference: Headline significance method on the per-date spread.
+        inference: Headline significance method on the per-period spread.
             ``fx.inference.NON_OVERLAPPING`` (default) runs the OLS t-test
             on the non-overlap stride subsample; ``fx.inference.NEWEY_WEST``
             keeps every date and absorbs the MA(h-1) overlap in a HAC SE.
-            On a small cross-section (median per-date finite-factor count
+            On a small cross-section (median per-period finite-factor count
             ``< 30``) the heavy-tail block bootstrap takes precedence over
             either (see Notes).
         _precomputed_series: If provided, skip recomputing ``compute_spread_series``.
@@ -215,7 +215,7 @@ def quantile_spread(
         report ``degenerate_variance`` (mislabelling missing data as a
         dispersion-free sample) or raise in the bootstrap path.
 
-        **Thin cross-sections** are judged by the median *per-date* count
+        **Thin cross-sections** are judged by the median *per-period* count
         of finite factor values (``metadata["median_cross_section"]``),
         not by the number of distinct ``asset_id`` values in the panel: the
         bootstrap fires because a single date's bucket mean rests on few
@@ -370,9 +370,9 @@ def _quantile_spread_from_series(
     arr = spread_vals.to_numpy()
     # Headline test: ``inference`` selects non-overlap t vs Newey-West HAC.
     # ``mean_spread`` is the full-sample mean under HAC, the non-overlap mean
-    # otherwise. The FEW_ASSETS advisory keys on the median *per-date*
+    # otherwise. The FEW_ASSETS advisory keys on the median *per-period*
     # finite-factor count, not the universe-wide unique asset count: how many
-    # names back one bucket mean is a per-date quantity, so a rotating
+    # names back one bucket mean is a per-period quantity, so a rotating
     # universe must not read as wide.
     n_assets = _median_finite_cross_section(sampled, factor_col)
     # Non-finite spreads must not reach the HAC regression either — same reason
@@ -617,7 +617,7 @@ def quantile_spread_vw(
         # observation, not a zero return.
         return pl.when(w_sum.is_not_null() & (w_sum != 0)).then(wr_sum / w_sum)
 
-    # WHY: per-date weighted mean for top and bottom buckets
+    # WHY: per-period weighted mean for top and bottom buckets
     vw_series = (
         grouped.with_columns(
             pl.when(finite_return & finite_weight).then(pl.col(weight_col)).alias("_w"),
@@ -653,7 +653,7 @@ def quantile_spread_vw(
     if sc is not None:
         return sc
     # Mirror the EW path (see ``_quantile_spread_from_series``): gate the
-    # n_groups buckets on per-date valid factor counts, then treat a constant
+    # n_groups buckets on per-period valid factor counts, then treat a constant
     # factor as no-signal — otherwise value weighting manufactures an
     # ordering-artifact spread (ordinal ties) or empty-bucket NaN (average).
     per_date_assets = vw_series["_n_assets"]

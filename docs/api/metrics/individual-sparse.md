@@ -54,7 +54,7 @@ is no non-event zero state. Treat them as dense directional signals: use
 | Skewness / hit-rate / win-loss diagnostics on per-event returns | [`event_quality`](event_quality.md) |
 | MFE / MAE order-statistic excursion within an event window | [`mfe_mae`](mfe_mae.md) |
 | Event-window horizon decay | [`event_horizon`](event_horizon.md) |
-| Herfindahl-Hirschman index (HHI) on event dates — flags clustering that violates BMP/CAAR independence | [`clustering`](clustering_hhi.md) |
+| Herfindahl-Hirschman index (HHI) on event periods — flags clustering that violates BMP/CAAR independence | [`clustering`](clustering_hhi.md) |
 | Non-parametric Corrado rank test — robust to non-Gaussian returns | [`corrado`](corrado_rank.md) |
 
 `caar` carries the abnormal-return significance test; the rest are

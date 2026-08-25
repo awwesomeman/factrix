@@ -30,7 +30,7 @@ title: factrix.metrics.k_spread
 
     ---
 
-    `metadata["cross_sectional_dispersion"]` carries the mean per-date
+    `metadata["cross_sectional_dispersion"]` carries the mean per-period
     cross-sectional standard deviation of returns, so the headline spread can
     be read relative to the typical spread of returns that period rather than
     in isolation.

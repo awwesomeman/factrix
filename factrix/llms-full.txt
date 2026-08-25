@@ -18,8 +18,8 @@ Full index: https://awwesomeman.github.io/factrix/llms.txt
 An evaluation cell is defined by three orthogonal axes that specify the dataset properties:
 
 **FactorScope** — who carries the factor value:
-- `INDIVIDUAL` — each asset has its own factor value per date (e.g., P/B ratio).
-- `COMMON` — a single factor value is broadcast to all assets per date (e.g., VIX).
+- `INDIVIDUAL` — each asset has its own factor value per period (e.g., P/B ratio).
+- `COMMON` — a single factor value is broadcast to all assets per period (e.g., VIX).
 
 **FactorDensity** — the value type:
 - `DENSE` — continuous numeric exposure (e.g., returns, z-scores, raw fundamentals).
@@ -165,7 +165,7 @@ Small cross-sections reduce power; they do not change the estimand. For an
 | Rank future returns | `ic(inference=fx.inference.NEWEY_WEST)` | First-pass inference for ranking |
 | Estimate premium per exposure unit | `fm_beta()` | First-pass inference for linear exposure |
 | Predict absolute up/down direction | `directional_hit_rate()` | Inferential only when sign prediction is the objective; not a rank-IC substitute |
-| Check same-date pair ordering | `directional_pair_accuracy()` | Descriptive (`p_value=None`) |
+| Check same-period pair ordering | `directional_pair_accuracy()` | Descriptive (`p_value=None`) |
 | Check IC stability | `ic_ir()` | Descriptive; use `ic` for mean-IC inference |
 | Inspect payoff shape | `k_spread()`, `quantile_spread()`, `monotonicity()` | Supplementary; tiny legs are fragile |
 
@@ -264,7 +264,7 @@ Typed pre-flight introspection that combines axis detection with a per-metric us
 ### `by_slice` / `slice_pairwise_test` / `slice_joint_test` / `slice_period_pairwise_test` / `slice_period_joint_test`
 
 - `by_slice(data, metric, *, by, factor_col)` partitions a raw panel by a grouping column and runs `evaluate` per slice, returning `dict[str, EvaluationResult]` (same shape as `evaluate`, keyed by slice). `metric` is an instance (e.g. `ic()`); DAG-consumer metrics work with no pre-computation.
-- `slice_pairwise_test` / `slice_joint_test` perform **cross-sectional** (date-aligned) cross-slice Wald tests (joint Newey-West HAC + slice cluster, Holm-adjusted) on the per-date means — for slices that share dates (sector, size bucket, liquidity tier).
+- `slice_pairwise_test` / `slice_joint_test` perform **cross-sectional** (date-aligned) cross-slice Wald tests (joint Newey-West HAC + slice cluster, Holm-adjusted) on the per-period means — for slices that share dates (sector, size bucket, liquidity tier).
 - `slice_period_pairwise_test` / `slice_period_joint_test` are the **date-disjoint** counterparts (market regime, calendar period, in/out-of-sample) — each slice is an independent sample with block-diagonal covariance. A `method` flag selects the estimator: `"bootstrap"` (default; independent stationary block bootstrap + Romano-Wolf, right for short regimes) or `"analytic"` (per-slice Newey-West HAC + Welch contrast + Holm, for long spans T ≳ 100). Pairwise output carries per-slice `n_periods_a` / `n_periods_b`.
 
 ---
@@ -545,7 +545,7 @@ The canonical glosses live in `factrix._codes.WarningCode.description` and are r
 | `unreliable_se_short_periods` | `n_periods` is below the WARN floor (~30, `MIN_PERIODS_WARN` / `MIN_FM_PERIODS_WARN`); NW HAC SE may be biased. |
 | `event_window_overlap` | Adjacent events sit within `forward_periods`; AR windows overlap. |
 | `persistent_regressor` | ADF p exceeds the configured threshold on the continuous factor; beta may carry Stambaugh bias. |
-| `serial_correlation_detected` | The tested per-date series has lag-1 autocorrelation > 0.3; no HAC / bootstrap path is calibrated there (NW 13–17%, bootstrap 12–19%, plain t 32–34% at nominal 5% for phi=0.6) — raise the hurdle (t > 3) or lengthen the sample. |
+| `serial_correlation_detected` | The tested per-period series has lag-1 autocorrelation > 0.3; no HAC / bootstrap path is calibrated there (NW 13–17%, bootstrap 12–19%, plain t 32–34% at nominal 5% for phi=0.6) — raise the hurdle (t > 3) or lengthen the sample. |
 | `few_assets` | Cross-section asset count below the relevant WARN floor (`MIN_ASSETS_WARN`, `MIN_IC_ASSETS_WARN`, or `MIN_FM_ASSETS_WARN`); severity in the n_assets metadata. |
 | `thin_quantile_groups` | `quantile_spread` left < `MIN_GROUP_ASSETS` (5) assets per bucket; spread can be dominated by individual assets. Advisory only. |
 | `sparse_magnitude_weighted` | Sparse factor is mixed-sign and not a clean ±1 ternary; statistic is magnitude-weighted (Sefcik-Thompson), not textbook signed CAAR. |

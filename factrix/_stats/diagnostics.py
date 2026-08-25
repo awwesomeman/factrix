@@ -56,7 +56,7 @@ def _lag1_autocorr(values: np.ndarray) -> float:
     a single number that separates the regime where the HAC / bootstrap
     mean tests are roughly calibrated (≈ 0) from the one where none of them
     is (≥ 0.3). It is computed on the series the test actually runs on —
-    the metric's per-date series (the IC series, the per-date beta series,
+    the metric's per-period series (the IC series, the per-period beta series,
     the spread series), *not* the raw factor or return columns, whose
     persistence can differ by an order of magnitude from the series that
     is averaged. Returns ``0.0`` for ``n < 3`` or a zero-variance series so a

@@ -32,24 +32,24 @@ def compute_caar(
     factor_col: str = "factor",
     return_col: str = "forward_return",
 ) -> pl.DataFrame:
-    r"""Per-event-date weighted abnormal return series.
+    r"""Per-event-period weighted abnormal return series.
 
     Magnitude is preserved — no ``.sign()`` coercion.
 
     Output columns:
-        date: event date (one row per date carrying at least one event).
+        date: event period (one row per period carrying at least one event).
         caar: cross-asset mean of the (signed/magnitude-weighted)
             abnormal return on that date.
         n_events: number of events (non-zero factor rows) collapsed into
             this date's ``caar``. The downstream ``caar()`` test is an
             equal-weight calendar-time portfolio across event *dates*, so
-            this count is the per-date portfolio breadth — surfaced for
+            this count is the per-period portfolio breadth — surfaced for
             transparency (a date built on 1 event vs 500 is otherwise
             indistinguishable), not used to weight or drop dates.
         date_ordinal: 0-based position of the date on the *full* input
             calendar (dense rank over every date in ``data``, including
-            non-event dates). Consumers that sub-sample for non-overlap
-            independence measure the gap between kept event dates in
+            non-event periods). Consumers that sub-sample for non-overlap
+            independence measure the gap between kept event periods in
             these calendar steps rather than in event-index steps —
             the rank is computed before the ``factor != 0`` filter, so a
             gap of ``k`` means ``k`` underlying periods elapsed, not
@@ -59,9 +59,9 @@ def compute_caar(
         n_events_dropped_non_finite: total number of event rows removed
             before aggregation because ``return_col`` or ``factor_col``
             was null / NaN. Broadcast as a constant on every row (the
-            count is a whole-frame diagnostic, not a per-date one: a date
+            count is a whole-frame diagnostic, not a per-period one: a date
             whose events were *all* non-finite leaves the output entirely,
-            so a per-date column could not carry it). Consumers surface it
+            so a per-period column could not carry it). Consumers surface it
             as ``metadata["n_events_dropped_non_finite"]``.
 
     Non-finite handling:
@@ -74,7 +74,7 @@ def compute_caar(
         filtered to finite ``return_col`` **and** finite ``factor_col``
         before the ``group_by`` (this is the producer boundary that the
         project convention makes responsible for dropping non-finite values),
-        the surviving per-date mean is taken over finite events only, and the
+        the surviving per-period mean is taken over finite events only, and the
         dropped count is both reported on the frame and warned about. Note
         ``factor_col`` needs its own guard: ``NaN != 0`` evaluates to *True*
         in polars, so a NaN factor survives the event filter and would make
@@ -107,7 +107,7 @@ def compute_caar(
         warnings.warn(
             f"compute_caar: dropped {n_dropped} of {n_events_in} event rows with "
             f"a non-finite '{return_col}' or '{factor_col}' before aggregating. "
-            f"Each per-date caar is the mean over the surviving finite events; "
+            f"Each per-period caar is the mean over the surviving finite events; "
             f"the count is reported as the 'n_events_dropped_non_finite' column.",
             UserWarning,
             stacklevel=2,

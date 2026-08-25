@@ -28,7 +28,7 @@ def _tail_returns(rng: np.random.Generator, sign: float, k: int) -> np.ndarray:
     """``k`` returns deep in the ``sign`` tail, spread rather than identical.
 
     The spread is load-bearing: the denominator is the time-series SD of the
-    per-event-date mean rank, so ``k`` identical event returns give it zero
+    per-event-period mean rank, so ``k`` identical event returns give it zero
     dispersion and the metric (correctly) short-circuits as degenerate. Real
     event returns are never all the same value.
     """
@@ -171,30 +171,30 @@ class TestNonFiniteReturns:
 
 
 class TestClusterRobustDenominator:
-    """The denominator must absorb same-date event clustering.
+    """The denominator must absorb same-period event clustering.
 
     ``corrado_rank`` exists as the nonparametric fallback for exactly the
-    regime where ``caar``'s t-test breaks down — clustered event dates. A
+    regime where ``caar``'s t-test breaks down — clustered event periods. A
     pooled std over every ``(asset, date)`` rank cell ignored that
     clustering, so the metric was liberal in the one situation it was
     recommended for. The unit of inference is now the event DATE.
     """
 
     @staticmethod
-    def _clustered_panel(events_per_date: int, n_dates: int = 200, seed: int = 0):
-        """Panel where every event date carries ``events_per_date`` events.
+    def _clustered_panel(events_per_period: int, n_dates: int = 200, seed: int = 0):
+        """Panel where every event period carries ``events_per_period`` events.
 
-        Same-date events share one common shock, so they are far from
+        Same-period events share one common shock, so they are far from
         independent draws — the shape a pooled denominator misreads.
         """
         rng = np.random.default_rng(seed)
         n_assets = 20
-        event_dates = set(range(10, n_dates, 5))
+        event_periods = set(range(10, n_dates, 5))
         rows = []
         for d in range(n_dates):
-            shock = rng.normal() * 3.0 if d in event_dates else 0.0
+            shock = rng.normal() * 3.0 if d in event_periods else 0.0
             for a in range(n_assets):
-                is_event = d in event_dates and a < events_per_date
+                is_event = d in event_periods and a < events_per_period
                 rows.append(
                     {
                         "date": datetime(2020, 1, 1) + timedelta(days=d),
@@ -208,21 +208,21 @@ class TestClusterRobustDenominator:
         return pl.DataFrame(rows)
 
     def test_n_obs_counts_event_dates_not_events(self):
-        result = corrado_rank(self._clustered_panel(events_per_date=4))
+        result = corrado_rank(self._clustered_panel(events_per_period=4))
         assert result.n_obs_axis == "periods"
-        assert result.n_obs == result.metadata["n_event_dates"]
-        # Four events per date: the event count is 4x the date count, and
+        assert result.n_obs == result.metadata["n_event_periods"]
+        # Four events per period: the event count is 4x the date count, and
         # using it as the sample size is what inflated z.
-        assert result.metadata["n_events"] == 4 * result.metadata["n_event_dates"]
-        assert result.metadata["events_per_date_max"] == 4
+        assert result.metadata["n_events"] == 4 * result.metadata["n_event_periods"]
+        assert result.metadata["events_per_period_max"] == 4
 
     def test_clustering_does_not_inflate_the_statistic(self):
         """Piling more correlated events onto the same dates must not buy
         significance. Under the pooled denominator it did: N_events grew
         while the denominator stayed put, so z scaled with sqrt(N_events).
         """
-        z_light = corrado_rank(self._clustered_panel(events_per_date=1)).stat
-        z_heavy = corrado_rank(self._clustered_panel(events_per_date=8)).stat
+        z_light = corrado_rank(self._clustered_panel(events_per_period=1)).stat
+        z_heavy = corrado_rank(self._clustered_panel(events_per_period=8)).stat
         # Same dates, same common shocks — 8x the events adds no independent
         # information, so z must not scale up with the event count.
         assert abs(z_heavy) < abs(z_light) * np.sqrt(8.0)
@@ -231,7 +231,7 @@ class TestClusterRobustDenominator:
         """A quarterly-cadence factor must not be locked out.
 
         The floor is ``caar``'s ``MIN_EVENTS_HARD``, shared because both
-        metrics test an event-date series. A private, stricter floor here
+        metrics test an event-period series. A private, stricter floor here
         would have short-circuited factors that ``caar`` reports on happily
         — corrado_rank serves every sparse cell (single-asset TIMESERIES,
         wide PANEL, COMMON broadcast), so its floor has to be the general
@@ -253,17 +253,17 @@ class TestClusterRobustDenominator:
                         ),
                     }
                 )
-        with pytest.warns(UserWarning, match="n_event_dates=6"):
+        with pytest.warns(UserWarning, match="n_event_periods=6"):
             result = corrado_rank(pl.DataFrame(rows))
         assert result.n_obs == 6
         assert result.stat is not None
         assert WarningCode.FEW_EVENTS.value in result.warning_codes
 
-    def test_common_scope_whole_cross_section_on_event_dates(self):
+    def test_common_scope_whole_cross_section_on_event_periods(self):
         """COMMON-scope factors fire on every asset at once.
 
         That is Corrado's original event-time layout — one full
-        cross-section per event date — so the per-date collapse is the
+        cross-section per event period — so the per-period collapse is the
         identity on the cross-sectional mean and the test must simply work.
         """
         rng = np.random.default_rng(4)
@@ -282,7 +282,7 @@ class TestClusterRobustDenominator:
                 )
         result = corrado_rank(pl.DataFrame(rows))
         assert result.n_obs == len(event_days)
-        assert result.metadata["events_per_date_mean"] == pytest.approx(15.0)
+        assert result.metadata["events_per_period_mean"] == pytest.approx(15.0)
         assert result.stat > 0
         assert result.p_value < 0.05
 
@@ -303,6 +303,6 @@ class TestClusterRobustDenominator:
                 )
         result = corrado_rank(pl.DataFrame(rows))
         # 30 events, but only 3 dates behind the SD.
-        assert result.metadata["reason"] == "insufficient_event_dates"
+        assert result.metadata["reason"] == "insufficient_event_periods"
         assert result.metadata["n_events"] == 30
         assert result.n_obs == 3

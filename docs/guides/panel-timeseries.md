@@ -10,7 +10,7 @@ title: Panel vs timeseries
 
 ## Sample guards
 
-Time-series length `n_periods` and asset count `n_assets` are gated **independently** — `factrix` does not use a combined `n_periods × n_assets` observation count, because per-date statistic variance is driven primarily by `n_assets`, while time-series aggregation power is driven by `n_periods`.
+Time-series length `n_periods` and asset count `n_assets` are gated **independently** — `factrix` does not use a combined `n_periods × n_assets` observation count, because per-period statistic variance is driven primarily by `n_assets`, while time-series aggregation power is driven by `n_periods`.
 
 ### Two-axis guard structure
 
@@ -32,8 +32,8 @@ code alone, to identify the inference path.
 
 | Density / Scope | `n_assets == 1` | `n_assets = 2..9` | `n_assets = 10..29` | `n_assets >= 30` |
 |---|---|---|---|---|
-| `INDIVIDUAL` × `DENSE` (IC) | raises `UserInputError` or `IncompatibleAxisError` | runs with `FEW_ASSETS` if pairwise-complete per-date `n_assets` is 2..9; dates with `n_assets < 2` are dropped | normal IC; panel-level thin-`n_assets` warnings may still apply | normal PANEL |
-| `INDIVIDUAL` × `DENSE` (FM) | raises `UserInputError` or `IncompatibleAxisError` | per-date guard; low df | normal PANEL | normal PANEL |
+| `INDIVIDUAL` × `DENSE` (IC) | raises `UserInputError` or `IncompatibleAxisError` | runs with `FEW_ASSETS` if pairwise-complete per-period `n_assets` is 2..9; dates with `n_assets < 2` are dropped | normal IC; panel-level thin-`n_assets` warnings may still apply | normal PANEL |
+| `INDIVIDUAL` × `DENSE` (FM) | raises `UserInputError` or `IncompatibleAxisError` | per-period guard; low df | normal PANEL | normal PANEL |
 | `COMMON` × `DENSE` | raises `IncompatibleAxisError` (no cross-section) | emits `FEW_ASSETS` | emits `FEW_ASSETS` | normal PANEL |
 | `INDIVIDUAL` × `SPARSE` / `COMMON` × `SPARSE` | TIMESERIES sparse path; no scope-collapse step | normal PANEL CAAR | normal PANEL CAAR | normal PANEL CAAR |
 

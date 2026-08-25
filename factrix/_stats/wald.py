@@ -7,7 +7,7 @@ Three layers of heteroskedasticity-and-autocorrelation-consistent (HAC) / cluste
   pre-computed coefficient vector and covariance matrix; the
   bedrock used by every higher-level helper here.
 - **Vector-mean Newey-West (NW) HAC** — ``_wald_nw_cluster_means(Y, R, q, lags)``
-  for the stacked per-date metric panel: rows are joint per-date
+  for the stacked per-period metric panel: rows are joint per-period
   observations of K slice means; cross-slice covariance is the
   joint Bartlett-kernel HAC of the K-vector series. Backs the
   ``WaldNWCluster`` Estimator.
@@ -92,7 +92,7 @@ def _nw_hac_vector_mean(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Joint sample mean and Newey-West HAC variance of a vector series.
 
-    For ``Y`` of shape ``(T, K)`` (rows = joint per-date observations
+    For ``Y`` of shape ``(T, K)`` (rows = joint per-period observations
     of K parallel series), returns ``(mean_K, V_KxK)`` where ``V`` is
     the Bartlett-kernel HAC variance of the sample mean — handles both
     serial autocovariance within each column AND cross-column
@@ -139,13 +139,13 @@ def _wald_nw_cluster_means(
     q: np.ndarray | float = 0.0,
     lags: int | None = None,
 ) -> tuple[float, float]:
-    """Wald χ² for ``R · mean = q`` on a (T, K) per-date metric panel.
+    """Wald χ² for ``R · mean = q`` on a (T, K) per-period metric panel.
 
     Tests linear restrictions on the K-vector of per-slice means under
     Newey-West HAC + 1-way cluster on the slice grouping. Equivalent
     to running OLS on the long-format stacked panel
     ``y_{t,k} = α + Σ β_j · 1{slice = j}`` with cluster-NW errors,
-    but operating directly on the per-date metric matrix is faster and
+    but operating directly on the per-period metric matrix is faster and
     more numerically stable than rebuilding the design matrix.
 
     Args:

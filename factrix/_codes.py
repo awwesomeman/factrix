@@ -22,8 +22,8 @@ class WarningCode(StrEnum):
     # Not raised for SPARSE.
     PERSISTENT_REGRESSOR = "persistent_regressor"
     # Fired by the series-mean inference members and ``fm_beta`` when the
-    # tested per-date series — the series the mean test runs on (IC series,
-    # per-date betas, spread series), not the raw factor / return columns —
+    # tested per-period series — the series the mean test runs on (IC series,
+    # per-period betas, spread series), not the raw factor / return columns —
     # has lag-1 autocorrelation above
     # ``PERSISTENT_SERIES_AUTOCORR`` (0.3). In that regime no path in the
     # library is calibrated — Newey-West, the stationary bootstrap and the
@@ -55,15 +55,15 @@ class WarningCode(StrEnum):
     # (``{0, 1}`` / ``{0, R≥0}``) do not trigger — no flip ambiguity.
     SPARSE_MAGNITUDE_WEIGHTED = "sparse_magnitude_weighted"
     # Fired by ``caar`` (significance test) and ``corrado_rank``, both of
-    # which test a per-event-date series, when its length sits in
+    # which test a per-event-period series, when its length sits in
     # ``[MIN_EVENTS_HARD, MIN_EVENTS_WARN)`` — the statistic is returned
-    # but the Brown-Warner (1985) convention treats sub-30 event-date
+    # but the Brown-Warner (1985) convention treats sub-30 event-period
     # counts as power-thin for the asymptotic reference distribution.
     # Below the HARD floor the primitive short-circuits to NaN instead.
     # Naming follows the ``<axis>_<condition>`` grammar; the Brown-Warner
     # method reference lives in this gloss rather than the member name.
     FEW_EVENTS = "few_events"
-    # Fired by ``top_concentration`` when the per-date ratio series sits
+    # Fired by ``top_concentration`` when the per-period ratio series sits
     # in ``[MIN_PORTFOLIO_PERIODS_HARD, MIN_PORTFOLIO_PERIODS_WARN)`` —
     # the one-sided t-test on the diversification ratio is returned but
     # ``df = n - 1 < 19`` inflates t_crit relative to the asymptotic
@@ -79,10 +79,10 @@ class WarningCode(StrEnum):
     # periods.
     FEW_DIRECTIONAL_PAIRS = "few_directional_pairs"
     # Fired by ``directional_pair_accuracy`` when the pooled non-overlapping
-    # within-date ordering pairs sit in
+    # within-period ordering pairs sit in
     # ``[MIN_PAIR_ACCURACY_PAIRS_HARD, MIN_PAIR_ACCURACY_PAIRS_WARN)``. The
     # metric is descriptive and returns no p-value, but a small comparable-pair
-    # count makes the per-date ordering accuracy fragile. Below the HARD floor
+    # count makes the per-period ordering accuracy fragile. Below the HARD floor
     # it short-circuits to NaN instead. Named on the ``pairs`` axis token: the
     # count is comparable asset pairs, not periods or assets.
     FEW_ORDERING_PAIRS = "few_ordering_pairs"
@@ -157,7 +157,7 @@ class WarningCode(StrEnum):
     # SPARSE, i.e. n_assets=1). Event-axis metrics run over the event
     # cross-section (n_events) and are usable on a single name; only a metric
     # that needs the asset cross-section (cell.structure=PANEL, e.g.
-    # clustering_hhi, whose same-date event clustering is degenerate at
+    # clustering_hhi, whose same-period event clustering is degenerate at
     # ≤1 event/date) stays unusable. The warning names those so their absence
     # from `usable` is explained, not silent. Deliberately does NOT advise
     # adding assets — pooling unrelated names mixes return-generating processes.
@@ -166,7 +166,7 @@ class WarningCode(StrEnum):
     # Per-axis silent-drop flags. A metric whose upstream primitive silently
     # dropped a large share of its sample at a filter raises the code for the
     # dropped axis: PERIOD_DROPS for the time axis (e.g. compute_ic dropping
-    # dates with n_assets below the per-date floor), ASSET_DROPS for the
+    # dates with n_assets below the per-period floor), ASSET_DROPS for the
     # cross-section (e.g. compute_common_betas dropping assets with insufficient
     # history or zero factor variance). The code is dimension-specific by
     # design — a reader resolves the dropped axis from the code alone, not by
@@ -218,7 +218,7 @@ _WARNING_DESCRIPTIONS.update(
         "primitive inference (MIN_FM_PERIODS_WARN); both default to 30.",
         WarningCode.EVENT_WINDOW_OVERLAP: "Adjacent events sit within forward_periods; AR windows overlap.",
         WarningCode.PERSISTENT_REGRESSOR: "ADF p exceeds the configured threshold on the continuous factor; beta may carry Stambaugh bias.",
-        WarningCode.SERIAL_CORRELATION_DETECTED: "The tested per-date series has "
+        WarningCode.SERIAL_CORRELATION_DETECTED: "The tested per-period series has "
         "lag-1 autocorrelation above PERSISTENT_SERIES_AUTOCORR (0.3). No HAC or "
         "bootstrap path is calibrated here — measured 13–17% (NW), 12–19% "
         "(bootstrap) and 32–34% (plain t) at a nominal 5% for phi=0.6, worse "
@@ -226,8 +226,8 @@ _WARNING_DESCRIPTIONS.update(
         "2016: t > 3) or lengthen the sample; switching inference member does "
         "not fix it.",
         WarningCode.FEW_ASSETS: "Cross-section asset count is below the "
-        "relevant WARN floor (panel-wide MIN_ASSETS_WARN=30, per-date "
-        "MIN_IC_ASSETS_WARN=10, or per-date MIN_FM_ASSETS_WARN=10). The "
+        "relevant WARN floor (panel-wide MIN_ASSETS_WARN=30, per-period "
+        "MIN_IC_ASSETS_WARN=10, or per-period MIN_FM_ASSETS_WARN=10). The "
         "statistic is returned, but small n_assets inflates critical values or "
         "leaves minimal residual degrees of freedom. Severity scales with "
         "n_assets; read the relevant n_assets metadata. A by-design few-asset "
@@ -247,14 +247,14 @@ _WARNING_DESCRIPTIONS.update(
         "calling for sign-flip semantics.",
         WarningCode.FEW_EVENTS: "caar / corrado_rank significance test with "
         "MIN_EVENTS_HARD ≤ n_event_periods < MIN_EVENTS_WARN (4..29). Both "
-        "test an event-date series — caar an equal-weight calendar-time "
-        "portfolio, corrado_rank the per-date mean signed rank — so this "
+        "test an event-period series — caar an equal-weight calendar-time "
+        "portfolio, corrado_rank the per-period mean signed rank — so this "
         "counts the number of periods with an event, not events; a sub-30 "
         "series is power-thin for the asymptotic distribution — read "
         "borderline p-values cautiously.",
         WarningCode.BORDERLINE_PORTFOLIO_PERIODS: "top_concentration with MIN_PORTFOLIO_PERIODS_HARD "
         "≤ n_periods < MIN_PORTFOLIO_PERIODS_WARN (3..19); the one-sided t-test "
-        "on the per-date diversification ratio is returned but df=n-1 inflates "
+        "on the per-period diversification ratio is returned but df=n-1 inflates "
         "t_crit, and at the bottom of the range it is extremely conservative: "
         "at exactly 3 periods it rejected 0 of 250 null draws at a nominal 5%, "
         "so a p-value there carries essentially no information. Treat value "
@@ -268,7 +268,7 @@ _WARNING_DESCRIPTIONS.update(
         WarningCode.FEW_ORDERING_PAIRS: "directional_pair_accuracy with "
         "MIN_PAIR_ACCURACY_PAIRS_HARD ≤ n_pairs < "
         "MIN_PAIR_ACCURACY_PAIRS_WARN (10..29); the descriptive ordering "
-        "accuracy is returned but n counts pooled non-overlapping within-date "
+        "accuracy is returned but n counts pooled non-overlapping within-period "
         "asset pairs after factor/return ties are removed. Below the HARD "
         "floor the metric short-circuits to NaN.",
         WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE: "Rectangular-kernel HAC variance-of-mean came out "
@@ -314,11 +314,11 @@ _WARNING_DESCRIPTIONS.update(
         WarningCode.SINGLE_ASSET_EVENT_DATA: "Single-asset event-shaped data (TIMESERIES + SPARSE, n_assets=1): "
         "event-axis metrics run over the event cross-section (n_events) and are "
         "usable on a single name. Metrics that need the asset cross-section — "
-        "same-date event clustering (clustering_hhi) is degenerate at one "
-        "event per date — need n_assets>=2 and are unavailable. Do not pool "
+        "same-period event clustering (clustering_hhi) is degenerate at one "
+        "event per period — need n_assets>=2 and are unavailable. Do not pool "
         "unrelated assets to clear this; that mixes return-generating processes.",
         WarningCode.EXCESSIVE_PERIOD_DROPS: "An upstream PANEL→SERIES primitive dropped more than "
-        "DROP_RATE_WARN_THRESHOLD of dates at its cross-sectional filter; the "
+        "DROP_RATE_WARN_THRESHOLD of periods at its cross-sectional filter; the "
         "metric was computed on a shortened sample. Exact counts are in "
         "MetricResult.metadata (n_periods_in / n_periods_out / dropped_periods / "
         "drop_rate / drop_reason).",

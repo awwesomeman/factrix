@@ -1,7 +1,7 @@
 r"""Fama-MacBeth regression — the mainstream metric for the
 ``Individual × Continuous`` cell.
 
-``compute_fm_betas``: per-date cross-sectional ordinary least squares (OLS) → ``{factor: (date, beta, n_assets) DataFrame}``.
+``compute_fm_betas``: per-period cross-sectional ordinary least squares (OLS) → ``{factor: (date, beta, n_assets) DataFrame}``.
 ``fm_beta``: Newey-West t-test on the beta series.
 ``pooled_beta``: pooled OLS with clustered SE by date.
 ``fm_beta_sign_consistency``: fraction of periods with correct beta sign.
@@ -10,7 +10,7 @@ $\lambda$ is a single-factor, single-regressor slope re-run independently
 per factor — not a jointly-estimated Barra/APT factor return.
 
 Notes:
-    **Pipeline.** Per-date cross-sectional OLS slope $\lambda$
+    **Pipeline.** Per-period cross-sectional OLS slope $\lambda$
     (cross-section step) → time series of $\lambda$, then Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) $t$
     on its mean; pooled OLS variant clusters SE by date.
 
@@ -75,12 +75,12 @@ _FM_CELL = cell(
     structure=DataStructure.PANEL,
 )
 
-# Slice-test contract: Fama-MacBeth runs a per-date
+# Slice-test contract: Fama-MacBeth runs a per-period
 # OLS regression on the cross-section, not a bucket sort, so slice
 # tests never need to downscale `n_groups`. Sample-size constraints
 # (T < HARD short-circuit, T < WARN warning) live in the procedure
 # below; the cross-section minimum per regression is enforced inside
-# the per-date OLS rather than via this attribute.
+# the per-period OLS rather than via this attribute.
 min_assets_per_group: int | None = None
 per_date_series = per_date_series_rename("beta")
 
@@ -94,7 +94,7 @@ MIN_FM_PERIODS_WARN: int = 30
 
 
 def _min_fm_assets(beta_df: pl.DataFrame) -> int | None:
-    """Minimum per-date FM cross-section size carried by ``compute_fm_betas``."""
+    """Minimum per-period FM cross-section size carried by ``compute_fm_betas``."""
     if "n_assets" not in beta_df.columns:
         return None
     min_assets = beta_df["n_assets"].min()
@@ -109,7 +109,7 @@ def _surface_fm_asset_warning(
     *,
     expected_warnings: tuple[str, ...] = (),
 ) -> None:
-    """Surface thin per-date FM cross-sections without blocking the result.
+    """Surface thin per-period FM cross-sections without blocking the result.
 
     The structured ``FEW_ASSETS`` code is always attached — it is the
     record. A caller who declared the code via
@@ -128,7 +128,7 @@ def _surface_fm_asset_warning(
     if code not in expected_warnings:
         warnings.warn(
             f"{metric_name}: min_assets_per_period={min_assets_per_period} below "
-            f"MIN_FM_ASSETS_WARN={MIN_FM_ASSETS_WARN}; per-date FM beta is "
+            f"MIN_FM_ASSETS_WARN={MIN_FM_ASSETS_WARN}; per-period FM beta is "
             "computable but the cross-section is thin. value is returned but read "
             "it cautiously.",
             UserWarning,
@@ -305,7 +305,7 @@ def fm_beta(
     if beta_autocorr > PERSISTENT_SERIES_AUTOCORR:
         warning_codes.append(WarningCode.SERIAL_CORRELATION_DETECTED.value)
         warnings.warn(
-            f"fm_beta: the per-date beta series has lag-1 autocorrelation "
+            f"fm_beta: the per-period beta series has lag-1 autocorrelation "
             f"{beta_autocorr:.2f} (> {PERSISTENT_SERIES_AUTOCORR}). No HAC "
             f"path is calibrated in this regime — Newey-West rejects 13–17% at a "
             f"nominal 5% for phi=0.6 and ~30% at 0.85 — so read the p-value "
@@ -546,7 +546,7 @@ def pooled_beta(
     HAC SE — robust to **arbitrary contemporaneous cross-sectional
     correlation** rather than only the within-cluster dependence a
     one-way cluster captures. On small, cross-sectionally correlated
-    panels a date-clustered SE treats periods as independent and so
+    panels a period-clustered SE treats periods as independent and so
     understates SE / inflates significance; DK closes that gap by HAC-ing
     the cross-sectional score sums over time. The clustered path stays
     the default; the chosen SE method is recorded in
@@ -852,9 +852,9 @@ def fm_beta_sign_consistency(
     expected_sign: int = 1,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
-    r"""Fraction of FM per-date $\beta$s carrying the expected sign — ``value`` $= \mathrm{mean}_t \mathbb{1}\{\mathrm{sign}(\beta_t) = s^\star\}$.
+    r"""Fraction of FM per-period $\beta$s carrying the expected sign — ``value`` $= \mathrm{mean}_t \mathbb{1}\{\mathrm{sign}(\beta_t) = s^\star\}$.
 
-    $\beta_t$ is the per-date ordinary least squares (OLS) $\beta$ from ``compute_fm_betas``.
+    $\beta_t$ is the per-period ordinary least squares (OLS) $\beta$ from ``compute_fm_betas``.
     Range $[0, 1]$; $1.0$ = $\beta$ always has the expected sign across
     periods. Unlike ``common_beta_sign_consistency`` (which symmetrizes via
     $\max(p, 1-p)$ where $p$ is the positive-sign fraction), this one is directional —
@@ -872,7 +872,7 @@ def fm_beta_sign_consistency(
         pandas-equivalent behaviour.
 
         ``value`` $= \mathrm{mean}_t \mathbb{1}\{\mathrm{sign}(\beta_t) = s^\star\}$
-        over the FM per-date beta series. Range $[0, 1]$; $1.0$ = beta
+        over the FM per-period beta series. Range $[0, 1]$; $1.0$ = beta
         always agrees with the prior. Descriptive (no formal $H_0$);
         pair with ``fm_beta`` for inferential significance.
 

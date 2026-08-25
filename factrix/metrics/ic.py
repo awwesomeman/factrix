@@ -1,7 +1,7 @@
 """IC (Information Coefficient) computation for cross-sectional panels.
 
 Notes:
-    **Pipeline.** Per-date Spearman rank IC (cross-section step) → IC
+    **Pipeline.** Per-period Spearman rank IC (cross-section step) → IC
     time series, then non-overlapping cross-asset t or Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) t on its
     mean; the regime variant slices the same pipeline.
 
@@ -71,9 +71,9 @@ _IC_CELL = cell(
     structure=DataStructure.PANEL,
 )
 
-# Slice-test contract: IC is per-date Spearman rank
+# Slice-test contract: IC is per-period Spearman rank
 # correlation, not a bucketed metric — slice tests never need to
-# downscale `n_groups`. The min-cross-section-per-date hard constraint lives in
+# downscale `n_groups`. The min-cross-section-per-period hard constraint lives in
 # ``compute_ic`` as ``MIN_IC_ASSETS_HARD``; the reliability floor is surfaced by
 # consumers as ``MIN_IC_ASSETS_WARN`` / ``FEW_ASSETS``.
 min_assets_per_group: int | None = None
@@ -92,7 +92,7 @@ applicable_inference: frozenset[NonOverlapping | NeweyWest | StationaryBootstrap
 
 
 def _median_tie_ratio(ic_df: pl.DataFrame) -> float:
-    """Median of the per-date ``tie_ratio`` column, or ``nan`` if absent/empty."""
+    """Median of the per-period ``tie_ratio`` column, or ``nan`` if absent/empty."""
     if "tie_ratio" not in ic_df.columns:
         return float("nan")
     med = ic_df["tie_ratio"].median()
@@ -124,7 +124,7 @@ def _warn_if_high_ic_tie_ratio(ic_df: pl.DataFrame, metric_name: str) -> float:
 
 
 def _min_ic_assets(ic_df: pl.DataFrame) -> int | None:
-    """Minimum surviving per-date valid-pair asset count, if available."""
+    """Minimum surviving per-period valid-pair asset count, if available."""
     if "n_assets" not in ic_df.columns or ic_df.is_empty():
         return None
     min_assets = ic_df["n_assets"].min()
@@ -158,7 +158,7 @@ def _warn_if_few_ic_assets(
     if code not in expected_warnings:
         _warnings.warn(
             f"{metric_name}: min_assets_per_period={min_assets_per_period} below "
-            f"MIN_IC_ASSETS_WARN={MIN_IC_ASSETS_WARN}; per-date IC is computable "
+            f"MIN_IC_ASSETS_WARN={MIN_IC_ASSETS_WARN}; per-period IC is computable "
             "but the cross-section is thin. value is returned but read it cautiously.",
             UserWarning,
             stacklevel=2,
@@ -182,7 +182,7 @@ def _ic_sample_threshold(self: MetricBase) -> SampleThreshold:
 
 
 def _ic_shortfall_is_asset_driven(ic_df: pl.DataFrame, raw_min: int) -> bool:
-    """True when a thin/empty IC series reflects too few *assets per date*.
+    """True when a thin/empty IC series reflects too few *assets per period*.
 
     ``compute_ic`` drops any date whose valid (factor, return) cross-section is
     below ``MIN_IC_ASSETS_HARD``, so a series that falls under the periods floor is
@@ -190,7 +190,7 @@ def _ic_shortfall_is_asset_driven(ic_df: pl.DataFrame, raw_min: int) -> bool:
     a genuine shortage of dates. Naming the failure by its real axis follows the
     dimension-token grammar used across the drop-rate schema.
 
-    - A readable carrier (thin frame) is asset-driven when the per-date floor
+    - A readable carrier (thin frame) is asset-driven when the per-period floor
       dropped dates (``dropped_periods > 0``) and enough raw dates entered
       (``n_periods_in >= raw_min``) — i.e. the drop, not a short panel, is what
       pushed the series under the floor.
@@ -241,7 +241,7 @@ def ic(
         MetricResult with value=mean IC and the inference method's t/p.
 
     Notes:
-        Given the per-date IC series $\mathrm{IC}_t$, $H_0:
+        Given the per-period IC series $\mathrm{IC}_t$, $H_0:
         \mathbb{E}[\mathrm{IC}] = 0$. The non-overlapping path strides the
         series at ``forward_periods`` (discarding $h-1$ of every $h$
         observations) to avoid the lag floor implied by overlapping
@@ -309,7 +309,7 @@ def ic(
                 hint=(
                     "every cross-section has fewer than MIN_IC_ASSETS_HARD valid "
                     "(factor, return) pairs or a degenerate (constant) factor / "
-                    "return, so no per-date IC survived. IC "
+                    "return, so no per-period IC survived. IC "
                     "needs a wide cross-section; for few-asset panels (e.g. "
                     "asset allocation) use a time-series metric such as "
                     "directional_hit_rate or common_quantile_spread."
@@ -418,7 +418,7 @@ def ic_ir(
 
     Notes:
         $\mathrm{ICIR} = \mathrm{mean}(\mathrm{IC}) / \mathrm{std}(\mathrm{IC})$
-        over the per-date IC series — a Sharpe-style ratio describing
+        over the per-period IC series — a Sharpe-style ratio describing
         time-series stability of the density. Reported as a descriptive
         statistic; no inference is attached because the significance test
         on $\mathrm{mean}(\mathrm{IC})$ lives in ``ic`` (optionally with

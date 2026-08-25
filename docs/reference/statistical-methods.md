@@ -42,7 +42,7 @@ The five sections are the only first-class disciplines in factrix:
     no annualisation factor, no trading-day constant and no date
     arithmetic anywhere in the library, so `forward_periods=5` is five days
     on a daily panel and five months on a monthly one. Where a docstring
-    says "one period" it means one row; "within-date" means "among the rows
+    says "one period" it means one row; "within-period" means "among the rows
     sharing one timestamp", whatever that timestamp's granularity. The
     caller owns frequency consistency between the factor, the return and
     the price column — see
@@ -228,7 +228,7 @@ intended as a diagnostic, not a hypothesis test.
 ## 3. Robust scale and outlier handling
 
 factrix preprocesses cross-sectional factor exposures with
-**MAD-based winsorisation**: per date, clip values to
+**MAD-based winsorisation**: per period, clip values to
 $\text{median} \pm k \cdot \mathrm{MAD} \cdot 1.4826$. The $1.4826$ factor restores Gaussian
 consistency of the median absolute deviation as a scale estimator
 ([Hampel 1974][hampel-1974] is the canonical reference popularising
@@ -328,15 +328,15 @@ assumption about the cross-event distribution:
 ### CAAR cross-event t
 [](){ #caar-cross-event-t }
 
-Default for `caar`. Per event date, take the cross-sectional mean of
+Default for `caar`. Per event period, take the cross-sectional mean of
 $\text{return} \times \text{factor}$ across event rows; the resulting
 CAAR series is greedily subsampled by `date_ordinal` so consecutive
-kept event dates are at least `forward_periods` calendar periods apart,
+kept event periods are at least `forward_periods` calendar periods apart,
 then tested with a standard $t$ on the sampled mean. `n_obs` is the
-non-overlap event-date count, not the raw event count or full calendar
+non-overlap event-period count, not the raw event count or full calendar
 length. Specification follows [Brown-Warner 1985][brown-warner-1985].
 The test is correctly sized under no event-induced variance; under variance
-inflation around the event date it is mis-specified — the documented
+inflation around the event period it is mis-specified — the documented
 motivation for switching to the BMP-style estimator below.
 
 ### BMP standardised AR
@@ -357,17 +357,17 @@ when the textbook form is required.
 [](){ #corrado-rank }
 
 `corrado_rank`. Replaces returns with their uniform rank within
-the (estimation ∪ event) window, averages each event date's ranks into
-one observation, then runs the $z$ on that event-date series
+the (estimation ∪ event) window, averages each event period's ranks into
+one observation, then runs the $z$ on that event-period series
 ([Corrado 1989][corrado-1989]). Robust to extreme returns,
-non-normality, cross-asset heteroscedasticity, and **same-date event
+non-normality, cross-asset heteroscedasticity, and **same-period event
 clustering** — the last because collapsing each date first puts the
-within-date correlation into the denominator, which is what makes this
+within-period correlation into the denominator, which is what makes this
 the honest fallback when `clustering_hhi` says `caar`'s $t$ cannot be
-trusted. `n_obs` therefore counts event *dates*, and a factor firing on
-fewer than `MIN_EVENTS_HARD` dates short-circuits rather than estimating
+trusted. `n_obs` therefore counts event *periods*, and a factor firing on
+fewer than `MIN_EVENTS_HARD` periods short-circuits rather than estimating
 a time-series SD from a handful of points — the same floor `caar` applies
-to its own event-date series.
+to its own event-period series.
 
 factrix adds the direction adjustment of
 [Corrado-Zivney 1992][corrado-zivney-1992] for two-sided signed signals —
@@ -377,9 +377,9 @@ aggregation, not the underlying return.
 The denominator follows the *intent* of Corrado's eq. (5) (time-series SD
 of a cross-sectional mean) rather than its literal form: Corrado's design
 is event-time aligned so every date's cross-section is the full universe,
-whereas a calendar-time sparse panel has thin event dates against full
-non-event ones. Taking the SD over all dates there would understate the
-relevant dispersion several-fold, so it is taken over the event-date
+whereas a calendar-time sparse panel has thin event periods against full
+non-event ones. Taking the SD over all periods there would understate the
+relevant dispersion several-fold, so it is taken over the event-period
 series, whose scale matches the numerator by construction.
 
 ## 6. Known simplifications (deliberately retained)
@@ -388,13 +388,13 @@ One estimator takes a documented shortcut over the textbook form. It is
 intentional and has been reviewed; this section records the trade-off so the
 choice is not re-litigated.
 
-### Within-date clustering: ANOVA ICC(1) and the design-effect deflator
+### Within-period clustering: ANOVA ICC(1) and the design-effect deflator
 
 `_estimate_within_date_icc` (feeds the clustering deflation in `bmp_z` and
 `directional_hit_rate`) is the one-way random-effects ANOVA estimator
 $\hat r = (\text{MSB} - \text{MSW}) / (\text{MSB} + (n_0 - 1)\,\text{MSW})$
 ([Shrout-Fleiss 1979][shrout-fleiss-1979] ICC(1), Donner-Koval $n_0$ for
-unbalanced dates), clipped to $[0, 1]$. An earlier version used the raw
+unbalanced periods), clipped to $[0, 1]$. An earlier version used the raw
 between/total ratio $\operatorname{Var}(\bar x_d) / (\operatorname{Var}(\bar x_d) +
 \hat\sigma^2_w)$; because $\mathbb{E}[\operatorname{Var}(\bar x_d)] = \sigma^2_b +
 \sigma^2_w / n$, that ratio converges to $1/(n+1)$ under **independence** and
@@ -406,7 +406,7 @@ The deflator itself is the Kish design effect $1/\sqrt{1 + (n_0 - 1)\hat r}$,
 i.e. [Kolari-Pynnönen 2010][kolari-pynnonen-2010] **without** the $(1 - \bar r)$
 numerator. K-P's numerator corrects a cross-sectional variance estimated on a
 *single* event day (which under clustering estimates only $\sigma^2(1 - \bar
-r)$). factrix pools SARs / hit indicators across many event dates, so the pooled
+r)$). factrix pools SARs / hit indicators across many event periods, so the pooled
 variance already contains the between-date component; applying $(1 - \bar r)$
 on top would double-count. Choosing the design-effect form is the
 engine-specific decision; the textbook K-P form is correct for the single-day
@@ -462,9 +462,9 @@ that df were each measured; none calibrates the iid short-slice case
 size sweep tracker). The function warns in this regime and the
 characterisation test pins the measured band; pairwise contrasts on the
 same slices (5–6%) are the better-calibrated read.
-### Persistent per-date series: no HAC or bootstrap path is calibrated
+### Persistent per-period series: no HAC or bootstrap path is calibrated
 
-Every mean test on a per-date series (`ic` under any inference member,
+Every mean test on a per-period series (`ic` under any inference member,
 the spread metrics, `fm_beta`) is measured on a true null against the
 series' own persistence (`build_autocorrelated_ic_panel`, nominal 5%):
 
@@ -558,9 +558,9 @@ propagates through a mean, ranks above every finite value, and compares
 event). pandas users are used to `skipna=True` hiding this; there is no such
 switch in polars, so factrix fixes one convention across the library:
 
-1. **Producers drop and record.** A per-date primitive (`compute_ic`,
+1. **Producers drop and record.** A per-period primitive (`compute_ic`,
    `compute_caar`, the quantile bucketing, the beta primitives) drops a
-   non-finite input row or an undefined per-date statistic (e.g. the
+   non-finite input row or an undefined per-period statistic (e.g. the
    Spearman $\rho$ of a constant cross-section, which `pl.corr` returns as
    NaN) at the boundary, and reports the count through `_drop_stats` /
    `n_*_dropped` metadata so the shrinkage is visible.

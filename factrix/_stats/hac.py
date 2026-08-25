@@ -98,7 +98,7 @@ def _newey_west_se(
 ) -> float:
     """Newey-West standard error of a series mean.
 
-    What it does for a factor test: a per-date IC (or spread, or beta)
+    What it does for a factor test: a per-period IC (or spread, or beta)
     series that trends or moves in regimes has fewer independent
     observations than its length suggests, so a naive ``mean / (sd / √n)``
     overstates the evidence. This SE widens with the series' serial

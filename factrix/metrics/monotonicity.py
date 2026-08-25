@@ -1,13 +1,13 @@
 """Monotonicity test for cross-sectional panels.
 
 Measures whether factor quantile groups exhibit monotonic return ordering.
-Per-date: split into n_groups by factor rank, compute mean return per group,
+Per-period: split into n_groups by factor rank, compute mean return per group,
 Spearman corr between group index and return.
 
 Notes:
-    **Pipeline.** Per-date Spearman corr between quantile index and
+    **Pipeline.** Per-period Spearman corr between quantile index and
     group mean return (cross-section step), then non-overlapping
-    cross-asset t on the per-date series.
+    cross-asset t on the per-period series.
 
     **Input.** DataFrame with ``date, asset_id, factor, forward_return``.
 """
@@ -52,7 +52,7 @@ __all__ = [
 # Slice-test contract: monotonicity buckets the
 # cross-section into `n_groups` (default 10) and computes Spearman ρ
 # across per-bucket means. Patton & Timmermann (2010) "Monotonicity
-# in Asset Returns" recommend ≥ 50 assets per bucket so the per-date
+# in Asset Returns" recommend ≥ 50 assets per bucket so the per-period
 # bucket means converge to their cross-sectional expectation; below
 # this floor individual-asset noise dominates the rank statistic.
 # `_downscale_n_groups(base, n_assets, min_assets_per_group=50)` caps
@@ -67,7 +67,7 @@ min_assets_per_group: int | None = 50
     aggregation=Aggregation.CS_THEN_TS,
     batchable=True,
     # Periods floor scales with the non-overlap stride (see ``quantile``): the
-    # per-date Spearman series is sub-sampled at ``forward_periods``, so
+    # per-period Spearman series is sub-sampled at ``forward_periods``, so
     # pre-flight and the in-body gate share ``MIN_MONOTONICITY_PERIODS_HARD`` +
     # ``_scaled_min_periods``.
     sample_threshold=_scaled_periods_threshold(MIN_MONOTONICITY_PERIODS_HARD),
@@ -261,7 +261,7 @@ def _compute_tie_ratios_batch(
     The single-factor :func:`_compute_tie_ratio` runs a separate polars
     aggregation per factor; this batches them into one ``group_by("date")`` so
     the sampled panel is scanned once for any number of factors. The tie ratio
-    is **per date** then median-reduced — the same statistic the single-factor
+    is **per period** then median-reduced — the same statistic the single-factor
     helper returns. Computing it globally (``n_unique`` / ``len`` over the whole
     frame) would conflate cross-sectional ties with values merely repeating
     across dates, inflating the ratio toward 1 and tripping spurious
@@ -269,14 +269,14 @@ def _compute_tie_ratios_batch(
     """
     if not factor_cols:
         return {}
-    per_date = data.group_by("date").agg(
+    per_period = data.group_by("date").agg(
         pl.len().alias("_n"),
         *[pl.col(f).n_unique().alias(f"_u__{f}") for f in factor_cols],
     )
-    # ``median`` over the (possibly empty) per-date ratio yields ``None`` on an
+    # ``median`` over the (possibly empty) per-period ratio yields ``None`` on an
     # empty frame, which maps to ``nan`` below — the same empty-panel contract as
     # the single-factor :func:`_compute_tie_ratio`, no separate guard needed.
-    medians = per_date.select(
+    medians = per_period.select(
         (1.0 - pl.col(f"_u__{f}") / pl.col("_n")).median().alias(f"_tr__{f}")
         for f in factor_cols
     ).row(0, named=True)

@@ -43,7 +43,7 @@ def compute_spread_series(
     return_col: str = "forward_return",
     tie_policy: str = "ordinal",
 ) -> dict[str, pl.DataFrame]:
-    """Per-date long-short spread series (non-overlapping).
+    """Per-period long-short spread series (non-overlapping).
 
     Top bucket = highest factor rank; bottom bucket = lowest. Labels use
     ``top_return`` / ``bottom_return`` rather than ``q1_return`` /

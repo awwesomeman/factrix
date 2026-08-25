@@ -377,7 +377,7 @@ def compute_rolling_common_beta(
 ) -> pl.DataFrame:
     """Rolling-window mean β across assets — time-series input for out-of-sample (OOS) / trend.
 
-    Formula (per date t ≥ ``window``):
+    Formula (per period t ≥ ``window``):
         For each asset i, take the trailing window of dates
         ``[dates[i - window], dates[i - 1]]`` — the ``window`` dates
         **strictly before** t; date t itself is excluded.
@@ -455,7 +455,7 @@ def compute_rolling_common_beta(
     # enough — polars keeps float NaN. The trailing date window for each
     # ``t`` is the closed interval ``[dates[i-window], dates[i-1]]`` — every
     # asset row whose date lands in it, located by ``searchsorted`` on the
-    # asset's sorted dates — which replaces the per-date ``is_in`` filter and the
+    # asset's sorted dates — which replaces the per-period ``is_in`` filter and the
     # per-asset ``asset_id ==`` filter the loop used to run.
     valid = data.filter(_finite_expr(factor_col) & _finite_expr(return_col))
     asset_arrays: dict[object, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}

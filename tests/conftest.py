@@ -83,7 +83,7 @@ def make_result(
 def tiny_panel() -> pl.DataFrame:
     """3 dates × 5 assets, perfect monotonic factor-return alignment.
 
-    IC = 1.0 per date, monotonicity = 1.0, spread hand-computable.
+    IC = 1.0 per period, monotonicity = 1.0, spread hand-computable.
     """
     dates = [datetime(2024, 1, 1) + timedelta(weeks=i) for i in range(3)]
     assets = ["A", "B", "C", "D", "E"]

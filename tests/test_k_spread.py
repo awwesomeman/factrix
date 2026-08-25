@@ -33,8 +33,8 @@ def _panel_from_matrix(factor: np.ndarray, returns: np.ndarray) -> pl.DataFrame:
 def _expected_spread(factor: np.ndarray, returns: np.ndarray, k: int) -> float:
     top_idx = np.argsort(factor)[-k:]
     bot_idx = np.argsort(factor)[:k]
-    per_date = returns[:, top_idx].mean(axis=1) - returns[:, bot_idx].mean(axis=1)
-    return float(per_date.mean())
+    per_period = returns[:, top_idx].mean(axis=1) - returns[:, bot_idx].mean(axis=1)
+    return float(per_period.mean())
 
 
 class TestSpreadComputation:
@@ -190,7 +190,7 @@ class TestUnderfilledDatesDropped:
         assert result.n_obs == 3  # only the three 6-asset dates
 
     def test_null_factor_rows_excluded_from_leg_count(self):
-        # Null factor/return rows must not inflate the per-date count: a date
+        # Null factor/return rows must not inflate the per-period count: a date
         # with 5 valid names (≥ 2k=4) still qualifies, and ranks stay
         # contiguous so the bottom leg is not silently emptied.
         rows = []
@@ -381,7 +381,7 @@ class TestSmallCrossSectionKeying:
     def test_rotating_universe_still_counts_as_thin(self):
         from factrix._codes import WarningCode
 
-        """12 names per date, 720 distinct asset_ids over the sample.
+        """12 names per period, 720 distinct asset_ids over the sample.
 
         The advisory used to read ``asset_id.n_unique()`` over the whole panel
         (720 -> "wide", no warning); the thin-cross-section rationale is per
