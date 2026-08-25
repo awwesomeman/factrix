@@ -94,44 +94,39 @@ def _newey_west_se(
     lags: int | None = None,
     forward_periods: int | None = None,
     *,
-    prewhiten: bool = True,
+    prewhiten: bool = False,
 ) -> float:
-    """Standard error of a series mean that accounts for serial correlation.
+    """Newey-West standard error of a series mean.
 
     What it does for a factor test: a per-date IC (or spread, or beta)
     series that trends or moves in regimes has fewer independent
     observations than its length suggests, so a naive ``mean / (sd / √n)``
-    overstates the evidence. This SE widens with the series' persistence
-    so the resulting t / p reflect the information actually in the sample.
+    overstates the evidence. This SE widens with the series' serial
+    correlation so the resulting t / p reflect the information actually
+    in the sample. Bartlett kernel weights ``w_j = 1 - j/(L+1)``, the
+    convention factor-research papers report against.
 
-    Mechanics: Bartlett kernel weights ``w_j = 1 - j/(L+1)`` on the
-    AR(1)-**prewhitened** series ([Andrews-Monahan (1992)][andrews-monahan-1992])
-    — fit ``x_t = φ x_{t-1} + e_t`` on the demeaned series, run the Bartlett
-    sum on ``e``, and recolour the long-run variance by ``1 / (1 - φ̂)²``.
-    Prewhitening removes the dominant trend component before the kernel
-    sees it, which is what the plain estimate gets wrong on persistent
-    input.
+    Known limit — measured, disclosed, not corrected by default: at the
+    sample sizes factor research works with, the Bartlett estimate
+    understates the long-run variance of a *persistent* series (AR(0.6):
+    50% of the truth at ``n = 50``, 61% at ``n = 150``; mean test rejects
+    11–21% at a nominal 5%). Above lag-1 autocorrelation 0.3 the tested
+    series is flagged ``SERIAL_CORRELATION_DETECTED`` so the regime is
+    never silent (see ``PERSISTENT_SERIES_AUTOCORR``).
 
-    Why prewhiten. The plain Bartlett estimate at the automatic bandwidth
-    understates the long-run variance of a persistent series badly in the
-    sample sizes factor research works with — measured on an AR(0.6) series
-    it recovers 50% of the truth at ``n = 50`` and 61% at ``n = 150``, and the
-    resulting mean test rejects 11–21% at a nominal 5%. Prewhitening removes
-    the dominant AR(1) component before the kernel sees it: on the same
-    series 93–97% of the truth is recovered and the test sits at 5–8%. On
-    iid input the two agree (0.92 vs 0.93 at ``n = 50``), and on real
-    overlapping forward-return IC series they are indistinguishable
-    (5–9% either way), so the change is confined to the regime it targets.
-    On a realistic persistent IC series — where the AR(1) fit is only an
-    approximation — it halves the excess rather than removing it (measured
-    33% → 16% at φ ≈ 0.85), which is why ``SERIAL_CORRELATION_DETECTED``
-    still fires there.
-
-    The multivariate ``_nw_hac_vector_mean`` and the regression kernels
-    ``_ols_nw_slope_t`` / ``_ols_nw_multivariate`` are *not* prewhitened:
-    a vector series needs a VAR(1) fit and regression scores a different
-    derivation, and neither has been measured. ``statistical-methods``
-    section 6 records the asymmetry.
+    ``prewhiten=True`` applies [Andrews-Monahan (1992)][andrews-monahan-1992]
+    AR(1) prewhitening — fit ``x_t = φ x_{t-1} + e_t`` on the demeaned
+    series, run the Bartlett sum on ``e``, recolour by ``1 / (1 - φ̂)²``
+    with ``φ̂`` clipped to ±0.97. It recovers 93–97% of the AR(0.6)
+    long-run variance and brings the pure-AR(1) mean test back to its iid
+    baseline, at no cost on iid or real overlapping input. It is *not* the
+    default: factor-research convention is plain Newey-West, matching
+    published numbers is a core use of this library, and R's
+    ``sandwich::NeweyWest`` is the only mainstream tool that defaults it
+    on (statsmodels and Stata do not). The flag exists so the
+    characterisation tests and ``statistical-methods`` section 6 can pin
+    what prewhitening would and would not buy; every library path uses
+    the default.
 
     Args:
         values: 1-D array of time series observations.
@@ -140,14 +135,13 @@ def _newey_west_se(
             enforces ``lags >= forward_periods - 1`` — the minimum
             consistent bandwidth for overlapping h-period returns
             ([Hansen-Hodrick (1980)][hansen-hodrick-1980] MA(h-1) structure).
-        prewhiten: ``False`` gives the plain Bartlett estimate. Exists for
-            the characterisation tests that pin the difference; every
-            library path uses the default.
+        prewhiten: Andrews-Monahan AR(1) prewhitening. Off by default;
+            see above.
 
     Returns:
         HAC-adjusted standard error of the mean. ``0.0`` for ``n < 2``; a
-        series too short to fit the AR(1) (``n < 4``) falls back to plain
-        Bartlett.
+        series too short to fit the AR(1) (``n < 4``) uses plain Bartlett
+        even when ``prewhiten=True``.
     """
     values = _require_finite(values, "_newey_west_se")
     n = len(values)

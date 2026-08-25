@@ -96,10 +96,7 @@ class TestNWHACVectorMean:
 
         rng = np.random.default_rng(seed=3)
         x = rng.standard_normal(200)
-        # The vector kernel is NOT prewhitened (documented asymmetry: a
-        # vector series needs a VAR(1) fit, unmeasured), so the identity is
-        # with the plain Bartlett scalar estimate.
-        se = _newey_west_se(x, prewhiten=False)
+        se = _newey_west_se(x)
         _, V = _nw_hac_vector_mean(x.reshape(-1, 1))
         assert V[0, 0] == pytest.approx(se * se, rel=1e-12)
 

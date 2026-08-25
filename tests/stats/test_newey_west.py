@@ -55,26 +55,20 @@ class TestNewyWestTForwardPeriods:
         se_h20 = _newey_west_se(x, forward_periods=20)
         assert se_h20 > se_default
 
-    def test_forward_periods_floor_lowers_t_on_plain_bartlett(self):
-        """Overlap-aware lag inflates the plain Bartlett SE → |t| shrinks.
-
-        Asserted on ``prewhiten=False``: the property is about the bandwidth
-        floor. Once the AR(1) component is prewhitened out of a random walk
-        the residual carries almost no autocorrelation left for a longer
-        bandwidth to pick up, so the floor is near-inert there by design.
-        """
+    def test_t_test_forward_periods_lowers_t(self):
+        """Overlap-aware lag inflates SE → |t| shrinks on autocorrelated data."""
         rng = np.random.default_rng(0)
         x = np.cumsum(rng.standard_normal(200)) * 0.05 + 0.02
-        se_naive = _newey_west_se(x, prewhiten=False)
-        se_hac = _newey_west_se(x, forward_periods=20, prewhiten=False)
-        assert se_hac >= se_naive - 1e-12
+        t_naive, _, _ = _newey_west_t_test(x)
+        t_hac, _, _ = _newey_west_t_test(x, forward_periods=20)
+        assert abs(t_hac) <= abs(t_naive) + 1e-9
 
     def test_prewhitening_widens_se_on_a_persistent_series(self):
-        """Andrews-Monahan recolouring recovers the long-run variance the
-        Bartlett kernel truncates away on a near-unit-root series."""
+        """Opt-in Andrews-Monahan recolouring recovers the long-run variance
+        the Bartlett kernel truncates away on a near-unit-root series."""
         rng = np.random.default_rng(0)
         x = np.cumsum(rng.standard_normal(200)) * 0.05 + 0.02
-        assert _newey_west_se(x) > _newey_west_se(x, prewhiten=False)
+        assert _newey_west_se(x, prewhiten=True) > _newey_west_se(x)
 
 
 class TestRejectsNonFinite:

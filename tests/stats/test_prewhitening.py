@@ -1,4 +1,4 @@
-"""Andrews-Monahan prewhitening in ``_newey_west_se`` — characterisation.
+"""Andrews-Monahan prewhitening in ``_newey_west_se`` (opt-in flag) — characterisation.
 
 Bands are the *measured* values (kernel-level, 3000 draws when they were
 set), not ``<= nominal``: the point is that a change to the kernel in either
