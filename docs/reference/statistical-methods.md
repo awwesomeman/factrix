@@ -488,12 +488,32 @@ Measured but deliberately **not** adopted: the Newey-West (1994) plug-in
 bandwidth (worse than the fixed rule on iid input), longer Bartlett
 bandwidths (no change on real overlapping series), and the Hansen-Hodrick
 flat kernel (matches NW on real overlapping series; no PSD guarantee).
-Andrews-Monahan (1992) AR(1) prewhitening is the one kernel change the
-measurements support — on pure AR(1) input it brings NW back to its
-iid baseline (φ = 0.85: 29% → 9–11%), and on the realistic IC fixture it
-halves the excess (33% → 16%) with no cost on iid or overlapping input.
-It changes every HAC *t* in the library and is tracked as a separate
-decision.
+**Adopted:** [Andrews-Monahan (1992)][andrews-monahan-1992] AR(1)
+prewhitening inside `_newey_west_se` — the univariate mean-SE kernel
+behind `NEWEY_WEST` (`ic`, the spread metrics) and `fm_beta`. Measured
+against the plain Bartlett estimate (nominal 5%):
+
+| input | n | plain Bartlett | prewhitened |
+|---|---|---|---|
+| iid | 50 / 240 | 8.3% / 5.9% | 9.3% / 6.0% |
+| AR(0.6), pure | 60 / 240 | 15.6% / 11.5% | 8.4% / 5.0% |
+| AR(0.85), pure | 240 | 27.5–28.9% | 8.9–10.6% |
+| persistent IC fixture, φ≈0.85 | 240 | 32.8% | 15.6% |
+| real overlapping IC, h=5 | 240 / 480 | 5.2% / 8.8% | 5.2% / 8.4% |
+
+Two independent implementations agree on the pure-AR rows. On pure AR(1)
+input prewhitening returns Newey-West to its iid baseline; on the
+realistic persistent-IC fixture — where the AR(1) fit is only an
+approximation to a nonlinearly transformed series — it halves the excess
+rather than removing it, which is why `SERIAL_CORRELATION_DETECTED` still
+fires above φ = 0.3. On iid and real overlapping input the two estimates
+are indistinguishable, so the change is confined to the regime it
+targets. The multivariate `_nw_hac_vector_mean` (period-slice moments)
+and the regression kernels `_ols_nw_slope_t` / `_ols_nw_multivariate`
+(`predictive_beta`, `common_*`, `spanning_alpha`) remain plain Bartlett:
+a vector series needs a VAR(1) fit and regression scores a different
+derivation, and neither has been measured. That asymmetry is deliberate
+and tracked.
 
 ## 7. Missing-value convention (null vs NaN)
 

@@ -64,14 +64,65 @@ def _resolve_nw_lags(
     return max(0, min(base, n - 1))
 
 
+# Andrews-Monahan clip on the AR(1) prewhitening coefficient: at |phi| -> 1 the
+# recolouring factor 1 / (1 - phi)^2 explodes, so the fit is bounded away from
+# the unit root exactly as Andrews & Monahan (1992) recommend.
+_PREWHITEN_PHI_CLIP = 0.97
+
+
+def _ar1_phi(demeaned: np.ndarray) -> float:
+    """Clipped least-squares AR(1) coefficient of an already-demeaned series."""
+    denom = float(np.dot(demeaned[:-1], demeaned[:-1]))
+    if denom < EPSILON:
+        return 0.0
+    phi = float(np.dot(demeaned[1:], demeaned[:-1]) / denom)
+    return float(np.clip(phi, -_PREWHITEN_PHI_CLIP, _PREWHITEN_PHI_CLIP))
+
+
+def _bartlett_long_run_variance(demeaned: np.ndarray, lags: int) -> float:
+    """Bartlett-kernel long-run variance ``γ_0 + 2 Σ w_j γ_j`` of a demeaned series."""
+    n = len(demeaned)
+    weighted_sum = float(np.dot(demeaned, demeaned)) / n
+    for j in range(1, lags + 1):
+        gamma_j = float(np.dot(demeaned[j:], demeaned[:-j])) / n
+        weighted_sum += 2.0 * (1.0 - j / (lags + 1)) * gamma_j
+    return weighted_sum
+
+
 def _newey_west_se(
     values: np.ndarray,
     lags: int | None = None,
     forward_periods: int | None = None,
+    *,
+    prewhiten: bool = True,
 ) -> float:
     """Newey-West HAC standard error for the mean of a time series.
 
-    Uses Bartlett kernel weights: w_j = 1 - j/(L+1).
+    Bartlett kernel weights ``w_j = 1 - j/(L+1)`` on the AR(1)-**prewhitened**
+    series ([Andrews-Monahan (1992)][andrews-monahan-1992]): fit
+    ``x_t = φ x_{t-1} + e_t`` on the demeaned series, run the Bartlett sum on
+    ``e``, and recolour the long-run variance by ``1 / (1 - φ̂)²``.
+
+    Why prewhiten. The plain Bartlett estimate at the automatic bandwidth
+    understates the long-run variance of a persistent series badly in the
+    sample sizes factor research works with — measured on an AR(0.6) series
+    it recovers 50% of the truth at ``n = 50`` and 61% at ``n = 150``, and the
+    resulting mean test rejects 11–21% at a nominal 5%. Prewhitening removes
+    the dominant AR(1) component before the kernel sees it: on the same
+    series 93–97% of the truth is recovered and the test sits at 5–8%. On
+    iid input the two agree (0.92 vs 0.93 at ``n = 50``), and on real
+    overlapping forward-return IC series they are indistinguishable
+    (5–9% either way), so the change is confined to the regime it targets.
+    On a realistic persistent IC series — where the AR(1) fit is only an
+    approximation — it halves the excess rather than removing it (measured
+    33% → 16% at φ ≈ 0.85), which is why ``SERIAL_CORRELATION_DETECTED``
+    still fires there.
+
+    The multivariate ``_nw_hac_vector_mean`` and the regression kernels
+    ``_ols_nw_slope_t`` / ``_ols_nw_multivariate`` are *not* prewhitened:
+    a vector series needs a VAR(1) fit and regression scores a different
+    derivation, and neither has been measured. ``statistical-methods``
+    section 6 records the asymmetry.
 
     Args:
         values: 1-D array of time series observations.
@@ -80,9 +131,14 @@ def _newey_west_se(
             enforces ``lags >= forward_periods - 1`` — the minimum
             consistent bandwidth for overlapping h-period returns
             ([Hansen-Hodrick (1980)][hansen-hodrick-1980] MA(h-1) structure).
+        prewhiten: ``False`` gives the plain Bartlett estimate. Exists for
+            the characterisation tests that pin the difference; every
+            library path uses the default.
 
     Returns:
-        HAC-adjusted standard error of the mean.
+        HAC-adjusted standard error of the mean. ``0.0`` for ``n < 2``; a
+        series too short to fit the AR(1) (``n < 4``) falls back to plain
+        Bartlett.
     """
     values = _require_finite(values, "_newey_west_se")
     n = len(values)
@@ -90,21 +146,19 @@ def _newey_west_se(
         return 0.0
 
     lags = _resolve_nw_lags(n, lags, forward_periods)
+    demeaned = values - float(np.mean(values))
 
-    mean = float(np.mean(values))
-    demeaned = values - mean
+    if prewhiten and n >= 4:
+        phi = _ar1_phi(demeaned)
+        resid = demeaned[1:] - phi * demeaned[:-1]
+        lrv = (
+            _bartlett_long_run_variance(resid, min(lags, len(resid) - 1))
+            / (1.0 - phi) ** 2
+        )
+    else:
+        lrv = _bartlett_long_run_variance(demeaned, lags)
 
-    # γ_0 = Var
-    gamma_0 = float(np.dot(demeaned, demeaned)) / n
-
-    # Weighted autocovariances: γ_j with Bartlett kernel
-    weighted_sum = gamma_0
-    for j in range(1, lags + 1):
-        gamma_j = float(np.dot(demeaned[j:], demeaned[:-j])) / n
-        weight = 1.0 - j / (lags + 1)
-        weighted_sum += 2.0 * weight * gamma_j
-
-    variance_of_mean = max(weighted_sum / n, 0.0)
+    variance_of_mean = max(lrv / n, 0.0)
     return float(np.sqrt(variance_of_mean))
 
 

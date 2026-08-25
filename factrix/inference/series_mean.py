@@ -143,7 +143,7 @@ class NeweyWest:
 
     test: ClassVar[str] = "t"
     se: ClassVar[str | None] = "hac"
-    summary: ClassVar[str] = "Newey-West HAC t-test"
+    summary: ClassVar[str] = "Newey-West HAC t-test (AR(1) prewhitened)"
     min_periods: ClassVar[int] = MIN_PERIODS_WARN
 
     def min_input_periods(self, forward_periods: int) -> int:
@@ -155,6 +155,7 @@ class NeweyWest:
     ) -> InferenceResult:
         from factrix._stats import _newey_west_t_test, _resolve_nw_lags
         from factrix._stats.constants import auto_bartlett
+        from factrix._stats.hac import _ar1_phi
 
         vals = _clean_series(data, value_col).to_numpy()
         n = len(vals)
@@ -179,7 +180,13 @@ class NeweyWest:
         return InferenceResult(
             stat=t_stat,
             p_value=p_value,
-            metadata={"nw_lags": nw_lags},
+            metadata={
+                "nw_lags": nw_lags,
+                # Disclose the prewhitening the SE went through (Andrews-Monahan
+                # 1992); the clipped AR(1) coefficient is what it recoloured by.
+                "prewhitened": True,
+                "ar1_phi_hat": _ar1_phi(vals - vals.mean()) if n >= 4 else 0.0,
+            },
             warnings=warnings,
             estimate=float(vals.mean()) if n else None,
             n_obs=n,

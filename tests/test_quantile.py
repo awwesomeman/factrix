@@ -365,7 +365,7 @@ class TestQuantileSpreadInference:
         nw = quantile_spread(
             panel, forward_periods=5, n_groups=5, inference=fx.inference.NEWEY_WEST
         )["factor"]
-        assert nw.metadata["method"] == "Newey-West HAC t-test"
+        assert nw.metadata["method"] == "Newey-West HAC t-test (AR(1) prewhitened)"
         assert "nw_lags" in nw.metadata
         # HAC keeps every date, so the reported sample IS the full one: n_obs /
         # n_periods must describe the series the test actually ran on, while
@@ -384,7 +384,10 @@ class TestQuantileSpreadInference:
         )["factor"]
         assert nw.metadata["method"] == "block-bootstrap CI"
         assert nw.metadata["inference_overridden"] is True
-        assert nw.metadata["inference_requested"] == "Newey-West HAC t-test"
+        assert (
+            nw.metadata["inference_requested"]
+            == "Newey-West HAC t-test (AR(1) prewhitened)"
+        )
 
     def test_unapplicable_inference_raises_not_silent_fallback(self):
         import factrix as fx

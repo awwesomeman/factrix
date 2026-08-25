@@ -134,7 +134,9 @@ class TestNeweyWest:
         t_direct, p_direct, _ = _newey_west_t_test(series, lags=nw_lags)
         assert result.stat == t_direct
         assert result.p_value == p_direct
-        assert result.metadata == {"nw_lags": nw_lags}
+        assert result.metadata["nw_lags"] == nw_lags
+        assert result.metadata["prewhitened"] is True
+        assert -1.0 < result.metadata["ar1_phi_hat"] < 1.0
 
     def test_short_series_warns(self) -> None:
         series = np.random.default_rng(0).standard_normal(MIN_PERIODS_WARN - 5)

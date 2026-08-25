@@ -63,7 +63,8 @@ class TestHansenHodrickTTest:
         assert clamped is False
         # Cross-check against NW with explicit lags=0 (γ₀-only, no kernel
         # tail) — both reduce to √(γ₀ / n).
-        se_nw = _newey_west_se(x, lags=0)
+        # ``prewhiten=False``: the identity is between the raw γ₀ estimators.
+        se_nw = _newey_west_se(x, lags=0, prewhiten=False)
         se_hh, _ = _hansen_hodrick_se(x, forward_periods=1)
         assert abs(se_nw - se_hh) < 1e-12
         assert abs(t) > 1.0  # mean=0.3, n=150 — clearly non-zero

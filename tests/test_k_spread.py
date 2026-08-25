@@ -257,7 +257,7 @@ class TestInference:
 
         panel = self._ample_panel()
         nw = k_spread(panel, forward_periods=5, k=5, inference=fx.inference.NEWEY_WEST)
-        assert nw.metadata["method"] == "Newey-West HAC t-test"
+        assert nw.metadata["method"] == "Newey-West HAC t-test (AR(1) prewhitened)"
         assert "nw_lags" in nw.metadata
         # HAC keeps every date; the full series is longer than the strided one,
         # and n_obs / n_periods must describe the sample the test ran on.
@@ -273,7 +273,10 @@ class TestInference:
         nw = k_spread(panel, forward_periods=5, k=3, inference=fx.inference.NEWEY_WEST)
         assert nw.metadata["method"] == "block-bootstrap CI"
         assert nw.metadata["inference_overridden"] is True
-        assert nw.metadata["inference_requested"] == "Newey-West HAC t-test"
+        assert (
+            nw.metadata["inference_requested"]
+            == "Newey-West HAC t-test (AR(1) prewhitened)"
+        )
 
     def test_unapplicable_inference_raises_not_silent_fallback(self):
         import factrix as fx
