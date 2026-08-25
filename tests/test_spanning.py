@@ -102,9 +102,34 @@ class TestOLSAlpha:
         assert ols.betas[0] == pytest.approx(2.0, abs=0.1)
         assert ols.r_squared > 0.95
 
-    def test_insufficient_data(self):
+    def test_insufficient_data_is_not_computable(self):
+        """Too short to fit: NaN, not zero.
+
+        ``alpha = 0.0`` would read as "this factor adds exactly nothing",
+        a decisive claim from a fit that never ran.
+        """
+        import math
+
         ols = _ols_alpha(np.array([0.01, 0.02]), np.empty((2, 0)))
-        assert ols.alpha == 0.0 and ols.alpha_t == 0.0
+        assert math.isnan(ols.alpha) and math.isnan(ols.alpha_t)
+
+    def test_collapsed_se_withholds_the_t_not_the_alpha(self):
+        """A perfect fit leaves a real alpha and no t.
+
+        ``np.linalg.lstsq`` does not raise on a rank-deficient design -- it
+        returns a minimum-norm solution -- so the live path here is the
+        collapsed HAC SE, not the LinAlgError branch. A base column that
+        duplicates the intercept still produces an intercept estimate, so
+        the alpha survives while the t is withheld; reporting ``t = 0``
+        would turn that live estimate into a decisive "not significant".
+        """
+        import math
+
+        rng = np.random.default_rng(0)
+        candidate = rng.normal(size=40)
+        ols = _ols_alpha(candidate, np.ones((40, 1)))
+        assert math.isfinite(ols.alpha) and ols.alpha != 0.0
+        assert math.isnan(ols.alpha_t)
 
     def test_df_resid_excludes_base_regressors(self):
         rng = np.random.default_rng(42)
