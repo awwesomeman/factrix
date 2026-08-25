@@ -46,7 +46,7 @@ dev = [
     "pytest-cov==7.1.0",
     "pytest-mock==3.15.1",
     "pre-commit>=4.5.1",
-    "ruff==0.15.21",
+    "ruff==0.16.4",
     "commitizen>=4.10.1",
     "mypy>=1.20",
     "build",
@@ -83,6 +83,13 @@ ignore_missing_imports = true
 target-version = "py312"
 line-length = 88
 src = ["factrix", "tests", "examples", "scripts"]
+# ruff 0.16 began formatting fenced code blocks inside Markdown. This project
+# never opted into that: the docs carry hand-aligned example blocks (README's
+# `raw   = ...` / `data  = ...` pair) and quote styles chosen to read well in
+# prose, and reformatting them is a 58-file cosmetic diff nobody asked for.
+# Python formatting inside *docstrings* is unaffected — that is
+# `docstring-code-format` below.
+extend-exclude = ["*.md"]
 
 [tool.ruff.lint]
 # Mainstream rule set per #52 — pycodestyle (E/W), pyflakes (F),
