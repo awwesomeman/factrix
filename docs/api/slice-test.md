@@ -86,7 +86,9 @@ covariance. A two-valued `method` flag selects the estimator:
 Pairwise output is `(slice_a, slice_b, n_periods_a, n_periods_b,
 mean_diff, stat, p_raw, p_adj, stat_type, reference_dist, df_num,
 df_denom, multiplicity)` — per-slice `n_periods_*` because disjoint spans
-differ in length. The omnibus is a block-diagonal Wald χ² returning
+differ in length. A pair whose contrast covariance collapses carries NaN
+in `stat` / `p_raw` / `p_adj` (no test, not a non-rejection) and is left
+out of the Holm family. The omnibus is a block-diagonal Wald χ² returning
 `(k_slices, stat, p_value, stat_type, reference_dist, df_num, df_denom,
 multiplicity)`.
 

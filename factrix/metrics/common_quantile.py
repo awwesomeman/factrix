@@ -36,10 +36,11 @@ from factrix._stats import (
     _resolve_nw_lags,
     _wald_p_linear,
 )
-from factrix._types import EPSILON, MIN_PORTFOLIO_PERIODS_HARD
+from factrix._types import MIN_PORTFOLIO_PERIODS_HARD
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _aggregate_to_per_date,
+    _degenerate_test_fields,
     _enforce_min_floor,
     _short_circuit_output,
 )
@@ -208,9 +209,14 @@ def common_quantile_spread(
     # cluster-Wald paths; the asymptotic χ² over-rejects on short T.
     _, p_spread = _wald_p_linear(beta, V_hac, R, q=0.0, df_denom=n_periods - n_groups)
 
+    # A collapsed contrast variance (identical bucket means every period, or
+    # a singular HAC covariance) admits no t and no Wald p: NaN here, and the
+    # test fields are withheld below rather than reported as t=0 / p=1.
     spread_var = float((R @ V_hac @ R.T)[0, 0])
     spread_t = (
-        spread_value / float(np.sqrt(spread_var)) if spread_var >= EPSILON else 0.0
+        spread_value / float(np.sqrt(spread_var))
+        if np.isfinite(p_spread)
+        else float("nan")
     )
 
     counts = np.bincount(bucket_idx, minlength=n_groups).astype(int)
@@ -223,30 +229,36 @@ def common_quantile_spread(
     else:
         rho, rho_p = float("nan"), 1.0
 
+    warning_codes: list[str] = []
+    metadata: dict[str, object] = {
+        "stat_type": "wald (NW HAC)",
+        "h0": "beta_top = beta_bottom",
+        "method": "OLS on bucket dummies + Newey-West HAC",
+        "spearman_rho": rho,
+        "spearman_p": rho_p,
+        "n_groups": n_groups,
+        "n_periods": n_periods,
+        "n_distinct_factor": n_distinct,
+        "nw_lags_used": lags,
+        "buckets": [
+            {
+                "idx": int(k),
+                "mean_return": float(beta[k]),
+                "n": int(counts[k]),
+            }
+            for k in range(n_groups)
+        ],
+    }
+    stat, p_out, alternative = _degenerate_test_fields(
+        spread_t, p_spread, "two-sided", metadata, warning_codes
+    )
     return MetricResult(
-        p_value=p_spread,
-        alternative="two-sided",
+        p_value=p_out,
+        alternative=alternative,
         value=spread_value,
         n_obs=n_periods,
         n_obs_axis="periods",
-        stat=spread_t,
-        metadata={
-            "stat_type": "wald (NW HAC)",
-            "h0": "beta_top = beta_bottom",
-            "method": "OLS on bucket dummies + Newey-West HAC",
-            "spearman_rho": rho,
-            "spearman_p": rho_p,
-            "n_groups": n_groups,
-            "n_periods": n_periods,
-            "n_distinct_factor": n_distinct,
-            "nw_lags_used": lags,
-            "buckets": [
-                {
-                    "idx": int(k),
-                    "mean_return": float(beta[k]),
-                    "n": int(counts[k]),
-                }
-                for k in range(n_groups)
-            ],
-        },
+        stat=stat,
+        metadata=metadata,
+        warning_codes=tuple(warning_codes),
     )

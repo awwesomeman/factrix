@@ -284,8 +284,9 @@ _WARNING_DESCRIPTIONS.update(
         "negative (no PSD guarantee, Andrews 1991); clamped to 0 → SE=0, so the t-test "
         "is not computable and returns NaN (also flagged degenerate_variance). "
         "Fires only on short / mildly anti-correlated samples.",
-        WarningCode.DEGENERATE_VARIANCE: "The sample admits no t-statistic: every "
-        "observation is identical (zero dispersion) or the HAC SE collapsed to zero. "
+        WarningCode.DEGENERATE_VARIANCE: "The sample admits no test statistic: every "
+        "observation is identical (zero dispersion), the HAC SE collapsed to zero, or "
+        "a Wald restriction's covariance is singular. "
         "The metric keeps its value and reports stat=None / p_value=None (NaN on a "
         "raw InferenceResult) — an identical, non-zero sample is degenerate in the "
         "maximum-evidence direction, not evidence of a null, so t=0 / p=1 would "

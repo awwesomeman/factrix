@@ -27,11 +27,21 @@ class TestWaldFiniteSampleF:
         assert p_f == pytest.approx(sp_stats.f.sf(W / 1, dfn=1, dfd=9))
         assert p_f > p_chi2
 
-    def test_df_denom_non_positive_returns_unity(self):
+    def test_df_denom_non_positive_is_not_computable(self):
         beta = np.array([5.0])
         V = np.array([[1.0]])
         R = np.array([[1.0]])
-        assert _wald_p_linear(beta, V, R, df_denom=0) == (0.0, 1.0)
+        W, p = _wald_p_linear(beta, V, R, df_denom=0)
+        assert np.isnan(W) and np.isnan(p)
+
+    def test_singular_middle_is_not_computable(self):
+        # Zero contrast variance with a non-zero contrast: maximum-evidence
+        # degeneracy, not the null — NaN, never (0, 1).
+        beta = np.array([5.0, 1.0])
+        V = np.zeros((2, 2))
+        R = np.array([[1.0, -1.0]])
+        W, p = _wald_p_linear(beta, V, R)
+        assert np.isnan(W) and np.isnan(p)
 
     def test_cluster_means_small_T_more_conservative(self):
         # Same per-date panel, the finite-sample F reference must not
@@ -127,10 +137,10 @@ class TestWaldNWClusterMeans:
         _, p = _wald_nw_cluster_means(Y, R=R, q=np.zeros(2))
         assert p > 0.1
 
-    def test_short_sample_returns_unity(self):
+    def test_short_sample_is_not_computable(self):
         Y = np.array([[1.0, 2.0]])  # T=1
         W, p = _wald_nw_cluster_means(Y, R=np.array([[1.0, -1.0]]))
-        assert (W, p) == (0.0, 1.0)
+        assert np.isnan(W) and np.isnan(p)
 
     def test_rejects_1d(self):
         with pytest.raises(ValueError, match="must be 2-D"):
@@ -201,7 +211,7 @@ class TestWaldTwoWayCluster:
         out = _wald_two_way_cluster(
             y, X, R=np.array([[1.0, 0.0]]), date_ids=d, asset_ids=a
         )
-        assert out == (0.0, 1.0)
+        assert np.isnan(out[0]) and np.isnan(out[1])
 
 
 class TestTwoWayClusterLabelDtypes:
@@ -249,9 +259,10 @@ class TestTwoWayClusterLabelDtypes:
     def test_single_cluster_margin_is_degenerate(self):
         y, X, date_ids, _ = self._panel()
         one_asset = np.array(["ONLY"] * len(y), dtype=object)
-        assert _wald_two_way_cluster(
+        out = _wald_two_way_cluster(
             y, X, R=np.array([[0.0, 1.0]]), date_ids=date_ids, asset_ids=one_asset
-        ) == (0.0, 1.0)
+        )
+        assert np.isnan(out[0]) and np.isnan(out[1])
 
 
 class TestTwoWayClusterAgreesWithPooledBeta:

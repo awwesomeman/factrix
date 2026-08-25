@@ -305,7 +305,13 @@ def slice_pairwise_test(
         p_raw.append(p)
         mean_diffs.append(float(col_means[i] - col_means[j]))
 
-    p_adj = holm_adjusted_p(p_raw)
+    # A pair whose contrast covariance collapsed carries NaN (no test);
+    # Holm runs over the computable pairs and NaN stays NaN.
+    p_raw_arr = np.asarray(p_raw, dtype=float)
+    computable = np.isfinite(p_raw_arr)
+    p_adj = np.full(len(p_raw), float("nan"))
+    if computable.any():
+        p_adj[computable] = holm_adjusted_p(p_raw_arr[computable])
 
     n_pairs = len(pairs)
     return pl.DataFrame(
