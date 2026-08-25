@@ -28,9 +28,9 @@ title: factrix.metrics.clustering_hhi
     ---
 
     When `hhi_normalized` is high ($\geq 0.3$ is the threshold the BMP
-    docstring calls out), switch on
-    `bmp_z(kolari_pynnonen_adjust=True)` to absorb same-date shock
-    sharing in the $z$ statistic.
+    docstring calls out), `bmp_z` absorbs same-date shock sharing in
+    the $z$ statistic through its Kolari-Pynnönen adjustment (on by
+    default).
 
 </div>
 

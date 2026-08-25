@@ -614,8 +614,8 @@ Failure modes:
 - The same sparse event-count guards as `individual_sparse` apply:
   `MIN_EVENTS_HARD` hard floor and `MIN_EVENTS_WARN` warning for CAAR.
 - Same-date event clustering is more likely because every asset shares the
-  event date; use `clustering_hhi` and prefer `bmp_z(kolari_pynnonen_adjust=True)`
-  when the HHI is high.
+  event date; use `clustering_hhi` and prefer `bmp_z` (its Kolari-Pynnönen
+  adjustment is on by default) when the HHI is high.
 - Metrics that require a panel asset cross-section, such as
   `clustering_hhi`, remain unavailable on `n_assets == 1` even though most sparse
   event-axis metrics have `structure=None`.
