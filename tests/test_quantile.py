@@ -737,3 +737,59 @@ class TestSmallCrossSectionSize:
                 assert out.metadata["method"] == "non-overlapping t-test"
                 rejected += out.p_value is not None and out.p_value < 0.05
         assert 0.01 <= rejected / reps <= 0.16
+
+
+class TestQuantileSpreadVwThroughEvaluate:
+    """``market_cap`` is an optional schema column, so it must survive the
+    per-factor projection ``evaluate`` builds — otherwise the metric always
+    short-circuits ``no_weight_column`` even on a panel that carries it."""
+
+    @staticmethod
+    def _panel(with_weights: bool = True):
+        import factrix as fx
+
+        panel = fx.preprocess.compute_forward_return(
+            fx.datasets.make_cs_panel(n_assets=40, n_dates=120, seed=0),
+            forward_periods=2,
+        )
+        if with_weights:
+            panel = panel.with_columns(
+                (pl.col("asset_id").rank("dense").cast(pl.Float64) * 1e6).alias(
+                    "market_cap"
+                )
+            )
+        return panel
+
+    def test_evaluate_computes_the_weighted_spread(self):
+        import factrix as fx
+
+        panel = self._panel()
+        results = fx.evaluate(
+            panel,
+            metrics={"vw": quantile_spread_vw(n_groups=5)},
+            factor_cols=["factor"],
+            forward_periods=2,
+        )
+        res = results["factor"].metrics["vw"]
+        assert res.metadata.get("reason") != "no_weight_column"
+        assert not math.isnan(res.value)
+        direct = quantile_spread_vw(panel, forward_periods=2, n_groups=5)
+        assert res.value == pytest.approx(direct.value)
+
+    def test_market_cap_is_not_mistaken_for_a_factor(self):
+        import factrix as fx
+
+        info = fx.inspect_data(self._panel())
+        assert info.properties.n_assets == 40
+
+    def test_inspect_blocks_the_metric_without_the_weight_column(self):
+        import factrix as fx
+
+        info = fx.inspect_data(self._panel(with_weights=False))
+        entry = next(m for m in info.metrics if m.name == "quantile_spread_vw")
+        assert not entry.usable
+        assert any("market_cap" in b for b in entry.blockers)
+
+        info_w = fx.inspect_data(self._panel())
+        entry_w = next(m for m in info_w.metrics if m.name == "quantile_spread_vw")
+        assert not any("market_cap" in b for b in entry_w.blockers)

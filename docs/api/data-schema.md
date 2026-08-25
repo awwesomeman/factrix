@@ -82,8 +82,14 @@ Per-cell extensions activate additional standalone metrics when present and shor
 
 | Column | Activates | Cell |
 |---|---|---|
-| `market_cap` (or any name passed as `weight_col=`) | `quantile_spread_vw` value-weighting | Individual × Continuous |
+| `market_cap` | `quantile_spread_vw` value-weighting | Individual × Continuous |
 | `price` | `event_around_return`, `mfe_mae`, event-window diagnostics | Individual × Sparse |
+
+Through `evaluate` the column must carry its declared name above: the panel is
+projected per factor before a metric's keyword arguments are known, so a
+`weight_col=` override only applies to a direct `quantile_spread_vw(...)` call.
+`inspect_data` reports `quantile_spread_vw` as unusable, with a blocker naming
+the column, on a panel that has no `market_cap`.
 
 ---
 

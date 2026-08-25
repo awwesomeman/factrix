@@ -56,8 +56,23 @@ if TYPE_CHECKING:
 
 _SPARSITY_THRESHOLD: float = 0.5
 _LOW_CARDINALITY_DENSE_UNIQUE_MAX: int = 5
+_REQUIRED_OPTIONAL_COLUMNS: dict[str, str] = {"quantile_spread_vw": "market_cap"}
+"""Metrics gated on an optional schema column: metric name to declared column.
+
+``evaluate`` projects the panel to the declared names before a metric's kwargs
+are known, so a configurable override (``weight_col=``) only works on a direct
+call.
+"""
+
 _INSPECT_RESERVED: frozenset[str] = frozenset(
-    {"date", "asset_id", "forward_return", "price", _FORWARD_PERIODS_COL}
+    {
+        "date",
+        "asset_id",
+        "forward_return",
+        "price",
+        "market_cap",
+        _FORWARD_PERIODS_COL,
+    }
 )
 
 
@@ -566,7 +581,8 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
     Args:
         data: Long-format factor data with the canonical columns.
             The baseline columns ``date`` / ``asset_id`` /
-            ``forward_return`` / ``price`` are reserved and not treated as factors.
+            ``forward_return`` and the optional schema columns ``price`` /
+            ``market_cap`` are reserved and not treated as factors.
         factor_cols: Optional list of factor columns to check. When
             ``None`` (default), auto-detects all columns except the
             reserved columns as factor candidates.
@@ -714,6 +730,7 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
             factor_sign_one_sided,
             ic_stage1_profile=ic_stage1_profile,
             fm_stage1_profile=fm_stage1_profile,
+            available_columns=frozenset(data.columns),
         )
         for _, spec in public_specs()
     ]
@@ -772,6 +789,7 @@ def _evaluate_applicability(
     factor_sign_one_sided: bool = False,
     ic_stage1_profile: _ICStage1Profile | None = None,
     fm_stage1_profile: _FMStage1Profile | None = None,
+    available_columns: frozenset[str] = frozenset(),
 ) -> MetricApplicability:
     from factrix.metrics._registry import REGISTRY
 
@@ -830,6 +848,22 @@ def _evaluate_applicability(
             "degenerate_directional_variance at run time; center, threshold, "
             "or encode a true two-sided directional signal before using this "
             "metric"
+        )
+
+    # Optional-schema precondition: a metric gated on an optional column
+    # short-circuits at run time when the panel lacks it, so reporting it
+    # usable would contradict the run.
+    missing_optional = _REQUIRED_OPTIONAL_COLUMNS.get(spec.name)
+    if (
+        missing_optional is not None
+        and available_columns
+        and missing_optional not in available_columns
+    ):
+        blockers.append(
+            f"missing optional schema column {missing_optional!r}: this metric "
+            "short-circuits no_weight_column at run time; attach it to the "
+            "panel (see the data schema), or call the metric directly with "
+            "weight_col= naming your own column"
         )
 
     if spec.input_shape is InputShape.SCALAR:

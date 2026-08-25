@@ -54,8 +54,9 @@ def _project_factor(data: pl.DataFrame, col: str) -> pl.DataFrame:
     the caller's ``factor_cols`` choice. Beyond the required baseline
     columns it carries the optional schema columns (``_OPTIONAL_COLUMNS``)
     when present — event metrics (``event_around_return``, ``mfe_mae``)
-    need ``price`` to compute price paths, and dropping it would
-    short-circuit them with a false ``no_price_data`` verdict.
+    need ``price`` to compute price paths and ``quantile_spread_vw`` needs
+    ``market_cap`` to weight, and dropping either would short-circuit them
+    with a false ``no_price_data`` / ``no_weight_column`` verdict.
     """
     cols = [pl.col(c) for c in _BASELINE_COLUMNS]
     cols.append(pl.col(col).alias("factor"))
