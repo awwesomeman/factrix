@@ -45,6 +45,7 @@ from factrix._data_input import _FORWARD_PERIODS_COL
 from factrix._metric_index import MetricSpec, public_specs
 from factrix._results import Warning
 from factrix._types import MIN_IC_ASSETS_HARD, MIN_IC_ASSETS_WARN
+from factrix.metrics._helpers import _finite_expr
 from factrix.metrics._primitives._fm_betas import (
     MIN_FM_ASSETS_HARD,
     MIN_FM_ASSETS_WARN,
@@ -613,11 +614,15 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
     structure = _detect_structure(data)
     n_assets = int(data["asset_id"].n_unique())
     n_periods = int(data["date"].n_unique())
-    n_pairs = int(data.drop_nulls(first_col).height)
+    # Finite, not merely non-null: polars counts a float NaN as a present value,
+    # so ``drop_nulls`` alone would report NaN factor cells as usable pairs.
+    n_pairs = int(data.filter(_finite_expr(first_col)).height)
     # Event sample: non-zero factor cells (nulls compare false, so excluded),
     # matching the ``factor != 0`` filter the event-driven metrics apply.
     n_events = int(data.filter(pl.col(first_col) != 0).height)
-    n_unique_factor = int(data[first_col].drop_nulls().n_unique())
+    n_unique_factor = int(
+        data.filter(_finite_expr(first_col))[first_col].n_unique()
+    )
     factor_sign_one_sided = _factor_sign_is_one_sided(data, first_col)
     ic_stage1_profile = _compute_ic_stage1_profile(data, first_col)
     fm_stage1_profile = _compute_fm_stage1_profile(data, first_col)
@@ -970,9 +975,7 @@ def _compute_ic_stage1_profile(data: Any, factor_col: str) -> _ICStage1Profile |
             max_assets_per_period=0,
         )
 
-    valid_pair = (
-        pl.col(factor_col).is_not_null() & pl.col("forward_return").is_not_null()
-    )
+    valid_pair = _finite_expr(factor_col) & _finite_expr("forward_return")
     per_date = data.group_by("date").agg(valid_pair.sum().alias("n_assets"))
     if per_date.is_empty():
         return _ICStage1Profile(
@@ -1005,9 +1008,7 @@ def _compute_fm_stage1_profile(data: Any, factor_col: str) -> _FMStage1Profile |
             max_assets_per_period=0,
         )
 
-    valid_pair = (
-        pl.col(factor_col).is_not_null() & pl.col("forward_return").is_not_null()
-    )
+    valid_pair = _finite_expr(factor_col) & _finite_expr("forward_return")
     per_date = data.group_by("date").agg(
         valid_pair.sum().alias("n_assets"),
         pl.col(factor_col).filter(valid_pair).var().alias("factor_var"),

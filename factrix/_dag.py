@@ -42,6 +42,7 @@ from factrix._results import (
     MetricResult,
     Warning,
 )
+from factrix.metrics._helpers import _finite_expr
 
 
 def _project_factor(data: pl.DataFrame, col: str) -> pl.DataFrame:
@@ -199,12 +200,12 @@ class DagExecutor:
 
         stats_row = data.select(
             *(
-                pl.col(c).is_not_null().sum().alias(f"__pairs_{i}")
+                _finite_expr(c).sum().alias(f"__pairs_{i}")
                 for i, c in enumerate(cols)
             ),
             *(
                 pl.col("date")
-                .filter(pl.col(c).is_not_null())
+                .filter(_finite_expr(c))
                 .n_unique()
                 .alias(f"__periods_{i}")
                 for i, c in enumerate(cols)
