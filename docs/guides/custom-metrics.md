@@ -90,7 +90,25 @@ If you prefer a manual, lower-level approach where you retain full control over 
 ### How it works
 
 - `@metric_spec` stamps metadata (a `MetricSpec` object) onto the callable's `__metric_spec__` attribute.
-- `factrix.metrics.register()` registers the callable with the toolkit, making it importable and usable within `fx.evaluate`.
+- `factrix.metrics.register()` registers the callable with the toolkit, making it visible to `list_metrics()` / `spec_by_name()`, resolvable as a `requires=` producer, and accepted directly as an `fx.evaluate(metrics=...)` value.
+
+A registered callable carries no configuration object, so it always runs on
+its signature defaults — pass the function itself, not a call of it:
+
+```python
+results = fx.evaluate(
+    data,
+    metrics={"my_custom_stat": my_custom_stat},   # the function, uncalled
+    factor_cols=["factor"],
+    forward_periods=5,
+)
+```
+
+Use the `@metric` decorator instead when the metric needs per-run
+configuration (`my_metric(trim_ratio=0.1)`).
+
+Both paths work from any module: a metric defined in your own package (or in
+`__main__`) is resolved through the metric registry, not by import path.
 
 ### Example
 

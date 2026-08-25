@@ -454,6 +454,20 @@ def custom_ic(panel):
 fx.metrics.register(custom_ic)
 ```
 
+A registered callable is accepted directly as an `fx.evaluate(metrics=...)`
+value — pass the function itself, uncalled, since it carries no configuration
+object and runs on its signature defaults:
+
+```python
+fx.evaluate(panel, metrics={"custom_ic": custom_ic},
+            factor_cols=["factor"], forward_periods=5)
+```
+
+Use `@fx.metrics.metric(...)` instead when the metric needs per-run
+configuration. Either path works from any module — a metric defined in your
+own package or in `__main__` is resolved through the metric registry, not by
+import path.
+
 Resolve a registered spec by its label with `fx.spec_by_name()`, which
 returns the full `dict[str, MetricSpec]` registry keyed by metric name —
 the lookup the DAG executor itself uses, and the way to inspect a custom

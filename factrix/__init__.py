@@ -245,14 +245,27 @@ def evaluate(
     if _FORWARD_PERIODS_COL in data.columns:
         data = data.drop(_FORWARD_PERIODS_COL)
 
+    from factrix.metrics._base import MetricBase
+
+    # A metric value is either a MetricBase instance (the ``@metric`` path,
+    # carrying its own configured params) or a bare ``@metric_spec`` +
+    # ``register``-ed callable (the third-party registration path), which has
+    # no config object and therefore runs on its signature defaults.
     label_spec = {
-        label: dataclasses.replace(
-            type(inst).spec(),
-            sample_threshold=type(inst)._resolve_sample_threshold(inst),
+        label: (
+            dataclasses.replace(
+                type(inst).spec(),
+                sample_threshold=type(inst)._resolve_sample_threshold(inst),
+            )
+            if isinstance(inst, MetricBase)
+            else inst.__metric_spec__
         )
         for label, inst in metrics.items()
     }
-    label_params = {label: dict(inst._params()) for label, inst in metrics.items()}
+    label_params = {
+        label: dict(inst._params()) if isinstance(inst, MetricBase) else {}
+        for label, inst in metrics.items()
+    }
 
     factor_cells = {c: _detect_factor_cell(data, c) for c in cols}
     factor_sparse_ratios = {c: _detect_factor_sparse_ratio(data, c) for c in cols}
@@ -603,21 +616,33 @@ def _validate_metrics_arg(metrics: object) -> None:
                 expected=f"a metric instance, not the class — call it: {val.__name__}()",
                 docs_path=_DOCS_METRICS,
             )
-        if not isinstance(val, MetricBase):
+        # ``@metric_spec`` + ``factrix.metrics.register`` is the documented
+        # third-party path for a plain callable: it carries its own
+        # ``MetricSpec`` and is resolvable by name in the DAG, so accept it
+        # here rather than demanding the decorator wrapper. It has no config
+        # object, so it runs on its signature defaults.
+        registered_spec = getattr(val, "__metric_spec__", None)
+        if not isinstance(val, MetricBase) and not isinstance(
+            registered_spec, MetricSpec
+        ):
             raise UserInputError(
                 func_name="evaluate",
                 field="metrics",
                 value=f"{key!r} -> {type(val).__name__}",
                 expected=(
                     "every value to be a metric instance imported from "
-                    "factrix.metrics, e.g. ic() / quantile_spread(n_groups=5)"
+                    "factrix.metrics, e.g. ic() / quantile_spread(n_groups=5), "
+                    "or a callable stamped with @metric_spec(...) and passed "
+                    "to factrix.metrics.register()"
                 ),
                 docs_path=_DOCS_METRICS,
             )
 
         from factrix._axis import SpecRole
 
-        spec = val.__class__.spec()
+        spec = (
+            val.__class__.spec() if isinstance(val, MetricBase) else registered_spec
+        )
         if spec.role is SpecRole.PIPELINE:
             raise UserInputError(
                 func_name="evaluate",

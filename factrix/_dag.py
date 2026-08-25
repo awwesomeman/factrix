@@ -467,15 +467,31 @@ def _default_fn_resolver(name: str) -> Callable[..., Any]:
 def _registry_callable_table() -> dict[str, Callable[..., Any]]:
     """Single-pass ``{spec.name: callable}`` across every registered metric.
 
-    Walks first-party ``factrix.metrics.*`` modules and the third-party
-    registry populated via :func:`factrix.metrics.register`. Cache is
-    cleared by :func:`factrix.metrics.register` so newly-registered
+    Three sources, in precedence order:
+
+    1. The ``@metric`` class registry — the authoritative ``{name: class}``
+       map, and the only one that works for a class defined outside the
+       ``factrix.metrics`` package. A third-party ``@metric`` function lives
+       in the user's own module (``__main__``, ``mypkg.metrics``, a test
+       module), which is not importable as ``factrix.metrics.<stem>``, so
+       resolving these by import path raised ``ModuleNotFoundError``.
+    2. First-party ``factrix.metrics.*`` modules, by import path.
+    3. The third-party callable registry populated via
+       :func:`factrix.metrics.register`, whose callables are attached to the
+       ``factrix.metrics`` package by ``register``.
+
+    Cache is cleared by :func:`factrix.metrics.register` so newly-registered
     callables become resolvable on the next executor construction.
     """
     from factrix._metric_index import _METRIC_REGISTRY, _all_specs, import_path_for
+    from factrix.metrics._registry import REGISTRY
 
     table: dict[str, Callable[..., Any]] = {}
     for stem, spec in _all_specs():
+        cls = REGISTRY.get(spec.name)
+        if cls is not None:
+            table[spec.name] = cls
+            continue
         mod = importlib.import_module(import_path_for(stem))
         fn = getattr(mod, spec.name, None)
         if callable(fn):
