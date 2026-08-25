@@ -34,12 +34,25 @@ def auto_bartlett(T: int) -> int:
     return max(1, int(4 * (T / 100) ** (2 / 9)))
 
 
-# Lag-1 autocorrelation of a per-date series above which no HAC path in the
-# library is calibrated. Measured (nominal 5%, true null, per-date IC series):
-# at phi = 0 every inference sits at 5–9%; at phi = 0.6 Newey-West rejects
-# 13–17%, the stationary bootstrap 12–19% and a plain t 32–34%; at phi = 0.85
-# NW 32–34%, bootstrap 20–32%, plain t 55–61%. The kernel-level AR(0.3) row is
-# already 8–11%, so 0.3 is where the excess starts rather than where it peaks.
+# Lag-1 autocorrelation of the tested per-date series (IC series, per-date
+# betas, spread series) above which a trending / regime-like series makes the
+# mean test look more significant than it is. One constant for every path,
+# set by the path it protects LEAST well; the prewhitened Newey-West path is
+# conservative under it. Measured realised size at nominal 5%, n = 240, on
+# the persistent-IC fixture whose own phi = 0 baseline is 8–9%:
+#
+#   fixture phi (lag-1 of IC)   NON_OVERLAPPING h=1 / bootstrap / NW plain / NW prewhitened
+#   0.3  (0.26)                 —           / —          / 9.0%     / 8.0%
+#   0.45 (0.39)                 —           / —          / 11.3%    / 7.3%
+#   0.6  (0.53)                 32–34%      / 12–19%     / 13.7%    / 7.3%
+#   0.85 (0.78)                 55–61%      / 20–32%     / 32.0%    / 15.0%
+#
+# 0.3 is where the plain-Bartlett excess starts; the un-prewhitened members
+# (plain t on the strided sample, stationary bootstrap, Hansen-Hodrick) are
+# 2.5–6x nominal by 0.5 and set the constant. Prewhitened Newey-West only
+# leaves its baseline around lag-1 0.6, so the screen fires early for it —
+# deliberately: a user who knows the kernel is prewhitened would otherwise
+# assume a persistent series is handled.
 # The screen is one-sided: only positive persistence was measured. Strong
 # NEGATIVE autocorrelation also breaks HAC calibration (it is what drives
 # RECT_KERNEL_NEGATIVE_VARIANCE) and is deliberately not covered here.

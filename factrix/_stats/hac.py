@@ -96,12 +96,21 @@ def _newey_west_se(
     *,
     prewhiten: bool = True,
 ) -> float:
-    """Newey-West HAC standard error for the mean of a time series.
+    """Standard error of a series mean that accounts for serial correlation.
 
-    Bartlett kernel weights ``w_j = 1 - j/(L+1)`` on the AR(1)-**prewhitened**
-    series ([Andrews-Monahan (1992)][andrews-monahan-1992]): fit
-    ``x_t = φ x_{t-1} + e_t`` on the demeaned series, run the Bartlett sum on
-    ``e``, and recolour the long-run variance by ``1 / (1 - φ̂)²``.
+    What it does for a factor test: a per-date IC (or spread, or beta)
+    series that trends or moves in regimes has fewer independent
+    observations than its length suggests, so a naive ``mean / (sd / √n)``
+    overstates the evidence. This SE widens with the series' persistence
+    so the resulting t / p reflect the information actually in the sample.
+
+    Mechanics: Bartlett kernel weights ``w_j = 1 - j/(L+1)`` on the
+    AR(1)-**prewhitened** series ([Andrews-Monahan (1992)][andrews-monahan-1992])
+    — fit ``x_t = φ x_{t-1} + e_t`` on the demeaned series, run the Bartlett
+    sum on ``e``, and recolour the long-run variance by ``1 / (1 - φ̂)²``.
+    Prewhitening removes the dominant trend component before the kernel
+    sees it, which is what the plain estimate gets wrong on persistent
+    input.
 
     Why prewhiten. The plain Bartlett estimate at the automatic bandwidth
     understates the long-run variance of a persistent series badly in the
