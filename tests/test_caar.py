@@ -882,8 +882,8 @@ class TestKolariPynnonenDefault:
     """The KP adjustment is on by default and only moves clustered inputs.
 
     Measured on a true null with cross-sectional correlation 0.5 (300
-    reps): 1 event/date → identical to unadjusted BMP (the ICC is not
-    estimable, ``kolari_pynnonen_applied`` is False); 4 events/date →
+    reps): 1 event per period → identical to unadjusted BMP (the ICC is not
+    estimable, ``kolari_pynnonen_applied`` is False); 4 events per period →
     21.5% → 5.0%. Bands pin the measured order of magnitude at 120 reps.
     """
 
@@ -914,7 +914,7 @@ class TestKolariPynnonenDefault:
         assert result.metadata["kolari_pynnonen_applied"] is True
         assert "kolari_pynnonen_r" in result.metadata
 
-    def test_one_event_per_date_is_the_identity(self):
+    def test_one_event_per_period_is_the_identity(self):
         panel = self._null_panel(1, 1)
         on = bmp_z(panel, forward_periods=1, estimation_window=60)
         off = bmp_z(

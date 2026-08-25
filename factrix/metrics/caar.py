@@ -367,16 +367,22 @@ def bmp_z(
         kolari_pynnonen_adjust: On by default. Apply the
             [Kolari-Pynnönen (2010)][kolari-pynnonen-2010] adjustment for
             cross-sectional correlation of SAR. BMP assumes events are
-            cross-sectionally independent; same-date events (earnings
+            cross-sectionally independent; same-period events (earnings
             season, index rebalances, macro releases) share a common shock
             and break that. Measured on a true null with ρ = 0.5 (nominal
-            5%): 1 event/date 6.0% either way (the adjustment is the
-            identity when nothing shares a date — ``kolari_pynnonen_applied``
-            is ``False``); 4/date **21.5% → 5.0%**; 10/date **40% → 4.5%**.
-            Near the event floor it under-corrects rather than
-            over-corrects (8 events over 2 dates: 32.7% → 20.7%), so it is
-            necessary but not sufficient there — ``FEW_EVENTS`` still
-            applies. ``False`` gives the unadjusted BMP for reproducing a
+            5%): 1 event per period 6.0% either way (the adjustment is the
+            identity when no two events share a period —
+            ``kolari_pynnonen_applied`` is ``False``); 4 per period
+            **21.5% → 5.0%**; 10 per period **40% → 4.5%**. What it cannot
+            do is manufacture independent periods: once same-period events
+            are correlated the effective sample is closer to the number of
+            distinct event *periods* than to the event count, and the
+            adjusted test's residual tracks that — 4 events per period over
+            2 / 4 / 10 periods: 20.7% / 14.3% / 8.0%. ``FEW_EVENTS`` is
+            keyed on the event count and does not see this: 40 events over
+            10 periods is above ``MIN_EVENTS_WARN`` and still 1.6× nominal.
+            Read ``n_events`` against the number of distinct event periods.
+            ``False`` gives the unadjusted BMP for reproducing a
             source that reports it; ``metadata["kolari_pynnonen_applied"]``
             / ``["kolari_pynnonen_r"]`` disclose which statistic ran.
             Formula:

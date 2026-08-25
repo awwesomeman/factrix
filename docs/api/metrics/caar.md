@@ -49,8 +49,8 @@ title: factrix.metrics.caar
     residual volatility before pooling. Robust to event-induced
     variance inflation that biases the ordinary CAAR $t$-test. The
     Kolari-Pynnönen same-date-correlation adjustment is on by default
-    (identity when no two events share a date; 21.5% → 5.0% size at 4
-    events/date on a null); `kolari_pynnonen_adjust=False` gives the
+    (identity when no two events share a period; 21.5% → 5.0% size at 4
+    events per period on a null); `kolari_pynnonen_adjust=False` gives the
     unadjusted BMP for matching a source that reports it.
 
 -   __Magnitude-weighted CAAR__
