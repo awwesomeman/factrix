@@ -87,8 +87,9 @@ def event_around_return(
 
     The primary value is the pre-event leakage score: the mean over
     pre-event offsets of ``|cross-event mean single-bar excess return|``,
-    where "excess" is over the panel's unconditional bar return. It is a mean
-    of per-offset means, not a pre-event CAR — see Notes. High leakage →
+    where "excess" is over the panel's unconditional bar return, signed like
+    the return it is subtracted from (``sign(factor) * baseline``). It is a
+    mean of per-offset means, not a pre-event CAR — see Notes. High leakage →
     density may be reactive, not predictive; read it against
     ``metadata["leakage_null_scale"]``, which is what the score is worth under
     no leakage at all.
@@ -121,8 +122,12 @@ def event_around_return(
         doc's old "should be ~0" target was therefore unattainable, and two
         further things used to be confounded into it. Unconditional drift is
         now removed — every offset is an excess over
-        ``metadata["baseline_bar_return"]``, so a trending asset no longer
-        reads as leaky — and the null scale itself is published as
+        ``sign(factor) * metadata["baseline_bar_return"]``, so a trending
+        asset no longer reads as leaky on either side (the returns are
+        signed, so the baseline must be too: an earlier version subtracted
+        the unsigned drift and scored a short-signed event at twice the
+        drift, $t \approx -400$ on a 0.2%-per-period trend) — and the null
+        scale itself is published as
         ``metadata["leakage_null_scale"]``. Per offset, ``se`` and ``t`` say
         how much of a mean is signal. Nothing here is a hypothesis test:
         ``p_value`` stays ``None`` (see the warning on the doc page for why).
@@ -192,17 +197,19 @@ def event_around_return(
     baseline = _unconditional_bar_return(data, price_col)
 
     for k in offsets:
-        subset = event_rets.filter(pl.col("offset") == k)["signed_return"]
+        subset = event_rets.filter(pl.col("offset") == k)
         n = len(subset)
         if n < 5:
             per_offset[k] = {"mean": None, "n": n}
             continue
 
-        arr = subset.to_numpy()
+        arr = subset["signed_return"].to_numpy()
         # Excess over the unconditional bar return: a trending asset's bars are
         # non-zero on average whether or not an event is coming, and that drift
-        # entered the leakage score directly.
-        excess = arr - baseline
+        # entered the leakage score directly. The return is signed, so the
+        # baseline is signed the same way: a short event's bar carries -mu,
+        # and subtracting +mu from it scored the drift twice over.
+        excess = arr - baseline * subset["sign"].to_numpy()
         mean_v = float(np.mean(excess))
         se = float(np.std(excess, ddof=DDOF) / np.sqrt(n)) if n > 1 else float("nan")
         per_offset[k] = {

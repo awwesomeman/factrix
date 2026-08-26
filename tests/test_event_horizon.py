@@ -344,6 +344,40 @@ class TestLeakageHeadline:
         assert trending.metadata["baseline_bar_return"] > 5e-4
         assert trending.value == pytest.approx(flat.value, rel=1.5)
 
+    @staticmethod
+    def _signed_drift_panel(sign: float, n: int = 3000) -> pl.DataFrame:
+        # Almost pure drift: 0.2% a period with a 0.01% noise, an event every
+        # 40 periods, all carrying the same factor sign.
+        rng = np.random.default_rng(0)
+        rets = 0.002 + 0.0001 * rng.standard_normal(n)
+        prices = 100.0 * np.cumprod(1.0 + rets)
+        factor = np.zeros(n)
+        factor[40::40] = sign
+        return pl.DataFrame(
+            {
+                "date": [datetime(2020, 1, 1) + timedelta(days=d) for d in range(n)],
+                "asset_id": ["A"] * n,
+                "price": prices,
+                "factor": factor,
+            }
+        )
+
+    def test_drift_is_removed_on_both_factor_signs(self):
+        # The returns are signed, so the baseline must be too. Subtracting the
+        # unsigned drift from a short event's -mu scored 2 x mu (t ~ -400).
+        long = event_around_return(self._signed_drift_panel(1.0))
+        short = event_around_return(self._signed_drift_panel(-1.0))
+        assert long.value < 1e-4
+        assert short.value < 1e-4
+        assert short.value == pytest.approx(long.value, abs=1e-5)
+        # Pre-event offsets are single bars, so the signed baseline removes
+        # their drift entirely; post-event offsets are cumulative and carry
+        # k bars of it by design.
+        for result in (long, short):
+            for k, stats in result.metadata["per_offset"].items():
+                if k < 0 and stats.get("t") is not None:
+                    assert abs(stats["t"]) < 3
+
     def test_score_is_reported_with_its_null_scale(self):
         result = event_around_return(self._panel(0.0))
         scale = result.metadata["leakage_null_scale"]
