@@ -86,7 +86,7 @@ panel = fprep.compute_forward_return(raw, forward_periods=5).with_columns(
 
 ## 5. Create sector and size neutral variants
 
-`orthogonalize_factor` residualizes one factor against a base exposure matrix using per-date cross-sectional OLS. Categorical exposures should be dummy encoded before they are passed in. Drop one sector dummy when an intercept is present; the helper uses `lstsq`, but a full dummy set adds no information.
+`orthogonalize_factor` residualizes one factor against a base exposure matrix using per-date cross-sectional OLS. Categorical exposures should be dummy encoded before they are passed in. **Drop one sector dummy as the reference level**: an intercept is always prepended, so a full dummy set is exactly singular. `lstsq` does not raise there — it returns the minimum-norm solution, so the residual stays correct but the reported betas are an arbitrary point in the solution space. The helper detects this, raises `rank_deficient_design`, and withholds `mean_betas` rather than reporting unidentified numbers.
 
 ```python
 sector_dummies = panel.select("date", "asset_id", "sector").to_dummies(

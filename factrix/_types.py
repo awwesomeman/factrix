@@ -156,3 +156,18 @@ ConcentrationWeight = Literal["abs_factor", "alpha_contribution"]
 # panel, so they must not share a token: a reader stacking ``to_frame`` across
 # metrics has only ``n_obs_axis`` to tell one from the other.
 SampleAxis = Literal["periods", "events", "pairs", "asset_pairs", "assets"]
+
+
+# Minimum surplus assets (n_assets - n_base - 1) a per-date cross-sectional OLS
+# must leave before ``orthogonalize_factor`` will fit it. On this axis one
+# surplus asset is exactly one residual degree of freedom, which is why the
+# public knob is spelled ``min_residual_df`` — the statistical term — while the
+# constant carries the ASSETS axis token the naming grammar requires.
+# The old floor was ``len(base_cols) + 2`` rows, i.e. a single residual df:
+# raw R2 is mechanically ~K/(N-1) even at a true R2 of 0, so a 6-name
+# cross-section on 4 regressors reported R2 = 0.79 while stripping 83% of the
+# factor's variance. Fama-MacBeth practice discards cross-sections with too few
+# names per regressor; 10 residual df is the ``N >= K + 10`` form of that rule
+# and is exposed as ``min_residual_df`` for callers who want the other
+# (``N >= 5K``) convention.
+MIN_ORTHOGONALIZE_RESIDUAL_ASSETS: int = 10

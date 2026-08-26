@@ -109,6 +109,36 @@ can be standardized in one panel without colliding.
 
 ## Orthogonalization
 
+`orthogonalize_factor` runs a per-date cross-sectional OLS and returns the
+residual. Two guards that the textbook formulation leaves to the analyst:
+
+**A degrees-of-freedom floor, not a solvability floor.** The regression is only
+fitted on dates leaving at least `min_residual_df` residual degrees of freedom
+(`n_assets − n_base − 1`, default 10 — the `N ≥ K + 10` form of the
+Fama-MacBeth convention). Raw R² is mechanically ≈ `K/(N − 1)` even when the
+true R² is zero, so on a six-name book regressed on four exposures the old
+one-df floor reported `mean_r_squared = 0.79` (adjusted: `−0.03`) after
+stripping 83% of the factor's variance — the factor reads as redundant when it
+is orthogonal by construction. Dates below the floor keep their original values,
+are counted in `n_dates_insufficient_df`, and raise
+`insufficient_regression_df`. `mean_adj_r_squared` is reported alongside the raw
+figure. Pass `min_residual_df=1` to restore the old behaviour.
+
+**Rank deficiency is detected, not assumed away.** An intercept is always
+prepended, so a full industry dummy set is exactly singular. `np.linalg.lstsq`
+does not raise on that — it returns the minimum-norm solution — so the residual
+is still exact (the projection onto the column space is unique) but `mean_betas`
+was an arbitrary point in the solution space. Rank is read from the singular
+values `lstsq` already computes, at `matrix_rank`'s tolerance so *near*-collinear
+designs are caught too; deficient dates are excluded from `mean_betas` and raise
+`rank_deficient_design`. Drop one dummy category as the reference level.
+
+**Residual scale.** The residual's dispersion is `sqrt(1 − R²)` times the
+input's, and R² varies by date, so the output scale varies by date. Rank-based
+metrics are unaffected; any magnitude-based use is otherwise quietly on a
+time-varying scale. Pass `restandardize=True` to rescale each date's residual
+back to the input's per-date dispersion.
+
 ::: factrix.preprocess.orthogonalize_factor
 
 ::: factrix.preprocess.OrthogonalizeResult

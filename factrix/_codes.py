@@ -247,7 +247,7 @@ class WarningCode(StrEnum):
     NON_FINITE_INPUT_DROPPED = "non_finite_input_dropped"
 
     # Fired by ``orthogonalize_factor`` when a per-date cross-section clears the
-    # computability floor but leaves fewer than MIN_ORTHOGONALIZE_RESIDUAL_DF
+    # computability floor but leaves fewer than MIN_ORTHOGONALIZE_RESIDUAL_ASSETS
     # residual degrees of freedom. Those dates are skipped rather than fitted:
     # raw R2 is mechanically ~K/(N-1) even at a true R2 of 0, so a 6-name
     # cross-section on 4 regressors reported R2 = 0.79 while removing 83% of
@@ -487,7 +487,7 @@ _WARNING_DESCRIPTIONS.update(
         "drop_nulls().drop_nans().",
         WarningCode.INSUFFICIENT_REGRESSION_DF: "orthogonalize_factor skipped a "
         "date whose cross-section left fewer than "
-        "MIN_ORTHOGONALIZE_RESIDUAL_DF residual degrees of freedom "
+        "MIN_ORTHOGONALIZE_RESIDUAL_ASSETS residual degrees of freedom "
         "(n_assets - n_base - 1). Raw R2 is mechanically ~K/(N-1) even at a "
         "true R2 of 0, so fitting there reports noise as explanatory power "
         "while removing most of the factor's variance. Skipped dates keep "
