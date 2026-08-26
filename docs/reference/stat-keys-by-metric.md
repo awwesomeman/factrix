@@ -648,22 +648,56 @@ leaves the test oversized and carries `serial_correlation_detected`.
 #### `predictive_beta`
 
 Single-asset dense predictive regression. `MetricResult.value` is the
-slope in `forward_return ~ factor`; `MetricResult.stat` is the
-Newey-West HAC `t` statistic for `H0: beta = 0`.
+**Stambaugh-bias-corrected** slope in `forward_return ~ factor`;
+`MetricResult.stat` is its `t` statistic for `H0: beta = 0`.
 
-- *primary*: `p_value` — two-sided HAC slope test.
+OLS on this regression is biased whenever the predictor is persistent
+*and* its AR(1) innovation correlates with the return innovation
+(Stambaugh 1999) — the classic dividend-yield artefact. The bias is the
+**product** of the two, which is why the ADF screen alone cannot detect
+it: ADF proxies persistence only. Measured against a true `beta = 0` at
+`T = 60, phi = 0.95, rho = -0.9`, plain OLS averaged `+0.076` and
+rejected 20.6% at a nominal 5%.
+
+The fix is the Amihud-Hurvich (2004) augmented regression: the
+bias-corrected AR(1) residual proxy enters as a second regressor, and
+the slope on the predictor is the reduced-bias estimator. Its standard
+error carries a generated-regressor term
+(`Var_aug + gamma^2 Var(phi_c) c^2`) — without it the proxy absorbs the
+correlated part of the return innovation and the test rejects ~50% of
+true nulls.
+
+| T   | φ    | ρ    | h | bias (OLS → AH)   | size (OLS → AH) |
+|-----|------|------|---|-------------------|-----------------|
+| 60  | 0.95 | −0.9 | 1 | +0.0758 → +0.0218 | 0.203 → 0.113   |
+| 120 | 0.95 | −0.9 | 1 | +0.0358 → +0.0080 | 0.130 → 0.085   |
+| 240 | 0.95 | −0.9 | 1 | +0.0173 → +0.0028 | 0.100 → 0.072   |
+| 120 | 0.50 | −0.9 | 1 | +0.0167 → −0.0016 | 0.062 → 0.052   |
+| 120 | 0.95 |  0.0 | 1 | −0.0024 → −0.0017 | 0.065 → 0.068   |
+| 120 | 0.00 | −0.9 | 1 | +0.0061 → −0.0014 | 0.052 → 0.037   |
+| 120 | 0.95 | −0.9 | 5 | +0.1423 → +0.0043 | 0.263 → 0.102   |
+
+- *primary*: `p_value` — two-sided bias-corrected slope test.
 - *descriptive*: `n_periods`, `n_periods_effective`
   (`n_periods // forward_periods` — the non-overlapping observations the
   short-sample gate reads), `residual_lag1_autocorr`, `newey_west_lags`,
   `forward_periods`, `alpha`, `r_squared`, `factor_std`, `adf_stat`, `adf_p`,
   `adf_threshold`, `unit_root_suspected`.
+- *descriptive* (Stambaugh correction): `stambaugh_adjusted` (False only
+  when the sample is too short for the augmented design, in which case
+  `value` falls back to the plain OLS slope), `beta_ols_uncorrected`,
+  `stambaugh_bias_estimate` (`beta_ols_uncorrected - value`), `ar1_phi`,
+  `ar1_phi_corrected`, `innovation_corr` (`rho_hat`),
+  `stambaugh_bias_channel` (`|rho_hat * phi_corrected|`).
 - *warning*: `WarningCode.PERSISTENT_REGRESSOR` when the ADF p-value exceeds
-  `adf_threshold`; the HAC slope is still returned, but the predictive
-  regression may carry persistent-regressor bias. The flag is a unit-root
-  verdict on the regressor, **not** a size guarantee: a long sample gives ADF
-  the power to reject the unit root and silences the flag while the test stays
-  oversized (measured 14% at a nominal 5% for `T = 2500`, `h = 21` under a
-  Stambaugh design where the flag fired on 0% of draws).
+  `adf_threshold` **or** `stambaugh_bias_channel` exceeds `0.3`. The second
+  trigger is the one that matters: it reads the actual bias channel rather
+  than a unit-root verdict on the regressor alone. ADF fired on 1% of runs
+  at `phi = 0.5` where the bias is already present, and stayed silent on 62%
+  of biased runs at `T = 240`. The code now means "the corrected test is
+  itself oversized in this regime" (7–11% at a nominal 5% around
+  `phi = 0.95`), not "beta may carry Stambaugh bias" — the bias is
+  corrected.
 - *warning*: `WarningCode.SERIAL_CORRELATION_DETECTED` when the regression
   residuals' lag-1 autocorrelation exceeds `PERSISTENT_SERIES_AUTOCORR`.
 - *warning*: `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` when

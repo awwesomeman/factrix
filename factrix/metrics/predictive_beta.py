@@ -14,6 +14,8 @@ Notes:
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import polars as pl
 
@@ -27,6 +29,7 @@ from factrix._stats.constants import (
     MIN_PERIODS_WARN,
     PERSISTENT_SERIES_AUTOCORR,
 )
+from factrix._stats.ols import _amihud_hurvich_beta
 from factrix._types import DDOF, EPSILON
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
@@ -38,6 +41,12 @@ from factrix.metrics._helpers import (
 )
 
 __all__ = ["predictive_beta"]
+
+#: ``|rho_hat * phi_hat|`` above which the Stambaugh channel is strong enough
+#: that even the bias-corrected test is no longer well sized (measured 7-11%
+#: at a nominal 5% for ``phi = 0.95, rho = -0.9``). Set where the correction
+#: stops holding size inside ~7%.
+_STAMBAUGH_CHANNEL_WARN: float = 0.3
 
 
 @metric(
@@ -64,10 +73,28 @@ def predictive_beta(
 
     Fits the direct predictive regression
     $R_{t+h} = \alpha + \beta F_t + \varepsilon_t$ on one asset and tests
-    ``H0: beta = 0`` with a Newey-West HAC standard error. The Bartlett lag
-    defaults to the Newey-West (1994) automatic rule, floored at
-    ``forward_periods - 1`` so overlapping forward-return windows do not
-    understate the standard error.
+    ``H0: beta = 0``. The Bartlett lag defaults to the Newey-West (1994)
+    automatic rule, floored at ``forward_periods - 1`` so overlapping
+    forward-return windows do not understate the standard error.
+
+    ``value`` is the **Stambaugh-bias-corrected** slope, not the raw OLS
+    one. [Stambaugh (1999)][stambaugh-1999] showed OLS here is biased by
+    $(\sigma_{ev}/\sigma_v^2)(1+3\phi)/T$ whenever the predictor is
+    persistent *and* its AR(1) innovation correlates with the return
+    innovation — the classic dividend-yield artefact. The bias is the
+    **product** of persistence $\phi$ and innovation correlation $\rho$,
+    so an ADF screen on the regressor cannot detect it: ADF proxies
+    $\phi$ only and has low power at exactly the $\phi \approx 0.95$
+    values where the bias bites. Against a true $\beta = 0$ at
+    $T=60,\ \phi=0.95,\ \rho=-0.9$, plain OLS averaged $+0.076$ and
+    rejected 20.6% at a nominal 5%.
+
+    The correction is the [Amihud-Hurvich (2004)][amihud-hurvich-2004]
+    augmented regression — see
+    ``factrix._stats.ols._amihud_hurvich_beta`` for the construction, the
+    generated-regressor standard error and the measured bias / size table.
+    The raw OLS slope stays in ``metadata["beta_ols_uncorrected"]`` and the
+    correction applied in ``metadata["stambaugh_bias_estimate"]``.
 
     Args:
         data: Single-asset long panel with ``date``, ``asset_id``,
@@ -77,13 +104,23 @@ def predictive_beta(
         forward_periods: Forward-return horizon injected by ``evaluate`` from
             the panel metadata; standalone calls may pass it directly.
         adf_threshold: Augmented Dickey-Fuller p-value above which the
-            factor is flagged as persistent. ``None`` disables the check.
+            factor is flagged as a *unit-root suspect*. ``None`` disables
+            the check. This is a persistence screen on the regressor, not a
+            Stambaugh-bias screen — the bias itself is corrected
+            unconditionally, and ``WarningCode.PERSISTENT_REGRESSOR`` also
+            fires off the measured bias channel
+            ``|rho_hat * phi_corrected|`` above
+            ``_STAMBAUGH_CHANNEL_WARN``, which is the trigger that tracks
+            the problem.
         factor_col: Predictor column.
         return_col: Forward-return column.
 
     Returns:
-        ``MetricResult`` with ``value`` = beta, ``stat`` = HAC ``t`` statistic,
-        and ``p_value`` for ``H0: beta = 0``.
+        ``MetricResult`` with ``value`` = the bias-corrected beta, ``stat``
+        = its ``t`` statistic, and ``p_value`` for ``H0: beta = 0``. A
+        perfect fit or a degenerate design withholds the test
+        (``stat`` / ``p_value`` are ``None`` under
+        ``WarningCode.DEGENERATE_VARIANCE``) while keeping ``value``.
 
     Notes:
         This is **not** a ``common_beta`` fallback. ``common_beta`` tests the
@@ -184,7 +221,23 @@ def predictive_beta(
         )
 
     lags = _resolve_nw_lags(n, newey_west_lags, forward_periods)
-    beta, t_stat, p_value, resid = _ols_nw_slope_t(y, x, lags=lags)
+    beta_ols, t_ols, p_ols, resid = _ols_nw_slope_t(y, x, lags=lags)
+    # Stambaugh (1999) bias correction via the Amihud-Hurvich (2004)
+    # augmented regression. Reported as the headline beta: the uncorrected
+    # OLS slope is biased by (sigma_ev/sigma_v^2)(1+3phi)/T whenever the
+    # predictor is persistent AND its innovation correlates with the return
+    # innovation - the classic dividend-yield artefact, +0.076 against a true
+    # 0 at T=60, phi=0.95, rho=-0.9, with a 20.6% rejection rate. The raw OLS
+    # slope stays in metadata.
+    fit = _amihud_hurvich_beta(y, x, lags=lags, forward_periods=forward_periods)
+    if math.isnan(fit.beta):
+        # Too short / degenerate for the augmented design; fall back to the
+        # plain slope so the metric still reports what it can.
+        beta, t_stat, p_value = beta_ols, t_ols, p_ols
+        stambaugh_applied = False
+    else:
+        beta, t_stat, p_value = fit.beta, fit.t_stat, fit.p_value
+        stambaugh_applied = True
     alpha = float(np.mean(y) - beta * np.mean(x))
     ss_res = float(np.dot(resid, resid))
     y_c = y - float(np.mean(y))
@@ -204,7 +257,19 @@ def predictive_beta(
         }
 
     warning_codes: list[str] = []
-    if unit_root_suspected:
+    # The regime flag fires on the ACTUAL bias channel - the product of
+    # persistence and innovation correlation - not on the ADF screen alone.
+    # ADF proxies phi only, carries no information about rho, and has low
+    # power at exactly the phi ~ 0.95 values where the bias bites: it fired
+    # on 1% of runs at phi=0.5 where the bias is already present, and stayed
+    # silent on 62% of biased runs at T=240. The ADF result is still
+    # reported; it just no longer decides the flag on its own.
+    bias_channel = (
+        abs(fit.innovation_corr * fit.phi_corrected)
+        if stambaugh_applied and not math.isnan(fit.innovation_corr)
+        else 0.0
+    )
+    if unit_root_suspected or bias_channel > _STAMBAUGH_CHANNEL_WARN:
         warning_codes.append(WarningCode.PERSISTENT_REGRESSOR.value)
     # Persistence screen on this regression's own residuals, taken at stride
     # forward_periods — exactly what inference.NonOverlapping does to its
@@ -252,6 +317,13 @@ def predictive_beta(
         "alpha": alpha,
         "r_squared": r_squared,
         "factor_std": x_std,
+        "stambaugh_adjusted": stambaugh_applied,
+        "beta_ols_uncorrected": beta_ols,
+        "stambaugh_bias_estimate": (beta_ols - beta) if stambaugh_applied else 0.0,
+        "ar1_phi": fit.phi,
+        "ar1_phi_corrected": fit.phi_corrected,
+        "innovation_corr": fit.innovation_corr,
+        "stambaugh_bias_channel": bias_channel,
         **adf_metadata,
     }
     # A perfect fit (zero residuals) leaves se_beta ~ 0 and _ols_nw_slope_t

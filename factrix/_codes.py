@@ -304,7 +304,7 @@ _WARNING_DESCRIPTIONS.update(
         "forward_periods against a short sample. The t-test still runs with "
         "the effective-df correction, but treat the p-value as indicative "
         "only and lengthen the sample or shorten the horizon.",
-        WarningCode.PERSISTENT_REGRESSOR: "ADF p exceeds the configured threshold on the continuous factor; beta may carry Stambaugh bias.",
+        WarningCode.PERSISTENT_REGRESSOR: "The predictive regressor is in a regime the corrected test is not well sized in: either ADF p exceeds the configured threshold (unit-root suspect) or the measured Stambaugh channel |rho_hat * phi_hat| exceeds 0.3. The Stambaugh (1999) bias itself is CORRECTED via the Amihud-Hurvich (2004) augmented regression, so this is not 'beta may be biased' - it is 'the residual near-unit-root problem leaves the corrected test at 7-11% against a nominal 5%'. Read the p against a raised hurdle.",
         WarningCode.SERIAL_CORRELATION_DETECTED: "The tested per-period series has "
         "lag-1 autocorrelation above PERSISTENT_SERIES_AUTOCORR (0.3). No HAC or "
         "bootstrap path is calibrated here — measured 13–17% (NW), 12–19% "

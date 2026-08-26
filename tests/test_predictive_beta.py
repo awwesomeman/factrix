@@ -32,7 +32,11 @@ class TestPredictiveBetaStatistic:
         result = predictive_beta(_ts_panel(x, y), forward_periods=5)
         reference_beta = np.polyfit(x, y, 1)[0]
 
-        assert result.value == pytest.approx(reference_beta)
+        # ``value`` is the Stambaugh-corrected slope; the raw OLS slope
+        # this reference reproduces is kept in metadata.
+        assert result.metadata["beta_ols_uncorrected"] == pytest.approx(reference_beta)
+        assert result.value == pytest.approx(reference_beta, rel=0.02)
+        assert result.metadata["stambaugh_adjusted"] is True
         assert result.stat > 0
         assert result.p_value < 0.01
         assert result.n_obs == 240
