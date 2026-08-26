@@ -44,6 +44,7 @@ from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _all_dates_degenerate,
     _check_applicable_inference,
+    _compute_tie_ratio,
     _degenerate_test_fields,
     _enforce_scaled_floor,
     _finite_expr,
@@ -54,6 +55,7 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
     _spread_significance_with_inference,
     _surface_null_drop,
+    _warn_high_tie_ratio,
 )
 
 __all__ = [
@@ -103,7 +105,11 @@ def _k_spread_threshold(self) -> SampleThreshold:
 
 
 def _build_k_spread_series(
-    panel: pl.DataFrame, k: int, factor_col: str, return_col: str
+    panel: pl.DataFrame,
+    k: int,
+    factor_col: str,
+    return_col: str,
+    tie_policy: str = "ordinal",
 ) -> tuple[pl.DataFrame | None, pl.DataFrame]:
     """Per-period Top-K/Bottom-K spread series from a (possibly sampled) panel.
 
@@ -136,9 +142,14 @@ def _build_k_spread_series(
             .sort("date")
         )
         return series, clean
+    # ``tie_policy`` is the caller's, not a hard-coded "ordinal". On a
+    # discrete signal — a 3-level CTA event score with k=5, say — ordinal
+    # tie-breaking fills the legs by row order among tied names and reports an
+    # arbitrary split as a spread. ``"average"`` gives tied names a shared rank
+    # so neither leg can be filled by sort artefacts; leg sizes then vary.
     ranked = clean.with_columns(
         pl.col(factor_col)
-        .rank(method="ordinal", descending=True)
+        .rank(method=tie_policy, descending=True)  # type: ignore[arg-type]
         .over("date")
         .alias("_rank"),
         pl.len().over("date").alias("_n_date"),
@@ -179,6 +190,7 @@ def k_spread(
     k: int = 5,
     factor_col: str = "factor",
     return_col: str = "forward_return",
+    tie_policy: str = "ordinal",
     inference: NonOverlapping | NeweyWest = NON_OVERLAPPING,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
@@ -199,6 +211,25 @@ def k_spread(
             disjoint legs — dates with fewer are dropped.
         factor_col: Ranking column (default ``"factor"``).
         return_col: Realised-return column (default ``"forward_return"``).
+        tie_policy: Tie-break policy for the leg ranking — the same knob and
+            the same values as ``quantile_spread`` / ``quantile_spread_vw`` /
+            ``monotonicity``. ``"ordinal"`` (default) breaks ties by row order,
+            which keeps both legs exactly ``k`` names wide but fills them
+            arbitrarily among tied values; ``"average"`` gives tied names a
+            shared rank so a discrete signal cannot be split by sort artefacts.
+            Note what that means for a *fixed-k* leg: a tied block wider than
+            ``k`` puts no name inside the cutoff, so the leg is empty and the
+            date drops out (the drop-rate advisory reports it). That is the
+            honest answer — five names cannot be picked out of a ten-way tie
+            without an arbitrary rule — but it costs sample, so on a heavily
+            tied factor prefer ``quantile_spread`` with ``tie_policy="average"``,
+            whose legs are defined by rank *fraction* rather than count. The realised per-period tie
+            ratio is reported in ``metadata["tie_ratio"]`` and a median above
+            the shared threshold raises a ``UserWarning``. Only
+            ``_all_dates_degenerate`` used to guard this, and it fires only
+            when the factor is constant everywhere — a 3-level signal ranked
+            ordinally into fixed-``k`` legs reported an arbitrary split as a
+            spread with no tie diagnostic at all.
         inference: Headline significance method. ``fx.inference.NON_OVERLAPPING``
             (default) runs the OLS t-test on the non-overlap stride;
             ``fx.inference.NEWEY_WEST`` keeps every date and HAC-corrects the
@@ -290,7 +321,11 @@ def k_spread(
     # past the last real rank — silently shrinking or emptying the short leg.
     # forward_return is null on the last ``forward_periods`` rows per asset.
     sampled = _sample_non_overlapping(data, forward_periods)
-    series, clean = _build_k_spread_series(sampled, k, factor_col, return_col)
+    tie_ratio = _compute_tie_ratio(sampled, factor_col)
+    _warn_high_tie_ratio(tie_ratio, "k_spread", tie_policy)
+    series, clean = _build_k_spread_series(
+        sampled, k, factor_col, return_col, tie_policy
+    )
     n_assets = clean["asset_id"].n_unique()
     # Real per-period asset count (not the universe-wide unique count): both
     # insufficient-assets short-circuits report it under the same reason.
@@ -307,6 +342,8 @@ def k_spread(
             k=k,
             min_required=2 * k,
             max_assets_per_date=max_per_date,
+            tie_ratio=tie_ratio,
+            tie_policy=tie_policy,
         )
 
     if series is None:
@@ -318,6 +355,8 @@ def k_spread(
             k=k,
             min_required=2 * k,
             max_assets_per_date=max_per_date,
+            tie_ratio=tie_ratio,
+            tie_policy=tie_policy,
         )
 
     spread_vals = _finite_values(series["spread"])
@@ -329,6 +368,8 @@ def k_spread(
         forward_periods,
         "insufficient_portfolio_periods",
         k=k,
+        tie_ratio=tie_ratio,
+        tie_policy=tie_policy,
     )
     if sc is not None:
         return sc
@@ -350,6 +391,8 @@ def k_spread(
             n_obs_axis="periods",
             k=k,
             n_periods_in=series.height,
+            tie_ratio=tie_ratio,
+            tie_policy=tie_policy,
         )
 
     arr = spread_vals.to_numpy()
@@ -358,7 +401,9 @@ def k_spread(
     # before the HAC regression for the same reason ``arr`` is cleaned.
     full_series: pl.DataFrame | None = None
     if isinstance(inference, NeweyWest):
-        full_series, _ = _build_k_spread_series(data, k, factor_col, return_col)
+        full_series, _ = _build_k_spread_series(
+            data, k, factor_col, return_col, tie_policy
+        )
         if full_series is not None:
             full_series = full_series.filter(_finite_expr("spread"))
     # Thin-cross-section switch keys on the median per-period count of usable
@@ -395,6 +440,8 @@ def k_spread(
         "n_periods_strided": n_strided,
         "median_cross_section": median_xs,
         "k": k,
+        "tie_ratio": tie_ratio,
+        "tie_policy": tie_policy,
         "stat_type": "t",
         "h0": "mu=0",
         "method": sig_method,

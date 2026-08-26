@@ -1,10 +1,12 @@
 """Tests for factrix.preprocess.orthogonalize."""
 
+import warnings
 from datetime import datetime, timedelta
 
 import numpy as np
 import polars as pl
 import pytest
+from factrix._codes import WarningCode
 from factrix.preprocess.orthogonalize import orthogonalize_factor
 
 
@@ -96,7 +98,9 @@ class TestDuplicateBaseKeys:
 
     def test_unique_keys_keep_height_and_coverage(self):
         factor_df, base_df = _make_ortho_data(n_dates=3, n_assets=5)
-        ortho = orthogonalize_factor(factor_df, base_df)
+        # min_residual_df=1 keeps this a coverage test: 5 names on 2 base
+        # columns is far below the default df floor.
+        ortho = orthogonalize_factor(factor_df, base_df, min_residual_df=1)
         assert ortho.data.height == factor_df.height
         assert ortho.coverage == pytest.approx(1.0)
 
@@ -158,9 +162,10 @@ class TestNonFiniteRows:
         assert row["factor"][0] is None
 
     def test_too_few_finite_rows_skips_the_date(self):
-        """Below len(base_cols) + 2 finite rows the date keeps its raw values."""
-        # 2 base cols + intercept → 4 finite rows required. The first date is
-        # one short once A0 goes non-finite; the second date clears the bar.
+        """Below the residual-df floor the date keeps its raw values."""
+        # 2 base cols + intercept → 4 finite rows required at
+        # min_residual_df=1. The first date is one short once A0 goes
+        # non-finite; the second date clears the bar.
         factor_df, base_df = _make_ortho_data(n_dates=2, n_assets=4)
         first_date = factor_df["date"][0]
         dirty = factor_df.with_columns(
@@ -169,11 +174,191 @@ class TestNonFiniteRows:
             .otherwise(pl.col("factor"))
             .alias("factor")
         )
-        ortho = orthogonalize_factor(dirty, base_df)
+        ortho = orthogonalize_factor(dirty, base_df, min_residual_df=1)
         assert ortho.n_dates_skipped == 1
 
         kept = ortho.data.filter(pl.col("date") == first_date).sort("asset_id")
         original = dirty.filter(pl.col("date") == first_date).sort("asset_id")
         np.testing.assert_array_equal(
             kept["factor"].to_numpy(), original["factor"].to_numpy()
+        )
+
+
+class TestResidualDegreesOfFreedom:
+    """A df floor, not a bare row count (finding: R2 0.79 at a true R2 of 0)."""
+
+    @staticmethod
+    def _independent_panel(n_dates: int, n_assets: int, n_base: int, seed: int = 0):
+        """factor drawn independently of the base set — true R2 is exactly 0."""
+        rng = np.random.default_rng(seed)
+        dates = [datetime(2024, 1, 1) + timedelta(days=d) for d in range(n_dates)]
+        rows = n_dates * n_assets
+        base_names = [f"b{i}" for i in range(n_base)]
+        keys = {
+            "date": [d for d in dates for _ in range(n_assets)],
+            "asset_id": [f"A{i}" for _ in dates for i in range(n_assets)],
+        }
+        factor_df = pl.DataFrame({**keys, "factor": rng.standard_normal(rows)})
+        base_df = pl.DataFrame(
+            {**keys, **{c: rng.standard_normal(rows) for c in base_names}}
+        )
+        return factor_df, base_df, base_names
+
+    def test_thin_cross_section_is_skipped_not_fitted(self):
+        factor_df, base_df, base_names = self._independent_panel(
+            n_dates=200, n_assets=6, n_base=4
+        )
+        with pytest.warns(UserWarning, match="insufficient_regression_df"):
+            ortho = orthogonalize_factor(factor_df, base_df, base_cols=base_names)
+        assert ortho.n_dates_insufficient_df == 200
+        assert ortho.n_dates_skipped == 200
+        assert ortho.coverage == 0.0
+        assert WarningCode.INSUFFICIENT_REGRESSION_DF.value in ortho.warning_codes
+        # The factor survives intact rather than being residualised into noise.
+        np.testing.assert_allclose(
+            ortho.data.sort(["date", "asset_id"])["factor"].to_numpy(),
+            factor_df.sort(["date", "asset_id"])["factor"].to_numpy(),
+        )
+
+    def test_old_floor_reported_noise_as_explanatory_power(self):
+        """min_residual_df=1 reproduces the defect the floor exists to stop."""
+        factor_df, base_df, base_names = self._independent_panel(
+            n_dates=200, n_assets=6, n_base=4
+        )
+        ortho = orthogonalize_factor(
+            factor_df, base_df, base_cols=base_names, min_residual_df=1
+        )
+        # Raw R2 ~ K/(N-1) = 4/5 even though the true R2 is 0 ...
+        assert ortho.mean_r_squared > 0.7
+        # ... and the adjusted figure says so.
+        assert abs(ortho.mean_adj_r_squared) < 0.2
+        assert ortho.mean_adj_r_squared < ortho.mean_r_squared
+
+    def test_wide_cross_section_still_fits(self):
+        factor_df, base_df, base_names = self._independent_panel(
+            n_dates=30, n_assets=40, n_base=3
+        )
+        ortho = orthogonalize_factor(factor_df, base_df, base_cols=base_names)
+        assert ortho.n_dates_insufficient_df == 0
+        assert ortho.coverage == pytest.approx(1.0)
+        assert ortho.warning_codes == ()
+
+    def test_floor_is_residual_df_not_row_count(self):
+        """n_assets = n_base + 1 + min_residual_df is the exact boundary."""
+        for n_assets, expect_skip in ((13, True), (14, False)):
+            factor_df, base_df, base_names = self._independent_panel(
+                n_dates=5, n_assets=n_assets, n_base=3
+            )
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                ortho = orthogonalize_factor(
+                    factor_df, base_df, base_cols=base_names, min_residual_df=10
+                )
+            assert (ortho.n_dates_insufficient_df == 5) is expect_skip
+
+
+class TestRankDeficiency:
+    """lstsq does not raise on a singular design; it returns min-norm betas."""
+
+    @staticmethod
+    def _dummy_panel(*, drop_reference: bool, n_dates: int = 50, n_assets: int = 20):
+        rng = np.random.default_rng(3)
+        dates = [datetime(2024, 1, 1) + timedelta(days=d) for d in range(n_dates)]
+        keys = {
+            "date": [d for d in dates for _ in range(n_assets)],
+            "asset_id": [f"A{i}" for _ in dates for i in range(n_assets)],
+        }
+        rows = n_dates * n_assets
+        industry = np.tile(np.arange(n_assets) % 4, n_dates)
+        cols = {f"ind{k}": (industry == k).astype(float) for k in range(4)}
+        base_df = pl.DataFrame({**keys, **cols})
+        factor_df = pl.DataFrame({**keys, "factor": rng.standard_normal(rows)})
+        names = sorted(cols)
+        return factor_df, base_df, names[1:] if drop_reference else names
+
+    def test_full_dummy_set_is_detected(self):
+        factor_df, base_df, base_names = self._dummy_panel(drop_reference=False)
+        with pytest.warns(UserWarning, match="rank_deficient_design"):
+            ortho = orthogonalize_factor(factor_df, base_df, base_cols=base_names)
+        assert ortho.n_dates_rank_deficient == 50
+        assert WarningCode.RANK_DEFICIENT_DESIGN.value in ortho.warning_codes
+        # Unidentified betas are withheld rather than reported as attribution.
+        assert ortho.mean_betas == {}
+
+    def test_duplicated_column_is_detected(self):
+        factor_df, base_df, base_names = self._dummy_panel(drop_reference=True)
+        base_df = base_df.with_columns(pl.col(base_names[0]).alias("copy"))
+        with pytest.warns(UserWarning, match="rank_deficient_design"):
+            ortho = orthogonalize_factor(
+                factor_df, base_df, base_cols=[*base_names, "copy"]
+            )
+        assert ortho.n_dates_rank_deficient == 50
+        assert ortho.mean_betas == {}
+
+    def test_reference_level_dropped_gives_identified_betas(self):
+        factor_df, base_df, base_names = self._dummy_panel(drop_reference=True)
+        ortho = orthogonalize_factor(factor_df, base_df, base_cols=base_names)
+        assert ortho.n_dates_rank_deficient == 0
+        assert set(ortho.mean_betas) == set(base_names)
+        assert ortho.warning_codes == ()
+
+    def test_residuals_are_identical_either_way(self):
+        """The projection is unique; only the betas were arbitrary."""
+        factor_df, base_df, full = self._dummy_panel(drop_reference=False)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            deficient = orthogonalize_factor(factor_df, base_df, base_cols=full)
+        reduced = orthogonalize_factor(factor_df, base_df, base_cols=full[1:])
+        np.testing.assert_allclose(
+            deficient.data.sort(["date", "asset_id"])["factor"].to_numpy(),
+            reduced.data.sort(["date", "asset_id"])["factor"].to_numpy(),
+            atol=1e-10,
+        )
+
+
+class TestRestandardize:
+    def test_default_leaves_the_residual_on_its_own_scale(self):
+        rng = np.random.default_rng(11)
+        n_dates, n_assets = 40, 40
+        dates = [datetime(2024, 1, 1) + timedelta(days=d) for d in range(n_dates)]
+        keys = {
+            "date": [d for d in dates for _ in range(n_assets)],
+            "asset_id": [f"A{i}" for _ in dates for i in range(n_assets)],
+        }
+        rows = n_dates * n_assets
+        size = rng.standard_normal(rows)
+        factor = size + rng.standard_normal(rows)
+        factor_df = pl.DataFrame({**keys, "factor": factor})
+        base_df = pl.DataFrame({**keys, "size": size})
+
+        raw = orthogonalize_factor(factor_df, base_df, base_cols=["size"])
+        pre = float(factor_df["factor"].std(ddof=1))
+        post = float(raw.data["factor"].std(ddof=1))
+        # sd(post) ~ sd(pre) * sqrt(1 - R2)
+        assert post == pytest.approx(pre * (1 - raw.mean_r_squared) ** 0.5, rel=0.1)
+        assert raw.restandardized is False
+
+    def test_restandardize_restores_the_per_date_input_dispersion(self):
+        rng = np.random.default_rng(12)
+        n_dates, n_assets = 40, 40
+        dates = [datetime(2024, 1, 1) + timedelta(days=d) for d in range(n_dates)]
+        keys = {
+            "date": [d for d in dates for _ in range(n_assets)],
+            "asset_id": [f"A{i}" for _ in dates for i in range(n_assets)],
+        }
+        rows = n_dates * n_assets
+        size = rng.standard_normal(rows)
+        factor_df = pl.DataFrame({**keys, "factor": size + rng.standard_normal(rows)})
+        base_df = pl.DataFrame({**keys, "size": size})
+
+        out = orthogonalize_factor(
+            factor_df, base_df, base_cols=["size"], restandardize=True
+        )
+        assert out.restandardized is True
+        per_date = out.data.group_by("date").agg(
+            pl.col("factor").std(ddof=1).alias("post"),
+            pl.col("factor_pre_ortho").std(ddof=1).alias("pre"),
+        )
+        np.testing.assert_allclose(
+            per_date["post"].to_numpy(), per_date["pre"].to_numpy(), rtol=1e-9
         )

@@ -8,8 +8,11 @@ All functions expect canonical column names (date, asset_id, price).
 Use ``adapt()`` to rename before calling.
 """
 
+import warnings
+
 import polars as pl
 
+from factrix._codes import WarningCode
 from factrix._errors import UserInputError
 
 _DOCS_FORWARD_RETURN = "api/preprocess#compute_forward_return"
@@ -63,6 +66,33 @@ def _validate_winsorize_bounds(lower: object, upper: object) -> tuple[float, flo
     return lower_f, upper_f
 
 
+def _warn_if_ragged(indexed: pl.DataFrame, n_periods: int) -> None:
+    """Flag per-asset date grids that disagree with the panel's own grid.
+
+    The horizon is a step along each asset's period index, so a gap is no
+    longer able to stretch one asset's window past another's — but the asset
+    with the gap has no observation to pair at ``i + 1 + h`` and simply
+    contributes fewer rows. Callers comparing horizons across names need to
+    know their grids differ.
+    """
+    per_asset = indexed.group_by("asset_id").agg(
+        pl.col("_period_index").n_unique().alias("_n_periods")
+    )
+    n_ragged = int((per_asset["_n_periods"] < n_periods).sum())
+    if n_ragged:
+        warnings.warn(
+            f"compute_forward_return: {WarningCode.RAGGED_PERIOD_GRID.value} — "
+            f"{n_ragged} of {per_asset.height} assets are missing periods that "
+            f"others have (panel grid: {n_periods} periods). The horizon is "
+            "measured on the panel's period grid, so those assets simply have "
+            "no observation to pair at the exit period rather than a stretched "
+            "window; reindex onto a common grid if the horizons must be "
+            "comparable across names.",
+            UserWarning,
+            stacklevel=3,
+        )
+
+
 def compute_forward_return(
     data: pl.DataFrame,
     forward_periods: int = 5,
@@ -90,13 +120,15 @@ def compute_forward_return(
     (see Notes for the scope boundary).
 
     Args:
-        data: Must contain ``date``, ``asset_id``, ``price``. Must already
-            be sorted with **regular spacing per asset** on the time axis;
-            this function shifts by row count and does not inspect ``date``.
-        forward_periods: Holding horizon in **rows** of the time axis,
-            not calendar time (default 5). On a daily panel this is 5
-            trading days; on a weekly panel, 5 weeks; on 1-min bars,
-            5 minutes. Frequency is the caller's responsibility.
+        data: Must contain ``date``, ``asset_id``, ``price``, with one row per
+            ``(date, asset_id)`` and a temporal ``date`` column. Both are
+            enforced (see Raises); neither used to be.
+        forward_periods: Holding horizon in **periods of the panel's own
+            grid** — the distinct sorted ``date`` values present in the panel,
+            not calendar time and not row position within an asset (default
+            5). On a daily panel this is 5 trading days; on a weekly panel, 5
+            weeks; on 1-min bars, 5 minutes. Which frequency those periods
+            represent is the caller's responsibility.
         overwrite: Allow recomputation when ``data`` already carries a
             ``forward_return`` column. ``False`` (default) raises rather
             than silently overwrite — the function is **not idempotent**:
@@ -108,9 +140,11 @@ def compute_forward_return(
 
     Raises:
         UserInputError: ``forward_periods`` is not a positive ``int``;
-            ``data`` already has a ``forward_return`` column and
-            ``overwrite`` is ``False``; or the row horizon / price data
-            leaves no finite forward returns after filtering.
+            ``data`` carries duplicate ``(date, asset_id)`` rows or a
+            non-temporal ``date`` column; ``data`` already has a
+            ``forward_return`` column and ``overwrite`` is ``False``; or the
+            horizon / price data leaves no finite forward returns after
+            filtering.
 
     Returns:
         Input DataFrame with ``forward_return`` column appended and the
@@ -121,6 +155,32 @@ def compute_forward_return(
         are dropped.
 
     Notes:
+        **The horizon is measured on the panel's period grid.** The distinct
+        sorted ``date`` values in the panel are indexed 0, 1, 2, ..., and each
+        asset's forward return pairs its row at period index ``i + 1`` with its
+        row at ``i + 1 + forward_periods``. This used to be a positional
+        ``shift`` within each asset, which equals a time horizon only on a
+        complete per-asset panel: with asset A missing 20 periods mid-sample, a
+        "5-period" return silently spanned 25 real periods, contaminating both
+        the return and the overlap horizon stamped in ``_forward_periods`` that
+        every downstream HAC inference reads. Suspensions, halts,
+        delist-relist and staggered entry are ordinary in regional equity data,
+        and sparse event panels are ragged by construction.
+
+        A ragged grid (an asset missing periods that others have) raises
+        ``WarningCode.RAGGED_PERIOD_GRID``: the pairing is now correct for
+        every asset, but an asset with a gap simply has no observation at
+        ``i + 1 + h``, so it contributes fewer rows than a complete one.
+        Reindex onto a common grid if the horizons must be comparable across
+        names.
+
+        **Non-finite prices are blanked before the division, not after.** The
+        filter used to be applied to the *quotient*: with a ``+Inf``
+        denominator, ``finite / inf`` is ``0.0``, so the result was a perfectly
+        finite fabricated ``-100%`` return that sailed straight through
+        ``is_finite()``. (An ``inf`` numerator gives ``inf`` and was correctly
+        dropped — the leak was asymmetric, and so easy to miss.)
+
         The ``/ forward_periods`` per-period normalization is a *scale* choice with
         three caveats the caller should know:
 
@@ -203,20 +263,59 @@ def compute_forward_return(
             )
         data = data.drop("forward_return")
 
-    from factrix._data_input import _stamp_forward_periods
+    from factrix._data_input import _normalize_panel, _stamp_forward_periods
 
+    # One structural gate: temporal ``date``, unique ``(date, asset_id)``, and
+    # non-finite numerics blanked to null *before* any arithmetic. A duplicated
+    # key made the "next period" the same date's twin and manufactured a 0.0
+    # return; a +Inf denominator made ``finite / inf = 0`` and manufactured a
+    # finite -100% return that an output-side is_finite() filter cannot catch.
+    data = _normalize_panel(data)
+
+    # Period index on the panel's own grid, shared by every asset. Shifting by
+    # row position within an asset only equals a time horizon on a complete
+    # panel — see Notes.
+    grid = (
+        data.select("date")
+        .unique()
+        .sort("date")
+        .with_row_index("_period_index")
+        .with_columns(pl.col("_period_index").cast(pl.Int64))
+    )
+    n_periods = grid.height
+    indexed = data.join(grid, on="date", how="left")
+
+    _warn_if_ragged(indexed, n_periods)
+
+    # Entry at period i+1, exit at period i+1+h, both looked up by index rather
+    # than by row offset, so a gap in one asset's history cannot stretch its
+    # horizon.
+    prices = indexed.select(
+        "asset_id",
+        pl.col("_period_index"),
+        pl.col("price").alias("_price_at"),
+    )
     out = (
-        data.sort(["asset_id", "date"])
-        .with_columns(
-            (
-                (
-                    pl.col("price").shift(-(forward_periods + 1)).over("asset_id")
-                    / pl.col("price").shift(-1).over("asset_id")
-                    - 1
-                )
-                / forward_periods
-            ).alias("forward_return")
+        indexed.with_columns(
+            (pl.col("_period_index") + 1).alias("_entry_index"),
+            (pl.col("_period_index") + 1 + forward_periods).alias("_exit_index"),
         )
+        .join(
+            prices.rename({"_period_index": "_entry_index", "_price_at": "_entry"}),
+            on=["asset_id", "_entry_index"],
+            how="left",
+        )
+        .join(
+            prices.rename({"_period_index": "_exit_index", "_price_at": "_exit"}),
+            on=["asset_id", "_exit_index"],
+            how="left",
+        )
+        .with_columns(
+            ((pl.col("_exit") / pl.col("_entry") - 1) / forward_periods).alias(
+                "forward_return"
+            )
+        )
+        .drop("_period_index", "_entry_index", "_exit_index", "_entry", "_exit")
         .filter(pl.col("forward_return").is_finite())
     )
     if out.is_empty():

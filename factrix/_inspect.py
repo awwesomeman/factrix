@@ -41,7 +41,7 @@ import polars as pl
 
 from factrix._axis import DataStructure, FactorDensity, FactorScope, InputShape, Tier
 from factrix._codes import WarningCode, cross_section_tier
-from factrix._data_input import _FORWARD_PERIODS_COL
+from factrix._data_input import _FORWARD_PERIODS_COL, _coerce_data
 from factrix._metric_index import MetricSpec, public_specs
 from factrix._results import Warning
 from factrix._types import MIN_IC_ASSETS_HARD, MIN_IC_ASSETS_WARN
@@ -602,6 +602,10 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
             f"factor_cols must be a list of column names, not a str; "
             f"did you mean factor_cols=[{factor_cols!r}]?"
         )
+    # Same structural gate evaluate goes through, so pre-flight and the run
+    # agree on what the panel is: a duplicated key or a string date must not
+    # pass inspection and then fail (or worse, silently mis-sort) at evaluate.
+    data = _coerce_data(data)
     if factor_cols is None:
         cols = [c for c in data.columns if c not in _INSPECT_RESERVED]
     else:

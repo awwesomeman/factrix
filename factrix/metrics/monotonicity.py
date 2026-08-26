@@ -15,6 +15,7 @@ Notes:
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Literal
 
 import numpy as np
 import polars as pl
@@ -27,6 +28,7 @@ from factrix._axis import (
     FactorScope,
 )
 from factrix._codes import WarningCode
+from factrix._errors import UserInputError
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_t
@@ -37,8 +39,8 @@ from factrix._types import (
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _assign_quantile_groups_batch,
-    _degenerate_test_fields,
     _enforce_scaled_floor,
+    _finite_expr,
     _median_universe_size,
     _sample_non_overlapping,
     _scaled_periods_threshold,
@@ -90,6 +92,64 @@ def _monotonicity_sample_threshold(self) -> SampleThreshold:
     )
 
 
+# Patton-Timmermann (2010) monotonic-relationship (MR) test. ``direction`` is
+# declared by the caller, not read off the data: running both and reporting the
+# better one is a two-sided search reported at a one-sided level.
+MRDirection = Literal["increasing", "decreasing"]
+
+
+def _mr_test(
+    bucket_means: np.ndarray,
+    *,
+    direction: MRDirection,
+    n_bootstrap: int,
+    seed: int | None,
+) -> tuple[float, float, dict[str, object]]:
+    """Patton-Timmermann (2010) MR test on a ``(n_periods, n_groups)`` block.
+
+    Returns ``(J, p_value, metadata)`` where ``J = min_i mean_t Delta_{i,t}`` is
+    the smallest average adjacent bucket-return difference, in return units.
+
+    H0 is "the pattern is **not** monotonically increasing", i.e.
+    ``min_i E[Delta_i] <= 0``; H1 is that every adjacent step is positive. The
+    null distribution is obtained by recentring the per-period difference matrix
+    at zero (the least-favourable configuration under H0) and resampling whole
+    blocks of periods with the stationary bootstrap, so cross-bucket dependence
+    within a period and serial dependence across periods are both preserved —
+    the differences are resampled jointly under one row-index draw, never
+    column by column.
+
+    ``p = (1 + #{J* >= J}) / (B + 1)`` — the Davison-Hinkley ``+1`` smoothing
+    the rest of the library's empirical-p paths use, so the p can never be
+    exactly 0.
+    """
+    from factrix.stats import stationary_bootstrap_resamples
+
+    diffs = np.diff(bucket_means, axis=1)
+    if direction == "decreasing":
+        diffs = -diffs
+    delta_bar = diffs.mean(axis=0)
+    j_stat = float(delta_bar.min())
+
+    if seed is None:
+        # Mirror ``StationaryBootstrap``: resolve a seed and report it, so a run
+        # is reproducible after the fact without a mandatory knob.
+        seed = int(np.random.default_rng().integers(0, 2**31 - 1))
+    resamples = stationary_bootstrap_resamples(diffs, n_bootstrap, seed=seed)
+    # (B, T, K-1) -> (B, K-1) bootstrap means, recentred under H0.
+    j_star = (resamples.mean(axis=1) - delta_bar).min(axis=1)
+    p_value = float((1 + int(np.count_nonzero(j_star >= j_stat))) / (n_bootstrap + 1))
+
+    metadata: dict[str, object] = {
+        "mr_direction": direction,
+        "mr_min_diff": j_stat,
+        "mr_adjacent_diffs": [float(v) for v in delta_bar],
+        "n_bootstrap": n_bootstrap,
+        "bootstrap_seed": seed,
+    }
+    return j_stat, p_value, metadata
+
+
 @metric(
     cell=cell(
         FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
@@ -105,36 +165,65 @@ def monotonicity(
     factor_cols: Sequence[str] = ("factor",),
     return_col: str = "forward_return",
     tie_policy: str = "ordinal",
+    direction: MRDirection = "increasing",
+    n_bootstrap: int = 1000,
+    seed: int | None = None,
 ) -> dict[str, MetricResult]:
-    """Quantile return monotonicity (Spearman correlation).
+    """Quantile return monotonicity — Patton-Timmermann (2010) MR test.
 
-    ``value`` = mean |Spearman| — magnitude of monotonicity (always ≥ 0).
-    ``t_stat`` = t-test on signed Spearman — whether direction is consistent.
-
-    A high ``value`` with insignificant ``t_stat`` means the factor has
-    strong monotonicity but the direction flips across dates.
+    ``value`` / ``stat`` = the MR statistic ``J = min_i mean_t Delta_{i,t}``,
+    the smallest average adjacent bucket-return difference, in return units.
+    ``p_value`` is its stationary-bootstrap p.
 
     Args:
         data: Panel with ``date, asset_id, factor, forward_return``.
-        n_groups: Number of quantile groups (default 10 for Taiwan ~2000 stocks).
-            Use 5 for ``n_assets < 1000``, 3 for ``n_assets < 200``.
+        n_groups: Number of quantile groups (default 10 for a ~2000-name
+            universe). Use 5 for ``n_assets < 1000``, 3 for ``n_assets < 200``.
         tie_policy: Bucketing tie-break policy, see ``_assign_quantile_groups``.
+        direction: Which monotone pattern H1 asserts — ``"increasing"``
+            (default) or ``"decreasing"`` in bucket index. Declare it from the
+            factor's hypothesis; running both and reporting the smaller p is a
+            two-sided search charged at a one-sided level.
+        n_bootstrap: Bootstrap resamples for the MR null distribution.
+        seed: Bootstrap seed. ``None`` resolves one and reports it in
+            ``metadata["bootstrap_seed"]``, so a run stays reproducible after
+            the fact.
 
     Returns:
-        MetricResult with value = mean |Spearman(group_idx, group_return)|.
+        MetricResult with ``value`` = ``stat`` = the MR statistic and
+        ``p_value`` from the bootstrap. The descriptive Spearman summaries
+        stay in metadata.
 
     Notes:
-        Per non-overlap date ``t``, bucket assets into ``n_groups`` by
-        factor rank and compute ``mono_t = Spearman(group_idx,
-        group_mean_return)``. ``value = mean_t |mono_t|`` (magnitude of
-        monotonicity, ≥ 0); ``t-stat = mean(mono) / (std(mono) /
-        sqrt(n))`` on the signed series tests directional consistency.
+        Per non-overlap date ``t``, assets are bucketed into ``n_groups`` by
+        factor rank and each bucket's mean return is taken. The MR test then
+        works on the adjacent differences ``Delta_{i,t} = mu_{i,t} -
+        mu_{i-1,t}``: ``J = min_i mean_t Delta_{i,t}``, with
+        ``H0: min_i E[Delta_i] <= 0`` ("the relation is *not* monotonically
+        increasing") against ``H1: min_i E[Delta_i] > 0``. The null
+        distribution comes from recentring the per-period difference matrix at
+        zero — the least-favourable configuration under H0 — and resampling
+        whole blocks of periods with the stationary bootstrap, which keeps both
+        the within-period cross-bucket dependence and the serial dependence
+        across periods. This is the test Patton-Timmermann (2010) actually
+        propose, and the one this metric previously cited without implementing.
 
-        factrix splits magnitude (``value``) and direction (``stat``)
-        deliberately: a high ``value`` paired with insignificant ``t``
-        means the factor monotonically discriminates returns but its sign
-        flips across dates — useful information that a single signed
-        average would hide.
+        **Why the headline is no longer mean |Spearman|.** ``mean_t |rho_t|``
+        has a large null floor that depends on ``n_groups``: on a factor drawn
+        independently of returns (T=400, N=100) it reads 0.66 at
+        ``n_groups=3``, 0.43 at 5 and 0.27 at 10, because ``E|rho| > 0`` under
+        H0 by Jensen's inequality. A reader seeing "value = 0.43,
+        Patton-Timmermann (2010)" took it as MR evidence when it was the noise
+        floor for five buckets. The Spearman summaries remain in metadata as
+        descriptive shape statistics —
+        ``mean_abs_spearman`` (magnitude, always >= 0) and ``mean_signed``
+        (direction consistency) — where a high magnitude with a near-zero
+        signed mean still tells the useful story that the factor sorts returns
+        but flips sign across dates.
+
+        **Deviation from the paper.** Patton-Timmermann bootstrap the raw
+        (unstudentised) differences, which is what runs here. Their studentised
+        variant is not implemented.
 
     Examples:
         >>> import factrix as fx
@@ -144,10 +233,29 @@ def monotonicity(
         ...     fx.datasets.make_cs_panel(n_assets=200, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> result = monotonicity(panel, forward_periods=5, n_groups=5)
+        >>> result = monotonicity(
+        ...     panel, forward_periods=5, n_groups=5, n_bootstrap=200, seed=0
+        ... )
         >>> result["factor"].name == ""
         True
     """
+    if direction not in ("increasing", "decreasing"):
+        # A typo must not silently run the opposite one-sided test.
+        raise UserInputError(
+            func_name="monotonicity",
+            field="direction",
+            value=direction,
+            expected="'increasing' (default) or 'decreasing'",
+            docs_path="api/metrics/monotonicity",
+        )
+    if n_bootstrap < 1:
+        raise UserInputError(
+            func_name="monotonicity",
+            field="n_bootstrap",
+            value=n_bootstrap,
+            expected="a positive integer number of bootstrap resamples",
+            docs_path="api/metrics/monotonicity",
+        )
     cols = list(factor_cols)
     if not cols:
         raise ValueError("factor_cols must be non-empty")
@@ -251,37 +359,46 @@ def monotonicity(
                 tie_policy=tie_policy,
             )
             continue
+        # Headline: the MR test on the same bucket means the Spearman
+        # summaries describe. ``mat`` is already restricted to periods with a
+        # finite mean in every bucket, so the difference matrix is finite.
+        j_stat, p_mr, mr_metadata = _mr_test(
+            mat,
+            direction=direction,
+            n_bootstrap=n_bootstrap,
+            seed=seed,
+        )
+        # Descriptive shape statistics, kept because magnitude and direction
+        # consistency read separately (see Notes) — not the headline.
         avg_mono = float(np.mean(np.abs(mono_arr)))
         mean_mono = float(np.mean(mono_arr))
         std_mono = float(np.std(mono_arr, ddof=DDOF))
-        t = _calc_t_stat(mean_mono, std_mono, len(mono_arr))
-        p = _p_value_from_t(t, len(mono_arr))
+        t_signed = _calc_t_stat(mean_mono, std_mono, len(mono_arr))
         metadata: dict[str, object] = {
-            "method": "t-test on per-period signed monotonicity",
-            "stat_type": "t",
-            "h0": "mu=0",
+            "method": (
+                "Patton-Timmermann (2010) MR test; stationary-bootstrap "
+                "empirical p on the min adjacent bucket-return difference"
+            ),
+            "stat_type": "mr",
+            "h0": f"min_i E[delta_i] <= 0 ({direction})",
+            "mean_abs_spearman": avg_mono,
             "mean_signed": mean_mono,
+            "signed_spearman_t": t_signed,
+            "signed_spearman_p_value": _p_value_from_t(t_signed, len(mono_arr)),
             "n_valid_periods": len(mono_arr),
             "n_groups": n_groups,
             "tie_ratio": tie_ratios[f],
             "tie_policy": tie_policy,
+            **mr_metadata,
         }
-        # An identical signed monotonicity on every period (a perfectly
-        # ordered factor, say) leaves no dispersion to test — ``avg_mono``
-        # still describes it, the t does not exist.
-        warning_codes: list[str] = []
-        stat, p_out, alternative = _degenerate_test_fields(
-            t, p, "two-sided", metadata, warning_codes
-        )
         results[f] = MetricResult(
-            p_value=p_out,
-            alternative=alternative,
-            value=avg_mono,
-            n_obs=len(mono_arr),
+            p_value=p_mr,
+            alternative="greater",
+            value=j_stat,
+            n_obs=mat.shape[0],
             n_obs_axis="periods",
-            stat=stat,
+            stat=j_stat,
             metadata=metadata,
-            warning_codes=tuple(warning_codes),
         )
 
     return results
@@ -295,23 +412,33 @@ def _compute_tie_ratios_batch(
     The single-factor :func:`_compute_tie_ratio` runs a separate polars
     aggregation per factor; this batches them into one ``group_by("date")`` so
     the sampled panel is scanned once for any number of factors. The tie ratio
-    is **per period** then median-reduced — the same statistic the single-factor
-    helper returns. Computing it globally (``n_unique`` / ``len`` over the whole
+    is **per period** over the *finite* values then median-reduced — the same
+    statistic the single-factor helper returns. Computing it globally (``n_unique`` / ``len`` over the whole
     frame) would conflate cross-sectional ties with values merely repeating
     across dates, inflating the ratio toward 1 and tripping spurious
     high-tie-ratio warnings on a continuous factor.
     """
     if not factor_cols:
         return {}
+    # Count only finite values, exactly as the single-factor
+    # :func:`_compute_tie_ratio` does. A bare ``pl.len()`` / ``n_unique()``
+    # counts nulls and NaNs as a tied level, so a cross-regional panel with 5
+    # of 10 names missing on a date read 0.4 on a factor with **zero** ties —
+    # over the 0.3 threshold, so the metric emitted a spurious
+    # "consider tie_policy='average'" advisory and stamped the wrong tie_ratio
+    # into metadata, while quantile_spread on the same panel reported 0.0.
     per_period = data.group_by("date").agg(
-        pl.len().alias("_n"),
-        *[pl.col(f).n_unique().alias(f"_u__{f}") for f in factor_cols],
+        *[_finite_expr(f).sum().alias(f"_n__{f}") for f in factor_cols],
+        *[
+            pl.col(f).filter(_finite_expr(f)).n_unique().alias(f"_u__{f}")
+            for f in factor_cols
+        ],
     )
     # ``median`` over the (possibly empty) per-period ratio yields ``None`` on an
     # empty frame, which maps to ``nan`` below — the same empty-panel contract as
     # the single-factor :func:`_compute_tie_ratio`, no separate guard needed.
     medians = per_period.select(
-        (1.0 - pl.col(f"_u__{f}") / pl.col("_n")).median().alias(f"_tr__{f}")
+        (1.0 - pl.col(f"_u__{f}") / pl.col(f"_n__{f}")).median().alias(f"_tr__{f}")
         for f in factor_cols
     ).row(0, named=True)
     return {

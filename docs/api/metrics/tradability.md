@@ -108,18 +108,38 @@ title: factrix.metrics.tradability
     # 0.00258  0.897   (approximate)
 
     # The scalar helpers take the gross spread positionally and every other
-    # parameter by keyword.
-    be  = breakeven_cost(spread.value, turnover=tau.value, forward_periods=5)
-    net = net_spread(spread.value, turnover=tau.value,
+    # parameter by keyword. Pass the MetricResults, not their .value: the
+    # helper then verifies the two describe the same portfolio.
+    be  = breakeven_cost(spread, turnover=tau, forward_periods=5)
+    net = net_spread(spread, turnover=tau,
                      estimated_cost_bps=30.0, forward_periods=5)
     print(be.value, net.value)
     # 36.0   0.00043   (approximate; one-way bps and per-period spread)
     ```
 
+!!! warning "The spread and the turnover must price the same portfolio"
+    The cost algebra is a statement about *one* book, so a τ measured on
+    decile membership churn does not price a quintile spread, and a τ per bar
+    does not price a 5-period holding. `quantile_spread` and
+    `notional_turnover` used to ship incompatible defaults (`n_groups` 5 vs
+    10, `forward_periods` 5 vs 1). On a 60-name, 400-period panel at
+    `gross_spread = 0.001`, the matched pair gives breakeven **15.7 bps** and
+    net **−9.14 bps**; each function at its own default gave **2.8 bps** and
+    **−98.02 bps** — breakeven understated 5.6×, drag overstated 10.7×.
+
+    They now share one constant (`DEFAULT_N_GROUPS = 5`,
+    `DEFAULT_FORWARD_PERIODS = 5`), so the defaults pair by construction. And
+    when handed the producing `MetricResult`s rather than bare floats,
+    `breakeven_cost` / `net_spread` cross-check `n_groups` and
+    `forward_periods` and raise `UserInputError` on a mismatch, recording
+    `pairing_checked` in metadata otherwise. Bare floats carry no provenance,
+    so nothing can be verified — prefer passing the results.
+
+    `monotonicity` deliberately keeps its own `n_groups=10`: a decile curve is
+    the shape it is calibrated to read, not a long-short leg.
+
 `breakeven_cost` and `net_spread` are scalar post-processing helpers, not
-panel-evaluation metrics. Keep `n_groups`, `forward_periods`, and any weighting
-choice aligned between `quantile_spread` and `notional_turnover`, then pass their
-`.value` fields into the cost helper. Both helpers are `@metric` classes, so the
+panel-evaluation metrics. Both are `@metric` classes, so the
 gross spread is their call-time data argument and everything else must be passed
 by keyword — a second positional argument raises `TypeError`. `inspect_data()` marks these helpers as
 standalone so they are not included in `inspect_data().usable.to_metrics_dict()`.

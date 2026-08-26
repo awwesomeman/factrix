@@ -30,17 +30,62 @@ forward returns are computed.
 
 ::: factrix.adapt.adapt
 
+## The panel contract
+
+Every public entry point — `evaluate`, `evaluate_horizons`, `inspect_data`,
+`compute_forward_return` — puts its input through one structural gate before
+anything else happens. Three things it enforces, each of which was previously
+left to individual producers and therefore missed by whichever path forgot it:
+
+- **`date` must be `Date` or `Datetime`.** Only column *names* were validated,
+  so a `String` date flowed through `sort` / `shift` / `over` / `group_by` as
+  text and was ordered lexicographically. With ISO-8601 strings that
+  accidentally works, which is what makes it dangerous — it passes every test
+  and every demo. With `MM/DD/YYYY` the panel is silently reordered and every
+  forward return is paired with the wrong neighbour. Parse first, e.g.
+  `pl.col("date").str.to_datetime("%m/%d/%Y")`.
+- **`(date, asset_id)` must be unique.** A duplicated row makes an asset's
+  "next period" that same date's twin, so `price / price - 1 = 0`: a four-row
+  panel concatenated with itself came back half fabricated zeros, biasing every
+  downstream mean toward zero with no error and no warning.
+- **NaN and ±Inf become `null`.** Applied to *inputs*, not to computed outputs.
+  This makes the whole class structurally unrepresentable downstream rather
+  than patching instances of it: polars ranks NaN as larger than every real
+  value, `pl.corr(method="spearman")` silently ranks it, and a `+Inf`
+  denominator makes `finite / inf` evaluate to `0.0` — a *finite* fabricated
+  −100% return that an output-side `is_finite()` filter cannot catch.
+
+The first two raise [`UserInputError`](errors.md); the third is a silent,
+deliberate normalization. `_finite_expr` remains in place inside the producers
+as defence in depth.
+
 ## Forward return
 
-`compute_forward_return` accepts `forward_periods` as a positive `int`
-row horizon. `0`, negative values, floats, strings, and `bool` values
-raise [`UserInputError`](errors.md). The function shifts by row count
-within each `asset_id`, computes the per-period normalized
-`forward_return`, then drops rows whose computed return is not finite
-(`null`, `NaN`, `+inf`, or `-inf`). If the horizon is too long for the
-panel, or price data leaves no finite forward returns after filtering,
-the function raises [`UserInputError`](errors.md) instead of returning
-an empty panel.
+`compute_forward_return` accepts `forward_periods` as a positive `int`.
+`0`, negative values, floats, strings, and `bool` values raise
+[`UserInputError`](errors.md).
+
+**The horizon is measured on the panel's own period grid** — the distinct
+sorted `date` values present in the panel, indexed 0, 1, 2, … Each asset's
+forward return pairs its row at period index `i + 1` with its row at
+`i + 1 + forward_periods`. This used to be a positional shift within each
+asset, which equals a time horizon only on a *complete* per-asset panel: with
+one asset missing 20 periods mid-sample, a "5-period" return silently spanned
+25 real periods, contaminating both the return and the overlap horizon stamped
+in `_forward_periods` that every downstream HAC inference reads. Suspensions,
+halts, delist-relist and staggered entry are ordinary in regional equity data,
+and sparse event panels are ragged by construction.
+
+A ragged grid raises `ragged_period_grid`. The pairing is correct for every
+asset either way; the point of the warning is that an asset with a gap has no
+observation to pair at the exit period and so contributes fewer rows than a
+complete one. Reindex onto a common grid if the horizons must be comparable
+across names.
+
+Rows whose computed return is not finite are dropped. If the horizon is too
+long for the panel, or price data leaves no finite forward returns after
+filtering, the function raises [`UserInputError`](errors.md) instead of
+returning an empty panel.
 
 `winsorize_forward_return` clips `forward_return` by per-date quantiles.
 Its bounds must satisfy `0 <= lower <= upper <= 1`; invalid ordering,
@@ -55,11 +100,89 @@ out-of-range values, non-numeric values, and `bool` bounds raise
 
 ## Factor normalization
 
+Both normalizers scale by the median absolute deviation (MAD). Three places
+where factrix departs from the most common implementation, and why:
+
+**Finite-sample MAD constant.** The standard scale is `1.4826 × MAD`, where
+`1.4826 = 1/Φ⁻¹(0.75)` is the *asymptotic* consistency constant — this is what
+R's `mad()` and `scipy.stats.median_abs_deviation` ship. factrix multiplies in
+the Croux-Rousseeuw (1992) finite-sample factor `b_n` as well (tabulated for
+`n ≤ 9`, `n/(n−0.8)` above), keyed on the per-date count of finite values,
+because this library targets cross-sections of 5–20 names where the asymptotic
+constant is materially biased. Measured on a standard-normal factor
+(true σ = 1), `E[1.4826 × MAD]` is 0.82 at n=5, 0.91 at n=10 and 0.96 at n=20,
+against 0.99–1.01 at every size with `b_n`. The bias matters twice over: the
+output of a function called "z-score" was not unit-scale, and because the bias
+is *n*-dependent, thin dates in an unbalanced panel (delistings, staggered
+entry, sparse event triggers) were handed systematically larger z-scores, so
+anything pooling or weighting by z over-weighted the noisiest cross-sections.
+Fewer than three finite values on a date leaves no estimable robust scale at
+all: the date comes back null rather than as a fabricated `0.0`.
+
+**Centring.** The textbook z-score subtracts the mean. `cross_sectional_zscore`
+defaults to `center="median"` to stay robust to the outliers the MAD scale is
+chosen for — with the consequence that the output is **not** mean-zero on a
+skewed factor, so `w ∝ z` carries a net long or short leg (measured: `+0.32`
+net exposure on a 2-of-20 sparse trigger column). Pass `center="mean"` when the
+weights must be dollar-neutral by construction; the scale stays the robust MAD
+either way.
+
+**Regime switches are announced.** When the per-date MAD collapses to zero
+(more than 50% ties at the median) the scale falls back to the non-robust
+per-date standard deviation. That is a data-driven change of estimator, so it
+raises a `UserWarning` carrying
+[`WarningCode.ZERO_MAD_STD_FALLBACK`](../reference/warning-codes.md) rather
+than mixing robust and non-robust dates into one column silently. On a sparse
+`{0, R}` trigger column `mad_winsorize` skips the clip entirely
+(`SPARSE_WINSORIZE_SKIPPED`): that column's standard deviation is produced *by
+the triggers*, so a 3-std band shrinks with the trigger rate and destroyed 58%
+of a unit event's magnitude at one trigger in fifty names.
+
+**Non-finite input.** NaN and ±Inf are blanked to **null** on output by both
+functions, not clipped into the band. A non-finite tick is a data error, not an
+extreme value; winsorizing it produced a plausible finite number that survived
+every downstream `drop_nulls().drop_nans()` and put that asset at the top of
+the date's ranking.
+
+`cross_sectional_zscore` names its output column after its input:
+`factor` → `factor_zscore`, `momentum` → `momentum_zscore`, so several factors
+can be standardized in one panel without colliding.
+
 ::: factrix.preprocess.mad_winsorize
 
 ::: factrix.preprocess.cross_sectional_zscore
 
 ## Orthogonalization
+
+`orthogonalize_factor` runs a per-date cross-sectional OLS and returns the
+residual. Two guards that the textbook formulation leaves to the analyst:
+
+**A degrees-of-freedom floor, not a solvability floor.** The regression is only
+fitted on dates leaving at least `min_residual_df` residual degrees of freedom
+(`n_assets − n_base − 1`, default 10 — the `N ≥ K + 10` form of the
+Fama-MacBeth convention). Raw R² is mechanically ≈ `K/(N − 1)` even when the
+true R² is zero, so on a six-name book regressed on four exposures the old
+one-df floor reported `mean_r_squared = 0.79` (adjusted: `−0.03`) after
+stripping 83% of the factor's variance — the factor reads as redundant when it
+is orthogonal by construction. Dates below the floor keep their original values,
+are counted in `n_dates_insufficient_df`, and raise
+`insufficient_regression_df`. `mean_adj_r_squared` is reported alongside the raw
+figure. Pass `min_residual_df=1` to restore the old behaviour.
+
+**Rank deficiency is detected, not assumed away.** An intercept is always
+prepended, so a full industry dummy set is exactly singular. `np.linalg.lstsq`
+does not raise on that — it returns the minimum-norm solution — so the residual
+is still exact (the projection onto the column space is unique) but `mean_betas`
+was an arbitrary point in the solution space. Rank is read from the singular
+values `lstsq` already computes, at `matrix_rank`'s tolerance so *near*-collinear
+designs are caught too; deficient dates are excluded from `mean_betas` and raise
+`rank_deficient_design`. Drop one dummy category as the reference level.
+
+**Residual scale.** The residual's dispersion is `sqrt(1 − R²)` times the
+input's, and R² varies by date, so the output scale varies by date. Rank-based
+metrics are unaffected; any magnitude-based use is otherwise quietly on a
+time-varying scale. Pass `restandardize=True` to rescale each date's residual
+back to the input's per-date dispersion.
 
 ::: factrix.preprocess.orthogonalize_factor
 

@@ -499,11 +499,12 @@ class TestApplicableInferenceDiscovery:
     def test_inference_metrics_expose_allowlist(self):
         from factrix.metrics._metric_capabilities import resolve_applicable_inference
         from factrix.metrics.k_spread import k_spread
-        from factrix.metrics.quantile import quantile_spread
+        from factrix.metrics.quantile import quantile_spread, quantile_spread_vw
 
-        # quantile_spread / k_spread dispatch through a hard isinstance(NeweyWest)
-        # branch, so their allowlist stays the original vetted pair.
-        for m in (quantile_spread, k_spread):
+        # quantile_spread / quantile_spread_vw / k_spread dispatch through a
+        # hard isinstance(NeweyWest) branch, so their allowlist stays the
+        # original vetted pair.
+        for m in (quantile_spread, quantile_spread_vw, k_spread):
             allow = resolve_applicable_inference(m)
             assert allow is not None
             assert sorted(type(x).__name__ for x in allow) == [
@@ -524,11 +525,8 @@ class TestApplicableInferenceDiscovery:
     def test_singleton_inference_metric_returns_none(self):
         from factrix.metrics._metric_capabilities import resolve_applicable_inference
         from factrix.metrics.positive_rate import positive_rate
-        from factrix.metrics.quantile import quantile_spread_vw
 
-        # quantile_spread_vw shares its module with quantile_spread but has no
-        # inference= knob; positive_rate is in a module with no allowlist at all.
-        assert resolve_applicable_inference(quantile_spread_vw) is None
+        # positive_rate is in a module with no allowlist at all.
         assert resolve_applicable_inference(positive_rate) is None
 
 
@@ -778,3 +776,59 @@ class TestEffectiveSampleFloor:
         assert not math.isnan(result.value)
         assert result.n_obs == 13
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value in result.warning_codes
+
+
+class TestTieWarningWording:
+    """The estimator IS the tie-corrected Spearman; the caveat is range."""
+
+    @staticmethod
+    def _tied_panel(n_dates=40, n_assets=12, seed=0):
+        from datetime import datetime, timedelta
+
+        import numpy as np
+
+        rng = np.random.default_rng(seed)
+        rows = n_dates * n_assets
+        return pl.DataFrame(
+            {
+                "date": [
+                    datetime(2024, 1, 1) + timedelta(days=d)
+                    for d in range(n_dates)
+                    for _ in range(n_assets)
+                ],
+                "asset_id": [f"A{i}" for _ in range(n_dates) for i in range(n_assets)],
+                "factor": rng.integers(0, 3, rows).astype(float),
+                "forward_return": rng.standard_normal(rows) * 0.01,
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+    def test_estimator_matches_scipy_spearmanr_exactly(self):
+        """The premise of the old warning was false: this IS the corrected form."""
+        import numpy as np
+        import scipy.stats as scipy_stats
+        from factrix.metrics._primitives._ic import compute_ic
+
+        panel = self._tied_panel()
+        ic_df = compute_ic(panel)["factor"].sort("date")
+        for date, lib_ic in zip(
+            ic_df["date"].to_list(), ic_df["ic"].to_list(), strict=True
+        ):
+            day = panel.filter(pl.col("date") == date)
+            reference = scipy_stats.spearmanr(
+                day["factor"].to_numpy(), day["forward_return"].to_numpy()
+            ).statistic
+            assert lib_ic == pytest.approx(reference, abs=1e-12)
+            assert np.isfinite(lib_ic)
+
+    def test_warning_names_range_attenuation_not_bias(self):
+        from factrix.metrics._primitives._ic import compute_ic
+
+        panel = self._tied_panel()
+        with pytest.warns(UserWarning) as record:
+            ic(compute_ic(panel)["factor"], forward_periods=1)
+        text = " ".join(str(w.message) for w in record)
+        assert "range" in text
+        assert "spearmanr" in text
+        # The two false claims the warning used to make.
+        assert "lower bound" not in text
+        assert "consider a tie-corrected correlation" not in text

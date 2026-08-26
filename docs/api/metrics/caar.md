@@ -19,6 +19,18 @@ title: factrix.metrics.caar
     factrix computes **CAR** (sum of per-period abnormal returns), not
     BHAR; see the same section for the distinction.
 
+!!! warning "`caar.value` is per period, not cumulative"
+    Despite the name, `caar.value` is `CAR / h`, not the cumulative abnormal
+    return of MacKinlay (1997) §4. `compute_forward_return` divides by
+    `forward_periods` to put every horizon on a common per-period scale, and
+    the event family reads that column, so the normalisation is inherited
+    rather than undone here. With μ = 0.0008 per period over `h = 5`, the
+    reported value is 0.001056 — the per-period average — not 5× that.
+
+    Multiply by `forward_periods` to recover the cumulative quantity the name
+    and the Brown-Warner / MacKinlay citations promise. Reading `caar.value`
+    directly as a 5-period event CAR is off by 5×.
+
 ## Use cases
 
 <div class="grid cards" markdown>

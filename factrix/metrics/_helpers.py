@@ -1880,6 +1880,45 @@ def _median_universe_size(data: pl.DataFrame) -> int:
     )
 
 
+def _warn_thin_quantile_groups(
+    sampled: pl.DataFrame, n_groups: int, *, stacklevel: int = 3
+) -> bool:
+    """Emit the thin-bucket advisory and report whether it fired.
+
+    The ``UserWarning`` half of the dual-channel thin-group diagnostic whose
+    structured twin is :data:`WarningCode.THIN_QUANTILE_GROUPS`. Lives here
+    rather than inside ``compute_spread_series`` so every bucketing consumer
+    raises the *same* message off the *same* threshold — the value-weighted
+    spread built its buckets inline and so reported clean on a panel where
+    each leg was a single name.
+    """
+    if not _is_thin_quantile_groups(sampled, n_groups):
+        return False
+    median_n = _median_universe_size(sampled)
+    per_group = median_n // n_groups if n_groups > 0 else 0
+    if n_groups > 2:
+        # Coarsest split keeping ~5 assets per group (floored at the
+        # long-short minimum of 2): n_groups <= median_n // 5.
+        suggested = max(2, median_n // 5)
+        guidance = (
+            f"Reduce n_groups to ~{suggested} (≈5 assets per group), or "
+            f"treat this as a fragile small-cross-section diagnostic."
+        )
+    else:
+        guidance = (
+            "This is already the coarsest long-short split; treat the "
+            "spread as a fragile small-cross-section diagnostic."
+        )
+    warnings.warn(
+        f"Median {per_group} assets per group (n_assets={median_n}, "
+        f"n_groups={n_groups}). Spread may be dominated by "
+        f"individual assets. {guidance}",
+        UserWarning,
+        stacklevel=stacklevel,
+    )
+    return True
+
+
 def _is_thin_quantile_groups(sampled: pl.DataFrame, n_groups: int) -> bool:
     """True when the median cross-section split into ``n_groups`` buckets leaves
     fewer than :data:`MIN_GROUP_ASSETS` assets per bucket.

@@ -110,6 +110,16 @@ MIN_PORTFOLIO_PERIODS_WARN: int = 20
 
 MIN_MONOTONICITY_PERIODS_HARD: int = 5
 
+# Per-date cross-section floor (assets axis) for the robust-scale estimators in
+# ``factrix.preprocess.normalize``. Below three finite values a per-date median /
+# MAD pair carries no information about dispersion: at n=1 the chain used to
+# fall through to ``z = 0.0`` (an "average" fabricated from one observation) and
+# at n=2 the MAD-scaled z is ``+-0.6745`` whatever the two values are — a
+# constant that is indistinguishable downstream from a real score. Dates below
+# the floor are left unscaled (z null, clip skipped) and flagged with
+# ``WarningCode.INSUFFICIENT_SCALE_ASSETS``.
+MIN_SCALE_ASSETS_HARD: int = 3
+
 
 # Structural alias used by metric internals to mark "this float is a
 # p-value, not an effect-size".
@@ -146,3 +156,37 @@ ConcentrationWeight = Literal["abs_factor", "alpha_contribution"]
 # panel, so they must not share a token: a reader stacking ``to_frame`` across
 # metrics has only ``n_obs_axis`` to tell one from the other.
 SampleAxis = Literal["periods", "events", "pairs", "asset_pairs", "assets"]
+
+
+# Minimum surplus assets (n_assets - n_base - 1) a per-date cross-sectional OLS
+# must leave before ``orthogonalize_factor`` will fit it. On this axis one
+# surplus asset is exactly one residual degree of freedom, which is why the
+# public knob is spelled ``min_residual_df`` — the statistical term — while the
+# constant carries the ASSETS axis token the naming grammar requires.
+# The old floor was ``len(base_cols) + 2`` rows, i.e. a single residual df:
+# raw R2 is mechanically ~K/(N-1) even at a true R2 of 0, so a 6-name
+# cross-section on 4 regressors reported R2 = 0.79 while stripping 83% of the
+# factor's variance. Fama-MacBeth practice discards cross-sections with too few
+# names per regressor; 10 residual df is the ``N >= K + 10`` form of that rule
+# and is exposed as ``min_residual_df`` for callers who want the other
+# (``N >= 5K``) convention.
+MIN_ORTHOGONALIZE_RESIDUAL_ASSETS: int = 10
+
+
+# ---------------------------------------------------------------------------
+# Shared bucketing / horizon defaults
+# ---------------------------------------------------------------------------
+#
+# One source of truth for the long-short bucketing and the rebalance stride,
+# shared by ``quantile_spread``, ``quantile_spread_vw`` and
+# ``notional_turnover``. These three are designed to be read together — the
+# spread is the gross alpha, the turnover is what it costs to hold — and the
+# cost algebra in ``breakeven_cost`` / ``net_spread`` is only valid when the
+# spread and the turnover were computed on the *same* bucketing and the *same*
+# stride. They previously carried incompatible defaults (n_groups 5 vs 10,
+# forward_periods 5 vs 1), so running each at its own default understated
+# breakeven by 5.6x and overstated cost drag by 10.7x on a 60-name panel.
+# ``monotonicity`` deliberately keeps its own ``n_groups=10``: a decile curve
+# is the shape it is calibrated to read, not a long-short leg.
+DEFAULT_N_GROUPS: int = 5
+DEFAULT_FORWARD_PERIODS: int = 5

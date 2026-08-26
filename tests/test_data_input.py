@@ -22,9 +22,14 @@ def data_pl() -> pl.DataFrame:
     return compute_forward_return(raw, forward_periods=5)
 
 
-def test_coerce_polars_dataframe_passthrough(data_pl: pl.DataFrame) -> None:
+def test_coerce_polars_dataframe_normalizes(data_pl: pl.DataFrame) -> None:
+    """No longer an identity passthrough: the frame goes through the gate.
+
+    A clean panel comes back equal in value; what changes is that NaN / ±Inf
+    are now structurally absent downstream (see test_normalize_panel.py).
+    """
     out = _coerce_data(data_pl)
-    assert out is data_pl
+    assert out.equals(data_pl)
 
 
 def test_coerce_lazyframe_collects(data_pl: pl.DataFrame) -> None:

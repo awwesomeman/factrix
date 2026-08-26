@@ -44,6 +44,9 @@ title: factrix.metrics.quantile
     smaller than the EW spread, the alpha is concentrated in small
     names and may not survive capacity / liquidity constraints —
     Hou-Xue-Zhang (2020) found ~65% of factors disappear under VW.
+    It takes the same `inference=` knob and the same thin-cross-section
+    diagnostics as its equal-weighted sibling, so the comparison is
+    like-for-like rather than one leg being quietly less guarded.
 
 -   __Per-bucket mean returns for monotonicity charts__
 

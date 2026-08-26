@@ -47,7 +47,7 @@ contrasts, not a sidecar to a primary value.
 | [`fm_beta`][factrix.metrics.fm_beta.fm_beta] | NW HAC `t` on per-period λ | `p_value` | mean(β) |
 | [`pooled_beta`][factrix.metrics.fm_beta.pooled_beta] | clustered ordinary least squares (OLS) `t` (or `None` if G < 3) | `p_value` | pooled β |
 | [`fm_beta_sign_consistency`][factrix.metrics.fm_beta.fm_beta_sign_consistency] | none — descriptive | — | fraction with expected sign |
-| [`caar`][factrix.metrics.caar.caar] | non-overlapping `t` on event-period CAAR | `p_value` | mean(CAAR) |
+| [`caar`][factrix.metrics.caar.caar] | non-overlapping `t` on event-period CAAR | `p_value` | mean(CAAR) **per period** — `CAR / h`, not cumulative |
 | [`bmp_z`][factrix.metrics.caar.bmp_z] | BMP cross-sectional `z` on SAR | `p_value` | mean(SAR) |
 | [`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank] | nonparametric rank `z` on the event-period series (cluster-robust) | `p_value` | mean(per-period mean U × sign(factor)) |
 | [`positive_rate`][factrix.metrics.positive_rate.positive_rate] | binomial test (or normal `z`) | `p_value` | hit rate ∈ [0, 1] |
@@ -58,10 +58,10 @@ contrasts, not a sidecar to a primary value.
 | [`profit_factor`][factrix.metrics.event_quality.profit_factor] | none — descriptive | — | gains / \|losses\| |
 | [`signal_density`][factrix.metrics.event_quality.signal_density] | none — descriptive | — | mean bars per event |
 | [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | none — descriptive | — | mean leakage score |
-| [`monotonicity`][factrix.metrics.monotonicity.monotonicity] | cross-asset `t` on signed Spearman | `p_value` | mean \|Spearman\| |
+| [`monotonicity`][factrix.metrics.monotonicity.monotonicity] | Patton-Timmermann (2010) MR (stationary-bootstrap p) | `p_value` | `mr_min_diff` (min adjacent bucket-return difference) |
 | [`quantile_spread`][factrix.metrics.quantile.quantile_spread] | non-overlapping `t` on top-bottom spread (NW HAC under `NEWEY_WEST`) | `p_value` | mean(spread) |
 | [`k_spread`][factrix.metrics.k_spread.k_spread] | non-overlapping `t` on top-K−bottom-K spread (NW HAC under `NEWEY_WEST`) | `p_value` | mean(spread) |
-| [`quantile_spread_vw`][factrix.metrics.quantile.quantile_spread_vw] | NW HAC `t` on vw spread | `p_value` | mean(vw spread) |
+| [`quantile_spread_vw`][factrix.metrics.quantile.quantile_spread_vw] | non-overlap `t` (default) or NW HAC `t` on vw spread | `p_value` | mean(vw spread) |
 | [`top_concentration`][factrix.metrics.concentration.top_concentration] | one-sided `t` on diversity ratio | `p_value` | mean(eff_n) = mean(1/HHI) |
 | [`clustering_hhi`][factrix.metrics.clustering_hhi.clustering_hhi] | none — descriptive | — | event-period Herfindahl-Hirschman index (HHI) |
 | [`mfe_mae`][factrix.metrics.mfe_mae.mfe_mae] | none — descriptive | — | MFE_p50 / \|MAE_p75\| |
@@ -154,6 +154,10 @@ Descriptive; no test.
 - *primary*: `p_value` — non-overlapping `t` on per-event-period CAAR.
   `value`, `stat`, `p_value` and `n_obs` all describe the event-spaced
   subsample (`n_obs_axis = "events"`, the shared event-battery token).
+- **`value` is per period.** It is `CAR / h`, inherited from
+  `compute_forward_return`'s `/ forward_periods` normalisation, not the
+  cumulative abnormal return the name suggests. Multiply by
+  `forward_periods` for the cumulative quantity.
 - *descriptive*: `n_event_periods` (number of periods with an event),
   `total_events` (underlying events behind the portfolio),
   `n_event_periods_sampled`, `mean_caar_full` / `n_event_periods_full`
@@ -405,14 +409,30 @@ Pre/post-event return profile; descriptive.
 
 #### `monotonicity`
 
-`MetricResult.value` carries the *magnitude* (mean `|Spearman|`);
-`MetricResult.stat` carries the cross-asset `t` on the *signed*
-Spearman series. The split is intentional — magnitude and direction
-consistency are read separately.
+`MetricResult.value` and `MetricResult.stat` both carry the
+Patton-Timmermann (2010) MR statistic `mr_min_diff` — `J = min_i mean_t Δ_{i,t}`,
+the smallest average adjacent bucket-return difference, in return units.
+`p_value` is its stationary-bootstrap empirical p under
+`H₀: min_i E[Δ_i] ≤ 0` ("the relation is *not* monotone in the declared
+direction"), one-sided (`alternative="greater"`).
 
-- *primary*: `p_value` — cross-asset `t` (`H₀: μ = 0`).
-- *descriptive*: `mean_signed`, `n_valid_periods`, `n_groups`,
-  `tie_ratio`, `tie_policy`.
+The headline used to be `mean |Spearman|` with a cross-asset `t` on the
+signed series. That statistic has a large null floor that moves with
+`n_groups` — measured 0.67 / 0.42 / 0.27 at `n_groups` = 3 / 5 / 10 on
+panels where H₀ holds by construction, because `E|ρ| > 0` by Jensen — so a
+reader took the noise floor for MR evidence. The MR test's own rejection
+frequency on the same panels is 5.0% / 5.0% / 4.0% at a nominal 5%.
+
+- *primary*: `p_value` — bootstrap p for the MR test.
+- *MR detail*: `mr_min_diff`, `mr_adjacent_diffs` (every `Δ̄_i`, so the
+  binding step is visible), `mr_direction`, `n_bootstrap`,
+  `bootstrap_seed` (resolved and reported when not supplied, so an
+  unseeded run is still reproducible after the fact).
+- *descriptive Spearman shape*: `mean_abs_spearman` (magnitude, ≥ 0),
+  `mean_signed` (direction consistency), `signed_spearman_t`,
+  `signed_spearman_p_value`. A high magnitude with a near-zero signed mean
+  still says the factor sorts returns but flips sign across dates.
+- *descriptive*: `n_valid_periods`, `n_groups`, `tie_ratio`, `tie_policy`.
 
 ### `quantile` (`factrix.metrics.quantile`)
 
@@ -446,9 +466,19 @@ consistency are read separately.
 
 #### `quantile_spread_vw`
 
-Value-weighted variant. Same metadata shape as `quantile_spread`
-plus a `weights_lagged` flag indicating whether the weighting input
-was lagged before the join (descriptive). This includes the conditional
+Value-weighted variant. Same metadata shape as `quantile_spread` —
+including `median_cross_section`, `n_periods_strided` and whatever the
+selected inference member contributes — plus a `weights_lagged` flag
+indicating whether the weighting input was lagged before the join
+(descriptive). It takes the same `inference=` knob off the same
+allowlist as `quantile_spread`, so the equal-weighted / value-weighted
+pair is tested the same way on the same date set; under `NEWEY_WEST` the
+VW leg gives up the first date, whose lagged weight does not exist.
+It also carries the same thin-cross-section diagnostics — `few_assets`
+on the median per-period finite-factor count and `thin_quantile_groups`
+off the shared bucket threshold. Both were previously absent: the metric
+whose purpose is a capacity / robustness cross-check reported clean on a
+panel whose legs held a single name each. This includes the conditional
 no-signal `signal_status` (`"no_signal_zero_variance_factor"`, a valid
 `p_value = 1.0` result) when the factor has no cross-sectional variation.
 
@@ -461,7 +491,12 @@ Fixed-K (top-K − bottom-K) long-short spread; the small-N sibling of
 
 - *primary*: `p_value` — non-overlapping `t`-test on the spread
   series (`method` records the inference member that ran).
-- *descriptive*: `k` (names per leg), `cross_sectional_dispersion`
+- *descriptive*: `k` (names per leg), `tie_ratio` / `tie_policy` (the
+  same tie diagnostics `quantile_spread` and `monotonicity` report —
+  the leg ranking used to be hard-coded `"ordinal"` with no tie ratio at
+  all, so a discrete signal's legs were filled by row order among tied
+  names and the arbitrary split was reported as a spread),
+  `cross_sectional_dispersion`
   (mean per-period cross-sectional return std), `top_return`,
   `bottom_return`, `n_periods` (**the sample the headline test ran on**,
   equal to `n_obs`: strided under `NON_OVERLAPPING`, full overlapping

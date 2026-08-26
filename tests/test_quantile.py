@@ -6,6 +6,9 @@ from datetime import datetime, timedelta
 import numpy as np
 import polars as pl
 import pytest
+from factrix._codes import WarningCode
+from factrix._errors import IncompatibleInferenceError
+from factrix.inference import HANSEN_HODRICK, NEWEY_WEST
 from factrix.metrics.quantile import (
     compute_spread_series,
     quantile_spread,
@@ -793,3 +796,111 @@ class TestQuantileSpreadVwThroughEvaluate:
         info_w = fx.inspect_data(self._panel())
         entry_w = next(m for m in info_w.metrics if m.name == "quantile_spread_vw")
         assert not any("market_cap" in b for b in entry_w.blockers)
+
+
+class TestValueWeightedThinDiagnostics:
+    """The capacity cross-check must not be the one that reports clean."""
+
+    @staticmethod
+    def _thin_panel(n_assets=8, n_dates=60, seed=0):
+        from datetime import datetime, timedelta
+
+        import numpy as np
+
+        rng = np.random.default_rng(seed)
+        rows = n_dates * n_assets
+        return pl.DataFrame(
+            {
+                "date": [
+                    datetime(2024, 1, 1) + timedelta(days=d)
+                    for d in range(n_dates)
+                    for _ in range(n_assets)
+                ],
+                "asset_id": [f"A{i}" for _ in range(n_dates) for i in range(n_assets)],
+                "factor": rng.standard_normal(rows),
+                "forward_return": rng.standard_normal(rows) * 0.01,
+                "market_cap": rng.uniform(1e8, 1e10, rows),
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+    def test_vw_matches_ew_diagnostics_on_the_same_panel(self):
+        panel = self._thin_panel()
+        with pytest.warns(UserWarning, match="assets per group"):
+            ew = quantile_spread(panel, forward_periods=1, n_groups=5)["factor"]
+        with pytest.warns(UserWarning, match="assets per group"):
+            vw = quantile_spread_vw(panel, forward_periods=1, n_groups=5)
+        assert WarningCode.THIN_QUANTILE_GROUPS.value in vw.warning_codes
+        assert WarningCode.FEW_ASSETS.value in vw.warning_codes
+        assert set(ew.warning_codes) == set(vw.warning_codes)
+
+    def test_wide_panel_stays_clean(self):
+        panel = self._thin_panel(n_assets=60, n_dates=80)
+        vw = quantile_spread_vw(panel, forward_periods=1, n_groups=5)
+        assert vw.warning_codes == ()
+        assert vw.metadata["median_cross_section"] == 60
+
+
+class TestValueWeightedInference:
+    @staticmethod
+    def _panel(n_assets=50, n_dates=200, seed=1):
+        from datetime import datetime, timedelta
+
+        import numpy as np
+
+        rng = np.random.default_rng(seed)
+        rows = n_dates * n_assets
+        return pl.DataFrame(
+            {
+                "date": [
+                    datetime(2024, 1, 1) + timedelta(days=d)
+                    for d in range(n_dates)
+                    for _ in range(n_assets)
+                ],
+                "asset_id": [f"A{i}" for _ in range(n_dates) for i in range(n_assets)],
+                "factor": rng.standard_normal(rows),
+                "forward_return": rng.standard_normal(rows) * 0.01,
+                "market_cap": rng.uniform(1e8, 1e10, rows),
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+    def test_default_reproduces_the_previous_non_overlap_t(self):
+        panel = self._panel()
+        out = quantile_spread_vw(panel, forward_periods=5, n_groups=5)
+        assert out.metadata["method"] == "non-overlapping t-test"
+        assert out.n_obs == out.metadata["n_periods_strided"]
+
+    def test_newey_west_keeps_every_date(self):
+        panel = self._panel()
+        strided = quantile_spread_vw(panel, forward_periods=5, n_groups=5)
+        hac = quantile_spread_vw(
+            panel, forward_periods=5, n_groups=5, inference=NEWEY_WEST
+        )
+        assert hac.n_obs > strided.n_obs
+        # 200 dates less the first, whose lagged weight is null by
+        # construction — on the HAC path every date is its own rebalance, so
+        # the weight lag is one bar rather than one stride.
+        assert hac.n_obs == 199
+        assert hac.metadata["method"] == NEWEY_WEST.summary
+        # value is the full-sample mean on the HAC path, the strided mean
+        # otherwise — both describe the sample the headline ran on.
+        assert hac.metadata["n_periods_tested"] == hac.n_obs
+
+    def test_pair_shares_the_inference_allowlist(self):
+        panel = self._panel()
+        ew = quantile_spread(
+            panel, forward_periods=5, n_groups=5, inference=NEWEY_WEST
+        )["factor"]
+        vw = quantile_spread_vw(
+            panel, forward_periods=5, n_groups=5, inference=NEWEY_WEST
+        )
+        # Same date set and same inference member, so the pair is comparable;
+        # the VW leg gives up the first date to the weight lag.
+        assert vw.n_obs == ew.n_obs - 1
+        assert ew.metadata["method"] == vw.metadata["method"]
+
+    def test_rejects_an_inference_outside_the_allowlist(self):
+        panel = self._panel(n_assets=20, n_dates=60)
+        with pytest.raises(IncompatibleInferenceError):
+            quantile_spread_vw(
+                panel, forward_periods=5, n_groups=5, inference=HANSEN_HODRICK
+            )

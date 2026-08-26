@@ -6,6 +6,8 @@ from typing import ClassVar
 
 import polars as pl
 import pytest
+from factrix._errors import UserInputError
+from factrix._types import DEFAULT_FORWARD_PERIODS, DEFAULT_N_GROUPS
 from factrix.metrics.tradability import (
     breakeven_cost,
     net_spread,
@@ -117,7 +119,7 @@ class TestNotionalTurnover:
     def test_static_factor(self):
         """Same tail sets every day → notional turnover = 0."""
         df = _panel(5, self.TEN_ASSETS, lambda t, a: ord(a))
-        result = notional_turnover(df, n_groups=5)
+        result = notional_turnover(df, n_groups=5, forward_periods=1)
         assert result.value == pytest.approx(0.0)
         assert result.metadata["n_rebalances"] == 4
         assert result.metadata["n_groups"] == 5
@@ -126,25 +128,25 @@ class TestNotionalTurnover:
         assert result.n_obs == 4
 
     def test_small_universe_names_the_assets_axis(self):
-        """Default n_groups=10 on an 8-name universe empties every date however
+        """The default n_groups on a 4-name universe empties every date however
         long the panel — an assets-axis failure, reported as one."""
         from factrix._codes import WarningCode
 
-        assets = [chr(ord("A") + i) for i in range(8)]
+        assets = [chr(ord("A") + i) for i in range(4)]
         df = _panel(200, assets, lambda t, a: ord(a) + t)
         result = notional_turnover(df)
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "insufficient_assets_for_quantile_groups"
         assert result.n_obs_axis == "assets"
-        assert result.n_obs == 8
-        assert result.metadata["min_required"] == 10
+        assert result.n_obs == 4
+        assert result.metadata["min_required"] == DEFAULT_N_GROUPS
         assert WarningCode.THIN_QUANTILE_GROUPS.value in result.warning_codes
 
     def test_declared_assets_floor_tracks_n_groups(self):
         from factrix.metrics import notional_turnover as nt
 
         cls = type(nt())
-        assert cls._resolve_sample_threshold(nt()).min_assets == 10
+        assert cls._resolve_sample_threshold(nt()).min_assets == DEFAULT_N_GROUPS
         assert cls._resolve_sample_threshold(nt(n_groups=3)).min_assets == 3
 
     def test_downscaled_n_groups_runs_on_the_same_panel(self):
@@ -161,7 +163,7 @@ class TestNotionalTurnover:
             return base if t % 2 == 0 else (9 - base)
 
         df = _panel(5, self.TEN_ASSETS, factor)
-        result = notional_turnover(df, n_groups=5)
+        result = notional_turnover(df, n_groups=5, forward_periods=1)
         assert result.value == pytest.approx(1.0)
 
     def test_middle_shuffle_does_not_count(self):
@@ -311,3 +313,115 @@ class TestNetSpread:
     def test_forward_periods_validation(self):
         with pytest.raises(ValueError, match="forward_periods"):
             net_spread(0.10, turnover=0.5, forward_periods=0)
+
+
+class TestRankTurnoverIgnoresNonFiniteFactors:
+    """polars ranks NaN last, i.e. as larger than every real value."""
+
+    @staticmethod
+    def _panel_with(mask_value):
+        import numpy as np
+
+        rng = np.random.default_rng(0)
+        n_dates, assets = 60, [f"A{i}" for i in range(20)]
+        rows = []
+        poison = rng.random((n_dates, len(assets))) < 0.2
+        for t in range(n_dates):
+            for j, a in enumerate(assets):
+                rows.append(
+                    {
+                        "date": datetime(2024, 1, 1) + timedelta(days=t),
+                        "asset_id": a,
+                        "factor": mask_value if poison[t, j] else float(rng.normal()),
+                    }
+                )
+        return pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+    def test_nan_and_null_agree(self):
+        nan_value = rank_turnover(self._panel_with(float("nan")), forward_periods=1)
+        null_value = rank_turnover(self._panel_with(None), forward_periods=1)
+        assert nan_value.value == pytest.approx(null_value.value)
+
+    def test_poisoned_rows_leave_the_denominator_too(self):
+        """``pl.len().over(date)`` counted the NaN rows, so the tail cutoffs
+        used the wrong cross-section size on top of ranking NaN as largest."""
+        out = rank_turnover(self._panel_with(float("nan")), forward_periods=1)
+        clean = rank_turnover(self._panel_with(None), forward_periods=1)
+        assert out.metadata["n_cross_section_mean"] == pytest.approx(
+            clean.metadata["n_cross_section_mean"]
+        )
+        assert out.metadata["n_cross_section_mean"] < 20
+
+
+class TestCostInputPairing:
+    """The cost algebra prices one portfolio; the two inputs must describe it."""
+
+    @staticmethod
+    def _panel(n_assets=60, n_dates=200, seed=0):
+        import numpy as np
+
+        rng = np.random.default_rng(seed)
+        rows = n_dates * n_assets
+        return pl.DataFrame(
+            {
+                "date": [
+                    datetime(2024, 1, 1) + timedelta(days=d)
+                    for d in range(n_dates)
+                    for _ in range(n_assets)
+                ],
+                "asset_id": [f"A{i}" for _ in range(n_dates) for i in range(n_assets)],
+                "factor": rng.standard_normal(rows),
+                "forward_return": rng.standard_normal(rows) * 0.01,
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+    def test_defaults_now_pair_by_construction(self):
+        """Each function at its own default used to price a different book."""
+        from factrix.metrics.quantile import quantile_spread
+
+        panel = self._panel()
+        spread = quantile_spread(panel)["factor"]
+        turnover = notional_turnover(panel)
+        assert spread.metadata["n_groups"] == turnover.metadata["n_groups"]
+        assert turnover.metadata["forward_periods"] == DEFAULT_FORWARD_PERIODS
+        # The pairing check passes silently and is recorded.
+        out = breakeven_cost(spread, turnover=turnover)
+        assert out.metadata["pairing_checked"] is True
+        assert out.metadata["n_groups"] == DEFAULT_N_GROUPS
+
+    def test_mismatched_bucketing_is_rejected(self):
+        from factrix.metrics.quantile import quantile_spread
+
+        panel = self._panel()
+        spread = quantile_spread(panel, n_groups=5)["factor"]
+        turnover = notional_turnover(panel, n_groups=10)
+        with pytest.raises(UserInputError, match="n_groups"):
+            breakeven_cost(spread, turnover=turnover)
+        with pytest.raises(UserInputError, match="n_groups"):
+            net_spread(spread, turnover=turnover)
+
+    def test_mismatched_stride_is_rejected(self):
+        panel = self._panel()
+        turnover = notional_turnover(panel, forward_periods=1)
+        with pytest.raises(UserInputError, match="forward_periods"):
+            breakeven_cost(0.001, turnover=turnover, forward_periods=5)
+
+    def test_bare_floats_still_work_unchecked(self):
+        out = breakeven_cost(0.001, turnover=0.2, forward_periods=5)
+        # gross * h / (4 * tau) * 1e4 = 0.001 * 5 / 0.8 * 1e4
+        assert out.value == pytest.approx(62.5)
+        assert "pairing_checked" not in out.metadata
+
+    def test_metric_result_and_float_agree_on_the_number(self):
+        from factrix.metrics.quantile import quantile_spread
+
+        panel = self._panel()
+        spread = quantile_spread(panel)["factor"]
+        turnover = notional_turnover(panel)
+        assert breakeven_cost(spread, turnover=turnover).value == pytest.approx(
+            breakeven_cost(
+                spread.value,
+                turnover=turnover.value,
+                forward_periods=DEFAULT_FORWARD_PERIODS,
+            ).value
+        )

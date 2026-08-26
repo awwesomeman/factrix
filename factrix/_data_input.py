@@ -23,6 +23,9 @@ polars throughout) and avoids hiding the pd → pl copy inside every
 from __future__ import annotations
 
 import polars as pl
+import polars.selectors as cs
+
+from factrix._errors import UserInputError
 
 type DataInput = pl.DataFrame | pl.LazyFrame
 """Accepted panel input type for every data-consuming entry point.
@@ -70,22 +73,106 @@ def _read_forward_periods_stamp(data: pl.DataFrame) -> int | None:
     return int(data[_FORWARD_PERIODS_COL][0])
 
 
+_DOCS_DATA_SCHEMA = "api/data-schema"
+
+
+def _normalize_panel(data: pl.DataFrame) -> pl.DataFrame:
+    """Enforce the panel's structural contract once, at the boundary.
+
+    Three guards that were previously applied per producer — so a metric that
+    forgot one, or a path that predated it, diverged silently:
+
+    1. **``date`` must be temporal.** Only column *names* were ever validated,
+       so a ``String`` date flowed through ``sort`` / ``shift`` / ``over`` /
+       ``group_by`` as text and was ordered lexicographically. With ISO-8601
+       strings that accidentally works, which is exactly what makes it
+       dangerous — it passes every test and every demo. With ``MM/DD/YYYY`` the
+       panel is silently reordered and every forward return is computed against
+       the wrong neighbour.
+    2. **``(date, asset_id)`` must be unique.** The forward return is a
+       positional ``shift`` within an asset, so a duplicated row makes the
+       "next period" that same date's twin and manufactures a 0.0 return: a
+       four-row panel concatenated with itself came back half fabricated zeros,
+       with no error and no warning. A duplicated feed is an ordinary ingestion
+       accident, and it biases every downstream mean toward zero.
+    3. **Non-finite numerics become null.** NaN and ±Inf are structurally
+       unrepresentable downstream, which retires the whole class rather than
+       patching instances of it — polars ranks NaN as larger than every real
+       value, ``pl.corr(method="spearman")`` silently ranks it, and a ``+Inf``
+       denominator turns ``finite / inf`` into a *finite* fabricated return
+       that sails through an output-side ``is_finite()`` filter.
+
+    ``_finite_expr`` stays in place as defence in depth; it remains correct and
+    free once inputs are pre-normalised. Row order is deliberately **not**
+    changed here — the shift-based producers sort themselves, and reordering
+    every caller's frame at the gate would be a surprise that buys nothing.
+
+    Raises:
+        UserInputError: ``date`` is not a temporal dtype, or ``(date,
+            asset_id)`` is not unique.
+    """
+    columns = set(data.columns)
+
+    if "date" in columns:
+        dtype = data.schema["date"]
+        if not isinstance(dtype, pl.Date | pl.Datetime):
+            raise UserInputError(
+                func_name="factrix",
+                field="date",
+                value=str(dtype),
+                expected=(
+                    "a Date or Datetime column. A string date sorts "
+                    "lexicographically, which silently reorders the panel for "
+                    "any non-ISO format; parse it first, e.g. "
+                    "pl.col('date').str.to_datetime('%m/%d/%Y')"
+                ),
+                docs_path=_DOCS_DATA_SCHEMA,
+            )
+
+    if {"date", "asset_id"} <= columns:
+        keys = data.select("date", "asset_id")
+        n_duplicated = int(keys.is_duplicated().sum())
+        if n_duplicated:
+            raise UserInputError(
+                func_name="factrix",
+                field="(date, asset_id)",
+                value=f"{n_duplicated} duplicated row(s) of {data.height}",
+                expected=(
+                    "one row per (date, asset_id). The forward return shifts by "
+                    "row position within an asset, so a duplicate makes the "
+                    "'next period' the same date's twin and fabricates a 0.0 "
+                    "return. De-duplicate first, e.g. "
+                    "data.unique(subset=['date', 'asset_id'], keep='first')"
+                ),
+                docs_path=_DOCS_DATA_SCHEMA,
+            )
+
+    return data.with_columns(
+        # Float columns only: they are the only dtypes that can carry NaN /
+        # ±inf, and ``is_finite`` is undefined on ``Decimal`` (the default
+        # dtype for a DECIMAL / NUMERIC column read from Parquet or a
+        # warehouse), which ``cs.numeric()`` would include.
+        pl.when(cs.float().is_finite()).then(cs.float()).otherwise(None)
+    )
+
+
 def _is_pandas_dataframe(obj: object) -> bool:
     """Detect ``pd.DataFrame`` without importing pandas (optional dep)."""
     return type(obj).__module__.split(".", 1)[0] == "pandas"
 
 
 def _coerce_data(data: DataInput) -> pl.DataFrame:
-    """Coerce ``DataInput`` to eager ``pl.DataFrame``.
+    """Coerce ``DataInput`` to eager ``pl.DataFrame`` and normalise it.
 
     ``pl.LazyFrame`` is collected immediately. ``pd.DataFrame`` is
     rejected with a ``TypeError`` that points to the documented
-    conversion paths.
+    conversion paths. The result passes through :func:`_normalize_panel`,
+    the single structural gate every public entry point shares.
     """
     if isinstance(data, pl.DataFrame):
-        return data
+        return _normalize_panel(data)
     if isinstance(data, pl.LazyFrame):
-        return data.collect()
+        return _normalize_panel(data.collect())
     if _is_pandas_dataframe(data):
         raise TypeError(
             "data must be pl.DataFrame or pl.LazyFrame; got pandas DataFrame. "

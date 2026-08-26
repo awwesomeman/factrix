@@ -404,3 +404,61 @@ class TestSmallCrossSectionKeying:
         result = k_spread(panel, forward_periods=1, k=3)
         assert result.metadata["median_cross_section"] == 12
         assert WarningCode.FEW_ASSETS.value in result.warning_codes
+
+
+class TestKSpreadTiePolicy:
+    """A discrete signal must not be split into legs by row order alone."""
+
+    @staticmethod
+    def _ternary_panel(n_dates=60, n_assets=30, seed=0):
+        from datetime import datetime, timedelta
+
+        import numpy as np
+
+        rng = np.random.default_rng(seed)
+        rows = n_dates * n_assets
+        return pl.DataFrame(
+            {
+                "date": [
+                    datetime(2024, 1, 1) + timedelta(days=d)
+                    for d in range(n_dates)
+                    for _ in range(n_assets)
+                ],
+                "asset_id": [f"A{i}" for _ in range(n_dates) for i in range(n_assets)],
+                # Three levels: every leg of size k=5 is filled from a tied block.
+                "factor": rng.integers(-1, 2, rows).astype(float),
+                "forward_return": rng.standard_normal(rows) * 0.01,
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+    def test_tie_ratio_is_reported(self):
+        panel = self._ternary_panel()
+        with pytest.warns(UserWarning, match="tie_ratio"):
+            out = k_spread(panel, forward_periods=1, k=5)
+        assert out.metadata["tie_ratio"] > 0.8
+        assert out.metadata["tie_policy"] == "ordinal"
+
+    def test_average_policy_refuses_to_invent_a_split(self):
+        """A 10-way tie cannot yield a 5-name leg without an arbitrary rule.
+
+        Under ``"average"`` every name in a tied block shares one rank, so a
+        block wider than ``k`` puts no name inside the leg cutoff and the date
+        drops out — surfaced by the existing drop-rate advisory. That is the
+        honest answer; ``"ordinal"`` returns a number for the same date by
+        filling the leg in row order.
+        """
+        import warnings
+
+        panel = self._ternary_panel()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            ordinal = k_spread(panel, forward_periods=1, k=5)
+            average = k_spread(panel, forward_periods=1, k=5, tie_policy="average")
+        assert average.metadata["tie_policy"] == "average"
+        assert ordinal.value != average.value
+        assert average.n_obs < ordinal.n_obs
+
+    def test_continuous_factor_does_not_warn(self, noisy_panel):
+        out = k_spread(noisy_panel, forward_periods=1, k=5)
+        assert out.metadata["tie_ratio"] == pytest.approx(0.0)
+        assert out.metadata["tie_policy"] == "ordinal"
