@@ -34,6 +34,7 @@ from factrix.metrics._helpers import (
     _scaled_min_periods,
     _short_circuit_output,
     _warn_below_scaled_floor,
+    _warn_estimation_window_contamination,
     _warn_event_window_overlap,
 )
 
@@ -109,7 +110,10 @@ def corrado_rank(
         independent draws. Collapsing each period's cross-section to
         $\bar{U}_d$ before taking the time-series SD folds that
         within-period correlation into the denominator; ``n_obs`` therefore
-        counts event *periods* (axis ``"periods"``), with the raw event count
+        counts event *periods* — reported on the battery's shared axis token
+        ``"events"`` (every member's sample is a set of non-overlapping event
+        observations) with the count itself in
+        ``metadata["n_event_periods"]`` — and the raw event count is
         kept in ``metadata["n_events"]`` alongside
         ``events_per_period_mean`` / ``events_per_period_max``.
 
@@ -220,6 +224,7 @@ def corrado_rank(
         return_col=return_col,
         estimation_window=estimation_window,
         forward_periods=forward_periods,
+        factor_col=factor_col,
     )
     ar_col = "_abnormal_return"
     finite_return = pl.col(ar_col).is_not_null() & pl.col(ar_col).is_not_nan()
@@ -349,6 +354,9 @@ def corrado_rank(
         warning_codes,
         expected_warnings=expected_warnings,
     )
+    _warn_estimation_window_contamination(
+        "corrado_rank", metadata, warning_codes, expected_warnings=expected_warnings
+    )
     raw_min_warn = _scaled_min_periods(MIN_EVENTS_WARN, forward_periods)
     warn_code = _warn_below_scaled_floor(
         n_events,
@@ -358,7 +366,7 @@ def corrado_rank(
         f"(= MIN_EVENTS_WARN {MIN_EVENTS_WARN} x forward_periods "
         f"{forward_periods}); {n_event_periods} event periods survive "
         f"non-overlap sampling at stride h={forward_periods}, which keeps "
-        f"about one event in h per asset. The denominator is the time-series "
+        f"up to one event in h per asset. The denominator is the time-series "
         f"SD of the per-event-period mean rank, so the sample is those "
         f"periods, not the raw events: piling more same-period events on does "
         f"not add sample. z is returned but the normal approximation is "

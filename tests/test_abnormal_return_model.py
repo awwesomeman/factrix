@@ -109,6 +109,41 @@ class TestAttachAbnormalReturn:
         assert got[104] == pytest.approx(0.0)
         assert got[105] == pytest.approx(-1.0 / 60)
 
+    def test_price_path_uses_the_bar_window_ending_at_the_event(self):
+        rng = np.random.default_rng(1)
+        n = 200
+        bars = rng.normal(0.001, 0.01, n)
+        prices = 100.0 * np.cumprod(1.0 + bars)
+        fwd = rng.normal(0.0, 0.01, n)
+        panel = pl.DataFrame(
+            {
+                "date": [datetime(2020, 1, 1) + timedelta(days=i) for i in range(n)],
+                "asset_id": ["A"] * n,
+                "price": prices,
+                "forward_return": fwd,
+            }
+        )
+        out, diagnostics = _attach_abnormal_return(
+            panel, estimation_window=60, forward_periods=_H
+        )
+        assert diagnostics["estimation_window_source"] == "price"
+        assert diagnostics["estimation_window_lag"] == 0
+        got = out["_abnormal_return"].to_numpy()
+        bar_ret = prices[1:] / prices[:-1] - 1.0  # bar_ret[i] is the bar (i, i+1]
+        t = 150
+        # The 60 one-bar returns ending at t: bars (t-60, t-59] .. (t-1, t].
+        expected = fwd[t] - bar_ret[t - 60 : t].mean()
+        assert got[t] == pytest.approx(expected)
+        # Without a price the mean comes from lagged forward-return rows.
+        out_rows, diag_rows = _attach_abnormal_return(
+            panel.drop("price"), estimation_window=60, forward_periods=_H
+        )
+        assert diag_rows["estimation_window_source"] == "forward_return"
+        assert diag_rows["estimation_window_lag"] == _H
+        assert out_rows["_abnormal_return"][t] == pytest.approx(
+            fwd[t] - fwd[t - _H - 59 : t - _H + 1].mean()
+        )
+
     def test_a_supplied_abnormal_return_column_is_honoured(self):
         panel = _drift_panel(0).with_columns(
             (pl.col("forward_return") - 0.5).alias("abnormal_return")

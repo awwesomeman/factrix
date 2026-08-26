@@ -88,6 +88,10 @@ def _ols_nw_slope_t(
     Returns ``(0.0, 0.0, 1.0, np.zeros(n))`` for n < 3 or degenerate
     inputs (``Var(x) ≈ 0``).
     """
+    # Own the finiteness contract under this function's name; the estimator
+    # re-checks, cheaply, under its own.
+    y = _require_finite(y, "_ols_nw_slope_t")
+    x = _require_finite(x, "_ols_nw_slope_t")
     beta, se_beta, resid = _ols_nw_slope_se(y, x, lags=lags)
     n = len(y)
     if se_beta < EPSILON:

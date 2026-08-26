@@ -47,6 +47,7 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
     _signed_car,
     _warn_below_scaled_floor,
+    _warn_estimation_window_contamination,
     _warn_event_window_overlap,
 )
 
@@ -117,6 +118,7 @@ def _finite_events(
         return_col=return_col,
         estimation_window=estimation_window,
         forward_periods=forward_periods,
+        factor_col=factor_col,
     )
     events = adjusted.filter(pl.col(factor_col) != 0)
     # Two reasons an event leaves the sample, reported separately because they
@@ -223,6 +225,9 @@ def _spaced_events(
         warning_codes,
         expected_warnings=expected_warnings,
     )
+    _warn_estimation_window_contamination(
+        metric_name, metadata, warning_codes, expected_warnings=expected_warnings
+    )
     raw_min_warn = _scaled_min_periods(MIN_EVENTS_WARN, forward_periods)
     warn_code = _warn_below_scaled_floor(
         n_raw,
@@ -231,7 +236,7 @@ def _spaced_events(
         f"{metric_name}: n_events={n_raw} below the floor of {raw_min_warn} "
         f"(= MIN_EVENTS_WARN {MIN_EVENTS_WARN} x forward_periods "
         f"{forward_periods}); {sampled.height} events survive non-overlap "
-        f"sampling at stride h={forward_periods}, which keeps about one event "
+        f"sampling at stride h={forward_periods}, which keeps up to one event "
         f"in h per asset. The statistic is returned but its null assumes "
         f"independent draws and is power-thin on a sample this short.",
         WarningCode.FEW_EVENTS,
@@ -333,6 +338,18 @@ def event_hit_rate(
         earlier version left it at $\hat r = 0$ on every multi-asset panel.
         Read ``clustering_hhi`` alongside, and prefer ``bmp_z`` or
         ``corrado_rank`` when the shared shock is the object of study.
+
+        **Conservative when the abnormal-return model is contaminated.** The
+        mean-adjusted abnormal return subtracts a window that, on a dense
+        trigger or a long horizon, is mostly other events' realised returns;
+        the per-event abnormal returns are then negatively correlated and
+        the hit count under-rejects — 1.7% at $h = 5$ and $h = 21$ on 20
+        assets, 0.7% on a single asset at $h = 21$ (nominal 5%; 6.0% at
+        $h = 1$). ``metadata["estimation_window_event_share"]`` measures it
+        and ``ESTIMATION_WINDOW_CONTAMINATED`` fires above
+        ``ESTIMATION_WINDOW_EVENT_SHARE_WARN``; see
+        :func:`~factrix.metrics._helpers._attach_abnormal_return` for why
+        neither window choice nor the market-adjusted branch removes it.
 
         ``return_col`` must be sign-symmetric around zero — ``signed_car =
         return_col * sign(factor_col)``, so an always-positive magnitude
@@ -531,6 +548,9 @@ def event_ic(
     )
     n = len(events)
 
+    # Pre-spacing floor, re-checked on the spaced count below. It exists for
+    # ordering: a too-thin sample must read "insufficient_events" before the
+    # discrete-signal short-circuit can call it "not_applicable".
     sc = _enforce_min_floor(
         event_ic, "event_ic", n, "insufficient_events", axis="events"
     )

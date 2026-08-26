@@ -409,7 +409,9 @@ class TestCaarEventSpacedSampling:
         # 90 events spanning a clustered block (gap 1, gets thinned) and a
         # sparse tail (gap 5, all kept). n=90 == MIN_EVENTS_WARN*fp, so no
         # FEW_EVENTS warning fires; the clustered block is real overlap, so
-        # EVENT_WINDOW_OVERLAP is declared and its echo must stay silent.
+        # EVENT_WINDOW_OVERLAP is declared and its echo must stay silent. The
+        # block also fills most of each event's estimation window with other
+        # events' returns, so ESTIMATION_WINDOW_CONTAMINATED is declared too.
         fp = 3
         clustered = list(range(50))
         sparse = [60 + 5 * k for k in range(40)]
@@ -425,10 +427,14 @@ class TestCaarEventSpacedSampling:
             result = caar(
                 caar_df,
                 forward_periods=fp,
-                expected_warnings=("event_window_overlap",),
+                expected_warnings=(
+                    "event_window_overlap",
+                    "estimation_window_contaminated",
+                ),
             )
 
         assert "event_window_overlap" in result.warning_codes
+        assert "estimation_window_contaminated" in result.warning_codes
         kept = _greedy_keep(ordinals, fp)
         # The tested quantity is the ABNORMAL return, replicated by hand.
         ar_by_ord = _hand_abnormal_returns(ordinals, returns, n_cal, fp)

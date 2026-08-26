@@ -85,6 +85,18 @@ MIN_PAIR_ACCURACY_PAIRS_WARN: int = 30
 MIN_EVENTS_HARD: int = 4
 MIN_EVENTS_WARN: int = 30
 
+# Advisory floor on ``estimation_window_event_share`` — the mean, over the
+# tested events, of the share of an event's estimation-window bars (or rows)
+# that lie inside *another* event's forward-return window on the same asset.
+# The mean-adjusted abnormal-return model is identified when that share is
+# small: each event's estimation window then measures the asset's
+# unconditional mean rather than its neighbours' realised event returns.
+# Above this share the per-event abnormal returns are negatively correlated
+# through the shared windows and every mean-adjusted event test reads
+# conservative (measured sizes in ``_attach_abnormal_return``). Period axis:
+# the share counts periods of the window.
+ESTIMATION_WINDOW_EVENT_SHARE_WARN: float = 0.25
+
 MIN_OOS_PERIODS_HARD: int = 5
 
 # Two-tier portfolio-period guard for portfolio-level inference (top

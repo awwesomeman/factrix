@@ -79,6 +79,7 @@ from factrix.metrics._helpers import (
     _scaled_min_periods,
     _short_circuit_output,
     _warn_below_scaled_floor,
+    _warn_estimation_window_contamination,
     _warn_event_window_overlap,
 )
 from factrix.metrics._metric_capabilities import per_date_series_rename
@@ -213,6 +214,21 @@ def caar(
         non-overlap resampling rather than Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent
         (HAC), the same convention as ``ic``.
 
+        **The abnormal return, and when its model is conservative.** The
+        per-period CAAR is a mean of *abnormal* returns — the asset's
+        estimation-window mean subtracted, or a supplied ``abnormal_return``
+        column (``metadata["abnormal_return_model"]``; see
+        :func:`~factrix.metrics._helpers._attach_abnormal_return`). The
+        mean-adjusted model is identified when little of each event's window
+        is other events' realised returns; above
+        ``ESTIMATION_WINDOW_EVENT_SHARE_WARN`` of
+        ``metadata["estimation_window_event_share"]`` the test fires
+        ``ESTIMATION_WINDOW_CONTAMINATED`` and reads conservative. ``caar``
+        is the least affected member of the battery because the same-period
+        average is taken before the variance (20 assets, 5% trigger: 4.7 /
+        2.3 / 5.0% at $h = 1 / 5 / 21$), but a single asset at $h = 21$
+        rejects 0.0% of true nulls (nominal 5%).
+
         The across-events siblings are complementary, not redundant:
         ``bmp_z`` is the across-events standardized-AR z-test with the
         Kolari-Pynnönen clustering correction on by default — use it when
@@ -344,6 +360,22 @@ def caar(
         metadata["n_events_dropped_non_finite"] = int(
             caar_df["n_events_dropped_non_finite"][0]
         )
+    # Abnormal-return model diagnostics ride compute_caar's output as
+    # broadcast columns; a hand-built caar_df carries none of them.
+    if caar_df.height:
+        if "n_events_dropped_no_estimation_window" in caar_df.columns:
+            metadata["n_events_dropped_no_estimation_window"] = int(
+                caar_df["n_events_dropped_no_estimation_window"][0]
+            )
+        if "abnormal_return_model" in caar_df.columns:
+            metadata["abnormal_return_model"] = caar_df["abnormal_return_model"][0]
+        if "estimation_window_event_share" in caar_df.columns:
+            metadata["estimation_window_event_share"] = caar_df[
+                "estimation_window_event_share"
+            ][0]
+    _warn_estimation_window_contamination(
+        "caar", metadata, warning_codes, expected_warnings=expected_warnings
+    )
 
     # Fewer than two spaced event periods, or an identical CAAR on all of them:
     # ``mean_caar`` still stands, the t does not exist.
@@ -427,27 +459,27 @@ def bmp_z(
             cross-sectionally independent; same-period events (earnings
             season, index rebalances, macro releases) share a common shock
             and break that. Measured on a true null with ρ = 0.5 (nominal
-            5%): 1 event per period 6.0% either way (the adjustment is the
-            identity when no two events share a period —
-            ``kolari_pynnonen_applied`` is ``False``); 4 per period
-            **21.5% → 5.0%**; 10 per period **40% → 4.5%**. What it cannot
-            do is manufacture independent periods: once same-period events
-            are correlated the effective sample is closer to the number of
-            distinct event *periods* than to the event count, and the
-            adjusted test's residual tracks that — 4 events per period over
-            4 / 8 / 15 / 30 periods: 15.2% / 10.7% / 5.5% / 5.8%, and 10
-            events per period over 8 / 15 / 30: 9.2% / 5.8% / 6.8% (400
-            reps, SE ≈ 1.1–1.8 pp). The residual depends on the period
-            count, not on how many events share each period, and is gone
-            by ~15 periods either way. So when events share periods,
+            5%, $h = 1$, 20 assets, 300 draws): 1 event per period 3.7%
+            either way (the adjustment is the identity when no two events
+            share a period — ``kolari_pynnonen_applied`` is ``False``); 4
+            per period over 30 periods **19.7% → 4.7%**; 10 per period
+            **38.7% → 3.7%**. What it cannot do is manufacture independent
+            periods: once same-period events are correlated the effective
+            sample is closer to the number of distinct event *periods* than
+            to the event count, and the adjusted test's residual tracks
+            that — 4 events per period over 4 / 8 / 15 / 30 periods: 14.3%
+            / 10.0% / 7.3% / 4.7%, and 10 events per period over 8 / 15 /
+            30: 9.0% / 8.7% / 3.7% (SE ≈ 1.1–1.8 pp). The residual depends
+            on the period count more than on how many events share each
+            period, and is gone by ~30 periods. So when events share periods,
             ``FEW_EVENTS`` fires on ``metadata["n_event_periods"]``
             (distinct event periods) below ``MIN_EVENTS_WARN``, not on
             ``n_events``; with one event per period the two coincide and
-            the hard floor on ``n_events`` is the only gate. The measured
-            edge is ~15; ``MIN_EVENTS_WARN`` (30) is the floor ``caar`` and
+            the hard floor on ``n_events`` is the only gate.
+            ``MIN_EVENTS_WARN`` (30) is the floor ``caar`` and
             ``corrado_rank`` already apply on this axis, reused so the three
-            event-study tests share one grammar — inside [15, 30) the
-            warning is conservative, not a measured miscalibration.
+            event-study tests share one grammar, and it is where the
+            measured residual clears.
             ``False`` gives the unadjusted BMP for reproducing a
             source that reports it; ``metadata["kolari_pynnonen_applied"]``
             / ``["kolari_pynnonen_r"]`` disclose which statistic ran.
@@ -484,13 +516,15 @@ def bmp_z(
             variation (which would move $z$) requires a market-model
             extension and is out of scope here.
 
-            Caveat: ``rolling_std(min_samples=20)`` accepts events with
-            as few as 20 prior returns, so the effective $T_i$ for
-            early-history events can be smaller than ``estimation_window``.
-            The constant correction is therefore an approximation in
-            that regime; ensure every event has at least
-            ``estimation_window`` prior returns when the strict denominator
-            matters.
+            Caveat: ``rolling_std(min_samples=min(20, estimation_window))``
+            accepts events with as few as 20 prior returns, so the
+            effective $T_i$ for early-history events can be smaller than
+            ``estimation_window``. The constant is an approximation in that
+            regime, and on the no-``price`` path at $h > 1$ as well: there
+            $T_{\mathrm{est}}$ counts overlapping forward-return rows that
+            carry roughly $W / h$ independent observations. Ensure every
+            event has at least ``estimation_window`` prior returns when the
+            strict denominator matters.
 
     Returns:
         MetricResult(value=mean_SAR, p_value=p_bmp, stat=z_bmp, ...).
@@ -544,17 +578,50 @@ def bmp_z(
         turns $z$ into a silent 0 with $p = 1$.
 
         **The abnormal return.** $\mathrm{AR}_i$ is a genuine abnormal
-        return: the asset's estimation-window mean, lagged by
-        ``forward_periods``, is subtracted from ``return_col``, or an
+        return: the asset's estimation-window mean is subtracted from
+        ``return_col`` — taken on the same ``estimation_window`` bars of
+        one-bar returns as $\sigma_i$ when ``price`` is present, on
+        ``return_col`` rows lagged by ``forward_periods`` otherwise — or an
         ``abnormal_return`` column on the input is used as supplied (see
         :func:`~factrix.metrics._helpers._attach_abnormal_return` for both
-        models and ``metadata["abnormal_return_model"]`` for which ran).
+        models and ``metadata["abnormal_return_model"]`` /
+        ``["estimation_window_source"]`` for which ran).
+
+        **Not robust to heavy skew at $h > 1$ — use ``corrado_rank``.** With
+        $\hat\mu_i$ and $\sigma_i$ estimated on the same window (the
+        textbook form), a right-tail bar raises both, so under skew
+        $E[\hat\mu_i / \sigma_i] \neq 0$ and the standardised abnormal return
+        inherits a bias of $-\sqrt{h}\,E[\hat\mu_i / \sigma_i]$: the
+        $1/\sqrt{h}$ vol scaling shrinks the standardiser while the bias in
+        the mean does not shrink. Measured on a standardised lognormal(0.9)
+        iid null (20 assets, 300 draws, nominal 5%): mean SAR $+0.04 /
+        +0.08 / +0.16$ and size 5.5 / 18 / 32% at $h = 1 / 5 / 21$; the same
+        panels with the raw return supplied as ``abnormal_return`` (no
+        $\hat\mu$) are unbiased (3.5 / 3.5 / 0.5%). Estimating the mean on
+        the vol window rather than on lagged rows does not change this — it
+        is the estimator, not the window. Signs that mix cancel it (4.3%
+        with half the events short). ``corrado_rank`` (4.3%) and
+        ``event_hit_rate`` (4.3%) are rank / sign tests and do not carry it.
         Earlier versions standardised the *raw* forward return while
         documenting mean-adjusted residuals; on a 20-asset panel drifting
         0.08% per period with zero-information event dates that returned
-        $z = 5.34$ ($p = 9\times10^{-8}$) and rejected 50% of null draws,
-        against 3% with the mean subtracted. Events whose asset has too
-        little history for the estimate are excluded and counted.
+        $z = 5.34$ ($p = 9\times10^{-8}$) and rejected 50% of null draws;
+        with the mean subtracted the drifting panel rejects exactly as
+        often as the same panel without drift (4.3% at $h = 1$, 3.7% at
+        $h = 5$, 20 assets, 300 draws). Events whose asset has too little
+        history for the estimate are excluded and counted.
+
+        **Conservative on dense triggers and long horizons.** The mean is
+        estimated from the asset's own history, which contains the realised
+        forward returns of its earlier events; once those fill more than a
+        quarter of the window (``metadata["estimation_window_event_share"]``,
+        ``ESTIMATION_WINDOW_CONTAMINATED``) the per-event abnormal returns
+        are negatively correlated and $z$ under-rejects: 0.3% at $h = 21$ on
+        20 assets, 0.0% on a single asset, 0.7% with 20 names firing on the
+        same 40 periods at $h = 5$ (nominal 5%). The market-adjusted branch
+        does not remove it and costs the effect on same-period panels — see
+        :func:`~factrix.metrics._helpers._attach_abnormal_return` for the
+        measurements. Read a flagged p-value as an upper bound.
 
         factrix simplifies the original BMP by omitting the prediction-
         error term from the standardiser and by using mean-adjusted rather
@@ -600,6 +667,7 @@ def bmp_z(
         return_col=return_col,
         estimation_window=estimation_window,
         forward_periods=forward_periods,
+        factor_col=factor_col,
     )
 
     uses_price = "price" in sorted_df.columns
@@ -637,8 +705,10 @@ def bmp_z(
 
     # With price the window [t-N+1, t] already precedes the event window; the
     # fallback adds a forward_periods lag (see above) so it too ends pre-event.
+    # Same min_samples expression as the mean in _attach_abnormal_return, so
+    # a deliberately short window yields a vol wherever it yields a mean.
     est_vol_expr = pl.col("_period_ret").rolling_std(
-        window_size=estimation_window, min_samples=20
+        window_size=estimation_window, min_samples=min(20, estimation_window)
     )
     if vol_lag:
         est_vol_expr = est_vol_expr.shift(vol_lag)
@@ -742,6 +812,9 @@ def bmp_z(
         warning_codes,
         expected_warnings=expected_warnings,
     )
+    _warn_estimation_window_contamination(
+        "bmp_z", metadata, warning_codes, expected_warnings=expected_warnings
+    )
     if not uses_price:
         warning_codes.append(WarningCode.BMP_RETURN_VOL_FALLBACK.value)
         warnings.warn(
@@ -797,7 +870,7 @@ def bmp_z(
         f"(= MIN_EVENTS_WARN {MIN_EVENTS_WARN} x forward_periods "
         f"{forward_periods}); {n_valid} events and {n_event_periods} event "
         f"periods survive non-overlap sampling at stride h={forward_periods}, "
-        f"which keeps about one event in h per asset. z is returned but the "
+        f"which keeps up to one event in h per asset. z is returned but the "
         f"cross-sectional test is power-thin on a sample this short.",
         WarningCode.FEW_EVENTS,
         expected_warnings=expected_warnings,
@@ -821,8 +894,8 @@ def bmp_z(
                 f"sample is closer to the number of distinct event periods than "
                 f"to the event count; the Kolari-Pynnönen adjustment removes the "
                 f"shared-shock inflation but not the small-sample residual "
-                f"(measured ~11% at 8 periods, ~15% at 4, clearing by ~15; "
-                f"nominal 5%). z is returned but read borderline p-values "
+                f"(measured ~10% at 8 periods, ~14% at 4, ~7% at 15, clearing "
+                f"by ~30; nominal 5%). z is returned but read borderline p-values "
                 f"cautiously.",
                 UserWarning,
                 stacklevel=2,

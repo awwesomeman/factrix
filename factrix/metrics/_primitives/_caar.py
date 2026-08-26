@@ -111,6 +111,7 @@ def compute_caar(
         return_col=return_col,
         estimation_window=estimation_window,
         forward_periods=forward_periods,
+        factor_col=factor_col,
     )
     events = adjusted.with_columns(
         (pl.col("date").rank(method="dense") - 1).alias("date_ordinal")
@@ -162,5 +163,8 @@ def compute_caar(
             pl.lit(str(ar_diagnostics["abnormal_return_model"])).alias(
                 "abnormal_return_model"
             ),
+            pl.lit(
+                ar_diagnostics["estimation_window_event_share"], dtype=pl.Float64
+            ).alias("estimation_window_event_share"),
         )
     )

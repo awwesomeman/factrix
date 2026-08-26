@@ -212,6 +212,13 @@ class WarningCode(StrEnum):
     # / p-value moves, and the code is the record that it did, since the
     # deflation is data-driven rather than a fixed configuration.
     EVENT_CLUSTERING_ADJUSTED = "event_clustering_adjusted"
+    # Fired by every mean-adjusted event test (caar / bmp_z / corrado_rank /
+    # event_hit_rate / event_ic / event_skewness) when the tested events'
+    # estimation windows are mostly other events' realised returns —
+    # ``metadata["estimation_window_event_share"]`` above
+    # ``ESTIMATION_WINDOW_EVENT_SHARE_WARN``. The statistic is returned
+    # unchanged; the code says the null it is read against is conservative.
+    ESTIMATION_WINDOW_CONTAMINATED = "estimation_window_contaminated"
 
     @property
     def description(self) -> str:
@@ -269,8 +276,8 @@ _WARNING_DESCRIPTIONS.update(
         "corrado_rank / bmp_z / event_hit_rate / event_ic / event_skewness) "
         "with a raw event count below MIN_EVENTS_WARN (30) x forward_periods. "
         "The floor is scaled because every one of these tests first strides "
-        "its event axis at the forward-return horizon — keeping roughly one "
-        "event in h — so a raw series must carry h x 30 events to land on 30 "
+        "its event axis at the forward-return horizon — keeping at most one "
+        "event in h per asset — so a raw series must carry h x 30 events to land on 30 "
         "independent ones. The message states the scaled floor, the raw count "
         "and the count that survived sampling; caar and corrado_rank count "
         "event *periods* on that axis (caar an equal-weight calendar-time "
@@ -278,8 +285,8 @@ _WARNING_DESCRIPTIONS.update(
         "count events. bmp_z fires on a second trigger as well: once events "
         "share periods its effective sample is the distinct event periods, "
         "not the event count (the Kolari-Pynnönen adjustment cannot "
-        "manufacture independent periods; measured ~11% size at 8 periods, "
-        "clearing by ~15, nominal 5%). A sub-30 effective sample is "
+        "manufacture independent periods; measured ~10% size at 8 periods, "
+        "~7% at 15, clearing by ~30, nominal 5%). A sub-30 effective sample is "
         "power-thin for the asymptotic distribution — read borderline "
         "p-values cautiously.",
         WarningCode.BORDERLINE_PORTFOLIO_PERIODS: "top_concentration with MIN_PORTFOLIO_PERIODS_HARD "
@@ -373,6 +380,23 @@ _WARNING_DESCRIPTIONS.update(
         "event_hit_rate 63.5% -> nominal at 20 assets sharing 40 event dates. "
         "metadata['kolari_pynnonen_r'] / ['kolari_pynnonen_scaling'] disclose "
         "the estimate and the deflator.",
+        WarningCode.ESTIMATION_WINDOW_CONTAMINATED: "A mean-adjusted event "
+        "test (caar / bmp_z / corrado_rank / event_hit_rate / event_ic / "
+        "event_skewness) found that, averaged over the tested events, more "
+        "than ESTIMATION_WINDOW_EVENT_SHARE_WARN (25%) of each event's "
+        "estimation-window periods lie inside another event's forward-return "
+        "window on the same asset (metadata['estimation_window_event_share']). "
+        "The window then estimates the neighbours' realised event returns "
+        "rather than the asset's unconditional mean, the per-event abnormal "
+        "returns are negatively correlated through the shared periods, and "
+        "the cross-event variance overstates the variance of their mean: the "
+        "test is conservative, not liberal (measured on an iid null at "
+        "h = 21: bmp_z 0.3% size at nominal 5%). A dense trigger or a long "
+        "horizon is the cause. A supplied market-adjusted 'abnormal_return' "
+        "does not remove it (measured 0.3% -> 0.3%) and removes the effect "
+        "itself when every name fires on the same periods, so the statistic "
+        "is returned unchanged: read the p-value as an upper bound, or "
+        "shorten the horizon / thin the trigger.",
         WarningCode.ONE_SIGNED_FACTOR: "top_concentration ran with "
         "weight_by='abs_factor' on a factor that never changes sign across the "
         "panel. |factor| is a density weight only when zero is the factor's "

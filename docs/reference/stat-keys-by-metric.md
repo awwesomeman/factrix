@@ -163,8 +163,14 @@ Descriptive; no test.
   return or factor dropped by `compute_caar`),
   `n_events_overlapping` / `n_events_sampled` (removed by, and surviving,
   the non-overlap spacing pass; a non-zero removal fires
-  `EVENT_WINDOW_OVERLAP`), `n_events_dropped_no_estimation_window` and
-  `abnormal_return_model` (carried up from `compute_caar`),
+  `EVENT_WINDOW_OVERLAP`), `n_events_dropped_no_estimation_window`,
+  `abnormal_return_model` and `estimation_window_event_share` (carried up
+  from `compute_caar`; the share of each tested event's estimation window
+  that lies inside other events' forward windows — above
+  `ESTIMATION_WINDOW_EVENT_SHARE_WARN` the mean-adjusted model's abnormal
+  returns are negatively correlated and the test is conservative, which
+  `ESTIMATION_WINDOW_CONTAMINATED` records; measured 4.7 / 2.3 / 5.0% size at
+  h = 1 / 5 / 21 on 20 assets, 0.0% on one asset at h = 21),
   `warning_codes` (conditional, e.g. `FEW_EVENTS`).
 
 #### `bmp_z`
@@ -180,8 +186,17 @@ Boehmer-Musumeci-Poulsen standardised-abnormal-return cross-sectional
   `n_events_overlapping` / `n_events_sampled` (removed by, and surviving,
   the per-asset non-overlap spacing pass; a non-zero removal fires
   `EVENT_WINDOW_OVERLAP`), `abnormal_return_model` / `estimation_window` /
-  `estimation_window_lag` (the abnormal-return model behind the SAR
-  numerator), `n_dropped`
+  `estimation_window_source` / `estimation_window_lag` (the abnormal-return
+  model behind the SAR numerator: `mean_adjusted` on the one-bar returns of
+  `price` over the same window as the vol, lag `0`, or on lagged
+  `forward_return` rows without `price`; `market_adjusted_supplied` when
+  the panel carries `abnormal_return`), `estimation_window_event_share`
+  (share of the tested events' estimation windows inside other events'
+  forward windows; above `ESTIMATION_WINDOW_EVENT_SHARE_WARN` the
+  mean-adjusted `z` is conservative and `ESTIMATION_WINDOW_CONTAMINATED`
+  fires — measured 4.3 / 3.7 / 0.3% size at h = 1 / 5 / 21 on 20 assets,
+  nominal 5%; the model is also not robust to heavy skew at h > 1, 18% at
+  h = 5 on a lognormal null, where `corrado_rank` holds 4.3%), `n_dropped`
   (= `n_dropped_no_vol` + `n_dropped_non_finite_return`), `std_sar`,
   `estimation_window`, `include_prediction_error_variance`,
   `vol_source` (`"price"` or `"forward_return"`), `vol_estimation_lag`
@@ -210,6 +225,8 @@ Boehmer-Musumeci-Poulsen standardised-abnormal-return cross-sectional
   (events whose asset had too little history for the abnormal-return
   estimate), `abnormal_return_model` (`"mean_adjusted"` or
   `"market_adjusted_supplied"`), `estimation_window`, `estimation_window_lag`,
+  `estimation_window_source`, `estimation_window_event_share` (see `bmp_z`;
+  `ESTIMATION_WINDOW_CONTAMINATED` above the advisory share),
   `forward_periods` (the spacing stride),
   `n_events_overlapping` / `n_events_sampled` (removed by, and surviving,
   the spacing pass; a non-zero removal fires `EVENT_WINDOW_OVERLAP`).
@@ -294,7 +311,11 @@ Same shape as `positive_rate` (exact binomial, `stat` = hit count).
   (events with a non-finite return / factor, excluded from `n`),
   `n_events_dropped_no_estimation_window` (events whose asset had too little
   history for the abnormal-return estimate), `abnormal_return_model` /
-  `estimation_window` / `estimation_window_lag`,
+  `estimation_window` / `estimation_window_source` / `estimation_window_lag`
+  / `estimation_window_event_share` (above
+  `ESTIMATION_WINDOW_EVENT_SHARE_WARN` the mean-adjusted null is
+  conservative and `ESTIMATION_WINDOW_CONTAMINATED` fires: 6.0 / 1.7 / 1.7%
+  size at h = 1 / 5 / 21 on 20 assets, nominal 5%),
   `n_events_overlapping` / `n_events_sampled` (removed by, and surviving,
   the spacing pass; a non-zero removal fires `EVENT_WINDOW_OVERLAP`).
 

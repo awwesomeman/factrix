@@ -856,6 +856,8 @@ def _attach_abnormal_return(
     return_col: str = "forward_return",
     estimation_window: int = 60,
     forward_periods: int = 5,
+    price_col: str = "price",
+    factor_col: str = "factor",
     out_col: str = "_abnormal_return",
 ) -> tuple[pl.DataFrame, dict[str, Any]]:
     r"""Attach the event family's abnormal return $AR_{it} = R_{it} - E[R_{it}]$.
@@ -882,12 +884,33 @@ def _attach_abnormal_return(
     - **Mean-adjusted** otherwise ([Brown-Warner (1985)][brown-warner-1985]):
       $AR_{it} = R_{it} - \hat\mu_i$, with $\hat\mu_i$ the mean of the same
       asset's returns over an ``estimation_window`` that **ends before the
-      event window opens**. The estimate is lagged by ``forward_periods`` for
-      exactly the reason ``bmp_z`` lags its fallback volatility: a window
-      ending at $t$ already contains the event's own overlapping forward
-      return, so an unlagged mean would subtract part of the effect being
-      measured from itself. No market model is fitted — factrix does not
-      require a benchmark column and will not invent one.
+      event window opens**. No market model is fitted — factrix does not
+      require a benchmark column and will not invent one. Which returns feed
+      $\hat\mu_i$ depends on what the panel carries
+      (``estimation_window_source``):
+
+      - With a ``price_col``, the mean of the one-bar returns over the
+        ``estimation_window`` bars ending at $t$ — the same window ``bmp_z``
+        estimates its volatility on. ``return_col`` is a per-bar average
+        (:func:`~factrix.preprocess.compute_forward_return` divides by the
+        horizon), so the units match with no scaling, and no lag is needed:
+        the bar $(t-1, t]$ precedes the event's forward return, which opens
+        at $t + 1$. This is the textbook BMP estimation window — mean and
+        volatility from the same bars. An earlier version estimated
+        $\hat\mu_i$ on lagged forward-return *rows* here as well; aligning
+        the two windows is neutral on every Gaussian null measured and does
+        **not** remove ``bmp_z``'s skew sensitivity (see its Notes: the bias
+        is $E[\hat\mu / \hat\sigma] \neq 0$ from the shared window, which the
+        textbook form carries too).
+      - Without one, the mean of the ``return_col`` rows over the
+        ``estimation_window`` rows ending at $t - h$ (lagged by
+        ``forward_periods``, for exactly the reason ``bmp_z`` lags its
+        fallback volatility): a window ending at $t$ would contain the
+        event's own overlapping forward return and subtract part of the
+        effect from itself. The last row in that window, $t - h$, spans bars
+        $(t - h + 1, t + 1]$ — up to and including the bar before the
+        event's forward return opens at $t + 2$, none of which the tested
+        return contains.
 
     An event whose asset has too little history for the estimation window gets
     a null ``out_col`` and is dropped by the caller's finiteness filter, the
@@ -900,45 +923,223 @@ def _attach_abnormal_return(
             the estimation window; passing only event rows estimates the mean
             from events alone, which is not the same quantity.
         return_col: Raw return column to adjust.
-        estimation_window: Rows of history behind $\hat\mu_i$.
-        forward_periods: Overlap horizon; the lag applied to $\hat\mu_i$.
+        estimation_window: Bars (with ``price_col``) or rows (without) of
+            history behind $\hat\mu_i$.
+        forward_periods: Overlap horizon; the lag applied to $\hat\mu_i$ on
+            the row path.
+        price_col: Price column; when present the mean is taken on one-bar
+            returns derived from it.
+        factor_col: Event column (``!= 0`` marks an event), read only for
+            the ``estimation_window_event_share`` diagnostic.
         out_col: Name of the attached abnormal-return column.
 
     Returns:
         ``(frame, diagnostics)`` — the frame with ``out_col`` attached (sorted
         by asset then date when both are present), and the diagnostics every
         consumer surfaces in ``metadata``: ``abnormal_return_model``,
-        ``estimation_window`` and ``estimation_window_lag``.
+        ``estimation_window``, ``estimation_window_source`` (``"price"`` or
+        the ``return_col`` name), ``estimation_window_lag`` (``0`` on the
+        price path) and ``estimation_window_event_share`` (below).
+
+    Notes:
+        **Identifying condition, and what happens when it fails.** The
+        mean-adjusted model estimates $E[R_{it}]$ from the asset's own recent
+        history, and that history contains the realised forward returns of the
+        asset's *earlier* events. The model is identified when the share of
+        estimation-window periods that lie inside another event's forward
+        window is small; then $\hat\mu_i$ is the unconditional mean. When a
+        trigger fires densely, or $h$ is long, most of the window is other
+        events' realised returns: event $j$'s abnormal return is then
+        negatively correlated with event $i$'s for $i < j$, the cross-event
+        sample variance overstates the variance of the mean abnormal return,
+        and **every** consumer of this helper reads conservative — the
+        opposite failure from the drift leak it exists to remove. It is a
+        property of the model, not a coding error: using one-bar returns for
+        $\hat\mu$ leaves it unchanged (the contamination is in the bars),
+        and masking every bar inside an event window out of the estimation
+        sample over-corrects (7–15% size), because at these densities almost
+        nothing survives and the surviving noise is shared across events.
+
+        Measured sizes at a nominal 5% (300 draws, iid Gaussian null,
+        price-derived forward returns, 20 assets with a 5% trigger unless
+        stated), ``bmp_z`` / ``corrado_rank`` / ``event_hit_rate`` / ``caar``:
+        $h = 1$: 4.3 / 4.7 / 6.0 / 4.7% (share 0.05); $h = 5$: 3.7 / 4.3 /
+        1.7 / 2.3% (0.21); $h = 21$: 0.3 / 2.0 / 1.7 / 5.0% (0.60); one asset
+        with an 8% trigger at $h = 5$: 1.3 / 1.3 / 3.3 / 1.7% (0.33) and at
+        $h = 21$: 0.0 / 0.0 / 0.7 / 0.0% (0.81); 20 names all firing on the
+        same 40 periods at $h = 5$ with no shared shock: 0.7 / 2.7 / 1.0 /
+        2.3% (0.33). ``caar`` is the least affected because its
+        calendar-time portfolio averages same-period events before the
+        variance is taken. The share in brackets is published as
+        ``estimation_window_event_share`` — the mean over the tested events
+        of the fraction of their window periods inside another event's
+        forward window on the same asset — and every consumer fires
+        ``ESTIMATION_WINDOW_CONTAMINATED`` above
+        ``ESTIMATION_WINDOW_EVENT_SHARE_WARN`` (0.25), which separates the
+        cells above at or below ~2% from the rest.
+
+        **The market-adjusted branch does not close it.** Routing the same
+        panels through :func:`~factrix.preprocess.compute_abnormal_return`
+        (cross-sectional de-meaning, no estimation window) measured 3.0 /
+        3.7 / 1.7 / 4.0% at $h = 5$ and 0.3 / 1.0 / 1.3 / 5.7% at $h = 21$
+        on the iid panel — the de-meaned returns of events on different
+        names with overlapping windows are negatively correlated through
+        the shared cross-sectional mean, the same mechanism on the other
+        axis — and on the same-period panel it removes the effect itself
+        (power at a 0.15σ effect: 54 / 64 / 53 / 47% mean-adjusted, 0 / 4 /
+        0 / 7% market-adjusted), because the cross-sectional mean *is* the
+        event return when every name fires together. factrix therefore does
+        not switch models on the share; the code is advisory, and the honest
+        reading of a flagged p-value is an upper bound.
     """
     diagnostics: dict[str, Any] = {}
     if _pick_event_return_col(data) == "abnormal_return":
         diagnostics["abnormal_return_model"] = "market_adjusted_supplied"
         diagnostics["estimation_window"] = None
+        diagnostics["estimation_window_source"] = None
         diagnostics["estimation_window_lag"] = None
+        diagnostics["estimation_window_event_share"] = None
         return data.with_columns(pl.col("abnormal_return").alias(out_col)), diagnostics
 
     diagnostics["abnormal_return_model"] = "mean_adjusted"
     diagnostics["estimation_window"] = estimation_window
-    diagnostics["estimation_window_lag"] = forward_periods
     sort_keys = [k for k in ("asset_id", "date") if k in data.columns]
     frame = data.sort(sort_keys) if sort_keys else data
+    has_asset = "asset_id" in frame.columns
+    uses_price = price_col in frame.columns
+    if uses_price:
+        bar = pl.col(price_col) / pl.col(price_col).shift(1) - 1.0
+        if has_asset:
+            bar = bar.over("asset_id")
+        frame = frame.with_columns(bar.alias("_bar_return"))
+        source_col = "_bar_return"
+        lag = 0
+    else:
+        source_col = return_col
+        lag = forward_periods
+    diagnostics["estimation_window_source"] = "price" if uses_price else return_col
+    diagnostics["estimation_window_lag"] = lag
     # Mask NaN to null before the rolling mean. polars skips nulls and honours
     # min_samples, but a float NaN is a *value* to it and propagates through
     # every window that contains it — one bad cell would otherwise blank the
     # abnormal return of the next `estimation_window` events (project-wide
     # convention: NaN is masked, never fed to a rolling aggregate).
-    finite_return = pl.when(_finite_expr(return_col)).then(pl.col(return_col))
-    mean_expr = finite_return.rolling_mean(
+    finite_source = pl.when(_finite_expr(source_col)).then(pl.col(source_col))
+    mean_expr = finite_source.rolling_mean(
         window_size=estimation_window, min_samples=min(20, estimation_window)
     )
-    if forward_periods > 0:
-        mean_expr = mean_expr.shift(forward_periods)
-    if "asset_id" in frame.columns:
+    if lag > 0:
+        mean_expr = mean_expr.shift(lag)
+    if has_asset:
         mean_expr = mean_expr.over("asset_id")
-    return (
-        frame.with_columns((pl.col(return_col) - mean_expr).alias(out_col)),
-        diagnostics,
+    out = frame.with_columns((pl.col(return_col) - mean_expr).alias(out_col))
+    diagnostics["estimation_window_event_share"] = _estimation_window_event_share(
+        out,
+        factor_col,
+        out_col,
+        estimation_window=estimation_window,
+        forward_periods=forward_periods,
+        lag=lag,
+        bars=uses_price,
+        has_asset=has_asset,
     )
+    if uses_price:
+        out = out.drop("_bar_return")
+    return out, diagnostics
+
+
+def _estimation_window_event_share(
+    frame: pl.DataFrame,
+    factor_col: str,
+    ar_col: str,
+    *,
+    estimation_window: int,
+    forward_periods: int,
+    lag: int,
+    bars: bool,
+    has_asset: bool,
+) -> float | None:
+    """Mean share of the tested events' estimation windows inside other events'
+    forward windows — the diagnostic behind ``ESTIMATION_WINDOW_CONTAMINATED``.
+
+    A period is "inside an event's forward window" when the return it
+    contributes to the estimation window overlaps the forward return
+    ``(t+1, t+1+h]`` of some event at ``t`` on the same asset. On the bar
+    path (``bars=True``) the period is the bar ``(s-1, s]``, inside when an
+    event sits at ``s-1-h .. s-2``; on the row path the period is the row
+    ``s`` whose return spans ``(s+1, s+1+h]``, inside when an event sits within
+    ``h-1`` rows on either side. The indicator is then averaged over the same
+    window (and lag) as the mean itself, and the result averaged over the
+    event rows with a finite abnormal return. ``None`` when there are none.
+    """
+    if factor_col not in frame.columns:
+        return None
+    is_event = (_finite_expr(factor_col) & (pl.col(factor_col) != 0)).cast(pl.Float64)
+    if bars:
+        inside = is_event.rolling_sum(window_size=forward_periods, min_samples=1).shift(
+            2
+        )
+    else:
+        inside = is_event.rolling_sum(
+            window_size=2 * forward_periods - 1, min_samples=1, center=True
+        )
+    contaminated = (inside.fill_null(0.0) > 0).cast(pl.Float64)
+    share = contaminated.rolling_mean(
+        window_size=estimation_window, min_samples=min(20, estimation_window)
+    )
+    if lag > 0:
+        share = share.shift(lag)
+    if has_asset:
+        share = share.over("asset_id")
+    tested = frame.with_columns(share.alias("_share")).filter(
+        _finite_expr(factor_col)
+        & (pl.col(factor_col) != 0)
+        & _finite_expr(ar_col)
+        & pl.col("_share").is_not_null()
+    )
+    if tested.height == 0:
+        return None
+    return float(tested["_share"].mean())  # type: ignore[arg-type]
+
+
+def _warn_estimation_window_contamination(
+    metric_name: str,
+    metadata: dict[str, Any],
+    warning_codes: list[str],
+    *,
+    expected_warnings: tuple[str, ...] = (),
+) -> None:
+    """Fire ``ESTIMATION_WINDOW_CONTAMINATED`` when the mean-adjusted model's
+    identifying condition fails (see :func:`_attach_abnormal_return` Notes).
+
+    Reads ``metadata["estimation_window_event_share"]``; nothing fires on the
+    market-adjusted branch (``None``) or below
+    ``ESTIMATION_WINDOW_EVENT_SHARE_WARN``. The statistic is not changed —
+    the code says its null is conservative.
+    """
+    from factrix._types import ESTIMATION_WINDOW_EVENT_SHARE_WARN
+
+    share = metadata.get("estimation_window_event_share")
+    if share is None or share <= ESTIMATION_WINDOW_EVENT_SHARE_WARN:
+        return
+    code = WarningCode.ESTIMATION_WINDOW_CONTAMINATED.value
+    if code not in expected_warnings:
+        warnings.warn(
+            f"{metric_name}: on average {share:.0%} of each tested event's "
+            f"estimation-window periods lie inside another event's "
+            f"forward-return window on the same asset (advisory floor "
+            f"{ESTIMATION_WINDOW_EVENT_SHARE_WARN:.0%}). The mean-adjusted "
+            f"abnormal return then subtracts neighbouring events' realised "
+            f"returns rather than the unconditional mean, the per-event "
+            f"abnormal returns are negatively correlated, and the test is "
+            f"conservative. Supply an 'abnormal_return' column "
+            f"(compute_abnormal_return) when the event universe is a small "
+            f"share of the panel, or read the p-value as an upper bound.",
+            UserWarning,
+            stacklevel=3,
+        )
+    if code not in warning_codes:
+        warning_codes.append(code)
 
 
 def _sample_non_overlapping(
