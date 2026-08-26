@@ -35,6 +35,7 @@ from factrix._stats import _binomial_two_sided_p
 from factrix._types import EPSILON, MIN_EVENTS_HARD, MIN_EVENTS_WARN
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
+    _attach_abnormal_return,
     _enforce_min_floor,
     _event_sample_threshold,
     _event_signal_is_discrete,
@@ -62,8 +63,13 @@ _EQ_CELL = cell(None, FactorDensity.SPARSE, structure=None)
 
 
 def _finite_events(
-    data: pl.DataFrame, factor_col: str, return_col: str
-) -> tuple[pl.DataFrame, int]:
+    data: pl.DataFrame,
+    factor_col: str,
+    return_col: str,
+    *,
+    estimation_window: int = 60,
+    forward_periods: int = 5,
+) -> tuple[pl.DataFrame, int, dict]:
     """Event rows (``factor != 0``) restricted to finite factor *and* return.
 
     Single owner for the non-finite boundary in this module. Every metric here
@@ -81,20 +87,50 @@ def _finite_events(
     ``NaN != 0`` as True, so a NaN factor is *not* removed by the event
     filter and would make ``sign(factor)`` — and hence ``signed_car`` — NaN.
 
+    Every metric here summarises ``signed_car``, which is defined on an
+    *abnormal* return, so the expected return is subtracted here — once, on the
+    full panel, before the event filter, because the non-event rows are the
+    estimation window (see
+    :func:`~factrix.metrics._helpers._attach_abnormal_return`). Events whose
+    asset has too little history for that estimate come out non-finite and are
+    dropped by the same filter, and counted in the same place.
+
     Returns:
-        ``(events, n_dropped)`` — the filtered frame and the number of event
-        rows removed, for ``metadata["n_events_dropped_non_finite"]``.
+        ``(events, n_dropped, ar_diagnostics)`` — the filtered frame carrying
+        ``_abnormal_return``, the number of event rows removed (for
+        ``metadata["n_events_dropped_non_finite"]``) and the abnormal-return
+        model diagnostics every caller merges into ``metadata``.
     """
-    events = data.filter(pl.col(factor_col) != 0)
-    n_all = events.height
-    finite = (
+    adjusted, ar_diagnostics = _attach_abnormal_return(
+        data,
+        return_col=return_col,
+        estimation_window=estimation_window,
+        forward_periods=forward_periods,
+    )
+    events = adjusted.filter(pl.col(factor_col) != 0)
+    # Two reasons an event leaves the sample, reported separately because they
+    # mean different things: a hole in the input columns, versus an asset with
+    # too little history for the estimation-window mean. The second is a
+    # sample-design fact (the same one bmp_z reports as n_dropped_no_vol), not
+    # a data-quality one.
+    raw_finite = (
         pl.col(return_col).is_not_null()
         & pl.col(return_col).is_not_nan()
         & pl.col(factor_col).is_not_null()
         & pl.col(factor_col).is_not_nan()
     )
-    events = events.filter(finite)
-    return events, n_all - events.height
+    ar_finite = (
+        pl.col("_abnormal_return").is_not_null()
+        & pl.col("_abnormal_return").is_not_nan()
+    )
+    n_dropped_non_finite = events.filter(~raw_finite).height
+    n_dropped_no_estimation_window = events.filter(raw_finite & ~ar_finite).height
+    events = events.filter(raw_finite & ar_finite)
+    ar_diagnostics = {
+        **ar_diagnostics,
+        "n_events_dropped_no_estimation_window": n_dropped_no_estimation_window,
+    }
+    return events, n_dropped_non_finite, ar_diagnostics
 
 
 def _spaced_events(
@@ -163,6 +199,7 @@ def event_hit_rate(
     factor_col: str = "factor",
     return_col: str = "forward_return",
     forward_periods: int = 5,
+    estimation_window: int = 60,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Fraction of events with return in expected direction.
@@ -244,10 +281,17 @@ def event_hit_rate(
         >>> result.name == ""
         True
     """
-    events, n_dropped = _finite_events(data, factor_col, return_col)
+    events, n_dropped, ar_diagnostics = _finite_events(
+        data,
+        factor_col,
+        return_col,
+        estimation_window=estimation_window,
+        forward_periods=forward_periods,
+    )
 
     metadata: dict = {
         "n_events_dropped_non_finite": n_dropped,
+        **ar_diagnostics,
         "stat_type": "binomial_hits",
         "h0": "p=0.5",
         "method": "binomial exact test",
@@ -274,7 +318,7 @@ def event_hit_rate(
     if sc is not None:
         return sc
 
-    signed = _signed_car(events, factor_col, return_col)
+    signed = _signed_car(events, factor_col, "_abnormal_return")
     hits = int(np.sum(signed > 0))
     rate = hits / n
     p = _binomial_two_sided_p(hits, n, p0=0.5)
@@ -305,6 +349,7 @@ def event_ic(
     factor_col: str = "factor",
     return_col: str = "forward_return",
     forward_periods: int = 5,
+    estimation_window: int = 60,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Spearman correlation between factor value and realised forward return.
@@ -359,7 +404,13 @@ def event_ic(
     """
     from scipy import stats as sp_stats
 
-    events, n_dropped = _finite_events(data, factor_col, return_col)
+    events, n_dropped, ar_diagnostics = _finite_events(
+        data,
+        factor_col,
+        return_col,
+        estimation_window=estimation_window,
+        forward_periods=forward_periods,
+    )
     n = len(events)
 
     sc = _enforce_min_floor(
@@ -380,7 +431,7 @@ def event_ic(
             n_events=n,
         )
 
-    metadata: dict = {"n_events_dropped_non_finite": n_dropped}
+    metadata: dict = {"n_events_dropped_non_finite": n_dropped, **ar_diagnostics}
     warning_codes: list[str] = []
     events = _spaced_events(
         data,
@@ -404,7 +455,7 @@ def event_ic(
         return sc
 
     abs_signal = np.abs(events[factor_col].to_numpy())
-    signed = _signed_car(events, factor_col, return_col)
+    signed = _signed_car(events, factor_col, "_abnormal_return")
 
     rho, p = sp_stats.spearmanr(abs_signal, signed)
     rho = float(rho)
@@ -448,6 +499,8 @@ def profit_factor(
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
+    forward_periods: int = 5,
+    estimation_window: int = 60,
 ) -> MetricResult:
     r"""Profit factor = sum(gains) / sum(|losses|) across events.
 
@@ -495,7 +548,13 @@ def profit_factor(
         >>> result.name == ""
         True
     """
-    events, n_dropped = _finite_events(data, factor_col, return_col)
+    events, n_dropped, ar_diagnostics = _finite_events(
+        data,
+        factor_col,
+        return_col,
+        estimation_window=estimation_window,
+        forward_periods=forward_periods,
+    )
     n = len(events)
 
     sc = _enforce_min_floor(
@@ -504,7 +563,7 @@ def profit_factor(
     if sc is not None:
         return sc
 
-    signed = _signed_car(events, factor_col, return_col)
+    signed = _signed_car(events, factor_col, "_abnormal_return")
 
     gains = float(np.sum(signed[signed > 0]))
     losses = float(np.abs(np.sum(signed[signed < 0])))
@@ -526,6 +585,7 @@ def profit_factor(
         n_obs=n,
         n_obs_axis="events",
         metadata={
+            **ar_diagnostics,
             "total_gains": gains,
             "total_losses": losses,
             "n_events": n,
@@ -550,6 +610,7 @@ def event_skewness(
     factor_col: str = "factor",
     return_col: str = "forward_return",
     forward_periods: int = 5,
+    estimation_window: int = 60,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Skewness of signed event return distribution.
@@ -605,8 +666,14 @@ def event_skewness(
     """
     from scipy import stats as sp_stats
 
-    events, n_dropped = _finite_events(data, factor_col, return_col)
-    metadata: dict = {"n_events_dropped_non_finite": n_dropped}
+    events, n_dropped, ar_diagnostics = _finite_events(
+        data,
+        factor_col,
+        return_col,
+        estimation_window=estimation_window,
+        forward_periods=forward_periods,
+    )
+    metadata: dict = {"n_events_dropped_non_finite": n_dropped, **ar_diagnostics}
     warning_codes: list[str] = []
     events = _spaced_events(
         data,
@@ -629,7 +696,7 @@ def event_skewness(
     if sc is not None:
         return sc
 
-    signed = _signed_car(events, factor_col, return_col)
+    signed = _signed_car(events, factor_col, "_abnormal_return")
 
     skew = float(sp_stats.skew(signed, bias=False))
 

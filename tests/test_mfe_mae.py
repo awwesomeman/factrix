@@ -15,6 +15,8 @@ from factrix.metrics.mfe_mae import (
     mfe_mae,
 )
 
+from .conftest import with_estimation_window
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -223,14 +225,24 @@ class TestMfeMae:
 
 class TestProfitFactor:
     def _event_outcomes(self, returns: list[float]) -> pl.DataFrame:
+        """Events on consecutive days behind a zero-return estimation window.
+
+        ``profit_factor`` sums *abnormal* returns, so the events need history;
+        the zero warm-up leaves the abnormal return equal to the raw return
+        each case below is written against.
+        """
         n = len(returns)
-        return pl.DataFrame(
-            {
-                "date": [datetime(2020, 1, 1) + timedelta(days=i) for i in range(n)],
-                "asset_id": ["A"] * n,
-                "factor": [1.0] * n,
-                "forward_return": returns,
-            }
+        return with_estimation_window(
+            pl.DataFrame(
+                {
+                    "date": [
+                        datetime(2020, 1, 1) + timedelta(days=i) for i in range(n)
+                    ],
+                    "asset_id": ["A"] * n,
+                    "factor": [1.0] * n,
+                    "forward_return": returns,
+                }
+            )
         )
 
     def test_strong_signal_above_one(self, event_data):

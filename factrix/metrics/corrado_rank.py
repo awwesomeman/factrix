@@ -27,6 +27,7 @@ from factrix._types import (
 )
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
+    _attach_abnormal_return,
     _enforce_min_floor,
     _event_sample_threshold,
     _sample_events_non_overlapping,
@@ -56,6 +57,7 @@ def corrado_rank(
     factor_col: str = "factor",
     return_col: str = "forward_return",
     forward_periods: int = 5,
+    estimation_window: int = 60,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Corrado nonparametric rank test for event abnormal returns.
@@ -211,9 +213,18 @@ def corrado_rank(
     # Masking to null first makes both cases explicit and excludable, and
     # `count()` (non-null count) then supplies the correct T for the
     # rank / (T + 1) normalisation.
-    finite_return = pl.col(return_col).is_not_null() & pl.col(return_col).is_not_nan()
+    # Corrado ranks ABNORMAL returns. Ranking the raw forward return makes the
+    # rank of an event depend on the asset's drift as much as on the event.
+    data, ar_diagnostics = _attach_abnormal_return(
+        data,
+        return_col=return_col,
+        estimation_window=estimation_window,
+        forward_periods=forward_periods,
+    )
+    ar_col = "_abnormal_return"
+    finite_return = pl.col(ar_col).is_not_null() & pl.col(ar_col).is_not_nan()
     ranked = data.with_columns(
-        pl.when(finite_return).then(pl.col(return_col)).alias("_finite_return")
+        pl.when(finite_return).then(pl.col(ar_col)).alias("_finite_return")
     ).with_columns(
         (
             pl.col("_finite_return").rank(method="average").over("asset_id")
@@ -225,14 +236,25 @@ def corrado_rank(
     all_events = ranked.filter(pl.col(factor_col) != 0)
     # `NaN != 0` is True in polars, so a NaN factor survives the event filter;
     # guard it here as well or sign(factor) turns u_event into NaN.
-    events = all_events.filter(
-        pl.col("_rank_u").is_not_null()
-        & pl.col("_rank_u").is_not_nan()
+    #
+    # Two drop reasons, reported apart: a hole in the input columns, versus an
+    # event whose asset has too little history for the estimation-window mean
+    # (so its abnormal return, and therefore its rank, does not exist). The
+    # second is a sample-design fact — the same one bmp_z reports as
+    # n_dropped_no_vol — not a data-quality one.
+    raw_finite = (
+        pl.col(return_col).is_not_null()
+        & pl.col(return_col).is_not_nan()
         & pl.col(factor_col).is_not_null()
         & pl.col(factor_col).is_not_nan()
     )
+    rank_finite = pl.col("_rank_u").is_not_null() & pl.col("_rank_u").is_not_nan()
+    events = all_events.filter(raw_finite & rank_finite)
     n_events = len(events)
-    n_events_dropped_non_finite = len(all_events) - n_events
+    n_events_dropped_non_finite = all_events.filter(~raw_finite).height
+    n_events_dropped_no_estimation_window = all_events.filter(
+        raw_finite & ~rank_finite
+    ).height
 
     # Overlap discipline on the TIME axis, applied before the cross-section is
     # collapsed. The per-period collapse below removes SAME-PERIOD dependence;
@@ -311,10 +333,12 @@ def corrado_rank(
         "events_per_period_max": int(np.max(events_per_period)),
         "n_total_obs": n_total_obs,
         "n_events_dropped_non_finite": n_events_dropped_non_finite,
+        "n_events_dropped_no_estimation_window": n_events_dropped_no_estimation_window,
         "stat_type": "z",
         "h0": "mu_rank<=0",
         "method": "Corrado (1989) rank test",
         "forward_periods": forward_periods,
+        **ar_diagnostics,
     }
     _warn_event_window_overlap(
         "corrado_rank",

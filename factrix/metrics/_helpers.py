@@ -746,6 +746,97 @@ def _pick_event_return_col(data: pl.DataFrame) -> str:
     return "abnormal_return" if "abnormal_return" in data.columns else "forward_return"
 
 
+def _attach_abnormal_return(
+    data: pl.DataFrame,
+    *,
+    return_col: str = "forward_return",
+    estimation_window: int = 60,
+    forward_periods: int = 5,
+    out_col: str = "_abnormal_return",
+) -> tuple[pl.DataFrame, dict[str, Any]]:
+    r"""Attach the event family's abnormal return $AR_{it} = R_{it} - E[R_{it}]$.
+
+    Every event statistic in factrix — the CAAR $t$, the BMP $z$, the Corrado
+    rank $z$, the per-event quality summaries — is defined on an *abnormal*
+    return, and until this helper existed each of them silently used the raw
+    forward return instead. The difference is not cosmetic: with no expected
+    return subtracted, any unconditional drift is read as event alpha. On a
+    20-asset panel drifting 0.08% per period with 30 events per asset at
+    uniformly random dates carrying **zero** information, ``bmp_z`` returned
+    $z = 5.34$ ($p = 9\times10^{-8}$); the same panel with the estimation-window
+    mean subtracted returns $z = 1.15$.
+
+    Two models, in the order the standard event-study literature prefers what
+    is available ([MacKinlay (1997)][mackinlay-1997] §3):
+
+    - **Market-adjusted**, when the panel already carries an
+      ``abnormal_return`` column: that column is used as-is. It is what
+      :func:`~factrix.preprocess.compute_abnormal_return` produces — the
+      return less the equal-weight cross-sectional mean of the same period,
+      i.e. the market-model form with $\alpha = 0$, $\beta = 1$. This is the
+      branch :func:`_pick_event_return_col` was written for.
+    - **Mean-adjusted** otherwise ([Brown-Warner (1985)][brown-warner-1985]):
+      $AR_{it} = R_{it} - \hat\mu_i$, with $\hat\mu_i$ the mean of the same
+      asset's returns over an ``estimation_window`` that **ends before the
+      event window opens**. The estimate is lagged by ``forward_periods`` for
+      exactly the reason ``bmp_z`` lags its fallback volatility: a window
+      ending at $t$ already contains the event's own overlapping forward
+      return, so an unlagged mean would subtract part of the effect being
+      measured from itself. No market model is fitted — factrix does not
+      require a benchmark column and will not invent one.
+
+    An event whose asset has too little history for the estimation window gets
+    a null ``out_col`` and is dropped by the caller's finiteness filter, the
+    same way ``bmp_z`` already drops events with no estimation-window
+    volatility. ``min_samples`` is ``min(20, estimation_window)`` so a caller
+    that deliberately shortens the window still gets an estimate.
+
+    Args:
+        data: Full panel — event *and* non-event rows. The non-event rows are
+            the estimation window; passing only event rows estimates the mean
+            from events alone, which is not the same quantity.
+        return_col: Raw return column to adjust.
+        estimation_window: Rows of history behind $\hat\mu_i$.
+        forward_periods: Overlap horizon; the lag applied to $\hat\mu_i$.
+        out_col: Name of the attached abnormal-return column.
+
+    Returns:
+        ``(frame, diagnostics)`` — the frame with ``out_col`` attached (sorted
+        by asset then date when both are present), and the diagnostics every
+        consumer surfaces in ``metadata``: ``abnormal_return_model``,
+        ``estimation_window`` and ``estimation_window_lag``.
+    """
+    diagnostics: dict[str, Any] = {}
+    if _pick_event_return_col(data) == "abnormal_return":
+        diagnostics["abnormal_return_model"] = "market_adjusted_supplied"
+        diagnostics["estimation_window"] = None
+        diagnostics["estimation_window_lag"] = None
+        return data.with_columns(pl.col("abnormal_return").alias(out_col)), diagnostics
+
+    diagnostics["abnormal_return_model"] = "mean_adjusted"
+    diagnostics["estimation_window"] = estimation_window
+    diagnostics["estimation_window_lag"] = forward_periods
+    sort_keys = [k for k in ("asset_id", "date") if k in data.columns]
+    frame = data.sort(sort_keys) if sort_keys else data
+    # Mask NaN to null before the rolling mean. polars skips nulls and honours
+    # min_samples, but a float NaN is a *value* to it and propagates through
+    # every window that contains it — one bad cell would otherwise blank the
+    # abnormal return of the next `estimation_window` events (project-wide
+    # convention: NaN is masked, never fed to a rolling aggregate).
+    finite_return = pl.when(_finite_expr(return_col)).then(pl.col(return_col))
+    mean_expr = finite_return.rolling_mean(
+        window_size=estimation_window, min_samples=min(20, estimation_window)
+    )
+    if forward_periods > 0:
+        mean_expr = mean_expr.shift(forward_periods)
+    if "asset_id" in frame.columns:
+        mean_expr = mean_expr.over("asset_id")
+    return (
+        frame.with_columns((pl.col(return_col) - mean_expr).alias(out_col)),
+        diagnostics,
+    )
+
+
 def _sample_non_overlapping(
     data: pl.DataFrame,
     forward_periods: int,

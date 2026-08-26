@@ -12,14 +12,30 @@ from factrix.metrics.event_quality import (
     profit_factor,
 )
 
+from .conftest import with_estimation_window
+
 
 def _events_panel(n_events: int, seed: int = 0) -> pl.DataFrame:
+    """One asset, one event per date, with a zero-return estimation window.
+
+    The event family subtracts an estimation-window mean, so a frame of bare
+    event rows has no sample at all. Warming up with zero returns makes the
+    estimated mean zero, leaving the abnormal return equal to the raw return
+    these fixtures are written against.
+    """
     rng = np.random.default_rng(seed)
-    return pl.DataFrame(
-        {
-            "factor": [1.0] * n_events,
-            "forward_return": rng.normal(0.01, 0.02, size=n_events),
-        }
+    return with_estimation_window(
+        pl.DataFrame(
+            {
+                "date": pl.Series(
+                    [datetime(2020, 1, 1) + timedelta(days=i) for i in range(n_events)],
+                    dtype=pl.Datetime("ms"),
+                ),
+                "asset_id": ["A"] * n_events,
+                "factor": [1.0] * n_events,
+                "forward_return": rng.normal(0.01, 0.02, size=n_events),
+            }
+        )
     )
 
 
@@ -28,14 +44,14 @@ class TestEventSkewness:
         # scipy.stats.skewtest requires n >= 20; below that event_skewness
         # short-circuits its own significance test (p=None) while still
         # returning a descriptive skewness value.
-        result = event_skewness(_events_panel(10))
+        result = event_skewness(_events_panel(10), forward_periods=1)
         assert result.p_value is None
         assert result.alternative is None
         assert result.stat is None
         assert np.isfinite(result.value)
 
     def test_large_sample_returns_two_sided_p_and_alternative(self):
-        result = event_skewness(_events_panel(50))
+        result = event_skewness(_events_panel(50), forward_periods=1)
         assert result.p_value is not None
         assert result.alternative == "two-sided"
         assert result.stat is not None
@@ -55,16 +71,18 @@ def _event_panel(returns: list, factors: list | None = None) -> pl.DataFrame:
     stride pass ``forward_periods=1`` (a documented no-op) to isolate it.
     """
     n = len(returns)
-    return pl.DataFrame(
-        {
-            "date": pl.Series(
-                [datetime(2020, 1, 1) + timedelta(days=i) for i in range(n)],
-                dtype=pl.Datetime("ms"),
-            ),
-            "asset_id": ["A"] * n,
-            "factor": [1.0] * n if factors is None else factors,
-            "forward_return": returns,
-        }
+    return with_estimation_window(
+        pl.DataFrame(
+            {
+                "date": pl.Series(
+                    [datetime(2020, 1, 1) + timedelta(days=i) for i in range(n)],
+                    dtype=pl.Datetime("ms"),
+                ),
+                "asset_id": ["A"] * n,
+                "factor": [1.0] * n if factors is None else factors,
+                "forward_return": returns,
+            }
+        )
     )
 
 

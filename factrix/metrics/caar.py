@@ -48,6 +48,7 @@ from factrix._types import (
 from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
+    _attach_abnormal_return,
     _degenerate_test_fields,
     _enforce_min_floor,
     _enforce_scaled_floor,
@@ -369,7 +370,9 @@ def bmp_z(
 
     Standardizes each event's abnormal return by the asset's pre-event
     residual volatility, making the test robust to event-induced variance
-    inflation that biases the ordinary CAAR $t$-test.
+    inflation that biases the ordinary CAAR $t$-test. The abnormal return is
+    mean-adjusted (or taken from a supplied ``abnormal_return`` column) — see
+    Notes.
 
     Uses ``price`` column for estimation-window volatility if available;
     falls back to per-asset historical ``forward_return`` std otherwise.
@@ -517,11 +520,24 @@ def bmp_z(
         Both must be excluded — a NaN SAR propagates through mean/std and
         turns $z$ into a silent 0 with $p = 1$.
 
+        **The abnormal return.** $\mathrm{AR}_i$ is a genuine abnormal
+        return: the asset's estimation-window mean, lagged by
+        ``forward_periods``, is subtracted from ``return_col``, or an
+        ``abnormal_return`` column on the input is used as supplied (see
+        :func:`~factrix.metrics._helpers._attach_abnormal_return` for both
+        models and ``metadata["abnormal_return_model"]`` for which ran).
+        Earlier versions standardised the *raw* forward return while
+        documenting mean-adjusted residuals; on a 20-asset panel drifting
+        0.08% per period with zero-information event dates that returned
+        $z = 5.34$ ($p = 9\times10^{-8}$) and rejected 50% of null draws,
+        against 3% with the mean subtracted. Events whose asset has too
+        little history for the estimate are excluded and counted.
+
         factrix simplifies the original BMP by omitting the prediction-
-        error term from the standardiser (using mean-adjusted residuals
-        rather than market-model residuals) — adequate for the default
+        error term from the standardiser and by using mean-adjusted rather
+        than market-model residuals — adequate for the default
         Brown-Warner / MacKinlay event-study path; pair with the K-P
-        adjustment when ``clustering_hhi`` flags same-period shock sharing.
+        adjustment when same-period shock sharing is expected.
         Pass ``include_prediction_error_variance=True`` for the strict
         BMP denominator $\sigma_i \cdot \sqrt{1 + 1/T_{\mathrm{est}}}$.
 
@@ -529,8 +545,9 @@ def bmp_z(
         - [Boehmer, Musumeci & Poulsen (1991)][boehmer-musumeci-poulsen-1991].
           "Event-study Methodology Under Conditions of Event-induced
           Variance." Journal of Financial Economics, 30(2), 253–272.
-          The BMP standardised AR test factrix simplifies (mean-adjusted
-          residuals, no prediction-error correction by default).
+          The BMP standardised AR test factrix implements with
+          mean-adjusted residuals and, by default, no prediction-error
+          correction.
         - [Kolari & Pynnönen (2010)][kolari-pynnonen-2010]. "Event Study
           Testing with Cross-sectional Correlation of Abnormal Returns."
           Review of Financial Studies, 23(11), 3996–4025. Clustering-
@@ -549,7 +566,18 @@ def bmp_z(
         >>> result.name == ""
         True
     """
-    sorted_df = data.sort(["asset_id", "date"])
+    # Abnormal return first: the BMP statistic standardises an *abnormal*
+    # return, and factrix used to standardise the raw forward return, so any
+    # unconditional drift entered the numerator as event alpha (on a 20-asset
+    # drifting panel with zero-information events, z = 5.34 before, 1.15
+    # after). The denominator is unchanged: a rolling std already subtracts
+    # its own window mean, so the residual std is the same either way.
+    sorted_df, ar_diagnostics = _attach_abnormal_return(
+        data.sort(["asset_id", "date"]),
+        return_col=return_col,
+        estimation_window=estimation_window,
+        forward_periods=forward_periods,
+    )
 
     uses_price = "price" in sorted_df.columns
     if uses_price:
@@ -606,7 +634,7 @@ def bmp_z(
         )
 
     events = events.with_columns(
-        (pl.col(return_col) * pl.col(factor_col).sign()).alias("_signed_ar")
+        (pl.col("_abnormal_return") * pl.col(factor_col).sign()).alias("_signed_ar")
     )
 
     # A usable event needs BOTH an estimation-window vol and a finite signed
@@ -680,6 +708,7 @@ def bmp_z(
         "include_prediction_error_variance": include_prediction_error_variance,
         "vol_source": "price" if uses_price else "forward_return",
         "vol_estimation_lag": vol_lag,
+        **ar_diagnostics,
     }
     _warn_event_window_overlap(
         "bmp_z",

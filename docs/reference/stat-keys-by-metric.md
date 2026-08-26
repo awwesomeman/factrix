@@ -163,7 +163,8 @@ Descriptive; no test.
   return or factor dropped by `compute_caar`),
   `n_events_overlapping` / `n_events_sampled` (removed by, and surviving,
   the non-overlap spacing pass; a non-zero removal fires
-  `EVENT_WINDOW_OVERLAP`),
+  `EVENT_WINDOW_OVERLAP`), `n_events_dropped_no_estimation_window` and
+  `abnormal_return_model` (carried up from `compute_caar`),
   `warning_codes` (conditional, e.g. `FEW_EVENTS`).
 
 #### `bmp_z`
@@ -178,7 +179,9 @@ Boehmer-Musumeci-Poulsen standardised-abnormal-return cross-sectional
   count when it is below `MIN_EVENTS_WARN × forward_periods`),
   `n_events_overlapping` / `n_events_sampled` (removed by, and surviving,
   the per-asset non-overlap spacing pass; a non-zero removal fires
-  `EVENT_WINDOW_OVERLAP`), `n_dropped`
+  `EVENT_WINDOW_OVERLAP`), `abnormal_return_model` / `estimation_window` /
+  `estimation_window_lag` (the abnormal-return model behind the SAR
+  numerator), `n_dropped`
   (= `n_dropped_no_vol` + `n_dropped_non_finite_return`), `std_sar`,
   `estimation_window`, `include_prediction_error_variance`,
   `vol_source` (`"price"` or `"forward_return"`), `vol_estimation_lag`
@@ -203,7 +206,11 @@ Boehmer-Musumeci-Poulsen standardised-abnormal-return cross-sectional
   events per period, **not** the test's sample size), `events_per_period_mean`,
   `events_per_period_max` (clustering profile; read them together with
   `clustering_hhi`), `n_total_obs` (finite return cells behind the ranks),
-  `n_events_dropped_non_finite`, `forward_periods` (the spacing stride),
+  `n_events_dropped_non_finite`, `n_events_dropped_no_estimation_window`
+  (events whose asset had too little history for the abnormal-return
+  estimate), `abnormal_return_model` (`"mean_adjusted"` or
+  `"market_adjusted_supplied"`), `estimation_window`, `estimation_window_lag`,
+  `forward_periods` (the spacing stride),
   `n_events_overlapping` / `n_events_sampled` (removed by, and surviving,
   the spacing pass; a non-zero removal fires `EVENT_WINDOW_OVERLAP`).
 
@@ -269,6 +276,9 @@ Same shape as `positive_rate` (exact binomial, `stat` = hit count).
 - *descriptive*: `n_events` (events surviving the non-overlap spacing pass —
   the binomial `n`), `n_hits`, `n_events_dropped_non_finite`
   (events with a non-finite return / factor, excluded from `n`),
+  `n_events_dropped_no_estimation_window` (events whose asset had too little
+  history for the abnormal-return estimate), `abnormal_return_model` /
+  `estimation_window` / `estimation_window_lag`,
   `n_events_overlapping` / `n_events_sampled` (removed by, and surviving,
   the spacing pass; a non-zero removal fires `EVENT_WINDOW_OVERLAP`).
 
@@ -277,6 +287,8 @@ Same shape as `positive_rate` (exact binomial, `stat` = hit count).
 - *primary*: `p_value` — Fisher-transformed Spearman ρ between
   `|factor|` and `signed_car`.
 - *descriptive*: `n_events` (post-spacing), `n_events_dropped_non_finite`,
+  `n_events_dropped_no_estimation_window`, `abnormal_return_model` /
+  `estimation_window` / `estimation_window_lag`,
   `n_events_overlapping` / `n_events_sampled`.
 
 `MetricResult.stat = None` and the short-circuit `reason` is set to
@@ -287,6 +299,8 @@ variance (e.g. binary {-1, +1}).
 
 - *primary* (conditional, N ≥ 20): `p_value` — D'Agostino skew `z`.
 - *descriptive*: `n_events` (post-spacing), `n_events_dropped_non_finite`,
+  `n_events_dropped_no_estimation_window`, `abnormal_return_model` /
+  `estimation_window` / `estimation_window_lag`,
   `n_events_overlapping` / `n_events_sampled`.
 
 When `n_events < 20`, `MetricResult.stat = None` and `p_value` / `stat_type`
@@ -299,7 +313,8 @@ Descriptive; no test.
 
 - *descriptive*: `total_gains`, `total_losses`, `n_events`, `n_wins`,
   `n_losses`, `no_gains`, `no_losses`, `profit_factor_status`,
-  `n_events_dropped_non_finite`.
+  `n_events_dropped_non_finite`, `n_events_dropped_no_estimation_window`,
+  `abnormal_return_model` / `estimation_window` / `estimation_window_lag`.
   `profit_factor_status` is `"finite"` for ordinary gain/loss samples,
   `"unbounded_no_losses"` when positive gains have no offsetting losses
   (`value = inf`), and `"undefined_no_gains_or_losses"` when both gross gains

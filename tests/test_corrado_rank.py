@@ -43,7 +43,7 @@ def _directional_panel(sign: float, n: int = 300, seed: int = 0) -> pl.DataFrame
     rng = np.random.default_rng(seed)
     returns = rng.normal(size=n)
     factor = np.zeros(n)
-    event_idx = np.arange(10, n, 30)
+    event_idx = np.arange(70, n, 30)
     factor[event_idx] = sign
     returns[event_idx] = _tail_returns(rng, sign, len(event_idx))
     return _panel(returns, factor)
@@ -59,7 +59,7 @@ class TestOneSidedPValue:
         n = 300
         returns = rng.normal(size=n)
         factor = np.zeros(n)
-        event_idx = np.arange(10, n, 30)
+        event_idx = np.arange(70, n, 30)
         # events are the largest returns...
         returns[event_idx] = _tail_returns(rng, 1.0, len(event_idx))
         factor[event_idx] = -1.0  # ...but the factor calls them down
@@ -84,10 +84,10 @@ class TestOneSidedPValue:
         from scipy import stats as sp_stats
 
         rng = np.random.default_rng(1)
-        n = 150
+        n = 300
         returns = rng.normal(size=n)
         factor = np.zeros(n)
-        event_idx = np.arange(5, n, 15)
+        event_idx = np.arange(70, n, 15)
         factor[event_idx] = rng.choice([-1.0, 1.0], size=len(event_idx))
 
         result = corrado_rank(_panel(returns, factor))
@@ -103,7 +103,7 @@ class TestNonFiniteReturns:
         rng = np.random.default_rng(seed)
         returns = rng.normal(size=n)
         factor = np.zeros(n)
-        event_idx = np.arange(10, n, 20)
+        event_idx = np.arange(70, n, 20)
         factor[event_idx] = 1.0
         returns[event_idx] = _tail_returns(rng, 1.0, len(event_idx))
         returns[0] = hole  # a non-event row
@@ -125,8 +125,12 @@ class TestNonFiniteReturns:
         null_result = corrado_rank(self._panel_with_hole(None))
         assert nan_result.stat == pytest.approx(null_result.stat)
         assert nan_result.value == pytest.approx(null_result.value)
-        # The non-finite cell is excluded from the ranked sample.
-        assert nan_result.metadata["n_total_obs"] == 299
+        # The non-finite cell is excluded from the ranked sample, which is the
+        # abnormal-return series: it starts once the estimation mean exists
+        # (min_samples=20 plus the forward_periods lag of 5), so 300 - 24 cells
+        # would remain and the hole removes one more.
+        assert nan_result.metadata["n_total_obs"] == 275
+        assert nan_result.metadata["n_total_obs"] == null_result.metadata["n_total_obs"]
 
     @pytest.mark.parametrize("hole", [float("nan"), None])
     def test_non_finite_event_row_is_dropped_and_counted(self, hole):
@@ -134,7 +138,7 @@ class TestNonFiniteReturns:
         n = 300
         returns = rng.normal(size=n)
         factor = np.zeros(n)
-        event_idx = np.arange(10, n, 20)
+        event_idx = np.arange(70, n, 20)
         factor[event_idx] = 1.0
         returns[event_idx] = _tail_returns(rng, 1.0, len(event_idx))
         returns[event_idx[0]] = hole  # poison one *event*
@@ -153,7 +157,7 @@ class TestNonFiniteReturns:
         n = 300
         returns = rng.normal(size=n)
         factor = np.zeros(n)
-        event_idx = np.arange(10, n, 20)
+        event_idx = np.arange(70, n, 20)
         factor[event_idx] = 1.0
         returns[event_idx] = _tail_returns(rng, 1.0, len(event_idx))
         factor[1] = float("nan")
@@ -167,7 +171,10 @@ class TestNonFiniteReturns:
     def test_clean_panel_reports_zero_drops(self):
         result = corrado_rank(_directional_panel(sign=1.0))
         assert result.metadata["n_events_dropped_non_finite"] == 0
-        assert result.metadata["n_total_obs"] == 300
+        assert result.metadata["n_events_dropped_no_estimation_window"] == 0
+        # 300 rows less the 24 the estimation mean needs (min_samples=20 plus
+        # the forward_periods lag of 5).
+        assert result.metadata["n_total_obs"] == 276
 
 
 class TestClusterRobustDenominator:
@@ -241,7 +248,7 @@ class TestClusterRobustDenominator:
         """
         rng = np.random.default_rng(2)
         rows = []
-        event_days = {20, 110, 200, 290, 380, 470}  # ~quarterly, 6 dates
+        event_days = {30, 110, 200, 290, 380, 470}  # ~quarterly, 6 dates
         for d in range(540):
             for a in range(8):
                 is_event = d in event_days
@@ -270,7 +277,7 @@ class TestClusterRobustDenominator:
         """
         rng = np.random.default_rng(4)
         rows = []
-        event_days = set(range(10, 200, 4))
+        event_days = set(range(30, 200, 4))
         for d in range(200):
             shock = 1.5 if d in event_days else 0.0
             for a in range(15):
@@ -297,7 +304,7 @@ class TestClusterRobustDenominator:
         rows = []
         for d in range(60):
             for a in range(20):
-                is_event = d in (5, 10, 15) and a < 10
+                is_event = d in (35, 40, 45) and a < 10
                 rows.append(
                     {
                         "date": datetime(2020, 1, 1) + timedelta(days=d),
@@ -349,13 +356,29 @@ class TestStatisticAgainstHandComputation:
         result = corrado_rank(panel, forward_periods=fp)
 
         returns = panel["forward_return"].to_numpy()
-        # rank / (T + 1) - 0.5 over the asset's full series (T = non-missing).
-        order = returns.argsort().argsort() + 1  # 1-based ranks, no ties here
-        u = order / (len(returns) + 1) - 0.5
+        # The ranked quantity is the ABNORMAL return: R_t less the mean of the
+        # estimation window ending forward_periods rows earlier (60 rows,
+        # min_samples 20). Rows without that mean have no abnormal return and
+        # never enter the ranking.
+        window, min_samples = 60, 20
+        ar = np.full(len(returns), np.nan)
+        for t in range(len(returns)):
+            end = t - fp
+            start = max(0, end - window + 1)
+            if end >= 0 and (end - start + 1) >= min_samples:
+                ar[t] = returns[t] - returns[start : end + 1].mean()
+        finite = ~np.isnan(ar)
+        # rank / (T + 1) - 0.5 over the finite abnormal returns (T = their count).
+        u = np.full(len(ar), np.nan)
+        order = ar[finite].argsort().argsort() + 1  # 1-based ranks, no ties here
+        u[finite] = order / (finite.sum() + 1) - 0.5
 
-        # Greedy non-overlap keep, first event always kept.
+        # Greedy non-overlap keep over the events that have an abnormal
+        # return; the first survivor is always kept.
         kept, last = [], None
         for o in sorted(event_ordinals):
+            if not finite[o]:
+                continue
             if last is None or o - last >= fp:
                 kept.append(o)
                 last = o
