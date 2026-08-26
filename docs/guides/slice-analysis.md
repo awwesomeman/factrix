@@ -21,7 +21,7 @@ factrix splits this work into two roles because **slicing the panel** and **test
 
 | Role | Function | What it does | What it does not do |
 |---|---|---|---|
-| Dispatcher | [`by_slice(data, metric, *, by, factor_col)`](../api/by-slice.md) | Partitions a raw panel on an existing column and runs `evaluate` per slice; returns `dict[str, EvaluationResult]` (same shape as `evaluate`, keyed by slice) | **No cross-slice statistical test** |
+| Dispatcher | [`by_slice(data, metric, *, by, factor_col)`](../api/by-slice.md) | Partitions an evaluate-ready panel (`forward_return` already attached) on an existing column and runs `evaluate` per slice; returns `dict[str, EvaluationResult]` (same shape as `evaluate`, keyed by slice) | **No cross-slice statistical test** |
 | Inference (date-aligned) | [`slice_pairwise_test`](../api/slice-test.md) / [`slice_joint_test`](../api/slice-test.md) | Cross-sectional pairwise contrasts (joint NW-HAC Wald χ² + Holm) or omnibus χ² that all slice means are equal | Only accepts metrics with a `per_date_series` capability (`ic`, `fm_beta`, `positive_rate`); requires slices to share dates |
 | Inference (date-disjoint) | [`slice_period_pairwise_test`](../api/slice-test.md) / [`slice_period_joint_test`](../api/slice-test.md) | Independent-sample pairwise contrasts (bootstrap + Romano-Wolf, or analytic HAC + Holm) / block-diagonal omnibus χ² for regime / calendar-period splits | Same `per_date_series` requirement; treats each slice as an independent sample |
 
@@ -99,8 +99,8 @@ Scalar-input utilities (`breakeven_cost`, `net_spread`) are excluded — they co
 
 ## Worked example: IC across volatility regimes
 
-The dispatcher and the inference pair are both **data-first** — raw panel
-+ metric instance + `by` + `factor_col` — but answer different questions.
+The dispatcher and the inference pair are both **data-first** —
+evaluate-ready panel + metric instance + `by` + `factor_col` — but answer different questions.
 `by_slice` runs `evaluate` per slice (each slice an independent dataset);
 the inference functions add the calibrated cross-slice test. Volatility
 regimes are **date-disjoint** (a given date is either high- or low-vol,
@@ -112,10 +112,11 @@ import polars as pl
 from factrix import by_slice, slice_period_pairwise_test
 from factrix.metrics import ic
 
-# Attach the regime label to the raw panel (one label per date).
+# Attach the regime label to the panel (one label per date). `panel` already
+# carries forward_return, as by_slice and the inference functions both require.
 panel_reg = panel.join(vol_labels, on="date", how="inner")
 
-# --- Dispatcher: per-regime IC, raw panel in, dict[str, EvaluationResult] out
+# --- Dispatcher: per-regime IC, panel in, dict[str, EvaluationResult] out
 per_regime = by_slice(panel_reg, ic(), by="regime", factor_col="value")
 for label, result in per_regime.items():
     m = result.metrics["ic"]
@@ -127,7 +128,7 @@ pl.concat([
     for k, r in per_regime.items()
 ])
 
-# --- Inference: same raw panel in, pairwise regime contrasts out.
+# --- Inference: same panel in, pairwise regime contrasts out.
 # Bootstrap (default) is the right call for short regimes; pass
 # method="analytic" for long calendar spans (T ≳ 100).
 pairs = slice_period_pairwise_test(panel_reg, ic(), by="regime", factor_col="value")

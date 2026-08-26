@@ -489,7 +489,11 @@ def breakeven_cost(
     before solving net=0 — without it, breakeven is understated by N×.
 
     Args:
-        gross_spread: Per-period mean long-short spread.
+        gross_spread: Per-period mean long-short spread. This is the
+            metric's *data* argument, so it is passed positionally and does
+            not appear on the generated ``__init__`` — the call shape is
+            ``breakeven_cost(gross_spread, turnover=..., forward_periods=...)``
+            and a second positional argument raises ``TypeError``.
         turnover: Notional turnover ∈ [0, 1] from ``notional_turnover()``.
         forward_periods: Holding period matching the upstream
             ``compute_forward_return`` and ``notional_turnover`` stride.
@@ -608,7 +612,12 @@ def net_spread(
     (which is rank-stability, not position-change).
 
     Args:
-        gross_spread: Per-period mean long-short spread.
+        gross_spread: Per-period mean long-short spread. This is the
+            metric's *data* argument, so it is passed positionally and does
+            not appear on the generated ``__init__`` — the call shape is
+            ``net_spread(gross_spread, turnover=..., estimated_cost_bps=...,
+            forward_periods=...)`` and a second positional argument raises
+            ``TypeError``.
         turnover: Notional turnover ∈ [0, 1] from ``notional_turnover()``.
         estimated_cost_bps: Estimated **one-way** (per-trade) trading cost
             in bps — what a single buy or a single sell costs, e.g.

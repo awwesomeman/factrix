@@ -77,11 +77,17 @@ raw = pl.DataFrame({
 
 For market-wide factors (`COMMON` scope, e.g. VIX, DXY), the factor
 value is identical across `asset_id` on a given `date`. Verify with
-the one-liner from [Concepts](../getting-started/concepts.md)
-(swap the column name for whichever the panel carries):
+the same check the [data schema](../api/data-schema.md) states
+(swap the column name for whichever the panel carries) — aggregate to a
+per-date boolean column, then reduce that `Series`, since `.all()` is a
+`Series` method and a `DataFrame` has none:
 
 ```python
-raw.group_by("date").agg(pl.col("vix").n_unique() == 1).all()
+(
+    raw.group_by("date")
+    .agg((pl.col("vix").n_unique() == 1).alias("is_common"))["is_common"]
+    .all()
+)  # True when the factor is market-wide
 ```
 
 ## 2. Regular spacing per asset is load-bearing

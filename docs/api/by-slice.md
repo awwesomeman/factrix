@@ -5,8 +5,10 @@ title: factrix.by_slice
 ::: factrix.by_slice
 
 Cross-slice research dispatcher — the partitioned counterpart of
-[`evaluate`](index.md). `by_slice` partitions a **raw panel** on a column
-already present in it and runs the standard `evaluate` pipeline
+[`evaluate`](index.md). `by_slice` partitions an **evaluate-ready panel** —
+the same `(date, asset_id, factor, forward_return)` input `evaluate` takes, so
+`forward_return` must already be attached — on a column already present in it
+and runs the standard `evaluate` pipeline
 independently on each slice, returning the same
 `dict[str, EvaluationResult]` shape as `evaluate` (keyed by slice value
 rather than factor).

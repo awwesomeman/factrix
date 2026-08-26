@@ -276,12 +276,12 @@ for res in results.values():
             "notional_turnover": turnover,
             "breakeven_cost_bps": breakeven_cost(
                 gross_spread,
-                turnover,
+                turnover=turnover,
                 forward_periods=res.forward_periods,
             ).value,
             "net_spread_30bps": net_spread(
                 gross_spread,
-                turnover,
+                turnover=turnover,
                 estimated_cost_bps=30.0,
                 forward_periods=res.forward_periods,
             ).value,
@@ -292,7 +292,9 @@ cost_table = pl.DataFrame(cost_rows).sort("net_spread_30bps", descending=True)
 print(cost_table)
 ```
 
-Read `breakeven_cost_bps` as the single-leg cost threshold that would take the gross spread to zero at the observed notional turnover. `net_spread_30bps` is still per-period, matching the scale of `quantile_spread`. If this column flips sign under a plausible cost assumption, the factor may remain statistically real but weak as a tradable candidate. Capacity, impact, borrow, and venue-specific microstructure remain downstream concerns.
+The gross spread is these helpers' data argument; `turnover` and the rest must be passed by keyword, or the call raises `TypeError`.
+
+Read `breakeven_cost_bps` as the one-way per-trade cost threshold that would take the gross spread to zero at the observed notional turnover. `net_spread_30bps` is still per-period, matching the scale of `quantile_spread`. If this column flips sign under a plausible cost assumption, the factor may remain statistically real but weak as a tradable candidate. Capacity, impact, borrow, and venue-specific microstructure remain downstream concerns.
 
 ## 9. Check whether all-market IC is really stock selection
 
