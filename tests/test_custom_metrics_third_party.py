@@ -11,19 +11,18 @@ Defining the metrics in *this* module is the point of the test.
 
 from __future__ import annotations
 
+import factrix as fx
 import polars as pl
 import pytest
-
-import factrix as fx
 from factrix import MetricResult, MetricSpec
 from factrix._axis import Aggregation, InputShape
 from factrix._errors import UserInputError
 from factrix._metric_index import (
     _METRIC_REGISTRY,
     SampleThreshold,
-    cell,
     _all_specs,
     _first_party_spec_by_name,
+    cell,
     public_specs,
 )
 from factrix.metrics._primitives._ic import compute_ic

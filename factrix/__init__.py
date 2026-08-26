@@ -622,9 +622,12 @@ def _validate_metrics_arg(metrics: object) -> None:
         # here rather than demanding the decorator wrapper. It has no config
         # object, so it runs on its signature defaults.
         registered_spec = getattr(val, "__metric_spec__", None)
-        if not isinstance(val, MetricBase) and not isinstance(
-            registered_spec, MetricSpec
-        ):
+        spec: MetricSpec
+        if isinstance(val, MetricBase):
+            spec = val.__class__.spec()
+        elif isinstance(registered_spec, MetricSpec):
+            spec = registered_spec
+        else:
             raise UserInputError(
                 func_name="evaluate",
                 field="metrics",
@@ -640,9 +643,6 @@ def _validate_metrics_arg(metrics: object) -> None:
 
         from factrix._axis import SpecRole
 
-        spec = (
-            val.__class__.spec() if isinstance(val, MetricBase) else registered_spec
-        )
         if spec.role is SpecRole.PIPELINE:
             raise UserInputError(
                 func_name="evaluate",

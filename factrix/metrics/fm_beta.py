@@ -410,7 +410,10 @@ def _cluster_meat(
     codes, G = _cluster_codes(clusters)
     weighted = X * resid[:, None]
     scores = np.column_stack(
-        [np.bincount(codes, weights=weighted[:, j], minlength=G) for j in range(X.shape[1])]
+        [
+            np.bincount(codes, weights=weighted[:, j], minlength=G)
+            for j in range(X.shape[1])
+        ]
     )
     return scores.T @ scores, G
 

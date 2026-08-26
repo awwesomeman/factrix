@@ -636,9 +636,7 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
     # Event sample: non-zero factor cells (nulls compare false, so excluded),
     # matching the ``factor != 0`` filter the event-driven metrics apply.
     n_events = int(data.filter(pl.col(first_col) != 0).height)
-    n_unique_factor = int(
-        data.filter(_finite_expr(first_col))[first_col].n_unique()
-    )
+    n_unique_factor = int(data.filter(_finite_expr(first_col))[first_col].n_unique())
     factor_sign_one_sided = _factor_sign_is_one_sided(data, first_col)
     ic_stage1_profile = _compute_ic_stage1_profile(data, first_col)
     fm_stage1_profile = _compute_fm_stage1_profile(data, first_col)

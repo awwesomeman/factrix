@@ -200,10 +200,7 @@ class DagExecutor:
         structure = DataStructure.PANEL if n_assets > 1 else DataStructure.TIMESERIES
 
         stats_row = data.select(
-            *(
-                _finite_expr(c).sum().alias(f"__pairs_{i}")
-                for i, c in enumerate(cols)
-            ),
+            *(_finite_expr(c).sum().alias(f"__pairs_{i}") for i, c in enumerate(cols)),
             *(
                 pl.col("date")
                 .filter(_finite_expr(c))

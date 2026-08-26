@@ -380,9 +380,7 @@ class TestSpanningEvaluate:
         res = er.metrics["span"]
         assert math.isnan(res.value)
         assert res.metadata["reason"] == "no_base_factors"
-        assert any(
-            w.code == fx.WarningCode.METRIC_UNAVAILABLE for w in er.warnings
-        )
+        assert any(w.code == fx.WarningCode.METRIC_UNAVAILABLE for w in er.warnings)
 
 
 class TestAlignSpreadSeriesRegressions:

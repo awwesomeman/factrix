@@ -95,7 +95,21 @@ def test_coverage_counters_treat_nan_factor_cells_as_missing():
     assert nan_props.n_pairs == null_props.n_pairs
     assert nan_props.n_pairs == 300
 
-    nan_res = fx.evaluate(nan_panel, factor_cols=["factor"], metrics={"ic": fx.metrics.ic()}, forward_periods=1)
-    null_res = fx.evaluate(null_panel, factor_cols=["factor"], metrics={"ic": fx.metrics.ic()}, forward_periods=1)
-    assert nan_res["factor"].metrics["ic"].value == null_res["factor"].metrics["ic"].value
-    assert nan_res["factor"].metrics["ic"].n_obs == null_res["factor"].metrics["ic"].n_obs
+    nan_res = fx.evaluate(
+        nan_panel,
+        factor_cols=["factor"],
+        metrics={"ic": fx.metrics.ic()},
+        forward_periods=1,
+    )
+    null_res = fx.evaluate(
+        null_panel,
+        factor_cols=["factor"],
+        metrics={"ic": fx.metrics.ic()},
+        forward_periods=1,
+    )
+    assert (
+        nan_res["factor"].metrics["ic"].value == null_res["factor"].metrics["ic"].value
+    )
+    assert (
+        nan_res["factor"].metrics["ic"].n_obs == null_res["factor"].metrics["ic"].n_obs
+    )
