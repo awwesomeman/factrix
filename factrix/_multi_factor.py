@@ -1226,6 +1226,19 @@ def bhy_hierarchical(
     flat :func:`bhy` is the higher-power alternative that also carries a
     theorem-backed guarantee.
 
+    **Dependence assumption — the outer layer is not
+    arbitrary-dependence-valid.** BHY itself holds under arbitrary
+    dependence, but each group enters the outer layer through
+    :func:`simes_p`, and Simes' combination is valid only
+    under independence or positive regression dependence (PRDS). Under
+    *negative* within-group dependence Simes is anti-conservative, so the
+    composite procedure inherits that limitation despite BHY's own
+    guarantee. Negative cross-regional correlation is not exotic. The
+    simulation evidence below covers positive equicorrelation only
+    (``rho`` in {0.5, 0.7, 0.9}); no negative-dependence cell was measured.
+    For a family with material negative dependence, prefer flat
+    :func:`bhy`, whose guarantee does not route through Simes.
+
     ``TestHierarchicalFdrControl`` pins realised FDR across group counts,
     sizes, sparsity, selected fraction down to ``R / G = 0.01``, and the
     small-correlated-group scan above.

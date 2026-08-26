@@ -102,21 +102,31 @@ def _median_tie_ratio(ic_df: pl.DataFrame) -> float:
 def _warn_if_high_ic_tie_ratio(ic_df: pl.DataFrame, metric_name: str) -> float:
     """Emit ``UserWarning`` when median tie_ratio exceeds the global threshold.
 
-    Returns the median for caller to stash in metadata. The Spearman ρ on
-    average ranks is biased relative to the tie-corrected formula
-    (Kendall-Stuart §31) at high tie densities — a bucketed / categorical
-    factor will look like it has IC ≈ 0 even if the bucketing is
-    informative. Threshold reuses the global ``TIE_RATIO_WARN_THRESHOLD``
+    Returns the median for the caller to stash in metadata.
+
+    The caveat is **range attenuation**, not bias. The Pearson correlation of
+    mid-ranks *is* the tie-corrected Spearman coefficient (Kendall & Stuart;
+    it is exactly what ``scipy.stats.spearmanr`` computes), and
+    ``compute_ic`` computes precisely that — the uncorrected
+    ``1 - 6*sum(d^2)/(n^3-n)`` form appears nowhere in the library. The
+    warning used to call the corrected number biased and point users at "a
+    tie-corrected correlation", which is what they already had. What ties
+    actually do is shrink the attainable range of rho below ±1, so IC
+    magnitudes are not comparable across factors with different tie
+    densities. Threshold reuses the global ``TIE_RATIO_WARN_THRESHOLD``
     (0.3) shared with the quantile-bucketing diagnostics.
     """
     med = _median_tie_ratio(ic_df)
     if not math.isnan(med) and med > TIE_RATIO_WARN_THRESHOLD:
         _warnings.warn(
             f"{metric_name}: median tie_ratio={med:.3f} exceeds "
-            f"{TIE_RATIO_WARN_THRESHOLD:.2f}. Spearman ρ on average ranks is "
-            f"biased on bucketed / categorical factors; treat the IC "
-            f"magnitude as a lower bound and consider a tie-corrected "
-            f"correlation or a continuous transform of the factor.",
+            f"{TIE_RATIO_WARN_THRESHOLD:.2f}. The estimator is already the "
+            f"tie-corrected Spearman (Pearson on mid-ranks, identical to "
+            f"scipy.stats.spearmanr), so this is not a bias — but heavy ties "
+            f"shrink the attainable range of rho below ±1, so do not compare "
+            f"this IC magnitude against a factor with a different tie "
+            f"density. A continuous transform of the factor restores the "
+            f"full range.",
             UserWarning,
             stacklevel=2,
         )

@@ -47,7 +47,7 @@ contrasts, not a sidecar to a primary value.
 | [`fm_beta`][factrix.metrics.fm_beta.fm_beta] | NW HAC `t` on per-period λ | `p_value` | mean(β) |
 | [`pooled_beta`][factrix.metrics.fm_beta.pooled_beta] | clustered ordinary least squares (OLS) `t` (or `None` if G < 3) | `p_value` | pooled β |
 | [`fm_beta_sign_consistency`][factrix.metrics.fm_beta.fm_beta_sign_consistency] | none — descriptive | — | fraction with expected sign |
-| [`caar`][factrix.metrics.caar.caar] | non-overlapping `t` on event-period CAAR | `p_value` | mean(CAAR) |
+| [`caar`][factrix.metrics.caar.caar] | non-overlapping `t` on event-period CAAR | `p_value` | mean(CAAR) **per period** — `CAR / h`, not cumulative |
 | [`bmp_z`][factrix.metrics.caar.bmp_z] | BMP cross-sectional `z` on SAR | `p_value` | mean(SAR) |
 | [`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank] | nonparametric rank `z` on the event-period series (cluster-robust) | `p_value` | mean(per-period mean U × sign(factor)) |
 | [`positive_rate`][factrix.metrics.positive_rate.positive_rate] | binomial test (or normal `z`) | `p_value` | hit rate ∈ [0, 1] |
@@ -154,6 +154,10 @@ Descriptive; no test.
 - *primary*: `p_value` — non-overlapping `t` on per-event-period CAAR.
   `value`, `stat`, `p_value` and `n_obs` all describe the event-spaced
   subsample (`n_obs_axis = "events"`, the shared event-battery token).
+- **`value` is per period.** It is `CAR / h`, inherited from
+  `compute_forward_return`'s `/ forward_periods` normalisation, not the
+  cumulative abnormal return the name suggests. Multiply by
+  `forward_periods` for the cumulative quantity.
 - *descriptive*: `n_event_periods` (number of periods with an event),
   `total_events` (underlying events behind the portfolio),
   `n_event_periods_sampled`, `mean_caar_full` / `n_event_periods_full`
