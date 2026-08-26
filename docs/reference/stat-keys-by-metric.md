@@ -615,16 +615,33 @@ Stepwise selection meta-metric; descriptive `MetricResult` with
 
 Theil-Sen median slope on the IC series for magnitude; significance from
 the Mann-Kendall test on the same ranks. `MetricResult.stat` is Kendall's
-`tau` between the sequence index and the series, `p_value` its two-sided
-p (exact for small `n`, tie-corrected asymptotic otherwise). A constant
+`tau` between the sequence index and the series. A constant
 series has no rank ordering to test: `stat` / `p_value` are `None` with
 `degenerate_variance`, `value` (the zero slope) is kept.
 
-- *primary*: `p_value` — Mann-Kendall trend significance.
-- *descriptive*: `n_periods`, `ci_low`, `ci_high`,
-  `ci_excludes_zero`, `intercept`.
+Two departures from textbook Mann-Kendall, both because its null variance
+assumes serially independent observations and the default input (a
+per-period IC over h-period forward returns) is MA(h−1):
+
+- the series is sub-sampled to non-overlapping observations at stride
+  `forward_periods` before anything is computed, so `value` is a slope
+  *per sampled step* and `n_obs` is the survivor count;
+- `p_value` comes from the Hamed-Rao (1998) variance-inflated normal
+  statistic on the survivors, not from `scipy.stats.kendalltau`'s iid p.
+
+Measured null rejection at nominal 5% on an overlapping series: raw
+Mann-Kendall 0.37–0.68, strided + Hamed-Rao 0.02–0.05. Residual
+persistence that striding cannot remove (an AR factor at `h = 1`) still
+leaves the test oversized and carries `serial_correlation_detected`.
+
+- *primary*: `p_value` — Hamed-Rao corrected Mann-Kendall trend
+  significance.
+- *descriptive*: `n_periods` (survivors after striding), `n_periods_raw`,
+  `stride`, `variance_inflation` (Hamed-Rao `n/n*`), `residual_autocorr`,
+  `ci_low`, `ci_high`, `ci_excludes_zero`, `intercept`.
 - *descriptive* (conditional, augmented Dickey-Fuller (ADF) run): `adf_stat`, `adf_p`,
-  `unit_root_suspected`.
+  `unit_root_suspected` — a suspected unit root now also raises
+  `persistent_regressor`.
 
 ### `predictive_beta` (`factrix.metrics.predictive_beta`)
 

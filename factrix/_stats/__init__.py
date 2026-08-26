@@ -37,6 +37,7 @@ from __future__ import annotations
 from factrix._stats.core import (
     _binomial_two_sided_p,
     _calc_t_stat,
+    _mann_kendall_hamed_rao,
     _p_value_from_t,
     _p_value_from_z,
     _significance_marker,
@@ -74,6 +75,7 @@ __all__ = [
     "_har_dof",
     "_lag1_autocorr",
     "_ljung_box",
+    "_mann_kendall_hamed_rao",
     "_newey_west_se",
     "_newey_west_t_test",
     "_ols_nw_multivariate",

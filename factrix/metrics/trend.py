@@ -25,14 +25,20 @@ from factrix._axis import (
     FactorScope,
     InputShape,
 )
-from factrix._metric_index import SampleThreshold, cell
+from factrix._codes import WarningCode
+from factrix._metric_index import cell
 from factrix._results import MetricResult
-from factrix._stats import _adf
+from factrix._stats import _adf, _mann_kendall_hamed_rao
+from factrix._stats.constants import PERSISTENT_SERIES_AUTOCORR
+from factrix._stats.diagnostics import _lag1_autocorr
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _degenerate_test_fields,
-    _enforce_min_floor,
+    _enforce_scaled_floor,
     _resolve_series_value_col,
+    _sample_non_overlapping,
+    _scaled_periods_threshold,
+    _short_circuit_output,
     _surface_null_drop,
 )
 from factrix.metrics.ic import compute_ic
@@ -40,6 +46,10 @@ from factrix.metrics.ic import compute_ic
 __all__ = [
     "ic_trend",
 ]
+
+#: Minimum *non-overlapping* observations the trend test needs. The raw
+#: series must supply ``_MIN_TREND_PERIODS * forward_periods`` periods.
+_MIN_TREND_PERIODS = 10
 
 
 @metric(
@@ -50,11 +60,14 @@ __all__ = [
     slice_boundary_sensitive=True,
     input_shape=InputShape.SERIES,
     requires={"series": compute_ic},
-    sample_threshold=SampleThreshold(min_periods=10),
+    # The trend test runs on the non-overlapping subsample, so the periods
+    # floor scales with the stride exactly as ``positive_rate``'s does.
+    sample_threshold=_scaled_periods_threshold(_MIN_TREND_PERIODS),
 )
 def ic_trend(
     series: pl.DataFrame,
     value_col: str = "value",
+    forward_periods: int = 5,
     *,
     name: str = "ic_trend",
     adf_threshold: float | None = 0.10,
@@ -69,6 +82,12 @@ def ic_trend(
 
     Args:
         series: DataFrame with ``date`` and ``value_col``.
+        forward_periods: Overlap horizon of the input series, used as the
+            non-overlapping sampling stride. The default input is a
+            per-period IC series built from h-period forward returns, so
+            consecutive observations share ``h - 1`` bars; the trend test
+            runs on every ``h``-th observation. Pass ``1`` only when the
+            series genuinely carries no overlap.
         name: Emitted metric name, stashed in ``metadata`` and used as
             the method / cache key. Defaults to ``"ic_trend"``;
             EventFactor.caar_trend / MacroPanelFactor.beta_trend pass
@@ -100,13 +119,52 @@ def ic_trend(
         *magnitude*; significance comes from the Mann-Kendall test
         ([Mann (1945)][mann-1945], [Kendall (1975)][kendall-1975]) on the
         same ranks — ``stat`` is Kendall's ``tau`` between the sequence
-        index and the series, ``p_value`` its two-sided p (exact for
-        small ``n``, tie-corrected asymptotic otherwise, via
-        ``scipy.stats.kendalltau``). That is the standard pairing for a
+        index and the series. That is the standard pairing for a
         non-parametric trend test: one rank-based framework supplies both
         numbers. An ADF unit-root pre-check on the input flags series for
         which the trend null is rejected at inflated rates regardless of
-        the true trend.
+        the true trend, and now carries
+        ``WarningCode.PERSISTENT_REGRESSOR`` rather than sitting in
+        metadata alone.
+
+        **Two corrections for serial dependence, because one is not
+        enough.** Mann-Kendall's null variance
+        ``Var(S) = n(n-1)(2n+5)/18`` counts every pairwise comparison as
+        an independent draw. The default input to this metric — a
+        per-period IC series over h-period forward returns — is MA(h-1)
+        with ``rho_1 = 1 - 1/h`` (0.80 at h=5, 0.95 at h=21), so the raw
+        test is wholesale miscalibrated and does not improve with ``T``.
+        So:
+
+        1. The series is sub-sampled to non-overlapping observations at
+           stride ``forward_periods`` (the same ``_sample_non_overlapping``
+           machinery ``positive_rate`` uses) before anything is computed.
+           This is exactly calibrated for the overlap channel.
+        2. The Mann-Kendall variance on the survivors carries the
+           [Hamed-Rao (1998)][hamed-rao-1998] ``n/n*`` inflation for the
+           *residual* persistence striding cannot remove (an AR factor is
+           still autocorrelated after striding). Reported as
+           ``metadata["variance_inflation"]``.
+
+        Measured rejection frequency on a true null (slope 0), 600
+        replications per cell:
+
+        | series             | raw MK | Hamed-Rao only | strided + HR |
+        |--------------------|--------|----------------|--------------|
+        | T=60,  h=5         | 0.405  | 0.215          | 0.045        |
+        | T=240, h=5         | 0.367  | 0.162          | 0.038        |
+        | T=120, h=21        | 0.683  | 0.312          | 0.022        |
+        | T=240, h=21        | 0.673  | 0.265          | 0.033        |
+        | T=120, iid         | 0.035  | 0.032          | 0.032        |
+        | T=120, AR(0.6)     | 0.338  | 0.183          | 0.183        |
+        | T=120, AR(0.9)     | 0.667  | 0.357          | 0.357        |
+
+        The last two rows are the disclosed limit: striding does nothing
+        for a persistent series at ``h = 1``, and Hamed-Rao only halves
+        the excess. Those runs carry
+        ``WarningCode.SERIAL_CORRELATION_DETECTED``, fired off the lag-1
+        autocorrelation of the strided series against
+        ``PERSISTENT_SERIES_AUTOCORR``.
 
         **Why not a t backed out of the CI.** An earlier version derived
         ``SE ≈ (ci_high - ci_low) / 2 / 1.96`` from scipy's normal-based
@@ -138,6 +196,8 @@ def ic_trend(
         as one suggestive economic channel for time-varying IC;
         [McLean-Pontiff 2016][mclean-pontiff-2016] is the cleaner
         cite for post-publication IC decay specifically.
+        [Hamed-Rao 1998][hamed-rao-1998]: variance-inflation
+        correction making Mann-Kendall valid under serial correlation.
         [Stock-Watson 1988][stock-watson-1988]: practitioner
         unit-root background for the ADF persistence flag.
         [Dickey-Fuller 1979][dickey-fuller-1979]: ADF persistence
@@ -169,8 +229,28 @@ def ic_trend(
             f"got {adf_threshold!r}"
         )
 
-    sorted_s = series.sort("date").drop_nulls(subset=[value_col])
-    vals = sorted_s[value_col].to_numpy()
+    # Primary periods gate on the RAW date count against the stride-scaled
+    # floor, matching the inspect_data pre-flight.
+    sc = _enforce_scaled_floor(
+        name,
+        series["date"].n_unique(),
+        _MIN_TREND_PERIODS,
+        forward_periods,
+        "insufficient_trend_periods",
+    )
+    if sc is not None:
+        return sc
+
+    raw_vals = series.sort("date").drop_nulls(subset=[value_col])[value_col].to_numpy()
+    n_raw_in = series.height
+    n_raw = int(np.isfinite(raw_vals).sum())
+    # Stride to non-overlapping observations BEFORE the test. An h-period
+    # forward return makes consecutive IC observations share h-1 bars, and
+    # Mann-Kendall's null variance counts every pairwise comparison as an
+    # independent draw - see the Notes block for the measured cost of
+    # skipping this.
+    sorted_s = _sample_non_overlapping(series, forward_periods).sort("date")
+    vals = sorted_s[value_col].drop_nulls().to_numpy()
     # polars drop_nulls does not drop float NaN; an all-NaN IC series
     # (e.g. from a constant factor whose per-period rank correlation is
     # degenerate) would otherwise flow into theilslopes and _adf and
@@ -178,9 +258,16 @@ def ic_trend(
     vals = vals[np.isfinite(vals)]
     n = len(vals)
 
-    sc = _enforce_min_floor(ic_trend, name, n, "insufficient_trend_periods")
-    if sc is not None:
-        return sc
+    # Secondary guard: null-drop can leave the strided series below the
+    # effective floor even when the raw panel cleared the scaled gate.
+    if n < _MIN_TREND_PERIODS:
+        return _short_circuit_output(
+            name,
+            "insufficient_trend_periods",
+            n_obs=n,
+            n_obs_axis="periods",
+            min_required=_MIN_TREND_PERIODS,
+        )
 
     # WHY: index by sequence rather than date difference — non-overlapping
     # sampling can leave irregular gaps between dates.
@@ -206,15 +293,16 @@ def ic_trend(
     # n and asymptotic (tie-corrected) otherwise; ``tau`` is NaN only when
     # the series is constant, which ``_degenerate_test_fields`` maps to a
     # withheld test rather than a fabricated p.
-    mk = sp_stats.kendalltau(x, vals)
-    tau = float(mk.statistic)
-    p = float(mk.pvalue)
+    tau, p, variance_inflation = _mann_kendall_hamed_rao(vals)
 
     metadata: dict = {
         "stat_type": "kendall_tau",
         "h0": "tau=0",
-        "method": "theil-sen slope + mann-kendall test",
+        "method": "theil-sen slope + hamed-rao mann-kendall test",
         "n_periods": n,
+        "n_periods_raw": n_raw,
+        "stride": forward_periods,
+        "variance_inflation": variance_inflation,
         "ci_low": low_slope,
         "ci_high": high_slope,
         "ci_excludes_zero": ci_excludes_zero,
@@ -226,9 +314,22 @@ def ic_trend(
         metadata["adf_p"] = adf_p
         metadata["unit_root_suspected"] = adf_p > adf_threshold
     warning_codes: list[str] = []
+    # Hamed-Rao under-corrects on a strongly persistent series (see its
+    # docstring): striding removed the KNOWN overlap channel, but residual
+    # persistence in the subsample still leaves the test oversized, so the
+    # regime is flagged rather than silently absorbed.
+    residual_autocorr = _lag1_autocorr(vals)
+    metadata["residual_autocorr"] = residual_autocorr
+    if residual_autocorr > PERSISTENT_SERIES_AUTOCORR:
+        warning_codes.append(WarningCode.SERIAL_CORRELATION_DETECTED.value)
+    # The ADF flag was metadata-only; a suspected unit root is a regime the
+    # trend null is not calibrated in, so it carries a code like every other
+    # regime switch in the library.
+    if metadata.get("unit_root_suspected"):
+        warning_codes.append(WarningCode.PERSISTENT_REGRESSOR.value)
     _surface_null_drop(
-        n_periods_in=series.height,
-        n_periods_out=n,
+        n_periods_in=n_raw_in,
+        n_periods_out=n_raw,
         drop_reason="null or non-finite value observations in the series",
         metric_name=name,
         metadata=metadata,

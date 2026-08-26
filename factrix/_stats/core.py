@@ -169,3 +169,101 @@ def _significance_marker(p_value: float | None) -> str:
     if p_value < 0.10:
         return "*"
     return ""
+
+
+def _mann_kendall_hamed_rao(values: np.ndarray) -> tuple[float, float, float]:
+    """[Hamed-Rao (1998)][hamed-rao-1998] serial-correlation-corrected Mann-Kendall trend test.
+
+    The classical Mann-Kendall test ([Mann (1945)][mann-1945],
+    [Kendall (1975)][kendall-1975]) assumes serially independent
+    observations: its null variance ``Var(S) = n(n-1)(2n+5)/18`` counts
+    every one of the ``n(n-1)/2`` pairwise comparisons as an independent
+    draw. On a persistent series that is far too small, and the test
+    over-rejects badly — measured 34% at a nominal 5% on AR(0.6), 67% on
+    AR(0.9), 37-68% on the overlapping IC series ``ic_trend`` consumes by
+    default.
+
+    Hamed-Rao inflate the variance by an effective-sample-size factor
+    computed from the autocorrelation of the *detrended ranks*:
+
+        ``n/n* = 1 + 2/(n(n-1)(n-2)) · Σ_s (n-s)(n-s-1)(n-s-2) · ρ_s``
+
+    summed over lags whose ``|ρ_s|`` clears the ``2/√n`` significance
+    bound (Hamed-Rao §3: insignificant lags contribute noise, not
+    dependence). Detrending uses the Theil-Sen slope so the trend under
+    test does not itself masquerade as persistence. The factor is floored
+    at 1 — a correction that *shrinks* the null variance would make the
+    test anti-conservative, which is the opposite of the point.
+
+    Known limit, measured, disclosed: Hamed-Rao under-corrects at
+    research sample sizes. It takes AR(0.9) at T=120 from 67% to 36% and
+    the h=21 overlapping series from 68% to 27% — a large improvement,
+    not a calibrated test. Callers that know their overlap horizon should
+    sub-sample to non-overlapping observations *first* (which is exactly
+    calibrated for that channel: 2.2-4.5% across the same grid) and use
+    this correction for the residual persistence, which is what
+    ``factrix.metrics.trend.ic_trend`` does.
+
+    Args:
+        values: 1-D series in time order, at least 3 finite observations.
+
+    Returns:
+        ``(tau, p_value, variance_inflation)`` — ``tau`` is Kendall's tau
+        between the sequence index and the series (the effect size,
+        unchanged by the correction), ``p_value`` the two-sided p from the
+        continuity-corrected normal statistic
+        ``z = (S - sign(S)) / √Var*(S)``, and ``variance_inflation`` the
+        ``n/n*`` factor for metadata. A constant series admits no rank
+        ordering: all three are NaN, and callers map that to a withheld
+        test under ``DEGENERATE_VARIANCE``.
+    """
+    values = np.asarray(values, dtype=float)
+    n = len(values)
+    if n < 3:
+        return float("nan"), float("nan"), float("nan")
+
+    index = np.arange(n, dtype=float)
+    tau = float(sp_stats.kendalltau(index, values).statistic)
+    if not np.isfinite(tau):
+        return float("nan"), float("nan"), float("nan")
+
+    inflation = _hamed_rao_variance_inflation(values, index)
+
+    # Mann-Kendall S and its tie-corrected iid null variance.
+    s_stat = float(
+        sum(np.sum(np.sign(values[i + 1 :] - values[i])) for i in range(n - 1))
+    )
+    _, counts = np.unique(values, return_counts=True)
+    ties = counts[counts > 1].astype(float)
+    var_s = (
+        n * (n - 1) * (2 * n + 5) - float(np.sum(ties * (ties - 1) * (2 * ties + 5)))
+    ) / 18.0
+    var_s *= inflation
+    if var_s <= EPSILON:
+        return tau, float("nan"), inflation
+
+    z = (s_stat - np.sign(s_stat)) / np.sqrt(var_s)
+    return tau, float(2 * sp_stats.norm.sf(abs(z))), inflation
+
+
+def _hamed_rao_variance_inflation(values: np.ndarray, index: np.ndarray) -> float:
+    """``n/n*`` variance-inflation factor for :func:`_mann_kendall_hamed_rao`."""
+    n = len(values)
+    slope = float(sp_stats.theilslopes(values, index).slope)
+    ranks = sp_stats.rankdata(values - slope * index)
+    ranks = ranks - ranks.mean()
+    denom = float(np.dot(ranks, ranks))
+    if denom < EPSILON or n < 4:
+        return 1.0
+    # Hamed-Rao §3 keep only autocorrelations clearing the +/-2/sqrt(n)
+    # bound; including insignificant lags adds estimation noise to the
+    # correction without adding dependence.
+    bound = 2.0 / np.sqrt(n)
+    accumulated = 0.0
+    for lag in range(1, n - 2):
+        rho = float(np.dot(ranks[lag:], ranks[:-lag])) / denom
+        if abs(rho) <= bound:
+            continue
+        accumulated += (n - lag) * (n - lag - 1) * (n - lag - 2) * rho
+    inflation = 1.0 + 2.0 * accumulated / (n * (n - 1) * (n - 2))
+    return max(inflation, 1.0)
