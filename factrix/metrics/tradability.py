@@ -35,6 +35,7 @@ from factrix._axis import (
     FactorScope,
     InputShape,
 )
+from factrix._codes import WarningCode
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._types import DDOF, EPSILON
@@ -43,6 +44,7 @@ from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _assign_quantile_groups,
     _enforce_min_floor,
+    _median_universe_size,
     _sample_non_overlapping,
     _short_circuit_output,
 )
@@ -114,7 +116,7 @@ def rank_turnover(
 
     Rank autocorrelation is measured between dates ``t`` and ``t +
     forward_periods``, sub-sampled at stride ``forward_periods`` (phase-0)
-    so each pair is a non-overlapping snapshot. This aligns the stability
+    so each transition is a non-overlapping snapshot. This aligns the stability
     window with the forward-return horizon used elsewhere in the profile.
 
     Args:
@@ -136,15 +138,26 @@ def rank_turnover(
             only against other tail-filtered estimates at the same q.
 
     Returns:
-        MetricResult with ``value = rank turnover estimate (0–1)`` and metadata
+        MetricResult with ``value = 1 − mean(ρ)`` and metadata
         carrying ``mean_rank_autocorrelation``, ``std_rank_autocorrelation``,
-        ``n_pairs``, ``forward_periods``, ``quantile``, and
-        ``n_cross_section_mean`` (mean assets-per-pair post-filter).
+        ``n_periods``, ``forward_periods``, ``quantile``, and
+        ``n_cross_section_mean`` (mean assets-per-transition post-filter).
 
-        ``std_rank_autocorrelation`` is the cross-pair sample std. Using
-        ``std/√n_pairs`` as an SE is a *lower bound*: consecutive pairs
-        share one rank-vector endpoint (pair k and pair k+1 both involve
-        ``rank @ t_{k·h}``), so the per-pair ρ's have weak positive
+        The value lies in ``[0, 2]``, not ``[0, 1]``: ρ ranges over
+        ``[-1, +1]``, so a perfectly stable ranking gives 0, an independent
+        re-draw gives ≈1 (a white-noise factor measures just above or below
+        it by sampling error), and a systematically *reversed* ranking gives
+        up to 2. It is a rank-stability index, not a traded fraction — see
+        ``notional_turnover`` for the fraction of positions replaced.
+
+        ``n_obs`` counts the adjacent-period transitions the ρ's were
+        measured over (``n_obs_axis="periods"``), not ``(date, asset)``
+        pairs.
+
+        ``std_rank_autocorrelation`` is the cross-transition sample std. Using
+        ``std/√n_periods`` as an SE is a *lower bound*: consecutive transitions
+        share one rank-vector endpoint (transition k and k+1 both involve
+        ``rank @ t_{k·h}``), so the per-transition ρ's have weak positive
         dependence and the true SE is marginally larger. For publication
         grade inference, use a heteroskedasticity-and-autocorrelation-consistent (HAC) variance estimator.
 
@@ -230,8 +243,9 @@ def rank_turnover(
     if rc_per_date.height < 2:
         return _short_circuit_output(
             "rank_turnover",
-            "insufficient_pairs",
+            "insufficient_periods",
             n_obs=rc_per_date.height,
+            n_obs_axis="periods",
             min_required=2,
             forward_periods=forward_periods,
             quantile=quantile,
@@ -244,12 +258,14 @@ def rank_turnover(
 
     return MetricResult(
         value=1.0 - mean_rc,
+        # Adjacent-period transitions (T-1 of them), not (date, asset) pairs:
+        # the count moves with the calendar, so the axis is periods.
         n_obs=rc_per_date.height,
-        n_obs_axis="pairs",
+        n_obs_axis="periods",
         metadata={
             "mean_rank_autocorrelation": mean_rc,
             "std_rank_autocorrelation": std_rc,
-            "n_pairs": rc_per_date.height,
+            "n_periods": rc_per_date.height,
             "forward_periods": forward_periods,
             "quantile": quantile,
             "n_cross_section_mean": n_cs_mean,
@@ -257,10 +273,26 @@ def rank_turnover(
     )
 
 
+def _notional_turnover_sample_threshold(self) -> SampleThreshold:
+    """Static periods floor plus an instance-derived ``min_assets = n_groups``.
+
+    ``notional_turnover`` buckets each date into ``n_groups`` quantiles and
+    reads the top and bottom ones, so a date with fewer than ``n_groups``
+    valid names cannot fill both legs and is dropped — with the default
+    ``n_groups=10`` an 8-name universe drops *every* date, however long the
+    panel. The floor is a function of a constructor argument, so it is
+    declared as a resolver (a callable sample_threshold): the default-config
+    value is what ``inspect_data`` pre-flights, and the in-body gate below
+    re-derives the same ``n_groups`` at run time. Same shape as
+    ``quantile._quantile_groups_threshold`` and ``k_spread._k_spread_threshold``.
+    """
+    return SampleThreshold(min_periods=2, min_assets=self.n_groups)
+
+
 @metric(
     cell=_TR_CELL,
     aggregation=Aggregation.CS_THEN_TS,
-    sample_threshold=SampleThreshold(min_periods=2),
+    sample_threshold=_notional_turnover_sample_threshold,
 )
 def notional_turnover(
     data: pl.DataFrame,
@@ -409,9 +441,20 @@ def notional_turnover(
     )
 
     if per_date.is_empty():
+        # Name the binding axis. The overwhelmingly common cause is a
+        # cross-section too thin to fill ``n_groups`` buckets (the default
+        # ``n_groups=10`` empties every date on an allocation-sized universe),
+        # so report the assets axis and the floor that was missed rather than a
+        # generic "no pairs". A wide-enough panel that still lands here had
+        # every date emptied by nulls, and the same reason reads correctly.
+        median_assets = _median_universe_size(data)
         return _short_circuit_output(
             "notional_turnover",
-            "no_valid_pairs",
+            "insufficient_assets_for_quantile_groups",
+            n_obs=median_assets,
+            n_obs_axis="assets",
+            min_required=n_groups,
+            warning_codes=(WarningCode.THIN_QUANTILE_GROUPS.value,),
             forward_periods=forward_periods,
             n_groups=n_groups,
         )
@@ -425,8 +468,10 @@ def notional_turnover(
     )
     return MetricResult(
         value=mean_turnover,
+        # Rebalances — one per adjacent-period transition, not (date, asset)
+        # pairs; the axis is periods.
         n_obs=int(per_date.height),
-        n_obs_axis="pairs",
+        n_obs_axis="periods",
         metadata={
             "n_rebalances": int(per_date.height),
             "n_groups": n_groups,
@@ -473,7 +518,11 @@ def breakeven_cost(
     before solving net=0 — without it, breakeven is understated by N×.
 
     Args:
-        gross_spread: Per-period mean long-short spread.
+        gross_spread: Per-period mean long-short spread. This is the
+            metric's *data* argument, so it is passed positionally and does
+            not appear on the generated ``__init__`` — the call shape is
+            ``breakeven_cost(gross_spread, turnover=..., forward_periods=...)``
+            and a second positional argument raises ``TypeError``.
         turnover: Notional turnover ∈ [0, 1] from ``notional_turnover()``.
         forward_periods: Holding period matching the upstream
             ``compute_forward_return`` and ``notional_turnover`` stride.
@@ -592,7 +641,12 @@ def net_spread(
     (which is rank-stability, not position-change).
 
     Args:
-        gross_spread: Per-period mean long-short spread.
+        gross_spread: Per-period mean long-short spread. This is the
+            metric's *data* argument, so it is passed positionally and does
+            not appear on the generated ``__init__`` — the call shape is
+            ``net_spread(gross_spread, turnover=..., estimated_cost_bps=...,
+            forward_periods=...)`` and a second positional argument raises
+            ``TypeError``.
         turnover: Notional turnover ∈ [0, 1] from ``notional_turnover()``.
         estimated_cost_bps: Estimated **one-way** (per-trade) trading cost
             in bps — what a single buy or a single sell costs, e.g.

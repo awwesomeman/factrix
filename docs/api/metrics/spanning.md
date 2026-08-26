@@ -19,6 +19,17 @@ title: factrix.metrics.spanning
     return series), not the raw `(date, asset_id, factor, forward_return)`
     panel consumed by the other metrics in this cell.
 
+!!! warning "`spanning_alpha` is not computable through `evaluate`"
+    `evaluate` has no channel for supplying `base_spreads`, so
+    `spanning_alpha` run through it always sees an empty base. Under the
+    default `strict=True` this raises a `UserInputError` naming
+    `no_base_factors`; under `strict=False` it returns `value=NaN` with
+    `metadata["reason"] == "no_base_factors"` and a
+    `WarningCode.METRIC_UNAVAILABLE` warning. Call it directly with the
+    base spread series, as in the worked example below.
+    `greedy_forward_selection` is unaffected — an empty base is a valid
+    starting point for a selection run over the candidate pool.
+
 ## Use cases
 
 <div class="grid cards" markdown>
@@ -28,18 +39,23 @@ title: factrix.metrics.spanning
     ---
 
     `spanning_alpha` regresses the candidate spread series on a set of
-    base-factor spread series; tests $H_0: \alpha = 0$ via ordinary least squares (OLS)
-    $t$-stat. Standard tool for "does this factor add anything beyond
-    the existing model?" (Barillas-Shanken 2017).
+    base-factor spread series and tests $H_0: \alpha = 0$ with a
+    Newey-West HAC $t$ — the Huberman-Kandel (1987) mean-variance
+    spanning test in its single-candidate form (the single-asset case of
+    the GRS 1989 $F$). Standard tool for "does this factor add anything
+    beyond the existing model?" (Barillas-Shanken 2017). Pass
+    `forward_periods=h` when the spreads are built on $h$-period
+    overlapping returns, so the Bartlett bandwidth is floored at $h-1$.
 
--   __Mean-return test when no base factors__
+-   __Base factors are required__
 
     ---
 
-    With `base_spreads=None` (or empty), `spanning_alpha` collapses to
-    a plain mean-return $t$-test on the candidate's spread series —
-    convenient when the question is "is there *any* alpha here" before
-    pulling in controls.
+    `spanning_alpha` needs a base model to span against. With
+    `base_spreads=None` (or empty) there is no incremental alpha to
+    estimate — regressing the spread on nothing returns its own mean —
+    so the metric short-circuits to the standard not-computable result
+    (`value=NaN`, `metadata["reason"] == "no_base_factors"`).
 
 -   __Greedy model construction over a pool__
 
@@ -159,8 +175,10 @@ title: factrix.metrics.spanning
 
     ---
 
-    OLS $t$ on the alpha; when overlap is added, swap to Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) SE
-    via the same kernel discipline used elsewhere in factrix.
+    Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent
+    (HAC) $t$ on the alpha, with the bandwidth
+    $L=\max(\mathrm{auto\_bartlett}(T), h-1)$ — the same kernel
+    discipline `fm_beta` and `ic` use.
 
     [reference/statistical-methods →](../../reference/statistical-methods.md)
 

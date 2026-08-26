@@ -44,7 +44,7 @@ typical usage patterns in a single fetch. Two access paths::
 import dataclasses
 import math
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NoReturn
 
 import polars as pl
 
@@ -245,14 +245,27 @@ def evaluate(
     if _FORWARD_PERIODS_COL in data.columns:
         data = data.drop(_FORWARD_PERIODS_COL)
 
+    from factrix.metrics._base import MetricBase
+
+    # A metric value is either a MetricBase instance (the ``@metric`` path,
+    # carrying its own configured params) or a bare ``@metric_spec`` +
+    # ``register``-ed callable (the third-party registration path), which has
+    # no config object and therefore runs on its signature defaults.
     label_spec = {
-        label: dataclasses.replace(
-            type(inst).spec(),
-            sample_threshold=type(inst)._resolve_sample_threshold(inst),
+        label: (
+            dataclasses.replace(
+                type(inst).spec(),
+                sample_threshold=type(inst)._resolve_sample_threshold(inst),
+            )
+            if isinstance(inst, MetricBase)
+            else inst.__metric_spec__
         )
         for label, inst in metrics.items()
     }
-    label_params = {label: dict(inst._params()) for label, inst in metrics.items()}
+    label_params = {
+        label: dict(inst._params()) if isinstance(inst, MetricBase) else {}
+        for label, inst in metrics.items()
+    }
 
     factor_cells = {c: _detect_factor_cell(data, c) for c in cols}
     factor_sparse_ratios = {c: _detect_factor_sparse_ratio(data, c) for c in cols}
@@ -603,21 +616,33 @@ def _validate_metrics_arg(metrics: object) -> None:
                 expected=f"a metric instance, not the class — call it: {val.__name__}()",
                 docs_path=_DOCS_METRICS,
             )
-        if not isinstance(val, MetricBase):
+        # ``@metric_spec`` + ``factrix.metrics.register`` is the documented
+        # third-party path for a plain callable: it carries its own
+        # ``MetricSpec`` and is resolvable by name in the DAG, so accept it
+        # here rather than demanding the decorator wrapper. It has no config
+        # object, so it runs on its signature defaults.
+        registered_spec = getattr(val, "__metric_spec__", None)
+        spec: MetricSpec
+        if isinstance(val, MetricBase):
+            spec = val.__class__.spec()
+        elif isinstance(registered_spec, MetricSpec):
+            spec = registered_spec
+        else:
             raise UserInputError(
                 func_name="evaluate",
                 field="metrics",
                 value=f"{key!r} -> {type(val).__name__}",
                 expected=(
                     "every value to be a metric instance imported from "
-                    "factrix.metrics, e.g. ic() / quantile_spread(n_groups=5)"
+                    "factrix.metrics, e.g. ic() / quantile_spread(n_groups=5), "
+                    "or a callable stamped with @metric_spec(...) and passed "
+                    "to factrix.metrics.register()"
                 ),
                 docs_path=_DOCS_METRICS,
             )
 
         from factrix._axis import SpecRole
 
-        spec = val.__class__.spec()
         if spec.role is SpecRole.PIPELINE:
             raise UserInputError(
                 func_name="evaluate",
@@ -787,6 +812,64 @@ def _is_type_routing_reason(reason: object) -> bool:
     return isinstance(reason, str) and reason.startswith("not_applicable")
 
 
+def _raise_insufficient_sample(
+    failed: "list[tuple[str, str]]",
+    label_outputs: "dict[str, MetricResult]",
+) -> "NoReturn":
+    """Raise :class:`InsufficientSampleError` for a pure sample-shortfall battery.
+
+    The counts come from the producer's own short-circuit stamp — ``n_obs`` /
+    ``n_obs_axis`` (the effective sample the estimator would have used, on the
+    axis that binds) and ``metadata['min_required']`` (the floor). A producer
+    that stamped no numeric floor yields ``required=None`` rather than a
+    fabricated number. The first failure sets the headline attributes;
+    ``shortfalls`` carries every one.
+    """
+    shortfalls = [
+        (
+            label,
+            reason,
+            out.n_obs_axis or "periods",
+            out.n_obs,
+            required
+            if isinstance(required := out.metadata.get("min_required"), int)
+            else None,
+        )
+        for label, reason in failed
+        for out in (label_outputs[label],)
+    ]
+    detail = "; ".join(
+        f"{label}: {reason} (n_{axis}={actual}, required={required})"
+        for label, reason, axis, actual, required in shortfalls
+    )
+    _, _, axis, actual, required = shortfalls[0]
+    raise InsufficientSampleError(
+        f"evaluate(): {len(shortfalls)} metric(s) below their sample floor on "
+        f"this panel — {detail}. The floor is per metric and per axis, and is "
+        f"checked against the effective sample the estimator would use. Either "
+        f"extend the sample on the binding axis, reconfigure the metric "
+        f"(a bucketed metric needs n_groups <= n_assets), or pass strict=False "
+        f"to receive NaN placeholders and read is_applicable / reason from "
+        f"EvaluationResult.to_frame().",
+        axis=axis,
+        actual=actual,
+        required=required,
+        shortfalls=shortfalls,
+    )
+
+
+def _is_sample_shortfall_reason(reason: object) -> bool:
+    """True for an ``insufficient_*`` short-circuit reason — a data shortage.
+
+    The reason vocabulary (see ``metrics._helpers._short_circuit_output``)
+    splits cleanly: ``insufficient_*`` means the metric fits the data but the
+    sample is below its own hard floor, while ``no_*`` means a missing input
+    column or configuration. Only the former is an
+    :class:`~factrix._errors.InsufficientSampleError`.
+    """
+    return isinstance(reason, str) and reason.startswith("insufficient_")
+
+
 def _enforce_strict(label_outputs: "dict[str, MetricResult]") -> None:
     """Raise when a requested metric that *fits* the data could not produce a value.
 
@@ -795,6 +878,16 @@ def _enforce_strict(label_outputs: "dict[str, MetricResult]") -> None:
     under ``strict=True``; ``not_applicable*`` type-routing verdicts do not
     (see :func:`_is_type_routing_reason`). Config-time / construct-time failures
     already raise upstream of ``strict``.
+
+    Two exception types, split on the reason vocabulary. A pure sample shortfall
+    (every failure an ``insufficient_*``) raises
+    :class:`~factrix._errors.InsufficientSampleError`, carrying the binding axis
+    and the actual / required counts the producer stamped — this is the
+    documented recovery path, and a short regime window is the routine case, not
+    an edge case. Anything else (a missing weight column, an absent config) is a
+    :class:`~factrix._errors.UserInputError`: the caller has to change the call,
+    not the window. A mixed battery raises ``UserInputError`` because the
+    schema/config failure is the actionable one.
     """
     failed = [
         (label, str(out.metadata.get("reason")))
@@ -803,6 +896,8 @@ def _enforce_strict(label_outputs: "dict[str, MetricResult]") -> None:
         and out.metadata.get("reason")
         and not _is_type_routing_reason(out.metadata.get("reason"))
     ]
+    if failed and all(_is_sample_shortfall_reason(r) for _, r in failed):
+        _raise_insufficient_sample(failed, label_outputs)
     if failed:
         detail = "; ".join(f"{label}: {reason}" for label, reason in failed)
         raise UserInputError(

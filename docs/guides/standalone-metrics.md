@@ -40,8 +40,10 @@ from factrix.metrics import quantile_spread, monotonicity
 raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=200, seed=42)
 panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
 
-# Call metrics directly
-spread_res = quantile_spread(panel, forward_periods=5, n_groups=5)
+# Call metrics directly. `compute_forward_return` stamps the panel's overlap
+# horizon, and a standalone call reads that stamp, so `forward_periods=` is
+# only needed for a panel whose `forward_return` you attached yourself.
+spread_res = quantile_spread(panel, n_groups=5)
 # Returns a dictionary: {factor_name: MetricResult}
 factor_spread = spread_res["factor"]
 print(factor_spread.value)  # Mean spread

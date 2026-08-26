@@ -371,7 +371,7 @@ all functions.
 FactrixError                       # base — all factrix-raised errors
 ├── IncompatibleAxisError
 ├── IncompatibleInferenceError     # inference= outside the metric's allowlist
-├── InsufficientSampleError    # carries .actual_periods / .required_periods
+├── InsufficientSampleError    # carries .axis / .actual / .required / .shortfalls
 └── UserInputError                 # named-set typo / type mismatch
 ```
 
@@ -379,7 +379,11 @@ FactrixError                       # base — all factrix-raised errors
 (unknown metric / `expand_over` key, column not in panel,
 wrong type). Catch it separately from `IncompatibleAxisError` (axis miswire) and
 `InsufficientSampleError` (data limitation) when those branches need
-different recovery.
+different recovery. The split at the `strict=True` boundary is mechanical:
+`_enforce_strict` reads the short-circuit reason vocabulary — an
+`insufficient_*` reason is a sample shortfall (`InsufficientSampleError`), a
+`no_*` reason is a missing input column or config (`UserInputError`). A battery
+that fails on both raises `UserInputError`, the actionable one.
 
 ### `strict` and applicability
 
@@ -472,10 +476,15 @@ The mainstream-metric pipelines differ in **aggregation order** — which axis i
 collapsed first determines small-sample failure modes and the `n_assets == 1` behaviour. The
 cell a factor dispatches to determines which pipeline runs.
 
-The two universal `n_periods` floors apply to every panel/timeseries pipeline
-listed below — `n_periods < MIN_PERIODS_HARD` raises `InsufficientSampleError`,
-`MIN_PERIODS_HARD ≤ n_periods < MIN_PERIODS_WARN` emits
-`UNRELIABLE_SE_SHORT_PERIODS`. The per-procedure "Failure modes" lists below
+The `n_periods` floors below are **per procedure**, not one global rule, and
+each is checked against the *effective* sample the estimator uses (post-stride
+count for a sub-sampling method), never the raw date count. The HAC path floors
+at `MIN_PERIODS_HARD`; a non-overlapping stride path floors at
+`MIN_SERIES_PERIODS_HARD` on the post-stride sample plus
+`MIN_SERIES_PERIODS_HARD x forward_periods` on the raw dates. Breaching a hard
+floor raises `InsufficientSampleError` under `strict=True`;
+`n_periods < MIN_PERIODS_WARN` emits `UNRELIABLE_SE_SHORT_PERIODS`. The binding
+axis may be `assets` rather than `periods` for a bucketed metric. The per-procedure "Failure modes" lists below
 record only the **procedure-specific** failures; for the user-facing tier
 matrix see [Guides § Panel vs timeseries](../guides/panel-timeseries.md). For
 the trigger / meaning of every code emitted below see the
@@ -857,7 +866,7 @@ Hard constraints — violating these breaks the API contract:
 4. The DAG executor is the single dispatch path. `DagExecutor` topologically orders specs by `MetricSpec.requires` (raising `CycleError` on cycles), runs `batchable=True` producers once per factor batch and `batchable=False` consumers once per factor, and short-circuits a downstream consumer with a NaN `MetricResult` + `WarningCode.UPSTREAM_UNAVAILABLE` rather than invoking it on missing upstream data.
 5. `MetricResult.p_value` is the single canonical p-value read path — `EvaluationResult.to_frame()` / `to_dict()`, `compare`, and the BHY family resolver all read it; the p-value lives only on the field and is not duplicated into `metadata`. A formal p-value and `alternative` (`two-sided` / `greater` / `less`) must be present together; p-values are finite and in `[0, 1]`. `warnings` flag interpretation risk but never rebind it.
 6. Family declaration is explicit: a screening verb's input list is one family, optionally split per bucket via `expand_over` where the API supports it. Shared resolution enforces (a) the result identity `(factor, forward_periods, *sorted(params.items()))` is unique across the input — every `params` entry joins it automatically, while `metadata` never does, (b) `expand_over` names come only from `EvaluationResult.params` (or the built-in `forward_periods`), never the factor and never a `metadata` key, (c) formal p-values are populated before procedures read them. Cross-metric BHY adds the metric label to the hypothesis identity; cross-metric partial conjunction keeps the predeclared metric count fixed under insufficient endpoints. Mixed horizons warn so the caller confirms whether selection is pooled or predeclared per horizon.
-7. `T < MIN_PERIODS_HARD` raises `InsufficientSampleError`; metrics never silently produce a result on under-sampled data. NW HAC lag selection on overlapping forward returns floors at `forward_periods - 1` (the Hansen-Hodrick floor) so serial correlation from overlap is not under-counted.
+7. A metric whose effective sample is below its own hard floor raises `InsufficientSampleError` under `strict=True` (per metric, per axis, on the effective post-stride/post-drop sample — not a global `T` rule); metrics never silently produce a result on under-sampled data. NW HAC lag selection on overlapping forward returns floors at `forward_periods - 1` (the Hansen-Hodrick floor) so serial correlation from overlap is not under-counted.
 
 For the user-facing field walk of `EvaluationResult` (and its
 `metrics` mapping), see

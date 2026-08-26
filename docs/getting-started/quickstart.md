@@ -127,7 +127,7 @@ Calling `.to_dict()` on the returned `EvaluationResult` returns a flat, JSON-fri
 
 The most common warnings include:
 
-- `UNRELIABLE_SE_SHORT_PERIODS` — $20 \le T < 30$; Newey-West (NW) HAC SE is unstable. (Falling below the metric's hard sample floor raises `InsufficientSampleError` under `strict=True`; the exact floor is metric-specific).
+- `UNRELIABLE_SE_SHORT_PERIODS` — the effective (post-stride) sample is under `MIN_PERIODS_WARN` (= 30); the SE is unstable. (Falling below the metric's *hard* floor raises `InsufficientSampleError` under `strict=True`. The floor is per metric and per axis, checked on the effective sample — read `exc.axis` before assuming it is the time axis.)
 - `PERSISTENT_REGRESSOR` — factor augmented Dickey-Fuller (ADF) $p$-value exceeds the configured threshold (default 0.10).
 - `EVENT_WINDOW_OVERLAP` — event windows overlap on the same asset.
 - `SERIAL_CORRELATION_DETECTED` — Ljung-Box $p$-value < 0.05 on residuals.

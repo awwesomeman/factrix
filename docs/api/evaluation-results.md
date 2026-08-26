@@ -13,8 +13,12 @@ title: factrix.EvaluationResult
 ### `to_frame()`
 Converts the metric results into a stable, long-form Polars `pl.DataFrame`. This makes it easy to stack results across multiple factors using `pl.concat([r.to_frame() for r in results])` before writing to disk (e.g., Parquet).
 
+The leading `factor` / `forward_periods` / `params` block is the **hypothesis identity** — the same `(factor, forward_periods, *params)` tuple `to_dict()` and [`compare()`](compare.md) carry. Without it, the three results of an `evaluate_horizons` sweep stack into three indistinguishable rows.
+
 **Schema:**
 - `factor` (`str`): The factor column name.
+- `forward_periods` (`i64`): The panel's overlap horizon.
+- one column per `params` key (dtype inferred): the caller-supplied hypothesis knobs. A `params` key colliding with a fixed column name above raises `ValueError`. Results whose `params` keys differ need `pl.concat(..., how="diagonal")`.
 - `n_assets` (`i64`): Total unique assets.
 - `metric_name` (`str`): The metric identifier.
 - `value` (`f64` | `null`): The calculated metric value (NaN/Inf are normalized to `null`).
@@ -22,14 +26,34 @@ Converts the metric results into a stable, long-form Polars `pl.DataFrame`. This
 - `alternative` (`str` | `null`): The tested alternative (`two-sided`, `greater`, or `less`), present exactly when `p_value` is present.
 - `stat` (`f64` | `null`): The underlying test statistic, if applicable.
 - `n_obs` (`i64` | `null`): Effective sample size the metric's estimator used. `null` only where a single integer count is not meaningful (e.g. a multi-window CAAR series).
-- `n_obs_axis` (`str` | `null`): The dimension `n_obs` counts along — `periods` / `events` / `pairs` / `assets`. A bare count is uninterpretable without it (a Fama-MacBeth `n_obs` is `periods`; a pooled-OLS one is `(date, asset)` `pairs`). `null` exactly when `n_obs` is.
+- `n_obs_axis` (`str` | `null`): The dimension `n_obs` counts along — see [Sample axes](#sample-axes) below. A bare count is uninterpretable without it (a Fama-MacBeth `n_obs` is `periods`; a pooled-OLS one is `(date, asset)` `pairs`). `null` exactly when `n_obs` is.
 - `is_applicable` (`bool`): `false` when `strict=False` returned a short-circuit placeholder for an unsupported metric/input combination.
 - `reason` (`str` | `null`): Short-circuit reason when `is_applicable` is `false`.
-- `warning_codes` (`list[str]`): List of warnings attached to the metric.
+- `warning_codes` (`list[str]`): Warnings attached to the metric — the bundle-level `Warning` records sourced on it, unioned (de-duplicated, first-seen order) with the producer's own `MetricResult.warning_codes`.
 
 ### `to_dict()`
 Converts the result into a JSON-friendly nested dictionary. It normalizes floats (e.g., `NaN` and `Inf` to `None`) so that it can be serialized directly using standard `json.dumps` without raising errors.
 
+
+---
+
+## Sample axes
+
+`n_obs_axis` names the unit `n_obs` counts. It is the only thing that makes a
+bare count comparable across metrics in a stacked `to_frame()` — on one N=12,
+T=239 panel the values below differ by ~60x.
+
+| token | unit | metrics |
+|---|---|---|
+| `periods` | dates, or adjacent-period transitions for a turnover metric | `ic`, `fm_beta`, `quantile_spread`, `k_spread`, `monotonicity`, `rank_turnover`, `notional_turnover` |
+| `assets` | cross-sectional names | `common_beta`, asset-axis short-circuits |
+| `events` | event observations (non-zero factor cells) | `caar`, `event_hit_rate`, `event_ic`, `corrado_rank`, ... |
+| `pairs` | pooled `(date, asset)` observations, each treated as one independent draw | `pooled_beta`, `directional_hit_rate` |
+| `asset_pairs` | **within-period** unordered asset couples (`C(n_assets, 2)` per date) | `directional_pair_accuracy` |
+
+`pairs` and `asset_pairs` are deliberately separate tokens: a pooled
+`(date, asset)` count and a within-period ordering-pair count are different
+units, and sharing one label made a stacked table unreadable.
 
 ---
 
@@ -57,7 +81,7 @@ Converts the result into a JSON-friendly nested dictionary. It normalizes floats
     > `p_value` is the canonical field for metric p-values.
 - **`stat`** (`float` | `None`): The test statistic (e.g. t-statistic, z-statistic).
 - **`n_obs`** (`int` | `None`): Effective sample size the estimator used in this specific metric calculation.
-- **`n_obs_axis`** (`str` | `None`): Sample dimension `n_obs` counts along — one of `periods` / `events` / `pairs` / `assets`. Stamped by the producer alongside `n_obs`; `None` exactly when `n_obs` is.
+- **`n_obs_axis`** (`str` | `None`): Sample dimension `n_obs` counts along — see [Sample axes](#sample-axes). Stamped by the producer alongside `n_obs`; `None` exactly when `n_obs` is.
 - **`is_applicable`** (`bool`): `False` for `strict=False` short-circuit placeholders, so reporting code can filter them without inspecting `metadata["reason"]`.
 - **`reason`** (`str` | `None`): Stable short-circuit reason, copied from `metadata["reason"]` when present.
 - **`metadata`** (`dict`): Underlying dictionary of metric-specific metadata.

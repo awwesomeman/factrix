@@ -136,7 +136,7 @@ class TestStrictForwarded:
         assert by_h[60].metrics["ic"].metadata["reason"] == "insufficient_ic_periods"
 
     def test_strict_true_raises_on_inapplicable(self):
-        with pytest.raises(UserInputError):
+        with pytest.raises(fx.InsufficientSampleError):
             fx.evaluate_horizons(
                 _raw(n_dates=160),
                 metrics={"ic": ic()},

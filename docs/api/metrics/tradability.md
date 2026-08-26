@@ -43,25 +43,33 @@ title: factrix.metrics.tradability
     `rank_turnover` — $1 - \overline{\rho}$ on per-date rank
     autocorrelation, optionally restricted to the top/bottom-$q$
     tail union. Use for stability rankings across factors;
-    **not** for cost arithmetic.
+    **not** for cost arithmetic. Because $\rho \in [-1, +1]$, the value
+    lies in $[0, 2]$ — not $[0, 1]$: a stable ranking gives 0, an
+    independent re-draw gives $\approx 1$, a reversed ranking up to 2.
+    `n_obs` counts adjacent-period transitions (`n_obs_axis="periods"`).
 
 -   __Breakeven cost in bps__
 
     ---
 
-    `breakeven_cost = gross_spread \cdot h / (2 \cdot \tau) \cdot 10^4`.
-    If the venue's actual round-trip cost is below this, the factor's
+    `breakeven_cost = gross_spread \cdot h / (4 \cdot \tau) \cdot 10^4`.
+    If the venue's actual **one-way** cost is below this, the factor's
     alpha survives. The `\cdot h` lift puts per-period spread onto the
-    per-rebalance scale of $\tau$.
+    per-rebalance scale of $\tau$. The $4\tau$ is two legs times two
+    trades (sell the leaver, buy the joiner) per unit of per-leg
+    turnover; halve a round-trip quote before comparing it to this
+    number. See the `breakeven_cost` Notes for the full derivation.
 
 -   __Net spread after estimated costs__
 
     ---
 
-    `net_spread = gross_spread - 2 \cdot (cost_{bps} / 10^4) \cdot \tau / h`.
-    The cost is paid once per $h$-period rebalance, so dividing by $h$
-    amortises it back to the per-period scale of `gross_spread` — without
-    that, any factor with $h \geq 2$ would be artificially killed.
+    `net_spread = gross_spread - 4 \cdot (cost_{bps} / 10^4) \cdot \tau / h`,
+    with `cost_bps` quoted **one-way**. The cost is paid once per
+    $h$-period rebalance, so dividing by $h$ amortises it back to the
+    per-period scale of `gross_spread` — without that, any factor with
+    $h \geq 2$ would be artificially killed. `breakeven_cost` inverts
+    this same $4\tau$ coefficient, so the two stay consistent.
 
 </div>
 
@@ -89,24 +97,31 @@ title: factrix.metrics.tradability
     raw   = fx.datasets.make_cs_panel(
         n_assets=500, n_dates=500, ic_target=0.08, seed=2024,
     )
+    # Stamps the overlap horizon; every standalone call below reads it.
     panel = compute_forward_return(raw, forward_periods=5)
 
-    spread = quantile_spread(panel, forward_periods=5, n_groups=10)
-    tau    = notional_turnover(panel, n_groups=10, forward_periods=5)
+    # quantile_spread returns {factor_name: MetricResult}; notional_turnover
+    # returns a single MetricResult.
+    spread = quantile_spread(panel, n_groups=10)["factor"]
+    tau    = notional_turnover(panel, n_groups=10)
     print(spread.value, tau.value)
-    # 0.0021  0.18   (approximate)
+    # 0.00258  0.897   (approximate)
 
-    be  = breakeven_cost(spread.value, tau.value, forward_periods=5)
-    net = net_spread(spread.value, tau.value,
+    # The scalar helpers take the gross spread positionally and every other
+    # parameter by keyword.
+    be  = breakeven_cost(spread.value, turnover=tau.value, forward_periods=5)
+    net = net_spread(spread.value, turnover=tau.value,
                      estimated_cost_bps=30.0, forward_periods=5)
     print(be.value, net.value)
-    # 291.7   0.00189   (approximate; bps and per-period spread)
+    # 36.0   0.00043   (approximate; one-way bps and per-period spread)
     ```
 
 `breakeven_cost` and `net_spread` are scalar post-processing helpers, not
 panel-evaluation metrics. Keep `n_groups`, `forward_periods`, and any weighting
 choice aligned between `quantile_spread` and `notional_turnover`, then pass their
-`.value` fields into the cost helper. `inspect_data()` marks these helpers as
+`.value` fields into the cost helper. Both helpers are `@metric` classes, so the
+gross spread is their call-time data argument and everything else must be passed
+by keyword — a second positional argument raises `TypeError`. `inspect_data()` marks these helpers as
 standalone so they are not included in `inspect_data().usable.to_metrics_dict()`.
 
 ## See also

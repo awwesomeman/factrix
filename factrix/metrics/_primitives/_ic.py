@@ -16,7 +16,7 @@ from factrix._axis import (
 from factrix._metric_index import cell
 from factrix._types import MIN_IC_ASSETS_HARD
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _attach_drop_stats
+from factrix.metrics._helpers import _attach_drop_stats, _finite_expr
 
 
 @metric(
@@ -69,15 +69,18 @@ def compute_ic(
         raise ValueError("factor_cols must be non-empty")
 
     # Spearman ρ must rank each factor and the return over the *pairwise-complete*
-    # (factor, return) set per date: a null in either column would otherwise shift
+    # (factor, return) set per date: a missing value in either column would otherwise shift
     # the surviving assets' ranks in the other column (polars' ``pl.corr`` drops
     # the null-paired rows only *after* ranking, so ranking the raw column first
     # distorts the ρ). The return rank is therefore masked per factor — each
     # factor has its own complete set — and collapses to the shared single rank
-    # when the panel is dense (the common DENSE case).
+    # when the panel is dense (the common DENSE case). Validity is the shared
+    # ``_finite_expr`` predicate, so a NaN factor cell is excluded exactly like a
+    # null: polars ranks NaN as an ordinary (largest) value, so gating on
+    # ``is_not_null`` alone would let NaN cells into the ranks and the ρ.
     rank_exprs: list[pl.Expr] = []
     for f in cols:
-        valid = pl.col(f).is_not_null() & pl.col(return_col).is_not_null()
+        valid = _finite_expr(f) & _finite_expr(return_col)
         rank_exprs.append(
             pl.when(valid)
             .then(pl.col(return_col))
@@ -95,14 +98,14 @@ def compute_ic(
     # The effective cross-section is the per-date *valid-pair* count: the IC ρ is
     # estimated on the complete (factor, return) names only, so that same count —
     # not the raw row count — is what gates the date (``MIN_IC_ASSETS_HARD``) and
-    # denominates the tie ratio. Counting null-factor names would let a thin
+    # denominates the tie ratio. Counting missing-factor names would let a thin
     # cross-section (e.g. a factor defined for 8 of 200 names) clear the floor and
     # leak a high-variance IC into the series. The count is therefore per factor
     # (each factor nulls out a different set); it collapses to the row count on a
     # dense panel.
     agg_exprs: list[pl.Expr] = []
     for f in cols:
-        valid = pl.col(f).is_not_null() & pl.col(return_col).is_not_null()
+        valid = _finite_expr(f) & _finite_expr(return_col)
         agg_exprs.append(valid.sum().alias(f"_n_assets__{f}"))
         agg_exprs.append(
             pl.corr(f"_rank__{f}", f"_rank_return__{f}").alias(f"_ic__{f}")

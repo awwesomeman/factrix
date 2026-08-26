@@ -57,7 +57,7 @@ def test_symbol_references_resolve(path: pathlib.Path):
     """Every ``factrix.X.Y`` chain in the file resolves against the package."""
     unresolved = sorted(
         ".".join(chain)
-        for chain in referenced_chains(path.read_text())
+        for chain in referenced_chains(path.read_text(encoding="utf-8"))
         if not is_logger_name(chain, LOGGER_NAMESPACES) and not resolves(chain)
     )
     assert not unresolved, (

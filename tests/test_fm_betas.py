@@ -319,3 +319,166 @@ class TestNonFinitePassThrough:
         # n_obs, giving 4/5 = 0.8 instead of 4/4 = 1.0.
         assert result.value == pytest.approx(1.0)
         assert result.n_obs == 4
+
+
+class TestClusterMeatSegmentSum:
+    """``_cluster_meat`` is a segment sum, not a per-cluster mask loop.
+
+    The masked loop was ``O(G · N)`` and made ``pooled_beta`` roughly an
+    order of magnitude slower than every other metric on a panel with one
+    cluster per period.
+    """
+
+    @staticmethod
+    def _naive(X, resid, clusters):
+        unique = np.unique(clusters)
+        k = X.shape[1]
+        meat = np.zeros((k, k))
+        for c in unique:
+            mask = clusters == c
+            score = X[mask].T @ resid[mask]
+            meat += np.outer(score, score)
+        return meat, len(unique)
+
+    @pytest.mark.parametrize("k", [1, 2, 3])
+    def test_matches_the_naive_loop(self, k):
+        from factrix.metrics.fm_beta import _cluster_meat
+
+        rng = np.random.default_rng(7)
+        n = 500
+        X = rng.normal(size=(n, k))
+        resid = rng.normal(size=n)
+        clusters = rng.integers(0, 37, size=n)
+
+        meat, g = _cluster_meat(X, resid, clusters)
+        ref_meat, ref_g = self._naive(X, resid, clusters)
+        assert g == ref_g
+        assert np.allclose(meat, ref_meat)
+
+    def test_matches_on_datetime_cluster_keys(self):
+        from factrix.metrics.fm_beta import _cluster_meat
+
+        rng = np.random.default_rng(11)
+        n = 400
+        dates = np.array(
+            [
+                np.datetime64(datetime(2024, 1, 1) + timedelta(days=int(i % 25)))
+                for i in range(n)
+            ]
+        )
+        X = np.column_stack([np.ones(n), rng.normal(size=n)])
+        resid = rng.normal(size=n)
+
+        meat, g = _cluster_meat(X, resid, dates)
+        ref_meat, ref_g = self._naive(X, resid, dates)
+        assert g == ref_g == 25
+        assert np.allclose(meat, ref_meat)
+
+    def test_single_cluster_is_the_full_outer_product(self):
+        from factrix.metrics.fm_beta import _cluster_meat
+
+        rng = np.random.default_rng(3)
+        X = rng.normal(size=(20, 2))
+        resid = rng.normal(size=20)
+        meat, g = _cluster_meat(X, resid, np.zeros(20, dtype=int))
+        score = X.T @ resid
+        assert g == 1
+        assert np.allclose(meat, np.outer(score, score))
+
+
+class TestPooledClusteredSEAgainstHandComputation:
+    r"""The clustered sandwich matches the textbook formula, coefficient included.
+
+    $V = \frac{G}{G-1}\cdot\frac{N-1}{N-K}\,(X'X)^{-1}
+         \bigl[\sum_g (X_g'e_g)(X_g'e_g)'\bigr](X'X)^{-1}$
+    (Cameron-Miller 2015 / Stata's `vce(cluster)`), read against $t(G-1)$.
+    Two-way is $V_A + V_B - V_{A\cap B}$ (Cameron-Gelbach-Miller 2011) with
+    $\mathrm{df} = \min(G_A, G_B) - 1$ (Thompson 2011).
+    """
+
+    @staticmethod
+    def _panel(n_dates=40, n_assets=15, seed=99):
+        rng = np.random.default_rng(seed)
+        rows = {"date": [], "asset_id": [], "factor": [], "forward_return": []}
+        for d in range(n_dates):
+            shock = rng.normal(0, 0.01)  # per-period common component
+            for a in range(n_assets):
+                f = rng.normal()
+                rows["date"].append(datetime(2024, 1, 1) + timedelta(days=d))
+                rows["asset_id"].append(f"a{a}")
+                rows["factor"].append(f)
+                rows["forward_return"].append(0.002 * f + shock + rng.normal(0, 0.01))
+        return pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+    def test_one_way_cluster_matches_the_textbook_sandwich(self):
+        from factrix.metrics.fm_beta import pooled_beta
+        from scipy import stats as sp_stats
+
+        panel = self._panel()
+        out = pooled_beta(panel)
+
+        y = panel["forward_return"].to_numpy()
+        x = panel["factor"].to_numpy()
+        n, k = len(y), 2
+        X = np.column_stack([np.ones(n), x])
+        beta = np.linalg.solve(X.T @ X, X.T @ y)
+        resid = y - X @ beta
+
+        codes = panel["date"].to_numpy()
+        uniq = np.unique(codes)
+        meat = np.zeros((k, k))
+        for c in uniq:
+            m = codes == c
+            score = X[m].T @ resid[m]
+            meat += np.outer(score, score)
+        g = len(uniq)
+
+        xtx_inv = np.linalg.inv(X.T @ X)
+        c_factor = (g / (g - 1)) * ((n - 1) / (n - k))
+        V = c_factor * xtx_inv @ meat @ xtx_inv
+        t_ref = beta[1] / np.sqrt(V[1, 1])
+        p_ref = 2 * sp_stats.t.sf(abs(t_ref), g - 1)
+
+        assert out.value == pytest.approx(float(beta[1]))
+        assert out.stat == pytest.approx(float(t_ref))
+        assert out.p_value == pytest.approx(float(p_ref))
+        assert out.metadata["n_clusters"] == g
+
+    def test_two_way_is_the_cgm_sum_and_thompson_df(self):
+        from factrix.metrics.fm_beta import _cluster_meat, pooled_beta
+        from scipy import stats as sp_stats
+
+        panel = self._panel()
+        out = pooled_beta(panel, two_way_cluster_col="asset_id")
+
+        y = panel["forward_return"].to_numpy()
+        x = panel["factor"].to_numpy()
+        n, k = len(y), 2
+        X = np.column_stack([np.ones(n), x])
+        beta = np.linalg.solve(X.T @ X, X.T @ y)
+        resid = y - X @ beta
+
+        a = panel["date"].to_numpy()
+        b = panel["asset_id"].to_numpy()
+        _, ids_a = np.unique(a, return_inverse=True)
+        _, ids_b = np.unique(b, return_inverse=True)
+        inter = ids_a.astype(np.int64) * (int(ids_b.max()) + 1) + ids_b
+
+        meat_a, g_a = _cluster_meat(X, resid, a)
+        meat_b, g_b = _cluster_meat(X, resid, b)
+        meat_i, g_i = _cluster_meat(X, resid, inter)
+
+        combined = (
+            (g_a / (g_a - 1)) * meat_a
+            + (g_b / (g_b - 1)) * meat_b
+            - (g_i / max(g_i - 1, 1)) * meat_i
+        )
+        xtx_inv = np.linalg.inv(X.T @ X)
+        V = ((n - 1) / (n - k)) * xtx_inv @ combined @ xtx_inv
+        df = min(g_a, g_b) - 1
+        t_ref = beta[1] / np.sqrt(V[1, 1])
+
+        assert out.stat == pytest.approx(float(t_ref))
+        assert out.p_value == pytest.approx(float(2 * sp_stats.t.sf(abs(t_ref), df)))
+        assert out.metadata["n_clusters_a"] == g_a
+        assert out.metadata["n_clusters_b"] == g_b

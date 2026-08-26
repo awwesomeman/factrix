@@ -45,6 +45,7 @@ from factrix._data_input import _FORWARD_PERIODS_COL
 from factrix._metric_index import MetricSpec, public_specs
 from factrix._results import Warning
 from factrix._types import MIN_IC_ASSETS_HARD, MIN_IC_ASSETS_WARN
+from factrix.metrics._helpers import _finite_expr
 from factrix.metrics._primitives._fm_betas import (
     MIN_FM_ASSETS_HARD,
     MIN_FM_ASSETS_WARN,
@@ -55,8 +56,23 @@ if TYPE_CHECKING:
 
 _SPARSITY_THRESHOLD: float = 0.5
 _LOW_CARDINALITY_DENSE_UNIQUE_MAX: int = 5
+_REQUIRED_OPTIONAL_COLUMNS: dict[str, str] = {"quantile_spread_vw": "market_cap"}
+"""Metrics gated on an optional schema column: metric name to declared column.
+
+``evaluate`` projects the panel to the declared names before a metric's kwargs
+are known, so a configurable override (``weight_col=``) only works on a direct
+call.
+"""
+
 _INSPECT_RESERVED: frozenset[str] = frozenset(
-    {"date", "asset_id", "forward_return", "price", _FORWARD_PERIODS_COL}
+    {
+        "date",
+        "asset_id",
+        "forward_return",
+        "price",
+        "market_cap",
+        _FORWARD_PERIODS_COL,
+    }
 )
 
 
@@ -565,7 +581,8 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
     Args:
         data: Long-format factor data with the canonical columns.
             The baseline columns ``date`` / ``asset_id`` /
-            ``forward_return`` / ``price`` are reserved and not treated as factors.
+            ``forward_return`` and the optional schema columns ``price`` /
+            ``market_cap`` are reserved and not treated as factors.
         factor_cols: Optional list of factor columns to check. When
             ``None`` (default), auto-detects all columns except the
             reserved columns as factor candidates.
@@ -613,11 +630,13 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
     structure = _detect_structure(data)
     n_assets = int(data["asset_id"].n_unique())
     n_periods = int(data["date"].n_unique())
-    n_pairs = int(data.drop_nulls(first_col).height)
+    # Finite, not merely non-null: polars counts a float NaN as a present value,
+    # so ``drop_nulls`` alone would report NaN factor cells as usable pairs.
+    n_pairs = int(data.filter(_finite_expr(first_col)).height)
     # Event sample: non-zero factor cells (nulls compare false, so excluded),
     # matching the ``factor != 0`` filter the event-driven metrics apply.
     n_events = int(data.filter(pl.col(first_col) != 0).height)
-    n_unique_factor = int(data[first_col].drop_nulls().n_unique())
+    n_unique_factor = int(data.filter(_finite_expr(first_col))[first_col].n_unique())
     factor_sign_one_sided = _factor_sign_is_one_sided(data, first_col)
     ic_stage1_profile = _compute_ic_stage1_profile(data, first_col)
     fm_stage1_profile = _compute_fm_stage1_profile(data, first_col)
@@ -709,6 +728,7 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
             factor_sign_one_sided,
             ic_stage1_profile=ic_stage1_profile,
             fm_stage1_profile=fm_stage1_profile,
+            available_columns=frozenset(data.columns),
         )
         for _, spec in public_specs()
     ]
@@ -767,6 +787,7 @@ def _evaluate_applicability(
     factor_sign_one_sided: bool = False,
     ic_stage1_profile: _ICStage1Profile | None = None,
     fm_stage1_profile: _FMStage1Profile | None = None,
+    available_columns: frozenset[str] = frozenset(),
 ) -> MetricApplicability:
     from factrix.metrics._registry import REGISTRY
 
@@ -825,6 +846,22 @@ def _evaluate_applicability(
             "degenerate_directional_variance at run time; center, threshold, "
             "or encode a true two-sided directional signal before using this "
             "metric"
+        )
+
+    # Optional-schema precondition: a metric gated on an optional column
+    # short-circuits at run time when the panel lacks it, so reporting it
+    # usable would contradict the run.
+    missing_optional = _REQUIRED_OPTIONAL_COLUMNS.get(spec.name)
+    if (
+        missing_optional is not None
+        and available_columns
+        and missing_optional not in available_columns
+    ):
+        blockers.append(
+            f"missing optional schema column {missing_optional!r}: this metric "
+            "short-circuits no_weight_column at run time; attach it to the "
+            "panel (see the data schema), or call the metric directly with "
+            "weight_col= naming your own column"
         )
 
     if spec.input_shape is InputShape.SCALAR:
@@ -970,9 +1007,7 @@ def _compute_ic_stage1_profile(data: Any, factor_col: str) -> _ICStage1Profile |
             max_assets_per_period=0,
         )
 
-    valid_pair = (
-        pl.col(factor_col).is_not_null() & pl.col("forward_return").is_not_null()
-    )
+    valid_pair = _finite_expr(factor_col) & _finite_expr("forward_return")
     per_date = data.group_by("date").agg(valid_pair.sum().alias("n_assets"))
     if per_date.is_empty():
         return _ICStage1Profile(
@@ -1005,9 +1040,7 @@ def _compute_fm_stage1_profile(data: Any, factor_col: str) -> _FMStage1Profile |
             max_assets_per_period=0,
         )
 
-    valid_pair = (
-        pl.col(factor_col).is_not_null() & pl.col("forward_return").is_not_null()
-    )
+    valid_pair = _finite_expr(factor_col) & _finite_expr("forward_return")
     per_date = data.group_by("date").agg(
         valid_pair.sum().alias("n_assets"),
         pl.col(factor_col).filter(valid_pair).var().alias("factor_var"),

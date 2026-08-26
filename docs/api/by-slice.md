@@ -5,8 +5,10 @@ title: factrix.by_slice
 ::: factrix.by_slice
 
 Cross-slice research dispatcher — the partitioned counterpart of
-[`evaluate`](index.md). `by_slice` partitions a **raw panel** on a column
-already present in it and runs the standard `evaluate` pipeline
+[`evaluate`](index.md). `by_slice` partitions an **evaluate-ready panel** —
+the same `(date, asset_id, factor, forward_return)` input `evaluate` takes, so
+`forward_return` must already be attached — on a column already present in it
+and runs the standard `evaluate` pipeline
 independently on each slice, returning the same
 `dict[str, EvaluationResult]` shape as `evaluate` (keyed by slice value
 rather than factor).
@@ -51,9 +53,19 @@ own rows. The consequence depends on the slicing axis:
 
 `by_slice` emits a `WarningCode.SLICE_BOUNDARY_TRUNCATION` warning when a
 metric whose `MetricSpec.slice_boundary_sensitive` capability is true is
-sliced on a date axis. If you want the full-sample
-metric decomposed by period instead, compute it once on the whole panel
-and group the per-date output yourself.
+sliced on a date axis. The condition is a property of the `(metric, by)`
+pair, so it applies to every slice: alongside the Python `UserWarning`
+echo, the record is attached to **each** slice's
+`EvaluationResult.warnings` (sourced on the metric name), so it is
+readable programmatically like any other bundle warning. If you want the
+full-sample metric decomposed by period instead, compute it once on the
+whole panel and group the per-date output yourself.
+
+```python
+result = by_slice(panel, positive_rate(), by="year", factor_col="factor")
+[w.code.value for w in result["2024"].warnings]
+# ['slice_boundary_truncation']
+```
 
 If `by` is not in `data.columns`, `by_slice` raises `ValueError` —
 compose the column upstream with `data.with_columns(...)` or
@@ -62,8 +74,12 @@ compose the column upstream with `data.with_columns(...)` or
 ## Cross-slice comparison table
 
 `by_slice` returns a plain `dict[str, EvaluationResult]` (the same shape
-as `evaluate`), so the standard `EvaluationResult.to_frame` stacking
-idiom builds a comparison table — tag each row with its slice key:
+as `evaluate`), keyed by slice value. Inside each bundle the metric is
+keyed by its **registered spec name** — `by_slice(panel, ic(), ...)`
+yields `result["tech"].metrics["ic"]` — so `metric_name` in a stacked
+frame identifies the metric and two `by_slice` runs stack unambiguously.
+The standard `EvaluationResult.to_frame` stacking idiom builds a
+comparison table — tag each row with its slice key:
 
 ```python
 result = by_slice(panel, ic(), by="sector", factor_col="factor")

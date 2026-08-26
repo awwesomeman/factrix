@@ -398,15 +398,30 @@ def _cluster_meat(
     r"""$\sum_g (X_g' e_g)(X_g' e_g)'$ over the groups encoded by ``clusters``.
 
     Returns ``(meat, G)`` where ``G`` is the number of distinct clusters.
+
+    The per-cluster score ``X_g' e_g`` is a segment sum, so it is formed by
+    one ``np.bincount`` per design column over the integer cluster codes
+    rather than by re-masking the full arrays once per cluster. The masked
+    loop was ``O(G · N)`` on the raw (often datetime) cluster keys, which
+    dominated ``pooled_beta``'s runtime on a panel with one cluster per
+    period; the segment-sum form is ``O(N · k)`` and numerically identical
+    up to float summation order.
     """
-    unique = np.unique(clusters)
-    k = X.shape[1]
-    meat = np.zeros((k, k))
-    for c in unique:
-        mask = clusters == c
-        score = X[mask].T @ resid[mask]
-        meat += np.outer(score, score)
-    return meat, len(unique)
+    codes, G = _cluster_codes(clusters)
+    weighted = X * resid[:, None]
+    scores = np.column_stack(
+        [
+            np.bincount(codes, weights=weighted[:, j], minlength=G)
+            for j in range(X.shape[1])
+        ]
+    )
+    return scores.T @ scores, G
+
+
+def _cluster_codes(clusters: np.ndarray) -> tuple[np.ndarray, int]:
+    """Map arbitrary cluster keys to contiguous integer codes ``0..G-1``."""
+    _unique, codes = np.unique(clusters, return_inverse=True)
+    return np.asarray(codes).ravel(), len(_unique)
 
 
 # Period floor for the Driscoll-Kraay path: the cross-sectional score

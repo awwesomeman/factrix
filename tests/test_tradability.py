@@ -31,9 +31,17 @@ class TestComputeRankTurnover:
         df = _panel(5, ["A", "B", "C"], lambda t, a: ord(a) - ord("A") + 1)
         result = rank_turnover(df)
         assert result.value == pytest.approx(0.0, abs=0.01)
-        assert result.metadata["n_pairs"] == 4
+        assert result.metadata["n_periods"] == 4
         assert result.metadata["forward_periods"] == 1
         assert result.metadata["quantile"] is None
+
+    def test_n_obs_axis_is_periods_not_pairs(self):
+        """The count is adjacent-period transitions (T-1), not (date, asset)
+        pairs — the unit ``pairs`` denotes for pooled_beta / directional_hit_rate."""
+        df = _panel(5, ["A", "B", "C"], lambda t, a: ord(a) - ord("A") + t)
+        result = rank_turnover(df)
+        assert result.n_obs_axis == "periods"
+        assert result.n_obs == 4  # 5 dates -> 4 transitions, independent of n_assets
 
     def test_single_date(self):
         df = pl.DataFrame(
@@ -70,7 +78,7 @@ class TestComputeRankTurnover:
         df = _panel(7, ["A", "B", "C"], factor)
         result = rank_turnover(df, forward_periods=2)
         assert result.value == pytest.approx(0.0, abs=0.01)
-        assert result.metadata["n_pairs"] == 3
+        assert result.metadata["n_periods"] == 3
 
     def test_quantile_filter_restricts_to_tails(self):
         """Quantile filter must actually select tail names and only tail names.
@@ -113,6 +121,37 @@ class TestNotionalTurnover:
         assert result.value == pytest.approx(0.0)
         assert result.metadata["n_rebalances"] == 4
         assert result.metadata["n_groups"] == 5
+        # Rebalances are adjacent-period transitions, not (date, asset) pairs.
+        assert result.n_obs_axis == "periods"
+        assert result.n_obs == 4
+
+    def test_small_universe_names_the_assets_axis(self):
+        """Default n_groups=10 on an 8-name universe empties every date however
+        long the panel — an assets-axis failure, reported as one."""
+        from factrix._codes import WarningCode
+
+        assets = [chr(ord("A") + i) for i in range(8)]
+        df = _panel(200, assets, lambda t, a: ord(a) + t)
+        result = notional_turnover(df)
+        assert math.isnan(result.value)
+        assert result.metadata["reason"] == "insufficient_assets_for_quantile_groups"
+        assert result.n_obs_axis == "assets"
+        assert result.n_obs == 8
+        assert result.metadata["min_required"] == 10
+        assert WarningCode.THIN_QUANTILE_GROUPS.value in result.warning_codes
+
+    def test_declared_assets_floor_tracks_n_groups(self):
+        from factrix.metrics import notional_turnover as nt
+
+        cls = type(nt())
+        assert cls._resolve_sample_threshold(nt()).min_assets == 10
+        assert cls._resolve_sample_threshold(nt(n_groups=3)).min_assets == 3
+
+    def test_downscaled_n_groups_runs_on_the_same_panel(self):
+        assets = [chr(ord("A") + i) for i in range(8)]
+        df = _panel(200, assets, lambda t, a: ord(a) + t)
+        result = notional_turnover(df, n_groups=3)
+        assert not math.isnan(result.value)
 
     def test_full_rotation(self):
         """Ranks reverse every date → top ↔ bot fully swap → turnover = 1."""

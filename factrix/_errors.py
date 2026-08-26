@@ -149,21 +149,50 @@ class IncompatibleInferenceError(FactrixError):
 
 
 class InsufficientSampleError(FactrixError):
-    """``T < MIN_PERIODS_HARD`` for a TIMESERIES procedure.
+    """A requested metric's sample fell below its own hard floor, under ``strict=True``.
 
-    Below the floor, Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) SE is too biased for ``primary_p`` to be
-    trustworthy. Raised at evaluate-time. ``actual_periods``
-    and ``required_periods`` carry the numbers so callers can recover or
-    aggregate programmatically (review fix UX-3).
+    Raised by :func:`factrix.evaluate` (and everything layered on it) when a
+    metric that *fits* the data short-circuited on a data shortage — an
+    ``insufficient_*`` reason. Schema / argument / configuration failures stay
+    :class:`UserInputError`; the split exists so "your window is too short" and
+    "you passed a bad column name" are not the same ``except`` clause.
+
+    The floor is **per metric and per axis**, not one global ``T``. It is
+    checked against the *effective* sample the estimator would use — the
+    post-stride count for a non-overlapping test, the surviving cross-section
+    for a bucketed one — not the raw row or date count. The same floor is what
+    :func:`factrix.inspect_data` reports at pre-flight for the metric's default
+    configuration, so pre-flight and run-time never disagree.
+
+    Structured attributes carry the diagnostic so callers do not parse the
+    rendered message:
+
+    - ``axis``: the :data:`~factrix._types.SampleAxis` token the shortfall was
+      measured on (``"periods"`` / ``"assets"`` / ``"events"`` / ``"pairs"`` /
+      ``"asset_pairs"``) — the *binding* axis, which is not always periods: a
+      10-bucket metric on an 8-name universe fails on ``"assets"`` however long
+      the panel.
+    - ``actual``: the effective sample the metric had on that axis, or ``None``
+      when the producer reported no count.
+    - ``required``: the floor it needed, or ``None`` when the producer declared
+      no numeric floor.
+    - ``shortfalls``: one ``(label, reason, axis, actual, required)`` tuple per
+      failing metric, in request order — a battery can fail on more than one.
     """
 
     def __init__(
         self,
         message: str,
         *,
-        actual_periods: int,
-        required_periods: int,
+        axis: str,
+        actual: int | None,
+        required: int | None,
+        shortfalls: Iterable[tuple[str, str, str, int | None, int | None]] = (),
     ) -> None:
         super().__init__(message)
-        self.actual_periods = actual_periods
-        self.required_periods = required_periods
+        self.axis = axis
+        self.actual = actual
+        self.required = required
+        self.shortfalls: tuple[tuple[str, str, str, int | None, int | None], ...] = (
+            tuple(shortfalls)
+        )

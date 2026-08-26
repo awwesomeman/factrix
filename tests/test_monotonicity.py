@@ -97,7 +97,56 @@ class TestComputeMonotonicity:
         result = monotonicity(df, forward_periods=1, n_groups=2)["factor"]
 
         assert math.isnan(result.value)
-        assert result.metadata["reason"] == "insufficient_monotonicity_periods"
+        # The buckets could not be filled — an assets-axis failure, named as
+        # one. (Here the cause is null returns rather than a thin universe,
+        # but the unfillable-bucket reason is the same.)
+        assert result.metadata["reason"] == "insufficient_assets_for_quantile_groups"
+        assert result.n_obs_axis == "assets"
+
+
+class TestSmallUniverse:
+    """Default ``n_groups=10`` on an allocation-sized universe."""
+
+    def _panel(self, n_assets: int):
+        import factrix as fx
+        from factrix.preprocess import compute_forward_return
+
+        return compute_forward_return(
+            fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=240, seed=7),
+            forward_periods=5,
+        )
+
+    def test_names_the_assets_axis_not_periods(self):
+        """T=240 is ample; the binding constraint is the 8-name cross-section,
+        so the reason and the axis must say assets, not periods."""
+        result = monotonicity(self._panel(8), forward_periods=5)["factor"]
+        assert math.isnan(result.value)
+        assert result.metadata["reason"] == "insufficient_assets_for_quantile_groups"
+        assert result.n_obs_axis == "assets"
+        assert result.n_obs == 8
+        assert result.metadata["min_required"] == 10
+
+    def test_carries_a_warning_code(self):
+        from factrix._codes import WarningCode
+
+        result = monotonicity(self._panel(8), forward_periods=5)["factor"]
+        assert WarningCode.METRIC_UNAVAILABLE.value in result.warning_codes
+        assert WarningCode.THIN_QUANTILE_GROUPS.value in result.warning_codes
+
+    def test_declared_assets_floor_tracks_n_groups(self):
+        from factrix.metrics import monotonicity as monotonicity_metric
+
+        cls = type(monotonicity_metric(n_groups=3))
+        assert (
+            cls._resolve_sample_threshold(monotonicity_metric(n_groups=3)).min_assets
+            == 3
+        )
+        assert cls._resolve_sample_threshold(monotonicity_metric()).min_assets == 10
+
+    def test_downscaled_n_groups_runs_on_the_same_panel(self):
+        result = monotonicity(self._panel(8), forward_periods=5, n_groups=3)["factor"]
+        assert not math.isnan(result.value)
+        assert result.n_obs_axis == "periods"
 
 
 class TestMonotonicityBatch:

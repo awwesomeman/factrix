@@ -263,7 +263,7 @@ Typed pre-flight introspection that combines axis detection with a per-metric us
 
 ### `by_slice` / `slice_pairwise_test` / `slice_joint_test` / `slice_period_pairwise_test` / `slice_period_joint_test`
 
-- `by_slice(data, metric, *, by, factor_col)` partitions a raw panel by a grouping column and runs `evaluate` per slice, returning `dict[str, EvaluationResult]` (same shape as `evaluate`, keyed by slice). `metric` is an instance (e.g. `ic()`); DAG-consumer metrics work with no pre-computation.
+- `by_slice(data, metric, *, by, factor_col)` partitions an evaluate-ready panel (`forward_return` already attached, as `evaluate` requires) by a grouping column and runs `evaluate` per slice, returning `dict[str, EvaluationResult]` (same shape as `evaluate`, keyed by slice). `metric` is an instance (e.g. `ic()`); DAG-consumer metrics work with no pre-computation.
 - `slice_pairwise_test` / `slice_joint_test` perform **cross-sectional** (date-aligned) cross-slice Wald tests (joint Newey-West HAC + slice cluster, Holm-adjusted) on the per-period means — for slices that share dates (sector, size bucket, liquidity tier).
 - `slice_period_pairwise_test` / `slice_period_joint_test` are the **date-disjoint** counterparts (market regime, calendar period, in/out-of-sample) — each slice is an independent sample with block-diagonal covariance. A `method` flag selects the estimator: `"bootstrap"` (default; independent stationary block bootstrap + Romano-Wolf, right for short regimes) or `"analytic"` (per-slice Newey-West HAC + Welch contrast + Holm, for long spans T ≳ 100). Pairwise output carries per-slice `n_periods_a` / `n_periods_b`.
 
@@ -454,6 +454,20 @@ def custom_ic(panel):
 fx.metrics.register(custom_ic)
 ```
 
+A registered callable is accepted directly as an `fx.evaluate(metrics=...)`
+value — pass the function itself, uncalled, since it carries no configuration
+object and runs on its signature defaults:
+
+```python
+fx.evaluate(panel, metrics={"custom_ic": custom_ic},
+            factor_cols=["factor"], forward_periods=5)
+```
+
+Use `@fx.metrics.metric(...)` instead when the metric needs per-run
+configuration. Either path works from any module — a metric defined in your
+own package or in `__main__` is resolved through the metric registry, not by
+import path.
+
 Resolve a registered spec by its label with `fx.spec_by_name()`, which
 returns the full `dict[str, MetricSpec]` registry keyed by metric name —
 the lookup the DAG executor itself uses, and the way to inspect a custom
@@ -518,7 +532,7 @@ Dataclass for a single metric's output:
 - `p_value`: Calibrated p-value for the metric's hypothesis test, or `None` for descriptive outputs.
 - `alternative`: Tested tail (`two-sided`, `greater`, or `less`), present exactly when `p_value` is present.
 - `n_obs`: Effective sample size the estimator actually used (single source of truth for sample size).
-- `n_obs_axis`: The sample dimension `n_obs` counts along (`periods` / `pairs` / `events` / ...), or `None`.
+- `n_obs_axis`: The sample dimension `n_obs` counts along, or `None`. One of `periods` (dates, or adjacent-period transitions for `rank_turnover` / `notional_turnover`), `assets`, `events`, `pairs` (pooled `(date, asset)` observations — `pooled_beta`, `directional_hit_rate`), `asset_pairs` (within-period asset couples — `directional_pair_accuracy`). `pairs` and `asset_pairs` are separate tokens because the counts differ by ~an order of magnitude on the same panel.
 - `stat`: Test statistic value (t, z, W, chi2, ...), when applicable.
 - `metadata`: Estimator-specific context beyond the top-level fields.
 - `warning_codes`: Per-metric advisory `WarningCode` values raised by this metric.
@@ -531,7 +545,7 @@ Dataclass for a single metric's output:
 All exceptions inherit from `FactrixError`:
 - `IncompatibleAxisError`: Invalid combination of axes.
 - `IncompatibleInferenceError`: `inference=` is outside the metric's `applicable_inference` allowlist.
-- `InsufficientSampleError`: Sample size too small for statistical validity.
+- `InsufficientSampleError`: Under `strict=True`, a requested metric's *effective* sample (post-stride periods, surviving cross-section) is below its own hard floor — an `insufficient_*` short-circuit reason. Carries `.axis` (the BINDING axis: `periods` / `assets` / `events` / `pairs` / `asset_pairs`), `.actual`, `.required`, and `.shortfalls` (one tuple per failing metric). The floor is per metric and per axis; there is no global `T < 20` rule. A missing input column or config (`no_*` reason) raises `UserInputError` instead.
 - `UserInputError`: Wrong schema, bad names, or mismatched shapes.
 
 ---
@@ -560,8 +574,8 @@ The canonical glosses live in `factrix._codes.WarningCode.description` and are r
 | `structure_mismatch` | Metric's declared cell (scope/density/structure) does not match the detected factor cell; under `strict=False` it short-circuits to NaN. |
 | `low_cardinality_dense_signal` | Dense factor has few distinct values but no sparse event contract; sparse event metrics require explicit zero non-event rows. |
 | `frequent_event_signal` | Explicit sparse event metric ran on a factor with zero non-event rows but <50% zeros; event-time inference should be read cautiously. |
-| `cross_factor_density_mismatch` | Factor columns carry inconsistent `FactorDensity` (dense and sparse mixed). |
-| `cross_factor_scope_mismatch` | Factor columns carry inconsistent `FactorScope` (individual and common mixed). |
+| `cross_factor_density_mismatch` | Factor columns carry inconsistent `FactorDensity` (dense and sparse mixed). **Raised only by `inspect_data`** — a mixed-scope `evaluate` batch routes each factor to its own cell and emits per-factor `structure_mismatch` instead. |
+| `cross_factor_scope_mismatch` | Factor columns carry inconsistent `FactorScope` (individual and common mixed). **Raised only by `inspect_data`** (see above). |
 | `single_asset_event_data` | Single-asset event data (TIMESERIES + SPARSE, n_assets=1); asset-cross-section metrics (e.g. `clustering_hhi`) stay unusable. |
 | `excessive_period_drops` | An upstream PANEL→SERIES primitive dropped > `DROP_RATE_WARN_THRESHOLD` of dates; counts in `metadata` (`n_periods_in/out`, ...). |
 | `excessive_asset_drops` | An upstream primitive dropped > `DROP_RATE_WARN_THRESHOLD` of assets (e.g. `compute_common_betas`); counts in `metadata` (`n_assets_in/out`, ...). |

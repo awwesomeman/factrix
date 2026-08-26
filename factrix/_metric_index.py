@@ -490,7 +490,14 @@ def public_specs() -> tuple[tuple[str, MetricSpec], ...]:
 
 
 def import_path_for(stem: str) -> str:
-    """Return the public import path for a metric module stem."""
+    """Return the public import path for a *first-party* metric module stem.
+
+    First-party only: a third-party ``@metric`` class lives in the caller's
+    own module (``__main__``, ``mypkg.signals``, a test module), which is not
+    reachable as ``factrix.metrics.<stem>``. Runtime callable resolution goes
+    through the ``@metric`` class registry instead — see
+    :func:`factrix._dag._registry_callable_table`.
+    """
     return f"factrix.metrics.{stem}"
 
 

@@ -77,11 +77,17 @@ raw = pl.DataFrame({
 
 For market-wide factors (`COMMON` scope, e.g. VIX, DXY), the factor
 value is identical across `asset_id` on a given `date`. Verify with
-the one-liner from [Concepts](../getting-started/concepts.md)
-(swap the column name for whichever the panel carries):
+the same check the [data schema](../api/data-schema.md) states
+(swap the column name for whichever the panel carries) — aggregate to a
+per-date boolean column, then reduce that `Series`, since `.all()` is a
+`Series` method and a `DataFrame` has none:
 
 ```python
-raw.group_by("date").agg(pl.col("vix").n_unique() == 1).all()
+(
+    raw.group_by("date")
+    .agg((pl.col("vix").n_unique() == 1).alias("is_common"))["is_common"]
+    .all()
+)  # True when the factor is market-wide
 ```
 
 ## 2. Regular spacing per asset is load-bearing
@@ -250,7 +256,7 @@ Three responsibilities sit upstream of `compute_forward_return`:
 | `forward_periods <= 0`, non-`int`, or `bool` | Raises [`UserInputError`](../api/errors.md); the horizon must be a positive integer row count. | Pass an explicit row horizon such as `1`, `5`, or `20`. |
 | Horizon too long / no finite returns after filtering | Raises [`UserInputError`](../api/errors.md) instead of returning an empty panel. | Shorten the horizon, extend the panel, or clean price values before calling. |
 | Single-asset panel (`n_assets == 1`) | `DataStructure` auto-switches to `TIMESERIES`. Dense PANEL metrics (`individual_continuous` and `common_continuous`) raise [`IncompatibleAxisError`](../api/errors.md). | Use `predictive_beta` for dense predictive-regression slope inference, `directional_hit_rate` for sign prediction, or a sparse metric whose cell allows `TIMESERIES`. |
-| T < `MIN_PERIODS_HARD` (= 20) periods | Raises [`InsufficientSampleError`](../api/errors.md); procedures never silently produce a result on under-sample data. | Extend the window or accept the procedure's refusal. |
+| Effective sample below a metric's own hard floor | Under `strict=True`, raises [`InsufficientSampleError`](../api/errors.md) carrying `.axis` / `.actual` / `.required`; metrics never silently produce a result on under-sampled data. The floor is **per metric and per axis** — there is no single global `T` rule — and it is checked on the *effective* sample (post-stride periods, surviving cross-section), not the raw row count. | Read `.axis` first. `periods` → extend the window. `assets` → widen the universe or lower the metric's bucket count (`monotonicity(n_groups=3)`, `k_spread(k=2)`). Or pass `strict=False` for NaN placeholders. |
 
 ## 7. Sparse and event signals
 

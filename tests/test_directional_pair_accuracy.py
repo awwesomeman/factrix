@@ -44,7 +44,7 @@ class TestDirectionalPairAccuracy:
         assert result.value == pytest.approx(1.0)
         assert result.p_value is None
         assert result.stat is None
-        assert result.n_obs_axis == "pairs"
+        assert result.n_obs_axis == "asset_pairs"
         assert result.n_obs == 30
         assert result.metadata["n_pairs"] == 30
         assert result.metadata["n_correct_pairs"] == 30
@@ -107,7 +107,7 @@ class TestDirectionalPairAccuracy:
         result = directional_pair_accuracy(data, forward_periods=1)
         assert math.isnan(result.value)
         assert result.p_value is None
-        assert result.n_obs_axis == "pairs"
+        assert result.n_obs_axis == "asset_pairs"
         assert result.metadata["reason"] == "insufficient_ordering_pairs"
         assert result.metadata["min_required"] == MIN_PAIR_ACCURACY_PAIRS_HARD
 

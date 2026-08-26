@@ -210,16 +210,41 @@ class TestForwardPeriodsContract:
 
 
 class TestStrict:
-    def test_strict_true_raises_on_inapplicable(self):
+    def test_strict_true_raises_insufficient_sample_on_shortfall(self):
+        """A sample-floor shortfall is a data limitation, not a bad argument —
+        it gets its own exception type and carries the numbers."""
         thin = _panel(n_dates=12)
-        with pytest.raises(UserInputError) as exc:
+        with pytest.raises(fx.InsufficientSampleError) as exc:
             fx.evaluate(
                 thin, metrics={"ic": ic()}, factor_cols=["factor"], forward_periods=5
             )
-        msg = str(exc.value)
-        assert "inapplicable" in msg
+        err = exc.value
+        assert err.axis == "periods"
+        assert err.actual == 6
+        assert err.required == 50
+        assert err.shortfalls == (("ic", "insufficient_ic_periods", "periods", 6, 50),)
+        msg = str(err)
         assert "strict=False" in msg
-        assert "is_applicable/reason" in msg
+        assert "is_applicable / reason" in msg
+
+    def test_insufficient_sample_is_not_a_user_input_error(self):
+        """The two types are disjoint: a documented `except InsufficientSampleError`
+        recovery path must not be shadowed by an `except UserInputError` for
+        schema errors, and vice versa."""
+        assert not issubclass(fx.InsufficientSampleError, UserInputError)
+        assert issubclass(fx.InsufficientSampleError, fx.FactrixError)
+
+    def test_strict_true_raises_user_input_error_on_missing_input(self):
+        """A `no_*` reason is a call the user has to change, not a window."""
+        from factrix.metrics import quantile_spread_vw
+
+        with pytest.raises(UserInputError) as exc:
+            fx.evaluate(
+                _panel(),
+                metrics={"vw": quantile_spread_vw()},
+                factor_cols=["factor"],
+            )
+        assert "no_weight_column" in str(exc.value)
 
     def test_strict_false_keeps_nan(self):
         thin = _panel(n_dates=12)

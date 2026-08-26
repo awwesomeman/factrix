@@ -101,7 +101,7 @@ class TestBySlice:
         assert set(out) == {"tech", "fin"}
         for v in out.values():
             assert isinstance(v, EvaluationResult)
-            assert "metric" in v.metrics
+            assert "ic" in v.metrics
 
     def test_per_slice_sample_sizes_differ_from_full(self):
         panel = _sector_panel(n_assets=60)
@@ -115,9 +115,7 @@ class TestBySlice:
         out = by_slice(panel, ic(), by="sector", factor_col="factor", forward_periods=5)
         for v in out.values():
             assert (
-                v.metrics["metric"]
-                .metadata.get("method", "")
-                .startswith("non-overlapping")
+                v.metrics["ic"].metadata.get("method", "").startswith("non-overlapping")
             )
 
     def test_comparison_frame_idiom(self):
@@ -186,3 +184,42 @@ class TestDateAxisTruncationWarning:
         with warnings.catch_warnings():
             warnings.simplefilter("error")
             _warn_date_axis_truncation(panel, event_hit_rate(), "year")
+
+    def test_returns_none_when_silent(self):
+        panel = _sector_panel(n_dates=600)
+        assert _warn_date_axis_truncation(panel, ic(), "sector") is None
+
+    def test_lands_on_every_slice_result(self):
+        panel = _sector_panel(n_dates=600).with_columns(
+            pl.col("date").dt.year().cast(pl.Utf8).alias("year")
+        )
+        with pytest.warns(UserWarning):
+            out = by_slice(
+                panel, positive_rate(), by="year", factor_col="factor", strict=False
+            )
+        assert out
+        for res in out.values():
+            codes = [w.code for w in res.warnings]
+            assert WarningCode.SLICE_BOUNDARY_TRUNCATION in codes
+
+
+class TestMetricLabel:
+    def test_metrics_keyed_by_spec_name(self):
+        panel = _sector_panel()
+        out = by_slice(panel, ic(), by="sector", factor_col="factor")
+        for res in out.values():
+            assert set(res.metrics) == {"ic"}
+            assert res.metrics["ic"].name == "ic"
+
+    def test_stacked_frames_from_two_runs_are_distinguishable(self):
+        panel = _sector_panel()
+        a = by_slice(panel, ic(), by="sector", factor_col="factor")
+        b = by_slice(panel, positive_rate(), by="sector", factor_col="factor")
+        stacked = pl.concat(
+            [
+                r.to_frame().with_columns(pl.lit(k).alias("slice"))
+                for run in (a, b)
+                for k, r in run.items()
+            ]
+        )
+        assert set(stacked["metric_name"]) == {"ic", "positive_rate"}

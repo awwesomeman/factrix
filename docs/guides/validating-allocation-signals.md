@@ -41,6 +41,20 @@ their sample requirements are met. Read the supplementary metrics by role:
 | `k_spread` / `quantile_spread` | Long-short economic magnitude | Supplementary; tiny legs are fragile |
 | `monotonicity` | Shape between the tails | Supplementary; do not infer it from top-minus-bottom alone |
 
+!!! warning "Lower the bucket counts before you run them"
+
+    The bucketing defaults are calibrated for a ~2000-name equity universe:
+    `monotonicity(n_groups=10)`, `notional_turnover(n_groups=10)`,
+    `quantile_spread(n_groups=5)`, `k_spread(k=5)`. A metric whose bucket count
+    exceeds the cross-section cannot fill its legs on any date, so it refuses on
+    the **assets** axis (`InsufficientSampleError` under `strict=True`;
+    `reason="insufficient_assets_for_quantile_groups"` and
+    `THIN_QUANTILE_GROUPS` under `strict=False`) however long the panel. For
+    `n_assets < 20` pass `n_groups=2..3` and `k=1..2` — around five names per
+    leg is the point below which a leg mean is one or two names' idiosyncratic
+    noise. `fx.inspect_data(panel)` pre-flights the **default** configuration,
+    so check it against the arguments you actually intend to pass.
+
 This example keeps the warning audit trail while quieting a sample regime that
 is expected by design:
 

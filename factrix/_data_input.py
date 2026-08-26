@@ -36,10 +36,14 @@ the validation and dispatch contract is identical.
 # Canonical input-data schema — single source of truth shared by evaluate's
 # baseline validation and the DAG executor's per-factor projection.
 # Required columns every panel must carry; optional columns are passed
-# through to metrics when present (e.g. ``price`` for event-study metrics)
-# but never required.
+# through to metrics when present (e.g. ``price`` for event-study metrics,
+# ``market_cap`` for value weighting) but never required. Each name here is
+# the *declared* one from the data schema: a metric whose column name is
+# configurable (``quantile_spread_vw(weight_col=...)``) is only reachable
+# through ``evaluate`` under the declared name, since the per-factor
+# projection is built before the metric's kwargs are known.
 _BASELINE_COLUMNS: tuple[str, ...] = ("date", "asset_id", "forward_return")
-_OPTIONAL_COLUMNS: tuple[str, ...] = ("price",)
+_OPTIONAL_COLUMNS: tuple[str, ...] = ("price", "market_cap")
 
 # Reserved column carrying the panel's single overlap horizon (the
 # ``forward_periods`` used to build ``forward_return``). ``compute_forward_return``

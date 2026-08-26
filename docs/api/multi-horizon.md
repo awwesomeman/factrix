@@ -63,7 +63,12 @@ results = fx.evaluate_horizons(
 )
 
 table = pl.concat([r.to_frame() for r in results])  # long-form: horizon x metric
+table.select("factor", "forward_periods", "metric_name", "value", "p_value")
 ```
+
+`to_frame()` carries `forward_periods` (and one column per `params` key), so
+the stacked rows are self-identifying — the horizon does not have to be tagged
+back on by hand.
 
 ### Inferential sweep — FDR-controlled across factors and horizons
 
