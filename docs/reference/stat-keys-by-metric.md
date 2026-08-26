@@ -499,9 +499,14 @@ Descriptive; no test.
 
 - *descriptive*: `mfe_p50`, `mae_p25` (MAE is a signed non-positive
   excursion, so the *worst* quartile is the 25th percentile),
-  `mfe_mae_ratio` (= `mfe_p50 / |mae_p25|`), `n_events`.
+  `mfe_mae_ratio` (= `mfe_p50 / |mae_p25|`), `mfe_mae_ratio_status`
+  (`finite`; `unbounded_no_adverse_excursion` with `value = inf` when the
+  events never traded against entry — the best outcome, which must not share
+  a score with the worst; `undefined_no_excursion` with `value = NaN` when
+  neither excursion exists), `n_events`.
 - *descriptive* (conditional, when σ-normalised inputs available):
-  `mfe_z_p50`, `mae_z_p25`, `mfe_mae_ratio_z`, `n_events_z`.
+  `mfe_z_p50`, `mae_z_p25`, `mfe_mae_ratio_z`, `mfe_mae_ratio_z_status`,
+  `n_events_z`.
 - `p_value` is `None` — descriptive metric, no hypothesis test.
 ### `oos` (`factrix.metrics.oos_decay`)
 

@@ -225,6 +225,48 @@ class TestEventMetricThroughEvaluate:
 # ---------------------------------------------------------------------------
 
 
+class TestSignalDensityCountsEveryFiringAsset:
+    """An undisclosed `n >= 2` filter dropped every asset that fired once,
+    understating bars-per-event on exactly the sparse triggers this metric
+    describes.
+    """
+
+    @staticmethod
+    def _panel(n_bars: int = 200) -> pl.DataFrame:
+        rows = []
+        for a in range(10):
+            # A0 fires 50 times (4 bars/event); A1..A9 fire once (200 each).
+            for d in range(n_bars):
+                is_event = d % 4 == 0 if a == 0 else d == 100
+                rows.append(
+                    {
+                        "date": datetime(2020, 1, 1) + timedelta(days=d),
+                        "asset_id": f"A{a}",
+                        "factor": 1.0 if is_event else 0.0,
+                        "forward_return": 0.01,
+                    }
+                )
+        return pl.DataFrame(rows)
+
+    def test_single_event_assets_are_counted(self):
+        result = signal_density(self._panel())
+        # (200/50 + 9 * 200/1) / 10 = 180.4, not the busy asset's 4.0.
+        assert result.value == pytest.approx(180.4)
+        assert result.metadata["n_assets_with_events"] == 10
+
+    def test_whole_panel_floor_still_applies(self):
+        rows = [
+            {
+                "date": datetime(2020, 1, 1),
+                "asset_id": "A",
+                "factor": 1.0,
+                "forward_return": 0.01,
+            }
+        ]
+        result = signal_density(pl.DataFrame(rows))
+        assert result.metadata["reason"] == "insufficient_events"
+
+
 class TestSignalDensity:
     def test_returns_metric_output(self, event_data):
         result = signal_density(event_data)

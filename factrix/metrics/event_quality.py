@@ -854,10 +854,10 @@ def signal_density(
     Answers: "how frequently does this density fire?"
 
     Computed per-asset as ``total_bars / n_events`` (inverse event
-    frequency), then averaged across assets. This is **not** the mean
-    of actual inter-event gaps: bars-per-event depends only on counts,
-    so clustered events and evenly-spaced events yield the same value.
-    See ``clustering_hhi`` for event-date concentration.
+    frequency), then averaged across **every asset that fires at least once**.
+    This is **not** the mean of actual inter-event gaps: bars-per-event
+    depends only on counts, so clustered events and evenly-spaced events yield
+    the same value. See ``clustering_hhi`` for event-date concentration.
 
     Low density (large gaps) means the density is selective; high
     density (small gaps) means the density fires often — capacity is
@@ -903,25 +903,17 @@ def signal_density(
             min_required=2,
         )
 
-    # Per-asset: count events and date span
-    per_asset = (
-        events.group_by("asset_id")
-        .agg(
-            pl.col("date").count().alias("n"),
-            pl.col("date").min().alias("first"),
-            pl.col("date").max().alias("last"),
-        )
-        .filter(pl.col("n") >= 2)
+    # Per-asset: count events and date span. Every asset with at least one
+    # event counts: bars_per_event = total_bars / n_events is defined at n = 1,
+    # and an undisclosed `n >= 2` filter here understated the headline badly on
+    # exactly the sparse triggers this metric describes — 9 assets firing once
+    # each over 200 bars plus one firing 50 times reported 4.0 bars per event
+    # (the one busy asset) against a true 180.4.
+    per_asset = events.group_by("asset_id").agg(
+        pl.col("date").count().alias("n"),
+        pl.col("date").min().alias("first"),
+        pl.col("date").max().alias("last"),
     )
-
-    if per_asset.is_empty():
-        return _short_circuit_output(
-            "signal_density",
-            "no_asset_has_min_two_events",
-            n_obs=n_events,
-            n_obs_axis="events",
-            min_required_per_asset=2,
-        )
 
     # Total bars per asset (from full panel, not just events)
     bars_per_asset = data.group_by("asset_id").agg(

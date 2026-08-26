@@ -42,6 +42,31 @@ __all__ = [
 _MFE_CELL = cell(None, FactorDensity.SPARSE, structure=None)
 
 
+def _excursion_ratio(mfe: float, mae: float) -> tuple[float, str]:
+    """MFE / |MAE| with the no-adverse-excursion case reported, not scored 0.
+
+    A factor whose events never traded against entry is the **best** possible
+    outcome, and not rare on short windows for gap-driven event factors. The
+    ratio there is unbounded, and returning ``0.0`` — the worst possible score,
+    indistinguishable from "MFE is zero, this factor is worthless" — inverted
+    the ranking at the top of the distribution. ``profit_factor`` already
+    faced the analogous no-losses case and reports ``inf`` with a status flag;
+    this mirrors it exactly, including the both-zero case, which is undefined
+    rather than either extreme.
+
+    Returns ``(ratio, status)`` where status is ``"finite"``,
+    ``"unbounded_no_adverse_excursion"`` or
+    ``"undefined_no_excursion"``.
+    """
+    no_adverse = abs(mae) <= EPSILON
+    no_favourable = abs(mfe) <= EPSILON
+    if no_adverse and no_favourable:
+        return float("nan"), "undefined_no_excursion"
+    if no_adverse:
+        return float("inf"), "unbounded_no_adverse_excursion"
+    return mfe / abs(mae), "finite"
+
+
 @metric(
     cell=_MFE_CELL,
     aggregation=Aggregation.EVENT_TIME,
@@ -69,7 +94,12 @@ def mfe_mae(mfe_mae_df: pl.DataFrame) -> MetricResult:
 
     Notes:
         Headline ``ratio = MFE_p50 / |MAE_p25|`` =
-        ``quantile(mfe, 0.50) / |quantile(mae, 0.25)|``.
+        ``quantile(mfe, 0.50) / |quantile(mae, 0.25)|``, reported with
+        ``mfe_mae_ratio_status``: ``inf`` /
+        ``"unbounded_no_adverse_excursion"`` when the events never traded
+        against entry, ``NaN`` / ``"undefined_no_excursion"`` when neither
+        excursion exists (see :func:`_excursion_ratio` — the best possible
+        outcome must not share a score with the worst).
         Z-normalised siblings ``mfe_z_p50`` / ``mae_z_p25`` /
         ``mfe_mae_ratio_z`` are reported when ``mfe_z`` / ``mae_z`` are
         present and pass the same minimum-events threshold.
@@ -143,12 +173,13 @@ def mfe_mae(mfe_mae_df: pl.DataFrame) -> MetricResult:
     # is the 25th percentile (most negative), not the 75th.
     mae_p25 = float(mae.quantile(0.25))  # type: ignore[arg-type]
 
-    ratio = mfe_p50 / abs(mae_p25) if abs(mae_p25) > EPSILON else 0.0
+    ratio, status = _excursion_ratio(mfe_p50, mae_p25)
 
     metadata: dict[str, object] = {
         "mfe_p50": mfe_p50,
         "mae_p25": mae_p25,
         "mfe_mae_ratio": ratio,
+        "mfe_mae_ratio_status": status,
         "n_events": n_events,
     }
 
@@ -161,9 +192,9 @@ def mfe_mae(mfe_mae_df: pl.DataFrame) -> MetricResult:
             mae_z_p25 = float(mae_z.quantile(0.25))  # type: ignore[arg-type]
             metadata["mfe_z_p50"] = mfe_z_p50
             metadata["mae_z_p25"] = mae_z_p25
-            metadata["mfe_mae_ratio_z"] = (
-                mfe_z_p50 / abs(mae_z_p25) if abs(mae_z_p25) > EPSILON else 0.0
-            )
+            ratio_z, status_z = _excursion_ratio(mfe_z_p50, mae_z_p25)
+            metadata["mfe_mae_ratio_z"] = ratio_z
+            metadata["mfe_mae_ratio_z_status"] = status_z
             metadata["n_events_z"] = int(min(len(mfe_z), len(mae_z)))
 
     return MetricResult(
