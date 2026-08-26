@@ -223,3 +223,39 @@ class TestNullSizeUnderClusteredEvents:
         # 60 reps at a true 5% has SE ~2.8pp; the band catches a return to the
         # pre-fix regime (18-35%), not a few points of drift.
         assert rej / reps <= 0.15
+
+
+class TestEventBatteryReportsOneAxisToken:
+    """One quantity, one token. ``caar`` and ``corrado_rank`` used to report
+    ``"periods"`` while ``bmp_z`` / ``event_hit_rate`` / ``mfe_mae`` reported
+    ``"events"`` — on single-asset data these count the same thing, so
+    stacking ``to_frame()`` across the battery produced two labels for one
+    column. Every member now reports the event axis; the period-level counts
+    that differ between them stay in metadata under their own names.
+    """
+
+    def test_every_event_metric_reports_the_event_axis(self):
+        from factrix.metrics.event_horizon import event_around_return
+        from factrix.metrics.event_quality import (
+            profit_factor,
+            signal_density,
+        )
+        from factrix.metrics.mfe_mae import compute_mfe_mae, mfe_mae
+
+        panel = _burst_panel(burst=1, n_assets=3)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            results = {
+                "caar": caar(compute_caar(panel), forward_periods=_H),
+                "bmp_z": bmp_z(panel, forward_periods=_H),
+                "corrado_rank": corrado_rank(panel, forward_periods=_H),
+                "event_hit_rate": event_hit_rate(panel, forward_periods=_H),
+                "event_skewness": event_skewness(panel, forward_periods=_H),
+                "profit_factor": profit_factor(panel),
+                "signal_density": signal_density(panel),
+                "mfe_mae": mfe_mae(compute_mfe_mae(panel, window=10)),
+                "event_around_return": event_around_return(panel),
+            }
+        axes = {name: r.n_obs_axis for name, r in results.items()}
+        assert set(axes.values()) == {"events"}, axes
+        assert all(r.n_obs is not None for r in results.values()), axes

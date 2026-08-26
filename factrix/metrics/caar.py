@@ -185,7 +185,11 @@ def caar(
         to one cross-asset mean (which absorbs same-period cross-sectional
         correlation by construction), and the t-test runs across those
         periods — so ``n`` counts event *periods* (the number of periods with
-        an event), not events, and ``n_obs_axis`` is ``"periods"``. It uses
+        an event), not events, and ``metadata["n_event_periods_sampled"]``
+        names it precisely. ``n_obs_axis`` is ``"events"``, the one token the
+        whole event battery reports on: every member's sample is a set of
+        non-overlapping event observations, and stacking their ``to_frame()``
+        rows must not yield two axis labels for one quantity. It uses
         non-overlap resampling rather than Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent
         (HAC), the same convention as ``ic``.
 
