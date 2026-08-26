@@ -1108,3 +1108,58 @@ class TestBmpZEventPeriodAdvisory:
                 rej += r.p_value < 0.05
         # measured 0.107 (SE 0.015) at 400 reps
         assert 0.03 <= rej / reps <= 0.20
+
+
+class TestEstimandDifferenceIsPinned:
+    """``caar`` is magnitude-weighted and its siblings are sign-weighted, so
+    their ``value``s answer different questions. The docs say so; this pins the
+    behaviour they describe.
+    """
+
+    @staticmethod
+    def _intensity_panel() -> pl.DataFrame:
+        # Same events, graded intensity: half fire at 1, half at 10.
+        rng = np.random.default_rng(5)
+        n = 400
+        rets = rng.normal(0.0, 0.02, n)
+        factor = np.zeros(n)
+        for i, d in enumerate(range(80, n, 11)):
+            factor[d] = 1.0 if i % 2 else 10.0
+            rets[d] = 0.03 if i % 2 else 0.01
+        return pl.DataFrame(
+            {
+                "date": pl.Series(
+                    [datetime(2020, 1, 1) + timedelta(days=i) for i in range(n)],
+                    dtype=pl.Datetime("ms"),
+                ),
+                "asset_id": ["A"] * n,
+                "factor": factor,
+                "forward_return": rets,
+            }
+        )
+
+    def test_caar_is_magnitude_weighted_and_the_siblings_are_not(self):
+        panel = self._intensity_panel()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            magnitude = caar(compute_caar(panel, forward_periods=5), forward_periods=5)
+            coerced = caar(
+                compute_caar(
+                    panel.with_columns(pl.col("factor").sign()), forward_periods=5
+                ),
+                forward_periods=5,
+            )
+        # The high-intensity events dominate the magnitude-weighted value.
+        assert abs(magnitude.value) > 3 * abs(coerced.value)
+
+    def test_coercing_the_factor_puts_caar_on_the_siblings_footing(self):
+        panel = self._intensity_panel().with_columns(pl.col("factor").sign())
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            signed_caar = caar(
+                compute_caar(panel, forward_periods=5), forward_periods=5
+            )
+            hit = event_hit_rate(panel, forward_periods=5)
+        # Same sample, same weighting: both now describe the mean signed
+        # abnormal return of the same events.
+        assert signed_caar.n_obs == hit.n_obs

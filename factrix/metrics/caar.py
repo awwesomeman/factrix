@@ -11,6 +11,24 @@ Notes:
     cross-event $t$-test; `bmp_z` is the standardized-AR $z$-test that
     is robust to event-induced variance.
 
+    **They weight events differently, so their `value`s are not comparable.**
+    `compute_caar` preserves factor magnitude — `AR x factor`, the
+    Sefcik-Thompson (1986) magnitude-weighted CAAR — while `bmp_z`,
+    `corrado_rank` and every `event_quality` metric use `AR x sign(factor)`.
+    On a `{1, 10}` intensity factor the two differ by a factor of ~4 and can
+    differ in sign, because `caar` is dominated by the high-|factor| events
+    and the siblings are not. Comparing `caar.value` to `bmp_z.value` or to
+    `event_hit_rate` compares different estimands; comparing their *p-values*
+    is fine, since all of them test the same $H_0$.
+
+    Pass a `.sign()`-coerced factor column to `compute_caar` to put it on the
+    siblings' footing. factrix does not coerce by default: magnitude weighting
+    is the whole point of a graded event signal, and a metric that silently
+    discarded it would be the more surprising default. `compute_caar` warns
+    (`SPARSE_MAGNITUDE_WEIGHTED`) when the column is mixed-sign and not a clean
+    ternary; a strictly positive intensity column is unambiguous and does not
+    warn, but is still magnitude-weighted.
+
 References:
     - [MacKinlay (1997)][mackinlay-1997], "Event Studies in Economics
       and Finance."

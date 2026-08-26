@@ -150,6 +150,21 @@ def compute_common_betas(
         ``t_stat`` may be **null** — see Notes.
 
     Notes:
+        **``t_stat`` is homoskedastic and overlap-uncorrected.** It is the
+        textbook OLS $t$ from the closed forms above: no heteroskedasticity
+        correction and, more importantly here, no HAC term. With
+        ``forward_periods > 1`` each asset's forward-return series carries
+        MA($h-1$) dependence by construction (Hansen-Hodrick 1980), so this
+        $t$ is inflated by roughly $\sqrt{h}$ and its $p$-value is not usable
+        as a per-asset significance test at a long horizon. It is published as
+        a descriptive fit diagnostic — how well this asset's returns track the
+        factor, alongside ``r_squared`` — and ``common_beta_profile`` surfaces
+        it as such. For an actual single-asset slope test with a Newey-West
+        SE and an $h-1$ bandwidth floor, use
+        :func:`~factrix.metrics.predictive_beta.predictive_beta`. The
+        cross-asset headline, ``common_beta``, consumes only the $\beta$
+        vector and is unaffected.
+
         Sample definition: "complete pair" means *finite* pair — non-null and
         neither ``NaN`` nor ``±inf``. polars keeps ``NaN`` as an ordinary float
         (unlike pandas, where ``NaN`` is the missing marker), so a single
