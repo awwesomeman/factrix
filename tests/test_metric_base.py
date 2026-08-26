@@ -312,3 +312,59 @@ class TestPositionalKnobsRejected:
             inst = quantile_spread(n_groups=3)
             result = inst(self._panel())
         assert result["factor"].n_obs is not None
+
+
+class TestStandaloneReadsTheForwardPeriodsStamp:
+    """A standalone call must use the panel's stamped overlap horizon.
+
+    ``compute_forward_return`` stamps the horizon it built ``forward_return``
+    with and ``evaluate`` injects it at dispatch. Without the stamp read, a
+    standalone call silently fell back to the signature default (5), giving a
+    different non-overlapping sample — and a several-fold different p-value —
+    from the same panel.
+    """
+
+    @staticmethod
+    def _panel(forward_periods: int):
+        import factrix as fx
+
+        return fx.preprocess.compute_forward_return(
+            fx.datasets.make_cs_panel(n_assets=40, n_dates=200, seed=0),
+            forward_periods=forward_periods,
+        )
+
+    def test_standalone_matches_evaluate_on_a_stamped_panel(self):
+        import factrix as fx
+        from factrix.metrics.quantile import quantile_spread
+
+        # 20 != the signature default of 5, so the two paths diverge unless
+        # the standalone call reads the stamp.
+        panel = self._panel(20)
+        standalone = quantile_spread(panel, n_groups=3)["factor"]
+        evaluated = fx.evaluate(
+            panel,
+            metrics={"q": quantile_spread(n_groups=3)},
+            factor_cols=["factor"],
+        )["factor"].metrics["q"]
+
+        assert standalone.n_obs == evaluated.n_obs
+        assert standalone.value == evaluated.value
+        assert standalone.p_value == evaluated.p_value
+
+    def test_explicit_argument_still_wins_on_an_unstamped_panel(self):
+        from factrix._data_input import _FORWARD_PERIODS_COL
+        from factrix.metrics.quantile import quantile_spread
+
+        panel = self._panel(20).drop(_FORWARD_PERIODS_COL)
+        stamped = quantile_spread(self._panel(20), n_groups=3)["factor"]
+        explicit = quantile_spread(panel, n_groups=3, forward_periods=20)["factor"]
+        assert explicit.n_obs == stamped.n_obs
+
+    def test_unstamped_panel_falls_back_to_the_signature_default(self):
+        from factrix._data_input import _FORWARD_PERIODS_COL
+        from factrix.metrics.quantile import quantile_spread
+
+        panel = self._panel(20).drop(_FORWARD_PERIODS_COL)
+        out = quantile_spread(panel, n_groups=3)["factor"]
+        # 200 periods sampled every 5 -> 40 draws, minus the trailing window.
+        assert out.n_obs > 30

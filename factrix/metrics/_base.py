@@ -11,6 +11,7 @@ from factrix._axis import (
     OutputShape,
     SpecRole,
 )
+from factrix._data_input import _FORWARD_PERIODS_COL
 from factrix._metric_index import Cell, MetricSpec, SampleThreshold
 
 # Parameters that ``evaluate`` injects at dispatch rather than the user
@@ -228,6 +229,27 @@ class MetricBase(metaclass=MetricMeta):
         """Configured parameter values, pulled from the instance's slots."""
         return {name: getattr(self, name) for name in self._param_names}
 
+    @staticmethod
+    def _stamped_forward_periods(data: Any) -> int | None:
+        """Read the panel's overlap horizon from the reserved stamp column.
+
+        ``compute_forward_return`` stamps the horizon it built ``forward_return``
+        with, and ``evaluate`` injects that value at dispatch. A standalone call
+        bypasses ``evaluate``, so without this the metric would silently fall
+        back to its signature default — a different non-overlapping sample, and
+        a different p-value, from the same panel. Returns ``None`` for an
+        unstamped panel (the caller's explicit argument, then the signature
+        default, still applies) and for a non-frame input (series consumers).
+        """
+        columns = getattr(data, "columns", None)
+        if columns is None or _FORWARD_PERIODS_COL not in columns:
+            return None
+        stamp = data[_FORWARD_PERIODS_COL]
+        if len(stamp) == 0:
+            return None
+        value = stamp[0]
+        return None if value is None else int(value)
+
     def _inject(
         self,
         forward_periods: int | None,
@@ -257,6 +279,11 @@ class MetricBase(metaclass=MetricMeta):
         **kwargs: Any,
     ) -> Any:
         """Evaluate the metric on a single input (one factor's view / upstream)."""
+        if forward_periods is None and args:
+            # Standalone call: the horizon is a property of the data, so read
+            # the stamp rather than letting the signature default diverge from
+            # what ``evaluate`` would use on the same panel.
+            forward_periods = self._stamped_forward_periods(args[0])
         try:
             # Accessed via __class__ to avoid binding ``_impl`` as a method.
             return self.__class__._impl(
