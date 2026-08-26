@@ -689,3 +689,92 @@ class TestPersistentIcSeriesWarning:
         )
         result = ic(compute_ic(panel)["factor"], forward_periods=5)
         assert WarningCode.SERIAL_CORRELATION_DETECTED.value not in result.warning_codes
+
+
+class TestEffectiveSampleFloor:
+    """The periods floor is checked against the sample the estimator tests on.
+
+    ``ic`` with the default non-overlapping inference strides the per-period IC
+    series at ``forward_periods``, so the raw date count and the tested count
+    diverge as the horizon grows. The floor must follow the tested count —
+    ``MIN_SERIES_PERIODS_HARD`` on the post-stride sample — not the raw dates,
+    and ``MetricResult.n_obs`` must report the count the floor was checked
+    against. There is no global ``T < 20`` rule.
+    """
+
+    @staticmethod
+    def _panel(n_dates: int, forward_periods: int):
+        import factrix as fx
+        from factrix.preprocess import compute_forward_return
+
+        return compute_forward_return(
+            fx.datasets.make_cs_panel(n_assets=20, n_dates=n_dates, seed=1),
+            forward_periods=forward_periods,
+        )
+
+    def test_n_obs_is_the_post_stride_count(self):
+        from factrix.metrics._primitives import compute_ic
+
+        panel = self._panel(80, 6)
+        result = ic(compute_ic(panel)["factor"], forward_periods=6)
+        assert result.n_obs_axis == "periods"
+        # 74 usable dates strided at 6 -> 13 effective periods; far below a
+        # raw-date reading of the floor, and that is the honest count.
+        assert result.n_obs == 13
+        assert result.n_obs < result.metadata["n_periods_full"]
+
+    def test_thirteen_effective_periods_clears_the_stride_floor(self):
+        """MIN_SERIES_PERIODS_HARD is 10, so 13 passes — with the advisory."""
+        from factrix._codes import WarningCode
+        from factrix.metrics._primitives import compute_ic
+
+        result = ic(compute_ic(self._panel(80, 6))["factor"], forward_periods=6)
+        assert not math.isnan(result.value)
+        assert result.p_value is not None
+        assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value in result.warning_codes
+
+    def test_raw_floor_is_the_stride_scaled_effective_floor(self):
+        """The raw-date gate is not an independent rule: it is
+        ``MIN_SERIES_PERIODS_HARD x h``, i.e. exactly the raw count needed to
+        land ``MIN_SERIES_PERIODS_HARD`` observations after striding. The two
+        gates therefore agree by construction rather than by coincidence, and
+        the post-stride gate behind them is the defensive one for a series
+        thinned by dropped dates."""
+        from factrix._types import MIN_SERIES_PERIODS_HARD
+        from factrix.inference import NON_OVERLAPPING
+
+        for h in (1, 5, 6, 10):
+            assert NON_OVERLAPPING.min_input_periods(h) == MIN_SERIES_PERIODS_HARD * h
+
+    def test_below_the_floor_refuses_naming_periods(self):
+        from factrix.metrics._primitives import compute_ic
+
+        panel = self._panel(40, 6)  # 34 usable dates < 10 * 6
+        result = ic(compute_ic(panel)["factor"], forward_periods=6)
+        assert math.isnan(result.value)
+        assert result.metadata["reason"] == "insufficient_ic_periods"
+        assert result.n_obs_axis == "periods"
+        assert result.metadata["min_required"] == 60
+
+    def test_strict_evaluate_surfaces_the_counts(self):
+        import factrix as fx
+
+        panel = self._panel(40, 6)
+        with pytest.raises(fx.InsufficientSampleError) as exc:
+            fx.evaluate(panel, metrics={"ic": ic()}, factor_cols=["factor"])
+        assert exc.value.axis == "periods"
+        assert exc.value.required == 60
+        assert exc.value.actual == exc.value.shortfalls[0][3]
+
+    def test_no_global_t_below_20_rule(self):
+        """T = 15 at h = 1 leaves 13 effective periods, above the stride
+        floor of 10 — it returns a p-value with the short-sample advisory
+        rather than refusing. MIN_PERIODS_HARD (= 20) gates the HAC path, not
+        this one; the two constants guard different estimators."""
+        from factrix._codes import WarningCode
+        from factrix.metrics._primitives import compute_ic
+
+        result = ic(compute_ic(self._panel(15, 1))["factor"], forward_periods=1)
+        assert not math.isnan(result.value)
+        assert result.n_obs == 13
+        assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value in result.warning_codes
