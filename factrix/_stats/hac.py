@@ -525,9 +525,13 @@ def _driscoll_kraay_cov(
     lags_used = auto_bartlett(n_periods) if lags is None else lags
     lags_used = max(0, min(lags_used, n_periods - 1))
 
-    long_run_cov = _bartlett_lrcov(cross_section_sums, lags_used)
-    xtx_inv = np.linalg.inv(X.T @ X)
-    cov = xtx_inv @ long_run_cov @ xtx_inv
+    # numpy < 2.4 on Apple Accelerate raises spurious FP flags from small
+    # dense matmuls on finite input; singular designs are caught via
+    # ``LinAlgError`` and the degenerate-SE checks downstream.
+    with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+        long_run_cov = _bartlett_lrcov(cross_section_sums, lags_used)
+        xtx_inv = np.linalg.inv(X.T @ X)
+        cov = xtx_inv @ long_run_cov @ xtx_inv
     return cov, n_periods, lags_used
 
 

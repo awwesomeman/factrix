@@ -798,8 +798,12 @@ def pooled_beta(
             "n_clusters_intersection": g_i,
         }
 
+    # numpy < 2.4 on Apple Accelerate raises spurious FP flags from small
+    # dense matmuls on finite input; singular designs are caught via
+    # ``LinAlgError`` and the degenerate-SE checks downstream.
     try:
-        xtx_inv = np.linalg.inv(X.T @ X)
+        with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+            xtx_inv = np.linalg.inv(X.T @ X)
     except np.linalg.LinAlgError:
         return MetricResult(
             value=slope,
@@ -808,7 +812,8 @@ def pooled_beta(
             stat=0.0,
         )
 
-    V = c_obs * xtx_inv @ effective_meat @ xtx_inv
+    with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+        V = c_obs * xtx_inv @ effective_meat @ xtx_inv
     v_slope = V[1, 1]
     non_psd_fallback = False
     # Two-way V can be numerically non-PSD in small samples (CGM 2011
