@@ -116,7 +116,7 @@ def logger_namespaces(paths: Iterable[pathlib.Path]) -> set[str]:
     """
     names: set[str] = set()
     for path in paths:
-        text = path.read_text()
+        text = path.read_text(encoding="utf-8")
         names.update(LOGGER_GETLOGGER_RE.findall(text))
         names.update(LOGGER_CONST_RE.findall(text))
     return {n.removeprefix("factrix.") for n in names if n != "factrix."}
