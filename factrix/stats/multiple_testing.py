@@ -265,6 +265,12 @@ _MIN_ROMANO_WOLF_RESAMPLES: int = 99
 #: (``randn(999, 3) + 3.0`` against statistics ``[2.5, 1.0, 0.2]`` returns
 #: ``[0.969, 1.0, 1.0]`` - every hypothesis "not significant" because the whole
 #: reference distribution sits above them).
+#:
+#: The threshold is a heuristic, not a test with a size: one sample sd of
+#: off-centring is well beyond anything a correctly centred null bootstrap
+#: produces, but a legitimately skewed null distribution can sit above it and
+#: an offset of just under 1 sd slips through. It fires a ``warnings.warn``
+#: only — nothing downstream branches on it.
 _UNCENTRED_BOOTSTRAP_RATIO: float = 1.0
 
 
