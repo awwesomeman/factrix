@@ -203,6 +203,10 @@ def _max_block_length(n: int) -> int:
 def _validate_block_length(block_length: float, n: int, func_name: str) -> None:
     """Reject a block length too long for the sample. Raises ``UserInputError``.
 
+    ``func_name`` must be the *public* entry point the caller reached this
+    through (``BlockBootstrap``, ``stationary_bootstrap_resamples``), not the
+    private frame that happens to call it — the message is user-facing.
+
     ``L >= 1`` alone is not enough: see :func:`_max_block_length` for the
     degeneracy at ``L >= n``. This is a refusal rather than a silent clamp
     because an out-of-range explicit ``L`` is a validation-parameter mistake,
@@ -274,7 +278,7 @@ def _stationary_block_indices(
     """
     if n == 0:
         return np.empty((n_resamples, 0), dtype=np.int64)
-    _validate_block_length(mean_block_length, n, "_stationary_block_indices")
+    _validate_block_length(mean_block_length, n, "stationary_bootstrap_resamples")
     p_new = 1.0 / mean_block_length
     starts = rng.integers(0, n, size=(n_resamples, n))
     new_block = rng.random(size=(n_resamples, n)) < p_new
@@ -312,7 +316,7 @@ def _fixed_block_indices(
     """
     if n == 0:
         return np.empty((n_resamples, 0), dtype=np.int64)
-    _validate_block_length(block_length, n, "_fixed_block_indices")
+    _validate_block_length(block_length, n, "BlockBootstrap")
     n_blocks = int(np.ceil(n / block_length))
     starts = rng.integers(0, n, size=(n_resamples, n_blocks))
     offsets = np.arange(block_length, dtype=np.int64)
@@ -448,7 +452,7 @@ def _block_bootstrap_diff_p(
     # already knows it exactly there is no reason to accept a shorter block.
     if forward_periods is not None and forward_periods > 1:
         L = max(L, float(min(forward_periods, _max_block_length(n))))
-    _validate_block_length(L, n, "_block_bootstrap_diff_p")
+    _validate_block_length(L, n, "BlockBootstrap")
 
     # Resolve seed up front so it can be reported back even when None.
     # `secrets.randbits(32)` is the purpose-built "give me a random int

@@ -441,30 +441,39 @@ class TestOverlapHorizonFloor:
 
 
 class TestPolitisWhiteCorrections:
-    def test_k_t_uses_sqrt_log10(self):
-        """K_T = max(5, sqrt(log10 n)) per Politis-White section 4."""
-        import inspect
+    def test_k_t_window_is_wide_enough_to_see_a_lag_five_spike(self):
+        """K_T = max(5, ceil(sqrt(log10 n))) per Politis-White section 4.
 
-        from factrix._stats import bootstrap as boot_mod
-
-        src = inspect.getsource(boot_mod._politis_white_block_length)
-        assert "np.sqrt(np.log10(n))" in src
+        Behavioural pin rather than a source-text one: on an MA(5) series
+        whose only significant autocorrelation sits at lag 5, the lag
+        selector's first window (lags 1..K_T) must reach that spike, so m
+        advances past it and the plug-in returns a long block. A narrower
+        window would stop at m = 0, see only the (near-zero) lag-1 term and
+        return the L ~ 1 of an independent series.
+        """
+        for seed in (0, 1, 2):
+            rng = np.random.default_rng(seed)
+            e = rng.standard_normal(505)
+            ma5 = e[5:] + 0.9 * e[:-5]
+            assert _politis_white_block_length(ma5) > 5.0
+            assert _politis_white_block_length(rng.standard_normal(500)) < 5.0
 
     def test_no_detectable_dependence_falls_through_to_the_unit_clamp(self):
-        """Ghat == 0 must give L = 1, not the inflated 1.75*T^(1/3) rule.
+        """Ghat ~ 0 must give L = 1, not the inflated 1.75*T^(1/3) rule.
 
-        The branch is not reachable from continuous data (it needs an
-        exactly-zero spectral derivative), so this pins the structure: the
-        contradictory early return is gone and the plug-in value flows into
-        the same ``max(L, 1.0)`` clamp that handles every other small L.
+        A white-noise draw whose sample lag-1 autocorrelation is ~0 drives
+        the estimated spectral derivative to ~0, so the plug-in L underflows
+        and has to land on the ``max(L, 1.0)`` clamp. The contradictory
+        early return this replaced sent the same case to the generic rule
+        (~10 at n = 200), an order of magnitude too long for a series with
+        no dependence at all.
         """
-        import inspect
-
-        from factrix._stats import bootstrap as boot_mod
-
-        src = inspect.getsource(boot_mod._politis_white_block_length)
-        assert "if ratio <= 0" not in src
-        assert "ratio = (2.0 * g_deriv * g_deriv) / d_hat" in src
+        x = np.random.default_rng(166).standard_normal(200)
+        centred = x - x.mean()
+        rho_1 = float(np.dot(centred[1:], centred[:-1]) / np.dot(centred, centred))
+        assert abs(rho_1) < 2e-3  # the regime the branch exists for
+        assert _politis_white_block_length(x) == 1.0
+        assert 1.75 * 200 ** (1 / 3) > 10.0  # what the removed branch returned
 
     def test_auto_block_length_respects_the_documented_clamp(self):
         from factrix._stats.bootstrap import (

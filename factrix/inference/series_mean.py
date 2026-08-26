@@ -325,6 +325,12 @@ class StationaryBootstrap:
     Short and strongly persistent is the worst cell and carries
     ``SERIAL_CORRELATION_DETECTED``.
 
+    The root is studentized by a batch-means SE at the resolved block
+    length. A sample with no usable dispersion admits no such SE, and the
+    kernel falls back to the raw-mean root; that switch is reported as
+    ``metadata["studentized"] = False`` *and* as
+    ``WarningCode.DEGENERATE_VARIANCE``, never silently.
+
     Delegates to ``factrix._stats.bootstrap._block_bootstrap_diff_p`` —
     the same kernel backing ``factrix.stats.BlockBootstrap`` — so the
     empirical-p convention is one implementation, not a parallel one.
@@ -357,6 +363,12 @@ class StationaryBootstrap:
             warnings |= frozenset({WarningCode.SERIAL_CORRELATION_DETECTED})
         if 0 < n < self.min_periods:
             warnings |= frozenset({WarningCode.UNRELIABLE_SE_SHORT_PERIODS})
+        # The kernel drops from the bootstrap-t root to the raw-mean root
+        # when it cannot form a block SE — a sample-driven method switch, so
+        # it must not be silent. Above n=2 the only way to get there is a
+        # sample with no usable dispersion, which is what the code names.
+        if n >= 2 and boot_metadata.get("studentized") is False:
+            warnings |= frozenset({WarningCode.DEGENERATE_VARIANCE})
 
         return InferenceResult(
             stat=float(vals.mean()) if n else float("nan"),
