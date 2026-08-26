@@ -54,6 +54,7 @@ from factrix.metrics._helpers import (
     _spread_significance_with_inference,
     _surface_null_drop,
     _warn_high_tie_ratio,
+    _warn_thin_quantile_groups,
 )
 from factrix.metrics._primitives import (
     compute_group_returns,
@@ -468,6 +469,78 @@ def _quantile_spread_from_series(
     )
 
 
+def _vw_spread_series(
+    panel: pl.DataFrame,
+    *,
+    factor_col: str,
+    return_col: str,
+    weight_col: str,
+    n_groups: int,
+    tie_policy: str,
+) -> pl.DataFrame:
+    """Per-period value-weighted top-minus-bottom spread for ``panel``.
+
+    Returns ``date, _n_assets, _n_unique, top_return_vw, bottom_return_vw,
+    spread_vw``. Split out of the metric body so the non-overlap path (strided
+    panel) and the HAC path (full overlapping panel) build the series the same
+    way, exactly as ``compute_spread_series`` serves both paths of the
+    equal-weighted sibling.
+    """
+    grouped = _assign_quantile_groups(
+        panel,
+        factor_col,
+        n_groups,
+        tie_policy=tie_policy,
+    )
+
+    top_group = n_groups - 1
+    bottom_group = 0
+
+    # A weighted mean is ``sum(w·r) / sum(w)``, and the two sums must run over
+    # the *same* names. A name with a missing return contributes nothing to the
+    # numerator (polars ``sum`` skips nulls) but its weight would still sit in
+    # the denominator, shrinking the bucket return toward 0 in proportion to how
+    # much of the bucket is missing. Masking the weight to null wherever the
+    # return (or the weight itself) is non-finite keeps both sums on the same
+    # sample.
+    finite_return = _finite_expr(return_col)
+    finite_weight = _finite_expr(weight_col)
+    finite_factor = _finite_expr(factor_col)
+
+    def _bucket_vw(group: int) -> pl.Expr:
+        """Weighted bucket return, null when no name in it carries a weight."""
+        in_bucket = pl.col("_group") == group
+        w_sum = pl.col("_w").filter(in_bucket).sum()
+        wr_sum = pl.col("_wr").filter(in_bucket).sum()
+        # ``sum()`` of an all-null column is 0, not null, so an empty or
+        # fully-missing bucket would otherwise divide 0/0 -> NaN, or (worse)
+        # surface as a manufactured 0.0 return. Emit null instead: no
+        # observation, not a zero return.
+        return pl.when(w_sum.is_not_null() & (w_sum != 0)).then(wr_sum / w_sum)
+
+    # WHY: per-period weighted mean for top and bottom buckets
+    return (
+        grouped.with_columns(
+            pl.when(finite_return & finite_weight).then(pl.col(weight_col)).alias("_w"),
+        )
+        .with_columns((pl.col(return_col) * pl.col("_w")).alias("_wr"))
+        .group_by("date")
+        .agg(
+            pl.col(factor_col).filter(finite_factor).len().alias("_n_assets"),
+            pl.col(factor_col).filter(finite_factor).n_unique().alias("_n_unique"),
+            _bucket_vw(top_group).alias("top_return_vw"),
+            _bucket_vw(bottom_group).alias("bottom_return_vw"),
+        )
+        .with_columns(
+            pl.when((pl.col("_n_assets") > 0) & (pl.col("_n_unique") <= 1))
+            .then(pl.lit(0.0))
+            .otherwise(pl.col("top_return_vw") - pl.col("bottom_return_vw"))
+            .alias("spread_vw"),
+        )
+        .sort("date")
+    )
+
+
 @metric(
     cell=_Q_CELL,
     aggregation=Aggregation.CS_THEN_TS,
@@ -481,6 +554,7 @@ def quantile_spread_vw(
     return_col: str = "forward_return",
     weight_col: str = "market_cap",
     tie_policy: str = "ordinal",
+    inference: NonOverlapping | NeweyWest = NON_OVERLAPPING,
     lag_weights: bool = True,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
@@ -515,6 +589,13 @@ def quantile_spread_vw(
         data: Panel with ``date, asset_id, factor, forward_return,
             market_cap`` (or whatever ``weight_col`` names).
         weight_col: Column for value weighting (default ``market_cap``).
+        inference: Headline significance method on the per-period spread —
+            the same knob, allowlist and default as ``quantile_spread``, so
+            the equal-weighted / value-weighted pair is tested the same way on
+            the same date set. ``fx.inference.NON_OVERLAPPING`` (default) runs
+            the OLS t-test on the non-overlap stride subsample;
+            ``fx.inference.NEWEY_WEST`` keeps every date and absorbs the
+            MA(h-1) overlap in a HAC SE.
         lag_weights: When True (default), shift ``weight_col`` by 1
             period per asset (on the non-overlap-sampled frame) before
             weighting. When False, use weights as supplied.
@@ -533,7 +614,10 @@ def quantile_spread_vw(
             value = mean_t spread[t];  t = sqrt(n) * value / std(spread)
 
         factrix lags weights by one **sampled** period per asset by default
-        (not one raw bar) so the lag aligns with the rebalance stride;
+        (not one raw bar) so the lag aligns with the rebalance stride. Under
+        ``inference=NEWEY_WEST`` there is no stride — every date is its own
+        rebalance — so the lag is one bar there, and the first date drops out
+        for want of a lagged weight;
         contemporaneous ``weight × forward_return`` would embed look-ahead
         bias from market-cap moves that the forward return has not yet
         realized.
@@ -558,6 +642,18 @@ def quantile_spread_vw(
         the unguarded ratio would manufacture a ``0.0`` spread on a fully
         missing date and count it as a real observation, biasing both the
         mean and the t-stat toward zero.
+
+        **Thin-cross-section diagnostics.** This path used to build its
+        buckets inline and call the t-test directly, so it emitted none of
+        the diagnostics its equal-weighted sibling does: on an 8-name panel
+        cut into 5 buckets — 1.6 names per leg — ``quantile_spread``
+        reported ``('few_assets', 'thin_quantile_groups')`` and a
+        ``UserWarning``, while ``quantile_spread_vw`` reported clean. That
+        is exactly backwards for the metric whose purpose is a capacity /
+        robustness cross-check. It now routes through the same headline
+        chokepoint (``FEW_ASSETS`` on the median per-period finite-factor
+        count) and raises the same thin-bucket advisory and
+        ``THIN_QUANTILE_GROUPS`` code off the same threshold.
 
     References:
         [Hou-Xue-Zhang (2020)][hou-xue-zhang-2020]: ~65% of anomalies
@@ -584,64 +680,28 @@ def quantile_spread_vw(
             missing_column=weight_col,
         )
 
+    _check_applicable_inference(
+        inference, applicable_inference, func_name="quantile_spread_vw"
+    )
+
     sampled = _sample_non_overlapping(data, forward_periods)
     if lag_weights:
         sampled = _lag_within_asset(sampled, weight_col)
     tie_ratio = _compute_tie_ratio(sampled, factor_col)
     _warn_high_tie_ratio(tie_ratio, "quantile_spread_vw", tie_policy)
+    # Same dual-channel thin-bucket advisory the equal-weighted sibling gets,
+    # off the same threshold: this metric exists as a capacity / robustness
+    # cross-check, so it must not be the one that reports clean on a panel
+    # whose legs hold a single name each.
+    _warn_thin_quantile_groups(sampled, n_groups)
 
-    grouped = _assign_quantile_groups(
+    vw_series = _vw_spread_series(
         sampled,
-        factor_col,
-        n_groups,
+        factor_col=factor_col,
+        return_col=return_col,
+        weight_col=weight_col,
+        n_groups=n_groups,
         tie_policy=tie_policy,
-    )
-
-    top_group = n_groups - 1
-    bottom_group = 0
-
-    # A weighted mean is ``sum(w·r) / sum(w)``, and the two sums must run over
-    # the *same* names. A name with a missing return contributes nothing to the
-    # numerator (polars ``sum`` skips nulls) but its weight would still sit in
-    # the denominator, shrinking the bucket return toward 0 in proportion to how
-    # much of the bucket is missing. Masking the weight to null wherever the
-    # return (or the weight itself) is non-finite keeps both sums on the same
-    # sample.
-    finite_return = _finite_expr(return_col)
-    finite_weight = _finite_expr(weight_col)
-    finite_factor = _finite_expr(factor_col)
-
-    def _bucket_vw(group: int) -> pl.Expr:
-        """Weighted bucket return, null when no name in it carries a weight."""
-        in_bucket = pl.col("_group") == group
-        w_sum = pl.col("_w").filter(in_bucket).sum()
-        wr_sum = pl.col("_wr").filter(in_bucket).sum()
-        # ``sum()`` of an all-null column is 0, not null, so an empty or
-        # fully-missing bucket would otherwise divide 0/0 -> NaN, or (worse)
-        # surface as a manufactured 0.0 return. Emit null instead: no
-        # observation, not a zero return.
-        return pl.when(w_sum.is_not_null() & (w_sum != 0)).then(wr_sum / w_sum)
-
-    # WHY: per-period weighted mean for top and bottom buckets
-    vw_series = (
-        grouped.with_columns(
-            pl.when(finite_return & finite_weight).then(pl.col(weight_col)).alias("_w"),
-        )
-        .with_columns((pl.col(return_col) * pl.col("_w")).alias("_wr"))
-        .group_by("date")
-        .agg(
-            pl.col(factor_col).filter(finite_factor).len().alias("_n_assets"),
-            pl.col(factor_col).filter(finite_factor).n_unique().alias("_n_unique"),
-            _bucket_vw(top_group).alias("top_return_vw"),
-            _bucket_vw(bottom_group).alias("bottom_return_vw"),
-        )
-        .with_columns(
-            pl.when((pl.col("_n_assets") > 0) & (pl.col("_n_unique") <= 1))
-            .then(pl.lit(0.0))
-            .otherwise(pl.col("top_return_vw") - pl.col("bottom_return_vw"))
-            .alias("spread_vw"),
-        )
-        .sort("date")
     )
 
     spread_vals = _finite_values(vw_series["spread_vw"])
@@ -698,21 +758,58 @@ def quantile_spread_vw(
         )
 
     arr = spread_vals.to_numpy()
-    mean_spread = float(np.mean(arr))
-    std_spread = float(np.std(arr, ddof=DDOF))
-    t = _calc_t_stat(mean_spread, std_spread, n)
+    # Same headline chokepoint as the equal-weighted sibling, so the pair is
+    # tested the same way on the same date set: ``NON_OVERLAPPING`` reproduces
+    # the previous strided t bit-for-bit, ``NEWEY_WEST`` keeps every date and
+    # HAC-corrects the MA(h-1) overlap. The FEW_ASSETS advisory rides along on
+    # the median per-period finite-factor count.
+    n_assets = _median_finite_cross_section(sampled, factor_col)
+    full_series = None
+    if isinstance(inference, NeweyWest):
+        full_panel = _lag_within_asset(data, weight_col) if lag_weights else data
+        full_series = _vw_spread_series(
+            full_panel,
+            factor_col=factor_col,
+            return_col=return_col,
+            weight_col=weight_col,
+            n_groups=n_groups,
+            tie_policy=tie_policy,
+        ).select("date", pl.col("spread_vw").alias("spread"))
+        full_series = full_series.filter(_finite_expr("spread"))
 
-    p = _p_value_from_t(t, n)
+    mean_spread, t, p, sig_method, sig_extra, sig_codes = (
+        _spread_significance_with_inference(
+            inference,
+            strided_spread=arr,
+            full_spread=full_series,
+            forward_periods=forward_periods,
+            n_assets=n_assets,
+        )
+    )
+    n_tested = int(
+        cast(
+            int,
+            sig_extra.get("n_periods_tested", sig_extra.get("n_periods_full", n)),
+        )
+    )
     metadata: dict[str, object] = {
-        "n_periods": n,
-        "method": "non-overlapping t-test",
+        "n_periods": n_tested,
+        "n_periods_strided": n,
+        "median_cross_section": n_assets,
+        "method": sig_method,
         "stat_type": "t",
         "h0": "mu=0",
         "tie_ratio": tie_ratio,
         "tie_policy": tie_policy,
         "weights_lagged": lag_weights,
+        **sig_extra,
     }
-    warning_codes: list[str] = []
+    warning_codes = list(sig_codes)
+    # Structured twin of the thin-bucket advisory raised above.
+    if _is_thin_quantile_groups(sampled, n_groups):
+        warning_codes.append(WarningCode.THIN_QUANTILE_GROUPS.value)
+    # Drop stats describe the strided series this consumer collapsed, whatever
+    # sample the headline test ended up running on.
     _surface_null_drop(
         n_periods_in=vw_series.height,
         n_periods_out=n,
@@ -731,7 +828,7 @@ def quantile_spread_vw(
         p_value=p_out,
         alternative=alternative,
         value=mean_spread,
-        n_obs=n,
+        n_obs=n_tested,
         n_obs_axis="periods",
         stat=stat,
         metadata=metadata,

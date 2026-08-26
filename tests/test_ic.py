@@ -499,11 +499,12 @@ class TestApplicableInferenceDiscovery:
     def test_inference_metrics_expose_allowlist(self):
         from factrix.metrics._metric_capabilities import resolve_applicable_inference
         from factrix.metrics.k_spread import k_spread
-        from factrix.metrics.quantile import quantile_spread
+        from factrix.metrics.quantile import quantile_spread, quantile_spread_vw
 
-        # quantile_spread / k_spread dispatch through a hard isinstance(NeweyWest)
-        # branch, so their allowlist stays the original vetted pair.
-        for m in (quantile_spread, k_spread):
+        # quantile_spread / quantile_spread_vw / k_spread dispatch through a
+        # hard isinstance(NeweyWest) branch, so their allowlist stays the
+        # original vetted pair.
+        for m in (quantile_spread, quantile_spread_vw, k_spread):
             allow = resolve_applicable_inference(m)
             assert allow is not None
             assert sorted(type(x).__name__ for x in allow) == [
@@ -524,11 +525,8 @@ class TestApplicableInferenceDiscovery:
     def test_singleton_inference_metric_returns_none(self):
         from factrix.metrics._metric_capabilities import resolve_applicable_inference
         from factrix.metrics.positive_rate import positive_rate
-        from factrix.metrics.quantile import quantile_spread_vw
 
-        # quantile_spread_vw shares its module with quantile_spread but has no
-        # inference= knob; positive_rate is in a module with no allowlist at all.
-        assert resolve_applicable_inference(quantile_spread_vw) is None
+        # positive_rate is in a module with no allowlist at all.
         assert resolve_applicable_inference(positive_rate) is None
 
 
