@@ -58,7 +58,7 @@ contrasts, not a sidecar to a primary value.
 | [`profit_factor`][factrix.metrics.event_quality.profit_factor] | none — descriptive | — | gains / \|losses\| |
 | [`signal_density`][factrix.metrics.event_quality.signal_density] | none — descriptive | — | mean bars per event |
 | [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | none — descriptive | — | mean leakage score |
-| [`monotonicity`][factrix.metrics.monotonicity.monotonicity] | cross-asset `t` on signed Spearman | `p_value` | mean \|Spearman\| |
+| [`monotonicity`][factrix.metrics.monotonicity.monotonicity] | Patton-Timmermann (2010) MR (stationary-bootstrap p) | `p_value` | `mr_min_diff` (min adjacent bucket-return difference) |
 | [`quantile_spread`][factrix.metrics.quantile.quantile_spread] | non-overlapping `t` on top-bottom spread (NW HAC under `NEWEY_WEST`) | `p_value` | mean(spread) |
 | [`k_spread`][factrix.metrics.k_spread.k_spread] | non-overlapping `t` on top-K−bottom-K spread (NW HAC under `NEWEY_WEST`) | `p_value` | mean(spread) |
 | [`quantile_spread_vw`][factrix.metrics.quantile.quantile_spread_vw] | NW HAC `t` on vw spread | `p_value` | mean(vw spread) |
@@ -405,14 +405,30 @@ Pre/post-event return profile; descriptive.
 
 #### `monotonicity`
 
-`MetricResult.value` carries the *magnitude* (mean `|Spearman|`);
-`MetricResult.stat` carries the cross-asset `t` on the *signed*
-Spearman series. The split is intentional — magnitude and direction
-consistency are read separately.
+`MetricResult.value` and `MetricResult.stat` both carry the
+Patton-Timmermann (2010) MR statistic `mr_min_diff` — `J = min_i mean_t Δ_{i,t}`,
+the smallest average adjacent bucket-return difference, in return units.
+`p_value` is its stationary-bootstrap empirical p under
+`H₀: min_i E[Δ_i] ≤ 0` ("the relation is *not* monotone in the declared
+direction"), one-sided (`alternative="greater"`).
 
-- *primary*: `p_value` — cross-asset `t` (`H₀: μ = 0`).
-- *descriptive*: `mean_signed`, `n_valid_periods`, `n_groups`,
-  `tie_ratio`, `tie_policy`.
+The headline used to be `mean |Spearman|` with a cross-asset `t` on the
+signed series. That statistic has a large null floor that moves with
+`n_groups` — measured 0.67 / 0.42 / 0.27 at `n_groups` = 3 / 5 / 10 on
+panels where H₀ holds by construction, because `E|ρ| > 0` by Jensen — so a
+reader took the noise floor for MR evidence. The MR test's own rejection
+frequency on the same panels is 5.0% / 5.0% / 4.0% at a nominal 5%.
+
+- *primary*: `p_value` — bootstrap p for the MR test.
+- *MR detail*: `mr_min_diff`, `mr_adjacent_diffs` (every `Δ̄_i`, so the
+  binding step is visible), `mr_direction`, `n_bootstrap`,
+  `bootstrap_seed` (resolved and reported when not supplied, so an
+  unseeded run is still reproducible after the fact).
+- *descriptive Spearman shape*: `mean_abs_spearman` (magnitude, ≥ 0),
+  `mean_signed` (direction consistency), `signed_spearman_t`,
+  `signed_spearman_p_value`. A high magnitude with a near-zero signed mean
+  still says the factor sorts returns but flips sign across dates.
+- *descriptive*: `n_valid_periods`, `n_groups`, `tie_ratio`, `tie_policy`.
 
 ### `quantile` (`factrix.metrics.quantile`)
 

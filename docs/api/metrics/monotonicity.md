@@ -14,25 +14,28 @@ title: factrix.metrics.monotonicity
 
 <div class="grid cards" markdown>
 
--   __Decile-curve direction test__
+-   __Decile-curve monotonicity test__
 
     ---
 
-    Per-date Spearman correlation between quantile-group index and
-    group mean return; cross-asset $t$ on the signed series asks
-    whether the bucket ordering is *consistently* increasing (or
-    decreasing) across dates — a stronger requirement than a positive
-    long-short spread.
+    The Patton-Timmermann (2010) MR test on the quantile-bucket return
+    curve: $J = \min_i \overline{\Delta}_i$ over the adjacent bucket
+    differences, with $H_0$ that the relation is *not* monotone and a
+    stationary-bootstrap p. A strictly increasing decile curve is a
+    stronger requirement than a positive long-short spread, which only
+    needs the two end buckets to separate.
 
--   __Magnitude vs direction separation__
+-   __Magnitude vs direction, as descriptive shape__
 
     ---
 
-    `value` is mean $|\text{Spearman}|$ (magnitude, $\geq 0$); `stat`
-    is a $t$ on the signed series. High `value` with insignificant
-    `stat` flags a factor that monotonically sorts returns but whose
-    direction flips across dates — Patton-Timmermann (2010) territory
-    that a single signed average would hide.
+    `metadata["mean_abs_spearman"]` (magnitude, $\geq 0$) and
+    `metadata["mean_signed"]` (direction consistency) still read
+    separately: high magnitude with a near-zero signed mean flags a
+    factor that sorts returns but flips direction across dates. They are
+    metadata, not the headline — $\mathbb{E}|\rho| > 0$ under $H_0$ by
+    Jensen, so mean $|\rho|$ has an `n_groups`-dependent noise floor
+    (0.67 / 0.42 / 0.27 at $K = 3 / 5 / 10$) that reads like evidence.
 
 </div>
 
@@ -58,12 +61,32 @@ title: factrix.metrics.monotonicity
     )
     panel = compute_forward_return(raw, forward_periods=5)
 
-    out = monotonicity(panel, forward_periods=5, n_groups=10)
-    print(out.value, out.stat,
-          out.metadata["mean_signed"], out.p_value)
-    # 0.41  5.62  0.39  2.1e-08   (approximate)
-    # value ≈ mean|Spearman|; mean_signed ≈ direction; stat t on signed series
+    out = monotonicity(panel, forward_periods=5, n_groups=10, seed=0)
+    print(out.value, out.p_value,
+          out.metadata["mr_adjacent_diffs"],
+          out.metadata["mean_abs_spearman"])
+    # value = stat = J, the smallest average adjacent bucket-return
+    # difference (return units); p_value is its bootstrap p under
+    # H0 "not monotonically increasing"; mr_adjacent_diffs shows which
+    # step binds; mean_abs_spearman is the descriptive magnitude.
     ```
+
+!!! warning "Declare the direction, do not search it"
+    `direction="increasing"` (default) or `"decreasing"` states what $H_1$
+    asserts. Running both and reporting the smaller p is a two-sided search
+    charged at a one-sided level. For a factor hypothesised to be negatively
+    related to returns, pass `direction="decreasing"` (or flip the factor's
+    sign upstream) rather than reading the increasing test and inverting it.
+
+!!! info "Deviation from the paper"
+    Patton-Timmermann bootstrap the raw (unstudentised) adjacent
+    differences, which is what runs here; their studentised variant is not
+    implemented. The bootstrap is the library's shared stationary
+    (Politis-Romano 1994) resampler with the Politis-White (2004) automatic
+    block length, applied to the whole $(T, K-1)$ difference matrix under
+    one row-index draw so within-period cross-bucket dependence is
+    preserved. Empirical p uses the Davison-Hinkley $+1$ smoothing shared
+    with the rest of the library, so p is never exactly 0.
 
 ## See also
 
@@ -98,8 +121,8 @@ title: factrix.metrics.monotonicity
 
     ---
 
-    Cross-asset $t$ on the per-date signed Spearman series, DDOF
-    convention.
+    The MR bootstrap, and the DDOF convention behind the descriptive
+    signed-Spearman $t$.
 
     [reference/statistical-methods →](../../reference/statistical-methods.md)
 

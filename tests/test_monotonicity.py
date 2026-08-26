@@ -7,41 +7,52 @@ from factrix.metrics.monotonicity import monotonicity
 
 
 class TestComputeMonotonicity:
+    @staticmethod
+    def _perfect(panel):
+        import polars as pl
+
+        return panel.with_columns(
+            pl.col("factor").rank(method="average").over("date").alias("forward_return")
+        )
+
     def test_perfect_monotonic(self, noisy_panel):
-        # WHY: tiny_panel only has 3 dates, < MIN_MONOTONICITY_PERIODS_HARD after sampling
-        # Use noisy_panel (20 dates × 30 assets) with perfect factor-return alignment
-        import polars as pl
-
-        perfect = noisy_panel.with_columns(
-            pl.col("factor").rank(method="average").over("date").alias("forward_return")
-        )
-        result = monotonicity(perfect, forward_periods=1, n_groups=5)["factor"]
-        assert result.value == pytest.approx(1.0)
-
-    def test_perfect_monotonicity_keeps_its_value_and_withholds_the_test(
-        self, noisy_panel
-    ):
-        """+1 on every period is maximal evidence, and has no t.
-
-        The measurement (avg monotonicity = 1.0) survives; the hypothesis
-        test does not, because a constant series has no dispersion to form
-        an SE from. What must never appear is the old t=0 / p=1, which read
-        a perfectly ordered factor as "no signal".
-        """
-        import polars as pl
-        from factrix._codes import WarningCode
-
-        perfect = noisy_panel.with_columns(
-            pl.col("factor").rank(method="average").over("date").alias("forward_return")
-        )
-        result = monotonicity(perfect, forward_periods=1, n_groups=5)["factor"]
-        assert result.value == pytest.approx(1.0)
+        # WHY: tiny_panel only has 3 dates, < MIN_MONOTONICITY_PERIODS_HARD after
+        # sampling. Use noisy_panel (20 dates × 30 assets) with perfect
+        # factor-return alignment.
+        result = monotonicity(
+            self._perfect(noisy_panel), forward_periods=1, n_groups=5, seed=0
+        )["factor"]
+        # Every adjacent bucket step is strictly positive and identical across
+        # periods, so the MR statistic is the (positive) common step.
+        assert result.value > 0
+        assert result.metadata["mean_abs_spearman"] == pytest.approx(1.0)
         assert result.metadata["mean_signed"] == pytest.approx(1.0)
-        assert result.stat is None
-        assert result.p_value is None
-        assert result.alternative is None
-        assert WarningCode.DEGENERATE_VARIANCE.value in result.warning_codes
-        assert result.metadata["signal_status"] == "degenerate_zero_variance"
+
+    def test_perfect_monotonicity_is_maximal_evidence(self, noisy_panel):
+        """A perfectly ordered factor gets the smallest attainable p.
+
+        The old headline reported ``value = mean|Spearman| = 1.0`` with the t
+        withheld — a constant signed series has no dispersion to form an SE
+        from. The MR test has no such hole: the recentred bootstrap puts every
+        draw at 0 while the observed J sits above it, so p is the floor
+        ``1 / (B + 1)``.
+        """
+        n_bootstrap = 200
+        result = monotonicity(
+            self._perfect(noisy_panel),
+            forward_periods=1,
+            n_groups=5,
+            n_bootstrap=n_bootstrap,
+            seed=0,
+        )["factor"]
+        assert result.p_value == pytest.approx(1 / (n_bootstrap + 1))
+        assert result.alternative == "greater"
+        assert result.stat == result.value
+        assert result.metadata["stat_type"] == "mr"
+        assert result.warning_codes == ()
+        # The descriptive Spearman pair is preserved, not the headline.
+        assert result.metadata["mean_abs_spearman"] == pytest.approx(1.0)
+        assert result.metadata["mean_signed"] == pytest.approx(1.0)
 
     def test_inverse_monotonic(self, noisy_panel):
         import polars as pl
@@ -51,9 +62,33 @@ class TestComputeMonotonicity:
                 "forward_return"
             )
         )
-        result = monotonicity(inverted, forward_periods=1, n_groups=5)["factor"]
-        assert result.value == pytest.approx(1.0)
+        result = monotonicity(inverted, forward_periods=1, n_groups=5, seed=0)["factor"]
+        # H1 is "increasing" by default, so a perfectly decreasing pattern is
+        # the furthest thing from it: J < 0 and the p is at its ceiling.
+        assert result.value < 0
+        assert result.p_value == pytest.approx(1.0)
+        assert result.metadata["mean_abs_spearman"] == pytest.approx(1.0)
         assert result.metadata["mean_signed"] == pytest.approx(-1.0)
+
+    def test_direction_declares_the_alternative(self, noisy_panel):
+        import polars as pl
+
+        inverted = noisy_panel.with_columns(
+            (-pl.col("factor").rank(method="average").over("date")).alias(
+                "forward_return"
+            )
+        )
+        result = monotonicity(
+            inverted,
+            forward_periods=1,
+            n_groups=5,
+            direction="decreasing",
+            n_bootstrap=200,
+            seed=0,
+        )["factor"]
+        assert result.value > 0
+        assert result.p_value == pytest.approx(1 / 201)
+        assert result.metadata["mr_direction"] == "decreasing"
 
     def test_insufficient_periods(self):
         from datetime import datetime
@@ -240,3 +275,187 @@ class TestBatchTieRatio:
             },
         )
         assert math.isnan(_compute_tie_ratios_batch(empty, ["factor"])["factor"])
+
+
+class TestPattonTimmermannMRTest:
+    """The headline is the MR test, not a statistic with a null floor."""
+
+    @staticmethod
+    def _null_panel(n_dates=400, n_assets=100, seed=0):
+        """Factor drawn independently of returns — H0 true by construction."""
+        from datetime import datetime, timedelta
+
+        import numpy as np
+        import polars as pl
+
+        rng = np.random.default_rng(seed)
+        rows = n_dates * n_assets
+        return pl.DataFrame(
+            {
+                "date": [
+                    datetime(2024, 1, 1) + timedelta(days=d)
+                    for d in range(n_dates)
+                    for _ in range(n_assets)
+                ],
+                "asset_id": [f"A{i}" for _ in range(n_dates) for i in range(n_assets)],
+                "factor": rng.standard_normal(rows),
+                "forward_return": rng.standard_normal(rows) * 0.02,
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+    @pytest.mark.parametrize("n_groups", [3, 5, 10])
+    def test_headline_no_longer_carries_an_n_groups_null_floor(self, n_groups):
+        """mean|rho| read 0.66 / 0.43 / 0.27 at K = 3 / 5 / 10 under H0.
+
+        E|rho| > 0 by Jensen, so the old headline was a noise floor a reader
+        took for MR evidence, and the floor moved with n_groups. Measure the
+        MR test's rejection frequency on panels where H0 holds by construction:
+        it sits at or below nominal at every K, while the descriptive
+        statistic's floor is still plainly there (in metadata, labelled as a
+        shape statistic rather than as evidence).
+        """
+        n_reps = 20
+        rejections = 0
+        floors = []
+        for rep in range(n_reps):
+            panel = self._null_panel(n_dates=120, n_assets=40, seed=100 + rep)
+            result = monotonicity(
+                panel,
+                forward_periods=1,
+                n_groups=n_groups,
+                n_bootstrap=99,
+                seed=rep,
+            )["factor"]
+            rejections += result.p_value < 0.05
+            floors.append(result.metadata["mean_abs_spearman"])
+        assert rejections / n_reps <= 0.15
+        assert min(floors) > 0.15
+
+    def test_mr_statistic_is_the_min_adjacent_difference(self):
+        """Hand computation against the reported bucket means."""
+        import numpy as np
+
+        panel = self._null_panel(n_dates=60, n_assets=20, seed=3)
+        result = monotonicity(
+            panel, forward_periods=1, n_groups=4, n_bootstrap=100, seed=2
+        )["factor"]
+        diffs = np.asarray(result.metadata["mr_adjacent_diffs"])
+        assert len(diffs) == 3  # n_groups - 1 adjacent steps
+        assert result.value == pytest.approx(float(diffs.min()))
+        assert result.metadata["mr_min_diff"] == pytest.approx(result.value)
+
+    def test_bootstrap_is_reproducible_and_reports_its_seed(self):
+        panel = self._null_panel(n_dates=60, n_assets=20, seed=4)
+        kwargs = {"forward_periods": 1, "n_groups": 4, "n_bootstrap": 100}
+        a = monotonicity(panel, seed=7, **kwargs)["factor"]
+        b = monotonicity(panel, seed=7, **kwargs)["factor"]
+        assert a.p_value == b.p_value
+        assert a.metadata["bootstrap_seed"] == 7
+        # An unseeded run resolves one and reports it, so the run stays
+        # reproducible after the fact.
+        c = monotonicity(panel, **kwargs)["factor"]
+        assert isinstance(c.metadata["bootstrap_seed"], int)
+
+    def test_monotone_signal_is_detected(self):
+        from datetime import datetime, timedelta
+
+        import numpy as np
+        import polars as pl
+
+        rng = np.random.default_rng(9)
+        n_dates, n_assets = 200, 60
+        rows = n_dates * n_assets
+        factor = rng.standard_normal(rows)
+        panel = pl.DataFrame(
+            {
+                "date": [
+                    datetime(2024, 1, 1) + timedelta(days=d)
+                    for d in range(n_dates)
+                    for _ in range(n_assets)
+                ],
+                "asset_id": [f"A{i}" for _ in range(n_dates) for i in range(n_assets)],
+                "factor": factor,
+                "forward_return": 0.01 * factor + 0.005 * rng.standard_normal(rows),
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        result = monotonicity(
+            panel, forward_periods=1, n_groups=5, n_bootstrap=200, seed=5
+        )["factor"]
+        assert result.value > 0
+        assert result.p_value < 0.05
+
+
+class TestTieRatioCountsFiniteValuesOnly:
+    def test_nulls_are_not_counted_as_a_tied_level(self):
+        """5 of 10 names null, the other 5 all distinct: the tie ratio is 0."""
+        from datetime import datetime, timedelta
+
+        import polars as pl
+
+        n_dates = 40
+        rows = []
+        for d in range(n_dates):
+            date = datetime(2024, 1, 1) + timedelta(days=d)
+            for i in range(10):
+                rows.append(
+                    {
+                        "date": date,
+                        "asset_id": f"A{i}",
+                        "factor": None if i >= 5 else float(i) + d * 0.01,
+                        "forward_return": 0.001 * i,
+                    }
+                )
+        panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        result = monotonicity(
+            panel, forward_periods=1, n_groups=3, n_bootstrap=50, seed=0
+        )["factor"]
+        assert result.metadata["tie_ratio"] == pytest.approx(0.0)
+
+    def test_nan_is_not_counted_either(self):
+        from datetime import datetime, timedelta
+
+        import polars as pl
+
+        n_dates = 40
+        rows = []
+        for d in range(n_dates):
+            date = datetime(2024, 1, 1) + timedelta(days=d)
+            for i in range(10):
+                rows.append(
+                    {
+                        "date": date,
+                        "asset_id": f"A{i}",
+                        "factor": float("nan") if i >= 5 else float(i) + d * 0.01,
+                        "forward_return": 0.001 * i,
+                    }
+                )
+        panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        result = monotonicity(
+            panel, forward_periods=1, n_groups=3, n_bootstrap=50, seed=0
+        )["factor"]
+        assert result.metadata["tie_ratio"] == pytest.approx(0.0)
+
+    def test_real_ties_are_still_reported(self):
+        from datetime import datetime, timedelta
+
+        import polars as pl
+
+        n_dates = 40
+        rows = []
+        for d in range(n_dates):
+            date = datetime(2024, 1, 1) + timedelta(days=d)
+            for i in range(10):
+                rows.append(
+                    {
+                        "date": date,
+                        "asset_id": f"A{i}",
+                        "factor": float(i // 5),  # two distinct levels
+                        "forward_return": 0.001 * i,
+                    }
+                )
+        panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        with pytest.warns(UserWarning, match="tie_ratio"):
+            result = monotonicity(
+                panel, forward_periods=1, n_groups=3, n_bootstrap=50, seed=0
+            )["factor"]
+        assert result.metadata["tie_ratio"] == pytest.approx(0.8)
