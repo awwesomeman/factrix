@@ -127,17 +127,34 @@ def _har_dof(n: int, lags: int, forward_periods: int | None) -> float:
 
     ``min(1.5 · T / L - 1, T / h - 1)``, floored at 1.
 
-    The first term is [Lazarus-Lewis-Stock-Watson (2018)][llsw-2018] eq. 8:
+    The first term rests on [Lazarus-Lewis-Stock-Watson (2018)][llsw-2018]:
     the fixed-``b`` limiting distribution of a Bartlett-kernel HAR t-statistic
     ([Kiefer-Vogelsang (2005)][kiefer-vogelsang-2005]) is well approximated by
-    a Student ``t`` with ``ν = 1.5·T/L - 1`` degrees of freedom. Using
+    a Student ``t`` with about ``1.5·T/L`` degrees of freedom. Using
     ``t_{T-1}`` instead — the previous convention — treats a bandwidth-``L``
     HAC variance as if it were estimated from ``T`` independent observations.
 
-    The second term caps ``ν`` at the *non-overlapping* sample size: an
-    h-period overlapping series carries at most ``T / h`` independent
-    observations no matter how the kernel is tuned, and without this cap the
-    ``h = 21`` cells stay 2–3× oversized at moderate ``T``.
+    Two departures from LLSW, both factrix choices rather than published
+    forms, stated here and on the ``statistical-methods`` docs page:
+
+    - The ``- 1``. LLSW's own Stata implementation (``harreg.ado``) uses
+      ``ceil(1.5 · T / S)`` with no subtraction. Subtracting one is a
+      small-sample conservatism worth under one degree of freedom; it is
+      kept because it never widens the test and costs no measurable power.
+    - The ``T / h - 1`` cap. Not in LLSW or KV: an h-period overlapping
+      series carries at most ``T / h`` independent observations no matter
+      how the kernel is tuned, and without the cap the ``h = 21`` cells
+      stay 2–3× oversized at moderate ``T`` (measured T=60, h=21:
+      12.2% -> 4.3%).
+
+    Consequence of the cap, disclosed rather than corrected: when
+    ``forward_periods`` is passed on a series with *less* dependence than
+    ``h`` implies — an already non-overlapping or nearly iid series — the
+    test is markedly conservative (measured size at h=21: 0.2% at T=60,
+    2.1% at T=120, 3.5% at T=240; AR(0.6) h=21 T=60: 0.8%). Power stays
+    high in those cells (0.82–1.0), so the cost is a wider interval rather
+    than a blind test. Pass ``forward_periods`` only for the horizon the
+    series is actually built from.
     """
     dof = 1.5 * n / max(lags, 1) - 1.0
     if forward_periods is not None and forward_periods > 1:
@@ -207,7 +224,8 @@ def _newey_west_se(
     Bartlett estimate still understates the long-run variance of a
     *strongly* persistent series. With the LLSW bandwidth and effective
     df now in force (see :func:`_resolve_har_lags` / :func:`_har_dof`) the
-    AR(0.6) mean test sits at 6–7% against a nominal 5% (was 11–21%), but
+    AR(0.6) mean test sits at 5.4–8.1% against a nominal 5% (8.1% at
+    T=60, 5.4% at T=1000; was 9–17%), but
     AR(0.9) is 10–18% and no bandwidth rule fixes that. Above lag-1
     autocorrelation 0.3 the tested series is flagged
     ``SERIAL_CORRELATION_DETECTED`` so the regime is never silent (see
@@ -266,12 +284,20 @@ def _newey_west_se(
     else:
         lrv = _bartlett_long_run_variance(demeaned, lags)
 
-    # Small-sample scale ``T / (T - L - 1)``: the Bartlett sum is built from
-    # autocovariances of a series demeaned in-sample, so it loses one degree
-    # of freedom per estimated parameter plus the L kernel terms. This is the
-    # same finite-sample adjustment Stata's ``newey`` applies (``T/(T-k)``)
-    # and it is what the previous implementation was missing — without it the
-    # SE is 5-15% too small at research sample sizes.
+    # Small-sample scale ``T / (T - L - 1)``: a factrix choice, not a textbook
+    # or Stata one (Stata's ``newey`` scales by ``T/(T-k)`` with ``k`` the
+    # number of regressors — 1 for a mean — and never by the bandwidth). Its
+    # derivation: the Bartlett sum is built from autocovariances of a series
+    # demeaned *in sample*, so each ``γ̂_j`` carries a bias of about
+    # ``-γ_0/T``. For white noise that gives
+    # ``E[LRV̂] ≈ γ_0 (1 - (1 + 2 Σ_j w_j) / T) = γ_0 (1 - (L + 1) / T)``,
+    # which ``T / (T - L - 1)`` undoes exactly. Without it the SE is 5-15%
+    # too small at research sample sizes (h=5 size 8.2-9.6% vs 6.2-6.7%).
+    # It partly double-counts with the fixed-b reference distribution of
+    # :func:`_har_dof`, whose Kiefer-Vogelsang limit already embeds the
+    # demeaning; that is why the h=1 iid cells come out slightly *under*-sized
+    # (measured 4.3-4.7% at T <= 120). The trade is deliberate: the h>1
+    # overlap cells, which are the ones this library actually serves, need it.
     variance_of_mean = max(lrv / n, 0.0) * (n / max(n - lags - 1, 1))
     return float(np.sqrt(variance_of_mean))
 

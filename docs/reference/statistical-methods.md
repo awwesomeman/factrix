@@ -66,22 +66,47 @@ When NW HAC is selected, factrix uses the
 deterministic bandwidth, applied by `ic` (with `NeweyWest` inference), `fm_beta`,
 `pooled_beta`, `common_quantile_spread`, and `common_asymmetry`.
 
-The bandwidth rule is:
+There are **two** bandwidth rules, because the scalar mean $t$-test and
+the $K$-restriction Wald tests degrade in opposite directions under a
+wide kernel (see [section 6](#hac-families) for the full path table).
 
-- For NW HAC metric paths (`ic` with `NeweyWest` inference, `fm_beta`,
-  `pooled_beta`, `common_quantile_spread`, `common_asymmetry`, and slice Wald):
+- **Scalar series-mean HAR $t$-test** (`ic` with `NeweyWest` inference,
+  `caar`, `quantile_spread` under `NeweyWest`, `fm_beta` stage 2) —
+  `_resolve_har_lags`:
+  $$
+  L = \min\!\left(\max\!\left(1.3\sqrt{T},\; 3(h - 1)\right),\; \lceil T/3 \rceil\right)
+  $$
+  read against effective degrees of freedom
+  $\nu = \max\!\left(\min\!\left(1.5T/L - 1,\; T/h - 1\right),\; 1\right)$,
+  with the SE carrying a $T/(T - L - 1)$ finite-sample scale.
+- **Multivariate / $K$-restriction HAC paths** (`pooled_beta`,
+  `spanning_alpha`, `common_quantile_spread`, `common_asymmetry`, the
+  slice Wald tests, `_ols.py`) — `_resolve_nw_lags`:
   $$
   L = \max\!\left(\text{auto\_bartlett}(T),\; h - 1\right)
   $$
-  where $\text{auto\_bartlett}(T) = \max\!\left(1,\; \lfloor 4 \cdot (T/100)^{2/9} \rfloor\right)$ per Newey-West (1994).
+  where $\text{auto\_bartlett}(T) = \max\!\left(1,\; \lfloor 4 \cdot (T/100)^{2/9} \rfloor\right)$ per Newey-West (1994),
+  read against $t_{T-k}$ / $F_{r,\,T-k}$.
 
-with $h$ = `forward_periods`. The first term is the
-[Newey-West 1994][newey-west-1994] automatic Bartlett bandwidth; the second is the
-[Hansen-Hodrick 1980][hansen-hodrick-1980] overlap floor that ensures
-the kernel covers the MA(`h − 1`) structure of overlapping returns.
-factrix takes the maximum so the bandwidth is always at least large
-enough to absorb the overlap, with the Newey-West term taking over once
-`T` is large.
+with $h$ = `forward_periods`. The $1.3\sqrt{T}$ base is
+[LLSW (2018)][llsw-2018]'s HAR recommendation; `auto_bartlett` is the
+[Newey-West 1994][newey-west-1994] automatic Bartlett bandwidth; the
+$h - 1$ term is the [Hansen-Hodrick 1980][hansen-hodrick-1980] overlap
+floor that ensures the kernel covers the MA(`h − 1`) structure of
+overlapping returns. factrix takes the maximum so the bandwidth is
+always at least large enough to absorb the overlap.
+
+#### Three departures from the textbook HAR form
+
+Each is a factrix choice, not a published one, kept because it is
+load-bearing for measured size on overlapping horizons. The counterpart
+statements live in `factrix._stats.hac`'s docstring Notes.
+
+| Piece | Standard | What factrix does | Why | Measured consequence |
+|---|---|---|---|---|
+| Overlap floor | $h - 1$ (Hansen-Hodrick consistency floor) | $3(h-1)$ | At $L = h-1$ the Bartlett weight sends the lag-$(h{-}1)$ autocovariance to $1/h$, so the kernel discards most of the overlap covariance it exists to capture; at $3(h-1)$ the mean weight across the MA band is ≈0.83 rather than ≈0.5. | $T{=}240$, $h{=}21$: size 10.6% → 5.9%. |
+| SE scale | none (textbook is $\sqrt{\text{LRV}/T}$); Stata's `newey` scales by $T/(T-k)$ with $k$ = **regressor count**, never the bandwidth | $T/(T - L - 1)$ | Self-derived white-noise demeaning-bias correction: in-sample demeaning biases each $\hat\gamma_j$ by ≈$-\gamma_0/T$, giving $\mathbb{E}[\widehat{\text{LRV}}] \approx \gamma_0(1 - (L+1)/T)$, which this undoes exactly. | $h{=}5$: 8.2–9.6% → 6.2–6.7%. Partly double-counts with the fixed-$b$ reference (whose KV limit already embeds demeaning), so $h{=}1$ iid cells come out slightly *under*-sized (4.3–4.7% at $T \le 120$). |
+| Effective df | LLSW's `harreg.ado` uses $\lceil 1.5T/S \rceil$ | $\min(1.5T/L - 1,\; T/h - 1)$ | The $-1$ is a sub-one-df small-sample conservatism. The $T/h - 1$ cap is self-derived: an $h$-period overlapping series carries at most $T/h$ independent observations however the kernel is tuned. | Cap: $T{=}60$, $h{=}21$ size 12.2% → 4.3%. Cost: passing `forward_periods` on a series with *less* dependence than $h$ implies makes the test markedly conservative — measured 0.2% ($T{=}60$), 2.1% ($T{=}120$), 3.5% ($T{=}240$) on iid input at $h{=}21$. |
 
 Two choices factrix deliberately did not adopt:
 

@@ -88,7 +88,8 @@ contrasts, not a sidecar to a primary value.
 
 - *primary*: `p_value` — `t`-test on the per-period IC series (non-overlapping stride with stride `forward_periods` by default, or Newey-West HAC if configured).
 - *descriptive*: `n_periods` (the sample the `value` / `stat` / `p_value` describe — the strided subsample under `NonOverlapping`, the full series under `NeweyWest` / `StationaryBootstrap`; equals `n_obs`), `n_periods_full` and `mean_ic_full` (the full per-period series, for reference), `forward_periods`, `tie_ratio` (median across periods), `min_assets_per_period` / `warn_assets_per_period` when the upstream IC series carries per-period asset counts, `stat_type` (`"t"`), `h0` (`"mu=0"`), `method`.
-- *warning*: `WarningCode.FEW_ASSETS` when retained per-period IC cross-sections are below `MIN_IC_ASSETS_WARN`.
+- *descriptive* (conditional, `NeweyWest`): `nw_lags` (resolved Bartlett bandwidth) and `hac_dof` (the effective degrees of freedom the `t` is read against; `None` when the sample is too short to run the kernel).
+- *warning*: `WarningCode.FEW_ASSETS` when retained per-period IC cross-sections are below `MIN_IC_ASSETS_WARN`; `WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED` under `NeweyWest` when the resolved bandwidth exceeds `n_periods / 5`.
 - *short-circuit*: `reason` `insufficient_ic_periods` (too few periods) carries `min_required`; `insufficient_ic_assets` (every cross-section below `MIN_IC_ASSETS_HARD`, so no per-period IC survived — common on one-valid-pair panels) carries `min_assets_required`.
 
 #### `ic_ir`
@@ -108,10 +109,14 @@ is emitted.
   post-hoc and the corrected `p_value` replaces the raw value.
 - *secondary-test* (conditional, Shanken applied):
   `p_value_uncorrected`, `stat_uncorrected`.
-- *descriptive*: `n_periods`, `newey_west_lags`, `forward_periods`,
+- *descriptive*: `n_periods`, `newey_west_lags` (the resolved HAR
+  bandwidth), `hac_dof` (the effective degrees of freedom the `t` is read
+  against), `forward_periods`,
   `is_estimated_factor`, `warning_codes` (conditional),
   `min_assets_per_period` / `warn_assets_per_period` when the upstream
   FM beta series carries per-period asset counts.
+- *warning*: `WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED` when the resolved
+  bandwidth exceeds `n_periods / 5`.
 - *descriptive* (conditional, Shanken applied): `shanken_c`,
   `shanken_factor_return_var`, `shanken_factor_return_var_source`.
 - *descriptive* (conditional, σ²_f ≈ 0): `shanken_correction` =

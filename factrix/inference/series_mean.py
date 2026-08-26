@@ -147,8 +147,17 @@ class NeweyWest:
     calibrated in every overlapping cell measured (4.5–5.4%) at the cost
     of ``h-1`` of every ``h`` observations; ``NeweyWest`` keeps the whole
     sample and measures 3.9–7.3% across ``T ∈ {60, 120, 240, 500} ×
-    h ∈ {1, 5, 21}``. Prefer ``NeweyWest`` for power on short samples and
-    ``NonOverlapping`` when size discipline matters more than power.
+    h ∈ {1, 5, 21}``. Prefer ``NeweyWest`` when the per-period series is
+    itself autocorrelated — striding at ``h = 1`` does nothing for that,
+    and on AR(0.6) input the plain t-test underneath ``NonOverlapping``
+    rejects 32% where ``NeweyWest`` measures 5.4–8.1% — or when ``h`` is
+    long relative to ``T`` (measured power at ``h = 21``: .410 vs .297 at
+    ``T = 60``, .558 vs .528 at ``T = 120``). On an iid or purely
+    overlap-driven series ``NonOverlapping`` has equal or better power
+    and tighter size: at ``h = 1`` ``NeweyWest`` loses 7–13pp of power
+    because ``L = 1.3√T`` spends degrees of freedom on autocorrelation
+    that is not there, and at ``h ≥ 5`` the two are level (.628 vs .636
+    at ``T = 60``) or ``NonOverlapping`` wins from ``T = 240`` up.
     Neither is calibrated above ``PERSISTENT_SERIES_AUTOCORR``.
     """
 
