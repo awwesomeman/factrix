@@ -173,7 +173,9 @@ def _sign_base_rate(adjusted: pl.DataFrame, factor_col: str) -> dict:
             "n_base_rate_rows": non_events.height,
         }
     return {
-        "sign_base_rate": float((non_events["_abnormal_return"] > 0).mean()),
+        "sign_base_rate": float(
+            (non_events["_abnormal_return"] > 0).mean()  # type: ignore[arg-type]
+        ),
         "sign_base_rate_source": "non_event_rows",
         "n_base_rate_rows": non_events.height,
     }

@@ -63,7 +63,7 @@ def _unconditional_bar_return(data: pl.DataFrame, price_col: str) -> float:
         .drop_nulls()
         .drop_nans()
     )
-    return float(rets.mean()) if len(rets) else 0.0
+    return float(rets.mean()) if len(rets) else 0.0  # type: ignore[arg-type]
 
 
 @metric(
