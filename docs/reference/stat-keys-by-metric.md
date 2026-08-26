@@ -603,17 +603,25 @@ Newey-West HAC `t` statistic for `H0: beta = 0`.
 
 #### `common_beta`
 
-- *primary*: `p_value` — cross-asset `t` on the per-asset OLS β
-  distribution, deflated for cross-asset residual correlation (see below).
+- *primary*: `p_value` — `t` on the cross-asset mean of the per-asset OLS
+  β, with the calendar-time SE: `SE² = V_EW + τ̂²/N`, where `V_EW` is the
+  Newey-West(`h−1`) variance of the equal-weight portfolio's slope on the
+  factor (the mean beta is that slope on a rectangular panel) and `τ̂²` is
+  the cross-sectional beta variance in excess of the per-asset estimation
+  noise. The textbook iid `std(β)/√N` understates the SE without bound when
+  assets share a residual component (44.8% size at N=8, ρ=0.5); the
+  Kolari-Pynnönen factor it briefly used instead had zero power once the
+  true betas were dispersed.
 - *descriptive*: `n_assets`, `beta_std`, `median_beta`,
-  `residual_mean_pairwise_corr` (mean off-diagonal correlation of the
-  per-asset regression residuals, measured by `compute_common_betas`),
-  `cross_asset_correlation_applied`, and — when it applied —
-  `kolari_pynnonen_scaling` and `stat_uncorrected`.
-  `cross_asset_correlation_source` records `unavailable_hand_built_frame`
-  when the input frame carries no estimate.
-- *warning*: `WarningCode.EVENT_CLUSTERING_ADJUSTED` when the deflator
-  applied; `WarningCode.FEW_ASSETS` below `MIN_ASSETS_WARN`.
+  `calendar_time_se_applied`, and — when it applied — `ew_portfolio_beta`
+  (the equal-weight portfolio slope, equal to `value` on a rectangular
+  panel), `ew_portfolio_beta_se`, `ew_portfolio_periods` (dates behind it),
+  `beta_dispersion_excess` (`τ̂²`), `dof` (Welch-Satterthwaite df across the
+  two variance components) and `stat_uncorrected` (the iid `t`).
+  `calendar_time_se_source` records `unavailable_hand_built_frame` (no
+  panel behind the frame) or `too_few_shared_periods`; the iid `t` is then
+  the reported statistic.
+- *warning*: `WarningCode.FEW_ASSETS` below `MIN_ASSETS_WARN`.
 
 #### `common_beta_profile`
 

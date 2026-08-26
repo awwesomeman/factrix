@@ -15,6 +15,7 @@ from factrix._axis import (
     SpecRole,
 )
 from factrix._metric_index import cell
+from factrix._stats.ols import _ols_nw_slope_se
 from factrix._types import EPSILON
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import _attach_drop_stats, _finite_expr
@@ -35,65 +36,66 @@ _COMMON_BETA_DROP_REASON = (
 )
 
 
-def _residual_mean_pairwise_corr(
+def _ew_portfolio_slope(
     data: pl.DataFrame,
     betas: pl.DataFrame,
     factor_col: str,
     return_col: str,
-) -> float | None:
-    r"""Mean off-diagonal correlation of the per-asset regression residuals.
+    forward_periods: int,
+) -> tuple[float | None, float | None, int]:
+    r"""Calendar-time equal-weight portfolio slope on the common factor.
 
-    The cross-asset $t$-test downstream treats the per-asset $\hat\beta_i$ as
+    The cross-asset test downstream treats the per-asset $\hat\beta_i$ as
     independent draws. Assets loading on a common component do not give
     independent betas, and $\mathrm{std}(\beta)/\sqrt{N}$ then understates
     $\mathrm{Var}(\bar\beta)$ without bound: at $N = 8$ and a residual
-    correlation of 0.5 the test rejected 44.8% of true nulls at a nominal 5%,
-    and 79.2% at 0.9.
+    correlation of 0.5 the iid test rejected 44.8% of true nulls at a nominal
+    5%, and 79.2% at 0.9.
 
-    $\bar r$ is the quantity that fixes it — the same role the within-period
-    ICC plays for the pooled event statistics — so it is estimated here, where
-    the residuals exist, and carried on the frame for
-    :func:`~factrix.metrics.common_beta.common_beta` to deflate with.
-    Residuals are $\varepsilon_{it} = R_{it} - \hat\alpha_i -
-    \hat\beta_i F_t$; correlations are taken over the dates where **every**
-    surviving asset has a finite residual (a rectangular panel — pairwise
-    deletion can produce a non-PSD matrix whose mean off-diagonal is not a
-    valid design input).
+    The calendar-time form fixes it without an equicorrelation estimate
+    ([Fama (1998)][fama-1998] portfolio approach, the same construction
+    ``caar`` uses): with one regressor shared by every asset,
+    $\bar{\hat\beta} = \mathrm{mean}_i \hat\beta_i$ is exactly the OLS slope of
+    the equal-weight portfolio return $\bar R_t = \mathrm{mean}_i R_{it}$ on
+    $F_t$ whenever the assets share the regressor sample, and that
+    regression's residual $\bar\varepsilon_t$ carries whatever cross-asset
+    residual covariance and heteroskedasticity there is. Its Newey-West SE
+    with an $h - 1$ bandwidth (the overlap of $h$-period forward returns) is
+    the sampling variance of the mean beta *given* the betas.
 
-    Returns ``None`` when it cannot be estimated: fewer than two assets, or
-    fewer than three shared dates.
+    Dates are those on which at least one surviving asset has a finite
+    ``(factor, return)`` pair; on an unbalanced panel the portfolio holds the
+    assets present that date and its slope can differ from the mean of the
+    per-asset slopes — both are reported so the gap is visible.
+
+    Returns ``(slope, var, n_periods)``; ``(None, None, n_periods)`` when
+    fewer than three dates carry a pair or the factor has no time variation.
     """
-    if betas.height < 2:
-        return None
-    wide = (
-        data.join(betas.select("asset_id", "alpha", "beta"), on="asset_id", how="inner")
-        .with_columns(
-            (
-                pl.col(return_col)
-                - pl.col("alpha")
-                - pl.col("beta") * pl.col(factor_col)
-            ).alias("_resid")
-        )
-        .select("date", "asset_id", "_resid")
-        .pivot(index="date", on="asset_id", values="_resid")
-        .drop("date")
-        .drop_nulls()
+    if betas.height < 1:
+        return None, None, 0
+    # Pivot to a date x asset grid and average in numpy: a polars group_by
+    # mean sums in a thread-dependent order, and the last-ulp drift breaks the
+    # batch == single-factor equality the primitive promises.
+    survivors = data.join(betas.select("asset_id"), on="asset_id", how="inner")
+    wide_y = (
+        survivors.select("date", "asset_id", return_col)
+        .pivot(index="date", on="asset_id", values=return_col)
+        .sort("date")
     )
-    matrix = wide.to_numpy()
-    matrix = matrix[np.isfinite(matrix).all(axis=1)]
-    if matrix.shape[0] < 3 or matrix.shape[1] < 2:
-        return None
-    # A constant residual series has no correlation with anything; excluding it
-    # keeps corrcoef from emitting NaN rows.
-    keep = matrix.std(axis=0) > EPSILON
-    matrix = matrix[:, keep]
-    if matrix.shape[1] < 2:
-        return None
-    corr = np.corrcoef(matrix, rowvar=False)
-    off_diagonal = corr[~np.eye(corr.shape[0], dtype=bool)]
-    if not np.isfinite(off_diagonal).any():
-        return None
-    return float(np.nanmean(off_diagonal))
+    wide_x = (
+        survivors.select("date", "asset_id", factor_col)
+        .pivot(index="date", on="asset_id", values=factor_col)
+        .sort("date")
+    )
+    y = np.nanmean(wide_y.drop("date").to_numpy().astype(np.float64), axis=1)
+    x = np.nanmean(wide_x.drop("date").to_numpy().astype(np.float64), axis=1)
+    n_periods = len(y)
+    if n_periods < 3:
+        return None, None, n_periods
+    slope, se, _ = _ols_nw_slope_se(y, x, lags=max(forward_periods - 1, 0))
+    if se < EPSILON:
+        return None, None, n_periods
+    return slope, se * se, n_periods
 
 
 @metric(
@@ -108,6 +110,7 @@ def compute_common_betas(
     data: pl.DataFrame,
     factor_cols: Sequence[str] = ("factor",),
     return_col: str = "forward_return",
+    forward_periods: int = 5,
 ) -> dict[str, pl.DataFrame]:
     r"""Per-asset time-series ordinary least squares (OLS).
 
@@ -134,14 +137,21 @@ def compute_common_betas(
         factor_cols: Factor column names to score. All factors run in a
             single query regardless of N.
         return_col: Forward-return column shared across factors.
+        forward_periods: Overlap horizon of ``return_col``; sets the
+            Newey-West bandwidth ($h - 1$) of the calendar-time slope
+            variance below. Injected by ``evaluate`` from the data's stamped
+            horizon.
 
     Returns:
         Dict mapping each factor name to a DataFrame with columns
         ``asset_id, beta, alpha, t_stat, r_squared, n_obs`` sorted by
-        ``asset_id``, a broadcast ``residual_mean_pairwise_corr`` column (the
-        cross-asset residual correlation ``common_beta`` deflates its t with —
-        see :func:`_residual_mean_pairwise_corr`; ``null`` when it cannot be
-        estimated), plus a broadcast ``_drop_stats`` carrier column on the
+        ``asset_id``, three broadcast calendar-time columns —
+        ``ew_portfolio_beta`` / ``ew_portfolio_beta_var`` (the equal-weight
+        portfolio's slope on the factor and its Newey-West variance, the
+        sampling variance ``common_beta`` tests the mean beta with — see
+        :func:`_ew_portfolio_slope`; ``null`` when they cannot be estimated)
+        and ``ew_portfolio_periods`` (dates behind them) — plus a broadcast
+        ``_drop_stats`` carrier column on the
         assets axis (see :func:`_attach_drop_stats`) so cross-asset consumers
         can surface how much of the universe was silently dropped. An asset is
         emitted only with at least ``MIN_COMMON_BETA_PERIODS_HARD`` **finite**
@@ -187,11 +197,11 @@ def compute_common_betas(
     if not cols:
         raise ValueError("factor_cols must be non-empty")
 
-    return {f: _common_betas_one(data, f, return_col) for f in cols}
+    return {f: _common_betas_one(data, f, return_col, forward_periods) for f in cols}
 
 
 def _common_betas_one(
-    data: pl.DataFrame, factor_col: str, return_col: str
+    data: pl.DataFrame, factor_col: str, return_col: str, forward_periods: int
 ) -> pl.DataFrame:
     # In-line asset count vs the raw universe, captured before the valid-mask
     # filter so the carried drop rate reflects the silent reduction the
@@ -274,11 +284,13 @@ def _common_betas_one(
         .sort("asset_id")
         .collect()
     )
-    r_bar = _residual_mean_pairwise_corr(
-        data.filter(valid_mask), result, factor_col, return_col
+    ew_beta, ew_var, ew_periods = _ew_portfolio_slope(
+        data.filter(valid_mask), result, factor_col, return_col, forward_periods
     )
     result = result.with_columns(
-        pl.lit(r_bar, dtype=pl.Float64).alias("residual_mean_pairwise_corr")
+        pl.lit(ew_beta, dtype=pl.Float64).alias("ew_portfolio_beta"),
+        pl.lit(ew_var, dtype=pl.Float64).alias("ew_portfolio_beta_var"),
+        pl.lit(ew_periods, dtype=pl.Int64).alias("ew_portfolio_periods"),
     )
     return _attach_drop_stats(
         result,

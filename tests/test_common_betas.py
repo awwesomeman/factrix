@@ -100,7 +100,9 @@ class TestComputeCommonBetas:
         # Analysis columns, plus the broadcast assets-axis drop-stat carrier.
         assert df.columns == [
             *_OUT_COLS,
-            "residual_mean_pairwise_corr",
+            "ew_portfolio_beta",
+            "ew_portfolio_beta_var",
+            "ew_portfolio_periods",
             "_drop_stats",
         ]
         assert df["asset_id"].is_sorted()

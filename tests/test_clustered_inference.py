@@ -3,9 +3,10 @@
 Three pooled statistics treated their units as iid when the panel's defining
 feature is that they are not: ``event_hit_rate`` pooled every event into one
 binomial, ``event_ic`` pooled every event into one Spearman, and
-``common_beta`` averaged per-asset betas that load on a common component. All
-three now deflate by the Kolari-Pynnönen machinery ``bmp_z`` and
-``directional_hit_rate`` already used.
+``common_beta`` averaged per-asset betas that load on a common component. The
+two event statistics deflate by the Kolari-Pynnönen machinery ``bmp_z`` and
+``directional_hit_rate`` already used; ``common_beta`` reads its SE off the
+calendar-time equal-weight portfolio.
 """
 
 from __future__ import annotations
@@ -18,10 +19,7 @@ import polars as pl
 import pytest
 import scipy.stats as sp_stats
 from factrix._codes import WarningCode
-from factrix.metrics._helpers import (
-    _kp_cluster_scale,
-    _kp_single_cross_section_scale,
-)
+from factrix.metrics._helpers import KP_MATERIAL_SCALE, _kp_cluster_scale
 from factrix.metrics._primitives import compute_common_betas
 from factrix.metrics.common_beta import common_beta
 from factrix.metrics.event_quality import event_hit_rate, event_ic
@@ -66,17 +64,28 @@ def _clustered_event_panel(
 
 
 def _correlated_beta_panel(
-    seed: int, *, n_assets: int = 8, n_dates: int = 250, rho: float = 0.5
+    seed: int,
+    *,
+    n_assets: int = 8,
+    n_dates: int = 250,
+    rho: float = 0.5,
+    beta_mean: float = 0.0,
+    beta_sd: float = 0.0,
+    hetero_vol: bool = False,
 ) -> pl.DataFrame:
-    """True beta zero; returns share a common component of strength ``rho``."""
+    """Per-asset betas drawn around ``beta_mean`` with spread ``beta_sd``;
+    residuals share a common component of strength ``rho``."""
     rng = np.random.default_rng(seed)
     dates = [datetime(2020, 1, 1) + timedelta(days=i) for i in range(n_dates)]
     common = rng.normal(0, 1, n_dates)
     factor = rng.normal(0, 1, n_dates)
+    betas = beta_mean + beta_sd * rng.normal(0, 1, n_assets)
+    scales = np.linspace(0.5, 2.0, n_assets) if hetero_vol else np.ones(n_assets)
     rows = []
     for a in range(n_assets):
         idio = rng.normal(0, 1, n_dates)
-        rets = np.sqrt(rho) * common + np.sqrt(1 - rho) * idio
+        eps = scales[a] * (np.sqrt(rho) * common + np.sqrt(1 - rho) * idio)
+        rets = betas[a] * factor + eps
         for d in range(n_dates):
             rows.append(
                 {
@@ -89,9 +98,7 @@ def _correlated_beta_panel(
     return pl.DataFrame(rows)
 
 
-class TestTheTwoDeflators:
-    """The design effect and the full K-P factor are not interchangeable."""
-
+class TestTheDeflator:
     def test_design_effect_is_the_identity_without_clustering(self):
         assert _kp_cluster_scale(0.0, 20.0) == pytest.approx(1.0)
 
@@ -100,17 +107,26 @@ class TestTheTwoDeflators:
             1.0 / np.sqrt(1.0 + 19 * 0.4)
         )
 
-    def test_single_cross_section_factor_restores_the_shrunk_denominator(self):
-        # sqrt((1 - r) / (1 + (n - 1) r)): strictly smaller than the design
-        # effect, because a single cross-section's dispersion is itself
-        # deflated by the correlation.
-        assert _kp_single_cross_section_scale(0.5, 8) == pytest.approx(
-            np.sqrt(0.5 / (1.0 + 7 * 0.5))
+    def test_immaterial_deflation_is_disclosed_but_not_applied(self):
+        # Independent triggers on 20 names: the ICC is sampling noise around 0
+        # and the design effect sits within 5% of the identity. Applying it
+        # fired the code on every multi-asset run and moved event_hit_rate off
+        # the exact binomial for nothing.
+        panel = _clustered_event_panel(0, rho=0.0, n_event_dates=200)
+        rng = np.random.default_rng(0)
+        thin = panel.with_columns(
+            pl.when(pl.Series(rng.random(panel.height) < 0.05))
+            .then(pl.col("factor"))
+            .otherwise(0.0)
+            .alias("factor")
         )
-        assert _kp_single_cross_section_scale(0.5, 8) < _kp_cluster_scale(0.5, 8.0)
-
-    def test_single_cross_section_factor_is_the_identity_without_correlation(self):
-        assert _kp_single_cross_section_scale(0.0, 8) == pytest.approx(1.0)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            result = event_hit_rate(thin, forward_periods=1)
+        assert result.metadata["kolari_pynnonen_applied"] is False
+        assert result.metadata["kolari_pynnonen_scaling"] >= KP_MATERIAL_SCALE
+        assert result.metadata["stat_type"] == "binomial_hits"
+        assert WarningCode.EVENT_CLUSTERING_ADJUSTED.value not in result.warning_codes
 
 
 class TestEventHitRateUnderClustering:
@@ -121,6 +137,7 @@ class TestEventHitRateUnderClustering:
         assert WarningCode.EVENT_CLUSTERING_ADJUSTED.value in result.warning_codes
         assert result.metadata["stat_type"] == "z"
         assert result.metadata["kolari_pynnonen_applied"] is True
+        assert result.metadata["kolari_pynnonen_scaling"] < KP_MATERIAL_SCALE
         # The deflation only ever widens the p-value.
         assert abs(result.stat) < abs(result.metadata["stat_uncorrected"])
 
@@ -190,17 +207,24 @@ class TestEventIcInference:
         )
 
 
-class TestCommonBetaUnderCrossAssetCorrelation:
-    def test_correlated_betas_are_deflated_and_disclosed(self):
-        betas = compute_common_betas(_correlated_beta_panel(0, rho=0.9))["factor"]
-        with pytest.warns(UserWarning, match="mean pairwise correlation"):
+class TestCommonBetaCalendarTimeSe:
+    def test_correlated_betas_widen_the_se_and_disclose_it(self):
+        betas = compute_common_betas(
+            _correlated_beta_panel(0, rho=0.9), forward_periods=1
+        )["factor"]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
             result = common_beta(betas)
-        assert WarningCode.EVENT_CLUSTERING_ADJUSTED.value in result.warning_codes
-        assert result.metadata["cross_asset_correlation_applied"] is True
-        assert result.metadata["residual_mean_pairwise_corr"] > 0.5
+        assert result.metadata["calendar_time_se_applied"] is True
+        assert result.metadata["ew_portfolio_beta_se"] > 0
+        assert result.metadata["ew_portfolio_periods"] == 250
+        assert result.metadata["beta_dispersion_excess"] >= 0.0
+        # A shared component makes the iid SE far too small: |t| shrinks.
         assert abs(result.stat) < abs(result.metadata["stat_uncorrected"])
-        # The point estimate is untouched.
+        # The point estimate is untouched, and on a rectangular panel it is
+        # exactly the equal-weight portfolio's slope.
         assert result.value == pytest.approx(float(betas["beta"].mean()))
+        assert result.metadata["ew_portfolio_beta"] == pytest.approx(result.value)
 
     def test_hand_built_frame_without_the_estimate_says_so(self):
         frame = pl.DataFrame(
@@ -216,28 +240,36 @@ class TestCommonBetaUnderCrossAssetCorrelation:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
             result = common_beta(frame)
-        assert result.metadata["cross_asset_correlation_applied"] is False
+        assert result.metadata["calendar_time_se_applied"] is False
         assert (
-            result.metadata["cross_asset_correlation_source"]
-            == "unavailable_hand_built_frame"
+            result.metadata["calendar_time_se_source"] == "unavailable_hand_built_frame"
         )
+        assert "stat_uncorrected" not in result.metadata
 
-    @pytest.mark.parametrize("rho", [0.0, 0.5])
-    def test_size_is_near_nominal_at_every_correlation(self, rho):
+    @pytest.mark.parametrize(
+        ("rho", "beta_sd", "hetero_vol"),
+        [(0.0, 0.0, False), (0.5, 0.0, False), (0.5, 0.0, True), (0.5, 1.0, False)],
+    )
+    def test_size_is_near_nominal_across_regimes(self, rho, beta_sd, hetero_vol):
         reps = 40
         rejected = 0
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             for seed in range(reps):
-                betas = compute_common_betas(_correlated_beta_panel(seed, rho=rho))[
-                    "factor"
-                ]
+                betas = compute_common_betas(
+                    _correlated_beta_panel(
+                        seed, rho=rho, beta_sd=beta_sd, hetero_vol=hetero_vol
+                    ),
+                    forward_periods=1,
+                )["factor"]
                 p = common_beta(betas).p_value
                 if p is not None and p < 0.05:
                     rejected += 1
-        # Measured at 200 draws: 3.5% (rho=0), 3.5% (0.5), 5.0% (0.9), against
-        # 3.5% / 48.5% / 81.5% uncorrected.
-        assert rejected / reps <= 0.20, (rho, rejected)
+        # Measured at 300 draws (N=20, T=300): 4.0% / 5.0% at rho 0 / 0.5,
+        # 5.3% on the heteroskedastic null, 7.0% with beta sd 1 around 0 at
+        # rho 0.5. The Kolari-Pynnonen factor this replaced gave 0.7% on the
+        # heteroskedastic null and 0.0% power with dispersed betas.
+        assert rejected / reps <= 0.20, (rho, beta_sd, hetero_vol, rejected)
 
     def test_uncorrected_statistic_reproduces_the_old_failure(self):
         # Guard on the guard: the size test above must not pass vacuously.
@@ -246,12 +278,33 @@ class TestCommonBetaUnderCrossAssetCorrelation:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             for seed in range(reps):
-                betas = compute_common_betas(_correlated_beta_panel(seed, rho=0.9))[
-                    "factor"
-                ]
+                betas = compute_common_betas(
+                    _correlated_beta_panel(seed, rho=0.9), forward_periods=1
+                )["factor"]
                 r = common_beta(betas)
                 t0 = r.metadata["stat_uncorrected"]
                 if 2 * sp_stats.t.sf(abs(t0), r.n_obs - 1) < 0.05:
+                    rejected += 1
+        assert rejected / reps >= 0.5
+
+    def test_dispersed_betas_keep_their_power(self):
+        # The regime the Kolari-Pynnonen factor destroyed: true betas spread
+        # around a non-zero mean with a shared residual component. Measured
+        # at 300 draws (N=20, T=300, mean 0.4, sd 0.5, rho 0.5): 0.0% under
+        # the old deflator, 80.7% with the calendar-time SE.
+        reps = 20
+        rejected = 0
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            for seed in range(reps):
+                betas = compute_common_betas(
+                    _correlated_beta_panel(
+                        seed, n_assets=20, rho=0.5, beta_mean=0.4, beta_sd=0.5
+                    ),
+                    forward_periods=1,
+                )["factor"]
+                p = common_beta(betas).p_value
+                if p is not None and p < 0.05:
                     rejected += 1
         assert rejected / reps >= 0.5
 
@@ -352,9 +405,7 @@ class TestGeneralisedSignNull:
         )
 
     @pytest.mark.parametrize(("sign", "sign_mix"), [(-1.0, 0.0), (1.0, 0.5)])
-    def test_skew_is_not_read_as_skill_on_short_or_mixed_events(
-        self, sign, sign_mix
-    ):
+    def test_skew_is_not_read_as_skill_on_short_or_mixed_events(self, sign, sign_mix):
         # Measured at 300 draws on a 20-asset skewed panel: 100% rejection
         # with every event short and 93% with a 50/50 mix under the unsigned
         # null; 4.7% / 6.0% under the mixture.

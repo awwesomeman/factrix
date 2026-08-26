@@ -838,39 +838,6 @@ def _deflate_for_within_date_clustering(
     return stat * scale
 
 
-def _kp_single_cross_section_scale(r_hat: float, n: int) -> float:
-    r"""Kolari-Pynnönen deflator for a statistic whose variance is estimated on
-    **one** cross-section.
-
-    $\sqrt{(1 - \hat r) / (1 + (n - 1)\, \hat r)}$ — the published K-P (2010)
-    factor in full, including the $(1 - \hat r)$ numerator that
-    :func:`_kp_cluster_scale` deliberately omits. The two are not
-    interchangeable and the difference is exactly the estimator behind the
-    denominator:
-
-    - :func:`_kp_cluster_scale` (design effect only) is for a statistic whose
-      dispersion is pooled across many clusters — ``bmp_z``'s SAR std over
-      every event period, ``event_hit_rate``'s indicator variance. That pooled
-      variance already contains the between-cluster component, so it estimates
-      $\sigma^2$ and only the independence assumption needs correcting.
-    - This one is for a statistic whose dispersion comes from a *single*
-      cross-section: ``common_beta``'s $\mathrm{std}(\beta_i)$ across assets.
-      Under equicorrelation that sample variance estimates
-      $\sigma^2 (1 - \hat r)$, not $\sigma^2$ — correlated units are *closer
-      together* than independent ones — so the deflator must restore the
-      missing between-unit component as well. Omitting it leaves the test
-      badly oversized where it matters most: on a true null with $N = 8$,
-      the design-effect form alone rejected 14.0% at $\hat r = 0.5$ and 49.5%
-      at 0.9 (nominal 5%), against 3.5% / 5.0% with the full factor, on the
-      same 200 draws where the uncorrected test rejected 48.5% / 81.5%.
-
-    Clamps $\hat r$ below 1 — at perfect correlation the cross-section carries
-    one observation and no test exists.
-    """
-    r = min(max(r_hat, 0.0), 1.0 - EPSILON)
-    return float(np.sqrt((1.0 - r) / (1.0 + (n - 1) * r)))
-
-
 def _pick_event_return_col(data: pl.DataFrame) -> str:
     """Return the preferred return column for event analysis.
 
