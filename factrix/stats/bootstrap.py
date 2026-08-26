@@ -76,11 +76,14 @@ def stationary_bootstrap_resamples(
             [Politis-White (2004)][politis-white-2004] automatic spectral
             plug-in (falling back to the practical ``1.75 * T^(1/3)`` rule
             when the series is too short or degenerate), clamped to
-            ``[1, T/2]`` — blocks past half the sample leave too few
-            distinct resamples to carry information. Must be ``>= 1``;
-            block_length=1 reduces to the ordinary iid bootstrap (Efron).
-            An explicitly supplied value is used as given and is *not*
-            clamped, so passing ``T`` or more is the caller's choice.
+            ``[1, ceil(min(3*sqrt(T), T/3))]`` — ``arch``'s ``b_max``.
+            Bounding ``L`` relative to ``T`` keeps enough effective blocks
+            (``~T/L``) for the resample distribution to carry information.
+            ``block_length=1`` reduces to the ordinary iid bootstrap
+            (Efron). An explicitly supplied value is validated against the
+            same bound and raises ``UserInputError`` outside it, rather
+            than being silently passed through: at ``L >= T`` a circular
+            resample degenerates to a rotation of the input.
         seed: Seed for ``np.random.default_rng`` to make the resample
             reproducible.
 

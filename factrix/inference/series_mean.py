@@ -275,15 +275,40 @@ class StationaryBootstrap:
 
     Resamples geometric-length blocks ([Politis-Romano 1994][politis-romano-1994])
     from the series, centred under $H_0: \mathbb{E}[x] = 0$, and reports the
-    two-sided empirical p — the fraction of bootstrap means at least as
-    extreme as the observed one (Davison-Hinkley ``+1`` smoothing). No
-    normality or asymptotic-variance assumption, unlike ``NeweyWest`` /
-    ``HansenHodrick``: appropriate when the series is short relative to its
-    dependence horizon or heavy-tailed / skewed enough that a HAC t-test is
-    unreliable. Block length resolves automatically per
-    [Politis-White (2004)][politis-white-2004]; the resolved seed is
-    reported in ``metadata`` so the run is reproducible after the fact even
-    though the dataclass itself carries no seed knob.
+    two-sided empirical p on a **studentized (bootstrap-t) root** — the
+    fraction of resamples whose $|\bar x^*/\widehat{se}^*|$ reaches the
+    observed $|\bar x/\widehat{se}|$, with $\widehat{se}$ the batch-means
+    block SE at the resolved block length (Davison-Hinkley ``+1``
+    smoothing). No normality or asymptotic-variance assumption, unlike
+    ``NeweyWest`` / ``HansenHodrick``: appropriate when the series is short
+    relative to its dependence horizon or heavy-tailed / skewed enough that
+    a HAC t-test is unreliable.
+
+    Block length resolves automatically per
+    [Politis-White (2004)][politis-white-2004], **floored at
+    ``forward_periods``**: the plug-in has to rediscover the dependence
+    horizon from a short noisy sample and systematically under-shoots it
+    (measured mean ``L`` of 7.95 against a needed 21 at T=60, h=21, for a
+    41.7% rejection rate at a nominal 5%). The resolved seed is reported in
+    ``metadata`` so the run is reproducible after the fact even though the
+    dataclass itself carries no seed knob.
+
+    Size on an overlapping MA(h-1) null at nominal 5% (300 sims per
+    cell, B=499), before = no horizon floor and an unstudentized root:
+
+    | T   | h  | before | after |
+    |-----|----|--------|-------|
+    | 30  | 5  | 0.247  | 0.110 |
+    | 60  | 5  | 0.172  | 0.077 |
+    | 120 | 5  | —      | 0.060 |
+    | 60  | 21 | 0.417  | 0.083 |
+    | 120 | 21 | 0.277  | 0.073 |
+    | 240 | 21 | —      | 0.093 |
+
+    On an AR(1) null (h=1, 400 sims, B=999): 0.075 / 0.152 / 0.265 at
+    n=30 for phi = 0 / 0.5 / 0.8, and 0.048 / 0.050 / 0.050 at n=500.
+    Short and strongly persistent is the worst cell and carries
+    ``SERIAL_CORRELATION_DETECTED``.
 
     Delegates to ``factrix._stats.bootstrap._block_bootstrap_diff_p`` —
     the same kernel backing ``factrix.stats.BlockBootstrap`` — so the
@@ -306,7 +331,9 @@ class StationaryBootstrap:
 
         vals = _clean_series(data, value_col).to_numpy()
         n = len(vals)
-        p_value, boot_metadata = _block_bootstrap_diff_p(vals)
+        p_value, boot_metadata = _block_bootstrap_diff_p(
+            vals, forward_periods=forward_periods
+        )
 
         warnings: frozenset[WarningCode] = frozenset()
         # Persistence screen: above PERSISTENT_SERIES_AUTOCORR no member of
