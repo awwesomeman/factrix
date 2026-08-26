@@ -35,6 +35,7 @@ from factrix._axis import (
     FactorScope,
     InputShape,
 )
+from factrix._codes import WarningCode
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._types import DDOF, EPSILON
@@ -43,6 +44,7 @@ from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _assign_quantile_groups,
     _enforce_min_floor,
+    _median_universe_size,
     _sample_non_overlapping,
     _short_circuit_output,
 )
@@ -271,10 +273,26 @@ def rank_turnover(
     )
 
 
+def _notional_turnover_sample_threshold(self) -> SampleThreshold:
+    """Static periods floor plus an instance-derived ``min_assets = n_groups``.
+
+    ``notional_turnover`` buckets each date into ``n_groups`` quantiles and
+    reads the top and bottom ones, so a date with fewer than ``n_groups``
+    valid names cannot fill both legs and is dropped — with the default
+    ``n_groups=10`` an 8-name universe drops *every* date, however long the
+    panel. The floor is a function of a constructor argument, so it is
+    declared as a resolver (a callable sample_threshold): the default-config
+    value is what ``inspect_data`` pre-flights, and the in-body gate below
+    re-derives the same ``n_groups`` at run time. Same shape as
+    ``quantile._quantile_groups_threshold`` and ``k_spread._k_spread_threshold``.
+    """
+    return SampleThreshold(min_periods=2, min_assets=self.n_groups)
+
+
 @metric(
     cell=_TR_CELL,
     aggregation=Aggregation.CS_THEN_TS,
-    sample_threshold=SampleThreshold(min_periods=2),
+    sample_threshold=_notional_turnover_sample_threshold,
 )
 def notional_turnover(
     data: pl.DataFrame,
@@ -423,9 +441,20 @@ def notional_turnover(
     )
 
     if per_date.is_empty():
+        # Name the binding axis. The overwhelmingly common cause is a
+        # cross-section too thin to fill ``n_groups`` buckets (the default
+        # ``n_groups=10`` empties every date on an allocation-sized universe),
+        # so report the assets axis and the floor that was missed rather than a
+        # generic "no pairs". A wide-enough panel that still lands here had
+        # every date emptied by nulls, and the same reason reads correctly.
+        median_assets = _median_universe_size(data)
         return _short_circuit_output(
             "notional_turnover",
-            "no_valid_pairs",
+            "insufficient_assets_for_quantile_groups",
+            n_obs=median_assets,
+            n_obs_axis="assets",
+            min_required=n_groups,
+            warning_codes=(WarningCode.THIN_QUANTILE_GROUPS.value,),
             forward_periods=forward_periods,
             n_groups=n_groups,
         )

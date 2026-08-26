@@ -26,7 +26,8 @@ from factrix._axis import (
     FactorDensity,
     FactorScope,
 )
-from factrix._metric_index import cell
+from factrix._codes import WarningCode
+from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_t
 from factrix._types import (
@@ -38,6 +39,7 @@ from factrix.metrics._helpers import (
     _assign_quantile_groups_batch,
     _degenerate_test_fields,
     _enforce_scaled_floor,
+    _median_universe_size,
     _sample_non_overlapping,
     _scaled_periods_threshold,
     _short_circuit_output,
@@ -60,17 +62,41 @@ __all__ = [
 min_assets_per_group: int | None = 50
 
 
+_MONOTONICITY_PERIODS_FLOOR = _scaled_periods_threshold(MIN_MONOTONICITY_PERIODS_HARD)
+
+
+def _monotonicity_sample_threshold(self) -> SampleThreshold:
+    """Stride-scaled periods floor plus an instance-derived ``min_assets = n_groups``.
+
+    The periods floor scales with the non-overlap stride (see ``quantile``):
+    the per-period Spearman series is sub-sampled at ``forward_periods``, so
+    pre-flight and the in-body gate share ``MIN_MONOTONICITY_PERIODS_HARD`` +
+    ``_scaled_min_periods``.
+
+    The assets floor is the binding one on a small universe. Each date is split
+    into ``n_groups`` buckets and a date with a null bucket mean is dropped, so
+    with the default ``n_groups=10`` (calibrated for a ~2000-name equity
+    universe) *every* date is dropped when ``n_assets < n_groups`` — however
+    long the panel. Declaring it here, in the same resolver shape as
+    ``quantile._quantile_groups_threshold`` and ``k_spread._k_spread_threshold``,
+    is what stops ``inspect_data`` calling the default config usable on an
+    8-name panel that ``evaluate`` then refuses.
+    """
+    periods = _MONOTONICITY_PERIODS_FLOOR(self)
+    return SampleThreshold(
+        min_periods=periods.min_periods,
+        warn_periods=periods.warn_periods,
+        min_assets=self.n_groups,
+    )
+
+
 @metric(
     cell=cell(
         FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
     ),
     aggregation=Aggregation.CS_THEN_TS,
     batchable=True,
-    # Periods floor scales with the non-overlap stride (see ``quantile``): the
-    # per-period Spearman series is sub-sampled at ``forward_periods``, so
-    # pre-flight and the in-body gate share ``MIN_MONOTONICITY_PERIODS_HARD`` +
-    # ``_scaled_min_periods``.
-    sample_threshold=_scaled_periods_threshold(MIN_MONOTONICITY_PERIODS_HARD),
+    sample_threshold=_monotonicity_sample_threshold,
 )
 def monotonicity(
     data: pl.DataFrame,
@@ -204,14 +230,22 @@ def monotonicity(
             results[f] = sc
             continue
         if len(mono_arr) == 0:
-            # n_raw_periods cleared the scaled floor above, but every
-            # sampled date had a null bucket mean for this factor (e.g. a
-            # sparse column), leaving nothing to correlate.
+            # n_raw_periods cleared the scaled floor above, yet every sampled
+            # date had a null bucket mean. Name the axis that actually binds:
+            # a cross-section too thin to populate ``n_groups`` buckets empties
+            # every date regardless of how many periods there are, so calling
+            # that "insufficient periods" sent the reader to the wrong axis.
+            # A wide-enough cross-section that still lands here was emptied by
+            # nulls (e.g. a sparse column) and reads correctly under the same
+            # reason: the buckets could not be filled.
+            median_assets = _median_universe_size(data)
             results[f] = _short_circuit_output(
                 "monotonicity",
-                "insufficient_monotonicity_periods",
-                n_obs=0,
-                n_obs_axis="periods",
+                "insufficient_assets_for_quantile_groups",
+                n_obs=median_assets,
+                n_obs_axis="assets",
+                min_required=n_groups,
+                warning_codes=(WarningCode.THIN_QUANTILE_GROUPS.value,),
                 n_groups=n_groups,
                 tie_ratio=tie_ratios[f],
                 tie_policy=tie_policy,

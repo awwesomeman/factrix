@@ -125,6 +125,34 @@ class TestNotionalTurnover:
         assert result.n_obs_axis == "periods"
         assert result.n_obs == 4
 
+    def test_small_universe_names_the_assets_axis(self):
+        """Default n_groups=10 on an 8-name universe empties every date however
+        long the panel — an assets-axis failure, reported as one."""
+        from factrix._codes import WarningCode
+
+        assets = [chr(ord("A") + i) for i in range(8)]
+        df = _panel(200, assets, lambda t, a: ord(a) + t)
+        result = notional_turnover(df)
+        assert math.isnan(result.value)
+        assert result.metadata["reason"] == "insufficient_assets_for_quantile_groups"
+        assert result.n_obs_axis == "assets"
+        assert result.n_obs == 8
+        assert result.metadata["min_required"] == 10
+        assert WarningCode.THIN_QUANTILE_GROUPS.value in result.warning_codes
+
+    def test_declared_assets_floor_tracks_n_groups(self):
+        from factrix.metrics import notional_turnover as nt
+
+        cls = type(nt())
+        assert cls._resolve_sample_threshold(nt()).min_assets == 10
+        assert cls._resolve_sample_threshold(nt(n_groups=3)).min_assets == 3
+
+    def test_downscaled_n_groups_runs_on_the_same_panel(self):
+        assets = [chr(ord("A") + i) for i in range(8)]
+        df = _panel(200, assets, lambda t, a: ord(a) + t)
+        result = notional_turnover(df, n_groups=3)
+        assert not math.isnan(result.value)
+
     def test_full_rotation(self):
         """Ranks reverse every date → top ↔ bot fully swap → turnover = 1."""
 

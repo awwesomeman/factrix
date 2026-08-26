@@ -262,6 +262,7 @@ def _short_circuit_output(
     n_obs_axis: SampleAxis | None = None,
     descriptive: bool = False,
     alternative: PValueAlternative = "two-sided",
+    warning_codes: tuple[str, ...] = (),
     **extra_metadata: object,
 ) -> MetricResult:
     """Canonical short-circuit ``MetricResult`` for "cannot compute".
@@ -293,7 +294,10 @@ def _short_circuit_output(
     holding only the ``MetricResult`` (a standalone call, a stacked
     ``to_frame`` row, a hand-rolled screen) would otherwise see a clean
     ``warning_codes=()`` on a metric that never ran. ``metadata['reason']``
-    stays the specific cause.
+    stays the specific cause. ``warning_codes=`` adds further codes naming the
+    *condition* behind the reason (e.g. ``THIN_QUANTILE_GROUPS`` when the
+    cross-section could not fill the requested buckets); they are appended
+    after ``METRIC_UNAVAILABLE``, de-duplicated.
 
     Use this instead of hand-rolling ``MetricResult(value=float("nan"),
     p_value=1.0, stat=None, metadata={"reason": ..., "p_value": 1.0, ...})``.
@@ -319,7 +323,9 @@ def _short_circuit_output(
         n_obs_axis=n_obs_axis,
         stat=None,
         metadata=metadata,
-        warning_codes=(WarningCode.METRIC_UNAVAILABLE.value,),
+        warning_codes=tuple(
+            dict.fromkeys((WarningCode.METRIC_UNAVAILABLE.value, *warning_codes))
+        ),
     )
 
 
@@ -439,6 +445,7 @@ def _enforce_min_floor(
     axis: SampleAxis = "periods",
     descriptive: bool = False,
     alternative: PValueAlternative = "two-sided",
+    warning_codes: tuple[str, ...] = (),
     **extra: object,
 ) -> MetricResult | None:
     """Short-circuit when ``n`` falls below the metric's declared ``min_<axis>``.
@@ -476,6 +483,7 @@ def _enforce_min_floor(
             min_required=floor,
             descriptive=descriptive,
             alternative=alternative,
+            warning_codes=warning_codes,
             **extra,
         )
     return None
@@ -488,6 +496,7 @@ def _enforce_scaled_floor(
     forward_periods: int,
     reason: str,
     alternative: PValueAlternative = "two-sided",
+    warning_codes: tuple[str, ...] = (),
     **extra: object,
 ) -> MetricResult | None:
     """Short-circuit when the *raw* (pre-sampling) date count is below the
@@ -515,6 +524,7 @@ def _enforce_scaled_floor(
             min_required=floor,
             descriptive=False,  # every stride-sampling metric runs a hypothesis test
             alternative=alternative,
+            warning_codes=warning_codes,
             **extra,
         )
     return None
