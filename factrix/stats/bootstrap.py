@@ -182,10 +182,10 @@ def bootstrap_mean_ci(
 
     **Studentized by default.** The interval is the bootstrap-t
 
-        $$\left[ar x - t^*_{1-lpha}\,\widehat{se},\;
-                ar x - t^*_{lpha}\,\widehat{se}
-    ight],\qquad
-          t^*_b = rac{ar x^*_b - ar x}{\widehat{se}^*_b}$$
+        $$\left[\bar x - t^*_{1-\alpha}\,\widehat{se},\;
+                \bar x - t^*_{\alpha}\,\widehat{se}
+        \right],\qquad
+          t^*_b = \frac{\bar x^*_b - \bar x}{\widehat{se}^*_b}$$
 
     with $\widehat{se}$ the batch-means block SE
     (:func:`factrix._stats.bootstrap._batch_means_se`) at the resolved

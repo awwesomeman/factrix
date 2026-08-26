@@ -13,7 +13,7 @@ from typing import NamedTuple
 import numpy as np
 from scipy import stats as sp_stats
 
-from factrix._stats.hac import _require_finite
+from factrix._stats.hac import _har_dof, _require_finite
 from factrix._types import EPSILON
 
 
@@ -187,6 +187,33 @@ def _ols_nw_multivariate(
     return beta, V_hac, resid
 
 
+def _ols_homoskedastic(
+    y: np.ndarray, X: np.ndarray
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Plain OLS fit with the textbook ``s^2 (X'X)^-1`` covariance.
+
+    The homoskedastic counterpart of :func:`_ols_nw_multivariate`, for the
+    one caller that wants the covariance the estimator's source paper uses
+    rather than a sandwich (:func:`_amihud_hurvich_beta` at
+    ``forward_periods = 1``). Same NaN-on-degenerate contract.
+    """
+    y = _require_finite(y, "_ols_homoskedastic")
+    X = _require_finite(X, "_ols_homoskedastic")
+    n, k = X.shape
+    not_computable = (np.full(k, np.nan), np.full((k, k), np.nan), np.zeros(n))
+    if len(y) != n or n < k + 1:
+        return not_computable
+    with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+        try:
+            XtX_inv = np.linalg.inv(X.T @ X)
+        except np.linalg.LinAlgError:
+            return not_computable
+    beta = XtX_inv @ (X.T @ y)
+    resid = y - X @ beta
+    sigma2 = float(np.dot(resid, resid)) / max(n - k, 1)
+    return beta, sigma2 * XtX_inv, resid
+
+
 class AmihudHurvichFit(NamedTuple):
     """Reduced-bias predictive-regression fit. See :func:`_amihud_hurvich_beta`."""
 
@@ -211,12 +238,12 @@ def _amihud_hurvich_beta(
 
     In the predictive system
 
-        $$y_{t+1} = lpha + eta x_t + e_{t+1},\qquad
-          x_t = 	heta + \phi x_{t-1} + v_t$$
+        $$y_{t+1} = \alpha + \beta x_t + e_{t+1},\qquad
+          x_t = \theta + \phi x_{t-1} + v_t$$
 
-    OLS on $eta$ is biased whenever the innovations are correlated:
+    OLS on $\beta$ is biased whenever the innovations are correlated:
     [Stambaugh (1999)][stambaugh-1999] gives
-    $E[\hateta] - eta pprox (\sigma_{ev}/\sigma_v^2)(1+3\phi)/T$. The
+    $E[\hat\beta] - \beta \approx (\sigma_{ev}/\sigma_v^2)(1+3\phi)/T$. The
     bias is driven by the **product** of persistence $\phi$ and innovation
     correlation $
     ho = \mathrm{corr}(e, v)$ — which is why an ADF screen on
@@ -231,52 +258,104 @@ def _amihud_hurvich_beta(
        $\hat\phi_c = \hat\phi + (1+3\hat\phi)/n + 3(1+3\hat\phi)/n^2$
        (AH eq. 6).
     2. Form the corrected innovation proxy
-       $\hat v^c_t = x_t - \hat	heta_c - \hat\phi_c x_{t-1}$, summed over
+       $\hat v^c_t = x_t - \hat\theta_c - \hat\phi_c x_{t-1}$, summed over
        the return window when ``forward_periods > 1`` (the Stambaugh
        channel then spans $v_{t+1},\dots,v_{t+h}$).
     3. Regress $y_t$ on $[1,\ x_t,\ \hat v^c]$. The coefficient on $x_t$ is
-       the reduced-bias $\hateta_c$.
+       the reduced-bias $\hat\beta_c$.
 
     **Generated-regressor standard error.** Writing
     $\hat v^c = v + (\phi - \hat\phi_c)J$ with $J$ the horizon-summed
     predictor, the augmented fit returns
-    $\hateta_c = eta + \gamma(\hat\phi_c - \phi)\,c$ where $c$ is the
+    $\hat\beta_c = \beta + \gamma(\hat\phi_c - \phi)\,c$ where $c$ is the
     loading of $J$ on $x$ inside the augmented design ($c = 1$ at
     ``forward_periods = 1``, where $J = x$). So
 
-        $$\widehat{\mathrm{Var}}(\hateta_c)
-          = \widehat{\mathrm{Var}}_{	ext{aug}}(\hateta_c)
+        $$\widehat{\mathrm{Var}}(\hat\beta_c)
+          = \widehat{\mathrm{Var}}_{\text{aug}}(\hat\beta_c)
             + \hat\gamma^2\,\widehat{\mathrm{Var}}(\hat\phi_c)\,c^2 .$$
 
     Without this term the SE is badly *understated*: the proxy absorbs the
     correlated part of $e$, so the augmented residual variance is
-    $\sigma_e^2(1-
-    ho^2)$, and the raw augmented SE alone rejects ~50% of
-    true nulls at $
-    ho = -0.9$.
+    $\sigma_e^2(1-\rho^2)$, and the raw augmented SE alone rejects ~50% of
+    true nulls at $\rho = -0.9$.
+    $\widehat{\mathrm{Var}}(\hat\phi_c)$ is *not* $\widehat{\mathrm{Var}}
+    (\hat\phi)$: the correction map is affine in $\hat\phi$ with slope
+    $1 + 3/n + 9/n^2$, so the variance carries that factor squared (AH's own
+    form; omitting it understates the term by 10% at $n = 60$).
 
-    Measured on 400 draws per cell with true $eta = 0$, against plain
-    Newey-West OLS:
+    **Two departures from AH (2004), both factrix choices.**
 
-    | T   | φ    | ρ    | h | bias (OLS → AH)  | size (OLS → AH) |
-    |-----|------|------|---|------------------|-----------------|
-    | 60  | 0.95 | −0.9 | 1 | +0.0758 → +0.0218| 0.203 → 0.113   |
-    | 120 | 0.95 | −0.9 | 1 | +0.0358 → +0.0080| 0.130 → 0.085   |
-    | 240 | 0.95 | −0.9 | 1 | +0.0173 → +0.0028| 0.100 → 0.072   |
-    | 120 | 0.50 | −0.9 | 1 | +0.0167 → −0.0016| 0.062 → 0.052   |
-    | 120 | 0.95 |  0.0 | 1 | −0.0024 → −0.0017| 0.065 → 0.068   |
-    | 120 | 0.00 | −0.9 | 1 | +0.0061 → −0.0014| 0.052 → 0.037   |
-    | 120 | 0.95 | −0.9 | 5 | +0.1423 → +0.0043| 0.263 → 0.102   |
+    1. *The covariance inside the augmented regression is horizon-dependent.*
+       At ``forward_periods = 1`` it is AH's own homoskedastic
+       $s^2(X'X)^{-1}$ and the $t$ is read against $t_{m-3}$; the regression
+       is not overlapping there, so a Bartlett kernel is pure downward bias
+       in the SE. At $h > 1$ it is the Bartlett HAC covariance at ``lags``,
+       read against the fixed-$b$ effective df of
+       :func:`factrix._stats.hac._har_dof` — this is a single-restriction
+       slope test, so the $K \times K$ Wald degradation that keeps the
+       multivariate paths on the narrow bandwidth rule does not apply.
+    2. *The $h > 1$ extension is self-derived.* AH (2004) is an $h = 1$
+       method. Summing $\hat v^c$ over $t+1 \dots t+h$ is the natural
+       extension of the Stambaugh channel to a horizon-$h$ return and the
+       measured bias supports it, but it is not in the paper. Only windows
+       that fit inside the sample are kept, so the design loses its last
+       $h - 1$ rows rather than carrying zero-padded truncated proxy sums.
 
-    The residual excess at ``φ = 0.95`` is the near-unit-root regime, not
-    the Stambaugh channel; callers flag it with
-    ``WarningCode.PERSISTENT_REGRESSOR``.
+    Measured on 2000 draws per cell with true $\beta = 0$, against plain
+    Newey-West OLS. The $\rho = 0$ rows carry no Stambaugh channel at all
+    and exist to separate the correction from the inference:
+
+    | T    | φ    | ρ    | h | bias (OLS → AH)  | size (OLS → AH) |
+    |------|------|------|---|------------------|-----------------|
+    | 60   | 0.50 |  0.0 | 1 | +0.0010 → +0.0012| 0.086 → 0.043   |
+    | 60   | 0.90 |  0.0 | 1 | +0.0009 → −0.0007| 0.091 → 0.050   |
+    | 60   | 0.95 |  0.0 | 1 | −0.0014 → −0.0022| 0.102 → 0.055   |
+    | 60   | 0.99 |  0.0 | 1 | +0.0017 → +0.0015| 0.084 → 0.050   |
+    | 60   | 0.95 | −0.9 | 1 | +0.0670 → +0.0114| 0.183 → 0.075   |
+    | 120  | 0.95 | −0.9 | 1 | +0.0313 → +0.0026| 0.125 → 0.083   |
+    | 240  | 0.95 | −0.9 | 1 | +0.0147 → +0.0007| 0.088 → 0.062   |
+    | 60   | 0.50 |  0.0 | 5 | −0.0095 → −0.0137| 0.144 → 0.121   |
+    | 60   | 0.90 |  0.0 | 5 | −0.0029 → −0.0115| 0.214 → 0.145   |
+    | 120  | 0.50 |  0.0 | 5 | −0.0050 → −0.0059| 0.107 → 0.097   |
+    | 240  | 0.95 |  0.0 | 5 | +0.0002 → −0.0000| 0.130 → 0.102   |
+    | 60   | 0.95 | −0.9 | 5 | +0.2733 → −0.0031| 0.370 → 0.058   |
+    | 120  | 0.95 | −0.9 | 5 | +0.1449 → +0.0058| 0.262 → 0.068   |
+    | 1000 | 0.90 |  0.0 | 5 | −0.0005 → +0.0018| 0.103 → 0.075   |
+
+    Read the two blocks separately. At $h = 1$ the test is calibrated
+    (4.3-5.5% at $\rho = 0$, 6.2-8.3% in the strongest Stambaugh cells).
+    At $h > 1$ it is **not**, and the residual excess is not the Stambaugh
+    channel and not the near-unit-root regime: it is present at $\rho = 0$
+    for every $\phi$, it tracks $h/T$, and plain OLS-NW carries it too. It
+    is the overlapping-regression HAC problem, only partly repaired by the
+    HAR bandwidth and fixed-$b$ df this function now uses (measured
+    10-19% before, 7.5-14.5% after). The textbook resolution is fixed-$b$
+    critical values for the regression Wald, which factrix does not
+    implement; until it does, read an $h > 1$ predictive $p$ against a
+    raised hurdle regardless of the correction.
+
+    **The correction costs power**, because plain OLS's apparent power at
+    $\rho \ne 0$ is partly its own bias: at $T=60,\ \phi=0.95,\ \rho=-0.9$
+    the corrected test rejects 28.8% of a true alternative against OLS's
+    88.6% (T=120: 44.4% against 90.7%). At $\rho = 0$, where OLS is
+    unbiased, the gap is small (63.2% against 70.5% at $T=60$). A metric
+    that stops being significant after the correction was not necessarily
+    significant before it.
+
+    $\hat\phi_c$ is deliberately not clamped below one. Clamping at
+    $1 - 1/n$ was measured and re-opens the bias the estimator exists to
+    close ($T=60,\ \phi=0.95,\ \rho=-0.9,\ h=5$: bias +0.044 clamped
+    against −0.008 unclamped). Callers read ``phi_corrected >= 1`` off the
+    fit and raise ``WarningCode.PERSISTENT_REGRESSOR``.
 
     Args:
         y: ``(n,)`` forward returns, ``y[t]`` spanning ``(t, t+h]``.
         x: ``(n,)`` predictor, aligned so ``x[t]`` predicts ``y[t]``.
         lags: Bartlett bandwidth for the augmented regression's HAC
-            covariance.
+            covariance at ``forward_periods > 1``; ignored at
+            ``forward_periods = 1``, which uses the homoskedastic OLS
+            covariance instead.
         forward_periods: Overlap horizon ``h`` of ``y``.
 
     Returns:
@@ -299,6 +378,14 @@ def _amihud_hurvich_beta(
 
     phi = float(np.dot(dev, x_cur - float(np.mean(x_cur)))) / sxx
     # AH (2004) eq. 6: second-order bias correction of the AR(1) coefficient.
+    # The correction is additive and unbounded, so at phi near one in a short
+    # sample it can push phi_c past the unit circle - AH note this themselves.
+    # It is NOT clamped: clamping at 1 - 1/n was measured and it re-opens the
+    # bias the estimator exists to close (T=60, phi=0.95, rho=-0.9, h=5: bias
+    # +0.044 clamped against -0.008 unclamped), because the draws that need
+    # the largest correction are exactly the ones the clamp truncates. The
+    # regime is disclosed instead - callers read ``phi_corrected >= 1`` off
+    # the fit and raise ``WarningCode.PERSISTENT_REGRESSOR``.
     phi_c = phi + (1.0 + 3.0 * phi) / n + 3.0 * (1.0 + 3.0 * phi) / n**2
     theta_c = float(np.mean(x_cur)) - phi_c * float(np.mean(x_lag))
     innovation = x_cur - theta_c - phi_c * x_lag
@@ -307,24 +394,44 @@ def _amihud_hurvich_beta(
     if h > 1:
         # The channel spans v_{t+1}..v_{t+h}; the Jacobian of the proxy with
         # respect to phi is the matching sum of lagged predictor levels.
-        padded_v = np.concatenate([innovation, np.zeros(h)])
-        padded_x = np.concatenate([x_lag, np.zeros(h)])
-        proxy = np.array([padded_v[i : i + h].sum() for i in range(len(innovation))])
-        jacobian = np.array([padded_x[i : i + h].sum() for i in range(len(innovation))])
+        # Only windows that fit inside the sample are kept: a zero-padded
+        # truncated sum is a different regressor from the h-term one every
+        # other row carries, and feeding those last h-1 rows in adds an
+        # errors-in-variables nuisance at the sample end for no information.
+        n_windows = len(innovation) - (h - 1)
+        if n_windows < 5:
+            return not_computable
+        proxy = np.array([innovation[i : i + h].sum() for i in range(n_windows)])
+        jacobian = np.array([x_lag[i : i + h].sum() for i in range(n_windows)])
     else:
         proxy = innovation
         jacobian = x_lag.copy()
 
     m = len(proxy)
     design = np.column_stack([np.ones(m), x[:m], proxy])
-    beta_vec, cov, _ = _ols_nw_multivariate(y[:m], design, lags=lags)
+    # At h = 1 the augmented regression is not overlapping and its residual
+    # carries no MA structure to absorb, so AH's own plain OLS covariance
+    # s^2 (X'X)^-1 is the right one; a Bartlett kernel there is pure downward
+    # bias in the SE (measured: 8.1-10.6% rejection at rho = 0, T = 60). Even
+    # the zero-lag sandwich is the HC0 form, whose own small-sample
+    # under-coverage costs another 1-2pp at T = 60. HAC is kept for h > 1,
+    # where the overlap is real.
+    if h == 1:
+        beta_vec, cov, _ = _ols_homoskedastic(y[:m], design)
+    else:
+        beta_vec, cov, _ = _ols_nw_multivariate(y[:m], design, lags=lags)
     if not np.all(np.isfinite(beta_vec)):
         return not_computable
     se_aug = float(np.sqrt(max(float(cov[1, 1]), 0.0)))
     gamma = float(beta_vec[2])
 
     sigma2_v = float(np.dot(innovation, innovation)) / max(n - 3, 1)
-    se_phi = float(np.sqrt(sigma2_v / sxx))
+    # sqrt(sigma2_v / sxx) is SE(phi_hat); the term the augmented SE needs is
+    # SE(phi_c). The correction map is affine in phi_hat with slope
+    # 1 + 3/n + 9/n^2, so Var(phi_c) = (1 + 3/n + 9/n^2)^2 Var(phi_hat) - the
+    # form AH use. Omitting the factor understates that variance by 10% at
+    # n = 60, 5% at n = 120.
+    se_phi = float(np.sqrt(sigma2_v / sxx)) * (1.0 + 3.0 / n + 9.0 / n**2)
     loading_vec, _, _ = _ols_nw_multivariate(jacobian, design, lags=0)
     loading = float(loading_vec[1]) if np.isfinite(loading_vec[1]) else 1.0
 
@@ -336,11 +443,17 @@ def _amihud_hurvich_beta(
     # residual: the latter has the proxy projected out of it by construction,
     # so it is orthogonal to ``innovation`` and would report rho = 0 always.
     resid_e = y[:m] - beta_vec[0] - beta_vec[1] * x[:m]
-    corr_matrix = np.corrcoef(resid_e, innovation)
+    corr_matrix = np.corrcoef(resid_e, innovation[:m])
     rho = float(corr_matrix[0, 1]) if np.isfinite(corr_matrix[0, 1]) else nan
     if se < EPSILON:
         return AmihudHurvichFit(beta, nan, nan, se, gamma, phi, phi_c, rho)
 
     t_stat = beta / se
-    p_value = float(2 * sp_stats.t.sf(abs(t_stat), df=max(m - 3, 1)))
+    # h = 1: the textbook residual df of the augmented regression. h > 1: the
+    # augmented SE is a Bartlett HAC one, so the t is read against the same
+    # fixed-b effective df the scalar HAR path uses (``_har_dof``). This is a
+    # single-restriction slope test, so the K x K Wald argument that keeps the
+    # multivariate paths on the narrow rule does not apply to it.
+    dof = float(max(m - 3, 1)) if h == 1 else _har_dof(m, lags, h)
+    p_value = float(2 * sp_stats.t.sf(abs(t_stat), df=dof))
     return AmihudHurvichFit(beta, t_stat, p_value, se, gamma, phi, phi_c, rho)

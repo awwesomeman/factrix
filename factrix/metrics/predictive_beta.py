@@ -23,7 +23,13 @@ from factrix._axis import Aggregation, DataStructure, FactorDensity, InputShape
 from factrix._codes import WarningCode
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
-from factrix._stats import _adf, _lag1_autocorr, _ols_nw_slope_t, _resolve_nw_lags
+from factrix._stats import (
+    _adf,
+    _lag1_autocorr,
+    _ols_nw_slope_t,
+    _resolve_har_lags,
+    _resolve_nw_lags,
+)
 from factrix._stats.constants import (
     MIN_PERIODS_HARD,
     MIN_PERIODS_WARN,
@@ -42,11 +48,15 @@ from factrix.metrics._helpers import (
 
 __all__ = ["predictive_beta"]
 
-#: ``|rho_hat * phi_hat|`` above which the Stambaugh channel is strong enough
-#: that even the bias-corrected test is no longer well sized (measured 7-11%
-#: at a nominal 5% for ``phi = 0.95, rho = -0.9``). Set where the correction
-#: stops holding size inside ~7%.
-_STAMBAUGH_CHANNEL_WARN: float = 0.3
+#: ``|rho_hat * phi_corrected|`` above which the Stambaugh channel is strong
+#: enough that even the bias-corrected test is no longer well sized. Re-derived
+#: from a size sweep over ``T`` in {60, 120, 240} x ``phi`` in {0.5, 0.9, 0.95,
+#: 0.99} x ``rho`` in {-0.5, -0.9} at ``h = 1``, 1500 draws per cell: cells with
+#: a measured channel at or below 0.5 reject 4.1-6.6% at a nominal 5%, cells
+#: above 0.8 reject 5.7-9.1%. The previous 0.3 fired on the whole
+#: ``rho = -0.5`` column, which is calibrated - it read "the corrected test is
+#: oversized here" where it is not.
+_STAMBAUGH_CHANNEL_WARN: float = 0.7
 
 
 @metric(
@@ -92,9 +102,29 @@ def predictive_beta(
     The correction is the [Amihud-Hurvich (2004)][amihud-hurvich-2004]
     augmented regression — see
     ``factrix._stats.ols._amihud_hurvich_beta`` for the construction, the
-    generated-regressor standard error and the measured bias / size table.
-    The raw OLS slope stays in ``metadata["beta_ols_uncorrected"]`` and the
-    correction applied in ``metadata["stambaugh_bias_estimate"]``.
+    generated-regressor standard error, the two factrix departures from AH
+    and the measured bias / size table. The raw OLS slope stays in
+    ``metadata["beta_ols_uncorrected"]`` and the correction applied in
+    ``metadata["stambaugh_bias_estimate"]``.
+
+    **What the correction does and does not fix.** At
+    ``forward_periods = 1`` the corrected test is calibrated: 4.3–5.5% at a
+    nominal 5% when $\rho = 0$ and 6.2–8.3% in the strongest Stambaugh
+    cells, against 8.4–18.3% for plain OLS. At ``forward_periods > 1`` it
+    is not — 7.5–14.5% measured, and the excess is there at $\rho = 0$ for
+    every $\phi$, so it is neither the Stambaugh channel nor the
+    near-unit-root regime. It is the overlapping-regression HAC problem
+    (plain OLS-NW carries the same excess), only partly repaired by the HAR
+    bandwidth and fixed-$b$ effective df this test now uses. Read an
+    ``h > 1`` predictive $p$ against a raised hurdle regardless of the
+    correction.
+
+    **The correction costs power** where OLS's apparent power was partly
+    its own bias: at $T=60,\ \phi=0.95,\ \rho=-0.9$ the corrected test
+    rejects 28.8% of a true alternative against OLS's 88.6%. At $\rho = 0$,
+    where OLS is unbiased, the gap is small (63.2% against 70.5%). A metric
+    that stops being significant after the correction was not necessarily
+    significant before it.
 
     Args:
         data: Single-asset long panel with ``date``, ``asset_id``,
@@ -222,6 +252,13 @@ def predictive_beta(
 
     lags = _resolve_nw_lags(n, newey_west_lags, forward_periods)
     beta_ols, t_ols, p_ols, resid = _ols_nw_slope_t(y, x, lags=lags)
+    # The headline test is a SINGLE-restriction slope t, so it takes the HAR
+    # bandwidth and the fixed-b effective df that the scalar series-mean path
+    # uses - the K x K Wald degradation that keeps the multivariate paths on
+    # the narrow rule does not apply to one restriction. The uncorrected OLS
+    # slope above stays on the narrow rule so it remains the pre-correction
+    # reference it is reported as.
+    har_lags = _resolve_har_lags(n, newey_west_lags, forward_periods)
     # Stambaugh (1999) bias correction via the Amihud-Hurvich (2004)
     # augmented regression. Reported as the headline beta: the uncorrected
     # OLS slope is biased by (sigma_ev/sigma_v^2)(1+3phi)/T whenever the
@@ -229,7 +266,7 @@ def predictive_beta(
     # innovation - the classic dividend-yield artefact, +0.076 against a true
     # 0 at T=60, phi=0.95, rho=-0.9, with a 20.6% rejection rate. The raw OLS
     # slope stays in metadata.
-    fit = _amihud_hurvich_beta(y, x, lags=lags, forward_periods=forward_periods)
+    fit = _amihud_hurvich_beta(y, x, lags=har_lags, forward_periods=forward_periods)
     if math.isnan(fit.beta):
         # Too short / degenerate for the augmented design; fall back to the
         # plain slope so the metric still reports what it can.
@@ -269,7 +306,16 @@ def predictive_beta(
         if stambaugh_applied and not math.isnan(fit.innovation_corr)
         else 0.0
     )
-    if unit_root_suspected or bias_channel > _STAMBAUGH_CHANNEL_WARN:
+    # The bias-corrected AR(1) coefficient is not clamped (clamping it re-opens
+    # the bias the correction exists to close - see _amihud_hurvich_beta), so a
+    # phi_c at or above one is a real regime the caller has to see: the
+    # innovation proxy is then a non-stationary filter of the predictor.
+    phi_corrected_explosive = stambaugh_applied and fit.phi_corrected >= 1.0
+    if (
+        unit_root_suspected
+        or phi_corrected_explosive
+        or bias_channel > _STAMBAUGH_CHANNEL_WARN
+    ):
         warning_codes.append(WarningCode.PERSISTENT_REGRESSOR.value)
     # Persistence screen on this regression's own residuals, taken at stride
     # forward_periods — exactly what inference.NonOverlapping does to its
@@ -313,6 +359,7 @@ def predictive_beta(
         "n_periods_effective": n_effective,
         "residual_lag1_autocorr": resid_autocorr,
         "newey_west_lags": lags,
+        "har_lags": har_lags,
         "forward_periods": forward_periods,
         "alpha": alpha,
         "r_squared": r_squared,
@@ -324,6 +371,7 @@ def predictive_beta(
         "ar1_phi_corrected": fit.phi_corrected,
         "innovation_corr": fit.innovation_corr,
         "stambaugh_bias_channel": bias_channel,
+        "ar1_phi_corrected_explosive": phi_corrected_explosive,
         **adf_metadata,
     }
     # A perfect fit (zero residuals) leaves se_beta ~ 0 and _ols_nw_slope_t

@@ -132,14 +132,18 @@ class TestBiasAndSize:
     )
     def test_size_improves(self, n_periods, phi, rho, horizon):
         _, _, size = self._run(n_periods, phi, rho, horizon)
-        assert size <= 0.12
+        # Tightened from 0.12 once the h=1 path moved to the plain OLS
+        # covariance the source paper uses: these cells measure 0.05-0.06
+        # over 2000 draws, so 0.09 is well clear of MC noise at this
+        # replication count without pinning a seed's exact value.
+        assert size <= 0.09
 
     def test_no_bias_channel_leaves_the_estimate_alone(self):
         """rho = 0 means no Stambaugh bias, so the correction must be inert."""
         bias_ols, bias_ah, size = self._run(120, 0.95, 0.0, 1)
         assert abs(bias_ah) < 0.02
         assert abs(bias_ols) < 0.02
-        assert size <= 0.10
+        assert size <= 0.09
 
 
 class TestBiasChannelWarning:

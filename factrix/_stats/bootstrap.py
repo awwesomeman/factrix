@@ -235,7 +235,7 @@ def _batch_means_se(values: np.ndarray, block_length: float) -> np.ndarray:
     Splits each row into ``floor(n / L)`` contiguous non-overlapping batches
     of length ``L``, and takes the standard error of the batch means:
 
-        $$\widehat{se} = \sqrt{\operatorname{Var}(ar x_b) / n_b}$$
+        $$\widehat{se} = \sqrt{\operatorname{Var}(\bar x_b) / n_b}$$
 
     This is the block-based variance estimator the bootstrap-t root in
     :func:`_block_bootstrap_diff_p` studentizes by. Using the *same*
