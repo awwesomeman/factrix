@@ -127,8 +127,10 @@ def ic_trend(
         ``WarningCode.PERSISTENT_REGRESSOR`` rather than sitting in
         metadata alone.
 
-        **Two corrections for serial dependence, because one is not
-        enough.** Mann-Kendall's null variance
+        **Two corrections for serial dependence.** Striding does ~99% of
+        the work; Hamed-Rao handles the residual persistence that
+        striding cannot reach, and is not calibrated on its own.
+        Mann-Kendall's null variance
         ``Var(S) = n(n-1)(2n+5)/18`` counts every pairwise comparison as
         an independent draw. The default input to this metric — a
         per-period IC series over h-period forward returns — is MA(h-1)
@@ -161,10 +163,33 @@ def ic_trend(
 
         The last two rows are the disclosed limit: striding does nothing
         for a persistent series at ``h = 1``, and Hamed-Rao only halves
-        the excess. Those runs carry
+        the excess. Read the other way round, in every *overlap* cell the
+        strided and strided+Hamed-Rao columns agree to within 1pp — the
+        stride is the fix, and Hamed-Rao earns its place only on the
+        ``h = 1`` autocorrelated rows. Those runs carry
         ``WarningCode.SERIAL_CORRELATION_DETECTED``, fired off the lag-1
         autocorrelation of the strided series against
         ``PERSISTENT_SERIES_AUTOCORR``.
+
+        **The size fix costs power, and at long horizons costs most of
+        it.** Against a drift of 2 sd over the sample, raw Mann-Kendall
+        versus strided + Hamed-Rao:
+
+        | cell        | raw MK | strided + HR |
+        |-------------|--------|--------------|
+        | T=60,  h=5  | 0.865  | 0.360        |
+        | T=120, h=5  | 0.971  | 0.713        |
+        | T=240, h=5  | 0.999  | 0.952        |
+        | T=120, h=21 | 0.888  | 0.086        |
+        | T=240, h=21 | 0.951  | 0.425        |
+
+        The raw column is not a fair comparison — it is the power of a
+        test that rejects 37–68% under the null — but the absolute level
+        of the corrected column is the number to plan around. At
+        ``h = 21`` the stride leaves 12 survivors at ``T = 120`` and the
+        metric is effectively powerless there; it needs roughly 240+
+        periods before it can detect anything, and more still to be
+        comparable with the ``h = 5`` cells.
 
         **Why not a t backed out of the CI.** An earlier version derived
         ``SE ≈ (ci_high - ci_low) / 2 / 1.96`` from scipy's normal-based

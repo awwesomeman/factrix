@@ -635,9 +635,20 @@ per-period IC over h-period forward returns) is MA(h−1):
   statistic on the survivors, not from `scipy.stats.kendalltau`'s iid p.
 
 Measured null rejection at nominal 5% on an overlapping series: raw
-Mann-Kendall 0.37–0.68, strided + Hamed-Rao 0.02–0.05. Residual
-persistence that striding cannot remove (an AR factor at `h = 1`) still
-leaves the test oversized and carries `serial_correlation_detected`.
+Mann-Kendall 0.37–0.68, strided + Hamed-Rao 0.02–0.05. The stride is
+~99% of that fix — in every overlap cell "strided" and "strided +
+Hamed-Rao" agree to within 1pp. Hamed-Rao handles residual persistence
+*after* striding and is not calibrated on its own (Hamed-Rao alone on an
+overlapping series: 0.16–0.32). Residual persistence that striding
+cannot remove (an AR factor at `h = 1`) still leaves the test oversized
+and carries `serial_correlation_detected`.
+
+The stride costs power, and at `forward_periods = 21` costs nearly all
+of it. Against a drift of 2 sd over the sample, raw Mann-Kendall versus
+strided + Hamed-Rao: 0.865 → 0.360 (`T=60, h=5`), 0.971 → 0.713
+(`T=120, h=5`), 0.999 → 0.952 (`T=240, h=5`), 0.888 → 0.086
+(`T=120, h=21`), 0.951 → 0.425 (`T=240, h=21`). At `h = 21` the metric
+needs roughly 240+ periods before it can detect anything.
 
 - *primary*: `p_value` — Hamed-Rao corrected Mann-Kendall trend
   significance.
