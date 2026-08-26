@@ -64,7 +64,9 @@ def _zscore_cs(x: np.ndarray, eps: float = 1e-12) -> np.ndarray:
     # Plain Gaussian z along the last axis — NOT the MAD-z used by
     # factrix/preprocess/normalize.py. Needed here so the Pearson
     # correlation identity Corr(ρ·z(y) + √(1-ρ²)·z(η), y) = ρ holds
-    # exactly at target; swapping in MAD-z breaks the calibration.
+    # at target in expectation; swapping in MAD-z breaks the calibration.
+    # The sample std in the denominator attenuates the realized per-date
+    # correlation by O(1/n) — see make_cs_panel's docstring.
     return (x - x.mean(axis=-1, keepdims=True)) / (
         x.std(axis=-1, ddof=0, keepdims=True) + eps
     )
@@ -93,12 +95,23 @@ def make_cs_panel(
                factor[t] = ρ · z(fr[t]) + √(1−ρ²) · z(η[t])
 
            where ``ρ = clip(ic_target, −0.99, 0.99)`` and ``z`` is plain
-           Gaussian (not MAD) z-score so the identity
-           ``Corr(factor, fr) = ρ`` holds exactly per date at horizon
-           ``H``. Factorlib's ``ic_mean`` uses Spearman rank IC, which
-           tracks Pearson ``ρ`` tightly at small ``|ρ|`` but is not
-           identical — realized ``ic_mean`` at ``|ic_target| ≳ 0.2`` may
-           diverge by a few bp.
+           Gaussian (not MAD) z-score, which makes
+           ``Corr(factor, fr) = ρ`` hold **in expectation** per date at
+           horizon ``H`` — exactly only in the large-``n_assets`` limit.
+           ``z`` divides by the *sample* cross-sectional std, and that
+           sample moment is correlated with the very deviations being
+           standardised, so realized per-date Pearson correlation is
+           attenuated by ``O(1/n_assets)``: measured over 40 seeds at
+           ``ic_target=0.08``, ``H=5``, realized correlation is ~0.064 at
+           ``n_assets=8``, ~0.073 at 12 and 20, ~0.078 at 50. Read the
+           target as the population ρ, not a per-date guarantee, and do
+           not calibrate a small-``n_assets`` power study against it
+           without measuring the realized value first.
+
+           Separately, ``ic_mean`` uses Spearman rank IC, which tracks
+           Pearson ``ρ`` tightly at small ``|ρ|`` but is not identical —
+           realized ``ic_mean`` at ``|ic_target| ≳ 0.2`` may diverge by a
+           few bp.
         5. The last ``H+1`` dates have no defined forward return; factor
            values there are pure noise and will be dropped along with
            the null forward returns once ``compute_forward_return`` runs.
