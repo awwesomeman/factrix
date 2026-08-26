@@ -1,0 +1,6491 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Polars-native factor signal validation toolkit for quantitative finance">
+      
+      
+      
+        <link rel="canonical" href="https://awwesomeman.github.io/factrix/latest/api/preprocess/">
+      
+      
+        <link rel="prev" href="../datasets/">
+      
+      
+        <link rel="next" href="../../development/architecture/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/factrix_icon_light.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>factrix.preprocess - factrix</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/nav.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#column-adaptation" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="factrix" class="md-header__button md-logo" aria-label="factrix" data-md-component="logo">
+      
+  <img src="../../assets/factrix_icon_light.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            factrix
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              factrix.preprocess
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/awwesomeman/factrix" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    awwesomeman/factrix
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../.." class="md-tabs__link">
+          
+  
+  
+  Get started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/concepts/" class="md-tabs__link">
+          
+  
+  
+  User guide
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+  API reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../development/architecture/" class="md-tabs__link">
+          
+  
+  
+  Development
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../development/changelog/" class="md-tabs__link">
+          
+  
+  
+  Release notes
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="factrix" class="md-nav__button md-logo" aria-label="factrix" data-md-component="logo">
+      
+  <img src="../../assets/factrix_icon_light.png" alt="logo">
+
+    </a>
+    factrix
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/awwesomeman/factrix" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    awwesomeman/factrix
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Get started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Get started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_1" id="__nav_2_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Concepts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../where-factrix-fits/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Where factrix fits
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/statistical-methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Statistical methods
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ts-mode-conventions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Timeseries-mode conventions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_2" id="__nav_2_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How-to
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    How-to
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/preparing-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Preparing data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/choosing-metric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Choosing a metric
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/panel-timeseries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Panel vs timeseries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/reading-results/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reading results
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/validating-allocation-signals/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Validating allocation signals
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/large-scale-evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Large-scale evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/slice-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Slice analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/standalone-metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Standalone metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/custom-metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_3" id="__nav_2_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/multi_factor_screening/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-factor screening
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/stock_factor_evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stock factor evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_4" id="__nav_2_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference tables
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference tables
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/metric-applicability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metrics applicability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/stat-keys-by-metric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stat keys
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/warning-codes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Warning codes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/metric-pipelines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metrics pipelines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/bibliography/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bibliography
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data schema
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Entry points
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Entry points
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3_1" id="__nav_3_3_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Core
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../evaluate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    evaluate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multi-horizon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    evaluate_horizons
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../inspect-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    inspect_data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3_2" id="__nav_3_3_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Slicing
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Slicing
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../by-slice/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    by_slice
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../slice-test/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    slice_*_test / slice_period_*_test
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3_3" id="__nav_3_3_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-factor
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Multi-factor
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multi-factor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../bhy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bhy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../bhy-across-metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bhy_across_metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../partial-conjunction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    partial_conjunction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../partial-conjunction-across-metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    partial_conjunction_across_metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../bhy-hierarchical/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    bhy_hierarchical
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3_4" id="__nav_3_3_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Discovery
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Discovery
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metric-spec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    metric_spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3_5" id="__nav_3_3_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diagnostics
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Diagnostics
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compare/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    compare
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Results
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Results
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../evaluation-results/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    EvaluationResult
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Errors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metrics
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Metrics
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_5_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_5_2" id="__nav_3_5_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual continuous
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_5_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Individual continuous
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/individual-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/ic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ic
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/fm_beta/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    fama_macbeth
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/quantile/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    quantile
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/k_spread/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    k_spread
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/monotonicity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    monotonicity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/concentration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    concentration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/tradability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    tradability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/spanning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    spanning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_5_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_5_3" id="__nav_3_5_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual sparse
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_5_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Individual sparse
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/individual-sparse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/caar/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    caar
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/event_quality/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    event_quality
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/event_horizon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    event_horizon
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/mfe_mae/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    mfe_mae
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/clustering_hhi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    clustering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/corrado_rank/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    corrado
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_5_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_5_4" id="__nav_3_5_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common sparse
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_5_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Common sparse
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/common-sparse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_5_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_5_5" id="__nav_3_5_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common continuous
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_5_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Common continuous
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/common-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/common_beta/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    common_beta
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/common_quantile/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    common_quantile
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/common_asymmetry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    common_asymmetry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_5_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_5_6" id="__nav_3_5_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Series diagnostics
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_5_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Series diagnostics
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/series-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/positive_rate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    positive_rate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/directional_hit_rate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    directional_hit_rate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/directional_pair_accuracy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    directional_pair_accuracy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/predictive_beta/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    predictive_beta
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/trend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    trend
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/oos_decay/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    oos
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Supporting modules
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Supporting modules
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stats/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    stats
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../datasets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    datasets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    preprocess
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    preprocess
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#column-adaptation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Column adaptation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#factrix.adapt.adapt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        adapt
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="adapt">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-panel-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The panel contract
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#forward-return" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Forward return
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#factrix.preprocess.compute_forward_return" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        compute_forward_return
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#factrix.preprocess.winsorize_forward_return" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        winsorize_forward_return
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#factrix.preprocess.compute_abnormal_return" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        compute_abnormal_return
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="compute_abnormal_return">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#factor-normalization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Factor normalization
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#factrix.preprocess.mad_winsorize" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        mad_winsorize
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#factrix.preprocess.cross_sectional_zscore" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        cross_sectional_zscore
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="cross_sectional_zscore">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#orthogonalization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Orthogonalization
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#factrix.preprocess.orthogonalize_factor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        orthogonalize_factor
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#factrix.preprocess.OrthogonalizeResult" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OrthogonalizeResult
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Development
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/design-notes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release notes
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Release notes
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#column-adaptation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Column adaptation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#factrix.adapt.adapt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        adapt
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="adapt">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-panel-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The panel contract
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#forward-return" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Forward return
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#factrix.preprocess.compute_forward_return" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        compute_forward_return
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#factrix.preprocess.winsorize_forward_return" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        winsorize_forward_return
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#factrix.preprocess.compute_abnormal_return" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        compute_abnormal_return
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="compute_abnormal_return">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#factor-normalization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Factor normalization
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#factrix.preprocess.mad_winsorize" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        mad_winsorize
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#factrix.preprocess.cross_sectional_zscore" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        cross_sectional_zscore
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="cross_sectional_zscore">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#orthogonalization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Orthogonalization
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#factrix.preprocess.orthogonalize_factor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        orthogonalize_factor
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#factrix.preprocess.OrthogonalizeResult" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OrthogonalizeResult
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    API reference
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../stats/" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Supporting modules
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/awwesomeman/factrix/edit/main/docs/api/preprocess.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<p>Helpers for shaping a raw panel before <a href="../evaluate/"><code>evaluate</code></a>. The
+canonical entry point, <code>compute_forward_return</code>, attaches a
+<code>forward_return</code> column to a raw <code>(date, asset_id, price)</code> panel — the
+output <code>(date, asset_id, factor, forward_return)</code> panel is the canonical
+input to <code>evaluate</code>.</p>
+<p>The surrounding helpers cover the rest of the documented preprocessing
+pipeline and are independently usable on a canonical panel: return
+cleaning (<code>winsorize_forward_return</code>, <code>compute_abnormal_return</code>), factor
+normalization (<code>mad_winsorize</code>, <code>cross_sectional_zscore</code>), and
+orthogonalization against base factors (<code>orthogonalize_factor</code>).</p>
+<h2 id="column-adaptation">Column adaptation<a class="headerlink" href="#column-adaptation" title="Permanent link">&para;</a></h2>
+<p>Use <code>adapt</code> when the input is already a long panel but carries vendor- or
+project-specific column names such as <code>trade_date</code>, <code>ticker</code>, or <code>close_adj</code>.
+It renames those columns to factrix's canonical <code>date</code>, <code>asset_id</code>, <code>price</code>,
+and optional OHLCV names before <code>compute_forward_return</code>. It does not reshape
+data, construct factors, or compute returns.</p>
+<p><code>adapt</code> preserves Polars eager/lazy inputs, converts pandas input to Polars,
+and leaves unrelated columns such as factors, industries, market caps, or
+regime labels unchanged. Optional <code>fill_forward</code> is a raw-OHLCV convenience:
+it maps non-finite numeric values to null and forward-fills per asset before
+forward returns are computed.</p>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h1 id="factrix.adapt.adapt" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">factrix.adapt.adapt</span>
+
+
+<a href="#factrix.adapt.adapt" class="headerlink" title="Permanent link">&para;</a></h1>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">adapt</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n"><span title="factrix.adapt.AdaptInput">AdaptInput</span></span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">date</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">&#39;date&#39;</span><span class="p">,</span> <span class="n">asset_id</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">&#39;asset_id&#39;</span><span class="p">,</span> <span class="n">price</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">&#39;close&#39;</span><span class="p">,</span> <span class="nb">open</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">high</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">low</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">volume</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">fill_forward</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="polars.DataFrame">DataFrame</span></span> <span class="o">|</span> <span class="n"><span title="polars.LazyFrame">LazyFrame</span></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Rename user columns to factrix canonical names.</p>
+<p>Type-preserving for polars inputs: a <code>pl.LazyFrame</code> stays lazy
+(rename / cast / fill happen inside the lazy chain, no implicit
+<code>.collect()</code>), a <code>pl.DataFrame</code> stays eager. <code>pd.DataFrame</code>
+is converted to <code>pl.DataFrame</code> (pandas has no lazy equivalent).
+Only renames columns that differ from the canonical name; all other
+columns pass through unchanged.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>data</code>
+            </td>
+            <td>
+                  <code><span title="factrix.adapt.AdaptInput">AdaptInput</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input frame — <code>pl.DataFrame</code>, <code>pl.LazyFrame</code>, or
+<code>pd.DataFrame</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>date</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>User's date column name.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;date&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>asset_id</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>User's asset identifier column name.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;asset_id&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>price</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>User's price column name.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;close&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>open</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>User's open column name. If set, renamed to <code>open</code>.
+Required by <code>factors.technical.generate_overnight_return</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>high</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>User's high column name. Renamed to <code>high</code>. Required
+by <code>generate_52w_high_ratio</code> / <code>generate_intraday_range</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>low</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>User's low column name. Renamed to <code>low</code>. Required by
+<code>generate_intraday_range</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>volume</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>User's volume column name. Renamed to <code>volume</code>.
+Required by <code>generate_amihud</code> / <code>generate_volume_price_trend</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>fill_forward</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If True, map every non-finite value (NaN and
+±inf) to null, then forward-fill all numeric columns per
+asset. Useful for raw OHLCV data that may contain sporadic
+missing or non-finite values. Mapping ±inf is deliberate:
+inf is not null, so it would otherwise survive the tail
+drop in <code>compute_forward_return</code> and leak into return math.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="polars.DataFrame">DataFrame</span> | <span title="polars.LazyFrame">LazyFrame</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Same polars type as input (<code>pl.DataFrame</code> → <code>pl.DataFrame</code>,</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="polars.DataFrame">DataFrame</span> | <span title="polars.LazyFrame">LazyFrame</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>pl.LazyFrame</code> → <code>pl.LazyFrame</code>) with canonical column</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="polars.DataFrame">DataFrame</span> | <span title="polars.LazyFrame">LazyFrame</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>names. <code>pd.DataFrame</code> input returns <code>pl.DataFrame</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="TypeError">TypeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <em>data</em> is none of <code>pl.DataFrame</code>, <code>pl.LazyFrame</code>,
+<code>pd.DataFrame</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If any specified source column does not exist.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div><h2 id="the-panel-contract">The panel contract<a class="headerlink" href="#the-panel-contract" title="Permanent link">&para;</a></h2>
+<p>Every public entry point — <code>evaluate</code>, <code>evaluate_horizons</code>, <code>inspect_data</code>,
+<code>compute_forward_return</code> — puts its input through one structural gate before
+anything else happens. Three things it enforces, each of which was previously
+left to individual producers and therefore missed by whichever path forgot it:</p>
+<ul>
+<li><strong><code>date</code> must be <code>Date</code> or <code>Datetime</code>.</strong> Only column <em>names</em> were validated,
+  so a <code>String</code> date flowed through <code>sort</code> / <code>shift</code> / <code>over</code> / <code>group_by</code> as
+  text and was ordered lexicographically. With ISO-8601 strings that
+  accidentally works, which is what makes it dangerous — it passes every test
+  and every demo. With <code>MM/DD/YYYY</code> the panel is silently reordered and every
+  forward return is paired with the wrong neighbour. Parse first, e.g.
+  <code>pl.col("date").str.to_datetime("%m/%d/%Y")</code>.</li>
+<li><strong><code>(date, asset_id)</code> must be unique.</strong> A duplicated row makes an asset's
+  "next period" that same date's twin, so <code>price / price - 1 = 0</code>: a four-row
+  panel concatenated with itself came back half fabricated zeros, biasing every
+  downstream mean toward zero with no error and no warning.</li>
+<li><strong>NaN and ±Inf become <code>null</code>.</strong> Applied to <em>inputs</em>, not to computed outputs.
+  This makes the whole class structurally unrepresentable downstream rather
+  than patching instances of it: polars ranks NaN as larger than every real
+  value, <code>pl.corr(method="spearman")</code> silently ranks it, and a <code>+Inf</code>
+  denominator makes <code>finite / inf</code> evaluate to <code>0.0</code> — a <em>finite</em> fabricated
+  −100% return that an output-side <code>is_finite()</code> filter cannot catch.</li>
+</ul>
+<p>The first two raise <a href="../errors/"><code>UserInputError</code></a>; the third is a silent,
+deliberate normalization. <code>_finite_expr</code> remains in place inside the producers
+as defence in depth.</p>
+<h2 id="forward-return">Forward return<a class="headerlink" href="#forward-return" title="Permanent link">&para;</a></h2>
+<p><code>compute_forward_return</code> accepts <code>forward_periods</code> as a positive <code>int</code>.
+<code>0</code>, negative values, floats, strings, and <code>bool</code> values raise
+<a href="../errors/"><code>UserInputError</code></a>.</p>
+<p><strong>The horizon is measured on the panel's own period grid</strong> — the distinct
+sorted <code>date</code> values present in the panel, indexed 0, 1, 2, … Each asset's
+forward return pairs its row at period index <code>i + 1</code> with its row at
+<code>i + 1 + forward_periods</code>. This used to be a positional shift within each
+asset, which equals a time horizon only on a <em>complete</em> per-asset panel: with
+one asset missing 20 periods mid-sample, a "5-period" return silently spanned
+25 real periods, contaminating both the return and the overlap horizon stamped
+in <code>_forward_periods</code> that every downstream HAC inference reads. Suspensions,
+halts, delist-relist and staggered entry are ordinary in regional equity data,
+and sparse event panels are ragged by construction.</p>
+<p>A ragged grid raises <code>ragged_period_grid</code>. The pairing is correct for every
+asset either way; the point of the warning is that an asset with a gap has no
+observation to pair at the exit period and so contributes fewer rows than a
+complete one. Reindex onto a common grid if the horizons must be comparable
+across names.</p>
+<p>Rows whose computed return is not finite are dropped. If the horizon is too
+long for the panel, or price data leaves no finite forward returns after
+filtering, the function raises <a href="../errors/"><code>UserInputError</code></a> instead of
+returning an empty panel.</p>
+<p><code>winsorize_forward_return</code> clips <code>forward_return</code> by per-date quantiles.
+Its bounds must satisfy <code>0 &lt;= lower &lt;= upper &lt;= 1</code>; invalid ordering,
+out-of-range values, non-numeric values, and <code>bool</code> bounds raise
+<a href="../errors/"><code>UserInputError</code></a>.</p>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h1 id="factrix.preprocess.compute_forward_return" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">factrix.preprocess.compute_forward_return</span>
+
+
+<a href="#factrix.preprocess.compute_forward_return" class="headerlink" title="Permanent link">&para;</a></h1>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">compute_forward_return</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n"><span title="polars.DataFrame">DataFrame</span></span><span class="p">,</span> <span class="n">forward_periods</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="polars.DataFrame">DataFrame</span></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Step 1: Compute per-period forward return per asset.</p>
+<p><code>forward_return = (price[t+1+forward_periods] / price[t+1] - 1) / forward_periods</code></p>
+<p>Entry at t+1 (next bar after density), exit at t+1+forward_periods.</p>
+<p>WHY t+1 entry: The density at t is computed using data up to and
+including price[t]. Using price[t] as both density input and entry
+price assumes you can trade at the same price used to generate the
+density — unrealistic in practice. Entry at t+1 enforces a strict
+causal boundary: density → wait → trade → measure.</p>
+<p>This also keeps the return window cleanly separated from the
+estimation window in event studies (BMP test), eliminating the
+need for ad-hoc shift corrections.</p>
+<p>Dividing by <code>forward_periods</code> normalizes returns to a per-period basis, making
+different forward_periods directly comparable on a scale basis
+(see Notes for the scope boundary).</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>data</code>
+            </td>
+            <td>
+                  <code><span title="polars.DataFrame">DataFrame</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Must contain <code>date</code>, <code>asset_id</code>, <code>price</code>, with one row per
+<code>(date, asset_id)</code> and a temporal <code>date</code> column. Both are
+enforced (see Raises); neither used to be.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>forward_periods</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Holding horizon in <strong>periods of the panel's own
+grid</strong> — the distinct sorted <code>date</code> values present in the panel,
+not calendar time and not row position within an asset (default
+5). On a daily panel this is 5 trading days; on a weekly panel, 5
+weeks; on 1-min bars, 5 minutes. Which frequency those periods
+represent is the caller's responsibility.</p>
+              </div>
+            </td>
+            <td>
+                  <code>5</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>overwrite</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Allow recomputation when <code>data</code> already carries a
+<code>forward_return</code> column. <code>False</code> (default) raises rather
+than silently overwrite — the function is <strong>not idempotent</strong>:
+the previous call already dropped the last <code>forward_periods + 1</code>
+rows per asset, so recomputing on the result drops a <em>further</em>
+tail. To change the horizon, recompute from the original
+(pre-forward-return) panel; <code>overwrite=True</code> recomputes in
+place anyway, accepting the additional truncation.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="factrix.UserInputError (factrix._errors.UserInputError)" href="../errors/#factrix.UserInputError">UserInputError</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>forward_periods</code> is not a positive <code>int</code>;
+<code>data</code> carries duplicate <code>(date, asset_id)</code> rows or a
+non-temporal <code>date</code> column; <code>data</code> already has a
+<code>forward_return</code> column and <code>overwrite</code> is <code>False</code>; or the
+horizon / price data leaves no finite forward returns after
+filtering.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="polars.DataFrame">DataFrame</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input DataFrame with <code>forward_return</code> column appended and the</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="polars.DataFrame">DataFrame</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>overlap horizon <code>forward_periods</code> stamped on as a reserved column —</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="polars.DataFrame">DataFrame</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>the single source of truth <code>factrix.evaluate</code> reads (it strips the</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="polars.DataFrame">DataFrame</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>column before dispatch, so it never reaches a metric or <code>to_frame</code>).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="polars.DataFrame">DataFrame</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Rows where forward return is not finite (tail nulls, NaN, +inf, -inf)</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="polars.DataFrame">DataFrame</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>are dropped.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="notes" open>
+  <summary>Notes</summary>
+  <p><strong>The horizon is measured on the panel's period grid.</strong> The distinct
+sorted <code>date</code> values in the panel are indexed 0, 1, 2, ..., and each
+asset's forward return pairs its row at period index <code>i + 1</code> with its
+row at <code>i + 1 + forward_periods</code>. This used to be a positional
+<code>shift</code> within each asset, which equals a time horizon only on a
+complete per-asset panel: with asset A missing 20 periods mid-sample, a
+"5-period" return silently spanned 25 real periods, contaminating both
+the return and the overlap horizon stamped in <code>_forward_periods</code> that
+every downstream HAC inference reads. Suspensions, halts,
+delist-relist and staggered entry are ordinary in regional equity data,
+and sparse event panels are ragged by construction.</p>
+<p>A ragged grid (an asset missing periods that others have) raises
+<code>WarningCode.RAGGED_PERIOD_GRID</code>: the pairing is now correct for
+every asset, but an asset with a gap simply has no observation at
+<code>i + 1 + h</code>, so it contributes fewer rows than a complete one.
+Reindex onto a common grid if the horizons must be comparable across
+names.</p>
+<p><strong>Non-finite prices are blanked before the division, not after.</strong> The
+filter used to be applied to the <em>quotient</em>: with a <code>+Inf</code>
+denominator, <code>finite / inf</code> is <code>0.0</code>, so the result was a perfectly
+finite fabricated <code>-100%</code> return that sailed straight through
+<code>is_finite()</code>. (An <code>inf</code> numerator gives <code>inf</code> and was correctly
+dropped — the leak was asymmetric, and so easy to miss.)</p>
+<p>The <code>/ forward_periods</code> per-period normalization is a <em>scale</em> choice with
+three caveats the caller should know:</p>
+<ol>
+<li><strong>Arithmetic, not summed-log-return.</strong> This is the
+   arithmetic per-period mean of a simple return, not the
+   academic-standard direct long-horizon regression of summed
+   log returns on the predictor (the latter is
+   linear-additive across horizons by construction).</li>
+<li><strong>Compounding bias.</strong> Compounding at the arithmetic mean
+   is an upward-biased estimator of cumulative wealth; the
+   bias grows with <code>forward_periods</code> and per-bar return variance.
+   Negligible for rank-based information coefficient (IC); not negligible for
+   signed-return mean and t-tests at large <code>forward_periods</code>.</li>
+<li><strong>Scale, not inference.</strong> <code>/ forward_periods</code> aligns the <em>scale</em> across
+   horizons — it does <em>not</em> address the inference problem.
+   Overlap is handled by heteroskedasticity-and-autocorrelation-consistent (HAC) (see
+   :class:<code>factrix.inference.NeweyWest</code>); across-horizon
+   selection is handled by a declared multiple-testing family in
+   :func:<code>factrix.multi_factor.bhy</code> (BHY controls FDR, not FWER). The three concerns
+   (scale, overlap, cross-horizon selection) are addressed
+   at separate layers; overlap and across-horizon dependence
+   share a common source in the persistent regressor, but
+   each requires its own tool.</li>
+</ol>
+</details>
+
+<details class="references" open>
+  <summary>References</summary>
+  <ul>
+<li><a class="autorefs autorefs-internal" title="Fama & French (1988)" href="../../reference/bibliography/#fama-french-1988">Fama &amp; French (1988)</a>. "Dividend Yields
+  and Expected Stock Returns." Journal of Financial
+  Economics, 22(1), 3–25. Direct summed-log-return
+  long-horizon regression — the academic-standard
+  alternative to factrix's <code>÷N</code>.</li>
+<li><a class="autorefs autorefs-internal" title="Jacquier, Kane & Marcus (2003)" href="../../reference/bibliography/#jacquier-kane-marcus-2003">Jacquier, Kane &amp; Marcus (2003)</a>.
+  "Geometric or Arithmetic Mean: A Reconsideration."
+  Financial Analysts Journal, 59(6), 46–53. Compounding bias
+  of the arithmetic mean and the unbiased horizon-weighted
+  blend.</li>
+<li><a class="autorefs autorefs-internal" title="Boudoukh, Richardson & Whitelaw (2008)" href="../../reference/bibliography/#boudoukh-richardson-whitelaw-2008">Boudoukh, Richardson &amp; Whitelaw (2008)</a>.
+  "The Myth of Long-Horizon Predictability." Review of
+  Financial Studies, 21(4), 1577–1605. Documents that
+  across-horizon regression statistics share information
+  through the persistent regressor — separate from any
+  per-period scaling choice, and the reason inference across
+  horizons is not addressed by normalization.</li>
+</ul>
+</details>
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">factrix</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fx</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">factrix.preprocess</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_forward_return</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">raw</span> <span class="o">=</span> <span class="n">fx</span><span class="o">.</span><span class="n">datasets</span><span class="o">.</span><span class="n">make_cs_panel</span><span class="p">(</span><span class="n">n_assets</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">n_dates</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">panel</span> <span class="o">=</span> <span class="n">compute_forward_return</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">forward_periods</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="s2">&quot;forward_return&quot;</span> <span class="ow">in</span> <span class="n">panel</span><span class="o">.</span><span class="n">columns</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="go">True</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">panel</span><span class="p">[</span><span class="s2">&quot;forward_return&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">null_count</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="go">True</span>
+</span></code></pre></div>
+    <p>The output panel is the canonical input to <code>fx.evaluate</code>:</p>
+    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">factrix.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">ic</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">results</span> <span class="o">=</span> <span class="n">fx</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">... </span>    <span class="n">panel</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;ic&quot;</span><span class="p">:</span> <span class="n">ic</span><span class="p">()},</span> <span class="n">factor_cols</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;factor&quot;</span><span class="p">],</span> <span class="n">forward_periods</span><span class="o">=</span><span class="mi">5</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span><span class="p">)</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="nb">isinstance</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">&quot;factor&quot;</span> <span class="ow">in</span> <span class="n">results</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="go">True</span>
+</span></code></pre></div>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h1 id="factrix.preprocess.winsorize_forward_return" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">factrix.preprocess.winsorize_forward_return</span>
+
+
+<a href="#factrix.preprocess.winsorize_forward_return" class="headerlink" title="Permanent link">&para;</a></h1>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">winsorize_forward_return</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n"><span title="polars.DataFrame">DataFrame</span></span><span class="p">,</span> <span class="n">lower</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">0.01</span><span class="p">,</span> <span class="n">upper</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">0.99</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="polars.DataFrame">DataFrame</span></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Step 2: Per-date percentile clip on forward returns.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>lower</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Lower quantile bound (default 0.01 = 1st percentile).
+Must satisfy <code>0 &lt;= lower &lt;= upper &lt;= 1</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.01</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>upper</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Upper quantile bound (default 0.99 = 99th percentile).
+Must satisfy <code>0 &lt;= lower &lt;= upper &lt;= 1</code>. Set to
+<code>(0.0, 1.0)</code> to disable.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.99</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="factrix.UserInputError (factrix._errors.UserInputError)" href="../errors/#factrix.UserInputError">UserInputError</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>lower</code> / <code>upper</code> are not numeric quantile
+bounds satisfying <code>0 &lt;= lower &lt;= upper &lt;= 1</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="polars.DataFrame">DataFrame</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>DataFrame with <code>forward_return</code> clipped in-place.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="notes" open>
+  <summary>Notes</summary>
+  <p><strong>Quantile interpolation.</strong> The per-date bounds are computed with
+<code>interpolation="linear"</code> — the numpy / pandas / alphalens default —
+rather than polars' own default of <code>"nearest"</code>. With <code>"nearest"</code>
+the bound snaps to an actually observed value, so on a small
+cross-section the winsorisation can be a complete no-op: for
+<code>[0, 1, ..., 8, 100]</code> at <code>upper=0.95</code> the nearest-rank quantile is
+<code>100</code> itself and the outlier survives untouched, while the linear
+quantile is <code>58.6</code> and clips it. Linear interpolation makes the clip
+level a continuous function of the requested percentile, which is what
+a per-date winsoriser needs in order to behave consistently as the
+cross-section size changes.</p>
+</details>
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">factrix</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fx</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">factrix.preprocess</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">... </span>    <span class="n">compute_forward_return</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span>    <span class="n">winsorize_forward_return</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">... </span><span class="p">)</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">raw</span> <span class="o">=</span> <span class="n">fx</span><span class="o">.</span><span class="n">datasets</span><span class="o">.</span><span class="n">make_cs_panel</span><span class="p">(</span><span class="n">n_assets</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">n_dates</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">panel</span> <span class="o">=</span> <span class="n">compute_forward_return</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">forward_periods</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">clipped</span> <span class="o">=</span> <span class="n">winsorize_forward_return</span><span class="p">(</span><span class="n">panel</span><span class="p">,</span> <span class="n">lower</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="mf">0.99</span><span class="p">)</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">clipped</span><span class="o">.</span><span class="n">height</span> <span class="o">==</span> <span class="n">panel</span><span class="o">.</span><span class="n">height</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="go">True</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">clipped</span><span class="p">[</span><span class="s2">&quot;forward_return&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">&lt;=</span> <span class="n">panel</span><span class="p">[</span><span class="s2">&quot;forward_return&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="go">True</span>
+</span></code></pre></div>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h1 id="factrix.preprocess.compute_abnormal_return" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">factrix.preprocess.compute_abnormal_return</span>
+
+
+<a href="#factrix.preprocess.compute_abnormal_return" class="headerlink" title="Permanent link">&para;</a></h1>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">compute_abnormal_return</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n"><span title="polars.DataFrame">DataFrame</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="polars.DataFrame">DataFrame</span></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Step 3: Cross-sectional abnormal return.</p>
+<p><code>abnormal_return = forward_return - mean(forward_return) per date</code></p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="polars.DataFrame">DataFrame</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>DataFrame with <code>abnormal_return</code> column appended.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">factrix</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fx</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">factrix.preprocess</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">... </span>    <span class="n">compute_abnormal_return</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span>    <span class="n">compute_forward_return</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">... </span><span class="p">)</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">raw</span> <span class="o">=</span> <span class="n">fx</span><span class="o">.</span><span class="n">datasets</span><span class="o">.</span><span class="n">make_cs_panel</span><span class="p">(</span><span class="n">n_assets</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">n_dates</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">panel</span> <span class="o">=</span> <span class="n">compute_forward_return</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">forward_periods</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">adjusted</span> <span class="o">=</span> <span class="n">compute_abnormal_return</span><span class="p">(</span><span class="n">panel</span><span class="p">)</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="gp">&gt;&gt;&gt; </span><span class="s2">&quot;abnormal_return&quot;</span> <span class="ow">in</span> <span class="n">adjusted</span><span class="o">.</span><span class="n">columns</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="go">True</span>
+</span></code></pre></div>
+
+
+    </div>
+
+</div><h2 id="factor-normalization">Factor normalization<a class="headerlink" href="#factor-normalization" title="Permanent link">&para;</a></h2>
+<p>Both normalizers scale by the median absolute deviation (MAD). Three places
+where factrix departs from the most common implementation, and why:</p>
+<p><strong>Finite-sample MAD constant.</strong> The standard scale is <code>1.4826 × MAD</code>, where
+<code>1.4826 = 1/Φ⁻¹(0.75)</code> is the <em>asymptotic</em> consistency constant — this is what
+R's <code>mad()</code> and <code>scipy.stats.median_abs_deviation</code> ship. factrix multiplies in
+the Croux-Rousseeuw (1992) finite-sample factor <code>b_n</code> as well (tabulated for
+<code>n ≤ 9</code>, <code>n/(n−0.8)</code> above), keyed on the per-date count of finite values,
+because this library targets cross-sections of 5–20 names where the asymptotic
+constant is materially biased. Measured on a standard-normal factor
+(true σ = 1), <code>E[1.4826 × MAD]</code> is 0.82 at n=5, 0.91 at n=10 and 0.96 at n=20,
+against 0.99–1.01 at every size with <code>b_n</code>. The bias matters twice over: the
+output of a function called "z-score" was not unit-scale, and because the bias
+is <em>n</em>-dependent, thin dates in an unbalanced panel (delistings, staggered
+entry, sparse event triggers) were handed systematically larger z-scores, so
+anything pooling or weighting by z over-weighted the noisiest cross-sections.
+Fewer than three finite values on a date leaves no estimable robust scale at
+all: the date comes back null rather than as a fabricated <code>0.0</code>.</p>
+<p><strong>Centring.</strong> The textbook z-score subtracts the mean. <code>cross_sectional_zscore</code>
+defaults to <code>center="median"</code> to stay robust to the outliers the MAD scale is
+chosen for — with the consequence that the output is <strong>not</strong> mean-zero on a
+skewed factor, so <code>w ∝ z</code> carries a net long or short leg (measured: <code>+0.32</code>
+net exposure on a 2-of-20 sparse trigger column). Pass <code>center="mean"</code> when the
+weights must be dollar-neutral by construction; the scale stays the robust MAD
+either way.</p>
+<p><strong>Regime switches are announced.</strong> When the per-date MAD collapses to zero
+(more than 50% ties at the median) the scale falls back to the non-robust
+per-date standard deviation. That is a data-driven change of estimator, so it
+raises a <code>UserWarning</code> carrying
+<a href="../../reference/warning-codes/"><code>WarningCode.ZERO_MAD_STD_FALLBACK</code></a> rather
+than mixing robust and non-robust dates into one column silently. On a sparse
+<code>{0, R}</code> trigger column <code>mad_winsorize</code> skips the clip entirely
+(<code>SPARSE_WINSORIZE_SKIPPED</code>): that column's standard deviation is produced <em>by
+the triggers</em>, so a 3-std band shrinks with the trigger rate and destroyed 58%
+of a unit event's magnitude at one trigger in fifty names.</p>
+<p><strong>Non-finite input.</strong> NaN and ±Inf are blanked to <strong>null</strong> on output by both
+functions, not clipped into the band. A non-finite tick is a data error, not an
+extreme value; winsorizing it produced a plausible finite number that survived
+every downstream <code>drop_nulls().drop_nans()</code> and put that asset at the top of
+the date's ranking.</p>
+<p><code>cross_sectional_zscore</code> names its output column after its input:
+<code>factor</code> → <code>factor_zscore</code>, <code>momentum</code> → <code>momentum_zscore</code>, so several factors
+can be standardized in one panel without colliding.</p>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h1 id="factrix.preprocess.mad_winsorize" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">factrix.preprocess.mad_winsorize</span>
+
+
+<a href="#factrix.preprocess.mad_winsorize" class="headerlink" title="Permanent link">&para;</a></h1>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">mad_winsorize</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n"><span title="polars.DataFrame">DataFrame</span></span><span class="p">,</span> <span class="n">factor_col</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">&#39;factor&#39;</span><span class="p">,</span> <span class="n">n_mad</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">3.0</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">center</span><span class="p">:</span> <span class="n"><span title="factrix.preprocess.normalize.Center">Center</span></span> <span class="o">=</span> <span class="s1">&#39;median&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="polars.DataFrame">DataFrame</span></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Step 4: Per-date MAD-based winsorization on factor values.</p>
+<p>Clips factor values to <code>[centre +- n_mad * b_n * 1.4826 * MAD]</code> within
+each cross-section, where <code>b_n</code> is the Croux-Rousseeuw (1992)
+finite-sample correction for the per-date finite count.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>factor_col</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Column to winsorize in place.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;factor&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>n_mad</code>
+            </td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of MAD units for clipping (default 3.0). Must be a
+finite number <code>&gt;= 0</code>; <code>0</code> disables the step.</p>
+              </div>
+            </td>
+            <td>
+                  <code>3.0</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>center</code>
+            </td>
+            <td>
+                  <code><span title="factrix.preprocess.normalize.Center">Center</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Where the clip band is centred — <code>"median"</code> (default,
+robust) or <code>"mean"</code>. The MAD itself is always taken about the
+median.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;median&#39;</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="factrix.UserInputError (factrix._errors.UserInputError)" href="../errors/#factrix.UserInputError">UserInputError</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>n_mad</code> is not a finite number <code>&gt;= 0</code>, or
+<code>center</code> is not <code>"median"</code> / <code>"mean"</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="polars.DataFrame">DataFrame</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>DataFrame with <code>factor_col</code> clipped in-place. Non-finite inputs</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="polars.DataFrame">DataFrame</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>come back <strong>null</strong>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="notes" open>
+  <summary>Notes</summary>
+  <p><strong>Small-sample MAD scaling.</strong> <code>1.4826</code> is the asymptotic
+consistency constant; at finite <code>n</code> it under-estimates sigma by
+18% at n=5 and 9% at n=10, which makes <code>n_mad=3.0</code> an effective
+2.46 sigma clip on a five-name cross-section — over-winsorizing
+exactly the tail a factor's signal lives in. The Croux-Rousseeuw
+(1992) factors (tabulated for <code>n &lt;= 9</code>, <code>n/(n-0.8)</code> above)
+restore <code>n_mad</code> to its nominal sigma meaning at every
+cross-section size, so an unbalanced panel is clipped consistently
+across thin and wide dates.</p>
+<p><strong>Zero-MAD dates.</strong> More than 50% ties on a date drives the MAD to
+exactly 0. Two sub-regimes are handled differently, and both raise a
+<code>UserWarning</code>:</p>
+<ul>
+<li>A sparse <code>{0, R}</code> trigger column (median 0, MAD 0) is <strong>left
+  unwinsorized</strong> (<code>WarningCode.SPARSE_WINSORIZE_SKIPPED</code>). Its
+  standard deviation is produced <em>by the triggers</em>, so
+  <code>3 * std</code> collapses as the trigger rate falls — at one trigger
+  in fifty names a unit event was clipped to 0.42, destroying 58%
+  of the magnitude the metric downstream is trying to measure.</li>
+<li>Any other zero-MAD date (a bucketed or binary factor) falls back
+  to the per-date sample standard deviation (<code>ddof=1</code>), which
+  keeps the factor finite and rank-preserving
+  (<code>WarningCode.ZERO_MAD_STD_FALLBACK</code>).</li>
+</ul>
+<p>A cross-section with no dispersion at all has <code>scale = 0</code> and is
+left untouched by the clip. A date with fewer than
+<code>MIN_SCALE_ASSETS_HARD</code> finite values has no estimable robust
+scale and is left untouched too
+(<code>WarningCode.INSUFFICIENT_SCALE_ASSETS</code>).</p>
+<p><strong>Non-finite input.</strong> NaN / +-Inf values are excluded from the
+per-date statistics <em>and blanked to null in the output</em>, matching
+:func:<code>cross_sectional_zscore</code>. Clipping them into the band (the
+previous behaviour) turned a hard data error into a plausible
+finite extreme that survived every downstream
+<code>drop_nulls().drop_nans()</code> and put the asset at the top of that
+date's ranking.</p>
+</details>
+
+<details class="references" open>
+  <summary>References</summary>
+  <ul>
+<li>Croux, C. &amp; Rousseeuw, P. J. (1992). "Time-Efficient Algorithms
+  for Two Highly Robust Estimators of Scale." Finite-sample
+  correction factors for the MAD.</li>
+</ul>
+</details>
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">factrix</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fx</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">factrix.preprocess</span><span class="w"> </span><span class="kn">import</span> <span class="n">mad_winsorize</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">raw</span> <span class="o">=</span> <span class="n">fx</span><span class="o">.</span><span class="n">datasets</span><span class="o">.</span><span class="n">make_cs_panel</span><span class="p">(</span><span class="n">n_assets</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">n_dates</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">clipped</span> <span class="o">=</span> <span class="n">mad_winsorize</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">n_mad</span><span class="o">=</span><span class="mf">3.0</span><span class="p">)</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">clipped</span><span class="o">.</span><span class="n">columns</span> <span class="o">==</span> <span class="n">raw</span><span class="o">.</span><span class="n">columns</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="go">True</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">clipped</span><span class="o">.</span><span class="n">height</span> <span class="o">==</span> <span class="n">raw</span><span class="o">.</span><span class="n">height</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="go">True</span>
+</span></code></pre></div>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h1 id="factrix.preprocess.cross_sectional_zscore" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">factrix.preprocess.cross_sectional_zscore</span>
+
+
+<a href="#factrix.preprocess.cross_sectional_zscore" class="headerlink" title="Permanent link">&para;</a></h1>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">cross_sectional_zscore</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n"><span title="polars.DataFrame">DataFrame</span></span><span class="p">,</span> <span class="n">factor_col</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">&#39;factor&#39;</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">center</span><span class="p">:</span> <span class="n"><span title="factrix.preprocess.normalize.Center">Center</span></span> <span class="o">=</span> <span class="s1">&#39;median&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="polars.DataFrame">DataFrame</span></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Step 5: MAD-robust z-score within each cross-section (date).</p>
+<p><code>z = (x - centre(x)) / (b_n * 1.4826 * MAD(x))</code></p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>factor_col</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Column to standardize.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;factor&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>center</code>
+            </td>
+            <td>
+                  <code><span title="factrix.preprocess.normalize.Center">Center</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Where the score is centred.</p>
+<ul>
+<li><code>"median"</code> (default) — robust to outliers, but <strong>not
+  mean-zero</strong>. For any skewed factor (sparse event triggers,
+  log-scaled fundamentals) <code>mean(z) != 0</code>, so weights
+  <code>w ~ z</code> carry a persistent net long or short leg and the
+  book is charged market beta the caller did not intend. On a
+  2-of-20 sparse trigger column the net exposure is <code>+0.32</code>.</li>
+<li><code>"mean"</code> — subtracts the per-date mean instead, so the
+  output is exactly mean-zero and <code>w ~ z</code> is dollar-neutral
+  by construction, at the cost of a centre that a single
+  outlier can move. The <strong>scale</strong> stays the robust MAD either
+  way.</li>
+</ul>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;median&#39;</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="polars.DataFrame">DataFrame</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>DataFrame with a <code>f"{factor_col}_zscore"</code> column appended (so</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="polars.DataFrame">DataFrame</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>standardizing several factors in one panel no longer collides on a</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="polars.DataFrame">DataFrame</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>single hard-coded name).</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="notes" open>
+  <summary>Notes</summary>
+  <p><strong>Small-sample MAD scaling.</strong> The scale carries the Croux-Rousseeuw
+(1992) finite-sample factor <code>b_n</code> on top of the asymptotic
+<code>1.4826</code>. Without it the output of a function called
+"z-score" is not unit-scale at small <code>n</code> — its expected
+cross-sectional standard deviation is 1.67 at n=5 and 1.18 at
+n=10 — and, worse, the inflation is <code>n</code>-dependent, so on an
+unbalanced panel thin dates produce systematically larger z and
+every pooled or z-weighted statistic over-weights the noisiest
+cross-sections. <code>b_n</code> removes the bias in the <em>scale estimator</em>
+(<code>E[b_n · 1.4826 · MAD] = σ</code> to within 1% at every <code>n &gt;= 3</code>),
+which brings the expected <code>sd(z)</code> to 1.38 at n=5 and 1.08 at
+n=10; the residual excess is Jensen curvature in <code>E[σ̂ / scale]</code>
+and no fixed constant removes it. The constant targets the
+<em>normal-consistent</em> scale: on heavier tails it overstates the
+distribution's own MAD-implied scale (about +12% at n=3 on a
+t(5), under +1% by n=50). See :func:<code>mad_winsorize</code>.</p>
+<p><strong>Zero-MAD fallback.</strong> With more than 50% ties on a date the MAD is
+exactly 0, so the naive ratio is <code>+-inf</code> for every non-median
+value (and <code>0/0 = NaN</code> at the median). We fall back to the
+per-date sample standard deviation (<code>ddof=1</code>) as the scale, which
+keeps the z finite and rank-preserving — and raise a
+<code>UserWarning</code> carrying <code>WarningCode.ZERO_MAD_STD_FALLBACK</code>,
+because robust and non-robust dates otherwise end up mixed into one
+column and one downstream statistic with no way to tell them apart.</p>
+<p><strong>Thin cross-sections.</strong> A date with fewer than
+<code>MIN_SCALE_ASSETS_HARD</code> finite values yields <strong>null</strong>, not
+<code>0.0</code>. At n=1 the old chain fell through to <code>0.0</code> — an
+"average" fabricated from a single observation — and at n=2 it
+returned <code>+-0.6745</code> whatever the two values were, a constant
+carrying no information but indistinguishable downstream from a
+real score. <code>WarningCode.INSUFFICIENT_SCALE_ASSETS</code> is raised.
+A fully constant cross-section of at least that size does have a
+genuine "no spread" reading and still maps to <code>0.0</code>.</p>
+<p><strong>Nulls stay null.</strong> Per the library convention (producers never
+impute; consumers drop with <code>drop_nulls().drop_nans()</code>), a null
+input yields a null z-score, and so does a non-finite (NaN / +-Inf)
+input.</p>
+</details>
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">factrix</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fx</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">factrix.preprocess</span><span class="w"> </span><span class="kn">import</span> <span class="n">cross_sectional_zscore</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">raw</span> <span class="o">=</span> <span class="n">fx</span><span class="o">.</span><span class="n">datasets</span><span class="o">.</span><span class="n">make_cs_panel</span><span class="p">(</span><span class="n">n_assets</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">n_dates</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">standardized</span> <span class="o">=</span> <span class="n">cross_sectional_zscore</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="s2">&quot;factor_zscore&quot;</span> <span class="ow">in</span> <span class="n">standardized</span><span class="o">.</span><span class="n">columns</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="go">True</span>
+</span></code></pre></div>
+
+
+    </div>
+
+</div><h2 id="orthogonalization">Orthogonalization<a class="headerlink" href="#orthogonalization" title="Permanent link">&para;</a></h2>
+<p><code>orthogonalize_factor</code> runs a per-date cross-sectional OLS and returns the
+residual. Two guards that the textbook formulation leaves to the analyst:</p>
+<p><strong>A degrees-of-freedom floor, not a solvability floor.</strong> The regression is only
+fitted on dates leaving at least <code>min_residual_df</code> residual degrees of freedom
+(<code>n_assets − n_base − 1</code>, default 10 — the <code>N ≥ K + 10</code> form of the
+Fama-MacBeth convention). Raw R² is mechanically ≈ <code>K/(N − 1)</code> even when the
+true R² is zero, so on a six-name book regressed on four exposures the old
+one-df floor reported <code>mean_r_squared = 0.79</code> (adjusted: <code>−0.03</code>) after
+stripping 83% of the factor's variance — the factor reads as redundant when it
+is orthogonal by construction. Dates below the floor keep their original values,
+are counted in <code>n_dates_insufficient_df</code>, and raise
+<code>insufficient_regression_df</code>. <code>mean_adj_r_squared</code> is reported alongside the raw
+figure. Pass <code>min_residual_df=1</code> to restore the old behaviour.</p>
+<p><strong>Rank deficiency is detected, not assumed away.</strong> An intercept is always
+prepended, so a full industry dummy set is exactly singular. <code>np.linalg.lstsq</code>
+does not raise on that — it returns the minimum-norm solution — so the residual
+is still exact (the projection onto the column space is unique) but <code>mean_betas</code>
+was an arbitrary point in the solution space. Rank is read from the singular
+values <code>lstsq</code> already computes, at <code>matrix_rank</code>'s tolerance so <em>near</em>-collinear
+designs are caught too; deficient dates are excluded from <code>mean_betas</code> and raise
+<code>rank_deficient_design</code>. Drop one dummy category as the reference level.</p>
+<p><strong>Residual scale.</strong> The residual's dispersion is <code>sqrt(1 − R²)</code> times the
+input's, and R² varies by date, so the output scale varies by date. Rank-based
+metrics are unaffected; any magnitude-based use is otherwise quietly on a
+time-varying scale. Pass <code>restandardize=True</code> to rescale each date's residual
+back to the input's per-date dispersion.</p>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h1 id="factrix.preprocess.orthogonalize_factor" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">factrix.preprocess.orthogonalize_factor</span>
+
+
+<a href="#factrix.preprocess.orthogonalize_factor" class="headerlink" title="Permanent link">&para;</a></h1>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">orthogonalize_factor</span><span class="p">(</span><span class="n">factor_df</span><span class="p">:</span> <span class="n"><span title="polars.DataFrame">DataFrame</span></span><span class="p">,</span> <span class="n">base_factors</span><span class="p">:</span> <span class="n"><span title="polars.DataFrame">DataFrame</span></span><span class="p">,</span> <span class="n">factor_col</span><span class="p">:</span> <span class="n"><span title="str">str</span></span> <span class="o">=</span> <span class="s1">&#39;factor&#39;</span><span class="p">,</span> <span class="n">base_cols</span><span class="p">:</span> <span class="n"><span title="list">list</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">min_residual_df</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="n"><span title="factrix._types.MIN_ORTHOGONALIZE_RESIDUAL_ASSETS">MIN_ORTHOGONALIZE_RESIDUAL_ASSETS</span></span><span class="p">,</span> <span class="n">restandardize</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="factrix.preprocess.OrthogonalizeResult
+
+
+  
+      dataclass
+   (factrix.preprocess.orthogonalize.OrthogonalizeResult)" href="#factrix.preprocess.OrthogonalizeResult">OrthogonalizeResult</a></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Orthogonalize factor against base factors via per-date ordinary least squares (OLS).</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>factor_df</code>
+            </td>
+            <td>
+                  <code><span title="polars.DataFrame">DataFrame</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Panel with <code>date, asset_id, {factor_col}</code>.
+factor_col should already be z-scored (Step 5 output).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>base_factors</code>
+            </td>
+            <td>
+                  <code><span title="polars.DataFrame">DataFrame</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Panel with <code>date, asset_id</code> and base factor columns.
+Industry dummies must be pre-encoded as 0/1 columns <strong>with one
+category dropped as the reference level</strong>: an intercept is always
+prepended, so a full dummy set is exactly singular (the classic
+dummy trap). See the rank-deficiency note below for what happens
+if it is not.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>factor_col</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Column name of the factor to orthogonalize.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;factor&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>base_cols</code>
+            </td>
+            <td>
+                  <code><span title="list">list</span>[<span title="str">str</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>List of column names in <code>base_factors</code> to regress on.
+If None, uses all columns except <code>date</code> and <code>asset_id</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>min_residual_df</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Minimum residual degrees of freedom
+(<code>n_finite - len(base_cols) - 1</code>) a date must leave to be
+regressed. Defaults to
+:data:<code>~factrix._types.MIN_ORTHOGONALIZE_RESIDUAL_ASSETS</code> (10), the
+<code>N &gt;= K + 10</code> form of the Fama-MacBeth convention; pass
+<code>4 * len(base_cols)</code> for the <code>N &gt;= 5K</code> form, or <code>1</code> to
+restore the old behaviour of fitting anything that is
+arithmetically solvable.</p>
+              </div>
+            </td>
+            <td>
+                  <code><span title="factrix._types.MIN_ORTHOGONALIZE_RESIDUAL_ASSETS">MIN_ORTHOGONALIZE_RESIDUAL_ASSETS</span></code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>restandardize</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Rescale the residual to the per-date dispersion of the
+input factor. <code>False</code> (default) returns the raw residual, whose
+scale is <code>sqrt(1 - R²)</code> times the input — and since R² varies by
+date, so does the output scale. Rank metrics are unaffected; any
+magnitude-based use (weights <code>w ~ f</code>, a spread in factor units)
+is otherwise quietly running on a time-varying scale.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="factrix.preprocess.OrthogonalizeResult
+
+
+  
+      dataclass
+   (factrix.preprocess.orthogonalize.OrthogonalizeResult)" href="#factrix.preprocess.OrthogonalizeResult">OrthogonalizeResult</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>OrthogonalizeResult with: <code>data</code> (factor_df with <code>factor_col</code></p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="factrix.preprocess.OrthogonalizeResult
+
+
+  
+      dataclass
+   (factrix.preprocess.orthogonalize.OrthogonalizeResult)" href="#factrix.preprocess.OrthogonalizeResult">OrthogonalizeResult</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>replaced by the residual and <code>factor_pre_ortho</code> preserving the</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="factrix.preprocess.OrthogonalizeResult
+
+
+  
+      dataclass
+   (factrix.preprocess.orthogonalize.OrthogonalizeResult)" href="#factrix.preprocess.OrthogonalizeResult">OrthogonalizeResult</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>original value), <code>mean_betas</code> (average beta per base factor</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="factrix.preprocess.OrthogonalizeResult
+
+
+  
+      dataclass
+   (factrix.preprocess.orthogonalize.OrthogonalizeResult)" href="#factrix.preprocess.OrthogonalizeResult">OrthogonalizeResult</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>across full-rank dates), <code>mean_r_squared</code> and</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="factrix.preprocess.OrthogonalizeResult
+
+
+  
+      dataclass
+   (factrix.preprocess.orthogonalize.OrthogonalizeResult)" href="#factrix.preprocess.OrthogonalizeResult">OrthogonalizeResult</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>mean_adj_r_squared</code>, plus the per-reason skip counts and</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="factrix.preprocess.OrthogonalizeResult
+
+
+  
+      dataclass
+   (factrix.preprocess.orthogonalize.OrthogonalizeResult)" href="#factrix.preprocess.OrthogonalizeResult">OrthogonalizeResult</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>warning_codes</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>base_factors</code> carries duplicate <code>(date, asset_id)</code>
+keys, which would fan the inner join out and duplicate rows.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="notes" open>
+  <summary>Notes</summary>
+  <p><strong>Minimum residual degrees of freedom.</strong> A cross-sectional OLS needs
+residual df to mean anything. The old floor was <code>len(base_cols) + 2</code>
+rows — a single residual df — and raw R² is mechanically ≈
+<code>K/(N - 1)</code> even when the true R² is zero, so a regional book of six
+names regressed on size / value / momentum plus an industry dummy
+passed the guard, fitted noise, and came back with
+<code>mean_r_squared = 0.79</code> (adjusted: <code>-0.03</code>) after removing 83% of
+the factor's variance — the user concludes the factor is redundant
+when it is orthogonal by construction. Dates below <code>min_residual_df</code>
+are now skipped, counted in <code>n_dates_insufficient_df</code>, and flagged
+with <code>WarningCode.INSUFFICIENT_REGRESSION_DF</code>.
+<code>mean_adj_r_squared</code> is reported alongside the raw figure for the
+same reason.</p>
+<p><strong>Rank deficiency.</strong> <code>np.linalg.lstsq</code> does <strong>not</strong> raise on a
+rank-deficient design — it returns the minimum-norm solution — so the
+<code>except LinAlgError</code> branch never fired for the dummy trap. The
+residual stays correct either way (the projection onto the column
+space is unique), but <code>mean_betas</code> was an arbitrary point in the
+solution space, reported without qualification: on a 4-dummy panel
+the full set gave <code>{ind0: 0.008, ind1: -0.007, ...}</code> and dropping one
+category gave <code>{ind1: -0.015, ...}</code>, with identical residuals.
+Rank is now read from the singular values <code>lstsq</code> already computes
+(the <code>matrix_rank</code> tolerance, so <em>near</em>-collinear designs are caught
+too, not only exactly singular ones); deficient dates are counted in
+<code>n_dates_rank_deficient</code>, excluded from <code>mean_betas</code>, and flagged
+with <code>WarningCode.RANK_DEFICIENT_DESIGN</code>.</p>
+<p><strong>Residual scale.</strong> See <code>restandardize</code> above; the default leaves
+the residual on its own per-date scale rather than the input's.</p>
+<p><strong>Non-finite rows.</strong> A single null / NaN / ±Inf in <code>factor_col</code> or
+in any base column used to make <code>np.linalg.lstsq</code> return all-NaN
+betas, which turned <em>every</em> asset on that date into NaN while the
+date still counted as orthogonalised. The regression now runs on the
+finite rows only. Rows that were not finite come back <strong>null</strong>, not
+with their original value: the residual is undefined for them, and
+keeping the raw value would mix two scales (raw factor and residual)
+inside one column — a silent, unrecoverable contamination. Their
+count is reported as <code>n_rows_non_finite</code> and logged.</p>
+<p><strong>Skipped dates.</strong> A date that leaves fewer than <code>min_residual_df</code>
+residual degrees of freedom (or one where <code>lstsq</code> raises) cannot
+support the regression; the original values are kept for that date and
+it is counted in <code>n_dates_skipped</code>. Such dates are excluded from
+<code>coverage</code>, <code>mean_betas</code> and both R² figures.</p>
+<p><strong>Duplicate keys.</strong> <code>base_factors</code> must be unique on
+<code>(date, asset_id)</code>. A duplicated key silently fans the inner join
+out (panel height doubles, <code>coverage</code> exceeds 1.0), so it is
+rejected up front rather than de-duplicated with a guessed rule.</p>
+</details>
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="language-pycon highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">factrix</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fx</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">polars</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pl</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">factrix.preprocess</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">... </span>    <span class="n">cross_sectional_zscore</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">... </span>    <span class="n">orthogonalize_factor</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">... </span><span class="p">)</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">raw</span> <span class="o">=</span> <span class="n">fx</span><span class="o">.</span><span class="n">datasets</span><span class="o">.</span><span class="n">make_cs_panel</span><span class="p">(</span><span class="n">n_assets</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">n_dates</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">factor_df</span> <span class="o">=</span> <span class="n">cross_sectional_zscore</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span><span class="o">.</span><span class="n">select</span><span class="p">(</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="gp">... </span>    <span class="s2">&quot;date&quot;</span><span class="p">,</span> <span class="s2">&quot;asset_id&quot;</span><span class="p">,</span> <span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">&quot;factor_zscore&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="s2">&quot;factor&quot;</span><span class="p">)</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="gp">... </span><span class="p">)</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">base</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="gp">... </span>    <span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">&quot;price&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">rank</span><span class="p">()</span><span class="o">.</span><span class="n">over</span><span class="p">(</span><span class="s2">&quot;date&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="s2">&quot;size&quot;</span><span class="p">)</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="gp">... </span><span class="p">)</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="s2">&quot;date&quot;</span><span class="p">,</span> <span class="s2">&quot;asset_id&quot;</span><span class="p">,</span> <span class="s2">&quot;size&quot;</span><span class="p">)</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">orthogonalize_factor</span><span class="p">(</span><span class="n">factor_df</span><span class="p">,</span> <span class="n">base</span><span class="p">,</span> <span class="n">base_cols</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;size&quot;</span><span class="p">])</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="gp">&gt;&gt;&gt; </span><span class="s2">&quot;factor_pre_ortho&quot;</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">columns</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="go">True</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="gp">&gt;&gt;&gt; </span><span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">mean_r_squared</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="go">True</span>
+</span></code></pre></div>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h1 id="factrix.preprocess.OrthogonalizeResult" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">factrix.preprocess.OrthogonalizeResult</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#factrix.preprocess.OrthogonalizeResult" class="headerlink" title="Permanent link">&para;</a></h1>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">OrthogonalizeResult</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n"><span title="polars.DataFrame">DataFrame</span></span><span class="p">,</span> <span class="n">mean_betas</span><span class="p">:</span> <span class="n"><span title="dict">dict</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="n"><span title="float">float</span></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="dict">dict</span></span><span class="p">(),</span> <span class="n">mean_r_squared</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">mean_adj_r_squared</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">n_dates</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">coverage</span><span class="p">:</span> <span class="n"><span title="float">float</span></span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">n_base</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">n_rows_non_finite</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">n_dates_skipped</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">n_dates_insufficient_df</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">n_dates_rank_deficient</span><span class="p">:</span> <span class="n"><span title="int">int</span></span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">restandardized</span><span class="p">:</span> <span class="n"><span title="bool">bool</span></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">warning_codes</span><span class="p">:</span> <span class="n"><span title="tuple">tuple</span></span><span class="p">[</span><span class="n"><span title="str">str</span></span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">())</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>Result of factor orthogonalization with attribution info.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="factrix.preprocess.OrthogonalizeResult.data">data</span></code></td>
+            <td>
+                  <code><span title="polars.DataFrame">DataFrame</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>factor_df</code> with <code>factor_col</code> replaced by the residual and
+<code>factor_pre_ortho</code> preserving the original value.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="factrix.preprocess.OrthogonalizeResult.mean_betas">mean_betas</span></code></td>
+            <td>
+                  <code><span title="dict">dict</span>[<span title="str">str</span>, <span title="float">float</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Average beta per base factor across regressed dates whose
+design matrix had full column rank. Empty when every regressed
+date was rank deficient — the betas are not identified there, so
+reporting an average of arbitrary minimum-norm solutions would be
+worse than reporting nothing (see <code>n_dates_rank_deficient</code>).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="factrix.preprocess.OrthogonalizeResult.mean_r_squared">mean_r_squared</span></code></td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Average raw R² across regressed dates.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="factrix.preprocess.OrthogonalizeResult.mean_adj_r_squared">mean_adj_r_squared</span></code></td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Average degrees-of-freedom-adjusted R²,
+<code>1 - (1 - R²)(N - 1)/(N - K - 1)</code>. Raw R² is mechanically
+≈ <code>K/(N - 1)</code> even when the true R² is 0, so on a thin
+cross-section the adjusted figure is the one that answers "is the
+factor actually spanned by the base set?".</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="factrix.preprocess.OrthogonalizeResult.n_dates">n_dates</span></code></td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of per-date cross-sections seen after the join.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="factrix.preprocess.OrthogonalizeResult.coverage">coverage</span></code></td>
+            <td>
+                  <code><span title="float">float</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Fraction of input rows that carry an actual residual —
+rows dropped by the join, rows on a skipped date, and rows with
+non-finite inputs are all excluded.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="factrix.preprocess.OrthogonalizeResult.n_base">n_base</span></code></td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of base factor columns regressed on.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="factrix.preprocess.OrthogonalizeResult.n_rows_non_finite">n_rows_non_finite</span></code></td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Rows whose factor or base values were null / NaN /
+±Inf on an otherwise regressed date. These rows are excluded from
+the regression and their residual is <strong>null</strong> in <code>data</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="factrix.preprocess.OrthogonalizeResult.n_dates_skipped">n_dates_skipped</span></code></td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Dates left un-orthogonalised, for any reason.
+Original factor values are kept for those dates.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="factrix.preprocess.OrthogonalizeResult.n_dates_insufficient_df">n_dates_insufficient_df</span></code></td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Subset of <code>n_dates_skipped</code> skipped because
+the cross-section left fewer than <code>min_residual_df</code> residual
+degrees of freedom.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="factrix.preprocess.OrthogonalizeResult.n_dates_rank_deficient">n_dates_rank_deficient</span></code></td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Dates that were regressed but whose design
+matrix was rank deficient. The residual is still exact (the
+projection is unique) but the betas are not identified, so those
+dates are excluded from <code>mean_betas</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="factrix.preprocess.OrthogonalizeResult.restandardized">restandardized</span></code></td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Whether the residual was rescaled to the per-date
+dispersion of the input factor.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="factrix.preprocess.OrthogonalizeResult.warning_codes">warning_codes</span></code></td>
+            <td>
+                  <code><span title="tuple">tuple</span>[<span title="str">str</span>, ...]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>:class:<code>~factrix._codes.WarningCode</code> values raised by
+this run, as strings — the structured twin of the <code>UserWarning</code>
+echoes, for callers that inspect the result rather than trap
+warnings.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "navigation.path", "search.suggest", "search.highlight", "content.code.copy", "content.action.edit", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+        <script src="../../javascripts/copy-strip-pycon.js"></script>
+      
+    
+  </body>
+</html>
