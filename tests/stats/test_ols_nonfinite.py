@@ -74,9 +74,13 @@ class TestNonFiniteContract:
         assert np.isfinite(resid).all()
 
     def test_short_sample_path_still_returns_the_degenerate_tuple(self):
-        """The n<3 early return must sit AFTER the guard, not be bypassed."""
+        """The n<3 early return must sit AFTER the guard, not be bypassed.
+
+        NaN, not the former ``(0.0, 0.0, 1.0)``: a sample too short to fit
+        carries no evidence, and ``p = 1`` read that as a non-rejection.
+        """
         beta, t_stat, p_value, resid = _ols_nw_slope_t(
             np.array([1.0, 2.0]), np.array([1.0, 2.0]), lags=1
         )
-        assert (beta, t_stat, p_value) == (0.0, 0.0, 1.0)
+        assert np.isnan([beta, t_stat, p_value]).all()
         assert resid.shape == (2,)

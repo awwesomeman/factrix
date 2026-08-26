@@ -31,8 +31,22 @@ def _ols_nw_slope_se(
     ``common_beta`` consumes the SE directly because it adds a second
     variance component before forming its t.
 
-    Returns ``(0.0, 0.0, np.zeros(n))`` for n < 3 or degenerate inputs
-    (``Var(x) ≈ 0``); a zero SE is the caller's degeneracy signal.
+    Degenerate samples return ``(NaN, NaN, zeros(n))``, never a zero SE
+    that a caller must recognise as a signal. Two cases:
+
+    - ``n < 3`` or mismatched lengths — no fit at all, so β̂ is NaN too.
+    - ``Var(x) ≈ 0`` — a constant regressor carries no identifying
+      variation; β̂ is undefined (0/0), not zero.
+
+    A perfect fit (``se_β ≈ 0``) is left to the t / p consumer
+    (:func:`_ols_nw_slope_t`): it is degenerate in the *maximum*-evidence
+    direction, so the t and p are withheld as NaN while β̂ is kept.
+    NaN rather than ±∞ for the same reason as
+    ``factrix._stats.core._calc_t_stat``: an infinity spreads through
+    serialization, aggregation and plotting as a legitimate extreme
+    value. Metric callers pass the NaN to
+    ``factrix.metrics._helpers._degenerate_test_fields``, which withholds
+    the test under ``WarningCode.DEGENERATE_VARIANCE``.
 
     Raises:
         ValueError: ``y`` or ``x`` holds a non-finite value. A NaN flows
@@ -45,14 +59,15 @@ def _ols_nw_slope_se(
     y = _require_finite(y, "_ols_nw_slope_se")
     x = _require_finite(x, "_ols_nw_slope_se")
     n = len(y)
+    nan = float("nan")
     if n < 3 or len(x) != n:
-        return 0.0, 0.0, np.zeros(n)
+        return nan, nan, np.zeros(n)
 
     x_c = x - float(np.mean(x))
     y_c = y - float(np.mean(y))
     sxx = float(np.dot(x_c, x_c))
     if sxx < EPSILON:
-        return 0.0, 0.0, np.zeros(n)
+        return nan, nan, np.zeros(n)
 
     beta = float(np.dot(x_c, y_c)) / sxx
     resid = y_c - beta * x_c
@@ -85,8 +100,11 @@ def _ols_nw_slope_t(
     t / p form of :func:`_ols_nw_slope_se`, which holds the estimator and
     its contract.
 
-    Returns ``(0.0, 0.0, 1.0, np.zeros(n))`` for n < 3 or degenerate
-    inputs (``Var(x) ≈ 0``).
+    Degenerate samples return NaN for ``t`` and ``p``, never ``(0.0,
+    1.0)``: an unformable fit (``n < 3``, ``Var(x) ≈ 0``) also leaves β̂
+    NaN, and a perfect fit (``se_β ≈ 0``) keeps β̂ but withholds the test
+    — the former ``p = 1.0`` there reported "no relationship" for a sample
+    that fits exactly.
     """
     # Own the finiteness contract under this function's name; the estimator
     # re-checks, cheaply, under its own.
@@ -94,8 +112,9 @@ def _ols_nw_slope_t(
     x = _require_finite(x, "_ols_nw_slope_t")
     beta, se_beta, resid = _ols_nw_slope_se(y, x, lags=lags)
     n = len(y)
-    if se_beta < EPSILON:
-        return beta, 0.0, 1.0, resid
+    nan = float("nan")
+    if not np.isfinite(se_beta) or se_beta < EPSILON:
+        return beta, nan, nan, resid
 
     t_stat = beta / se_beta
     # df = n - 2 for univariate OLS with intercept (Greene §4.5).
@@ -116,8 +135,13 @@ def _ols_nw_multivariate(
     matches ``_newey_west_se`` / ``_ols_nw_slope_t`` so HAC math stays
     in one place.
 
-    Returns ``(zeros(k), zeros((k,k)), zeros(n))`` if ``X'X`` is singular
-    (e.g. perfectly collinear columns) or ``n < k + 1``.
+    Returns ``(full(k, nan), full((k,k), nan), zeros(n))`` if ``X'X`` is
+    singular (e.g. perfectly collinear columns) or ``n < k + 1``. NaN
+    rather than the former zero matrices: a zero ``V_hac`` produced a
+    ``t = 0/0`` downstream that read as a non-rejection instead of a
+    refusal, and a zero β̂ is not the estimate for a rank-deficient
+    design — there is no estimate. Callers map the NaN to
+    ``WarningCode.DEGENERATE_VARIANCE``.
 
     Raises:
         ValueError: ``y`` or ``X`` holds a non-finite value. ``np.linalg.inv``
@@ -128,14 +152,19 @@ def _ols_nw_multivariate(
     y = _require_finite(y, "_ols_nw_multivariate")
     X = _require_finite(X, "_ols_nw_multivariate")
     n, k = X.shape
+    not_computable = (np.full(k, np.nan), np.full((k, k), np.nan), np.zeros(n))
     if len(y) != n or n < k + 1:
-        return np.zeros(k), np.zeros((k, k)), np.zeros(n)
+        return not_computable
 
-    XtX = X.T @ X
-    try:
-        XtX_inv = np.linalg.inv(XtX)
-    except np.linalg.LinAlgError:
-        return np.zeros(k), np.zeros((k, k)), np.zeros(n)
+    # numpy < 2.4 on Apple Accelerate raises spurious FP flags from small
+    # dense matmuls on finite input; singular designs are caught via
+    # ``LinAlgError`` and the degenerate-SE checks downstream.
+    with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+        XtX = X.T @ X
+        try:
+            XtX_inv = np.linalg.inv(XtX)
+        except np.linalg.LinAlgError:
+            return not_computable
 
     beta = XtX_inv @ (X.T @ y)
     resid = y - X @ beta

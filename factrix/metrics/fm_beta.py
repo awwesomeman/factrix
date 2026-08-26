@@ -489,7 +489,12 @@ def _pooled_beta_driscoll_kraay(
         )
 
     se_slope = float(np.sqrt(max(float(cov[1, 1]), 0.0)))
-    t_stat = 0.0 if se_slope < EPSILON else slope / se_slope
+    # A zero clustered SE is degeneracy in the MAXIMUM-evidence direction
+    # (perfect fit, zero residuals), never the null. The former
+    # ``t = 0.0 -> p = 1.0`` reported "no relationship" for a sample that fits
+    # exactly, and carried no warning code - pooled_beta was the only metric
+    # in the library skipping the repo's own degenerate-sample convention.
+    t_stat = float("nan") if se_slope < EPSILON else slope / se_slope
     df_t = n_periods
     p = _p_value_from_t(t_stat, df_t)
 
@@ -513,13 +518,16 @@ def _pooled_beta_driscoll_kraay(
         "n_periods": n_periods,
         "driscoll_kraay_lags": dk_meta["driscoll_kraay_lags"],
     }
+    stat, p_out, alternative = _degenerate_test_fields(
+        t_stat, p, "two-sided", metadata, warning_codes
+    )
     return MetricResult(
-        p_value=p,
-        alternative="two-sided",
+        p_value=p_out,
+        alternative=alternative,
         value=slope,
         n_obs=n_obs,
         n_obs_axis="pairs",
-        stat=t_stat,
+        stat=stat,
         metadata=metadata,
         warning_codes=tuple(warning_codes),
     )
@@ -805,11 +813,15 @@ def pooled_beta(
         with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
             xtx_inv = np.linalg.inv(X.T @ X)
     except np.linalg.LinAlgError:
+        # Same convention: a singular design admits no t, and ``stat=0.0``
+        # read as a computed zero rather than a refusal.
         return MetricResult(
             value=slope,
             n_obs=n_obs,
             n_obs_axis="pairs",
-            stat=0.0,
+            stat=None,
+            metadata={"signal_status": "degenerate_variance"},
+            warning_codes=(WarningCode.DEGENERATE_VARIANCE.value,),
         )
 
     with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
@@ -828,11 +840,16 @@ def pooled_beta(
         non_psd_fallback = True
     se_slope = float(np.sqrt(max(v_slope, 0.0)))
 
-    t_stat = 0.0 if se_slope < EPSILON else slope / se_slope
+    # A zero clustered SE is degeneracy in the MAXIMUM-evidence direction
+    # (perfect fit, zero residuals), never the null. The former
+    # ``t = 0.0 -> p = 1.0`` reported "no relationship" for a sample that fits
+    # exactly, and carried no warning code - pooled_beta was the only metric
+    # in the library skipping the repo's own degenerate-sample convention.
+    t_stat = float("nan") if se_slope < EPSILON else slope / se_slope
 
     p = _p_value_from_t(t_stat, df_t)
 
-    metadata = {
+    metadata: dict[str, object] = {
         "stat_type": "t",
         "h0": "β=0",
         "method": method_desc,
@@ -843,14 +860,19 @@ def pooled_beta(
     if n_non_finite_dropped:
         metadata["dropped_pairs"] = n_non_finite_dropped
 
+    degenerate_codes: list[str] = []
+    stat, p_out, alternative = _degenerate_test_fields(
+        t_stat, p, "two-sided", metadata, degenerate_codes
+    )
     return MetricResult(
-        p_value=p,
-        alternative="two-sided",
+        p_value=p_out,
+        alternative=alternative,
         value=slope,
         n_obs=n_obs,
         n_obs_axis="pairs",
-        stat=t_stat,
+        stat=stat,
         metadata=metadata,
+        warning_codes=tuple(degenerate_codes),
     )
 
 

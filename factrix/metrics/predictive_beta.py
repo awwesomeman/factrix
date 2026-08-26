@@ -30,6 +30,7 @@ from factrix._stats.constants import (
 from factrix._types import DDOF, EPSILON
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
+    _degenerate_test_fields,
     _enforce_min_floor,
     _finite_expr,
     _short_circuit_output,
@@ -239,26 +240,33 @@ def predictive_beta(
     if warn_code is not None:
         warning_codes.append(warn_code)
 
+    metadata: dict[str, object] = {
+        "stat_type": "t",
+        "h0": "beta=0",
+        "method": "single-asset predictive regression + Newey-West",
+        "n_periods": n,
+        "n_periods_effective": n_effective,
+        "residual_lag1_autocorr": resid_autocorr,
+        "newey_west_lags": lags,
+        "forward_periods": forward_periods,
+        "alpha": alpha,
+        "r_squared": r_squared,
+        "factor_std": x_std,
+        **adf_metadata,
+    }
+    # A perfect fit (zero residuals) leaves se_beta ~ 0 and _ols_nw_slope_t
+    # returns NaN: degeneracy in the MAXIMUM-evidence direction, not the null.
+    # The former (t=0, p=1.0) flowed straight into MetricResult with no flag.
+    stat, p_out, alternative = _degenerate_test_fields(
+        t_stat, p_value, "two-sided", metadata, warning_codes
+    )
     return MetricResult(
         value=beta,
-        p_value=p_value,
-        alternative="two-sided",
+        p_value=p_out,
+        alternative=alternative,
         n_obs=n,
         n_obs_axis="periods",
-        stat=t_stat,
+        stat=stat,
         warning_codes=tuple(warning_codes),
-        metadata={
-            "stat_type": "t",
-            "h0": "beta=0",
-            "method": "single-asset predictive regression + Newey-West",
-            "n_periods": n,
-            "n_periods_effective": n_effective,
-            "residual_lag1_autocorr": resid_autocorr,
-            "newey_west_lags": lags,
-            "forward_periods": forward_periods,
-            "alpha": alpha,
-            "r_squared": r_squared,
-            "factor_std": x_std,
-            **adf_metadata,
-        },
+        metadata=metadata,
     )

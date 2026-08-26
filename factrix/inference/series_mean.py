@@ -243,6 +243,7 @@ class HansenHodrick:
         from factrix._stats import _hansen_hodrick_t_test
 
         vals = _clean_series(data, value_col).to_numpy()
+        n = len(vals)
         t_stat, p_value, _, clamped = _hansen_hodrick_t_test(
             vals, forward_periods=forward_periods
         )
@@ -256,16 +257,21 @@ class HansenHodrick:
             warnings |= frozenset({WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE})
         # As in ``NeweyWest``: only a NaN from a sample the kernel could
         # actually run on is degeneracy rather than a shortage.
-        if math.isnan(t_stat) and len(vals) >= 3 and forward_periods >= 1:
+        if math.isnan(t_stat) and n >= 3 and forward_periods >= 1:
             warnings |= frozenset({WarningCode.DEGENERATE_VARIANCE})
-        if 0 < len(vals) < self.min_periods:
+        if 0 < n < self.min_periods:
             warnings |= frozenset({WarningCode.UNRELIABLE_SE_SHORT_PERIODS})
 
+        # ``estimate`` / ``n_obs`` were omitted here alone; all three siblings
+        # populate them, so a caller reading the harmonized point estimate or
+        # sample size off this member got None.
         return InferenceResult(
             stat=t_stat,
             p_value=p_value,
             metadata={"kernel": "rectangular", "variance_clamped": clamped},
             warnings=warnings,
+            estimate=float(vals.mean()) if n else None,
+            n_obs=n,
         )
 
 
