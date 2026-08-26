@@ -467,10 +467,19 @@ diversity ratio (effective-n / n_top, derived from HHI) falls
 
 #### `clustering_hhi` (emits `MetricResult.name = "clustering_hhi"`)
 
-Descriptive; period-axis concentration of event periods.
+Descriptive; three concentration measures on different axes. The HHI itself
+is invariant to how many assets fire per date and is bounded below by `1/D`,
+so it cannot answer "do my events cluster?" on its own — read it with the two
+companions.
 
-- *descriptive*: `n_events`, `n_event_periods`, `effective_n_periods`,
-  `hhi_normalized`, `cluster_window`.
+- *descriptive*: `n_events`, `n_event_periods`, `effective_n_periods`
+  (`1/HHI`), `hhi_normalized` (`(HHI - 1/D)/(1 - 1/D)`; `0` when every event
+  date carries the same count, **including** under perfect cross-sectional
+  clustering), `events_per_period_mean` (Kish effective cluster size — the
+  cross-sectional axis, and the same `n_eff` the Kolari-Pynnönen deflator
+  consumes), `max_events_per_period`, `share_events_in_bursts` (share of
+  events whose same-asset predecessor sits within `cluster_window` periods on
+  the full panel calendar — the temporal axis), `cluster_window`.
 
 ### `mfe_mae` (`factrix.metrics.mfe_mae`)
 

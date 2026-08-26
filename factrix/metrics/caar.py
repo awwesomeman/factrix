@@ -442,9 +442,13 @@ def bmp_z(
             factrix deliberately omits — see Notes for why. Vanilla BMP
             overstates significance when events cluster on the same
             date (earnings season, macro release), inflating z by
-            factors of 1.5-2×. Enable this when the event-study
-            ``clustering_hhi`` diagnostic is high (≥ 0.3) or when you
-            otherwise expect same-period shock sharing.
+            factors of 1.5-2×. It is on by default and is the identity when
+            no two events share a period, so there is nothing to trigger:
+            ``clustering_hhi``'s ``events_per_period_mean`` tells you whether
+            it will bite. (An earlier version of this docstring pointed at an
+            ``HHI >= 0.3`` rule; that threshold is unreachable — the HHI is
+            bounded below by 1/D and is invariant to how many assets fire per
+            date, so it cannot detect same-period clustering at all.)
         include_prediction_error_variance: When True, inflate the
             per-event standardiser by $\sqrt{1 + 1/T_{\mathrm{est}}}$
             (with $T_{\mathrm{est}}$ = ``estimation_window``) to absorb
