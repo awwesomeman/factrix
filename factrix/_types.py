@@ -125,4 +125,12 @@ ConcentrationWeight = Literal["abs_factor", "alpha_contribution"]
 # in ``metrics._helpers`` (drop-stats / floor enforcement); mypy rejects any
 # token outside this set, so the grammar (also encoded in ``n_<axis>`` /
 # ``min_<axis>`` keys) cannot drift metric-by-metric.
-SampleAxis = Literal["periods", "events", "pairs", "assets"]
+#
+# ``pairs`` is the pooled ``(date, asset)`` observation — the unit
+# ``pooled_beta`` / ``directional_hit_rate`` treat as an independent draw.
+# ``asset_pairs`` is the *within-period* unordered asset couple
+# (``C(n_assets, 2)`` per date) that ``directional_pair_accuracy`` orders.
+# They are two different units and differ by ~an order of magnitude on the same
+# panel, so they must not share a token: a reader stacking ``to_frame`` across
+# metrics has only ``n_obs_axis`` to tell one from the other.
+SampleAxis = Literal["periods", "events", "pairs", "asset_pairs", "assets"]

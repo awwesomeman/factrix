@@ -31,9 +31,17 @@ class TestComputeRankTurnover:
         df = _panel(5, ["A", "B", "C"], lambda t, a: ord(a) - ord("A") + 1)
         result = rank_turnover(df)
         assert result.value == pytest.approx(0.0, abs=0.01)
-        assert result.metadata["n_pairs"] == 4
+        assert result.metadata["n_periods"] == 4
         assert result.metadata["forward_periods"] == 1
         assert result.metadata["quantile"] is None
+
+    def test_n_obs_axis_is_periods_not_pairs(self):
+        """The count is adjacent-period transitions (T-1), not (date, asset)
+        pairs — the unit ``pairs`` denotes for pooled_beta / directional_hit_rate."""
+        df = _panel(5, ["A", "B", "C"], lambda t, a: ord(a) - ord("A") + t)
+        result = rank_turnover(df)
+        assert result.n_obs_axis == "periods"
+        assert result.n_obs == 4  # 5 dates -> 4 transitions, independent of n_assets
 
     def test_single_date(self):
         df = pl.DataFrame(
@@ -70,7 +78,7 @@ class TestComputeRankTurnover:
         df = _panel(7, ["A", "B", "C"], factor)
         result = rank_turnover(df, forward_periods=2)
         assert result.value == pytest.approx(0.0, abs=0.01)
-        assert result.metadata["n_pairs"] == 3
+        assert result.metadata["n_periods"] == 3
 
     def test_quantile_filter_restricts_to_tails(self):
         """Quantile filter must actually select tail names and only tail names.
@@ -113,6 +121,9 @@ class TestNotionalTurnover:
         assert result.value == pytest.approx(0.0)
         assert result.metadata["n_rebalances"] == 4
         assert result.metadata["n_groups"] == 5
+        # Rebalances are adjacent-period transitions, not (date, asset) pairs.
+        assert result.n_obs_axis == "periods"
+        assert result.n_obs == 4
 
     def test_full_rotation(self):
         """Ranks reverse every date → top ↔ bot fully swap → turnover = 1."""

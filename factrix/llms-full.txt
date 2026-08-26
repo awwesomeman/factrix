@@ -532,7 +532,7 @@ Dataclass for a single metric's output:
 - `p_value`: Calibrated p-value for the metric's hypothesis test, or `None` for descriptive outputs.
 - `alternative`: Tested tail (`two-sided`, `greater`, or `less`), present exactly when `p_value` is present.
 - `n_obs`: Effective sample size the estimator actually used (single source of truth for sample size).
-- `n_obs_axis`: The sample dimension `n_obs` counts along (`periods` / `pairs` / `events` / ...), or `None`.
+- `n_obs_axis`: The sample dimension `n_obs` counts along, or `None`. One of `periods` (dates, or adjacent-period transitions for `rank_turnover` / `notional_turnover`), `assets`, `events`, `pairs` (pooled `(date, asset)` observations — `pooled_beta`, `directional_hit_rate`), `asset_pairs` (within-period asset couples — `directional_pair_accuracy`). `pairs` and `asset_pairs` are separate tokens because the counts differ by ~an order of magnitude on the same panel.
 - `stat`: Test statistic value (t, z, W, chi2, ...), when applicable.
 - `metadata`: Estimator-specific context beyond the top-level fields.
 - `warning_codes`: Per-metric advisory `WarningCode` values raised by this metric.

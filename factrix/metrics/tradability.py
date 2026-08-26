@@ -114,7 +114,7 @@ def rank_turnover(
 
     Rank autocorrelation is measured between dates ``t`` and ``t +
     forward_periods``, sub-sampled at stride ``forward_periods`` (phase-0)
-    so each pair is a non-overlapping snapshot. This aligns the stability
+    so each transition is a non-overlapping snapshot. This aligns the stability
     window with the forward-return horizon used elsewhere in the profile.
 
     Args:
@@ -136,15 +136,26 @@ def rank_turnover(
             only against other tail-filtered estimates at the same q.
 
     Returns:
-        MetricResult with ``value = rank turnover estimate (0–1)`` and metadata
+        MetricResult with ``value = 1 − mean(ρ)`` and metadata
         carrying ``mean_rank_autocorrelation``, ``std_rank_autocorrelation``,
-        ``n_pairs``, ``forward_periods``, ``quantile``, and
-        ``n_cross_section_mean`` (mean assets-per-pair post-filter).
+        ``n_periods``, ``forward_periods``, ``quantile``, and
+        ``n_cross_section_mean`` (mean assets-per-transition post-filter).
 
-        ``std_rank_autocorrelation`` is the cross-pair sample std. Using
-        ``std/√n_pairs`` as an SE is a *lower bound*: consecutive pairs
-        share one rank-vector endpoint (pair k and pair k+1 both involve
-        ``rank @ t_{k·h}``), so the per-pair ρ's have weak positive
+        The value lies in ``[0, 2]``, not ``[0, 1]``: ρ ranges over
+        ``[-1, +1]``, so a perfectly stable ranking gives 0, an independent
+        re-draw gives ≈1 (a white-noise factor measures just above or below
+        it by sampling error), and a systematically *reversed* ranking gives
+        up to 2. It is a rank-stability index, not a traded fraction — see
+        ``notional_turnover`` for the fraction of positions replaced.
+
+        ``n_obs`` counts the adjacent-period transitions the ρ's were
+        measured over (``n_obs_axis="periods"``), not ``(date, asset)``
+        pairs.
+
+        ``std_rank_autocorrelation`` is the cross-transition sample std. Using
+        ``std/√n_periods`` as an SE is a *lower bound*: consecutive transitions
+        share one rank-vector endpoint (transition k and k+1 both involve
+        ``rank @ t_{k·h}``), so the per-transition ρ's have weak positive
         dependence and the true SE is marginally larger. For publication
         grade inference, use a heteroskedasticity-and-autocorrelation-consistent (HAC) variance estimator.
 
@@ -230,8 +241,9 @@ def rank_turnover(
     if rc_per_date.height < 2:
         return _short_circuit_output(
             "rank_turnover",
-            "insufficient_pairs",
+            "insufficient_periods",
             n_obs=rc_per_date.height,
+            n_obs_axis="periods",
             min_required=2,
             forward_periods=forward_periods,
             quantile=quantile,
@@ -244,12 +256,14 @@ def rank_turnover(
 
     return MetricResult(
         value=1.0 - mean_rc,
+        # Adjacent-period transitions (T-1 of them), not (date, asset) pairs:
+        # the count moves with the calendar, so the axis is periods.
         n_obs=rc_per_date.height,
-        n_obs_axis="pairs",
+        n_obs_axis="periods",
         metadata={
             "mean_rank_autocorrelation": mean_rc,
             "std_rank_autocorrelation": std_rc,
-            "n_pairs": rc_per_date.height,
+            "n_periods": rc_per_date.height,
             "forward_periods": forward_periods,
             "quantile": quantile,
             "n_cross_section_mean": n_cs_mean,
@@ -425,8 +439,10 @@ def notional_turnover(
     )
     return MetricResult(
         value=mean_turnover,
+        # Rebalances — one per adjacent-period transition, not (date, asset)
+        # pairs; the axis is periods.
         n_obs=int(per_date.height),
-        n_obs_axis="pairs",
+        n_obs_axis="periods",
         metadata={
             "n_rebalances": int(per_date.height),
             "n_groups": n_groups,

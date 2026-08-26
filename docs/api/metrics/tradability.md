@@ -43,7 +43,10 @@ title: factrix.metrics.tradability
     `rank_turnover` — $1 - \overline{\rho}$ on per-date rank
     autocorrelation, optionally restricted to the top/bottom-$q$
     tail union. Use for stability rankings across factors;
-    **not** for cost arithmetic.
+    **not** for cost arithmetic. Because $\rho \in [-1, +1]$, the value
+    lies in $[0, 2]$ — not $[0, 1]$: a stable ranking gives 0, an
+    independent re-draw gives $\approx 1$, a reversed ranking up to 2.
+    `n_obs` counts adjacent-period transitions (`n_obs_axis="periods"`).
 
 -   __Breakeven cost in bps__
 
