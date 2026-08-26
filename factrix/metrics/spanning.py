@@ -209,8 +209,9 @@ def _align_spread_series(
 def spanning_alpha(
     factor_spread: pl.DataFrame,
     base_spreads: dict[str, pl.DataFrame] | None = None,
+    forward_periods: int = 1,
 ) -> MetricResult:
-    """Test whether a factor has alpha after controlling for base factors.
+    r"""Test whether a factor has alpha after controlling for base factors.
 
     Runs: factor_spread = alpha + beta_1 * base_1 + ... + epsilon
     If alpha is significantly != 0, the factor provides incremental value.
@@ -220,6 +221,13 @@ def spanning_alpha(
         base_spreads: Mapping of base factor name → DataFrame with ``date, spread``.
             Required: with no base factors there is nothing to span against,
             so the metric short-circuits (see Returns).
+        forward_periods: Overlap horizon of the spread series. Spreads built
+            from ``h``-period overlapping forward returns carry MA(``h-1``)
+            residual autocorrelation, so the HAC bandwidth is floored at
+            ``h - 1``. Leave at ``1`` for genuinely non-overlapping spreads
+            (the output of ``compute_spread_series``, which strides to the
+            rebalance schedule). ``evaluate`` injects the panel's stamped
+            horizon; a standalone call declares it.
 
     Returns:
         MetricResult with value=alpha, t_stat, significance. When
@@ -234,9 +242,49 @@ def spanning_alpha(
         returning the raw spread mean.
 
     Notes:
-        Run ordinary least squares (OLS) ``r_t = alpha + sum_k beta_k * base_k(t) + eps_t`` on
-        common-date intersected spread series. Test ``H0: alpha = 0`` via
-        ``t = alpha / SE(alpha)`` from the OLS covariance.
+        The [Huberman-Kandel (1987)][huberman-kandel-1987] mean-variance
+        spanning test in its single-candidate form — the single-asset case of
+        the [Gibbons-Ross-Shanken (1989)][gibbons-ross-shanken-1989] $F$-test,
+        reported as a $t$ with a HAC standard error rather than the
+        homoskedastic GRS statistic. On the common-date intersection of the
+        candidate and base spread series, run ordinary least squares (OLS)
+
+        $$
+        r_t = \alpha + \sum_{k=1}^{K} \beta_k\, f_{k,t} + \varepsilon_t,
+        \qquad t = 1, \dots, T,
+        $$
+
+        and test $H_0: \alpha = 0$ against a two-sided alternative with
+
+        $$
+        t_\alpha = \frac{\hat\alpha}{\mathrm{SE}_{\mathrm{NW}}(\hat\alpha)},
+        \qquad
+        \mathrm{SE}_{\mathrm{NW}}(\hat\alpha) =
+        \sqrt{\bigl[(X'X)^{-1} \hat S_L (X'X)^{-1}\bigr]_{0,0}},
+        $$
+
+        where $X = [\mathbf{1}, f_1, \dots, f_K]$ and $\hat S_L$ is the
+        Bartlett-kernel HAC score covariance
+
+        $$
+        \hat S_L = \hat\Omega_0 + \sum_{j=1}^{L}
+            \Bigl(1 - \tfrac{j}{L+1}\Bigr)(\hat\Omega_j + \hat\Omega_j'),
+        \qquad
+        \hat\Omega_j = \sum_t x_t \hat\varepsilon_t\,
+                       \hat\varepsilon_{t-j} x_{t-j}' .
+        $$
+
+        The bandwidth is
+        $L = \max(\mathrm{auto\_bartlett}(T),\, h - 1)$ with
+        $h = $ ``forward_periods`` — the [Newey-West (1994)][newey-west-1994]
+        automatic rule floored against the
+        [Hansen-Hodrick (1980)][hansen-hodrick-1980] overlap horizon, the same
+        rule ``fm_beta`` and ``ic`` apply. $p$ is read against
+        $t(T - 1 - K)$.
+
+        A rejection means the candidate's spread carries return the base set
+        does not span. $\hat\alpha$ is on the same per-period scale as the
+        input spreads.
 
         The alpha t-stat uses a Newey-West HAC standard error (Bartlett
         kernel, automatic bandwidth) — the convention for spanning alphas
@@ -311,7 +359,7 @@ def spanning_alpha(
     if sc is not None:
         return sc
 
-    ols = _ols_alpha(candidate_arr, base_matrix)
+    ols = _ols_alpha(candidate_arr, base_matrix, forward_periods=forward_periods)
 
     base_names = list(base_arrays.keys())
     beta_dict = dict(zip(base_names, ols.betas, strict=False)) if base_names else {}

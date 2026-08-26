@@ -39,9 +39,13 @@ title: factrix.metrics.spanning
     ---
 
     `spanning_alpha` regresses the candidate spread series on a set of
-    base-factor spread series; tests $H_0: \alpha = 0$ via ordinary least squares (OLS)
-    $t$-stat. Standard tool for "does this factor add anything beyond
-    the existing model?" (Barillas-Shanken 2017).
+    base-factor spread series and tests $H_0: \alpha = 0$ with a
+    Newey-West HAC $t$ — the Huberman-Kandel (1987) mean-variance
+    spanning test in its single-candidate form (the single-asset case of
+    the GRS 1989 $F$). Standard tool for "does this factor add anything
+    beyond the existing model?" (Barillas-Shanken 2017). Pass
+    `forward_periods=h` when the spreads are built on $h$-period
+    overlapping returns, so the Bartlett bandwidth is floored at $h-1$.
 
 -   __Base factors are required__
 
@@ -171,8 +175,10 @@ title: factrix.metrics.spanning
 
     ---
 
-    OLS $t$ on the alpha; when overlap is added, swap to Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) SE
-    via the same kernel discipline used elsewhere in factrix.
+    Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent
+    (HAC) $t$ on the alpha, with the bandwidth
+    $L=\max(\mathrm{auto\_bartlett}(T), h-1)$ — the same kernel
+    discipline `fm_beta` and `ic` use.
 
     [reference/statistical-methods →](../../reference/statistical-methods.md)
 

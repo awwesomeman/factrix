@@ -1057,6 +1057,22 @@ cite for post-publication IC decay.
 
 ## Factor spanning, selection, and active-management heuristics
 
+### Huberman & Kandel (1987)
+[](){ #huberman-kandel-1987 }
+
+Huberman, G. & Kandel, S. (1987). "Mean-Variance Spanning." *Journal
+of Finance* 42(4), 873–888.
+
+The spanning test factrix's ``spanning_alpha`` implements: regress the
+candidate portfolio's excess return on the base factors' returns and
+test whether the intercept is zero. A zero intercept means the base set
+already spans the candidate's mean-variance opportunity — the candidate
+adds nothing. Single-asset case of the
+[Gibbons-Ross-Shanken (1989)][gibbons-ross-shanken-1989] $F$-test, which
+generalises it to a joint test over many candidates; factrix reports the
+single-asset $t$ with a Newey-West HAC standard error rather than the
+homoskedastic GRS statistic.
+
 ### Barillas & Shanken (2017)
 [](){ #barillas-shanken-2017 }
 

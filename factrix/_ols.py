@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from factrix._stats.constants import auto_bartlett
+from factrix._stats.hac import _resolve_nw_lags
 from factrix._stats.ols import _ols_nw_multivariate
 from factrix._types import EPSILON
 
@@ -28,14 +29,25 @@ class _OLSResult:
 def ols_alpha(
     candidate: np.ndarray,
     base_matrix: np.ndarray,
+    *,
+    forward_periods: int = 1,
 ) -> _OLSResult:
     """OLS regression ``candidate = alpha + beta @ base + epsilon`` with a HAC t on alpha.
 
     Point estimates are plain OLS. ``alpha_t`` divides by the Newey-West
     HAC standard error (Bartlett kernel, [Newey-West (1994)][newey-west-1994]
-    automatic bandwidth) rather than the homoskedastic OLS SE. Spanning
-    alphas are routinely reported with HAC t-stats (Barillas-Shanken,
-    Fama-French).
+    automatic bandwidth, floored at ``forward_periods - 1``) rather than the
+    homoskedastic OLS SE. Spanning alphas are routinely reported with HAC
+    t-stats (Barillas-Shanken, Fama-French).
+
+    ``forward_periods`` is the overlap horizon of the spread series being
+    regressed. Spreads built from ``h``-period overlapping forward returns
+    carry MA(``h-1``) residual autocorrelation
+    ([Hansen-Hodrick (1980)][hansen-hodrick-1980]), and a Bartlett kernel
+    must run at least ``h - 1`` lags to absorb it — the same
+    ``max(auto_bartlett(T), h - 1)`` rule (:func:`factrix._stats._resolve_nw_lags`)
+    every other HAC path in factrix applies. The default ``1`` (no floor) is
+    the non-overlapping case.
 
     **The trade, measured.** Empirical size at a nominal 5% under a true
     null (``alpha = 0``, one base factor, 4000 draws, read against
@@ -148,7 +160,8 @@ def ols_alpha(
     # HAC covariance of the OLS coefficients; ``_ols_nw_multivariate`` returns
     # zeros when X'X is singular, which the EPSILON guard below turns into
     # the same degenerate result the OLS path produced.
-    _, v_hac, _ = _ols_nw_multivariate(candidate, X, lags=auto_bartlett(n_obs))
+    lags = _resolve_nw_lags(n_obs, auto_bartlett(n_obs), forward_periods)
+    _, v_hac, _ = _ols_nw_multivariate(candidate, X, lags=lags)
     se_alpha = float(np.sqrt(max(v_hac[0, 0], 0.0)))
 
     if se_alpha < EPSILON:
