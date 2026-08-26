@@ -398,10 +398,14 @@ Quantitative Finance and Accounting* 2(4), 343–358.
 
 Generalised sign test: the binomial null is the *estimation-window*
 proportion of positive abnormal returns rather than 0.5, which matters on
-a drifting series. factrix's ``event_hit_rate`` tests the 0.5 null and says
-so; it has no estimation-window contract from which to take Cowan's
-$p_0$, and the abnormal-return event tests (``caar`` / ``bmp_z``) are the
-route when the drift is what needs controlling for.
+a skewed series (mean-adjusting sets $E[AR] = 0$, not the median). factrix's
+``event_hit_rate`` is this test: $p_{\uparrow}$ is the share of positive
+abnormal returns on the non-event rows of the same panel (the estimation
+universe), reported as ``sign_base_rate_up``. Cowan's events are all
+long; factrix's hits are signed by the factor, so a short event hits with
+probability $1 - p_{\uparrow}$ under the null and the tested $p_0$
+(``sign_base_rate``, ``h0``) is the mixture weighted by the share of tested
+events on each side.
 
 ### Kolari & Pynnönen (2010)
 [](){ #kolari-pynnonen-2010 }
