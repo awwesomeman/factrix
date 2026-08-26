@@ -709,6 +709,31 @@ def _estimate_within_date_icc(
     return r_hat, n0, "icc"
 
 
+# Deflation below which the clustering correction is treated as the identity:
+# a scale of 0.95 moves a z of 2 to 1.9 and the two-sided p from 0.0455 to
+# 0.0574 — the third decimal. Under independence the ICC(1) estimate is
+# clipped at 0 but its sampling noise is not, so without a floor the deflator
+# "applied" on every multi-asset run (100% of iid draws, mean scale 0.99),
+# fired EVENT_CLUSTERING_ADJUSTED on nothing, and moved event_hit_rate off the
+# exact binomial for a correction that did not exist.
+KP_MATERIAL_SCALE: float = 0.95
+
+
+def _kp_deflation_scale(r_hat: float | None, n_eff: float) -> float | None:
+    """The clustering deflator when it is worth applying, else ``None``.
+
+    ``None`` when the ICC could not be estimated, when no period holds two
+    units (``n_eff <= 1``), when the estimate is non-positive (a design
+    effect is a variance *inflation*; a negative sample correlation is not a
+    licence to shrink the SE — the same rule ``common_beta`` applies), or when
+    the deflation is immaterial (``scale >= KP_MATERIAL_SCALE``).
+    """
+    if r_hat is None or n_eff <= 1.0 or r_hat <= 0.0:
+        return None
+    scale = _kp_cluster_scale(r_hat, n_eff)
+    return scale if scale < KP_MATERIAL_SCALE else None
+
+
 def _kp_cluster_scale(r_hat: float, n_eff: float) -> float:
     r"""Design-effect deflator for a pooled statistic under within-period correlation.
 
@@ -760,8 +785,13 @@ def _deflate_for_within_date_clustering(
     undefined and the statistic is returned untouched — the correction is the
     identity exactly when there is nothing to correct.
 
-    The estimate, the deflator and whether it applied are written to
-    ``metadata``; a deflation that actually bit fires
+    The estimate and the deflator are written to ``metadata`` whenever they
+    exist; ``kolari_pynnonen_applied`` says whether the statistic was actually
+    scaled. It is not when $\hat r \le 0$ or when the scale sits above
+    ``KP_MATERIAL_SCALE`` (see :func:`_kp_deflation_scale`): an earlier
+    version applied at $\hat r = 0$, scale 1.0, so the code fired on 100% of
+    iid multi-asset runs and ``event_hit_rate`` left the exact binomial for
+    nothing. A deflation that actually bit fires
     ``EVENT_CLUSTERING_ADJUSTED``, because the change is data-driven rather
     than configured.
 
@@ -781,10 +811,13 @@ def _deflate_for_within_date_clustering(
     metadata["kolari_pynnonen_r"] = r_hat
     metadata["kolari_pynnonen_n_eff"] = n_eff
     metadata["kolari_pynnonen_r_source"] = source
-    if r_hat is None or n_eff <= 1.0:
+    scale = _kp_deflation_scale(r_hat, n_eff)
+    if scale is None:
         metadata["kolari_pynnonen_applied"] = False
+        if r_hat is not None and n_eff > 1.0:
+            # Disclose the deflator that was judged immaterial.
+            metadata["kolari_pynnonen_scaling"] = _kp_cluster_scale(r_hat, n_eff)
         return stat
-    scale = _kp_cluster_scale(r_hat, n_eff)
     metadata["kolari_pynnonen_applied"] = True
     metadata["kolari_pynnonen_scaling"] = scale
     metadata["stat_uncorrected"] = stat

@@ -73,6 +73,7 @@ from factrix.metrics._helpers import (
     _estimate_within_date_icc,
     _event_sample_threshold,
     _kp_cluster_scale,
+    _kp_deflation_scale,
     _sample_event_spaced,
     _sample_events_non_overlapping,
     _scaled_min_periods,
@@ -762,11 +763,16 @@ def bmp_z(
         metadata["kolari_pynnonen_r"] = r_hat
         metadata["kolari_pynnonen_n_eff"] = n_eff
         metadata["kolari_pynnonen_r_source"] = kp_source
-        if r_hat is None or n_eff <= 1.0:
+        # Same applicability rule as the pooled event helpers: no estimate, no
+        # multi-event period, a non-positive ICC or an immaterial deflation
+        # (scale >= KP_MATERIAL_SCALE) leaves z as it is and says so.
+        scale = _kp_deflation_scale(r_hat, n_eff)
+        if scale is None:
             metadata["kolari_pynnonen_applied"] = False
+            if r_hat is not None and n_eff > 1.0:
+                metadata["kolari_pynnonen_scaling"] = _kp_cluster_scale(r_hat, n_eff)
             z = z_bmp
         else:
-            scale = _kp_cluster_scale(r_hat, n_eff)
             z = z_bmp * scale
             metadata["kolari_pynnonen_scaling"] = scale
             metadata["kolari_pynnonen_applied"] = True

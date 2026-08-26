@@ -8,6 +8,7 @@ import numpy as np
 import polars as pl
 import pytest
 from factrix._stats import _calc_t_stat, _p_value_from_t
+from factrix.metrics._helpers import KP_MATERIAL_SCALE
 from factrix.metrics.caar import (
     bmp_z,
     caar,
@@ -561,18 +562,15 @@ class TestBmpTest:
         assert large_h.metadata["vol_estimation_lag"] == 20
         assert large_h.metadata["n_events"] < small_h.metadata["n_events"]
 
-    def test_kolari_pynnonen_shrinks_z_when_clustered(self, strong_signal):
-        """K-P adjustment must not expand |z|; when ρ>0 it strictly shrinks."""
+    def test_kolari_pynnonen_is_the_identity_on_independent_events(self, strong_signal):
+        """Independent triggers (2% per cell) give an ICC that is sampling
+        noise around zero; the deflator is disclosed but not applied."""
         raw = bmp_z(strong_signal, kolari_pynnonen_adjust=False)
         adj = bmp_z(strong_signal, kolari_pynnonen_adjust=True)
-        assert adj.metadata.get("kolari_pynnonen_applied") is True
-        r = adj.metadata["kolari_pynnonen_r"]
-        n_eff = adj.metadata["kolari_pynnonen_n_eff"]
-        assert 0.0 <= r <= 1.0
-        assert n_eff >= 1.0
-        # Scaling factor ≤ 1 always (r ∈ [0,1]), so |z_adj| ≤ |z_raw|.
-        assert abs(adj.stat) <= abs(raw.stat) + 1e-9
-        assert adj.metadata["stat_uncorrected"] == pytest.approx(raw.stat)
+        assert adj.metadata["kolari_pynnonen_applied"] is False
+        assert adj.metadata["kolari_pynnonen_scaling"] >= KP_MATERIAL_SCALE
+        assert adj.stat == pytest.approx(raw.stat)
+        assert "stat_uncorrected" not in adj.metadata
 
     def test_prediction_error_variance_default_off(self, strong_signal):
         result = bmp_z(strong_signal)
@@ -1010,6 +1008,20 @@ class TestKolariPynnonenDefault:
         result = bmp_z(self._null_panel(0, 4), forward_periods=1, estimation_window=60)
         assert result.metadata["kolari_pynnonen_applied"] is True
         assert "kolari_pynnonen_r" in result.metadata
+
+    def test_kolari_pynnonen_shrinks_z_when_clustered(self):
+        """K-P adjustment must not expand |z|; when rho > 0 it strictly shrinks."""
+        panel = self._null_panel(0, 4)
+        raw = bmp_z(panel, forward_periods=1, kolari_pynnonen_adjust=False)
+        adj = bmp_z(panel, forward_periods=1, kolari_pynnonen_adjust=True)
+        assert adj.metadata["kolari_pynnonen_applied"] is True
+        r = adj.metadata["kolari_pynnonen_r"]
+        n_eff = adj.metadata["kolari_pynnonen_n_eff"]
+        assert 0.0 < r <= 1.0
+        assert n_eff > 1.0
+        assert adj.metadata["kolari_pynnonen_scaling"] < KP_MATERIAL_SCALE
+        assert abs(adj.stat) < abs(raw.stat)
+        assert adj.metadata["stat_uncorrected"] == pytest.approx(raw.stat)
 
     def test_one_event_per_period_is_the_identity(self):
         panel = self._null_panel(1, 1)

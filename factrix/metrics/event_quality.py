@@ -322,9 +322,17 @@ def event_hit_rate(
         strided per asset first ([Brown-Warner (1985)][brown-warner-1985]
         non-overlap sampling on the event axis, the same treatment ``caar``
         applies), and ``EVENT_WINDOW_OVERLAP`` reports what that removed. What
-        the stride cannot address is same-*period* dependence across names —
-        for that, read ``clustering_hhi`` and prefer ``bmp_z`` or
-        ``corrado_rank``, whose statistics carry an explicit correction.
+        the stride cannot address is same-*period* dependence across names.
+        For that the hit indicator's within-period intraclass correlation is
+        estimated and, when the Kish design effect it implies is material
+        (scale below ``KP_MATERIAL_SCALE``), the standardised hit count is
+        deflated and the p-value read off the normal instead of the exact
+        binomial — ``stat_type`` switches to ``"z"`` and
+        ``EVENT_CLUSTERING_ADJUSTED`` records the switch. Below that
+        materiality floor, and on a single asset, the exact test stands: an
+        earlier version left it at $\hat r = 0$ on every multi-asset panel.
+        Read ``clustering_hhi`` alongside, and prefer ``bmp_z`` or
+        ``corrado_rank`` when the shared shock is the object of study.
 
         ``return_col`` must be sign-symmetric around zero — ``signed_car =
         return_col * sign(factor_col)``, so an always-positive magnitude
@@ -419,7 +427,10 @@ def event_hit_rate(
         # The exactness of the binomial is about the discreteness of the null,
         # not about dependence — once the trials are correlated it is exact
         # about the wrong distribution. Report the clustered normal instead and
-        # say so; EVENT_CLUSTERING_ADJUSTED is the record of the switch.
+        # say so; EVENT_CLUSTERING_ADJUSTED is the record of the switch. The
+        # helper only applies when the deflation is material (scale below
+        # KP_MATERIAL_SCALE), so the exact test stands on every run where the
+        # two p-values would agree to the third decimal anyway.
         p = float(2.0 * sp_stats.norm.sf(abs(z)))
         metadata["stat_type"] = "z"
         metadata["method"] = (
