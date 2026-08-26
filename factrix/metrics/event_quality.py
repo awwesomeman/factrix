@@ -67,6 +67,11 @@ _EQ_CELL = cell(None, FactorDensity.SPARSE, structure=None)
 # than Pearson) Fisher z: SE = 1.06 / sqrt(n - 3).
 _SPEARMAN_FISHER_SE = 1.06
 
+# Non-event rows needed before the sign base rate is estimated rather than
+# assumed symmetric. Below this the estimate is noisier than the 0.5 it
+# would replace.
+_MIN_BASE_RATE_ROWS = 20
+
 
 def _finite_events(
     data: pl.DataFrame,
@@ -135,8 +140,43 @@ def _finite_events(
     ar_diagnostics = {
         **ar_diagnostics,
         "n_events_dropped_no_estimation_window": n_dropped_no_estimation_window,
+        **_sign_base_rate(adjusted, factor_col),
     }
     return events, n_dropped_non_finite, ar_diagnostics
+
+
+def _sign_base_rate(adjusted: pl.DataFrame, factor_col: str) -> dict:
+    r"""Share of positive abnormal returns outside the events.
+
+    The null a hit rate should be tested against is the frequency with which
+    the abnormal return is positive *anyway*, not 0.5
+    ([Cowan (1992)][cowan-1992] generalised sign test). The two differ whenever
+    the abnormal-return distribution is skewed: mean-adjusting sets
+    $E[AR] = 0$, but a right-skewed return has a negative median and is
+    positive less than half the time. Tested against 0.5, that asymmetry reads
+    as skill, and a long enough sample calls it significant.
+
+    Estimated on the non-event rows — the estimation universe, exactly as
+    Cowan's estimation-window proportion — with the same finiteness contract as
+    the events themselves. Below ``_MIN_BASE_RATE_ROWS`` usable rows there is
+    no estimate and the symmetric 0.5 is used, recorded as such.
+    """
+    non_events = adjusted.filter(
+        (pl.col(factor_col) == 0)
+        & pl.col("_abnormal_return").is_not_null()
+        & pl.col("_abnormal_return").is_not_nan()
+    )
+    if non_events.height < _MIN_BASE_RATE_ROWS:
+        return {
+            "sign_base_rate": 0.5,
+            "sign_base_rate_source": "assumed_symmetric",
+            "n_base_rate_rows": non_events.height,
+        }
+    return {
+        "sign_base_rate": float((non_events["_abnormal_return"] > 0).mean()),
+        "sign_base_rate_source": "non_event_rows",
+        "n_base_rate_rows": non_events.height,
+    }
 
 
 def _spaced_events(
@@ -243,18 +283,19 @@ def event_hit_rate(
         event failed ``signed_car > 0`` and was scored as a **miss**, which
         both depressed the rate and inflated ``N``.
 
-        **What the null says.** $H_0: p = 0.5$ — a coin flip — not
-        $H_0: p = \hat p_{\text{base}}$, the unconditional frequency of
-        positive returns outside the events. The two differ whenever the
-        return series has drift: a long-only trigger on an asset that rose in
-        55% of all periods scores 55% with no signal at all, and against a
-        0.5 null a long enough sample calls that significant. The generalised
-        sign test of [Cowan (1992)][cowan-1992] answers this by taking $p_0$
-        from the estimation window; factrix does not, because the metric has
-        no estimation-window contract of its own. Read the hit rate against
-        the base rate yourself on a drifting series, or use ``caar`` /
-        ``bmp_z``, whose abnormal-return input is already de-drifted, when the
-        drift is the thing you need to control for.
+        **What the null says.** $H_0: p = p_0$, the frequency with which the
+        abnormal return is positive *anyway* — the generalised sign test of
+        [Cowan (1992)][cowan-1992] — not $H_0: p = 0.5$. $p_0$ is estimated on
+        the non-event rows (Cowan's estimation-window proportion) and reported
+        as ``metadata["sign_base_rate"]``, with ``h0`` carrying the number
+        actually tested. Two distinct things would otherwise be read as skill:
+        drift, which the abnormal-return model removes, and **skew**, which it
+        does not — mean-adjusting sets $E[AR] = 0$, but a right-skewed return
+        has a negative median and is positive less than half the time, so a
+        0.5 null scores that asymmetry as a signal. With fewer than
+        ``_MIN_BASE_RATE_ROWS`` usable non-event rows there is nothing to
+        estimate from and the symmetric 0.5 is used, recorded as
+        ``sign_base_rate_source="assumed_symmetric"``.
 
         **Independence.** The exact binomial treats the $N$ events as
         independent trials, which is false for two events on one asset inside
@@ -300,7 +341,7 @@ def event_hit_rate(
         **ar_diagnostics,
         "stat_type": "binomial_hits",
         "h0": "p=0.5",
-        "method": "binomial exact test",
+        "method": "generalised sign test (exact binomial, Cowan 1992 null)",
     }
     warning_codes: list[str] = []
     events = _spaced_events(
@@ -329,13 +370,18 @@ def event_hit_rate(
     rate = hits / n
     metadata["n_events"] = n
     metadata["n_hits"] = hits
+    # The null is the frequency with which the abnormal return is positive
+    # anyway (Cowan 1992), not a coin flip: a skewed series is positive less
+    # (or more) than half the time with no signal at all.
+    p0 = float(metadata["sign_base_rate"])
+    metadata["h0"] = f"p={p0:.4f}"
 
     # Same-period events share that period's shock, so they are not separate
     # binomial trials. Deflate the standardised hit count by the design effect
     # of the 0/1 indicator's within-period correlation; with one event per
     # period the deflator is the identity and the exact test stands.
     indicator = events.select("date", pl.Series("_hit", (signed > 0).astype(float)))
-    z_raw = (hits - n / 2.0) / (np.sqrt(n) / 2.0)
+    z_raw = (hits - n * p0) / np.sqrt(n * p0 * (1.0 - p0))
     z = _deflate_for_within_date_clustering(
         indicator,
         "_hit",
@@ -353,11 +399,13 @@ def event_hit_rate(
         p = float(2.0 * sp_stats.norm.sf(abs(z)))
         metadata["stat_type"] = "z"
         metadata["method"] = (
-            "clustered normal test on the hit indicator (Kolari-Pynnonen design effect)"
+            "clustered generalised sign test on the hit indicator "
+            "(Cowan 1992 null, Kolari-Pynnonen design effect)"
         )
         stat = z
     else:
-        p = _binomial_two_sided_p(hits, n, p0=0.5)
+        p = _binomial_two_sided_p(hits, n, p0=p0)
+        metadata["method"] = "generalised sign test (exact binomial, Cowan 1992 null)"
         stat = float(hits)
 
     return MetricResult(

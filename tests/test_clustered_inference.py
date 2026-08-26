@@ -254,3 +254,80 @@ class TestCommonBetaUnderCrossAssetCorrelation:
                 if 2 * sp_stats.t.sf(abs(t0), r.n_obs - 1) < 0.05:
                     rejected += 1
         assert rejected / reps >= 0.5
+
+
+def _skewed_panel(seed: int, *, n: int = 2000, event_every: int = 9) -> pl.DataFrame:
+    """One asset, no signal, but a right-skewed return: positive well under
+    half the time even though its mean is zero."""
+    rng = np.random.default_rng(seed)
+    # Lognormal-minus-mean: E[x] = 0, median < 0, so P(x > 0) < 0.5.
+    raw = rng.lognormal(mean=0.0, sigma=1.0, size=n)
+    rets = 0.01 * (raw - raw.mean())
+    return pl.DataFrame(
+        {
+            "date": [datetime(2020, 1, 1) + timedelta(days=i) for i in range(n)],
+            "asset_id": ["A"] * n,
+            "factor": [
+                1.0 if i >= 60 and i % event_every == 0 else 0.0 for i in range(n)
+            ],
+            "forward_return": rets,
+        }
+    )
+
+
+class TestGeneralisedSignNull:
+    """event_hit_rate tests against the base rate, not a coin flip."""
+
+    def test_null_is_the_non_event_positive_share(self):
+        panel = _skewed_panel(0)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            result = event_hit_rate(panel, forward_periods=_H)
+        p0 = result.metadata["sign_base_rate"]
+        assert result.metadata["sign_base_rate_source"] == "non_event_rows"
+        # The skew is real: this series is positive well under half the time.
+        assert p0 < 0.45
+        assert result.metadata["h0"] == f"p={p0:.4f}"
+        # And the reported p is the exact binomial against that null.
+        assert result.p_value == pytest.approx(
+            float(
+                sp_stats.binomtest(result.metadata["n_hits"], result.n_obs, p0).pvalue
+            )
+        )
+
+    def test_skew_alone_is_not_read_as_skill(self):
+        # Against a 0.5 null this panel looks strongly "anti-predictive"; the
+        # generalised null says there is nothing there.
+        reps = 12
+        rejected_vs_half = rejected = 0
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            for seed in range(reps):
+                r = event_hit_rate(_skewed_panel(seed), forward_periods=_H)
+                if r.p_value is not None and r.p_value < 0.05:
+                    rejected += 1
+                naive = float(
+                    sp_stats.binomtest(r.metadata["n_hits"], r.n_obs, 0.5).pvalue
+                )
+                if naive < 0.05:
+                    rejected_vs_half += 1
+        assert rejected_vs_half >= reps // 2
+        assert rejected <= 2
+
+    def test_too_few_non_event_rows_fall_back_to_symmetry(self):
+        # Every row is an event: nothing to estimate the base rate from.
+        n = 120
+        rng = np.random.default_rng(3)
+        panel = pl.DataFrame(
+            {
+                "date": [datetime(2020, 1, 1) + timedelta(days=i) for i in range(n)],
+                "asset_id": ["A"] * n,
+                "factor": [1.0] * n,
+                "forward_return": rng.normal(0, 0.01, n),
+            }
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            result = event_hit_rate(panel, forward_periods=_H)
+        assert result.metadata["sign_base_rate"] == 0.5
+        assert result.metadata["sign_base_rate_source"] == "assumed_symmetric"

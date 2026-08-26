@@ -165,7 +165,9 @@ class TestEventHitRateAlwaysExact:
         hits = result.metadata["n_hits"]
         assert result.stat == float(hits)
         assert result.metadata["stat_type"] == "binomial_hits"
-        assert result.metadata["method"] == "binomial exact test"
+        assert result.metadata["method"] == (
+            "generalised sign test (exact binomial, Cowan 1992 null)"
+        )
         assert result.p_value == pytest.approx(
             sp_stats.binomtest(hits, result.n_obs, 0.5).pvalue
         )

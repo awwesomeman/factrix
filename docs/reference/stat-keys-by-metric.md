@@ -272,10 +272,16 @@ asset pairs are not treated as independent Bernoulli trials.
 
 Same shape as `positive_rate` (exact binomial, `stat` = hit count).
 
-- *primary*: `p_value` — the exact binomial when events do not share periods,
-  and a clustered normal test on the hit indicator when they do (`stat_type`
-  switches from `binomial_hits` to `z`, `method` names which ran, and
-  `EVENT_CLUSTERING_ADJUSTED` is the record of the switch).
+- *primary*: `p_value` — a generalised sign test (Cowan 1992): the null is
+  `sign_base_rate`, the share of positive abnormal returns on the non-event
+  rows, not 0.5. Exact binomial when events do not share periods, clustered
+  normal on the hit indicator when they do (`stat_type` switches from
+  `binomial_hits` to `z`, `method` names which ran, and
+  `EVENT_CLUSTERING_ADJUSTED` is the record of the switch). `h0` carries the
+  null actually tested.
+- *descriptive*: `sign_base_rate`, `sign_base_rate_source`
+  (`non_event_rows`, or `assumed_symmetric` when there are too few non-event
+  rows to estimate it), `n_base_rate_rows`.
 - *descriptive*: `kolari_pynnonen_r` / `kolari_pynnonen_n_eff` /
   `kolari_pynnonen_r_source` / `kolari_pynnonen_applied` /
   `kolari_pynnonen_scaling` / `stat_uncorrected` (the within-period clustering
@@ -299,7 +305,9 @@ Same shape as `positive_rate` (exact binomial, `stat` = hit count).
   two.
 - *descriptive*: `n_events` (post-spacing), `n_events_dropped_non_finite`,
   `n_events_dropped_no_estimation_window`, `abnormal_return_model` /
-  `estimation_window` / `estimation_window_lag`,
+  `estimation_window` / `estimation_window_lag`, `sign_base_rate` /
+  `sign_base_rate_source` / `n_base_rate_rows` (carried by the shared event
+  filter; only `event_hit_rate` tests against them),
   `n_events_overlapping` / `n_events_sampled`, `kolari_pynnonen_r` /
   `kolari_pynnonen_n_eff` / `kolari_pynnonen_r_source` /
   `kolari_pynnonen_applied` (plus `kolari_pynnonen_scaling` /
@@ -314,7 +322,8 @@ variance (e.g. binary {-1, +1}).
 - *primary* (conditional, N ≥ 20): `p_value` — D'Agostino skew `z`.
 - *descriptive*: `n_events` (post-spacing), `n_events_dropped_non_finite`,
   `n_events_dropped_no_estimation_window`, `abnormal_return_model` /
-  `estimation_window` / `estimation_window_lag`,
+  `estimation_window` / `estimation_window_lag`, `sign_base_rate` /
+  `sign_base_rate_source` / `n_base_rate_rows`,
   `n_events_overlapping` / `n_events_sampled`.
 
 When `n_events < 20`, `MetricResult.stat = None` and `p_value` / `stat_type`
@@ -328,7 +337,8 @@ Descriptive; no test.
 - *descriptive*: `total_gains`, `total_losses`, `n_events`, `n_wins`,
   `n_losses`, `no_gains`, `no_losses`, `profit_factor_status`,
   `n_events_dropped_non_finite`, `n_events_dropped_no_estimation_window`,
-  `abnormal_return_model` / `estimation_window` / `estimation_window_lag`.
+  `abnormal_return_model` / `estimation_window` / `estimation_window_lag`,
+  `sign_base_rate` / `sign_base_rate_source` / `n_base_rate_rows`.
   `profit_factor_status` is `"finite"` for ordinary gain/loss samples,
   `"unbounded_no_losses"` when positive gains have no offsetting losses
   (`value = inf`), and `"undefined_no_gains_or_losses"` when both gross gains
