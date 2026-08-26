@@ -545,7 +545,7 @@ Dataclass for a single metric's output:
 All exceptions inherit from `FactrixError`:
 - `IncompatibleAxisError`: Invalid combination of axes.
 - `IncompatibleInferenceError`: `inference=` is outside the metric's `applicable_inference` allowlist.
-- `InsufficientSampleError`: Sample size too small for statistical validity.
+- `InsufficientSampleError`: Under `strict=True`, a requested metric's *effective* sample (post-stride periods, surviving cross-section) is below its own hard floor — an `insufficient_*` short-circuit reason. Carries `.axis` (the BINDING axis: `periods` / `assets` / `events` / `pairs` / `asset_pairs`), `.actual`, `.required`, and `.shortfalls` (one tuple per failing metric). The floor is per metric and per axis; there is no global `T < 20` rule. A missing input column or config (`no_*` reason) raises `UserInputError` instead.
 - `UserInputError`: Wrong schema, bad names, or mismatched shapes.
 
 ---
@@ -574,8 +574,8 @@ The canonical glosses live in `factrix._codes.WarningCode.description` and are r
 | `structure_mismatch` | Metric's declared cell (scope/density/structure) does not match the detected factor cell; under `strict=False` it short-circuits to NaN. |
 | `low_cardinality_dense_signal` | Dense factor has few distinct values but no sparse event contract; sparse event metrics require explicit zero non-event rows. |
 | `frequent_event_signal` | Explicit sparse event metric ran on a factor with zero non-event rows but <50% zeros; event-time inference should be read cautiously. |
-| `cross_factor_density_mismatch` | Factor columns carry inconsistent `FactorDensity` (dense and sparse mixed). |
-| `cross_factor_scope_mismatch` | Factor columns carry inconsistent `FactorScope` (individual and common mixed). |
+| `cross_factor_density_mismatch` | Factor columns carry inconsistent `FactorDensity` (dense and sparse mixed). **Raised only by `inspect_data`** — a mixed-scope `evaluate` batch routes each factor to its own cell and emits per-factor `structure_mismatch` instead. |
+| `cross_factor_scope_mismatch` | Factor columns carry inconsistent `FactorScope` (individual and common mixed). **Raised only by `inspect_data`** (see above). |
 | `single_asset_event_data` | Single-asset event data (TIMESERIES + SPARSE, n_assets=1); asset-cross-section metrics (e.g. `clustering_hhi`) stay unusable. |
 | `excessive_period_drops` | An upstream PANEL→SERIES primitive dropped > `DROP_RATE_WARN_THRESHOLD` of dates; counts in `metadata` (`n_periods_in/out`, ...). |
 | `excessive_asset_drops` | An upstream primitive dropped > `DROP_RATE_WARN_THRESHOLD` of assets (e.g. `compute_common_betas`); counts in `metadata` (`n_assets_in/out`, ...). |

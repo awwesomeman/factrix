@@ -16,8 +16,31 @@ Time-series length `n_periods` and asset count `n_assets` are gated **independen
 
 | Axis | Hard block | Soft warning | Clean |
 |---|---|---|---|
-| `n_periods` (T) | T < 20 → `InsufficientSampleError` | 20 ≤ T < 30 → `UNRELIABLE_SE_SHORT_PERIODS` | T ≥ 30 |
+| `n_periods` (T) | T below the metric's own periods floor → `InsufficientSampleError` under `strict=True` | `T < MIN_PERIODS_WARN` (= 30) → `UNRELIABLE_SE_SHORT_PERIODS` | T ≥ 30 |
 | `n_assets` | none | `n_assets < 30` → `FEW_ASSETS` (severity scales with `n_assets`) | `n_assets >= 30` |
+
+!!! warning "The periods floor is per metric, and it is checked on the **effective** sample"
+
+    There is no single global `T < 20` rule. `MIN_PERIODS_HARD` (= 20) is the
+    floor for the HAC / Newey-West time-series path, where a biased HAC SE is
+    the failure mode. A metric that sub-samples to non-overlapping dates is
+    gated on `MIN_SERIES_PERIODS_HARD` (= 10) applied to the **post-stride**
+    count — the sample the t-test actually runs on — plus a scaled floor of
+    `10 x forward_periods` on the raw dates so the stride has something to
+    consume. The two constants are deliberately different: they guard different
+    estimators on the same axis, and neither may be read as the other (see the
+    naming grammar in `factrix/_types.py`).
+
+    So at `T = 80, h = 6`, `ic` strides 74 usable dates down to 13 effective
+    periods, clears the floor of 10, returns a p-value, and tags it
+    `UNRELIABLE_SE_SHORT_PERIODS` because 13 < 30. That is the contract, not a
+    gap in it. `MetricResult.n_obs` always reports the effective count the
+    floor was checked against.
+
+    The binding axis is not always `periods`. A bucketed metric
+    (`monotonicity`, `quantile_spread`, `notional_turnover`, `k_spread`) fails
+    on the **assets** axis when the cross-section cannot fill its buckets,
+    however long the panel — `exc.axis` says which.
 
 `n_assets` is never hard-blocked because the cross-asset t-test on E[β] is mathematically well-defined for `n_assets >= 2` — only its statistical power degrades. A hard block would force users to choose between "can't run" and "don't know there's a problem"; the warning provides the result while surfacing the issue.
 
@@ -41,7 +64,7 @@ code alone, to identify the inference path.
 
 The same insufficient-sample condition surfaces differently depending on `strict` setting and metric call style:
 
-- `evaluate(..., strict=True)` (default): raises [`InsufficientSampleError`](../api/errors.md#factrix.InsufficientSampleError) carrying `.actual_periods` / `.required_periods`.
+- `evaluate(..., strict=True)` (default): raises [`InsufficientSampleError`](../api/errors.md#factrix.InsufficientSampleError) carrying `.axis` (the binding axis), `.actual` / `.required` (counts on that axis) and `.shortfalls` (one entry per failing metric). A missing input column or config raises `UserInputError` instead — the reason vocabulary splits `insufficient_*` from `no_*`.
 - `evaluate(..., strict=False)`: keeps inapplicable metrics as `NaN` values with warnings in the returned `EvaluationResult`.
 - Standalone metric callable (e.g. [`quantile_spread`](../api/metrics/quantile.md)): returns a short-circuit `MetricResult(value=NaN, metadata={"reason": ..., "n_obs": ...})`.
 

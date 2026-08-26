@@ -203,7 +203,8 @@ derivation are automatically resolved at dispatch time.
 
     ---
 
-    Sample-size floors and the `InsufficientSampleError` recovery path.
+    Per-metric, per-axis sample floors on the effective sample, and the
+    `InsufficientSampleError` recovery path (`.axis` / `.actual` / `.required`).
 
     [guides/panel-timeseries →](../guides/panel-timeseries.md)
 

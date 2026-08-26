@@ -24,9 +24,11 @@ except fx.IncompatibleAxisError as exc:
     # Axis miswire.
     ...
 except fx.InsufficientSampleError as exc:
-    # Sample threshold is below the required hard floor.
-    # exc.actual_periods and exc.required_periods carry details.
-    ...
+    # A requested metric's effective sample is below its own hard floor.
+    # exc.axis names the BINDING axis ("periods" / "assets" / "events" / ...),
+    # exc.actual / exc.required carry the counts, and exc.shortfalls lists
+    # one (label, reason, axis, actual, required) tuple per failing metric.
+    print(f"{exc.axis}: had {exc.actual}, needed {exc.required}")
 except fx.FactrixError as exc:
     # Catch-all for anything else factrix raises.
     ...
@@ -41,7 +43,7 @@ All factrix-raised exceptions inherit from `FactrixError`, so a single
 FactrixError                       # base
 ├── IncompatibleAxisError          # (scope, density, metric) is not a legal cell
 ├── IncompatibleInferenceError     # inference= outside the metric's applicable-inference allowlist
-├── InsufficientSampleError        # T below SampleThreshold on a TIMESERIES/PANEL procedure
+├── InsufficientSampleError        # a metric's effective sample is below its own SampleThreshold floor
 ├── UserInputError                 # named-set typo / type mismatch / dataset schema error
 └── CycleError                     # MetricSpec.requires declares a dependency cycle
 ```
@@ -50,7 +52,7 @@ FactrixError                       # base
 |---|---|---|
 | `IncompatibleAxisError` | `(scope, density, metric)` is not a legal cell | — |
 | `IncompatibleInferenceError` | `inference=` outside the metric's `applicable_inference` allowlist | `.func_name`, `.value`, `.applicable` |
-| `InsufficientSampleError` | `T` below the procedure floor | `.actual_periods`, `.required_periods` |
+| `InsufficientSampleError` | Under `strict=True`, a requested metric short-circuited on a data shortage (an `insufficient_*` reason) | `.axis`, `.actual`, `.required`, `.shortfalls` |
 | `UserInputError` | Unknown metric, column not in data, wrong type | structured `.field`, `.value`, `.candidates`, `.suggestions`, `.expected`, `.docs_url` |
 | `CycleError` | A custom metric's `MetricSpec.requires` forms a dependency cycle | — |
 
@@ -72,7 +74,7 @@ Concrete messages, what triggers them, and where to look for the fix.
 | Exception / message | Trigger | Fix |
 |---|---|---|
 | `IncompatibleAxisError: (scope, density, metric) is not a legal cell` | Combination that the dispatch table never registers | Use compatible axes. Check [`list_metrics`](metrics/index.md#factrix.list_metrics) or [`inspect_data`](inspect-data.md) to find applicable metrics. |
-| `InsufficientSampleError: T below required` | Sample size below the procedure's hard floor | Read `.actual_periods` and `.required_periods`. The fix is either more data, or switching to a less restrictive metric. |
+| `InsufficientSampleError: N metric(s) below their sample floor` | A requested metric's effective sample is below its own hard floor | Read `.axis` first — the binding axis is not always `periods`. On `periods`, extend the window. On `assets`, either widen the universe or reconfigure the metric (`monotonicity(n_groups=3)`, `k_spread(k=2)` for a small universe). `strict=False` returns NaN placeholders instead. |
 
 ### User-input failures (`UserInputError`)
 
