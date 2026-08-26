@@ -28,6 +28,7 @@ from factrix._axis import (
     FactorScope,
 )
 from factrix._codes import WarningCode
+from factrix._errors import UserInputError
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_t
@@ -238,6 +239,23 @@ def monotonicity(
         >>> result["factor"].name == ""
         True
     """
+    if direction not in ("increasing", "decreasing"):
+        # A typo must not silently run the opposite one-sided test.
+        raise UserInputError(
+            func_name="monotonicity",
+            field="direction",
+            value=direction,
+            expected="'increasing' (default) or 'decreasing'",
+            docs_path="api/metrics/monotonicity",
+        )
+    if n_bootstrap < 1:
+        raise UserInputError(
+            func_name="monotonicity",
+            field="n_bootstrap",
+            value=n_bootstrap,
+            expected="a positive integer number of bootstrap resamples",
+            docs_path="api/metrics/monotonicity",
+        )
     cols = list(factor_cols)
     if not cols:
         raise ValueError("factor_cols must be non-empty")

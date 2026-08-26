@@ -293,7 +293,9 @@ def orthogonalize_factor(
 
         if n_finite < min_rows:
             dt = chunk["date"][0]
-            logger.warning(
+            # Per-date detail at debug; the aggregate UserWarning below
+            # carries the count.
+            logger.debug(
                 "orthogonalize: date %s has %d finite rows, leaving %d residual "
                 "df for %d base factors + intercept (min_residual_df=%d); "
                 "keeping original values",
@@ -432,9 +434,11 @@ def orthogonalize_factor(
     # Attribution: average betas across full-rank dates, R² across all fitted
     # ones. A rank-deficient date still contributes a valid residual and R²;
     # only its betas are unidentified.
+    # NaN, not 0.0, when no date was fitted: a reported R² of 0.00 would read
+    # as "perfectly unspanned" when the truth is that no regression ran.
     mean_betas: dict[str, float] = {}
-    mean_r2 = 0.0
-    mean_adj_r2 = 0.0
+    mean_r2 = float("nan")
+    mean_adj_r2 = float("nan")
     if all_betas:
         beta_matrix = np.array(all_betas)
         for i, col in enumerate(base_cols):

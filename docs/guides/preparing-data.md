@@ -93,14 +93,17 @@ per-date boolean column, then reduce that `Series`, since `.all()` is a
 ## 2. Regular spacing per asset is load-bearing
 
 [`compute_forward_return`](../api/preprocess.md) sorts the input by
-`(asset_id, date)` itself, so an unsorted panel is fine. What it
-**does not** inspect is the calendar gap between successive rows —
-the function shifts by row count, not by date.
+`(asset_id, date)` itself, so an unsorted panel is fine, and it rejects
+duplicate `(date, asset_id)` rows and non-temporal `date` columns at the
+boundary (see the [ingestion contract](../api/data-schema.md#ingestion-contract)).
+The horizon is measured on the panel's distinct-date grid: period `i` is
+paired with periods `i+1` and `i+1+h` of that grid, never by row offset.
 
-If asset A has daily rows but asset B is missing two trading days in
-the middle, asset B's row-shift skips the gap silently and the forward
-return on the row before the gap measures the wrong horizon. Verify
-per-asset spacing before calling:
+If asset A has every period but asset B is missing two periods in the
+middle, asset B contributes rows only where both `i+1` and `i+1+h` exist
+for it, and `compute_forward_return` emits `ragged_period_grid` so the
+per-asset horizon mismatch is visible. Verify per-asset spacing before
+calling if the warning is unexpected:
 
 ```python
 gaps = raw.sort(["asset_id", "date"]).with_columns(
@@ -232,7 +235,7 @@ calls for a transformed signal.
 
 ## 5. Frequency alignment is the caller's job
 
-factrix is calendar-agnostic — it shifts rows, not calendar time.
+factrix is calendar-agnostic — it counts periods on the panel's own date grid, not calendar time.
 Three responsibilities sit upstream of `compute_forward_return`:
 
 - **Same date axis for factor and price source.** If the factor is
@@ -251,8 +254,8 @@ Three responsibilities sit upstream of `compute_forward_return`:
 
 | Source | factrix behaviour | Caller action |
 |---|---|---|
-| NaN in `factor` | Not auto-imputed; flows through to the procedure, where it depresses `n_obs` and may trip sample-size guards. | Drop or impute before optional factor preprocessing or `compute_forward_return`. |
-| NaN / inf in `price` | `compute_forward_return` drops rows whose computed `forward_return` is not finite (`null`, `NaN`, `+inf`, or `-inf`). Tail rows where `t + 1 + forward_periods` runs off the end of the series are dropped by the same filter. | If a daily NaN reflects a true gap (suspended trading, holiday), the drop is correct. If imputable (forward-fill from previous close), impute before calling. |
+| NaN in `factor` | Rewritten to `null` at ingestion, so it is a missing value like any other: it depresses `n_obs` and may trip sample-size guards, and never enters a rank. | Drop or impute before optional factor preprocessing or `compute_forward_return`. |
+| NaN / inf in `price` | Rewritten to `null` at ingestion *before* the return is formed, so a `+inf` price is a gap rather than a fabricated `-100 %` return; rows whose `forward_return` cannot be formed are dropped. Tail rows where `i + 1 + forward_periods` runs off the asset's grid are dropped by the same rule. | If a daily NaN reflects a true gap (suspended trading, holiday), the drop is correct. If imputable (forward-fill from previous close), impute before calling. |
 | `forward_periods <= 0`, non-`int`, or `bool` | Raises [`UserInputError`](../api/errors.md); the horizon must be a positive integer row count. | Pass an explicit row horizon such as `1`, `5`, or `20`. |
 | Horizon too long / no finite returns after filtering | Raises [`UserInputError`](../api/errors.md) instead of returning an empty panel. | Shorten the horizon, extend the panel, or clean price values before calling. |
 | Single-asset panel (`n_assets == 1`) | `DataStructure` auto-switches to `TIMESERIES`. Dense PANEL metrics (`individual_continuous` and `common_continuous`) raise [`IncompatibleAxisError`](../api/errors.md). | Use `predictive_beta` for dense predictive-regression slope inference, `directional_hit_rate` for sign prediction, or a sparse metric whose cell allows `TIMESERIES`. |

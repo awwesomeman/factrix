@@ -2,6 +2,7 @@
 
 import math
 
+import factrix as fx
 import pytest
 from factrix.metrics.monotonicity import monotonicity
 
@@ -459,3 +460,26 @@ class TestTieRatioCountsFiniteValuesOnly:
                 panel, forward_periods=1, n_groups=3, n_bootstrap=50, seed=0
             )["factor"]
         assert result.metadata["tie_ratio"] == pytest.approx(0.8)
+
+
+class TestMRArgumentValidation:
+    @staticmethod
+    def _panel():
+        return fx.preprocess.compute_forward_return(
+            fx.datasets.make_cs_panel(n_assets=40, n_dates=120, seed=3),
+            forward_periods=1,
+        )
+
+    def test_direction_typo_is_rejected(self):
+        from factrix._errors import UserInputError
+        from factrix.metrics.monotonicity import monotonicity
+
+        with pytest.raises(UserInputError, match="direction"):
+            monotonicity(self._panel(), n_bootstrap=50, seed=0, direction="decrease")
+
+    def test_non_positive_n_bootstrap_is_rejected(self):
+        from factrix._errors import UserInputError
+        from factrix.metrics.monotonicity import monotonicity
+
+        with pytest.raises(UserInputError, match="n_bootstrap"):
+            monotonicity(self._panel(), n_bootstrap=0, seed=0)

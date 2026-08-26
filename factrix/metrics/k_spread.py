@@ -342,6 +342,8 @@ def k_spread(
             k=k,
             min_required=2 * k,
             max_assets_per_date=max_per_date,
+            tie_ratio=tie_ratio,
+            tie_policy=tie_policy,
         )
 
     if series is None:
@@ -353,6 +355,8 @@ def k_spread(
             k=k,
             min_required=2 * k,
             max_assets_per_date=max_per_date,
+            tie_ratio=tie_ratio,
+            tie_policy=tie_policy,
         )
 
     spread_vals = _finite_values(series["spread"])
@@ -364,6 +368,8 @@ def k_spread(
         forward_periods,
         "insufficient_portfolio_periods",
         k=k,
+        tie_ratio=tie_ratio,
+        tie_policy=tie_policy,
     )
     if sc is not None:
         return sc
@@ -385,6 +391,8 @@ def k_spread(
             n_obs_axis="periods",
             k=k,
             n_periods_in=series.height,
+            tie_ratio=tie_ratio,
+            tie_policy=tie_policy,
         )
 
     arr = spread_vals.to_numpy()

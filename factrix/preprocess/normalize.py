@@ -418,7 +418,14 @@ def cross_sectional_zscore(
         n=10 — and, worse, the inflation is ``n``-dependent, so on an
         unbalanced panel thin dates produce systematically larger z and
         every pooled or z-weighted statistic over-weights the noisiest
-        cross-sections. See :func:`mad_winsorize`.
+        cross-sections. ``b_n`` removes the bias in the *scale estimator*
+        (``E[b_n · 1.4826 · MAD] = σ`` to within 1% at every ``n >= 3``),
+        which brings the expected ``sd(z)`` to 1.38 at n=5 and 1.08 at
+        n=10; the residual excess is Jensen curvature in ``E[σ̂ / scale]``
+        and no fixed constant removes it. The constant targets the
+        *normal-consistent* scale: on heavier tails it overstates the
+        distribution's own MAD-implied scale (about +12% at n=3 on a
+        t(5), under +1% by n=50). See :func:`mad_winsorize`.
 
         **Zero-MAD fallback.** With more than 50% ties on a date the MAD is
         exactly 0, so the naive ratio is ``+-inf`` for every non-median

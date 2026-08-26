@@ -8,12 +8,29 @@ Single-source contract for every `factrix` entry point that consumes a panel. Ev
 
 | Column | dtype | Semantics |
 |---|---|---|
-| `date` | `Date` (preferred) or `Datetime` | Observation timestamp. Sorted ascending per asset. Frequency-agnostic — factrix shifts rows, never calendar time. |
+| `date` | `Date` or `Datetime` (**required** — a `String` or integer date is rejected) | Observation timestamp. Frequency-agnostic — the horizon is measured in periods of the panel's own distinct-date grid, never in calendar time. |
 | `asset_id` | `Utf8` / `Categorical` | Cross-section identifier. Identical for COMMON-scope factors (`df.group_by("date").agg((pl.col("factor").n_unique() == 1).alias("is_common"))["is_common"].all()` is `True`). |
 | `factor` | numeric (`Int*` / `Float*`) | The signal value. Dense: real-valued exposure (z-score, IC-rankable). Sparse: zero-encoded `{0, R}` event trigger, where `0` marks non-events. |
 | `forward_return` | `Float64` | Look-ahead return over the horizon used at evaluate time. Attach via [`compute_forward_return`](preprocess.md) so the horizon is explicit and aligned with `forward_periods`. |
 
 The minimal panel is therefore long-format `(date, asset_id, factor, forward_return)`. Two assets over three periods:
+
+## Ingestion contract
+
+Every entry point that consumes a panel (`evaluate`, `evaluate_horizons`,
+`inspect_data`, `by_slice`, `compute_forward_return`) normalises it once at
+the boundary. Three rules are enforced, and one rewrite is applied:
+
+| Rule | On violation |
+|---|---|
+| `date` is `Date` or `Datetime` | `UserInputError` — a `String` date sorts lexicographically and silently reorders any non-ISO format; parse it first (`pl.col("date").str.to_date(fmt)`). |
+| `(date, asset_id)` is unique | `UserInputError` — a duplicate makes the "next period" the same date's twin and fabricates a `0.0` forward return. |
+| Per-asset period grids agree | `ragged_period_grid` warning — an asset missing periods pairs `t+1` with `t+1+h` on *its own* grid, so its horizon differs from the others'. |
+| Non-finite float cells | `NaN` and `±inf` in every **float** column are rewritten to `null` (integer, boolean, `Decimal` and string columns are untouched). A `+inf` `price` therefore becomes a gap rather than a fabricated `-100 %` return; a `NaN` factor cell is a missing value like `null`. |
+
+The normalisation is idempotent and cheap (≈0.15 s on 3 M rows), so
+`compute_forward_return` followed by `evaluate` runs it twice without cost.
+
 
 For sparse factors, null factor cells are missing values, not non-events, and
 are excluded from sparse-ratio detection. Fill missing values to `0` only when

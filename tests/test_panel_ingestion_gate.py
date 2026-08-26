@@ -188,3 +188,27 @@ def warnings_as_errors():
             yield
 
     return _ctx()
+
+
+class TestNonFloatColumnsUntouched:
+    """Only float dtypes can carry NaN / ±inf; every other dtype passes through."""
+
+    def test_decimal_column_passes_through(self):
+        from decimal import Decimal
+
+        df = pl.DataFrame(
+            {
+                "date": [datetime(2024, 1, 1), datetime(2024, 1, 2)],
+                "asset_id": ["A", "A"],
+                "market_cap": pl.Series(
+                    [Decimal("1.50"), Decimal("2.25")], dtype=pl.Decimal(10, 2)
+                ),
+                "n": pl.Series([1, 2], dtype=pl.Int64),
+                "flag": [True, False],
+            }
+        )
+        out = _normalize_panel(df)
+        assert out.schema["market_cap"] == pl.Decimal(10, 2)
+        assert out["market_cap"].to_list() == df["market_cap"].to_list()
+        assert out["n"].to_list() == [1, 2]
+        assert out["flag"].to_list() == [True, False]

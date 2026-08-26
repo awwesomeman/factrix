@@ -148,7 +148,11 @@ def _normalize_panel(data: pl.DataFrame) -> pl.DataFrame:
             )
 
     return data.with_columns(
-        pl.when(cs.numeric().is_finite()).then(cs.numeric()).otherwise(None)
+        # Float columns only: they are the only dtypes that can carry NaN /
+        # ±inf, and ``is_finite`` is undefined on ``Decimal`` (the default
+        # dtype for a DECIMAL / NUMERIC column read from Parquet or a
+        # warehouse), which ``cs.numeric()`` would include.
+        pl.when(cs.float().is_finite()).then(cs.float()).otherwise(None)
     )
 
 
