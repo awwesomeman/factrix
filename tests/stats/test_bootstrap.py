@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from factrix._errors import UserInputError
 from factrix._stats.bootstrap import _politis_white_block_length
 from factrix.stats.bootstrap import (
     _resolve_auto_block_length,
@@ -185,13 +186,13 @@ class TestBootstrapMeanCI:
         assert point == pytest.approx(float(np.median(x)))
 
     def test_rejects_ci_out_of_range(self):
-        with pytest.raises(ValueError, match="ci"):
+        with pytest.raises(UserInputError, match="ci"):
             bootstrap_mean_ci(np.arange(20.0), ci=1.5)
-        with pytest.raises(ValueError, match="ci"):
+        with pytest.raises(UserInputError, match="ci"):
             bootstrap_mean_ci(np.arange(20.0), ci=0.0)
 
     def test_rejects_matrix_input(self):
-        with pytest.raises(ValueError, match="values must be 1-D"):
+        with pytest.raises(UserInputError, match="1-D array"):
             bootstrap_mean_ci(np.ones((20, 2)))
 
 
@@ -274,13 +275,13 @@ class TestBootstrapMeanCIValidation:
     """Every one of these used to return a silently degenerate interval."""
 
     def test_rejects_a_single_observation(self):
-        with pytest.raises(ValueError, match="at least 2 observations"):
+        with pytest.raises(UserInputError, match="at least 2 observations"):
             bootstrap_mean_ci(np.array([3.0]))
 
     def test_rejects_too_few_resamples(self):
         """B=1 returned (3.4, 3.4, 4.5) — a point estimate outside its own CI."""
         rng = np.random.default_rng(0)
-        with pytest.raises(ValueError, match="n_bootstrap must be at least"):
+        with pytest.raises(UserInputError, match="at least 200 resamples"):
             bootstrap_mean_ci(rng.standard_normal(50), n_bootstrap=1)
 
     def test_rejects_block_length_at_or_past_the_sample(self):

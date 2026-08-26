@@ -242,10 +242,11 @@ def bootstrap_mean_ci(
         ``estimate`` is the statistic on the original sample.
 
     Raises:
-        UserInputError: ``method="studentized"`` with a custom
-            ``statistic``.
-        ValueError: ``ci`` outside ``(0, 1)``, non-1-D ``values``, fewer
-            than 2 observations, or ``n_bootstrap`` below the floor.
+        UserInputError: ``ci`` outside ``(0, 1)``, an unknown ``method``,
+            non-1-D ``values``, fewer than 2 observations, ``n_bootstrap``
+            below the floor, or ``method="studentized"`` with a custom
+            ``statistic``. One exception type across every input check —
+            ``UserInputError`` is the repo's user-facing shape.
 
     References:
         - [Politis & Romano (1994)][politis-romano-1994]. "The Stationary
@@ -262,26 +263,48 @@ def bootstrap_mean_ci(
     from factrix._stats.bootstrap import _batch_means_se
 
     if not 0.0 < ci < 1.0:
-        raise ValueError(f"ci must be in (0, 1), got {ci!r}")
+        raise UserInputError(
+            func_name="bootstrap_mean_ci",
+            field="ci",
+            value=ci,
+            expected="a coverage level strictly inside (0, 1)",
+            docs_path="api/stats#bootstrap_mean_ci",
+        )
     if method not in ("studentized", "percentile"):
-        raise ValueError(
-            f"method must be 'studentized' or 'percentile', got {method!r}"
+        raise UserInputError(
+            func_name="bootstrap_mean_ci",
+            field="method",
+            value=method,
+            expected="'studentized' or 'percentile'",
+            docs_path="api/stats#bootstrap_mean_ci",
         )
     values = np.asarray(values, dtype=float)
     if values.ndim != 1:
-        raise ValueError(
-            f"bootstrap_mean_ci: values must be 1-D; got shape {values.shape}."
+        raise UserInputError(
+            func_name="bootstrap_mean_ci",
+            field="values",
+            value=values.shape,
+            expected="a 1-D array of observations",
+            docs_path="api/stats#bootstrap_mean_ci",
         )
     if len(values) < 2:
-        raise ValueError(
-            f"bootstrap_mean_ci: need at least 2 observations to resample; "
-            f"got {len(values)}."
+        raise UserInputError(
+            func_name="bootstrap_mean_ci",
+            field="values",
+            value=len(values),
+            expected="at least 2 observations to resample",
+            docs_path="api/stats#bootstrap_mean_ci",
         )
     if n_bootstrap < _BOOTSTRAP_RESAMPLES_FLOOR:
-        raise ValueError(
-            f"bootstrap_mean_ci: n_bootstrap must be at least "
-            f"{_BOOTSTRAP_RESAMPLES_FLOOR}; got {n_bootstrap!r}. Below that the "
-            f"interval endpoints are resampling noise."
+        raise UserInputError(
+            func_name="bootstrap_mean_ci",
+            field="n_bootstrap",
+            value=n_bootstrap,
+            expected=(
+                f"at least {_BOOTSTRAP_RESAMPLES_FLOOR} resamples — below that "
+                f"the interval endpoints are resampling noise"
+            ),
+            docs_path="api/stats#bootstrap_mean_ci",
         )
     if statistic is not None and method == "studentized":
         raise UserInputError(
