@@ -209,7 +209,9 @@ class TestClusterRobustDenominator:
 
     def test_n_obs_counts_event_dates_not_events(self):
         result = corrado_rank(self._clustered_panel(events_per_period=4))
-        assert result.n_obs_axis == "periods"
+        # ``n_obs`` is the event-period count; the axis token is the event
+        # battery's shared ``"events"`` (see SampleAxis).
+        assert result.n_obs_axis == "events"
         assert result.n_obs == result.metadata["n_event_periods"]
         # Four events per period: the event count is 4x the date count, and
         # using it as the sample size is what inflated z.
@@ -253,7 +255,7 @@ class TestClusterRobustDenominator:
                         ),
                     }
                 )
-        with pytest.warns(UserWarning, match="n_event_periods=6"):
+        with pytest.warns(UserWarning, match="6 event periods survive"):
             result = corrado_rank(pl.DataFrame(rows))
         assert result.n_obs == 6
         assert result.stat is not None
@@ -280,7 +282,10 @@ class TestClusterRobustDenominator:
                         "forward_return": float(rng.normal() + shock),
                     }
                 )
-        result = corrado_rank(pl.DataFrame(rows))
+        # Event periods are four calendar steps apart, so the horizon is four:
+        # every event clears the non-overlap stride and the collapse is the
+        # identity, as the docstring above describes.
+        result = corrado_rank(pl.DataFrame(rows), forward_periods=4)
         assert result.n_obs == len(event_days)
         assert result.metadata["events_per_period_mean"] == pytest.approx(15.0)
         assert result.stat > 0

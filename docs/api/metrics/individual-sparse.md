@@ -65,7 +65,24 @@ and scope-agnostic event-time metrics — the dispatcher selects them for
 any `SPARSE × PANEL` factor, broadcast or per-asset. The cross-cell
 landing page is [Common sparse](common-sparse.md).
 
-When events cluster on the same date (earnings season, macro release),
-prefer `caar.bmp_z` (its Kolari-Pynnönen adjustment is on by default) over
-the vanilla $t$-test — the [`clustering`](clustering_hhi.md) HHI tells you when this
-matters.
+Clustering comes on two axes, and they call for different reads.
+
+**Same period, many names** (earnings season, macro release, index
+rebalance). Prefer `caar.bmp_z`: its Kolari-Pynnönen adjustment is on by
+default and deflates the pooled `z` for the shared shock. The
+[`clustering`](clustering_hhi.md) HHI tells you when this matters — and it
+is a cross-sectional diagnostic, so it is unusable on a single asset,
+where by construction no two events share a period with another name.
+
+**Same asset, nearby periods** (a trigger that keeps firing for a week —
+the only clustering axis a single-asset study has). Here the Kolari-Pynnönen
+adjustment has nothing to work with: the dependence is between an event's
+forward-return window and the next event's, not across the cross-section.
+Every event significance test in this cell therefore strides its own event
+axis first, keeping an event only when it sits at least `forward_periods`
+periods after the last kept one on that asset, and reports what it removed
+as `EVENT_WINDOW_OVERLAP` with `metadata["n_events_overlapping"]`. Read
+that code as "your trigger fires in bursts and the test paid for it in
+sample", not as a defect — the alternative is the inflated statistic the
+stride exists to prevent. `caar` and `bmp_z` are equally calibrated under
+it; pick between them on the cross-sectional axis above.

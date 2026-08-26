@@ -153,7 +153,7 @@ Descriptive; no test.
 
 - *primary*: `p_value` — non-overlapping `t` on per-event-period CAAR.
   `value`, `stat`, `p_value` and `n_obs` all describe the event-spaced
-  subsample (`n_obs_axis = "periods"`).
+  subsample (`n_obs_axis = "events"`, the shared event-battery token).
 - *descriptive*: `n_event_periods` (number of periods with an event),
   `total_events` (underlying events behind the portfolio),
   `n_event_periods_sampled`, `mean_caar_full` / `n_event_periods_full`
@@ -161,6 +161,9 @@ Descriptive; no test.
   `n_event_periods_dropped_non_finite` (null / NaN `caar` periods dropped
   before spacing), `n_events_dropped_non_finite` (events with a non-finite
   return or factor dropped by `compute_caar`),
+  `n_events_overlapping` / `n_events_sampled` (removed by, and surviving,
+  the non-overlap spacing pass; a non-zero removal fires
+  `EVENT_WINDOW_OVERLAP`),
   `warning_codes` (conditional, e.g. `FEW_EVENTS`).
 
 #### `bmp_z`
@@ -171,7 +174,11 @@ Boehmer-Musumeci-Poulsen standardised-abnormal-return cross-sectional
 - *primary*: `p_value`.
 - *descriptive*: `n_events`, `n_event_periods` (distinct event periods —
   the effective sample once events cluster; `FEW_EVENTS` fires on it when
-  below `MIN_EVENTS_WARN` and events share periods), `n_dropped`
+  below `MIN_EVENTS_WARN` and events share periods, and on the raw event
+  count when it is below `MIN_EVENTS_WARN × forward_periods`),
+  `n_events_overlapping` / `n_events_sampled` (removed by, and surviving,
+  the per-asset non-overlap spacing pass; a non-zero removal fires
+  `EVENT_WINDOW_OVERLAP`), `n_dropped`
   (= `n_dropped_no_vol` + `n_dropped_non_finite_return`), `std_sar`,
   `estimation_window`, `include_prediction_error_variance`,
   `vol_source` (`"price"` or `"forward_return"`), `vol_estimation_lag`
@@ -187,15 +194,18 @@ Boehmer-Musumeci-Poulsen standardised-abnormal-return cross-sectional
 #### `corrado_rank` (emits `MetricResult.name = "corrado_rank"`)
 
 - *primary*: `p_value` — Corrado nonparametric rank `z`.
-- *sample*: `n_event_periods` — distinct event periods, and the sample behind
-  `stat` / `p_value` / `n_obs` (axis `periods`). Same-period events are
+- *sample*: `n_event_periods` — distinct event periods surviving the
+  per-asset non-overlap spacing pass, and the sample behind
+  `stat` / `p_value` / `n_obs` (axis `events`). Same-period events are
   averaged into one observation before the test, so the event period is the
   unit of inference and within-period clustering lands in the denominator.
 - *descriptive*: `n_events` (raw event rows — `n_event_periods` times the mean
   events per period, **not** the test's sample size), `events_per_period_mean`,
   `events_per_period_max` (clustering profile; read them together with
   `clustering_hhi`), `n_total_obs` (finite return cells behind the ranks),
-  `n_events_dropped_non_finite`.
+  `n_events_dropped_non_finite`, `forward_periods` (the spacing stride),
+  `n_events_overlapping` / `n_events_sampled` (removed by, and surviving,
+  the spacing pass; a non-zero removal fires `EVENT_WINDOW_OVERLAP`).
 
 ### `positive_rate` (`factrix.metrics.positive_rate`)
 
@@ -256,14 +266,18 @@ asset pairs are not treated as independent Bernoulli trials.
 Same shape as `positive_rate` (exact binomial, `stat` = hit count).
 
 - *primary*: `p_value`.
-- *descriptive*: `n_events`, `n_hits`, `n_events_dropped_non_finite`
-  (events with a non-finite return / factor, excluded from `n`).
+- *descriptive*: `n_events` (events surviving the non-overlap spacing pass —
+  the binomial `n`), `n_hits`, `n_events_dropped_non_finite`
+  (events with a non-finite return / factor, excluded from `n`),
+  `n_events_overlapping` / `n_events_sampled` (removed by, and surviving,
+  the spacing pass; a non-zero removal fires `EVENT_WINDOW_OVERLAP`).
 
 #### `event_ic`
 
 - *primary*: `p_value` — Fisher-transformed Spearman ρ between
   `|factor|` and `signed_car`.
-- *descriptive*: `n_events`, `n_events_dropped_non_finite`.
+- *descriptive*: `n_events` (post-spacing), `n_events_dropped_non_finite`,
+  `n_events_overlapping` / `n_events_sampled`.
 
 `MetricResult.stat = None` and the short-circuit `reason` is set to
 `"not_applicable_discrete_signal"` when the signal lacks magnitude
@@ -272,7 +286,8 @@ variance (e.g. binary {-1, +1}).
 #### `event_skewness`
 
 - *primary* (conditional, N ≥ 20): `p_value` — D'Agostino skew `z`.
-- *descriptive*: `n_events`, `n_events_dropped_non_finite`.
+- *descriptive*: `n_events` (post-spacing), `n_events_dropped_non_finite`,
+  `n_events_overlapping` / `n_events_sampled`.
 
 When `n_events < 20`, `MetricResult.stat = None` and `p_value` / `stat_type`
 / `h0` / `method` are omitted — the metric reports the Fisher

@@ -28,17 +28,23 @@ from factrix._axis import (
     Aggregation,
     FactorDensity,
 )
+from factrix._codes import WarningCode
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import _binomial_two_sided_p
-from factrix._types import EPSILON, MIN_EVENTS_HARD
+from factrix._types import EPSILON, MIN_EVENTS_HARD, MIN_EVENTS_WARN
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _enforce_min_floor,
+    _event_sample_threshold,
     _event_signal_is_discrete,
     _finite_expr,
+    _sample_events_non_overlapping,
+    _scaled_min_periods,
     _short_circuit_output,
     _signed_car,
+    _warn_below_scaled_floor,
+    _warn_event_window_overlap,
 )
 
 __all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
@@ -91,20 +97,81 @@ def _finite_events(
     return events, n_all - events.height
 
 
+def _spaced_events(
+    data: pl.DataFrame,
+    events: pl.DataFrame,
+    metric_name: str,
+    forward_periods: int,
+    metadata: dict,
+    warning_codes: list[str],
+    *,
+    expected_warnings: tuple[str, ...] = (),
+) -> pl.DataFrame:
+    """Apply the event-axis non-overlap discipline shared by the per-event tests.
+
+    Every hypothesis test in this module reduces per-event ``signed_car`` to a
+    scalar and reads its p-value off an iid-draws null (binomial, Spearman,
+    D'Agostino). Two events on one asset closer than ``forward_periods`` share
+    future bars, so they are not two draws — pooling them inflates ``N`` and
+    the test over-rejects. This is the same discipline ``caar`` applies to its
+    event-period series, made per-asset here because the overlap is a
+    same-asset property. Records the removed count and fires
+    ``EVENT_WINDOW_OVERLAP`` when there was any.
+    """
+    n_raw = events.height
+    sampled = _sample_events_non_overlapping(
+        events,
+        forward_periods,
+        calendar_dates=data["date"] if "date" in data.columns else None,
+    )
+    _warn_event_window_overlap(
+        metric_name,
+        n_raw,
+        sampled.height,
+        forward_periods,
+        metadata,
+        warning_codes,
+        expected_warnings=expected_warnings,
+    )
+    raw_min_warn = _scaled_min_periods(MIN_EVENTS_WARN, forward_periods)
+    warn_code = _warn_below_scaled_floor(
+        n_raw,
+        MIN_EVENTS_WARN,
+        forward_periods,
+        f"{metric_name}: n_events={n_raw} below the floor of {raw_min_warn} "
+        f"(= MIN_EVENTS_WARN {MIN_EVENTS_WARN} x forward_periods "
+        f"{forward_periods}); {sampled.height} events survive non-overlap "
+        f"sampling at stride h={forward_periods}, which keeps about one event "
+        f"in h per asset. The statistic is returned but its null assumes "
+        f"independent draws and is power-thin on a sample this short.",
+        WarningCode.FEW_EVENTS,
+        expected_warnings=expected_warnings,
+    )
+    if warn_code is not None:
+        warning_codes.append(warn_code)
+    return sampled
+
+
 @metric(
     cell=_EQ_CELL,
     aggregation=Aggregation.EVENT_TIME,
-    sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
+    sample_threshold=_event_sample_threshold,
 )
 def event_hit_rate(
     data: pl.DataFrame,
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
+    forward_periods: int = 5,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Fraction of events with return in expected direction.
 
-    The static event floor (sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD)) gates the hit-rate binomial test on the count of non-zero (event) observations.
+    The static event floor (MIN_EVENTS_HARD) gates the hit-rate binomial test on
+    the count of non-zero (event) observations that survive the event-axis
+    spacing pass; the warn floor scales with the forward_periods parameter (the
+    spacing stride), so the threshold is declared as a resolver (a callable
+    sample_threshold) rather than a constant.
 
     Args:
         data: Panel with event density and forward return.
@@ -156,9 +223,30 @@ def event_hit_rate(
     """
     events, n_dropped = _finite_events(data, factor_col, return_col)
 
+    metadata: dict = {
+        "n_events_dropped_non_finite": n_dropped,
+        "stat_type": "binomial_hits",
+        "h0": "p=0.5",
+        "method": "binomial exact test",
+    }
+    warning_codes: list[str] = []
+    events = _spaced_events(
+        data,
+        events,
+        "event_hit_rate",
+        forward_periods,
+        metadata,
+        warning_codes,
+        expected_warnings=expected_warnings,
+    )
     n = len(events)
     sc = _enforce_min_floor(
-        event_hit_rate, "event_hit_rate", n, "insufficient_events", axis="events"
+        event_hit_rate,
+        "event_hit_rate",
+        n,
+        "insufficient_events",
+        axis="events",
+        forward_periods=forward_periods,
     )
     if sc is not None:
         return sc
@@ -167,6 +255,8 @@ def event_hit_rate(
     hits = int(np.sum(signed > 0))
     rate = hits / n
     p = _binomial_two_sided_p(hits, n, p0=0.5)
+    metadata["n_events"] = n
+    metadata["n_hits"] = hits
 
     return MetricResult(
         p_value=p,
@@ -175,21 +265,15 @@ def event_hit_rate(
         n_obs=n,
         n_obs_axis="events",
         stat=float(hits),
-        metadata={
-            "n_events": n,
-            "n_hits": hits,
-            "n_events_dropped_non_finite": n_dropped,
-            "stat_type": "binomial_hits",
-            "h0": "p=0.5",
-            "method": "binomial exact test",
-        },
+        metadata=metadata,
+        warning_codes=tuple(warning_codes),
     )
 
 
 @metric(
     cell=_EQ_CELL,
     aggregation=Aggregation.EVENT_TIME,
-    sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
+    sample_threshold=_event_sample_threshold,
     requires_continuous_magnitude=True,
 )
 def event_ic(
@@ -197,6 +281,8 @@ def event_ic(
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
+    forward_periods: int = 5,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Spearman correlation between factor value and realised forward return.
 
@@ -271,6 +357,29 @@ def event_ic(
             n_events=n,
         )
 
+    metadata: dict = {"n_events_dropped_non_finite": n_dropped}
+    warning_codes: list[str] = []
+    events = _spaced_events(
+        data,
+        events,
+        "event_ic",
+        forward_periods,
+        metadata,
+        warning_codes,
+        expected_warnings=expected_warnings,
+    )
+    n = len(events)
+    sc = _enforce_min_floor(
+        event_ic,
+        "event_ic",
+        n,
+        "insufficient_events",
+        axis="events",
+        forward_periods=forward_periods,
+    )
+    if sc is not None:
+        return sc
+
     abs_signal = np.abs(events[factor_col].to_numpy())
     signed = _signed_car(events, factor_col, return_col)
 
@@ -296,12 +405,13 @@ def event_ic(
         n_obs_axis="events",
         stat=z,
         metadata={
+            **metadata,
             "n_events": n,
-            "n_events_dropped_non_finite": n_dropped,
             "stat_type": "z",
             "h0": "rho=0",
             "method": "Spearman rank correlation (|density| vs signed_car)",
         },
+        warning_codes=tuple(warning_codes),
     )
 
 
@@ -409,17 +519,23 @@ def profit_factor(
 @metric(
     cell=_EQ_CELL,
     aggregation=Aggregation.EVENT_TIME,
-    sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
+    sample_threshold=_event_sample_threshold,
 )
 def event_skewness(
     data: pl.DataFrame,
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
+    forward_periods: int = 5,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Skewness of signed event return distribution.
 
-    The static event floor (sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD)) gates the descriptive skewness on the count of non-zero (event) observations.
+    The static event floor (MIN_EVENTS_HARD) gates the descriptive skewness on
+    the count of non-zero (event) observations that survive the event-axis
+    spacing pass; the warn floor scales with the forward_periods parameter (the
+    spacing stride), so the threshold is declared as a resolver (a callable
+    sample_threshold) rather than a constant.
 
     Positive skew = occasional large gains, frequent small losses
     (desirable for event strategies). Uses scipy's Fisher skewness
@@ -467,10 +583,25 @@ def event_skewness(
     from scipy import stats as sp_stats
 
     events, n_dropped = _finite_events(data, factor_col, return_col)
+    metadata: dict = {"n_events_dropped_non_finite": n_dropped}
+    warning_codes: list[str] = []
+    events = _spaced_events(
+        data,
+        events,
+        "event_skewness",
+        forward_periods,
+        metadata,
+        warning_codes,
+        expected_warnings=expected_warnings,
+    )
     n = len(events)
-
     sc = _enforce_min_floor(
-        event_skewness, "event_skewness", n, "insufficient_events", axis="events"
+        event_skewness,
+        "event_skewness",
+        n,
+        "insufficient_events",
+        axis="events",
+        forward_periods=forward_periods,
     )
     if sc is not None:
         return sc
@@ -495,8 +626,8 @@ def event_skewness(
         n_obs_axis="events",
         stat=z,
         metadata={
+            **metadata,
             "n_events": n,
-            "n_events_dropped_non_finite": n_dropped,
             **(
                 {
                     "stat_type": "z",
@@ -507,6 +638,7 @@ def event_skewness(
                 else {}
             ),
         },
+        warning_codes=tuple(warning_codes),
     )
 
 

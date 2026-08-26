@@ -497,6 +497,8 @@ def _enforce_scaled_floor(
     reason: str,
     alternative: PValueAlternative = "two-sided",
     warning_codes: tuple[str, ...] = (),
+    *,
+    axis: SampleAxis = "periods",
     **extra: object,
 ) -> MetricResult | None:
     """Short-circuit when the *raw* (pre-sampling) date count is below the
@@ -511,8 +513,10 @@ def _enforce_scaled_floor(
     :func:`_scaled_min_periods` against the body's actual ``forward_periods``, so
     the pre-flight floor and the run-time floor are numerically identical (cf.
     :func:`_enforce_min_floor`, which reads the default-config floor and so cannot
-    track a run-time-scaled one). Periods-axis only — the sample stride is a date
-    stride; ``n_raw`` is the full date count *before* sampling.
+    track a run-time-scaled one). ``n_raw`` is the count *before* sampling on
+    ``axis`` — the date count on the ``"periods"`` axis, the event-row count on
+    the ``"events"`` axis (the event battery strides its own event axis at the
+    same horizon; see :func:`_sample_events_non_overlapping`).
     """
     floor = _scaled_min_periods(base, forward_periods)
     if n_raw < floor:
@@ -520,11 +524,12 @@ def _enforce_scaled_floor(
             name,
             reason,
             n_obs=n_raw,
-            n_obs_axis="periods",
+            n_obs_axis=axis,
             min_required=floor,
             descriptive=False,  # every stride-sampling metric runs a hypothesis test
             alternative=alternative,
             warning_codes=warning_codes,
+            forward_periods=forward_periods,
             **extra,
         )
     return None
@@ -560,6 +565,7 @@ def _warn_below_floor(
     code: WarningCode,
     *,
     axis: str = "periods",
+    expected_warnings: tuple[str, ...] = (),
 ) -> str | None:
     """Flag the degraded tier when ``n`` falls below the declared ``warn_<axis>``.
 
@@ -574,10 +580,15 @@ def _warn_below_floor(
     Like :func:`_enforce_min_floor`, reads the default-config ``sample_threshold``
     only; a run-time-scaled floor is not re-derived here, so dynamic-floor metrics
     warn in-body.
+
+    ``expected_warnings`` is the caller's study-level declaration (injected by
+    ``evaluate``): a declared code keeps its structured record — the return value
+    is unchanged — and only the per-run ``UserWarning`` echo stops.
     """
     warn = getattr(metric.sample_threshold, f"warn_{axis}")
     if warn is not None and n < warn:
-        warnings.warn(message, UserWarning, stacklevel=3)
+        if code.value not in expected_warnings:
+            warnings.warn(message, UserWarning, stacklevel=3)
         return code.value
     return None
 
@@ -588,6 +599,8 @@ def _warn_below_scaled_floor(
     forward_periods: int,
     message: str,
     code: WarningCode,
+    *,
+    expected_warnings: tuple[str, ...] = (),
 ) -> str | None:
     """Warn-tier twin of :func:`_enforce_scaled_floor`.
 
@@ -596,11 +609,17 @@ def _warn_below_scaled_floor(
     :func:`_scaled_min_periods` against the body's actual ``forward_periods`` —
     the same source the dynamic resolver's ``warn_periods`` uses — so the
     pre-flight DEGRADED tier and the run-time warning fire on one identical
-    floor. Periods-axis only (the sample stride is a date stride).
+    floor. Axis-agnostic: the caller supplies the raw count on whichever axis it
+    strides (dates, or the event axis of the event battery).
+
+    ``expected_warnings`` is the caller's study-level declaration (injected by
+    ``evaluate``): a declared code keeps its structured record and only the
+    per-run ``UserWarning`` echo stops.
     """
     warn = _scaled_min_periods(base_warn, forward_periods)
     if n_raw < warn:
-        warnings.warn(message, UserWarning, stacklevel=3)
+        if code.value not in expected_warnings:
+            warnings.warn(message, UserWarning, stacklevel=3)
         return code.value
     return None
 
@@ -839,6 +858,131 @@ def _sample_event_spaced(
             keep[i] = True
             last_kept = int(ordinal)
     return data.filter(pl.Series(keep))
+
+
+def _sample_events_non_overlapping(
+    events: pl.DataFrame,
+    forward_periods: int,
+    *,
+    calendar_dates: pl.Series | None = None,
+    asset_col: str = "asset_id",
+) -> pl.DataFrame:
+    """Stride an event *row* frame so no asset keeps two overlapping windows.
+
+    The panel-level entry point to :func:`_sample_event_spaced`. That helper
+    walks one ordered event series; this one supplies the calendar ordinal it
+    needs and applies it **per asset**, because a forward-return window
+    ``(t, t+h]`` can only overlap another window on the *same* asset.
+
+    Why every event significance test needs it: with ``h``-period forward
+    returns, two events on one asset fewer than ``h`` periods apart share
+    future bars, so their returns are not independent draws. Pooling them
+    inflates the test's effective sample and, with it, every cross-event
+    statistic (``t``, ``z``, the binomial hit count). On a single-asset panel
+    the cross-asset clustering corrections (Kolari-Pynnönen, the event-period
+    collapse) have nothing to work with — time is the only clustering axis —
+    so this pass is the whole discipline.
+
+    Ordinals come from ``calendar_dates`` (the full panel's date column) when
+    supplied, so the gap is measured on the underlying calendar rather than on
+    the sparse event dates; without it the event dates themselves are the
+    calendar. ``forward_periods <= 1`` and an empty frame are no-ops.
+
+    Args:
+        events: Event rows (already filtered to ``factor != 0`` and to finite
+            values), with ``date`` and — for a panel — ``asset_col``. A frame
+            without ``date`` carries no gap to measure and passes through.
+        forward_periods: Minimum calendar gap required between kept events.
+        calendar_dates: Full-panel ``date`` column defining the calendar.
+        asset_col: Asset identifier; a frame without it is treated as one asset.
+
+    Returns:
+        The kept event rows, sorted by asset then date.
+    """
+    if forward_periods <= 1 or events.height == 0 or "date" not in events.columns:
+        return events
+    dates = events["date"] if calendar_dates is None else calendar_dates
+    calendar = pl.DataFrame({"date": dates.unique().sort()}).with_columns(
+        pl.int_range(pl.len()).alias("_calendar_ordinal")
+    )
+    joined = events.join(calendar, on="date", how="left")
+    if asset_col not in joined.columns:
+        parts = [joined.sort("date")]
+    else:
+        parts = [
+            part.sort("date")
+            for part in joined.sort([asset_col, "date"]).partition_by(asset_col)
+        ]
+    kept = pl.concat(
+        [
+            _sample_event_spaced(part, forward_periods, ordinal_col="_calendar_ordinal")
+            for part in parts
+        ]
+    )
+    return kept.drop("_calendar_ordinal")
+
+
+def _warn_event_window_overlap(
+    metric_name: str,
+    n_events: int,
+    n_sampled: int,
+    forward_periods: int,
+    metadata: dict[str, Any],
+    warning_codes: list[str],
+    *,
+    expected_warnings: tuple[str, ...] = (),
+) -> None:
+    """Record the overlap the event-axis spacing pass had to remove.
+
+    Fires once per metric when :func:`_sample_events_non_overlapping` (or
+    :func:`_sample_event_spaced`) dropped at least one event — i.e. some
+    consecutive pair on one asset sat closer than ``forward_periods`` and their
+    ``(t, t+h]`` windows overlapped. The dropped count is the measurement, so
+    it is always written to ``metadata``; the code fires only when the count is
+    non-zero. Declaring it via ``evaluate(..., expected_warnings=(...,))``
+    keeps the record and stops the ``UserWarning`` echo.
+    """
+    dropped = n_events - n_sampled
+    metadata["n_events_overlapping"] = dropped
+    metadata["n_events_sampled"] = n_sampled
+    if dropped <= 0:
+        return
+    code = WarningCode.EVENT_WINDOW_OVERLAP.value
+    if code not in expected_warnings:
+        warnings.warn(
+            f"{metric_name}: {dropped} of {n_events} events sat within "
+            f"forward_periods={forward_periods} of the previously kept event on "
+            f"the same asset, so their forward-return windows overlapped. The "
+            f"test runs on the {n_sampled} non-overlapping events that survive "
+            f"the spacing pass; overlapping events are not independent draws "
+            f"and pooling them inflates the statistic.",
+            UserWarning,
+            stacklevel=3,
+        )
+    if code not in warning_codes:
+        warning_codes.append(code)
+
+
+def _event_sample_threshold(self: MetricBase) -> SampleThreshold:
+    """Event floor shared by the event significance tests that stride their
+    event axis at ``forward_periods``.
+
+    ``min_events`` stays the static math floor ``MIN_EVENTS_HARD``, enforced
+    in-body against the *sampled* (post-spacing) count — pre-flight counts raw
+    non-zero factor rows, which is the documented loose upper bound. The
+    **warn** floor is the one that has to scale: the spacing pass keeps about
+    one event in ``h`` per asset, so a raw series needs ``h`` times
+    ``MIN_EVENTS_WARN`` events to land on ``MIN_EVENTS_WARN`` independent
+    ones. Delegates to the same :func:`_scaled_min_periods` the in-body
+    :func:`_warn_below_scaled_floor` call reads, so the pre-flight DEGRADED
+    tier and the run-time warning fire on one identical floor.
+    """
+    from factrix._types import MIN_EVENTS_HARD, MIN_EVENTS_WARN
+
+    return SampleThreshold(
+        min_events=MIN_EVENTS_HARD,
+        warn_events=_scaled_min_periods(MIN_EVENTS_WARN, self.forward_periods),
+    )
 
 
 def _scaled_min_periods(base: int, forward_periods: int) -> int:
@@ -1145,7 +1289,11 @@ def _read_drop_stats(frame: pl.DataFrame) -> dict[str, Any] | None:
 
 
 def _warn_if_high_drop_rate(
-    stats: dict[str, Any], metric_name: str, *, axis: str = "periods"
+    stats: dict[str, Any],
+    metric_name: str,
+    *,
+    axis: str = "periods",
+    expected_warnings: tuple[str, ...] = (),
 ) -> str | None:
     """Emit one aggregate ``UserWarning`` when the drop rate clears the floor.
 
@@ -1156,11 +1304,16 @@ def _warn_if_high_drop_rate(
     count keys via the ``axis`` token (``n_<axis>_in`` etc.); the message names
     the axis. Returns ``None`` (no warning) when ``drop_rate`` is at or below
     :data:`DROP_RATE_WARN_THRESHOLD`. Uses ``warnings.warn`` so the advisory
-    surfaces in notebooks; the default filter dedupes sweep loops.
+    surfaces in notebooks; the default filter dedupes sweep loops. A code the
+    caller declared via ``evaluate(..., expected_warnings=(...,))`` is still
+    returned (the record is kept) but its echo is suppressed.
     """
     drop_rate = float(stats["drop_rate"])
     if drop_rate <= DROP_RATE_WARN_THRESHOLD:
         return None
+    code = _DROP_CODE_BY_AXIS[axis].value
+    if code in expected_warnings:
+        return code
     warnings.warn(
         f"{metric_name}: {drop_rate:.0%} of {axis} dropped "
         f"({stats[f'dropped_{axis}']}/{stats[f'n_{axis}_in']}) — "
@@ -1169,7 +1322,7 @@ def _warn_if_high_drop_rate(
         UserWarning,
         stacklevel=3,
     )
-    return _DROP_CODE_BY_AXIS[axis].value
+    return code
 
 
 def _surface_drop_stats(
@@ -1179,6 +1332,7 @@ def _surface_drop_stats(
     warning_codes: list[str],
     *,
     axis: str = "periods",
+    expected_warnings: tuple[str, ...] = (),
 ) -> None:
     """Copy an upstream primitive's drop-stat schema into a consumer's result.
 
@@ -1197,7 +1351,9 @@ def _surface_drop_stats(
     if stats is None:
         return
     metadata.update(stats)
-    code = _warn_if_high_drop_rate(stats, metric_name, axis=axis)
+    code = _warn_if_high_drop_rate(
+        stats, metric_name, axis=axis, expected_warnings=expected_warnings
+    )
     if code is not None:
         warning_codes.append(code)
 

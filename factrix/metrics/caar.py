@@ -50,11 +50,16 @@ from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _degenerate_test_fields,
     _enforce_min_floor,
+    _enforce_scaled_floor,
     _estimate_within_date_icc,
+    _event_sample_threshold,
     _kp_cluster_scale,
     _sample_event_spaced,
+    _sample_events_non_overlapping,
     _scaled_min_periods,
     _short_circuit_output,
+    _warn_below_scaled_floor,
+    _warn_event_window_overlap,
 )
 from factrix.metrics._metric_capabilities import per_date_series_rename
 from factrix.metrics._primitives import compute_caar
@@ -86,6 +91,11 @@ def _caar_sample_threshold(self: MetricBase) -> SampleThreshold:
     ``forward_periods`` because the t-test runs on a non-overlap subsample
     (stride ``forward_periods``). Delegates to the same ``_scaled_min_periods``
     the in-body short-circuit reads, so pre-flight and run-time floors agree.
+
+    Unlike the sibling event tests (:func:`_event_sample_threshold`), the *hard*
+    floor scales too: ``caar`` consumes an already-aggregated event-period
+    series, so its pre-flight count and its tested sample live on one axis and
+    can be gated on the same scaled number.
     """
     return SampleThreshold(
         min_events=_scaled_min_periods(MIN_EVENTS_HARD, self.forward_periods),
@@ -105,6 +115,7 @@ def caar(
     caar_df: pl.DataFrame,
     *,
     forward_periods: int = 5,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""CAAR significance: is mean CAAR significantly different from zero?
 
@@ -227,32 +238,37 @@ def caar(
     total_events = (
         int(caar_df["n_events"].sum()) if "n_events" in caar_df.columns else n
     )
-    raw_min_hard = _scaled_min_periods(MIN_EVENTS_HARD, forward_periods)
     raw_min_warn = _scaled_min_periods(MIN_EVENTS_WARN, forward_periods)
-    if n < raw_min_hard:
-        return _short_circuit_output(
-            "caar",
-            "insufficient_event_periods",
-            n_obs=n,
-            n_obs_axis="periods",
-            min_required=raw_min_hard,
-            forward_periods=forward_periods,
-        )
+    sc = _enforce_scaled_floor(
+        "caar",
+        n,
+        MIN_EVENTS_HARD,
+        forward_periods,
+        "insufficient_event_periods",
+        axis="events",
+    )
+    if sc is not None:
+        return sc
 
     warning_codes: list[str] = []
-    if n < raw_min_warn:
-        warning_codes.append(WarningCode.FEW_EVENTS.value)
-        warnings.warn(
-            f"caar: n_event_periods={n} below the MIN_EVENTS_WARN-scaled floor="
-            f"{raw_min_warn}. caar is an equal-weight calendar-time portfolio "
-            f"across event *periods*, so this counts the number of periods with "
-            f"an event, not events; a sub-30 series is "
-            f"power-thin for the asymptotic t-distribution. t-stat returned "
-            f"but read p-values cautiously. For an across-events test under "
-            f"heavy clustering, use bmp_z.",
-            UserWarning,
-            stacklevel=2,
-        )
+    warn_code = _warn_below_scaled_floor(
+        n,
+        MIN_EVENTS_WARN,
+        forward_periods,
+        f"caar: n_event_periods={n} below the floor of {raw_min_warn} "
+        f"(= MIN_EVENTS_WARN {MIN_EVENTS_WARN} x forward_periods "
+        f"{forward_periods}). The t-test runs on the subsample left after "
+        f"non-overlap sampling at stride h={forward_periods}, which keeps "
+        f"about one period in h, so the raw series must carry h times "
+        f"MIN_EVENTS_WARN periods to land on {MIN_EVENTS_WARN} independent "
+        f"observations. caar is an equal-weight calendar-time portfolio "
+        f"across event *periods*, so this counts the number of periods with "
+        f"an event, not events. t-stat returned but read p-values cautiously.",
+        WarningCode.FEW_EVENTS,
+        expected_warnings=expected_warnings,
+    )
+    if warn_code is not None:
+        warning_codes.append(warn_code)
 
     mean_caar_full = float(vals.mean())  # type: ignore[arg-type]
     # Normal input arrives from compute_caar carrying date_ordinal (the
@@ -265,7 +281,8 @@ def caar(
         )
     # caar_df is already free of null/NaN caar (filtered above), so the
     # spacing pass allocates its slots to usable dates only.
-    sampled = _sample_event_spaced(caar_df, forward_periods)["caar"]
+    sampled_df = _sample_event_spaced(caar_df, forward_periods)
+    sampled = sampled_df["caar"]
     n_sampled = len(sampled)
 
     # Headline value comes from the *tested* sample, not the full series.
@@ -290,6 +307,15 @@ def caar(
         "h0": "mu=0",
         "method": "non-overlapping t-test",
     }
+    _warn_event_window_overlap(
+        "caar",
+        n,
+        n_sampled,
+        forward_periods,
+        metadata,
+        warning_codes,
+        expected_warnings=expected_warnings,
+    )
     if "n_events_dropped_non_finite" in caar_df.columns and caar_df.height:
         metadata["n_events_dropped_non_finite"] = int(
             caar_df["n_events_dropped_non_finite"][0]
@@ -305,7 +331,7 @@ def caar(
         alternative=alternative,
         value=mean_caar,
         n_obs=n_sampled,
-        n_obs_axis="periods",
+        n_obs_axis="events",
         stat=stat,
         metadata=metadata,
         warning_codes=tuple(warning_codes),
@@ -316,7 +342,7 @@ def caar(
     cell=_CAAR_CELL,
     aggregation=Aggregation.EVENT_TIME,
     slice_boundary_sensitive=True,
-    sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
+    sample_threshold=_event_sample_threshold,
 )
 def bmp_z(
     data: pl.DataFrame,
@@ -327,10 +353,15 @@ def bmp_z(
     forward_periods: int = 5,
     kolari_pynnonen_adjust: bool = True,
     include_prediction_error_variance: bool = False,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Boehmer-Musumeci-Poulsen Standardized Abnormal Return test.
 
-    The static event floor (sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD)) gates the standardized-AR z-test on the count of events with a usable estimation-window volatility.
+    The static event floor (MIN_EVENTS_HARD) gates the standardized-AR z-test on
+    the count of events with a usable estimation-window volatility that survive
+    the event-axis spacing pass; the warn floor scales with the forward_periods
+    parameter (the spacing stride), so the threshold is declared as a resolver
+    (a callable sample_threshold) rather than a constant.
 
     Standardizes each event's abnormal return by the asset's pre-event
     residual volatility, making the test robust to event-induced variance
@@ -582,9 +613,28 @@ def bmp_z(
 
     valid = events.filter(vol_ok & ar_ok)
 
+    n_valid_raw = len(valid)
+    # Overlap discipline on the TIME axis. The Kolari-Pynnonen adjustment below
+    # handles same-period cross-asset correlation; it has nothing to work with
+    # on a single asset, where the only clustering axis is time. Two events on
+    # one asset less than forward_periods apart share future bars, so pooling
+    # them into the cross-sectional z counts one draw twice.
+    valid = _sample_events_non_overlapping(
+        valid, forward_periods, calendar_dates=sorted_df["date"]
+    )
     n_valid = len(valid)
+
+    # The floor is enforced on the SAMPLED count — the sample the z actually
+    # runs on. Pre-flight reads the raw non-zero factor count as the documented
+    # loose upper bound.
     sc = _enforce_min_floor(
-        bmp_z, "bmp_z", n_valid, "insufficient_estimation_window", axis="events"
+        bmp_z,
+        "bmp_z",
+        n_valid,
+        "insufficient_estimation_window",
+        axis="events",
+        forward_periods=forward_periods,
+        n_events_raw=n_valid_raw,
     )
     if sc is not None:
         return sc
@@ -603,7 +653,7 @@ def bmp_z(
     metadata: dict = {
         "n_events": n_valid,
         "n_event_periods": n_event_periods,
-        "n_dropped": len(events) - n_valid,
+        "n_dropped": len(events) - n_valid_raw,
         "n_dropped_no_vol": n_dropped_no_vol,
         "n_dropped_non_finite_return": n_dropped_non_finite_return,
         "std_sar": std_sar,
@@ -615,6 +665,15 @@ def bmp_z(
         "vol_source": "price" if uses_price else "forward_return",
         "vol_estimation_lag": vol_lag,
     }
+    _warn_event_window_overlap(
+        "bmp_z",
+        n_valid_raw,
+        n_valid,
+        forward_periods,
+        metadata,
+        warning_codes,
+        expected_warnings=expected_warnings,
+    )
     if not uses_price:
         warning_codes.append(WarningCode.BMP_RETURN_VOL_FALLBACK.value)
         warnings.warn(
@@ -651,26 +710,52 @@ def bmp_z(
     else:
         z = z_bmp
 
-    # Once events share periods the effective sample is closer to the number
-    # of distinct event periods than to the event count (KP deflates z for
-    # the shared shock but cannot manufacture independent periods), so the
-    # advisory reads that axis. With one event per period the two coincide
-    # and the event-count hard floor is the only gate.
-    if n_event_periods < n_valid and n_event_periods < MIN_EVENTS_WARN:
-        warning_codes.append(WarningCode.FEW_EVENTS.value)
-        warnings.warn(
-            f"bmp_z: n_event_periods={n_event_periods} below "
-            f"MIN_EVENTS_WARN={MIN_EVENTS_WARN} with n_events={n_valid}. "
-            f"Same-period events share a common shock, so the effective "
-            f"sample is closer to the number of distinct event periods than "
-            f"to the event count; the Kolari-Pynnönen adjustment removes the "
-            f"shared-shock inflation but not the small-sample residual "
-            f"(measured ~11% at 8 periods, ~15% at 4, clearing by ~15; "
-            f"nominal 5%). z is returned but read borderline p-values "
-            f"cautiously.",
-            UserWarning,
-            stacklevel=2,
-        )
+    # Two ways this z runs on too little independent sample, one code.
+    # (1) The raw event count is below the stride-scaled floor caar and
+    #     corrado_rank apply: the spacing pass above keeps about one event in
+    #     h per asset, so the raw count must carry h times MIN_EVENTS_WARN to
+    #     land on MIN_EVENTS_WARN independent ones.
+    raw_min_warn = _scaled_min_periods(MIN_EVENTS_WARN, forward_periods)
+    warn_code = _warn_below_scaled_floor(
+        n_valid_raw,
+        MIN_EVENTS_WARN,
+        forward_periods,
+        f"bmp_z: n_events={n_valid_raw} below the floor of {raw_min_warn} "
+        f"(= MIN_EVENTS_WARN {MIN_EVENTS_WARN} x forward_periods "
+        f"{forward_periods}); {n_valid} events and {n_event_periods} event "
+        f"periods survive non-overlap sampling at stride h={forward_periods}, "
+        f"which keeps about one event in h per asset. z is returned but the "
+        f"cross-sectional test is power-thin on a sample this short.",
+        WarningCode.FEW_EVENTS,
+        expected_warnings=expected_warnings,
+    )
+    # (2) Events share periods, so the effective sample is closer to the
+    #     distinct event periods than to the event count (KP deflates z for the
+    #     shared shock but cannot manufacture independent periods). Measured
+    #     regime, kept as its own trigger — the count can clear (1) and still
+    #     rest on a handful of periods.
+    if (
+        warn_code is None
+        and n_event_periods < n_valid
+        and (n_event_periods < MIN_EVENTS_WARN)
+    ):
+        warn_code = WarningCode.FEW_EVENTS.value
+        if warn_code not in expected_warnings:
+            warnings.warn(
+                f"bmp_z: n_event_periods={n_event_periods} below "
+                f"MIN_EVENTS_WARN={MIN_EVENTS_WARN} with n_events={n_valid}. "
+                f"Same-period events share a common shock, so the effective "
+                f"sample is closer to the number of distinct event periods than "
+                f"to the event count; the Kolari-Pynnönen adjustment removes the "
+                f"shared-shock inflation but not the small-sample residual "
+                f"(measured ~11% at 8 periods, ~15% at 4, clearing by ~15; "
+                f"nominal 5%). z is returned but read borderline p-values "
+                f"cautiously.",
+                UserWarning,
+                stacklevel=2,
+            )
+    if warn_code is not None:
+        warning_codes.append(warn_code)
 
     p = _p_value_from_z(z)
     # An identical standardized AR across every event zeroes the BMP

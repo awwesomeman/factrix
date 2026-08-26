@@ -637,9 +637,13 @@ class TestEventAxisSingleAsset:
 
     def test_event_axis_metrics_usable_on_single_asset(self):
         info = inspect_data(self._panel())
-        usable = {m.name for m in info.usable}
-        # representative event-axis metrics, event-count floor permitting
-        assert {"bmp_z", "corrado_rank", "mfe_mae", "event_hit_rate"} <= usable
+        # representative event-axis metrics: nothing about a single asset
+        # blocks them. The significance tests among them land in the degraded
+        # tier on this panel because its 8 events sit below the stride-scaled
+        # FEW_EVENTS floor, not because of the cell.
+        runnable = {m.name for m in info.usable} | {m.name for m in info.degraded}
+        assert {"bmp_z", "corrado_rank", "mfe_mae", "event_hit_rate"} <= runnable
+        assert {m.name for m in info.usable} >= {"mfe_mae"}
 
     def test_clustering_hhi_stays_cross_sectional(self):
         info = inspect_data(self._panel())

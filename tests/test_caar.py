@@ -344,7 +344,8 @@ class TestCaarEventSpacedSampling:
     def test_pvalue_matches_handrolled_calendar_reference(self):
         # 90 events spanning a clustered block (gap 1, gets thinned) and a
         # sparse tail (gap 5, all kept). n=90 == MIN_EVENTS_WARN*fp, so no
-        # FEW_EVENTS warning fires — assert the path is clean.
+        # FEW_EVENTS warning fires; the clustered block is real overlap, so
+        # EVENT_WINDOW_OVERLAP is declared and its echo must stay silent.
         fp = 3
         clustered = list(range(50))
         sparse = [60 + 5 * k for k in range(40)]
@@ -357,8 +358,13 @@ class TestCaarEventSpacedSampling:
         with warnings.catch_warnings():
             warnings.simplefilter("error", UserWarning)
             caar_df = compute_caar(panel)
-            result = caar(caar_df, forward_periods=fp)
+            result = caar(
+                caar_df,
+                forward_periods=fp,
+                expected_warnings=("event_window_overlap",),
+            )
 
+        assert "event_window_overlap" in result.warning_codes
         kept = _greedy_keep(ordinals, fp)
         ret_by_ord = dict(zip(ordinals, returns, strict=True))
         kept_vals = np.array([ret_by_ord[o] for o in kept])
@@ -452,8 +458,13 @@ class TestBmpTest:
         from factrix._codes import WarningCode
 
         with _warnings.catch_warnings():
-            _warnings.simplefilter("error")  # any warning would fail
-            result = bmp_z(strong_signal)
+            _warnings.simplefilter("error")  # any undeclared warning would fail
+            # The 2%-per-day trigger clusters on some assets, so the event-axis
+            # spacing pass has real work to do; declare that code and nothing
+            # else may surface.
+            result = bmp_z(
+                strong_signal, expected_warnings=("event_window_overlap",)
+            )
         assert result.metadata["vol_source"] == "price"
         assert result.metadata["vol_estimation_lag"] == 0
         assert WarningCode.BMP_RETURN_VOL_FALLBACK.value not in result.warning_codes
@@ -988,12 +999,13 @@ class TestBmpZEventPeriodAdvisory:
         assert "few_events" not in result.warning_codes
 
     def test_one_event_per_period_does_not_fire(self):
-        # 20 events over 20 periods: no clustering, so the event-count
-        # floor is the only gate and the period advisory stays silent.
+        # 30 events over 30 periods: no clustering and the count clears the
+        # stride-scaled floor (h=1, so 30), leaving both FEW_EVENTS triggers
+        # silent.
         result = bmp_z(
-            self._panel(0, 1, n_dates=150), forward_periods=1, estimation_window=60
+            self._panel(0, 1, n_dates=190), forward_periods=1, estimation_window=60
         )
-        assert result.metadata["n_event_periods"] == result.metadata["n_events"] == 20
+        assert result.metadata["n_event_periods"] == result.metadata["n_events"] == 30
         assert "few_events" not in result.warning_codes
 
     def test_eight_period_null_size_band(self):

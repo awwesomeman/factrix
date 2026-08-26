@@ -47,6 +47,13 @@ class TestEventSkewness:
 
 
 def _event_panel(returns: list, factors: list | None = None) -> pl.DataFrame:
+    """One asset, one event on every date of the panel.
+
+    The panel carries no non-event rows, so consecutive events are one calendar
+    step apart and the event-axis spacing pass would thin them at the default
+    horizon. Callers that are testing the non-finite boundary rather than the
+    stride pass ``forward_periods=1`` (a documented no-op) to isolate it.
+    """
     n = len(returns)
     return pl.DataFrame(
         {
@@ -69,7 +76,9 @@ class TestNonFiniteEventsDropped:
     def test_hit_rate_does_not_score_a_hole_as_a_miss(self, hole):
         # 4 wins, 1 hole. Old behaviour: the hole failed `signed_car > 0`
         # and was counted as a miss -> rate 4/5 instead of 4/4.
-        result = event_hit_rate(_event_panel([0.01, 0.02, 0.03, 0.04, hole]))
+        result = event_hit_rate(
+            _event_panel([0.01, 0.02, 0.03, 0.04, hole]), forward_periods=1
+        )
         assert result.value == pytest.approx(1.0)
         assert result.n_obs == 4
         assert result.metadata["n_events"] == 4
@@ -90,7 +99,7 @@ class TestNonFiniteEventsDropped:
         returns = [*rng.normal(0.01, 0.02, 40), hole]
         # Old behaviour: NaN propagated into skewtest, p became NaN and
         # MetricResult raised ValueError.
-        result = event_skewness(_event_panel(returns))
+        result = event_skewness(_event_panel(returns), forward_periods=1)
         assert np.isfinite(result.value)
         assert result.p_value is not None
         assert np.isfinite(result.p_value)
@@ -102,7 +111,7 @@ class TestNonFiniteEventsDropped:
         n = 40
         factors = [*rng.uniform(0.5, 2.0, n), 1.5]
         returns = [*rng.normal(0.01, 0.02, n), hole]
-        result = event_ic(_event_panel(returns, factors))
+        result = event_ic(_event_panel(returns, factors), forward_periods=1)
         assert np.isfinite(result.value)
         assert np.isfinite(result.p_value)
         assert result.n_obs == n
@@ -117,7 +126,8 @@ class TestNonFiniteFactorDropped:
             _event_panel(
                 [0.01, 0.02, 0.03, 0.04, 0.05],
                 [1.0, 1.0, 1.0, 1.0, float("nan")],
-            )
+            ),
+            forward_periods=1,
         )
         assert result.value == pytest.approx(1.0)
         assert result.n_obs == 4
@@ -132,7 +142,7 @@ class TestEventHitRateAlwaysExact:
 
         rng = np.random.default_rng(7)
         returns = list(rng.normal(0.01, 0.02, 200))
-        result = event_hit_rate(_event_panel(returns))
+        result = event_hit_rate(_event_panel(returns), forward_periods=1)
 
         hits = result.metadata["n_hits"]
         assert result.stat == float(hits)
@@ -143,5 +153,7 @@ class TestEventHitRateAlwaysExact:
         )
 
     def test_clean_sample_reports_zero_drops(self):
-        result = event_hit_rate(_event_panel([0.01, -0.02, 0.03, -0.04, 0.05]))
+        result = event_hit_rate(
+            _event_panel([0.01, -0.02, 0.03, -0.04, 0.05]), forward_periods=1
+        )
         assert result.metadata["n_events_dropped_non_finite"] == 0
