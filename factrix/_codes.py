@@ -220,6 +220,52 @@ class WarningCode(StrEnum):
     # unchanged; the code says the null it is read against is conservative.
     ESTIMATION_WINDOW_CONTAMINATED = "estimation_window_contaminated"
 
+    # Preprocess scale-regime flags. ``factrix.preprocess.normalize`` returns a
+    # bare DataFrame — there is no MetricResult to hang ``warning_codes`` on —
+    # so these travel in the text of a ``UserWarning``. They exist because a
+    # sample-regime-driven switch of estimator must never be silent.
+    #
+    # The per-date MAD collapsed to zero (>50% ties at the median) and the
+    # non-robust per-date sample standard deviation stood in as the scale.
+    # Robust and non-robust dates then sit in one output column with nothing
+    # downstream able to tell them apart.
+    ZERO_MAD_STD_FALLBACK = "zero_mad_std_fallback"
+    # ``mad_winsorize`` left a date unwinsorized because the factor there is a
+    # sparse ``{0, R}`` trigger column (median 0, MAD 0). Its standard
+    # deviation is produced by the triggers themselves, so it shrinks with the
+    # trigger rate and the clip would destroy event magnitudes — 58% of a unit
+    # event at one trigger in fifty names.
+    SPARSE_WINSORIZE_SKIPPED = "sparse_winsorize_skipped"
+    # A date carries fewer than MIN_SCALE_ASSETS_HARD finite factor values, so
+    # no robust per-date scale exists; the date is left unscaled (z-score null,
+    # clip skipped) rather than fabricating one.
+    INSUFFICIENT_SCALE_ASSETS = "insufficient_scale_assets"
+    # NaN / +-Inf inputs were blanked to null. A non-finite tick is a data
+    # error, not an extreme value: clipping it into a winsorization band
+    # manufactures a plausible finite number that survives every downstream
+    # drop_nulls().drop_nans().
+    NON_FINITE_INPUT_DROPPED = "non_finite_input_dropped"
+
+    # Fired by ``orthogonalize_factor`` when a per-date cross-section clears the
+    # computability floor but leaves fewer than MIN_ORTHOGONALIZE_RESIDUAL_DF
+    # residual degrees of freedom. Those dates are skipped rather than fitted:
+    # raw R2 is mechanically ~K/(N-1) even at a true R2 of 0, so a 6-name
+    # cross-section on 4 regressors reported R2 = 0.79 while removing 83% of
+    # the factor's variance.
+    INSUFFICIENT_REGRESSION_DF = "insufficient_regression_df"
+    # Fired by ``orthogonalize_factor`` when the per-date design matrix is rank
+    # deficient (the classic full-dummy-set-plus-intercept trap). ``lstsq`` does
+    # not raise there — it returns the minimum-norm solution — so residuals stay
+    # correct but the reported betas are an arbitrary point in the solution
+    # space. ``mean_betas`` is suppressed rather than reported.
+    RANK_DEFICIENT_DESIGN = "rank_deficient_design"
+
+    # Fired by ``compute_forward_return`` when the per-asset date grids are
+    # ragged (an asset is missing periods other assets have). The horizon is a
+    # row shift within an asset, so on a ragged grid an h-period-ahead return
+    # spans a different number of real periods for different assets.
+    RAGGED_PERIOD_GRID = "ragged_period_grid"
+
     @property
     def description(self) -> str:
         return _WARNING_DESCRIPTIONS[self]
@@ -415,6 +461,50 @@ _WARNING_DESCRIPTIONS.update(
         "decomposed by period. Metrics that don't declare the flag and "
         "cross-sectional partitions (constant within an asset, e.g. sector) "
         "are unaffected and do not trigger.",
+        WarningCode.ZERO_MAD_STD_FALLBACK: "A preprocess scale estimator fell "
+        "back from the robust MAD to the non-robust per-date sample standard "
+        "deviation because >50% of the cross-section ties at the median "
+        "(bucketed / binary factors are the common case). The output column "
+        "then mixes robust and non-robust dates; the fallback keeps the factor "
+        "finite and rank-preserving but the scale is no longer outlier-proof.",
+        WarningCode.SPARSE_WINSORIZE_SKIPPED: "mad_winsorize left a date "
+        "unwinsorized: the factor is a sparse {0, R} trigger column whose "
+        "median and MAD are both 0, so the standard-deviation fallback is "
+        "driven by the triggers themselves and collapses as the trigger rate "
+        "falls (at 1 trigger in 50 names a 3-std band clipped a unit event to "
+        "0.42). Skipping preserves the event magnitudes the downstream "
+        "sparse-factor metrics measure.",
+        WarningCode.INSUFFICIENT_SCALE_ASSETS: "A date carries fewer than "
+        "MIN_SCALE_ASSETS_HARD (3) finite factor values, so no robust per-date "
+        "scale exists. cross_sectional_zscore returns null there and "
+        "mad_winsorize skips the clip, rather than fabricating a score (n=1 "
+        "used to yield 0.0, n=2 a constant +-0.6745 regardless of the values).",
+        WarningCode.NON_FINITE_INPUT_DROPPED: "NaN / +-Inf input values were "
+        "blanked to null. They are excluded from every per-date statistic and "
+        "from the output: a non-finite tick is a data error, not an extreme "
+        "value, and winsorizing it into the band would manufacture a plausible "
+        "finite number that survives every downstream "
+        "drop_nulls().drop_nans().",
+        WarningCode.INSUFFICIENT_REGRESSION_DF: "orthogonalize_factor skipped a "
+        "date whose cross-section left fewer than "
+        "MIN_ORTHOGONALIZE_RESIDUAL_DF residual degrees of freedom "
+        "(n_assets - n_base - 1). Raw R2 is mechanically ~K/(N-1) even at a "
+        "true R2 of 0, so fitting there reports noise as explanatory power "
+        "while removing most of the factor's variance. Skipped dates keep "
+        "their original values and are counted in n_dates_skipped.",
+        WarningCode.RANK_DEFICIENT_DESIGN: "orthogonalize_factor met a "
+        "rank-deficient per-date design matrix — most often a full industry "
+        "dummy set alongside the always-prepended intercept. np.linalg.lstsq "
+        "does not raise there; it returns the minimum-norm solution, so the "
+        "residual (a unique projection) stays correct but the betas are an "
+        "arbitrary point in the solution space. mean_betas is suppressed. Drop "
+        "one dummy category as the reference level.",
+        WarningCode.RAGGED_PERIOD_GRID: "compute_forward_return saw per-asset "
+        "date grids that do not agree: at least one asset is missing periods "
+        "that others have. The horizon is a shift along each asset's own "
+        "period index, so an h-period-ahead return then spans a different "
+        "number of panel periods for different assets. Reindex the panel onto "
+        "a common grid if the horizons must be comparable across names.",
     }
 )
 

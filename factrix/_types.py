@@ -110,6 +110,16 @@ MIN_PORTFOLIO_PERIODS_WARN: int = 20
 
 MIN_MONOTONICITY_PERIODS_HARD: int = 5
 
+# Per-date cross-section floor (assets axis) for the robust-scale estimators in
+# ``factrix.preprocess.normalize``. Below three finite values a per-date median /
+# MAD pair carries no information about dispersion: at n=1 the chain used to
+# fall through to ``z = 0.0`` (an "average" fabricated from one observation) and
+# at n=2 the MAD-scaled z is ``+-0.6745`` whatever the two values are — a
+# constant that is indistinguishable downstream from a real score. Dates below
+# the floor are left unscaled (z null, clip skipped) and flagged with
+# ``WarningCode.INSUFFICIENT_SCALE_ASSETS``.
+MIN_SCALE_ASSETS_HARD: int = 3
+
 
 # Structural alias used by metric internals to mark "this float is a
 # p-value, not an effect-size".
