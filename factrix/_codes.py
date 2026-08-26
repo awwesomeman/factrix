@@ -205,6 +205,13 @@ class WarningCode(StrEnum):
     # Advisory: the metric still runs; centre the factor (e.g. z-score
     # cross-sectionally) or use ``alpha_contribution``.
     ONE_SIGNED_FACTOR = "one_signed_factor"
+    # Fired when a pooled statistic detects that its units are not independent
+    # draws and deflates itself for the clustering: same-period events sharing
+    # a market shock (event_hit_rate, event_ic) or cross-correlated per-asset
+    # betas (common_beta). The estimator is unchanged; only the standard error
+    # / p-value moves, and the code is the record that it did, since the
+    # deflation is data-driven rather than a fixed configuration.
+    EVENT_CLUSTERING_ADJUSTED = "event_clustering_adjusted"
 
     @property
     def description(self) -> str:
@@ -352,6 +359,20 @@ _WARNING_DESCRIPTIONS.update(
         "factor variance); the cross-asset aggregate was computed on a shortened "
         "sample. Exact counts are in MetricResult.metadata (n_assets_in / "
         "n_assets_out / dropped_assets / drop_rate / drop_reason).",
+        WarningCode.EVENT_CLUSTERING_ADJUSTED: "A pooled statistic found its "
+        "units correlated and deflated itself by the Kish design effect "
+        "1/sqrt(1 + (n_eff - 1) * r_hat) — the same Kolari-Pynnonen (2010) "
+        "machinery bmp_z and directional_hit_rate use. event_hit_rate and "
+        "event_ic key it on the within-period intraclass correlation of their "
+        "own per-event score (events sharing a period share that period's "
+        "shock, so they are not separate trials); common_beta keys it on the "
+        "mean pairwise correlation of the per-asset regression residuals "
+        "(assets loading on a common factor do not give independent betas). "
+        "The point estimate is untouched; the p-value widens. Measured on "
+        "true nulls: event_hit_rate 63.5% -> nominal at 20 assets sharing 40 "
+        "event dates; common_beta 44.8% -> nominal at N=8 with rho=0.5. "
+        "metadata['kolari_pynnonen_r'] / ['kolari_pynnonen_scaling'] disclose "
+        "the estimate and the deflator that ran.",
         WarningCode.ONE_SIGNED_FACTOR: "top_concentration ran with "
         "weight_by='abs_factor' on a factor that never changes sign across the "
         "panel. |factor| is a density weight only when zero is the factor's "

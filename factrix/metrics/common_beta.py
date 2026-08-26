@@ -21,6 +21,7 @@ Notes:
 from __future__ import annotations
 
 import math
+import warnings
 
 import numpy as np
 import polars as pl
@@ -48,6 +49,7 @@ from factrix.metrics._helpers import (
     _degenerate_test_fields,
     _enforce_min_floor,
     _finite_expr,
+    _kp_single_cross_section_scale,
     _short_circuit_output,
     _surface_drop_stats,
     _warn_below_floor,
@@ -67,6 +69,66 @@ _COMMON_BETA_CELL = cell(
     FactorDensity.DENSE,
     structure=DataStructure.PANEL,
 )
+
+
+def _apply_cross_asset_correlation(
+    common_betas_df: pl.DataFrame,
+    t: float,
+    n_assets: int,
+    metadata: dict[str, object],
+    warning_codes: list[str],
+    expected_warnings: tuple[str, ...],
+) -> float:
+    r"""Deflate the cross-asset $t$ for correlation between the per-asset betas.
+
+    Reads ``residual_mean_pairwise_corr`` — the mean off-diagonal correlation of
+    the per-asset regression residuals, measured by
+    :func:`~factrix.metrics._primitives._common_betas.compute_common_betas`
+    where the residuals exist — and applies
+    :func:`~factrix.metrics._helpers._kp_single_cross_section_scale`, the
+    cross-asset twin of what ``bmp_z`` does with the within-period ICC. It is
+    the **full** Kolari-Pynnönen factor rather than the design effect ``bmp_z``
+    uses, because ``std(beta)`` is a single cross-sectional dispersion:
+    correlated betas sit closer together, so the denominator is deflated at the
+    same time as the independence assumption fails, and only the full factor
+    corrects both (see that helper for the measured difference). A non-positive estimate leaves the statistic alone: the
+    design effect is a variance *inflation*, and reading a negative sample
+    correlation as a licence to shrink the SE would run the error the other way.
+
+    Returns the deflated ``t`` (or ``t`` unchanged), having recorded what ran.
+    """
+    if "residual_mean_pairwise_corr" not in common_betas_df.columns:
+        metadata["cross_asset_correlation_applied"] = False
+        metadata["cross_asset_correlation_source"] = "unavailable_hand_built_frame"
+        return t
+    r_bar = common_betas_df["residual_mean_pairwise_corr"][0]
+    metadata["residual_mean_pairwise_corr"] = r_bar
+    if r_bar is None or not math.isfinite(r_bar) or r_bar <= 0.0:
+        metadata["cross_asset_correlation_applied"] = False
+        return t
+    scale = _kp_single_cross_section_scale(float(r_bar), n_assets)
+    metadata["cross_asset_correlation_applied"] = True
+    metadata["kolari_pynnonen_scaling"] = scale
+    metadata["stat_uncorrected"] = t
+    metadata["method"] = (
+        "cross-sectional t-test on per-asset TS betas, deflated for "
+        "cross-asset residual correlation"
+    )
+    code = WarningCode.EVENT_CLUSTERING_ADJUSTED.value
+    if code not in expected_warnings:
+        warnings.warn(
+            f"common_beta: the per-asset residuals carry a mean pairwise "
+            f"correlation of {r_bar:.3f} across {n_assets} assets, so the betas "
+            f"are not independent draws and std(beta)/sqrt(N) understates the "
+            f"standard error of their mean. The t is deflated by the design "
+            f"effect ({scale:.3f}); mean(beta) is unchanged and the uncorrected "
+            f"t is in metadata['stat_uncorrected'].",
+            UserWarning,
+            stacklevel=3,
+        )
+    if code not in warning_codes:
+        warning_codes.append(code)
+    return t * scale
 
 
 @metric(
@@ -140,7 +202,6 @@ def common_beta(
     mean_b = float(np.mean(betas))
     std_b = float(np.std(betas, ddof=DDOF))
     t = _calc_t_stat(mean_b, std_b, n)
-    p = _p_value_from_t(t, n)
 
     metadata: dict[str, object] = {
         "stat_type": "t",
@@ -151,6 +212,18 @@ def common_beta(
         "median_beta": float(np.median(betas)),
     }
     warning_codes: list[str] = []
+    # std(beta)/sqrt(N) is the SE of a mean over INDEPENDENT draws. Assets
+    # loading on a common component do not give independent betas, and the
+    # understatement is unbounded in the correlation: at N=8 the test rejected
+    # 3.0% of true nulls at rho=0, 44.8% at 0.5 and 79.2% at 0.9. Deflate by
+    # the same Kish design effect the pooled event statistics use, with the
+    # cross-asset residual correlation the upstream primitive measured playing
+    # the role the within-period ICC plays there. Absent that estimate (a
+    # hand-built beta table) the statistic stands uncorrected and says so.
+    t = _apply_cross_asset_correlation(
+        common_betas_df, t, n, metadata, warning_codes, expected_warnings
+    )
+    p = _p_value_from_t(t, n)
     # The headline is a cross-asset t-test on E[beta], so its critical value
     # inflates as the cross-section thins — the regime FEW_ASSETS exists for.
     # The estimator does not change; the code is the record that df = n - 1 was

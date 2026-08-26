@@ -734,6 +734,110 @@ def _kp_cluster_scale(r_hat: float, n_eff: float) -> float:
     return float(1.0 / np.sqrt(1.0 + (n_eff - 1.0) * r_hat))
 
 
+def _deflate_for_within_date_clustering(
+    scores: pl.DataFrame,
+    value_col: str,
+    stat: float,
+    metric_name: str,
+    metadata: dict[str, Any],
+    warning_codes: list[str],
+    *,
+    expected_warnings: tuple[str, ...] = (),
+) -> float:
+    r"""Deflate a pooled statistic for same-period clustering of its own score.
+
+    The pooled event statistics — a hit count, a rank correlation — treat every
+    event as an independent draw. Events sharing a period share that period's
+    shock, so they are not, and the pooled statistic grows with $\sqrt{N}$ for
+    no new information: an ``event_hit_rate`` on 20 assets all firing on the
+    same 40 dates rejected 63.5% of true nulls at a nominal 5%.
+
+    This is the same correction ``bmp_z`` and ``directional_hit_rate`` already
+    apply, factored out: estimate the within-period intraclass correlation of
+    the metric's own per-event score with :func:`_estimate_within_date_icc`,
+    then scale the statistic by the Kish design effect
+    :func:`_kp_cluster_scale`. With one event per period the estimate is
+    undefined and the statistic is returned untouched — the correction is the
+    identity exactly when there is nothing to correct.
+
+    The estimate, the deflator and whether it applied are written to
+    ``metadata``; a deflation that actually bit fires
+    ``EVENT_CLUSTERING_ADJUSTED``, because the change is data-driven rather
+    than configured.
+
+    Args:
+        scores: Frame with ``date`` and the per-event score column.
+        value_col: The score column — the quantity whose mean drives ``stat``.
+        stat: The pooled statistic to deflate.
+        metric_name: For the warning text.
+        metadata: Mutated with the disclosure keys.
+        warning_codes: Mutated with the code when the deflator applies.
+        expected_warnings: Study-level declaration; silences the echo only.
+
+    Returns:
+        The deflated statistic (or ``stat`` unchanged).
+    """
+    r_hat, n_eff, source = _estimate_within_date_icc(scores, value_col)
+    metadata["kolari_pynnonen_r"] = r_hat
+    metadata["kolari_pynnonen_n_eff"] = n_eff
+    metadata["kolari_pynnonen_r_source"] = source
+    if r_hat is None or n_eff <= 1.0:
+        metadata["kolari_pynnonen_applied"] = False
+        return stat
+    scale = _kp_cluster_scale(r_hat, n_eff)
+    metadata["kolari_pynnonen_applied"] = True
+    metadata["kolari_pynnonen_scaling"] = scale
+    metadata["stat_uncorrected"] = stat
+    code = WarningCode.EVENT_CLUSTERING_ADJUSTED.value
+    if code not in expected_warnings:
+        warnings.warn(
+            f"{metric_name}: events share periods (mean {n_eff:.1f} per event "
+            f"period, within-period correlation of the per-event score "
+            f"r={r_hat:.3f}), so they are not independent draws. The statistic "
+            f"is deflated by the Kish design effect ({scale:.3f}) before the "
+            f"p-value; the point estimate is unchanged. Uncorrected statistic "
+            f"in metadata['stat_uncorrected'].",
+            UserWarning,
+            stacklevel=3,
+        )
+    if code not in warning_codes:
+        warning_codes.append(code)
+    return stat * scale
+
+
+def _kp_single_cross_section_scale(r_hat: float, n: int) -> float:
+    r"""Kolari-Pynnönen deflator for a statistic whose variance is estimated on
+    **one** cross-section.
+
+    $\sqrt{(1 - \hat r) / (1 + (n - 1)\, \hat r)}$ — the published K-P (2010)
+    factor in full, including the $(1 - \hat r)$ numerator that
+    :func:`_kp_cluster_scale` deliberately omits. The two are not
+    interchangeable and the difference is exactly the estimator behind the
+    denominator:
+
+    - :func:`_kp_cluster_scale` (design effect only) is for a statistic whose
+      dispersion is pooled across many clusters — ``bmp_z``'s SAR std over
+      every event period, ``event_hit_rate``'s indicator variance. That pooled
+      variance already contains the between-cluster component, so it estimates
+      $\sigma^2$ and only the independence assumption needs correcting.
+    - This one is for a statistic whose dispersion comes from a *single*
+      cross-section: ``common_beta``'s $\mathrm{std}(\beta_i)$ across assets.
+      Under equicorrelation that sample variance estimates
+      $\sigma^2 (1 - \hat r)$, not $\sigma^2$ — correlated units are *closer
+      together* than independent ones — so the deflator must restore the
+      missing between-unit component as well. Omitting it leaves the test
+      badly oversized where it matters most: on a true null with $N = 8$,
+      the design-effect form alone rejected 14.0% at $\hat r = 0.5$ and 49.5%
+      at 0.9 (nominal 5%), against 3.5% / 5.0% with the full factor, on the
+      same 200 draws where the uncorrected test rejected 48.5% / 81.5%.
+
+    Clamps $\hat r$ below 1 — at perfect correlation the cross-section carries
+    one observation and no test exists.
+    """
+    r = min(max(r_hat, 0.0), 1.0 - EPSILON)
+    return float(np.sqrt((1.0 - r) / (1.0 + (n - 1) * r)))
+
+
 def _pick_event_return_col(data: pl.DataFrame) -> str:
     """Return the preferred return column for event analysis.
 

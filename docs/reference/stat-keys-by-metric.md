@@ -272,8 +272,15 @@ asset pairs are not treated as independent Bernoulli trials.
 
 Same shape as `positive_rate` (exact binomial, `stat` = hit count).
 
-- *primary*: `p_value`.
-- *descriptive*: `n_events` (events surviving the non-overlap spacing pass —
+- *primary*: `p_value` — the exact binomial when events do not share periods,
+  and a clustered normal test on the hit indicator when they do (`stat_type`
+  switches from `binomial_hits` to `z`, `method` names which ran, and
+  `EVENT_CLUSTERING_ADJUSTED` is the record of the switch).
+- *descriptive*: `kolari_pynnonen_r` / `kolari_pynnonen_n_eff` /
+  `kolari_pynnonen_r_source` / `kolari_pynnonen_applied` /
+  `kolari_pynnonen_scaling` / `stat_uncorrected` (the within-period clustering
+  estimate and the deflator),
+  `n_events` (events surviving the non-overlap spacing pass —
   the binomial `n`), `n_hits`, `n_events_dropped_non_finite`
   (events with a non-finite return / factor, excluded from `n`),
   `n_events_dropped_no_estimation_window` (events whose asset had too little
@@ -284,12 +291,19 @@ Same shape as `positive_rate` (exact binomial, `stat` = hit count).
 
 #### `event_ic`
 
-- *primary*: `p_value` — Fisher-transformed Spearman ρ between
-  `|factor|` and `signed_car`.
+- *primary*: `p_value` — from the Fisher `z` of the Spearman ρ between
+  `|factor|` and the signed abnormal return, using the
+  Fieller-Hartley-Pearson Spearman SE `1.06/sqrt(n-3)` (not the Pearson
+  `1/sqrt(n-3)`) and deflated for same-period clustering of the per-event rank
+  score. `stat` and `p_value` therefore come from one approximation rather than
+  two.
 - *descriptive*: `n_events` (post-spacing), `n_events_dropped_non_finite`,
   `n_events_dropped_no_estimation_window`, `abnormal_return_model` /
   `estimation_window` / `estimation_window_lag`,
-  `n_events_overlapping` / `n_events_sampled`.
+  `n_events_overlapping` / `n_events_sampled`, `kolari_pynnonen_r` /
+  `kolari_pynnonen_n_eff` / `kolari_pynnonen_r_source` /
+  `kolari_pynnonen_applied` (plus `kolari_pynnonen_scaling` /
+  `stat_uncorrected` when the deflator applied).
 
 `MetricResult.stat = None` and the short-circuit `reason` is set to
 `"not_applicable_discrete_signal"` when the signal lacks magnitude
@@ -555,8 +569,16 @@ Newey-West HAC `t` statistic for `H0: beta = 0`.
 #### `common_beta`
 
 - *primary*: `p_value` — cross-asset `t` on the per-asset OLS β
-  distribution.
-- *descriptive*: `n_assets`, `beta_std`, `median_beta`.
+  distribution, deflated for cross-asset residual correlation (see below).
+- *descriptive*: `n_assets`, `beta_std`, `median_beta`,
+  `residual_mean_pairwise_corr` (mean off-diagonal correlation of the
+  per-asset regression residuals, measured by `compute_common_betas`),
+  `cross_asset_correlation_applied`, and — when it applied —
+  `kolari_pynnonen_scaling` and `stat_uncorrected`.
+  `cross_asset_correlation_source` records `unavailable_hand_built_frame`
+  when the input frame carries no estimate.
+- *warning*: `WarningCode.EVENT_CLUSTERING_ADJUSTED` when the deflator
+  applied; `WarningCode.FEW_ASSETS` below `MIN_ASSETS_WARN`.
 
 #### `common_beta_profile`
 

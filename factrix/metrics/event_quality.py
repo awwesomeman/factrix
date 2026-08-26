@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import numpy as np
 import polars as pl
+from scipy import stats as sp_stats
 
 from factrix._axis import (
     Aggregation,
@@ -36,6 +37,7 @@ from factrix._types import EPSILON, MIN_EVENTS_HARD, MIN_EVENTS_WARN
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _attach_abnormal_return,
+    _deflate_for_within_date_clustering,
     _enforce_min_floor,
     _event_sample_threshold,
     _event_signal_is_discrete,
@@ -60,6 +62,10 @@ __all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
 # over events, so a single name with enough events is valid. Density stays SPARSE;
 # the event floor guards thin samples.
 _EQ_CELL = cell(None, FactorDensity.SPARSE, structure=None)
+
+# Fieller-Hartley-Pearson standard-error inflation for a Spearman (rather
+# than Pearson) Fisher z: SE = 1.06 / sqrt(n - 3).
+_SPEARMAN_FISHER_SE = 1.06
 
 
 def _finite_events(
@@ -321,9 +327,38 @@ def event_hit_rate(
     signed = _signed_car(events, factor_col, "_abnormal_return")
     hits = int(np.sum(signed > 0))
     rate = hits / n
-    p = _binomial_two_sided_p(hits, n, p0=0.5)
     metadata["n_events"] = n
     metadata["n_hits"] = hits
+
+    # Same-period events share that period's shock, so they are not separate
+    # binomial trials. Deflate the standardised hit count by the design effect
+    # of the 0/1 indicator's within-period correlation; with one event per
+    # period the deflator is the identity and the exact test stands.
+    indicator = events.select("date", pl.Series("_hit", (signed > 0).astype(float)))
+    z_raw = (hits - n / 2.0) / (np.sqrt(n) / 2.0)
+    z = _deflate_for_within_date_clustering(
+        indicator,
+        "_hit",
+        float(z_raw),
+        "event_hit_rate",
+        metadata,
+        warning_codes,
+        expected_warnings=expected_warnings,
+    )
+    if metadata.get("kolari_pynnonen_applied"):
+        # The exactness of the binomial is about the discreteness of the null,
+        # not about dependence — once the trials are correlated it is exact
+        # about the wrong distribution. Report the clustered normal instead and
+        # say so; EVENT_CLUSTERING_ADJUSTED is the record of the switch.
+        p = float(2.0 * sp_stats.norm.sf(abs(z)))
+        metadata["stat_type"] = "z"
+        metadata["method"] = (
+            "clustered normal test on the hit indicator (Kolari-Pynnonen design effect)"
+        )
+        stat = z
+    else:
+        p = _binomial_two_sided_p(hits, n, p0=0.5)
+        stat = float(hits)
 
     return MetricResult(
         p_value=p,
@@ -331,7 +366,7 @@ def event_hit_rate(
         value=rate,
         n_obs=n,
         n_obs_axis="events",
-        stat=float(hits),
+        stat=stat,
         metadata=metadata,
         warning_codes=tuple(warning_codes),
     )
@@ -457,23 +492,41 @@ def event_ic(
     abs_signal = np.abs(events[factor_col].to_numpy())
     signed = _signed_car(events, factor_col, "_abnormal_return")
 
-    rho, p = sp_stats.spearmanr(abs_signal, signed)
-    rho = float(rho)
-    p = float(p)
+    rho = float(sp_stats.spearmanr(abs_signal, signed).statistic)
 
     # Fisher z is undefined at |rho| = 1 (arctanh diverges) and needs n > 3.
     # ``None`` rather than 0.0: a perfect rank correlation is maximal
-    # evidence, and reporting z = 0 beside scipy's p < 0.001 is an
-    # internally contradictory result. The p-value is scipy's and stands.
-    z: float | None = (
-        float(np.arctanh(rho) * np.sqrt(n - 3))
-        if abs(rho) < 1.0 - 1e-10 and n > 3
-        else None
-    )
+    # evidence, and reporting z = 0 beside a tiny p is an internally
+    # contradictory result.
+    z: float | None = None
+    p: float | None = None
+    if abs(rho) < 1.0 - 1e-10 and n > 3:
+        # Fieller-Hartley-Pearson SE for a SPEARMAN rho: 1.06 / sqrt(n - 3),
+        # not the Pearson 1 / sqrt(n - 3). factrix previously published the
+        # Pearson z (~6% too large) beside scipy's own p, so the statistic and
+        # the p-value came from two different approximations.
+        z_raw = float(np.arctanh(rho) * np.sqrt(n - 3) / _SPEARMAN_FISHER_SE)
+        # Events sharing a period share that period's shock, so the pairs
+        # behind rho are not independent. Deflate by the design effect of the
+        # per-event Spearman score - the product of the two centred rank
+        # variables, whose mean is what rho is.
+        rank_x = sp_stats.rankdata(abs_signal)
+        rank_y = sp_stats.rankdata(signed)
+        score = (rank_x - rank_x.mean()) * (rank_y - rank_y.mean())
+        z = _deflate_for_within_date_clustering(
+            events.select("date", pl.Series("_score", score)),
+            "_score",
+            z_raw,
+            "event_ic",
+            metadata,
+            warning_codes,
+            expected_warnings=expected_warnings,
+        )
+        p = float(2.0 * sp_stats.norm.sf(abs(z)))
 
     return MetricResult(
         p_value=p,
-        alternative="two-sided",
+        alternative="two-sided" if p is not None else None,
         value=rho,
         n_obs=n,
         n_obs_axis="events",
@@ -483,7 +536,11 @@ def event_ic(
             "n_events": n,
             "stat_type": "z",
             "h0": "rho=0",
-            "method": "Spearman rank correlation (|density| vs signed_car)",
+            "method": (
+                "Spearman rank correlation between |factor| and "
+                "signed abnormal return; Fisher z with the "
+                "Fieller-Hartley-Pearson Spearman SE"
+            ),
         },
         warning_codes=tuple(warning_codes),
     )

@@ -746,9 +746,10 @@ class TestEventIc:
         df = _make_continuous_signal()
         result = event_ic(df)
         assert result.value > 0
-        assert (
-            result.metadata["method"]
-            == "Spearman rank correlation (|density| vs signed_car)"
+        assert result.metadata["method"] == (
+            "Spearman rank correlation between |factor| and "
+            "signed abnormal return; Fisher z with the "
+            "Fieller-Hartley-Pearson Spearman SE"
         )
 
     def test_discrete_signal_skipped(self, strong_signal):

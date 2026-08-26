@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+import numpy as np
 import polars as pl
 
 from factrix._axis import (
@@ -32,6 +33,67 @@ _COMMON_BETA_DROP_REASON = (
     f"per-asset history below MIN_COMMON_BETA_PERIODS_HARD ({MIN_COMMON_BETA_PERIODS_HARD}), zero factor "
     f"variation, or no finite (factor, return) pairs"
 )
+
+
+def _residual_mean_pairwise_corr(
+    data: pl.DataFrame,
+    betas: pl.DataFrame,
+    factor_col: str,
+    return_col: str,
+) -> float | None:
+    r"""Mean off-diagonal correlation of the per-asset regression residuals.
+
+    The cross-asset $t$-test downstream treats the per-asset $\hat\beta_i$ as
+    independent draws. Assets loading on a common component do not give
+    independent betas, and $\mathrm{std}(\beta)/\sqrt{N}$ then understates
+    $\mathrm{Var}(\bar\beta)$ without bound: at $N = 8$ and a residual
+    correlation of 0.5 the test rejected 44.8% of true nulls at a nominal 5%,
+    and 79.2% at 0.9.
+
+    $\bar r$ is the quantity that fixes it — the same role the within-period
+    ICC plays for the pooled event statistics — so it is estimated here, where
+    the residuals exist, and carried on the frame for
+    :func:`~factrix.metrics.common_beta.common_beta` to deflate with.
+    Residuals are $\varepsilon_{it} = R_{it} - \hat\alpha_i -
+    \hat\beta_i F_t$; correlations are taken over the dates where **every**
+    surviving asset has a finite residual (a rectangular panel — pairwise
+    deletion can produce a non-PSD matrix whose mean off-diagonal is not a
+    valid design input).
+
+    Returns ``None`` when it cannot be estimated: fewer than two assets, or
+    fewer than three shared dates.
+    """
+    if betas.height < 2:
+        return None
+    wide = (
+        data.join(betas.select("asset_id", "alpha", "beta"), on="asset_id", how="inner")
+        .with_columns(
+            (
+                pl.col(return_col)
+                - pl.col("alpha")
+                - pl.col("beta") * pl.col(factor_col)
+            ).alias("_resid")
+        )
+        .select("date", "asset_id", "_resid")
+        .pivot(index="date", on="asset_id", values="_resid")
+        .drop("date")
+        .drop_nulls()
+    )
+    matrix = wide.to_numpy()
+    matrix = matrix[np.isfinite(matrix).all(axis=1)]
+    if matrix.shape[0] < 3 or matrix.shape[1] < 2:
+        return None
+    # A constant residual series has no correlation with anything; excluding it
+    # keeps corrcoef from emitting NaN rows.
+    keep = matrix.std(axis=0) > EPSILON
+    matrix = matrix[:, keep]
+    if matrix.shape[1] < 2:
+        return None
+    corr = np.corrcoef(matrix, rowvar=False)
+    off_diagonal = corr[~np.eye(corr.shape[0], dtype=bool)]
+    if not np.isfinite(off_diagonal).any():
+        return None
+    return float(np.nanmean(off_diagonal))
 
 
 @metric(
@@ -76,7 +138,10 @@ def compute_common_betas(
     Returns:
         Dict mapping each factor name to a DataFrame with columns
         ``asset_id, beta, alpha, t_stat, r_squared, n_obs`` sorted by
-        ``asset_id``, plus a broadcast ``_drop_stats`` carrier column on the
+        ``asset_id``, a broadcast ``residual_mean_pairwise_corr`` column (the
+        cross-asset residual correlation ``common_beta`` deflates its t with —
+        see :func:`_residual_mean_pairwise_corr`; ``null`` when it cannot be
+        estimated), plus a broadcast ``_drop_stats`` carrier column on the
         assets axis (see :func:`_attach_drop_stats`) so cross-asset consumers
         can surface how much of the universe was silently dropped. An asset is
         emitted only with at least ``MIN_COMMON_BETA_PERIODS_HARD`` **finite**
@@ -193,6 +258,12 @@ def _common_betas_one(
         )
         .sort("asset_id")
         .collect()
+    )
+    r_bar = _residual_mean_pairwise_corr(
+        data.filter(valid_mask), result, factor_col, return_col
+    )
+    result = result.with_columns(
+        pl.lit(r_bar, dtype=pl.Float64).alias("residual_mean_pairwise_corr")
     )
     return _attach_drop_stats(
         result,

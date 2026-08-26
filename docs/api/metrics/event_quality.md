@@ -44,8 +44,11 @@ title: factrix.metrics.event_quality
 
     Among triggered events, does the signal's `|factor|` co-move with
     the realised `signed_car`? Spearman rank correlation with Fisher-$z$
-    inference. Auto-skips on $\{0, \pm 1\}$ inputs where `|factor|` has
-    no variance.
+    inference, using the Fieller-Hartley-Pearson Spearman standard error
+    $1.06/\sqrt{n-3}$ rather than the Pearson $1/\sqrt{n-3}$, and deflated
+    for same-period clustering of the per-event rank score (see
+    `EVENT_CLUSTERING_ADJUSTED`). Auto-skips on $\{0, \pm 1\}$ inputs where
+    `|factor|` has no variance.
 
 -   __Gain / loss ratio and shape__
 

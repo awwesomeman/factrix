@@ -98,7 +98,11 @@ class TestComputeCommonBetas:
     def test_output_schema(self):
         df = compute_common_betas(_common_factor_panel(6, 50, seed=1))["factor"]
         # Analysis columns, plus the broadcast assets-axis drop-stat carrier.
-        assert df.columns == [*_OUT_COLS, "_drop_stats"]
+        assert df.columns == [
+            *_OUT_COLS,
+            "residual_mean_pairwise_corr",
+            "_drop_stats",
+        ]
         assert df["asset_id"].is_sorted()
         assert df.schema["n_obs"] == pl.Int64
 
