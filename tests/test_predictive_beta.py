@@ -231,3 +231,87 @@ class TestPredictiveBetaNonFinite:
         assert predictive_beta(poisoned).value == pytest.approx(
             predictive_beta(pruned).value
         )
+
+
+class TestPredictiveBetaOverlapAndPersistenceScreens:
+    """The two screens that read the sample the HAC standard error actually
+    has: the effective (non-overlapping) observation count, and the residual
+    persistence above which no path in the library is calibrated.
+    """
+
+    def test_short_series_with_a_long_horizon_flags_the_effective_sample(self):
+        rng = np.random.default_rng(3)
+        n = 120
+        x = rng.normal(size=n)
+        y = rng.normal(size=n)
+        with pytest.warns(UserWarning, match="effective sample"):
+            result = predictive_beta(_ts_panel(x, y), forward_periods=21)
+        assert result.metadata["n_periods"] == n
+        assert result.metadata["n_periods_effective"] == n // 21
+        assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value in result.warning_codes
+
+    def test_same_length_at_horizon_one_stays_clean(self):
+        # h = 1 makes the effective and raw counts identical, so the gate is
+        # exactly the pre-existing one.
+        rng = np.random.default_rng(4)
+        n = 120
+        result = predictive_beta(
+            _ts_panel(rng.normal(size=n), rng.normal(size=n)), forward_periods=1
+        )
+        assert result.metadata["n_periods_effective"] == n
+        assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value not in result.warning_codes
+
+    def test_persistent_residuals_flag_serial_correlation(self):
+        # Returns are an AR(1) with phi = 0.8 and the predictor is independent
+        # noise, so the regression residuals inherit the persistence.
+        rng = np.random.default_rng(5)
+        n = 400
+        y = np.zeros(n)
+        eps = rng.normal(size=n)
+        for i in range(1, n):
+            y[i] = 0.8 * y[i - 1] + eps[i]
+        x = rng.normal(size=n)
+        result = predictive_beta(_ts_panel(x, y), forward_periods=1)
+        assert result.metadata["residual_lag1_autocorr"] > 0.3
+        assert WarningCode.SERIAL_CORRELATION_DETECTED.value in result.warning_codes
+
+    def test_overlap_alone_does_not_flag_serial_correlation(self):
+        # Overlapping forward returns make the raw residuals an MA(h-1) by
+        # construction, which the h-1 Bartlett floor already absorbs. The
+        # screen reads the strided residuals, so a clean series at h=21 stays
+        # silent rather than flagging every long-horizon run.
+        rng = np.random.default_rng(8)
+        n = 2500
+        d = pl.DataFrame(
+            {
+                "date": [date(2020, 1, 1) + timedelta(days=i) for i in range(n)],
+                "asset_id": ["A"] * n,
+                "factor": rng.normal(size=n),
+                "price": 100.0 * np.cumprod(1.0 + rng.normal(0, 0.01, n)),
+            }
+        )
+        panel = fx.preprocess.compute_forward_return(d, forward_periods=21)
+        result = predictive_beta(panel, forward_periods=21)
+        assert WarningCode.SERIAL_CORRELATION_DETECTED.value not in result.warning_codes
+
+    def test_iid_residuals_do_not_flag_serial_correlation(self):
+        rng = np.random.default_rng(6)
+        n = 400
+        result = predictive_beta(
+            _ts_panel(rng.normal(size=n), rng.normal(size=n)), forward_periods=1
+        )
+        assert WarningCode.SERIAL_CORRELATION_DETECTED.value not in result.warning_codes
+
+    def test_declaring_the_code_stops_the_echo_but_keeps_the_record(self):
+        import warnings
+
+        rng = np.random.default_rng(7)
+        n = 120
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            result = predictive_beta(
+                _ts_panel(rng.normal(size=n), rng.normal(size=n)),
+                forward_periods=21,
+                expected_warnings=("unreliable_se_short_periods",),
+            )
+        assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value in result.warning_codes

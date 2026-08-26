@@ -510,12 +510,22 @@ slope in `forward_return ~ factor`; `MetricResult.stat` is the
 Newey-West HAC `t` statistic for `H0: beta = 0`.
 
 - *primary*: `p_value` — two-sided HAC slope test.
-- *descriptive*: `n_periods`, `newey_west_lags`, `forward_periods`,
-  `alpha`, `r_squared`, `factor_std`, `adf_stat`, `adf_p`,
+- *descriptive*: `n_periods`, `n_periods_effective`
+  (`n_periods // forward_periods` — the non-overlapping observations the
+  short-sample gate reads), `residual_lag1_autocorr`, `newey_west_lags`,
+  `forward_periods`, `alpha`, `r_squared`, `factor_std`, `adf_stat`, `adf_p`,
   `adf_threshold`, `unit_root_suspected`.
 - *warning*: `WarningCode.PERSISTENT_REGRESSOR` when the ADF p-value exceeds
   `adf_threshold`; the HAC slope is still returned, but the predictive
-  regression may carry persistent-regressor bias.
+  regression may carry persistent-regressor bias. The flag is a unit-root
+  verdict on the regressor, **not** a size guarantee: a long sample gives ADF
+  the power to reject the unit root and silences the flag while the test stays
+  oversized (measured 14% at a nominal 5% for `T = 2500`, `h = 21` under a
+  Stambaugh design where the flag fired on 0% of draws).
+- *warning*: `WarningCode.SERIAL_CORRELATION_DETECTED` when the regression
+  residuals' lag-1 autocorrelation exceeds `PERSISTENT_SERIES_AUTOCORR`.
+- *warning*: `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` when
+  `n_periods_effective` is below `MIN_PERIODS_WARN`.
 - *short-circuit*: `reason` `insufficient_predictive_periods`,
   `degenerate_factor_variance`, `no_factor_column`, or
   `no_return_column`.
