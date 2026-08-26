@@ -34,12 +34,14 @@ from factrix._axis import (
     OutputShape,
     SpecRole,
 )
+from factrix._codes import WarningCode
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import (
     _calc_t_stat,
     _p_value_from_t,
 )
+from factrix._stats.constants import MIN_ASSETS_WARN
 from factrix._types import DDOF, EPSILON
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
@@ -48,6 +50,7 @@ from factrix.metrics._helpers import (
     _finite_expr,
     _short_circuit_output,
     _surface_drop_stats,
+    _warn_below_floor,
 )
 from factrix.metrics._primitives import compute_common_betas
 
@@ -72,9 +75,13 @@ _COMMON_BETA_CELL = cell(
     slice_boundary_sensitive=True,
     input_shape=InputShape.SERIES,
     requires={"common_betas_df": compute_common_betas},
-    sample_threshold=SampleThreshold(min_assets=3),
+    sample_threshold=SampleThreshold(min_assets=3, warn_assets=MIN_ASSETS_WARN),
 )
-def common_beta(common_betas_df: pl.DataFrame) -> MetricResult:
+def common_beta(
+    common_betas_df: pl.DataFrame,
+    *,
+    expected_warnings: tuple[str, ...] = (),
+) -> MetricResult:
     r"""Test $H_0: \mathrm{mean}(\beta) = 0$ across assets.
 
     Uses the cross-sectional distribution of per-asset betas.
@@ -144,8 +151,31 @@ def common_beta(common_betas_df: pl.DataFrame) -> MetricResult:
         "median_beta": float(np.median(betas)),
     }
     warning_codes: list[str] = []
+    # The headline is a cross-asset t-test on E[beta], so its critical value
+    # inflates as the cross-section thins — the regime FEW_ASSETS exists for.
+    # The estimator does not change; the code is the record that df = n - 1 was
+    # small. Same floor and same helper ic / fm_beta use, so a thin panel reads
+    # the same across the cross-asset family.
+    warn_code = _warn_below_floor(
+        common_beta,
+        n,
+        f"common_beta: n_assets={n} below MIN_ASSETS_WARN={MIN_ASSETS_WARN}; "
+        f"the cross-asset t-test on the mean per-asset beta runs on df={n - 1}, "
+        f"so its critical value is well above the asymptotic one. mean(beta) is "
+        f"returned but read borderline p-values cautiously.",
+        WarningCode.FEW_ASSETS,
+        axis="assets",
+        expected_warnings=expected_warnings,
+    )
+    if warn_code is not None:
+        warning_codes.append(warn_code)
     _surface_drop_stats(
-        common_betas_df, "common_beta", metadata, warning_codes, axis="assets"
+        common_betas_df,
+        "common_beta",
+        metadata,
+        warning_codes,
+        axis="assets",
+        expected_warnings=expected_warnings,
     )
     # Every asset carrying an identical β leaves no cross-asset dispersion:
     # ``mean_b`` is still the profile, the t is not computable.

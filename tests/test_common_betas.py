@@ -7,11 +7,14 @@ null handling) plus the multi-factor batch contract.
 
 from __future__ import annotations
 
+import warnings
 from datetime import datetime, timedelta
 
 import numpy as np
 import polars as pl
 import pytest
+from factrix._codes import WarningCode
+from factrix._stats.constants import MIN_ASSETS_WARN
 from factrix._types import EPSILON
 from factrix.metrics._primitives._common_betas import (
     MIN_COMMON_BETA_PERIODS_HARD,
@@ -340,6 +343,49 @@ class TestCommonBetaProfile:
                 pl.DataFrame({"asset_id": ["A"], "beta": [0.1]}),
                 neutral_epsilon=-0.1,
             )
+
+
+class TestCommonBetaFewAssets:
+    """``common_beta``'s headline is a cross-asset t-test on E[beta], so a thin
+    cross-section inflates its critical value — the regime ``FEW_ASSETS``
+    exists for, and the one the panel/time-series behaviour matrix documents.
+    """
+
+    @staticmethod
+    def _betas(n_assets: int) -> pl.DataFrame:
+        rng = np.random.default_rng(11)
+        return pl.DataFrame(
+            {
+                "asset_id": [f"A{i}" for i in range(n_assets)],
+                "beta": rng.normal(1.0, 0.3, n_assets),
+                "alpha": [0.0] * n_assets,
+                "t_stat": [3.0] * n_assets,
+                "r_squared": [0.5] * n_assets,
+                "n_obs": [50] * n_assets,
+            }
+        )
+
+    @pytest.mark.parametrize("n_assets", [3, 12])
+    def test_thin_cross_section_warns(self, n_assets):
+        with pytest.warns(UserWarning, match="below MIN_ASSETS_WARN"):
+            result = common_beta(self._betas(n_assets))
+        assert WarningCode.FEW_ASSETS.value in result.warning_codes
+        assert result.n_obs == n_assets
+
+    def test_wide_cross_section_is_clean(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            result = common_beta(self._betas(40))
+        assert WarningCode.FEW_ASSETS.value not in result.warning_codes
+
+    def test_declaring_the_code_stops_the_echo_but_keeps_the_record(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            result = common_beta(self._betas(12), expected_warnings=("few_assets",))
+        assert WarningCode.FEW_ASSETS.value in result.warning_codes
+
+    def test_declared_floor_matches_the_emission(self):
+        assert common_beta.spec().sample_threshold.warn_assets == MIN_ASSETS_WARN
 
 
 class TestCommonBetasNonFinite:
