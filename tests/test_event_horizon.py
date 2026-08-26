@@ -168,6 +168,28 @@ class TestEventAroundReturn:
         assert result.metadata["reason"] == "no_price_data"
         assert result.metadata["per_offset"] == {}
 
+    def test_reports_its_sample_size_on_the_event_axis(self, event_data):
+        # n_obs is the library's single source of truth for sample size, and
+        # this was the one event metric leaving it null — breaking the uniform
+        # column when the event battery is stacked with to_frame().
+        result = event_around_return(event_data)
+        n_events = event_data.filter(pl.col("factor") != 0).height
+        assert result.n_obs == n_events
+        assert result.n_obs_axis == "events"
+        assert result.metadata["n_events"] == n_events
+
+    def test_sample_size_counts_events_not_offset_rows(self, event_data):
+        # One event contributes one row per offset, so a longer offset list
+        # must not inflate the count.
+        few = event_around_return(event_data, offsets=[1])
+        many = event_around_return(event_data, offsets=[-3, -1, 1, 6, 12])
+        assert few.n_obs == many.n_obs
+
+    def test_short_circuit_stamps_a_zero_event_sample(self, no_price_data):
+        result = event_around_return(no_price_data)
+        assert result.n_obs == 0
+        assert result.n_obs_axis == "events"
+
 
 class TestEventMetricThroughEvaluate:
     def test_price_survives_dag_projection(self, event_data):

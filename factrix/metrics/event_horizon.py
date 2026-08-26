@@ -139,6 +139,8 @@ def event_around_return(
             "event_around_return",
             "no_price_data",
             descriptive=True,
+            n_obs=0,
+            n_obs_axis="events",
             per_offset={},
         )
 
@@ -169,10 +171,21 @@ def event_around_return(
     # Primary value: pre-event leakage (mean of |pre-event returns|)
     leakage = float(np.mean(pre_leakage_vals)) if pre_leakage_vals else 0.0
 
+    # Sample size on the event axis: the distinct (date, asset) events behind
+    # the curve. Every sibling event metric stamps n_obs / n_obs_axis, and
+    # n_obs is the library's single source of truth for sample size, so a null
+    # here broke the uniform column in to_frame() for no reason — the count is
+    # already in per_offset. One event contributes one row per offset, so the
+    # row count is not it; the distinct event count is.
+    n_events = event_rets.select("date", "asset_id").n_unique()
+
     return MetricResult(
         p_value=None,
         value=leakage,
+        n_obs=n_events,
+        n_obs_axis="events",
         metadata={
+            "n_events": n_events,
             "per_offset": per_offset,
             "interpretation": (
                 "value = mean over pre-event offsets of |mean single-bar "

@@ -319,11 +319,16 @@ is `clustering_hhi`).
 
 Pre/post-event return profile; descriptive.
 
-- *descriptive*: `per_offset` (dict `offset → {mean, median, p25, p75,
-  hit_rate, n}`), `interpretation`.
-- `p_value` is `None` — no hypothesis test runs; the headline `value` is
-  the pre-event leakage score, and per-horizon `hit_rate` is a raw
-  fraction.
+- *descriptive*: `n_events` (distinct `(date, asset)` events behind the
+  curve — also `n_obs`, axis `events`; one event contributes one row per
+  offset, so this is not the row count), `per_offset` (dict
+  `offset → {mean, median, p25, p75, hit_rate, n}`), `interpretation`.
+- `p_value` is `None` — no hypothesis test runs, and no offset carries a
+  `p`: the headline `value` is the pre-event leakage score and per-horizon
+  `hit_rate` is a raw fraction of positive signed returns. Offsets overlap
+  each other within an event and, unlike the event significance tests, this
+  metric applies no non-overlap sampling across events, so the curve is a
+  shape to read rather than a test to interpret.
 
 ### `monotonicity` (`factrix.metrics.monotonicity`)
 
