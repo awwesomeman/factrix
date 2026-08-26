@@ -179,6 +179,7 @@ class TestBootstrapMeanCI:
             n_bootstrap=300,
             seed=2,
             statistic=np.median,
+            method="percentile",
         )
         assert lo < point < hi
         assert point == pytest.approx(float(np.median(x)))
@@ -192,3 +193,107 @@ class TestBootstrapMeanCI:
     def test_rejects_matrix_input(self):
         with pytest.raises(ValueError, match="values must be 1-D"):
             bootstrap_mean_ci(np.ones((20, 2)))
+
+
+class TestBootstrapMeanCIStudentized:
+    """Percentile CI covered 0.772 at nominal 0.95 in the regime the module
+    docstring pitches it for (AR(0.8), T=100)."""
+
+    @staticmethod
+    def _ar1(n, phi, rng):
+        e = rng.normal(size=n + 200)
+        x = np.zeros(n + 200)
+        for t in range(1, n + 200):
+            x[t] = phi * x[t - 1] + e[t]
+        return x[200:]
+
+    def test_returns_a_named_tuple(self):
+        rng = np.random.default_rng(0)
+        result = bootstrap_mean_ci(rng.standard_normal(100), seed=0)
+        assert result.estimate == pytest.approx(result[2])
+        assert (result.low, result.high) == (result[0], result[1])
+        assert result.low < result.estimate < result.high
+
+    def test_studentized_is_the_default(self):
+        rng = np.random.default_rng(0)
+        x = rng.standard_normal(200)
+        assert bootstrap_mean_ci(x, seed=1) != bootstrap_mean_ci(
+            x, seed=1, method="percentile"
+        )
+
+    def test_matches_a_hand_computed_bootstrap_t(self):
+        from factrix._stats.bootstrap import _batch_means_se
+        from factrix.stats.bootstrap import (
+            _resolve_auto_block_length,
+            stationary_bootstrap_resamples,
+        )
+
+        rng = np.random.default_rng(5)
+        x = rng.standard_normal(150)
+        result = bootstrap_mean_ci(x, n_bootstrap=499, seed=9)
+
+        L = _resolve_auto_block_length(x)
+        resamples = stationary_bootstrap_resamples(
+            x, n_bootstrap=499, block_length=L, seed=9
+        )
+        point = float(x.mean())
+        se_obs = float(_batch_means_se(x, L)[0])
+        se_boot = _batch_means_se(resamples, L)
+        usable = np.isfinite(se_boot) & (se_boot > 0)
+        roots = (resamples.mean(axis=1)[usable] - point) / se_boot[usable]
+        lo_q, hi_q = np.quantile(roots, [0.025, 0.975])
+        assert result.low == pytest.approx(point - hi_q * se_obs)
+        assert result.high == pytest.approx(point - lo_q * se_obs)
+        assert result.estimate == pytest.approx(point)
+
+    def test_coverage_beats_the_percentile_interval_under_dependence(self):
+        n_sims = 200
+        rng = np.random.default_rng(3)
+        studentized = percentile = 0
+        for i in range(n_sims):
+            x = self._ar1(100, 0.8, rng)
+            s = bootstrap_mean_ci(x, n_bootstrap=299, seed=i)
+            p = bootstrap_mean_ci(x, n_bootstrap=299, seed=i, method="percentile")
+            studentized += s.low <= 0 <= s.high
+            percentile += p.low <= 0 <= p.high
+        assert studentized >= percentile
+        assert studentized / n_sims >= 0.85
+
+    def test_coverage_is_nominal_without_dependence(self):
+        n_sims = 200
+        rng = np.random.default_rng(3)
+        covered = 0
+        for i in range(n_sims):
+            x = rng.standard_normal(200)
+            result = bootstrap_mean_ci(x, n_bootstrap=299, seed=i)
+            covered += result.low <= 0 <= result.high
+        assert 0.90 <= covered / n_sims <= 0.99
+
+
+class TestBootstrapMeanCIValidation:
+    """Every one of these used to return a silently degenerate interval."""
+
+    def test_rejects_a_single_observation(self):
+        with pytest.raises(ValueError, match="at least 2 observations"):
+            bootstrap_mean_ci(np.array([3.0]))
+
+    def test_rejects_too_few_resamples(self):
+        """B=1 returned (3.4, 3.4, 4.5) — a point estimate outside its own CI."""
+        rng = np.random.default_rng(0)
+        with pytest.raises(ValueError, match="n_bootstrap must be at least"):
+            bootstrap_mean_ci(rng.standard_normal(50), n_bootstrap=1)
+
+    def test_rejects_block_length_at_or_past_the_sample(self):
+        """L >= T made every resample a rotation and the CI zero-width."""
+        rng = np.random.default_rng(0)
+        with pytest.raises(ValueError, match="invalid block_length"):
+            bootstrap_mean_ci(rng.standard_normal(40), block_length=1000)
+
+    def test_rejects_studentizing_a_custom_statistic(self):
+        rng = np.random.default_rng(0)
+        with pytest.raises(ValueError, match="invalid method"):
+            bootstrap_mean_ci(rng.standard_normal(50), statistic=np.median)
+
+    def test_constant_series_gives_a_degenerate_interval_not_a_crash(self):
+        result = bootstrap_mean_ci(np.full(50, 2.0), n_bootstrap=200, seed=0)
+        assert result == (2.0, 2.0, 2.0)
