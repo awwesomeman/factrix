@@ -60,18 +60,21 @@ def test_aggregate_to_per_date_skips_nan():
 def _nan_vs_null_panels(n_periods: int = 30, n_assets: int = 20):
     """Two identical panels; one marks half the factor cells NaN, the other null."""
     import random
+    from datetime import datetime, timedelta
 
     rng = random.Random(0)
     dates, assets, factor, ret = [], [], [], []
     for d in range(n_periods):
         for a in range(n_assets):
-            dates.append(d)
+            # Real dates: the boundary gate rejects a non-temporal `date`,
+            # because a string / integer axis is sorted lexicographically.
+            dates.append(datetime(2024, 1, 1) + timedelta(days=d))
             assets.append(f"a{a}")
             factor.append(None if a % 2 == 0 else rng.gauss(0.0, 1.0))
             ret.append(rng.gauss(0.0, 0.02))
     null_panel = pl.DataFrame(
         {"date": dates, "asset_id": assets, "factor": factor, "forward_return": ret}
-    )
+    ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
     nan_panel = null_panel.with_columns(pl.col("factor").fill_null(float("nan")))
     return nan_panel, null_panel
 

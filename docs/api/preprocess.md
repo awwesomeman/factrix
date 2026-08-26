@@ -30,17 +30,62 @@ forward returns are computed.
 
 ::: factrix.adapt.adapt
 
+## The panel contract
+
+Every public entry point — `evaluate`, `evaluate_horizons`, `inspect_data`,
+`compute_forward_return` — puts its input through one structural gate before
+anything else happens. Three things it enforces, each of which was previously
+left to individual producers and therefore missed by whichever path forgot it:
+
+- **`date` must be `Date` or `Datetime`.** Only column *names* were validated,
+  so a `String` date flowed through `sort` / `shift` / `over` / `group_by` as
+  text and was ordered lexicographically. With ISO-8601 strings that
+  accidentally works, which is what makes it dangerous — it passes every test
+  and every demo. With `MM/DD/YYYY` the panel is silently reordered and every
+  forward return is paired with the wrong neighbour. Parse first, e.g.
+  `pl.col("date").str.to_datetime("%m/%d/%Y")`.
+- **`(date, asset_id)` must be unique.** A duplicated row makes an asset's
+  "next period" that same date's twin, so `price / price - 1 = 0`: a four-row
+  panel concatenated with itself came back half fabricated zeros, biasing every
+  downstream mean toward zero with no error and no warning.
+- **NaN and ±Inf become `null`.** Applied to *inputs*, not to computed outputs.
+  This makes the whole class structurally unrepresentable downstream rather
+  than patching instances of it: polars ranks NaN as larger than every real
+  value, `pl.corr(method="spearman")` silently ranks it, and a `+Inf`
+  denominator makes `finite / inf` evaluate to `0.0` — a *finite* fabricated
+  −100% return that an output-side `is_finite()` filter cannot catch.
+
+The first two raise [`UserInputError`](errors.md); the third is a silent,
+deliberate normalization. `_finite_expr` remains in place inside the producers
+as defence in depth.
+
 ## Forward return
 
-`compute_forward_return` accepts `forward_periods` as a positive `int`
-row horizon. `0`, negative values, floats, strings, and `bool` values
-raise [`UserInputError`](errors.md). The function shifts by row count
-within each `asset_id`, computes the per-period normalized
-`forward_return`, then drops rows whose computed return is not finite
-(`null`, `NaN`, `+inf`, or `-inf`). If the horizon is too long for the
-panel, or price data leaves no finite forward returns after filtering,
-the function raises [`UserInputError`](errors.md) instead of returning
-an empty panel.
+`compute_forward_return` accepts `forward_periods` as a positive `int`.
+`0`, negative values, floats, strings, and `bool` values raise
+[`UserInputError`](errors.md).
+
+**The horizon is measured on the panel's own period grid** — the distinct
+sorted `date` values present in the panel, indexed 0, 1, 2, … Each asset's
+forward return pairs its row at period index `i + 1` with its row at
+`i + 1 + forward_periods`. This used to be a positional shift within each
+asset, which equals a time horizon only on a *complete* per-asset panel: with
+one asset missing 20 periods mid-sample, a "5-period" return silently spanned
+25 real periods, contaminating both the return and the overlap horizon stamped
+in `_forward_periods` that every downstream HAC inference reads. Suspensions,
+halts, delist-relist and staggered entry are ordinary in regional equity data,
+and sparse event panels are ragged by construction.
+
+A ragged grid raises `ragged_period_grid`. The pairing is correct for every
+asset either way; the point of the warning is that an asset with a gap has no
+observation to pair at the exit period and so contributes fewer rows than a
+complete one. Reindex onto a common grid if the horizons must be comparable
+across names.
+
+Rows whose computed return is not finite are dropped. If the horizon is too
+long for the panel, or price data leaves no finite forward returns after
+filtering, the function raises [`UserInputError`](errors.md) instead of
+returning an empty panel.
 
 `winsorize_forward_return` clips `forward_return` by per-date quantiles.
 Its bounds must satisfy `0 <= lower <= upper <= 1`; invalid ordering,
