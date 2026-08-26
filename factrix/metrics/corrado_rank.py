@@ -7,8 +7,6 @@ default profile. Available via
 
 from __future__ import annotations
 
-import warnings
-
 import numpy as np
 import polars as pl
 from scipy import stats as sp_stats
@@ -18,7 +16,7 @@ from factrix._axis import (
     FactorDensity,
 )
 from factrix._codes import WarningCode
-from factrix._metric_index import SampleThreshold, cell
+from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat
 from factrix._types import (
@@ -28,7 +26,17 @@ from factrix._types import (
     MIN_EVENTS_WARN,
 )
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _enforce_min_floor, _short_circuit_output
+from factrix.metrics._helpers import (
+    _attach_abnormal_return,
+    _enforce_min_floor,
+    _event_sample_threshold,
+    _sample_events_non_overlapping,
+    _scaled_min_periods,
+    _short_circuit_output,
+    _warn_below_scaled_floor,
+    _warn_estimation_window_contamination,
+    _warn_event_window_overlap,
+)
 
 __all__ = [
     "corrado_rank",
@@ -42,17 +50,24 @@ __all__ = [
     cell=cell(None, FactorDensity.SPARSE, structure=None),
     aggregation=Aggregation.EVENT_TIME,
     slice_boundary_sensitive=True,
-    sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
+    sample_threshold=_event_sample_threshold,
 )
 def corrado_rank(
     data: pl.DataFrame,
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
+    forward_periods: int = 5,
+    estimation_window: int = 60,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Corrado nonparametric rank test for event abnormal returns.
 
-    The static event floor (sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD)) gates the rank test on the count of non-zero (event) observations.
+    The static event floor (MIN_EVENTS_HARD) gates the rank test on the count of
+    non-zero (event) observations that survive the event-axis spacing pass; the
+    warn floor scales with the forward_periods parameter (the spacing stride),
+    so the threshold is declared as a resolver (a callable sample_threshold)
+    rather than a constant.
 
     A non-parametric alternative to the CAAR t-test. Robust to extreme
     returns, non-normal distributions, cross-asset heteroscedasticity,
@@ -81,6 +96,10 @@ def corrado_rank(
     Args:
         data: Full panel with ``date, asset_id, factor, forward_return``.
             Must include non-event rows for ranking.
+        forward_periods: Forward-return horizon, injected by ``evaluate`` from
+            the panel metadata; standalone calls may pass it directly. Sets the
+            minimum calendar gap between two kept events on one asset, so the
+            tested events no longer share overlapping return windows.
 
     Returns:
         MetricResult with value=mean rank deviation, stat=z.
@@ -91,7 +110,10 @@ def corrado_rank(
         independent draws. Collapsing each period's cross-section to
         $\bar{U}_d$ before taking the time-series SD folds that
         within-period correlation into the denominator; ``n_obs`` therefore
-        counts event *periods* (axis ``"periods"``), with the raw event count
+        counts event *periods* — reported on the battery's shared axis token
+        ``"events"`` (every member's sample is a set of non-overlapping event
+        observations) with the count itself in
+        ``metadata["n_event_periods"]`` — and the raw event count is
         kept in ``metadata["n_events"]`` alongside
         ``events_per_period_mean`` / ``events_per_period_max``.
 
@@ -132,6 +154,23 @@ def corrado_rank(
         as the largest value rather than treating it as missing: left
         unmasked, every NaN return would enter the test as a maximal
         positive rank deviation.
+
+        **Missing data.** $T_i$ is the count of non-missing returns for asset
+        $i$, so the $\mathrm{rank} / (T_i + 1)$ scaling is the missing-data
+        denominator of [Corrado & Zivney (1992)][corrado-zivney-1992] rather
+        than a fixed window length: a gap in one asset's series shifts neither
+        its neighbours' ranks nor the uniform scaling, and the excluded event
+        count is reported.
+
+        **Time-axis overlap.** Before the per-period collapse, events are
+        strided per asset so no two kept events on one name sit inside one
+        forward-return window — [Brown-Warner (1985)][brown-warner-1985]
+        non-overlap sampling on the event axis, the same treatment ``caar``
+        applies to its event-period series. The collapse and the stride are
+        complements: the collapse removes same-period dependence across names,
+        the stride removes same-asset dependence across time. Without it the
+        rank test over-rejected a bursty single-asset trigger at 21% against a
+        nominal 5%; ``EVENT_WINDOW_OVERLAP`` reports what was removed.
 
         Short-circuits to ``MetricResult`` with
         ``metadata["reason"]="insufficient_events"`` when
@@ -178,9 +217,19 @@ def corrado_rank(
     # Masking to null first makes both cases explicit and excludable, and
     # `count()` (non-null count) then supplies the correct T for the
     # rank / (T + 1) normalisation.
-    finite_return = pl.col(return_col).is_not_null() & pl.col(return_col).is_not_nan()
+    # Corrado ranks ABNORMAL returns. Ranking the raw forward return makes the
+    # rank of an event depend on the asset's drift as much as on the event.
+    data, ar_diagnostics = _attach_abnormal_return(
+        data,
+        return_col=return_col,
+        estimation_window=estimation_window,
+        forward_periods=forward_periods,
+        factor_col=factor_col,
+    )
+    ar_col = "_abnormal_return"
+    finite_return = pl.col(ar_col).is_not_null() & pl.col(ar_col).is_not_nan()
     ranked = data.with_columns(
-        pl.when(finite_return).then(pl.col(return_col)).alias("_finite_return")
+        pl.when(finite_return).then(pl.col(ar_col)).alias("_finite_return")
     ).with_columns(
         (
             pl.col("_finite_return").rank(method="average").over("asset_id")
@@ -192,22 +241,48 @@ def corrado_rank(
     all_events = ranked.filter(pl.col(factor_col) != 0)
     # `NaN != 0` is True in polars, so a NaN factor survives the event filter;
     # guard it here as well or sign(factor) turns u_event into NaN.
-    events = all_events.filter(
-        pl.col("_rank_u").is_not_null()
-        & pl.col("_rank_u").is_not_nan()
+    #
+    # Two drop reasons, reported apart: a hole in the input columns, versus an
+    # event whose asset has too little history for the estimation-window mean
+    # (so its abnormal return, and therefore its rank, does not exist). The
+    # second is a sample-design fact — the same one bmp_z reports as
+    # n_dropped_no_vol — not a data-quality one.
+    raw_finite = (
+        pl.col(return_col).is_not_null()
+        & pl.col(return_col).is_not_nan()
         & pl.col(factor_col).is_not_null()
         & pl.col(factor_col).is_not_nan()
     )
+    rank_finite = pl.col("_rank_u").is_not_null() & pl.col("_rank_u").is_not_nan()
+    events = all_events.filter(raw_finite & rank_finite)
     n_events = len(events)
-    n_events_dropped_non_finite = len(all_events) - n_events
+    n_events_dropped_non_finite = all_events.filter(~raw_finite).height
+    n_events_dropped_no_estimation_window = all_events.filter(
+        raw_finite & ~rank_finite
+    ).height
 
+    # Overlap discipline on the TIME axis, applied before the cross-section is
+    # collapsed. The per-period collapse below removes SAME-PERIOD dependence;
+    # it cannot see two events on one asset a few periods apart, whose
+    # ``(t, t+h]`` windows overlap. On a single-asset panel that is the only
+    # clustering axis there is, so without this pass the rank test over-rejects.
+    events = _sample_events_non_overlapping(
+        events, forward_periods, calendar_dates=data["date"]
+    )
+    n_events_sampled = len(events)
+
+    # The floor is enforced on the SAMPLED count — the sample the rank test
+    # actually runs on. Pre-flight reads the raw non-zero factor count as the
+    # documented loose upper bound.
     sc = _enforce_min_floor(
         corrado_rank,
         "corrado_rank",
-        n_events,
+        n_events_sampled,
         "insufficient_events",
         axis="events",
         alternative="greater",
+        forward_periods=forward_periods,
+        n_events_raw=n_events,
     )
     if sc is not None:
         return sc
@@ -250,24 +325,57 @@ def corrado_rank(
             "insufficient_event_periods",
             alternative="greater",
             n_obs=n_event_periods,
-            n_obs_axis="periods",
+            n_obs_axis="events",
             min_required=MIN_EVENTS_HARD,
             n_events=n_events,
         )
 
     warning_codes: list[str] = []
-    if n_event_periods < MIN_EVENTS_WARN:
-        warning_codes.append(WarningCode.FEW_EVENTS.value)
-        warnings.warn(
-            f"corrado_rank: n_event_periods={n_event_periods} below "
-            f"MIN_EVENTS_WARN={MIN_EVENTS_WARN}. The denominator is the "
-            f"time-series SD of the per-event-period mean rank, so this counts "
-            f"event *periods*, not events (n_events={n_events}): piling more "
-            f"same-period events on does not add sample. z is returned but the "
-            f"normal approximation is power-thin here.",
-            UserWarning,
-            stacklevel=2,
-        )
+    metadata: dict = {
+        "n_event_periods": n_event_periods,
+        "n_events": n_events,
+        "events_per_period_mean": float(np.mean(events_per_period)),
+        "events_per_period_max": int(np.max(events_per_period)),
+        "n_total_obs": n_total_obs,
+        "n_events_dropped_non_finite": n_events_dropped_non_finite,
+        "n_events_dropped_no_estimation_window": n_events_dropped_no_estimation_window,
+        "stat_type": "z",
+        "h0": "mu_rank<=0",
+        "method": "Corrado (1989) rank test",
+        "forward_periods": forward_periods,
+        **ar_diagnostics,
+    }
+    _warn_event_window_overlap(
+        "corrado_rank",
+        n_events,
+        n_events_sampled,
+        forward_periods,
+        metadata,
+        warning_codes,
+        expected_warnings=expected_warnings,
+    )
+    _warn_estimation_window_contamination(
+        "corrado_rank", metadata, warning_codes, expected_warnings=expected_warnings
+    )
+    raw_min_warn = _scaled_min_periods(MIN_EVENTS_WARN, forward_periods)
+    warn_code = _warn_below_scaled_floor(
+        n_events,
+        MIN_EVENTS_WARN,
+        forward_periods,
+        f"corrado_rank: n_events={n_events} below the floor of {raw_min_warn} "
+        f"(= MIN_EVENTS_WARN {MIN_EVENTS_WARN} x forward_periods "
+        f"{forward_periods}); {n_event_periods} event periods survive "
+        f"non-overlap sampling at stride h={forward_periods}, which keeps "
+        f"up to one event in h per asset. The denominator is the time-series "
+        f"SD of the per-event-period mean rank, so the sample is those "
+        f"periods, not the raw events: piling more same-period events on does "
+        f"not add sample. z is returned but the normal approximation is "
+        f"power-thin here.",
+        WarningCode.FEW_EVENTS,
+        expected_warnings=expected_warnings,
+    )
+    if warn_code is not None:
+        warning_codes.append(warn_code)
 
     mean_u = float(np.mean(u_bar))
     std_u = float(np.std(u_bar, ddof=DDOF))
@@ -278,7 +386,7 @@ def corrado_rank(
             "degenerate_rank_variance",
             alternative="greater",
             n_obs=n_event_periods,
-            n_obs_axis="periods",
+            n_obs_axis="events",
             std_u=std_u,
             n_events=n_events,
             n_event_periods=n_event_periods,
@@ -295,18 +403,8 @@ def corrado_rank(
         alternative="greater",
         value=mean_u,
         n_obs=n_event_periods,
-        n_obs_axis="periods",
+        n_obs_axis="events",
         stat=z,
         warning_codes=tuple(warning_codes),
-        metadata={
-            "n_event_periods": n_event_periods,
-            "n_events": n_events,
-            "events_per_period_mean": float(np.mean(events_per_period)),
-            "events_per_period_max": int(np.max(events_per_period)),
-            "n_total_obs": n_total_obs,
-            "n_events_dropped_non_finite": n_events_dropped_non_finite,
-            "stat_type": "z",
-            "h0": "mu_rank<=0",
-            "method": "Corrado (1989) rank test",
-        },
+        metadata=metadata,
     )

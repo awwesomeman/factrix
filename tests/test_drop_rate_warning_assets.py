@@ -134,7 +134,16 @@ class TestConsumerWarning:
         betas_df = compute_common_betas(_full_panel())["factor"]
         with warnings.catch_warnings():
             warnings.simplefilter("error")
-            result = metric_fn(betas_df)
+            # This panel's residuals are cross-correlated, which common_beta
+            # now reports and corrects for; that code is declared (on the one
+            # consumer that runs a cross-asset test) so only an unexpected
+            # drop-rate warning can fail this test.
+            kwargs = (
+                {"expected_warnings": ("event_clustering_adjusted",)}
+                if metric_fn is common_beta
+                else {}
+            )
+            result = metric_fn(betas_df, **kwargs)
         assert WarningCode.EXCESSIVE_ASSET_DROPS.value not in result.warning_codes
         assert result.metadata["drop_rate"] == 0.0
         assert set(_ASSET_KEYS) <= set(result.metadata)

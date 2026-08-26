@@ -15,22 +15,24 @@ from factrix._stats.hac import _require_finite
 from factrix._types import EPSILON
 
 
-def _ols_nw_slope_t(
+def _ols_nw_slope_se(
     y: np.ndarray,
     x: np.ndarray,
     *,
     lags: int,
-) -> tuple[float, float, float, np.ndarray]:
-    """OLS ``y = α + β·x + ε`` with Newey-West HAC SE on β.
+) -> tuple[float, float, np.ndarray]:
+    """OLS ``y = α + β·x + ε`` with the Newey-West HAC SE of β.
 
-    Returns (β̂, t-stat, two-sided p-value with df=n-2, residuals).
-    Centring is done in-place; the residuals are computed in the
-    de-meaned space (same as full-rank OLS up to the constant), and
-    the score ``u_t = x̃_t · ε_t`` is fed to the same Bartlett kernel
-    used by ``_newey_west_se`` so the HAC math stays in one place.
+    Returns (β̂, SE(β̂), residuals). Centring is done in-place; the residuals
+    are computed in the de-meaned space (same as full-rank OLS up to the
+    constant), and the score ``u_t = x̃_t · ε_t`` is fed to the same
+    Bartlett kernel used by ``_newey_west_se`` so the HAC math stays in
+    one place. :func:`_ols_nw_slope_t` turns the pair into a t / p;
+    ``common_beta`` consumes the SE directly because it adds a second
+    variance component before forming its t.
 
-    Returns ``(0.0, 0.0, 1.0, np.zeros(n))`` for n < 3 or degenerate
-    inputs (``Var(x) ≈ 0``).
+    Returns ``(0.0, 0.0, np.zeros(n))`` for n < 3 or degenerate inputs
+    (``Var(x) ≈ 0``); a zero SE is the caller's degeneracy signal.
 
     Raises:
         ValueError: ``y`` or ``x`` holds a non-finite value. A NaN flows
@@ -40,17 +42,17 @@ def _ols_nw_slope_t(
             contract as ``_newey_west_se``; callers drop or impute
             upstream.
     """
-    y = _require_finite(y, "_ols_nw_slope_t")
-    x = _require_finite(x, "_ols_nw_slope_t")
+    y = _require_finite(y, "_ols_nw_slope_se")
+    x = _require_finite(x, "_ols_nw_slope_se")
     n = len(y)
     if n < 3 or len(x) != n:
-        return 0.0, 0.0, 1.0, np.zeros(n)
+        return 0.0, 0.0, np.zeros(n)
 
     x_c = x - float(np.mean(x))
     y_c = y - float(np.mean(y))
     sxx = float(np.dot(x_c, x_c))
     if sxx < EPSILON:
-        return 0.0, 0.0, 1.0, np.zeros(n)
+        return 0.0, 0.0, np.zeros(n)
 
     beta = float(np.dot(x_c, y_c)) / sxx
     resid = y_c - beta * x_c
@@ -68,7 +70,30 @@ def _ols_nw_slope_t(
     long_run = max(long_run, 0.0)
 
     var_beta = long_run / (sxx * sxx)
-    se_beta = float(np.sqrt(var_beta))
+    return beta, float(np.sqrt(var_beta)), resid
+
+
+def _ols_nw_slope_t(
+    y: np.ndarray,
+    x: np.ndarray,
+    *,
+    lags: int,
+) -> tuple[float, float, float, np.ndarray]:
+    """OLS ``y = α + β·x + ε`` with Newey-West HAC SE on β.
+
+    Returns (β̂, t-stat, two-sided p-value with df=n-2, residuals) — the
+    t / p form of :func:`_ols_nw_slope_se`, which holds the estimator and
+    its contract.
+
+    Returns ``(0.0, 0.0, 1.0, np.zeros(n))`` for n < 3 or degenerate
+    inputs (``Var(x) ≈ 0``).
+    """
+    # Own the finiteness contract under this function's name; the estimator
+    # re-checks, cheaply, under its own.
+    y = _require_finite(y, "_ols_nw_slope_t")
+    x = _require_finite(x, "_ols_nw_slope_t")
+    beta, se_beta, resid = _ols_nw_slope_se(y, x, lags=lags)
+    n = len(y)
     if se_beta < EPSILON:
         return beta, 0.0, 1.0, resid
 

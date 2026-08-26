@@ -153,7 +153,7 @@ Descriptive; no test.
 
 - *primary*: `p_value` — non-overlapping `t` on per-event-period CAAR.
   `value`, `stat`, `p_value` and `n_obs` all describe the event-spaced
-  subsample (`n_obs_axis = "periods"`).
+  subsample (`n_obs_axis = "events"`, the shared event-battery token).
 - *descriptive*: `n_event_periods` (number of periods with an event),
   `total_events` (underlying events behind the portfolio),
   `n_event_periods_sampled`, `mean_caar_full` / `n_event_periods_full`
@@ -161,6 +161,16 @@ Descriptive; no test.
   `n_event_periods_dropped_non_finite` (null / NaN `caar` periods dropped
   before spacing), `n_events_dropped_non_finite` (events with a non-finite
   return or factor dropped by `compute_caar`),
+  `n_events_overlapping` / `n_events_sampled` (removed by, and surviving,
+  the non-overlap spacing pass; a non-zero removal fires
+  `EVENT_WINDOW_OVERLAP`), `n_events_dropped_no_estimation_window`,
+  `abnormal_return_model` and `estimation_window_event_share` (carried up
+  from `compute_caar`; the share of each tested event's estimation window
+  that lies inside other events' forward windows — above
+  `ESTIMATION_WINDOW_EVENT_SHARE_WARN` the mean-adjusted model's abnormal
+  returns are negatively correlated and the test is conservative, which
+  `ESTIMATION_WINDOW_CONTAMINATED` records; measured 4.7 / 2.3 / 5.0% size at
+  h = 1 / 5 / 21 on 20 assets, 0.0% on one asset at h = 21),
   `warning_codes` (conditional, e.g. `FEW_EVENTS`).
 
 #### `bmp_z`
@@ -171,7 +181,22 @@ Boehmer-Musumeci-Poulsen standardised-abnormal-return cross-sectional
 - *primary*: `p_value`.
 - *descriptive*: `n_events`, `n_event_periods` (distinct event periods —
   the effective sample once events cluster; `FEW_EVENTS` fires on it when
-  below `MIN_EVENTS_WARN` and events share periods), `n_dropped`
+  below `MIN_EVENTS_WARN` and events share periods, and on the raw event
+  count when it is below `MIN_EVENTS_WARN × forward_periods`),
+  `n_events_overlapping` / `n_events_sampled` (removed by, and surviving,
+  the per-asset non-overlap spacing pass; a non-zero removal fires
+  `EVENT_WINDOW_OVERLAP`), `abnormal_return_model` / `estimation_window` /
+  `estimation_window_source` / `estimation_window_lag` (the abnormal-return
+  model behind the SAR numerator: `mean_adjusted` on the one-bar returns of
+  `price` over the same window as the vol, lag `0`, or on lagged
+  `forward_return` rows without `price`; `market_adjusted_supplied` when
+  the panel carries `abnormal_return`), `estimation_window_event_share`
+  (share of the tested events' estimation windows inside other events'
+  forward windows; above `ESTIMATION_WINDOW_EVENT_SHARE_WARN` the
+  mean-adjusted `z` is conservative and `ESTIMATION_WINDOW_CONTAMINATED`
+  fires — measured 4.3 / 3.7 / 0.3% size at h = 1 / 5 / 21 on 20 assets,
+  nominal 5%; the model is also not robust to heavy skew at h > 1, 18% at
+  h = 5 on a lognormal null, where `corrado_rank` holds 4.3%), `n_dropped`
   (= `n_dropped_no_vol` + `n_dropped_non_finite_return`), `std_sar`,
   `estimation_window`, `include_prediction_error_variance`,
   `vol_source` (`"price"` or `"forward_return"`), `vol_estimation_lag`
@@ -187,15 +212,24 @@ Boehmer-Musumeci-Poulsen standardised-abnormal-return cross-sectional
 #### `corrado_rank` (emits `MetricResult.name = "corrado_rank"`)
 
 - *primary*: `p_value` — Corrado nonparametric rank `z`.
-- *sample*: `n_event_periods` — distinct event periods, and the sample behind
-  `stat` / `p_value` / `n_obs` (axis `periods`). Same-period events are
+- *sample*: `n_event_periods` — distinct event periods surviving the
+  per-asset non-overlap spacing pass, and the sample behind
+  `stat` / `p_value` / `n_obs` (axis `events`). Same-period events are
   averaged into one observation before the test, so the event period is the
   unit of inference and within-period clustering lands in the denominator.
 - *descriptive*: `n_events` (raw event rows — `n_event_periods` times the mean
   events per period, **not** the test's sample size), `events_per_period_mean`,
   `events_per_period_max` (clustering profile; read them together with
   `clustering_hhi`), `n_total_obs` (finite return cells behind the ranks),
-  `n_events_dropped_non_finite`.
+  `n_events_dropped_non_finite`, `n_events_dropped_no_estimation_window`
+  (events whose asset had too little history for the abnormal-return
+  estimate), `abnormal_return_model` (`"mean_adjusted"` or
+  `"market_adjusted_supplied"`), `estimation_window`, `estimation_window_lag`,
+  `estimation_window_source`, `estimation_window_event_share` (see `bmp_z`;
+  `ESTIMATION_WINDOW_CONTAMINATED` above the advisory share),
+  `forward_periods` (the spacing stride),
+  `n_events_overlapping` / `n_events_sampled` (removed by, and surviving,
+  the spacing pass; a non-zero removal fires `EVENT_WINDOW_OVERLAP`).
 
 ### `positive_rate` (`factrix.metrics.positive_rate`)
 
@@ -255,15 +289,53 @@ asset pairs are not treated as independent Bernoulli trials.
 
 Same shape as `positive_rate` (exact binomial, `stat` = hit count).
 
-- *primary*: `p_value`.
-- *descriptive*: `n_events`, `n_hits`, `n_events_dropped_non_finite`
-  (events with a non-finite return / factor, excluded from `n`).
+- *primary*: `p_value` — a generalised sign test (Cowan 1992): the null is
+  `sign_base_rate`, the frequency with which a *signed* hit happens on the
+  non-event rows, not 0.5. `sign_base_rate_up` is the unsigned share of
+  positive abnormal returns; a long event hits with that probability under
+  the null and a short event with its complement, so `sign_base_rate` is the
+  mixture weighted by the share of tested events on each side. Exact binomial
+  when events do not share periods, clustered normal on the hit indicator when
+  they do (`stat_type` switches from `binomial_hits` to `z`, `method` names
+  which ran, and `EVENT_CLUSTERING_ADJUSTED` is the record of the switch).
+  `h0` carries the null actually tested.
+- *descriptive*: `sign_base_rate`, `sign_base_rate_up`,
+  `sign_base_rate_source` (`non_event_rows`, or `assumed_symmetric` when
+  there are too few non-event rows to estimate it), `n_base_rate_rows`.
+- *descriptive*: `kolari_pynnonen_r` / `kolari_pynnonen_n_eff` /
+  `kolari_pynnonen_r_source` / `kolari_pynnonen_applied` /
+  `kolari_pynnonen_scaling` / `stat_uncorrected` (the within-period clustering
+  estimate and the deflator),
+  `n_events` (events surviving the non-overlap spacing pass —
+  the binomial `n`), `n_hits`, `n_events_dropped_non_finite`
+  (events with a non-finite return / factor, excluded from `n`),
+  `n_events_dropped_no_estimation_window` (events whose asset had too little
+  history for the abnormal-return estimate), `abnormal_return_model` /
+  `estimation_window` / `estimation_window_source` / `estimation_window_lag`
+  / `estimation_window_event_share` (above
+  `ESTIMATION_WINDOW_EVENT_SHARE_WARN` the mean-adjusted null is
+  conservative and `ESTIMATION_WINDOW_CONTAMINATED` fires: 6.0 / 1.7 / 1.7%
+  size at h = 1 / 5 / 21 on 20 assets, nominal 5%),
+  `n_events_overlapping` / `n_events_sampled` (removed by, and surviving,
+  the spacing pass; a non-zero removal fires `EVENT_WINDOW_OVERLAP`).
 
 #### `event_ic`
 
-- *primary*: `p_value` — Fisher-transformed Spearman ρ between
-  `|factor|` and `signed_car`.
-- *descriptive*: `n_events`, `n_events_dropped_non_finite`.
+- *primary*: `p_value` — from the Fisher `z` of the Spearman ρ between
+  `|factor|` and the signed abnormal return, using the
+  Fieller-Hartley-Pearson Spearman SE `1.06/sqrt(n-3)` (not the Pearson
+  `1/sqrt(n-3)`) and deflated for same-period clustering of the per-event rank
+  score. `stat` and `p_value` therefore come from one approximation rather than
+  two.
+- *descriptive*: `n_events` (post-spacing), `n_events_dropped_non_finite`,
+  `n_events_dropped_no_estimation_window`, `abnormal_return_model` /
+  `estimation_window` / `estimation_window_lag`, `sign_base_rate_up` /
+  `sign_base_rate_source` / `n_base_rate_rows` (carried by the shared event
+  filter; only `event_hit_rate` tests against them),
+  `n_events_overlapping` / `n_events_sampled`, `kolari_pynnonen_r` /
+  `kolari_pynnonen_n_eff` / `kolari_pynnonen_r_source` /
+  `kolari_pynnonen_applied` (plus `kolari_pynnonen_scaling` /
+  `stat_uncorrected` when the deflator applied).
 
 `MetricResult.stat = None` and the short-circuit `reason` is set to
 `"not_applicable_discrete_signal"` when the signal lacks magnitude
@@ -272,7 +344,11 @@ variance (e.g. binary {-1, +1}).
 #### `event_skewness`
 
 - *primary* (conditional, N ≥ 20): `p_value` — D'Agostino skew `z`.
-- *descriptive*: `n_events`, `n_events_dropped_non_finite`.
+- *descriptive*: `n_events` (post-spacing), `n_events_dropped_non_finite`,
+  `n_events_dropped_no_estimation_window`, `abnormal_return_model` /
+  `estimation_window` / `estimation_window_lag`, `sign_base_rate_up` /
+  `sign_base_rate_source` / `n_base_rate_rows`,
+  `n_events_overlapping` / `n_events_sampled`.
 
 When `n_events < 20`, `MetricResult.stat = None` and `p_value` / `stat_type`
 / `h0` / `method` are omitted — the metric reports the Fisher
@@ -284,7 +360,9 @@ Descriptive; no test.
 
 - *descriptive*: `total_gains`, `total_losses`, `n_events`, `n_wins`,
   `n_losses`, `no_gains`, `no_losses`, `profit_factor_status`,
-  `n_events_dropped_non_finite`.
+  `n_events_dropped_non_finite`, `n_events_dropped_no_estimation_window`,
+  `abnormal_return_model` / `estimation_window` / `estimation_window_lag`,
+  `sign_base_rate_up` / `sign_base_rate_source` / `n_base_rate_rows`.
   `profit_factor_status` is `"finite"` for ordinary gain/loss samples,
   `"unbounded_no_losses"` when positive gains have no offsetting losses
   (`value = inf`), and `"undefined_no_gains_or_losses"` when both gross gains
@@ -304,11 +382,24 @@ is `clustering_hhi`).
 
 Pre/post-event return profile; descriptive.
 
-- *descriptive*: `per_offset` (dict `offset → {mean, median, p25, p75,
-  hit_rate, n}`), `interpretation`.
-- `p_value` is `None` — no hypothesis test runs; the headline `value` is
-  the pre-event leakage score, and per-horizon `hit_rate` is a raw
-  fraction.
+- *descriptive*: `n_events` (distinct `(date, asset)` events behind the
+  curve — also `n_obs`, axis `events`; one event contributes one row per
+  offset, so this is not the row count), `per_offset` (dict
+  `offset → {mean, se, t, median, p25, p75, hit_rate, n}`, all measured as
+  **excess over** `baseline_bar_return`), `baseline_bar_return` (the panel's
+  unconditional mean single-bar return, subtracted so a trending asset does
+  not read as leaky), `leakage_null_scale` (`≈ 0.8 × mean se` — what the
+  headline is worth under *no* leakage, since `E|x̄| > 0` always and shrinks
+  as events accumulate), `interpretation`. `reason` is set to
+  `no_pre_event_offset_with_enough_events` and `value` is `NaN` when no
+  negative offset cleared the 5-event floor — `0.0` there was the *best*
+  possible score for a quantity never computed.
+- `p_value` is `None` — no hypothesis test runs, and no offset carries a
+  `p`: the headline `value` is the pre-event leakage score and per-horizon
+  `hit_rate` is a raw fraction of positive signed returns. Offsets overlap
+  each other within an event and, unlike the event significance tests, this
+  metric applies no non-overlap sampling across events, so the curve is a
+  shape to read rather than a test to interpret.
 
 ### `monotonicity` (`factrix.metrics.monotonicity`)
 
@@ -418,10 +509,19 @@ diversity ratio (effective-n / n_top, derived from HHI) falls
 
 #### `clustering_hhi` (emits `MetricResult.name = "clustering_hhi"`)
 
-Descriptive; period-axis concentration of event periods.
+Descriptive; three concentration measures on different axes. The HHI itself
+is invariant to how many assets fire per date and is bounded below by `1/D`,
+so it cannot answer "do my events cluster?" on its own — read it with the two
+companions.
 
-- *descriptive*: `n_events`, `n_event_periods`, `effective_n_periods`,
-  `hhi_normalized`, `cluster_window`.
+- *descriptive*: `n_events`, `n_event_periods`, `effective_n_periods`
+  (`1/HHI`), `hhi_normalized` (`(HHI - 1/D)/(1 - 1/D)`; `0` when every event
+  date carries the same count, **including** under perfect cross-sectional
+  clustering), `events_per_period_mean` (Kish effective cluster size — the
+  cross-sectional axis, and the same `n_eff` the Kolari-Pynnönen deflator
+  consumes), `max_events_per_period`, `share_events_in_bursts` (share of
+  events whose same-asset predecessor sits within `cluster_window` periods on
+  the full panel calendar — the temporal axis), `cluster_window`.
 
 ### `mfe_mae` (`factrix.metrics.mfe_mae`)
 
@@ -431,9 +531,14 @@ Descriptive; no test.
 
 - *descriptive*: `mfe_p50`, `mae_p25` (MAE is a signed non-positive
   excursion, so the *worst* quartile is the 25th percentile),
-  `mfe_mae_ratio` (= `mfe_p50 / |mae_p25|`), `n_events`.
+  `mfe_mae_ratio` (= `mfe_p50 / |mae_p25|`), `mfe_mae_ratio_status`
+  (`finite`; `unbounded_no_adverse_excursion` with `value = inf` when the
+  events never traded against entry — the best outcome, which must not share
+  a score with the worst; `undefined_no_excursion` with `value = NaN` when
+  neither excursion exists), `n_events`.
 - *descriptive* (conditional, when σ-normalised inputs available):
-  `mfe_z_p50`, `mae_z_p25`, `mfe_mae_ratio_z`, `n_events_z`.
+  `mfe_z_p50`, `mae_z_p25`, `mfe_mae_ratio_z`, `mfe_mae_ratio_z_status`,
+  `n_events_z`.
 - `p_value` is `None` — descriptive metric, no hypothesis test.
 ### `oos` (`factrix.metrics.oos_decay`)
 
@@ -495,12 +600,22 @@ slope in `forward_return ~ factor`; `MetricResult.stat` is the
 Newey-West HAC `t` statistic for `H0: beta = 0`.
 
 - *primary*: `p_value` — two-sided HAC slope test.
-- *descriptive*: `n_periods`, `newey_west_lags`, `forward_periods`,
-  `alpha`, `r_squared`, `factor_std`, `adf_stat`, `adf_p`,
+- *descriptive*: `n_periods`, `n_periods_effective`
+  (`n_periods // forward_periods` — the non-overlapping observations the
+  short-sample gate reads), `residual_lag1_autocorr`, `newey_west_lags`,
+  `forward_periods`, `alpha`, `r_squared`, `factor_std`, `adf_stat`, `adf_p`,
   `adf_threshold`, `unit_root_suspected`.
 - *warning*: `WarningCode.PERSISTENT_REGRESSOR` when the ADF p-value exceeds
   `adf_threshold`; the HAC slope is still returned, but the predictive
-  regression may carry persistent-regressor bias.
+  regression may carry persistent-regressor bias. The flag is a unit-root
+  verdict on the regressor, **not** a size guarantee: a long sample gives ADF
+  the power to reject the unit root and silences the flag while the test stays
+  oversized (measured 14% at a nominal 5% for `T = 2500`, `h = 21` under a
+  Stambaugh design where the flag fired on 0% of draws).
+- *warning*: `WarningCode.SERIAL_CORRELATION_DETECTED` when the regression
+  residuals' lag-1 autocorrelation exceeds `PERSISTENT_SERIES_AUTOCORR`.
+- *warning*: `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` when
+  `n_periods_effective` is below `MIN_PERIODS_WARN`.
 - *short-circuit*: `reason` `insufficient_predictive_periods`,
   `degenerate_factor_variance`, `no_factor_column`, or
   `no_return_column`.
@@ -509,9 +624,25 @@ Newey-West HAC `t` statistic for `H0: beta = 0`.
 
 #### `common_beta`
 
-- *primary*: `p_value` — cross-asset `t` on the per-asset OLS β
-  distribution.
-- *descriptive*: `n_assets`, `beta_std`, `median_beta`.
+- *primary*: `p_value` — `t` on the cross-asset mean of the per-asset OLS
+  β, with the calendar-time SE: `SE² = V_EW + τ̂²/N`, where `V_EW` is the
+  Newey-West(`h−1`) variance of the equal-weight portfolio's slope on the
+  factor (the mean beta is that slope on a rectangular panel) and `τ̂²` is
+  the cross-sectional beta variance in excess of the per-asset estimation
+  noise. The textbook iid `std(β)/√N` understates the SE without bound when
+  assets share a residual component (44.8% size at N=8, ρ=0.5); the
+  Kolari-Pynnönen factor it briefly used instead had zero power once the
+  true betas were dispersed.
+- *descriptive*: `n_assets`, `beta_std`, `median_beta`,
+  `calendar_time_se_applied`, and — when it applied — `ew_portfolio_beta`
+  (the equal-weight portfolio slope, equal to `value` on a rectangular
+  panel), `ew_portfolio_beta_se`, `ew_portfolio_periods` (dates behind it),
+  `beta_dispersion_excess` (`τ̂²`), `dof` (Welch-Satterthwaite df across the
+  two variance components) and `stat_uncorrected` (the iid `t`).
+  `calendar_time_se_source` records `unavailable_hand_built_frame` (no
+  panel behind the frame) or `too_few_shared_periods`; the iid `t` is then
+  the reported statistic.
+- *warning*: `WarningCode.FEW_ASSETS` below `MIN_ASSETS_WARN`.
 
 #### `common_beta_profile`
 

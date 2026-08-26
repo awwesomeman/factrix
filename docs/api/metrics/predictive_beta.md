@@ -50,6 +50,31 @@ title: factrix.metrics.predictive_beta
     warning tells you to read the slope as a persistent-regressor risk,
     not as an automatically corrected estimate.
 
+    Read it as a verdict on the **regressor**, not on this test's size.
+    Under a classic Stambaugh design (AR(1) `phi = 0.99`,
+    `corr(u_x, eps_r) = -0.9`, true beta = 0, 300 seeds) the flag and the
+    distortion move apart as the sample grows: at `T = 500` it fires on ~75%
+    of draws while the test rejects 13% (`h = 1`) / 35% (`h = 21`) at a
+    nominal 5%; at `T = 2500` the ADF test can reject the unit root, the flag
+    goes silent (~0% of draws) and the test still rejects 9% / 14%. A silent
+    flag is not evidence of an unbiased slope, and factrix applies no
+    Stambaugh correction.
+
+-   __Overlap and residual persistence__
+
+    ---
+
+    Two further screens read the sample the standard error actually has.
+    `WarningCode.SERIAL_CORRELATION_DETECTED` fires when the regression
+    residuals' lag-1 autocorrelation exceeds `PERSISTENT_SERIES_AUTOCORR`
+    (0.3) — the same rule `fm_beta` and the series-mean inference members
+    apply. `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` reads
+    `n_periods_effective = n_periods // forward_periods`, not the raw row
+    count: `n` overlapping rows carry about `n / h` independent observations
+    while the HAC lag floor rises with `h`. At `T = 120`, `h = 21` the
+    regression runs on 98 rows with a Bartlett lag of 20 and rejects 17.5% of
+    null draws at a nominal 5%, a regime the raw-`n` gate could not see.
+
 -   __Stability is a workflow__
 
     ---

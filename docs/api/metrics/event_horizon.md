@@ -26,16 +26,25 @@ title: factrix.metrics.event_horizon
     the default factrix presentation; downstream consumers should not
     re-cumulate the pre-event leg.
 
-!!! warning "Serial correlation across offsets"
-    The binomial null at each offset assumes per-event independence at
-    that offset. **Adjacent post-event offsets are serially correlated
-    within the same event** — $k = 6$ and $k = 12$ share the $t+1$
-    entry price and overlap on bars $[t+2, t+7]$. The reported
-    per-offset $p$-values therefore have understated variance under
-    the joint null across offsets; treat the curve as descriptive and
-    read the binomial $p$ one offset at a time. See also the
+!!! warning "Descriptive only — no p-value is produced"
+    `event_around_return` runs no hypothesis test: `p_value` is `None`, and
+    `per_offset[k]` carries `{mean, median, p25, p75, hit_rate, n}` — the
+    `hit_rate` is a raw fraction of positive signed returns, not a binomial
+    test, and no offset carries a `p`.
+
+    That is deliberate rather than an omission, because the reported curve
+    breaks the independence any such test would need, twice over. **Adjacent
+    post-event offsets are serially correlated within the same event** —
+    $k = 6$ and $k = 12$ share the $t+1$ entry price and overlap on bars
+    $[t+2, t+7]$ — so offsets are not separate trials. And **events on one
+    asset closer than the horizon share bars with each other**; unlike the
+    event significance tests (`caar`, `bmp_z`, `corrado_rank`,
+    `event_hit_rate`), this metric applies no non-overlap sampling, because
+    thinning the sample would only cost resolution on a curve nobody tests.
+    Read the curve as a shape, and take significance from those metrics
+    instead. See also the
     [confounded-event note](../../reference/metric-applicability.md#confounded-event-handling)
-    on within-asset event clustering, which compounds the same issue.
+    on within-asset event clustering.
 
 ## Use cases
 

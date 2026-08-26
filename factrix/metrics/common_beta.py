@@ -34,12 +34,14 @@ from factrix._axis import (
     OutputShape,
     SpecRole,
 )
+from factrix._codes import WarningCode
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import (
     _calc_t_stat,
     _p_value_from_t,
 )
+from factrix._stats.constants import MIN_ASSETS_WARN
 from factrix._types import DDOF, EPSILON
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
@@ -48,6 +50,7 @@ from factrix.metrics._helpers import (
     _finite_expr,
     _short_circuit_output,
     _surface_drop_stats,
+    _warn_below_floor,
 )
 from factrix.metrics._primitives import compute_common_betas
 
@@ -66,34 +69,145 @@ _COMMON_BETA_CELL = cell(
 )
 
 
+def _calendar_time_se(
+    common_betas_df: pl.DataFrame,
+    betas: np.ndarray,
+    std_b: float,
+    metadata: dict[str, object],
+) -> tuple[float, int] | None:
+    r"""Standard error and df of the mean beta from the calendar-time portfolio.
+
+    Reads ``ew_portfolio_beta_var`` — the Newey-West($h-1$) variance of the
+    equal-weight portfolio's slope on the factor, measured by
+    :func:`~factrix.metrics._primitives._common_betas.compute_common_betas`
+    where the panel exists — and adds the cross-asset dispersion of the *true*
+    betas the random-effects null needs:
+
+    $$\mathrm{SE}^2 = V_{\mathrm{EW}} + \hat\tau^2 / N, \qquad
+    \hat\tau^2 = \max\bigl(0,\; s^2_\beta - \mathrm{mean}_i\,
+    \widehat{\mathrm{Var}}(\hat\beta_i)\bigr)$$
+
+    $V_{\mathrm{EW}}$ is the sampling variance of $\bar{\hat\beta}$ given
+    the betas — it carries any cross-asset residual covariance and
+    heteroskedasticity without an equicorrelation estimate; $\hat\tau^2$ is
+    the excess of the observed cross-sectional variance over the estimation
+    noise (per-asset OLS variance, recovered from ``t_stat``), the
+    DerSimonian-Laird moment estimator. The reference distribution is $t$
+    with the Welch-Satterthwaite df of the two components
+    ($T - 2$ behind $V_{\mathrm{EW}}$, $N - 1$ behind $\hat\tau^2 / N$), so
+    a dispersion-dominated SE is read against the cross-section and a
+    noise-dominated one against the time series.
+
+    Returns ``(se, dof)``, or ``None`` when the frame carries no calendar-time
+    estimate (a hand-built beta table), in which case the caller falls back
+    to the iid cross-asset $t$ and says so.
+    """
+    if "ew_portfolio_beta_var" not in common_betas_df.columns:
+        metadata["calendar_time_se_applied"] = False
+        metadata["calendar_time_se_source"] = "unavailable_hand_built_frame"
+        return None
+    var_ew = common_betas_df["ew_portfolio_beta_var"][0]
+    n_periods = common_betas_df["ew_portfolio_periods"][0]
+    if var_ew is None or not math.isfinite(var_ew) or n_periods is None:
+        metadata["calendar_time_se_applied"] = False
+        metadata["calendar_time_se_source"] = "too_few_shared_periods"
+        return None
+    n = len(betas)
+    # Estimation-noise variance per asset from the OLS t; assets whose t is
+    # undefined (exact fit) contribute nothing, and with none at all the whole
+    # cross-sectional variance is read as dispersion — the conservative side.
+    frame = common_betas_df.filter(
+        pl.col("beta").is_not_null()
+        & pl.col("beta").is_finite()
+        & pl.col("t_stat").is_not_null()
+        & pl.col("t_stat").is_finite()
+        & (pl.col("t_stat").abs() > EPSILON)
+    )
+    est_var = (frame["beta"] / frame["t_stat"]) ** 2
+    mean_est_var = float(est_var.mean()) if frame.height else 0.0  # type: ignore[arg-type]
+    tau2 = max(0.0, std_b * std_b - mean_est_var)
+    v_tau = tau2 / n
+    var_total = float(var_ew) + v_tau
+    metadata["calendar_time_se_applied"] = True
+    metadata["ew_portfolio_beta"] = common_betas_df["ew_portfolio_beta"][0]
+    metadata["ew_portfolio_beta_se"] = float(np.sqrt(var_ew))
+    metadata["ew_portfolio_periods"] = int(n_periods)
+    metadata["beta_dispersion_excess"] = tau2
+    if var_total <= EPSILON * EPSILON:
+        return 0.0, n - 1
+    # Welch-Satterthwaite df for the sum of two variance components.
+    df_ew = max(int(n_periods) - 2, 1)
+    df_tau = max(n - 1, 1)
+    denom = float(var_ew) ** 2 / df_ew + v_tau**2 / df_tau
+    dof = int(max(1, math.floor(var_total**2 / denom))) if denom > 0 else df_ew
+    return float(np.sqrt(var_total)), dof
+
+
 @metric(
     cell=_COMMON_BETA_CELL,
     aggregation=Aggregation.TS_THEN_CS,
     slice_boundary_sensitive=True,
     input_shape=InputShape.SERIES,
     requires={"common_betas_df": compute_common_betas},
-    sample_threshold=SampleThreshold(min_assets=3),
+    sample_threshold=SampleThreshold(min_assets=3, warn_assets=MIN_ASSETS_WARN),
 )
-def common_beta(common_betas_df: pl.DataFrame) -> MetricResult:
+def common_beta(
+    common_betas_df: pl.DataFrame,
+    *,
+    expected_warnings: tuple[str, ...] = (),
+) -> MetricResult:
     r"""Test $H_0: \mathrm{mean}(\beta) = 0$ across assets.
 
-    Uses the cross-sectional distribution of per-asset betas.
+    ``value`` is the cross-sectional mean of the per-asset betas; the test
+    reads its standard error off the calendar-time portfolio (see Notes).
 
     Notes:
         Stage 2 of the BJS-style aggregation order:
-        $\overline{\beta} = \mathrm{mean}_i \beta_i$;
-        $t = \overline{\beta} / (\mathrm{std}(\beta) / \sqrt{N})$
-        with $H_0: \mathbb{E}[\beta] = 0$ across assets. The std is the
-        sample cross-sectional std with ``ddof=1``.
+        $\overline{\beta} = \mathrm{mean}_i \hat\beta_i$ with
+        $H_0: \mathbb{E}[\beta] = 0$ across assets. The textbook form is the
+        iid cross-asset $t = \overline{\beta} / (\mathrm{std}(\beta) /
+        \sqrt{N})$; it is kept as ``metadata["stat_uncorrected"]`` and is the
+        statistic reported when the input is a hand-built beta table
+        (``calendar_time_se_applied = False``).
 
-        factrix uses an iid cross-asset t at this stage rather than a
-        clustered/heteroskedasticity-and-autocorrelation-consistent (HAC)
-        variant: the headline null is over the cross-asset beta distribution,
-        not the per-asset time-series slope estimates. The upstream
-        ``compute_common_betas`` fits each asset on its full pairwise-complete
-        forward-return series; when ``forward_periods > 1`` those returns may
-        overlap, but only the resulting beta vector enters this cross-asset
-        test. A strong latent common factor can still link betas across assets.
+        **What factrix tests with, and why.** $\mathrm{std}(\beta)/\sqrt{N}$
+        is the SE of a mean over independent draws. Assets loading on a
+        common component do not give independent betas, and the
+        understatement is unbounded in the correlation: at $N = 8$ the iid
+        test rejected 3.0% of true nulls at $\rho = 0$, 44.8% at 0.5 and
+        79.2% at 0.9. With one regressor shared by every asset,
+        $\overline{\hat\beta}$ is exactly the OLS slope of the equal-weight
+        portfolio return on the factor (the calendar-time construction
+        ``caar`` uses; [Fama (1998)][fama-1998]), and that regression's
+        Newey-West($h - 1$) variance $V_{\mathrm{EW}}$ carries whatever
+        cross-asset residual covariance, heteroskedasticity and overlap there
+        is, with no equicorrelation estimate. The random-effects null adds
+        the dispersion of the true betas, so
+        $\mathrm{SE}^2 = V_{\mathrm{EW}} + \hat\tau^2 / N$ with
+        $\hat\tau^2 = \max(0, s^2_\beta - \mathrm{mean}_i
+        \widehat{\mathrm{Var}}(\hat\beta_i))$ (DerSimonian-Laird), and the
+        $t$ is read against a Welch-Satterthwaite df across the two
+        components (:func:`_calendar_time_se`).
+
+        An earlier version deflated the iid $t$ by the full Kolari-Pynnönen
+        factor $\sqrt{(1 - \bar r)/(1 + (N - 1)\bar r)}$ on the mean
+        residual correlation $\bar r$. That factor is exact only when the
+        betas are equal, the residuals homoskedastic and equicorrelated, and
+        the cross-sectional spread is estimation noise; with true beta
+        dispersion (sd 0.5 around a mean of 0.2, $\rho = 0.5$) it rejected
+        **0.0%** against 41% uncorrected, and 0.7% on a heteroskedastic null.
+        Measured with the calendar-time SE (300 draws, $T = 300$, nominal
+        5%): null size 4.0 / 5.0 / 5.3% at $N = 20$ and $\rho = 0 / 0.5 /
+        0.9$ (5.7 / 6.7% at $N = 5$, $\rho = 0.5 / 0.9$; 5.0 / 5.3% at
+        $N = 100$), 5.3% on the heteroskedastic null, 7.0% with beta sd 1
+        around a zero mean at $\rho = 0.5$; power at mean 0.2 / 0.4, sd 0.5,
+        $\rho = 0.5$: 28.7% / 80.7% (0.0% under the old factor). Per-asset
+        $\widehat{\mathrm{Var}}(\hat\beta_i)$
+        is the homoskedastic OLS variance behind ``t_stat``, which at
+        $h > 1$ understates the overlap-inflated noise, so $\hat\tau^2$ is
+        over-stated and the SE errs conservative there. On an unbalanced
+        panel the equal-weight slope (``ew_portfolio_beta``) can differ from
+        the mean of the per-asset slopes; both are reported.
 
     References:
         [Black-Jensen-Scholes 1972][black-jensen-scholes-1972]:
@@ -132,8 +246,7 @@ def common_beta(common_betas_df: pl.DataFrame) -> MetricResult:
 
     mean_b = float(np.mean(betas))
     std_b = float(np.std(betas, ddof=DDOF))
-    t = _calc_t_stat(mean_b, std_b, n)
-    p = _p_value_from_t(t, n)
+    t_iid = _calc_t_stat(mean_b, std_b, n)
 
     metadata: dict[str, object] = {
         "stat_type": "t",
@@ -144,8 +257,51 @@ def common_beta(common_betas_df: pl.DataFrame) -> MetricResult:
         "median_beta": float(np.median(betas)),
     }
     warning_codes: list[str] = []
+    # std(beta)/sqrt(N) is the SE of a mean over INDEPENDENT draws, which
+    # assets loading on a common component are not. The calendar-time
+    # portfolio SE (see _calendar_time_se) is the test's SE whenever the
+    # upstream primitive could measure it; a hand-built beta table falls back
+    # to the iid t and says so.
+    calendar = _calendar_time_se(common_betas_df, betas, std_b, metadata)
+    if calendar is None:
+        t = t_iid
+        p = _p_value_from_t(t, n)
+    else:
+        se, dof = calendar
+        metadata["stat_uncorrected"] = t_iid
+        metadata["dof"] = dof
+        metadata["method"] = (
+            "cross-sectional t-test on per-asset TS betas with the "
+            "calendar-time portfolio SE (Newey-West on the equal-weight "
+            "portfolio slope plus beta dispersion / N)"
+        )
+        t = mean_b / se if se > EPSILON else float("nan")
+        p = _p_value_from_t(t, n, dof=dof) if math.isfinite(t) else float("nan")
+    # The headline is a cross-asset t-test on E[beta], so its critical value
+    # inflates as the cross-section thins — the regime FEW_ASSETS exists for.
+    # The estimator does not change; the code is the record that df = n - 1 was
+    # small. Same floor and same helper ic / fm_beta use, so a thin panel reads
+    # the same across the cross-asset family.
+    warn_code = _warn_below_floor(
+        common_beta,
+        n,
+        f"common_beta: n_assets={n} below MIN_ASSETS_WARN={MIN_ASSETS_WARN}; "
+        f"the cross-asset t-test on the mean per-asset beta runs on df={n - 1}, "
+        f"so its critical value is well above the asymptotic one. mean(beta) is "
+        f"returned but read borderline p-values cautiously.",
+        WarningCode.FEW_ASSETS,
+        axis="assets",
+        expected_warnings=expected_warnings,
+    )
+    if warn_code is not None:
+        warning_codes.append(warn_code)
     _surface_drop_stats(
-        common_betas_df, "common_beta", metadata, warning_codes, axis="assets"
+        common_betas_df,
+        "common_beta",
+        metadata,
+        warning_codes,
+        axis="assets",
+        expected_warnings=expected_warnings,
     )
     # Every asset carrying an identical β leaves no cross-asset dispersion:
     # ``mean_b`` is still the profile, the t is not computable.

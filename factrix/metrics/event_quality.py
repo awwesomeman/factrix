@@ -23,22 +23,32 @@ from __future__ import annotations
 
 import numpy as np
 import polars as pl
+from scipy import stats as sp_stats
 
 from factrix._axis import (
     Aggregation,
     FactorDensity,
 )
+from factrix._codes import WarningCode
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import _binomial_two_sided_p
-from factrix._types import EPSILON, MIN_EVENTS_HARD
+from factrix._types import EPSILON, MIN_EVENTS_HARD, MIN_EVENTS_WARN
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
+    _attach_abnormal_return,
+    _deflate_for_within_date_clustering,
     _enforce_min_floor,
+    _event_sample_threshold,
     _event_signal_is_discrete,
     _finite_expr,
+    _sample_events_non_overlapping,
+    _scaled_min_periods,
     _short_circuit_output,
     _signed_car,
+    _warn_below_scaled_floor,
+    _warn_estimation_window_contamination,
+    _warn_event_window_overlap,
 )
 
 __all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
@@ -54,10 +64,24 @@ __all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
 # the event floor guards thin samples.
 _EQ_CELL = cell(None, FactorDensity.SPARSE, structure=None)
 
+# Fieller-Hartley-Pearson standard-error inflation for a Spearman (rather
+# than Pearson) Fisher z: SE = 1.06 / sqrt(n - 3).
+_SPEARMAN_FISHER_SE = 1.06
+
+# Non-event rows needed before the sign base rate is estimated rather than
+# assumed symmetric. Below this the estimate is noisier than the 0.5 it
+# would replace.
+_MIN_BASE_RATE_ROWS = 20
+
 
 def _finite_events(
-    data: pl.DataFrame, factor_col: str, return_col: str
-) -> tuple[pl.DataFrame, int]:
+    data: pl.DataFrame,
+    factor_col: str,
+    return_col: str,
+    *,
+    estimation_window: int = 60,
+    forward_periods: int = 5,
+) -> tuple[pl.DataFrame, int, dict]:
     """Event rows (``factor != 0``) restricted to finite factor *and* return.
 
     Single owner for the non-finite boundary in this module. Every metric here
@@ -75,36 +99,175 @@ def _finite_events(
     ``NaN != 0`` as True, so a NaN factor is *not* removed by the event
     filter and would make ``sign(factor)`` — and hence ``signed_car`` — NaN.
 
+    Every metric here summarises ``signed_car``, which is defined on an
+    *abnormal* return, so the expected return is subtracted here — once, on the
+    full panel, before the event filter, because the non-event rows are the
+    estimation window (see
+    :func:`~factrix.metrics._helpers._attach_abnormal_return`). Events whose
+    asset has too little history for that estimate come out non-finite and are
+    dropped by the same filter, and counted in the same place.
+
     Returns:
-        ``(events, n_dropped)`` — the filtered frame and the number of event
-        rows removed, for ``metadata["n_events_dropped_non_finite"]``.
+        ``(events, n_dropped, ar_diagnostics)`` — the filtered frame carrying
+        ``_abnormal_return``, the number of event rows removed (for
+        ``metadata["n_events_dropped_non_finite"]``) and the abnormal-return
+        model diagnostics every caller merges into ``metadata``.
     """
-    events = data.filter(pl.col(factor_col) != 0)
-    n_all = events.height
-    finite = (
+    adjusted, ar_diagnostics = _attach_abnormal_return(
+        data,
+        return_col=return_col,
+        estimation_window=estimation_window,
+        forward_periods=forward_periods,
+        factor_col=factor_col,
+    )
+    events = adjusted.filter(pl.col(factor_col) != 0)
+    # Two reasons an event leaves the sample, reported separately because they
+    # mean different things: a hole in the input columns, versus an asset with
+    # too little history for the estimation-window mean. The second is a
+    # sample-design fact (the same one bmp_z reports as n_dropped_no_vol), not
+    # a data-quality one.
+    raw_finite = (
         pl.col(return_col).is_not_null()
         & pl.col(return_col).is_not_nan()
         & pl.col(factor_col).is_not_null()
         & pl.col(factor_col).is_not_nan()
     )
-    events = events.filter(finite)
-    return events, n_all - events.height
+    ar_finite = (
+        pl.col("_abnormal_return").is_not_null()
+        & pl.col("_abnormal_return").is_not_nan()
+    )
+    n_dropped_non_finite = events.filter(~raw_finite).height
+    n_dropped_no_estimation_window = events.filter(raw_finite & ~ar_finite).height
+    events = events.filter(raw_finite & ar_finite)
+    ar_diagnostics = {
+        **ar_diagnostics,
+        "n_events_dropped_no_estimation_window": n_dropped_no_estimation_window,
+        **_sign_base_rate(adjusted, factor_col),
+    }
+    return events, n_dropped_non_finite, ar_diagnostics
+
+
+def _sign_base_rate(adjusted: pl.DataFrame, factor_col: str) -> dict:
+    r"""Share of positive abnormal returns outside the events.
+
+    The null a hit rate should be tested against is the frequency with which
+    the abnormal return is positive *anyway*, not 0.5
+    ([Cowan (1992)][cowan-1992] generalised sign test). The two differ whenever
+    the abnormal-return distribution is skewed: mean-adjusting sets
+    $E[AR] = 0$, but a right-skewed return has a negative median and is
+    positive less than half the time. Tested against 0.5, that asymmetry reads
+    as skill, and a long enough sample calls it significant.
+
+    Estimated on the non-event rows — the estimation universe, exactly as
+    Cowan's estimation-window proportion — with the same finiteness contract as
+    the events themselves. Below ``_MIN_BASE_RATE_ROWS`` usable rows there is
+    no estimate and the symmetric 0.5 is used, recorded as such.
+
+    This is the *unsigned* rate $p_{\uparrow} = P(AR > 0)$. A hit is signed
+    (``signed_car > 0``), so a negative-factor event scores a hit when
+    $AR < 0$, whose null probability is $1 - p_{\uparrow}$; the null a mixed
+    sample is tested against is formed in :func:`event_hit_rate` from the
+    share of events on each side (see ``sign_base_rate`` there).
+    """
+    non_events = adjusted.filter(
+        (pl.col(factor_col) == 0)
+        & pl.col("_abnormal_return").is_not_null()
+        & pl.col("_abnormal_return").is_not_nan()
+    )
+    if non_events.height < _MIN_BASE_RATE_ROWS:
+        return {
+            "sign_base_rate_up": 0.5,
+            "sign_base_rate_source": "assumed_symmetric",
+            "n_base_rate_rows": non_events.height,
+        }
+    return {
+        "sign_base_rate_up": float(
+            (non_events["_abnormal_return"] > 0).mean()  # type: ignore[arg-type]
+        ),
+        "sign_base_rate_source": "non_event_rows",
+        "n_base_rate_rows": non_events.height,
+    }
+
+
+def _spaced_events(
+    data: pl.DataFrame,
+    events: pl.DataFrame,
+    metric_name: str,
+    forward_periods: int,
+    metadata: dict,
+    warning_codes: list[str],
+    *,
+    expected_warnings: tuple[str, ...] = (),
+) -> pl.DataFrame:
+    """Apply the event-axis non-overlap discipline shared by the per-event tests.
+
+    Every hypothesis test in this module reduces per-event ``signed_car`` to a
+    scalar and reads its p-value off an iid-draws null (binomial, Spearman,
+    D'Agostino). Two events on one asset closer than ``forward_periods`` share
+    future bars, so they are not two draws — pooling them inflates ``N`` and
+    the test over-rejects. This is the same discipline ``caar`` applies to its
+    event-period series, made per-asset here because the overlap is a
+    same-asset property. Records the removed count and fires
+    ``EVENT_WINDOW_OVERLAP`` when there was any.
+    """
+    n_raw = events.height
+    sampled = _sample_events_non_overlapping(
+        events,
+        forward_periods,
+        calendar_dates=data["date"] if "date" in data.columns else None,
+    )
+    _warn_event_window_overlap(
+        metric_name,
+        n_raw,
+        sampled.height,
+        forward_periods,
+        metadata,
+        warning_codes,
+        expected_warnings=expected_warnings,
+    )
+    _warn_estimation_window_contamination(
+        metric_name, metadata, warning_codes, expected_warnings=expected_warnings
+    )
+    raw_min_warn = _scaled_min_periods(MIN_EVENTS_WARN, forward_periods)
+    warn_code = _warn_below_scaled_floor(
+        n_raw,
+        MIN_EVENTS_WARN,
+        forward_periods,
+        f"{metric_name}: n_events={n_raw} below the floor of {raw_min_warn} "
+        f"(= MIN_EVENTS_WARN {MIN_EVENTS_WARN} x forward_periods "
+        f"{forward_periods}); {sampled.height} events survive non-overlap "
+        f"sampling at stride h={forward_periods}, which keeps up to one event "
+        f"in h per asset. The statistic is returned but its null assumes "
+        f"independent draws and is power-thin on a sample this short.",
+        WarningCode.FEW_EVENTS,
+        expected_warnings=expected_warnings,
+    )
+    if warn_code is not None:
+        warning_codes.append(warn_code)
+    return sampled
 
 
 @metric(
     cell=_EQ_CELL,
     aggregation=Aggregation.EVENT_TIME,
-    sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
+    sample_threshold=_event_sample_threshold,
 )
 def event_hit_rate(
     data: pl.DataFrame,
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
+    forward_periods: int = 5,
+    estimation_window: int = 60,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Fraction of events with return in expected direction.
 
-    The static event floor (sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD)) gates the hit-rate binomial test on the count of non-zero (event) observations.
+    The static event floor (MIN_EVENTS_HARD) gates the hit-rate binomial test on
+    the count of non-zero (event) observations that survive the event-axis
+    spacing pass; the warn floor scales with the forward_periods parameter (the
+    spacing stride), so the threshold is declared as a resolver (a callable
+    sample_threshold) rather than a constant.
 
     Args:
         data: Panel with event density and forward return.
@@ -133,6 +296,61 @@ def event_hit_rate(
         event failed ``signed_car > 0`` and was scored as a **miss**, which
         both depressed the rate and inflated ``N``.
 
+        **What the null says.** $H_0: p = p_0$, the frequency with which a
+        *hit* happens *anyway* — the generalised sign test of
+        [Cowan (1992)][cowan-1992] — not $H_0: p = 0.5$. The unsigned rate
+        $p_{\uparrow} = P(AR > 0)$ is estimated on the non-event rows (Cowan's
+        estimation-window proportion; ``metadata["sign_base_rate_up"]``). A hit
+        is signed, so a positive-factor event hits with probability
+        $p_{\uparrow}$ under the null and a negative-factor event with
+        $1 - p_{\uparrow}$; Cowan's test is one-directional and never needed
+        the distinction, but a mixed-sign trigger does. The null tested is the
+        mixture over the tested events,
+        $p_0 = w_{+}\,p_{\uparrow} + w_{-}\,(1 - p_{\uparrow})$ with $w_{\pm}$
+        the share of events on each side, reported as
+        ``metadata["sign_base_rate"]`` and in ``h0``. Measured on a
+        right-skewed iid null (20 assets, ``h = 5``, $p_{\uparrow} \approx
+        0.4$): with every event short-signed the unsigned $p_{\uparrow}$
+        rejected 100% of draws and the mixture 4.7%; all-long events are the
+        same under both. Two distinct things would otherwise be read as
+        skill: drift, which the abnormal-return model removes, and **skew**,
+        which it does not — mean-adjusting sets $E[AR] = 0$, but a
+        right-skewed return has a negative median and is positive less than
+        half the time, so a 0.5 null scores that asymmetry as a signal. With
+        fewer than ``_MIN_BASE_RATE_ROWS`` usable non-event rows there is
+        nothing to estimate from and the symmetric 0.5 is used, recorded as
+        ``sign_base_rate_source="assumed_symmetric"``.
+
+        **Independence.** The exact binomial treats the $N$ events as
+        independent trials, which is false for two events on one asset inside
+        one forward-return window: they share bars. Events are therefore
+        strided per asset first ([Brown-Warner (1985)][brown-warner-1985]
+        non-overlap sampling on the event axis, the same treatment ``caar``
+        applies), and ``EVENT_WINDOW_OVERLAP`` reports what that removed. What
+        the stride cannot address is same-*period* dependence across names.
+        For that the hit indicator's within-period intraclass correlation is
+        estimated and, when the Kish design effect it implies is material
+        (scale below ``KP_MATERIAL_SCALE``), the standardised hit count is
+        deflated and the p-value read off the normal instead of the exact
+        binomial — ``stat_type`` switches to ``"z"`` and
+        ``EVENT_CLUSTERING_ADJUSTED`` records the switch. Below that
+        materiality floor, and on a single asset, the exact test stands: an
+        earlier version left it at $\hat r = 0$ on every multi-asset panel.
+        Read ``clustering_hhi`` alongside, and prefer ``bmp_z`` or
+        ``corrado_rank`` when the shared shock is the object of study.
+
+        **Conservative when the abnormal-return model is contaminated.** The
+        mean-adjusted abnormal return subtracts a window that, on a dense
+        trigger or a long horizon, is mostly other events' realised returns;
+        the per-event abnormal returns are then negatively correlated and
+        the hit count under-rejects — 1.7% at $h = 5$ and $h = 21$ on 20
+        assets, 0.7% on a single asset at $h = 21$ (nominal 5%; 6.0% at
+        $h = 1$). ``metadata["estimation_window_event_share"]`` measures it
+        and ``ESTIMATION_WINDOW_CONTAMINATED`` fires above
+        ``ESTIMATION_WINDOW_EVENT_SHARE_WARN``; see
+        :func:`~factrix.metrics._helpers._attach_abnormal_return` for why
+        neither window choice nor the market-adjusted branch removes it.
+
         ``return_col`` must be sign-symmetric around zero — ``signed_car =
         return_col * sign(factor_col)``, so an always-positive magnitude
         target (realised volatility, turnover) collapses ``sign(signed_car)``
@@ -154,19 +372,93 @@ def event_hit_rate(
         >>> result.name == ""
         True
     """
-    events, n_dropped = _finite_events(data, factor_col, return_col)
+    events, n_dropped, ar_diagnostics = _finite_events(
+        data,
+        factor_col,
+        return_col,
+        estimation_window=estimation_window,
+        forward_periods=forward_periods,
+    )
 
+    metadata: dict = {
+        "n_events_dropped_non_finite": n_dropped,
+        **ar_diagnostics,
+        "stat_type": "binomial_hits",
+        "h0": "p=0.5",
+        "method": "generalised sign test (exact binomial, Cowan 1992 null)",
+    }
+    warning_codes: list[str] = []
+    events = _spaced_events(
+        data,
+        events,
+        "event_hit_rate",
+        forward_periods,
+        metadata,
+        warning_codes,
+        expected_warnings=expected_warnings,
+    )
     n = len(events)
     sc = _enforce_min_floor(
-        event_hit_rate, "event_hit_rate", n, "insufficient_events", axis="events"
+        event_hit_rate,
+        "event_hit_rate",
+        n,
+        "insufficient_events",
+        axis="events",
+        forward_periods=forward_periods,
     )
     if sc is not None:
         return sc
 
-    signed = _signed_car(events, factor_col, return_col)
+    signed = _signed_car(events, factor_col, "_abnormal_return")
     hits = int(np.sum(signed > 0))
     rate = hits / n
-    p = _binomial_two_sided_p(hits, n, p0=0.5)
+    metadata["n_events"] = n
+    metadata["n_hits"] = hits
+    # The null is the frequency with which a hit happens anyway (Cowan 1992),
+    # not a coin flip: a skewed series is positive less (or more) than half
+    # the time with no signal at all. Hits are signed, so the unsigned share
+    # of AR > 0 is the null for a long event and its complement for a short
+    # one; the tested p0 is the mixture over the events actually tested.
+    p_up = float(metadata["sign_base_rate_up"])
+    w_plus = float(np.mean(events[factor_col].to_numpy() > 0))
+    p0 = w_plus * p_up + (1.0 - w_plus) * (1.0 - p_up)
+    metadata["sign_base_rate"] = p0
+    metadata["h0"] = f"p={p0:.4f}"
+
+    # Same-period events share that period's shock, so they are not separate
+    # binomial trials. Deflate the standardised hit count by the design effect
+    # of the 0/1 indicator's within-period correlation; with one event per
+    # period the deflator is the identity and the exact test stands.
+    indicator = events.select("date", pl.Series("_hit", (signed > 0).astype(float)))
+    z_raw = (hits - n * p0) / np.sqrt(n * p0 * (1.0 - p0))
+    z = _deflate_for_within_date_clustering(
+        indicator,
+        "_hit",
+        float(z_raw),
+        "event_hit_rate",
+        metadata,
+        warning_codes,
+        expected_warnings=expected_warnings,
+    )
+    if metadata.get("kolari_pynnonen_applied"):
+        # The exactness of the binomial is about the discreteness of the null,
+        # not about dependence — once the trials are correlated it is exact
+        # about the wrong distribution. Report the clustered normal instead and
+        # say so; EVENT_CLUSTERING_ADJUSTED is the record of the switch. The
+        # helper only applies when the deflation is material (scale below
+        # KP_MATERIAL_SCALE), so the exact test stands on every run where the
+        # two p-values would agree to the third decimal anyway.
+        p = float(2.0 * sp_stats.norm.sf(abs(z)))
+        metadata["stat_type"] = "z"
+        metadata["method"] = (
+            "clustered generalised sign test on the hit indicator "
+            "(Cowan 1992 null, Kolari-Pynnonen design effect)"
+        )
+        stat = z
+    else:
+        p = _binomial_two_sided_p(hits, n, p0=p0)
+        metadata["method"] = "generalised sign test (exact binomial, Cowan 1992 null)"
+        stat = float(hits)
 
     return MetricResult(
         p_value=p,
@@ -174,22 +466,16 @@ def event_hit_rate(
         value=rate,
         n_obs=n,
         n_obs_axis="events",
-        stat=float(hits),
-        metadata={
-            "n_events": n,
-            "n_hits": hits,
-            "n_events_dropped_non_finite": n_dropped,
-            "stat_type": "binomial_hits",
-            "h0": "p=0.5",
-            "method": "binomial exact test",
-        },
+        stat=stat,
+        metadata=metadata,
+        warning_codes=tuple(warning_codes),
     )
 
 
 @metric(
     cell=_EQ_CELL,
     aggregation=Aggregation.EVENT_TIME,
-    sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
+    sample_threshold=_event_sample_threshold,
     requires_continuous_magnitude=True,
 )
 def event_ic(
@@ -197,6 +483,9 @@ def event_ic(
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
+    forward_periods: int = 5,
+    estimation_window: int = 60,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Spearman correlation between factor value and realised forward return.
 
@@ -250,9 +539,18 @@ def event_ic(
     """
     from scipy import stats as sp_stats
 
-    events, n_dropped = _finite_events(data, factor_col, return_col)
+    events, n_dropped, ar_diagnostics = _finite_events(
+        data,
+        factor_col,
+        return_col,
+        estimation_window=estimation_window,
+        forward_periods=forward_periods,
+    )
     n = len(events)
 
+    # Pre-spacing floor, re-checked on the spaced count below. It exists for
+    # ordering: a too-thin sample must read "insufficient_events" before the
+    # discrete-signal short-circuit can call it "not_applicable".
     sc = _enforce_min_floor(
         event_ic, "event_ic", n, "insufficient_events", axis="events"
     )
@@ -271,37 +569,83 @@ def event_ic(
             n_events=n,
         )
 
-    abs_signal = np.abs(events[factor_col].to_numpy())
-    signed = _signed_car(events, factor_col, return_col)
+    metadata: dict = {"n_events_dropped_non_finite": n_dropped, **ar_diagnostics}
+    warning_codes: list[str] = []
+    events = _spaced_events(
+        data,
+        events,
+        "event_ic",
+        forward_periods,
+        metadata,
+        warning_codes,
+        expected_warnings=expected_warnings,
+    )
+    n = len(events)
+    sc = _enforce_min_floor(
+        event_ic,
+        "event_ic",
+        n,
+        "insufficient_events",
+        axis="events",
+        forward_periods=forward_periods,
+    )
+    if sc is not None:
+        return sc
 
-    rho, p = sp_stats.spearmanr(abs_signal, signed)
-    rho = float(rho)
-    p = float(p)
+    abs_signal = np.abs(events[factor_col].to_numpy())
+    signed = _signed_car(events, factor_col, "_abnormal_return")
+
+    rho = float(sp_stats.spearmanr(abs_signal, signed).statistic)
 
     # Fisher z is undefined at |rho| = 1 (arctanh diverges) and needs n > 3.
     # ``None`` rather than 0.0: a perfect rank correlation is maximal
-    # evidence, and reporting z = 0 beside scipy's p < 0.001 is an
-    # internally contradictory result. The p-value is scipy's and stands.
-    z: float | None = (
-        float(np.arctanh(rho) * np.sqrt(n - 3))
-        if abs(rho) < 1.0 - 1e-10 and n > 3
-        else None
-    )
+    # evidence, and reporting z = 0 beside a tiny p is an internally
+    # contradictory result.
+    z: float | None = None
+    p: float | None = None
+    if abs(rho) < 1.0 - 1e-10 and n > 3:
+        # Fieller-Hartley-Pearson SE for a SPEARMAN rho: 1.06 / sqrt(n - 3),
+        # not the Pearson 1 / sqrt(n - 3). factrix previously published the
+        # Pearson z (~6% too large) beside scipy's own p, so the statistic and
+        # the p-value came from two different approximations.
+        z_raw = float(np.arctanh(rho) * np.sqrt(n - 3) / _SPEARMAN_FISHER_SE)
+        # Events sharing a period share that period's shock, so the pairs
+        # behind rho are not independent. Deflate by the design effect of the
+        # per-event Spearman score - the product of the two centred rank
+        # variables, whose mean is what rho is.
+        rank_x = sp_stats.rankdata(abs_signal)
+        rank_y = sp_stats.rankdata(signed)
+        score = (rank_x - rank_x.mean()) * (rank_y - rank_y.mean())
+        z = _deflate_for_within_date_clustering(
+            events.select("date", pl.Series("_score", score)),
+            "_score",
+            z_raw,
+            "event_ic",
+            metadata,
+            warning_codes,
+            expected_warnings=expected_warnings,
+        )
+        p = float(2.0 * sp_stats.norm.sf(abs(z)))
 
     return MetricResult(
         p_value=p,
-        alternative="two-sided",
+        alternative="two-sided" if p is not None else None,
         value=rho,
         n_obs=n,
         n_obs_axis="events",
         stat=z,
         metadata={
+            **metadata,
             "n_events": n,
-            "n_events_dropped_non_finite": n_dropped,
             "stat_type": "z",
             "h0": "rho=0",
-            "method": "Spearman rank correlation (|density| vs signed_car)",
+            "method": (
+                "Spearman rank correlation between |factor| and "
+                "signed abnormal return; Fisher z with the "
+                "Fieller-Hartley-Pearson Spearman SE"
+            ),
         },
+        warning_codes=tuple(warning_codes),
     )
 
 
@@ -315,6 +659,8 @@ def profit_factor(
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
+    forward_periods: int = 5,
+    estimation_window: int = 60,
 ) -> MetricResult:
     r"""Profit factor = sum(gains) / sum(|losses|) across events.
 
@@ -362,7 +708,13 @@ def profit_factor(
         >>> result.name == ""
         True
     """
-    events, n_dropped = _finite_events(data, factor_col, return_col)
+    events, n_dropped, ar_diagnostics = _finite_events(
+        data,
+        factor_col,
+        return_col,
+        estimation_window=estimation_window,
+        forward_periods=forward_periods,
+    )
     n = len(events)
 
     sc = _enforce_min_floor(
@@ -371,7 +723,7 @@ def profit_factor(
     if sc is not None:
         return sc
 
-    signed = _signed_car(events, factor_col, return_col)
+    signed = _signed_car(events, factor_col, "_abnormal_return")
 
     gains = float(np.sum(signed[signed > 0]))
     losses = float(np.abs(np.sum(signed[signed < 0])))
@@ -393,6 +745,7 @@ def profit_factor(
         n_obs=n,
         n_obs_axis="events",
         metadata={
+            **ar_diagnostics,
             "total_gains": gains,
             "total_losses": losses,
             "n_events": n,
@@ -409,17 +762,24 @@ def profit_factor(
 @metric(
     cell=_EQ_CELL,
     aggregation=Aggregation.EVENT_TIME,
-    sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
+    sample_threshold=_event_sample_threshold,
 )
 def event_skewness(
     data: pl.DataFrame,
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
+    forward_periods: int = 5,
+    estimation_window: int = 60,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Skewness of signed event return distribution.
 
-    The static event floor (sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD)) gates the descriptive skewness on the count of non-zero (event) observations.
+    The static event floor (MIN_EVENTS_HARD) gates the descriptive skewness on
+    the count of non-zero (event) observations that survive the event-axis
+    spacing pass; the warn floor scales with the forward_periods parameter (the
+    spacing stride), so the threshold is declared as a resolver (a callable
+    sample_threshold) rather than a constant.
 
     Positive skew = occasional large gains, frequent small losses
     (desirable for event strategies). Uses scipy's Fisher skewness
@@ -466,16 +826,37 @@ def event_skewness(
     """
     from scipy import stats as sp_stats
 
-    events, n_dropped = _finite_events(data, factor_col, return_col)
+    events, n_dropped, ar_diagnostics = _finite_events(
+        data,
+        factor_col,
+        return_col,
+        estimation_window=estimation_window,
+        forward_periods=forward_periods,
+    )
+    metadata: dict = {"n_events_dropped_non_finite": n_dropped, **ar_diagnostics}
+    warning_codes: list[str] = []
+    events = _spaced_events(
+        data,
+        events,
+        "event_skewness",
+        forward_periods,
+        metadata,
+        warning_codes,
+        expected_warnings=expected_warnings,
+    )
     n = len(events)
-
     sc = _enforce_min_floor(
-        event_skewness, "event_skewness", n, "insufficient_events", axis="events"
+        event_skewness,
+        "event_skewness",
+        n,
+        "insufficient_events",
+        axis="events",
+        forward_periods=forward_periods,
     )
     if sc is not None:
         return sc
 
-    signed = _signed_car(events, factor_col, return_col)
+    signed = _signed_car(events, factor_col, "_abnormal_return")
 
     skew = float(sp_stats.skew(signed, bias=False))
 
@@ -495,8 +876,8 @@ def event_skewness(
         n_obs_axis="events",
         stat=z,
         metadata={
+            **metadata,
             "n_events": n,
-            "n_events_dropped_non_finite": n_dropped,
             **(
                 {
                     "stat_type": "z",
@@ -507,6 +888,7 @@ def event_skewness(
                 else {}
             ),
         },
+        warning_codes=tuple(warning_codes),
     )
 
 
@@ -527,10 +909,10 @@ def signal_density(
     Answers: "how frequently does this density fire?"
 
     Computed per-asset as ``total_bars / n_events`` (inverse event
-    frequency), then averaged across assets. This is **not** the mean
-    of actual inter-event gaps: bars-per-event depends only on counts,
-    so clustered events and evenly-spaced events yield the same value.
-    See ``clustering_hhi`` for event-date concentration.
+    frequency), then averaged across **every asset that fires at least once**.
+    This is **not** the mean of actual inter-event gaps: bars-per-event
+    depends only on counts, so clustered events and evenly-spaced events yield
+    the same value. See ``clustering_hhi`` for event-date concentration.
 
     Low density (large gaps) means the density is selective; high
     density (small gaps) means the density fires often — capacity is
@@ -576,25 +958,17 @@ def signal_density(
             min_required=2,
         )
 
-    # Per-asset: count events and date span
-    per_asset = (
-        events.group_by("asset_id")
-        .agg(
-            pl.col("date").count().alias("n"),
-            pl.col("date").min().alias("first"),
-            pl.col("date").max().alias("last"),
-        )
-        .filter(pl.col("n") >= 2)
+    # Per-asset: count events and date span. Every asset with at least one
+    # event counts: bars_per_event = total_bars / n_events is defined at n = 1,
+    # and an undisclosed `n >= 2` filter here understated the headline badly on
+    # exactly the sparse triggers this metric describes — 9 assets firing once
+    # each over 200 bars plus one firing 50 times reported 4.0 bars per event
+    # (the one busy asset) against a true 180.4.
+    per_asset = events.group_by("asset_id").agg(
+        pl.col("date").count().alias("n"),
+        pl.col("date").min().alias("first"),
+        pl.col("date").max().alias("last"),
     )
-
-    if per_asset.is_empty():
-        return _short_circuit_output(
-            "signal_density",
-            "no_asset_has_min_two_events",
-            n_obs=n_events,
-            n_obs_axis="events",
-            min_required_per_asset=2,
-        )
 
     # Total bars per asset (from full panel, not just events)
     bars_per_asset = data.group_by("asset_id").agg(

@@ -14,7 +14,10 @@ from factrix._axis import (
 )
 from factrix._metric_index import cell
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _is_sparse_magnitude_weighted
+from factrix.metrics._helpers import (
+    _attach_abnormal_return,
+    _is_sparse_magnitude_weighted,
+)
 
 
 @metric(
@@ -31,10 +34,20 @@ def compute_caar(
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
+    estimation_window: int = 60,
+    forward_periods: int = 5,
 ) -> pl.DataFrame:
     r"""Per-event-period weighted abnormal return series.
 
     Magnitude is preserved — no ``.sign()`` coercion.
+
+    The abnormal return is a real abnormal return: an ``abnormal_return``
+    column on the input is used as-is (market-adjusted), and otherwise the
+    asset's estimation-window mean, lagged by ``forward_periods``, is
+    subtracted from ``return_col`` — see
+    :func:`~factrix.metrics._helpers._attach_abnormal_return`. Events without
+    enough history for that estimate carry a null abnormal return and are
+    dropped with the other non-finite rows.
 
     Output columns:
         date: event period (one row per period carrying at least one event).
@@ -90,19 +103,37 @@ def compute_caar(
             UserWarning,
             stacklevel=2,
         )
-    events = data.with_columns(
+    # The expected return is estimated on the FULL panel (non-event rows are
+    # the estimation window), so the adjustment happens before the event
+    # filter.
+    adjusted, ar_diagnostics = _attach_abnormal_return(
+        data,
+        return_col=return_col,
+        estimation_window=estimation_window,
+        forward_periods=forward_periods,
+        factor_col=factor_col,
+    )
+    events = adjusted.with_columns(
         (pl.col("date").rank(method="dense") - 1).alias("date_ordinal")
     ).filter(pl.col(factor_col) != 0)
     n_events_in = events.height
 
-    finite = (
+    # Two reasons an event leaves the sample, kept apart: a hole in the input
+    # columns (a data-quality fact) versus an asset with too little history for
+    # the estimation-window mean (a sample-design fact).
+    raw_finite = (
         pl.col(return_col).is_not_null()
         & pl.col(return_col).is_not_nan()
         & pl.col(factor_col).is_not_null()
         & pl.col(factor_col).is_not_nan()
     )
-    events = events.filter(finite)
-    n_dropped = n_events_in - events.height
+    ar_finite = (
+        pl.col("_abnormal_return").is_not_null()
+        & pl.col("_abnormal_return").is_not_nan()
+    )
+    n_dropped = events.filter(~raw_finite).height
+    n_dropped_no_window = events.filter(raw_finite & ~ar_finite).height
+    events = events.filter(raw_finite & ar_finite)
     if n_dropped > 0:
         warnings.warn(
             f"compute_caar: dropped {n_dropped} of {n_events_in} event rows with "
@@ -115,7 +146,7 @@ def compute_caar(
 
     return (
         events.with_columns(
-            (pl.col(return_col) * pl.col(factor_col)).alias("_signed_car")
+            (pl.col("_abnormal_return") * pl.col(factor_col)).alias("_signed_car")
         )
         .group_by("date")
         .agg(
@@ -125,6 +156,15 @@ def compute_caar(
         )
         .sort("date")
         .with_columns(
-            pl.lit(n_dropped, dtype=pl.Int64).alias("n_events_dropped_non_finite")
+            pl.lit(n_dropped, dtype=pl.Int64).alias("n_events_dropped_non_finite"),
+            pl.lit(n_dropped_no_window, dtype=pl.Int64).alias(
+                "n_events_dropped_no_estimation_window"
+            ),
+            pl.lit(str(ar_diagnostics["abnormal_return_model"])).alias(
+                "abnormal_return_model"
+            ),
+            pl.lit(
+                ar_diagnostics["estimation_window_event_share"], dtype=pl.Float64
+            ).alias("estimation_window_event_share"),
         )
     )

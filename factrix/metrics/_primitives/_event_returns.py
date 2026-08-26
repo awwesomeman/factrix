@@ -72,6 +72,12 @@ def compute_event_returns(
     (``prices[idx] / prices[idx - 1] - 1``), a value that *does* include
     information from the signal bar and is excluded from the default
     offsets for that reason.
+
+    The ``sign`` column carries ``sign(factor)`` for every row, so a consumer
+    that measures the signed return against an *unsigned* baseline (the
+    panel's drift, in :func:`~factrix.metrics.event_horizon.event_around_return`)
+    can sign the baseline the same way instead of subtracting ``+mu`` from a
+    return that carries ``-mu``.
     """
     if offsets is None:
         offsets = [-6, -3, -1, 1, 6, 12, 24]
@@ -82,6 +88,7 @@ def compute_event_returns(
         "date": date_dtype,
         "asset_id": pl.String,
         "signed_return": pl.Float64,
+        "sign": pl.Float64,
     }
 
     if price_col not in data.columns:
@@ -139,6 +146,7 @@ def compute_event_returns(
                     "date": edate,
                     "asset_id": aid,
                     "signed_return": signed_ret,
+                    "sign": float(direction),
                 }
             )
 

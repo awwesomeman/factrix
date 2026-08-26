@@ -20,17 +20,24 @@ title: factrix.metrics.clustering_hhi
 
     Read `value` (Herfindahl-Hirschman index (HHI) on the event-period histogram) and
     `metadata["effective_n_periods"]` $= 1 / \mathrm{HHI}$. High HHI →
-    events concentrate in few dates → cross-event independence under
-    `caar`'s $t$-test is violated and the statistic may be inflated.
+    the events that exist are concentrated on few of the dates that have
+    events. **This is one axis of three, and not the one the
+    Kolari-Pynnönen adjustment acts on**: HHI is invariant to how many assets
+    fire per date, so 20 assets all firing on the same 40 dates scores
+    exactly what one asset firing once on each of those dates scores.
 
--   __Trigger the Kolari-Pynnönen adjustment__
+-   __See the axes HHI misses__
 
     ---
 
-    When `hhi_normalized` is high ($\geq 0.3$ is the threshold the BMP
-    docstring calls out), `bmp_z` absorbs same-period shock sharing in
-    the $z$ statistic through its Kolari-Pynnönen adjustment (on by
-    default).
+    `events_per_period_mean` is the cross-sectional axis — the Kish
+    effective cluster size, and the quantity `bmp_z` /
+    `event_hit_rate` / `event_ic` feed to their Kolari-Pynnönen deflator.
+    Above 1, events share periods and those corrections bite (they are on by
+    default; there is no threshold to act on).
+    `share_events_in_bursts` is the temporal axis — the share of events whose
+    same-asset predecessor sits within `cluster_window` periods, the regime
+    the event tests' non-overlap stride removes.
 
 </div>
 
@@ -51,10 +58,12 @@ title: factrix.metrics.clustering_hhi
     diag = clustering_hhi(panel)
     print(diag.value,
           diag.metadata["effective_n_periods"],
-          diag.metadata["hhi_normalized"])
-    # 0.041  24.4  0.36   (approximate)
+          diag.metadata["hhi_normalized"],
+          diag.metadata["events_per_period_mean"],
+          diag.metadata["share_events_in_bursts"])
 
-    # hhi_normalized >= 0.3 -> reach for the K-P adjustment:
+    # events_per_period_mean > 1 is what the K-P adjustment acts on; it is on
+    # by default and is the identity when events do not share periods.
     z = bmp_z(panel, kolari_pynnonen_adjust=True)
     ```
 

@@ -205,6 +205,20 @@ class WarningCode(StrEnum):
     # Advisory: the metric still runs; centre the factor (e.g. z-score
     # cross-sectionally) or use ``alpha_contribution``.
     ONE_SIGNED_FACTOR = "one_signed_factor"
+    # Fired when a pooled statistic detects that its units are not independent
+    # draws and deflates itself for the clustering: same-period events sharing
+    # a market shock (event_hit_rate, event_ic) or cross-correlated per-asset
+    # betas (common_beta). The estimator is unchanged; only the standard error
+    # / p-value moves, and the code is the record that it did, since the
+    # deflation is data-driven rather than a fixed configuration.
+    EVENT_CLUSTERING_ADJUSTED = "event_clustering_adjusted"
+    # Fired by every mean-adjusted event test (caar / bmp_z / corrado_rank /
+    # event_hit_rate / event_ic / event_skewness) when the tested events'
+    # estimation windows are mostly other events' realised returns —
+    # ``metadata["estimation_window_event_share"]`` above
+    # ``ESTIMATION_WINDOW_EVENT_SHARE_WARN``. The statistic is returned
+    # unchanged; the code says the null it is read against is conservative.
+    ESTIMATION_WINDOW_CONTAMINATED = "estimation_window_contaminated"
 
     @property
     def description(self) -> str:
@@ -219,7 +233,17 @@ _WARNING_DESCRIPTIONS.update(
         WarningCode.UNRELIABLE_SE_SHORT_PERIODS: "n_periods is below the WARN floor (~30); NW HAC SE may be biased. "
         "Reused across panel time-series guards (MIN_PERIODS_WARN) and "
         "primitive inference (MIN_FM_PERIODS_WARN); both default to 30.",
-        WarningCode.EVENT_WINDOW_OVERLAP: "Adjacent events sit within forward_periods; AR windows overlap.",
+        WarningCode.EVENT_WINDOW_OVERLAP: "Two events on one asset sat fewer "
+        "than forward_periods apart, so their forward-return windows "
+        "(t, t+h] overlapped and they are not independent draws. Every event "
+        "significance test (caar / bmp_z / corrado_rank / event_hit_rate / "
+        "event_ic / event_skewness) strides its event axis per asset before "
+        "testing and fires this once, with the counts in "
+        "metadata['n_events_overlapping'] / ['n_events_sampled']. The "
+        "statistic is the calibrated one — it runs on the surviving "
+        "non-overlapping events — so read the code as the cost in sample of a "
+        "trigger that fires in bursts, not as a defect. It cannot fire at "
+        "forward_periods = 1 (consecutive events are already independent).",
         WarningCode.PERSISTENT_REGRESSOR: "ADF p exceeds the configured threshold on the continuous factor; beta may carry Stambaugh bias.",
         WarningCode.SERIAL_CORRELATION_DETECTED: "The tested per-period series has "
         "lag-1 autocorrelation above PERSISTENT_SERIES_AUTOCORR (0.3). No HAC or "
@@ -248,17 +272,21 @@ _WARNING_DESCRIPTIONS.update(
         "clean ±1 ternary; statistic is magnitude-weighted (Sefcik-Thompson) "
         "rather than textbook MacKinlay signed CAAR — apply .sign() before "
         "calling for sign-flip semantics.",
-        WarningCode.FEW_EVENTS: "caar / corrado_rank / bmp_z significance test "
-        "with n_event_periods < MIN_EVENTS_WARN (30). caar and corrado_rank "
-        "test an event-period series — caar an equal-weight calendar-time "
-        "portfolio, corrado_rank the per-period mean signed rank — so this "
-        "counts the number of periods with an event, not events, and fires "
-        "in [MIN_EVENTS_HARD, MIN_EVENTS_WARN). bmp_z pools events but, once "
-        "events share periods, its effective sample is the distinct event "
-        "periods too (the Kolari-Pynnönen adjustment cannot manufacture "
-        "independent periods; measured ~11% size at 8 periods, clearing by "
-        "~15, nominal 5%), so it fires on the same axis — there the shared "
-        "30 floor is conservative, not a measured edge. A sub-30 series is "
+        WarningCode.FEW_EVENTS: "An event significance test (caar / "
+        "corrado_rank / bmp_z / event_hit_rate / event_ic / event_skewness) "
+        "with a raw event count below MIN_EVENTS_WARN (30) x forward_periods. "
+        "The floor is scaled because every one of these tests first strides "
+        "its event axis at the forward-return horizon — keeping at most one "
+        "event in h per asset — so a raw series must carry h x 30 events to land on 30 "
+        "independent ones. The message states the scaled floor, the raw count "
+        "and the count that survived sampling; caar and corrado_rank count "
+        "event *periods* on that axis (caar an equal-weight calendar-time "
+        "portfolio, corrado_rank the per-period mean signed rank), the others "
+        "count events. bmp_z fires on a second trigger as well: once events "
+        "share periods its effective sample is the distinct event periods, "
+        "not the event count (the Kolari-Pynnönen adjustment cannot "
+        "manufacture independent periods; measured ~10% size at 8 periods, "
+        "~7% at 15, clearing by ~30, nominal 5%). A sub-30 effective sample is "
         "power-thin for the asymptotic distribution — read borderline "
         "p-values cautiously.",
         WarningCode.BORDERLINE_PORTFOLIO_PERIODS: "top_concentration with MIN_PORTFOLIO_PERIODS_HARD "
@@ -338,6 +366,37 @@ _WARNING_DESCRIPTIONS.update(
         "factor variance); the cross-asset aggregate was computed on a shortened "
         "sample. Exact counts are in MetricResult.metadata (n_assets_in / "
         "n_assets_out / dropped_assets / drop_rate / drop_reason).",
+        WarningCode.EVENT_CLUSTERING_ADJUSTED: "A pooled event statistic "
+        "found its units correlated and deflated itself by the Kish design "
+        "effect 1/sqrt(1 + (n_eff - 1) * r_hat) — the same Kolari-Pynnonen "
+        "(2010) machinery bmp_z and directional_hit_rate use. event_hit_rate "
+        "and event_ic key it on the within-period intraclass correlation of "
+        "their own per-event score (events sharing a period share that "
+        "period's shock, so they are not separate trials). It fires only when "
+        "the deflation is material — r_hat > 0 and a scale below "
+        "KP_MATERIAL_SCALE (0.95); above that the statistic is left alone and "
+        "event_hit_rate keeps the exact binomial. The point estimate is "
+        "untouched; the p-value widens. Measured on a true null: "
+        "event_hit_rate 63.5% -> nominal at 20 assets sharing 40 event dates. "
+        "metadata['kolari_pynnonen_r'] / ['kolari_pynnonen_scaling'] disclose "
+        "the estimate and the deflator.",
+        WarningCode.ESTIMATION_WINDOW_CONTAMINATED: "A mean-adjusted event "
+        "test (caar / bmp_z / corrado_rank / event_hit_rate / event_ic / "
+        "event_skewness) found that, averaged over the tested events, more "
+        "than ESTIMATION_WINDOW_EVENT_SHARE_WARN (25%) of each event's "
+        "estimation-window periods lie inside another event's forward-return "
+        "window on the same asset (metadata['estimation_window_event_share']). "
+        "The window then estimates the neighbours' realised event returns "
+        "rather than the asset's unconditional mean, the per-event abnormal "
+        "returns are negatively correlated through the shared periods, and "
+        "the cross-event variance overstates the variance of their mean: the "
+        "test is conservative, not liberal (measured on an iid null at "
+        "h = 21: bmp_z 0.3% size at nominal 5%). A dense trigger or a long "
+        "horizon is the cause. A supplied market-adjusted 'abnormal_return' "
+        "does not remove it (measured 0.3% -> 0.3%) and removes the effect "
+        "itself when every name fires on the same periods, so the statistic "
+        "is returned unchanged: read the p-value as an upper bound, or "
+        "shorten the horizon / thin the trigger.",
         WarningCode.ONE_SIGNED_FACTOR: "top_concentration ran with "
         "weight_by='abs_factor' on a factor that never changes sign across the "
         "panel. |factor| is a density weight only when zero is the factor's "

@@ -58,6 +58,7 @@ def ic_trend(
     *,
     name: str = "ic_trend",
     adf_threshold: float | None = 0.10,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     """Theil-Sen median slope of a time-indexed series.
 
@@ -232,6 +233,7 @@ def ic_trend(
         metric_name=name,
         metadata=metadata,
         warning_codes=warning_codes,
+        expected_warnings=expected_warnings,
     )
     # A constant series has no rank ordering to test: tau is NaN. Keep the
     # (zero) slope and withhold the test, as every other metric does.

@@ -21,8 +21,12 @@ from factrix._axis import Aggregation, DataStructure, FactorDensity, InputShape
 from factrix._codes import WarningCode
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
-from factrix._stats import _adf, _ols_nw_slope_t, _resolve_nw_lags
-from factrix._stats.constants import MIN_PERIODS_HARD, MIN_PERIODS_WARN
+from factrix._stats import _adf, _lag1_autocorr, _ols_nw_slope_t, _resolve_nw_lags
+from factrix._stats.constants import (
+    MIN_PERIODS_HARD,
+    MIN_PERIODS_WARN,
+    PERSISTENT_SERIES_AUTOCORR,
+)
 from factrix._types import DDOF, EPSILON
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
@@ -53,6 +57,7 @@ def predictive_beta(
     adf_threshold: float | None = 0.10,
     factor_col: str = "factor",
     return_col: str = "forward_return",
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Predictive beta for a single-asset dense factor.
 
@@ -92,6 +97,42 @@ def predictive_beta(
         slope routine either raises or yields a ``NaN`` beta that
         ``MetricResult`` rejects — one bad cell would fail the whole series.
         ``n_obs`` counts the finite pairs actually regressed.
+
+        **What the persistence flags do and do not say.**
+        ``PERSISTENT_REGRESSOR`` is an ADF verdict on the *regressor*: the
+        unit-root null was not rejected at ``adf_threshold``. It is not a
+        statement about the size of this test. Under the classic Stambaugh
+        setup (AR(1) $\phi = 0.99$, $\mathrm{corr}(u_x, \varepsilon_r) = -0.9$,
+        true $\beta = 0$, 300 seeds) the flag and the distortion move in
+        opposite directions with the sample: at $T = 500$ it fires on 74-75%
+        of draws while the test rejects 13% (h=1) / 35% (h=21) at a nominal
+        5%; at $T = 2500$ the ADF test has the power to reject the unit root,
+        the flag falls silent (0.0-0.3% of draws) and the test still rejects
+        9% / 14%. Read it as "this slope carries persistent-regressor risk",
+        never as "no bias here" when it is absent, and note that factrix
+        applies no Stambaugh correction.
+
+        ``SERIAL_CORRELATION_DETECTED`` is the complementary screen, on the
+        residuals this regression actually produced, read at stride
+        ``forward_periods``: above ``PERSISTENT_SERIES_AUTOCORR`` no HAC or
+        bootstrap path in the library is calibrated, which is the same rule
+        ``fm_beta`` and the series-mean inference members apply to their own
+        tested series. The stride matters — overlapping forward returns give
+        the raw residuals an MA($h-1$) structure by construction, which the
+        $h - 1$ Bartlett floor already absorbs, so an unstrided screen would
+        fire on every $h > 1$ run and carry no information;
+        :class:`~factrix.inference.NonOverlapping` strides its own screen for
+        the same reason.
+
+        ``UNRELIABLE_SE_SHORT_PERIODS`` reads the **effective** sample
+        ``n_obs // forward_periods``, not the raw pair count. Overlapping
+        forward returns mean ``n`` rows carry about ``n / h`` independent
+        observations, and the HAC lag floor rises with ``h`` at the same time,
+        so a raw count well clear of the floor can still be a handful of
+        independent draws: at $T = 120$, $h = 21$ the regression runs on 98
+        rows with a Bartlett lag of 20 and rejects 17.5% of null draws at a
+        nominal 5%, while the raw-``n`` gate stayed silent. At ``h = 1`` the
+        effective and raw counts coincide, so nothing changes there.
     """
     if adf_threshold is not None and not (0.0 < adf_threshold < 1.0):
         raise ValueError(
@@ -164,14 +205,36 @@ def predictive_beta(
     warning_codes: list[str] = []
     if unit_root_suspected:
         warning_codes.append(WarningCode.PERSISTENT_REGRESSOR.value)
+    # Persistence screen on this regression's own residuals, taken at stride
+    # forward_periods — exactly what inference.NonOverlapping does to its
+    # tested series, and for the same reason. Overlapping forward returns give
+    # the raw residuals an MA(h-1) structure by construction, which the HAC lag
+    # floor (h - 1) already absorbs; screening the raw series would therefore
+    # fire on every h > 1 run and say nothing. Striding at h removes the
+    # mechanical overlap (an AR(phi) series strided at h sits at phi^h) and
+    # leaves the genuine persistence the code is about: above
+    # PERSISTENT_SERIES_AUTOCORR no HAC or bootstrap path here is calibrated,
+    # so the response is a raised hurdle or a longer sample, not a different
+    # estimator.
+    resid_autocorr = _lag1_autocorr(resid[:: max(forward_periods, 1)])
+    if resid_autocorr > PERSISTENT_SERIES_AUTOCORR:
+        warning_codes.append(WarningCode.SERIAL_CORRELATION_DETECTED.value)
+    # Effective sample, not raw rows: overlapping forward returns leave about
+    # n / h independent observations while the HAC lag floor grows with h, so
+    # the short-sample gate has to read the same axis the standard error does.
+    # h = 1 leaves this identical to the raw count.
+    n_effective = n // max(forward_periods, 1)
     warn_code = _warn_below_floor(
         predictive_beta,
-        n,
-        f"predictive_beta: n_periods={n} below MIN_PERIODS_WARN="
-        f"{MIN_PERIODS_WARN}; Newey-West HAC inference on a short "
-        f"single-asset series is power-thin. t-stat is returned but read "
-        f"p-values cautiously.",
+        n_effective,
+        f"predictive_beta: n_periods={n} at forward_periods={forward_periods} "
+        f"leaves an effective sample of {n_effective} non-overlapping "
+        f"observations, below MIN_PERIODS_WARN={MIN_PERIODS_WARN}; Newey-West "
+        f"HAC inference is not calibrated there (measured 17.5% rejection at a "
+        f"nominal 5% for n=98, h=21). t-stat is returned but read p-values "
+        f"cautiously.",
         WarningCode.UNRELIABLE_SE_SHORT_PERIODS,
+        expected_warnings=expected_warnings,
     )
     if warn_code is not None:
         warning_codes.append(warn_code)
@@ -189,6 +252,8 @@ def predictive_beta(
             "h0": "beta=0",
             "method": "single-asset predictive regression + Newey-West",
             "n_periods": n,
+            "n_periods_effective": n_effective,
+            "residual_lag1_autocorr": resid_autocorr,
             "newey_west_lags": lags,
             "forward_periods": forward_periods,
             "alpha": alpha,

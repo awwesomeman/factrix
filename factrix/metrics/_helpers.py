@@ -497,6 +497,8 @@ def _enforce_scaled_floor(
     reason: str,
     alternative: PValueAlternative = "two-sided",
     warning_codes: tuple[str, ...] = (),
+    *,
+    axis: SampleAxis = "periods",
     **extra: object,
 ) -> MetricResult | None:
     """Short-circuit when the *raw* (pre-sampling) date count is below the
@@ -511,8 +513,10 @@ def _enforce_scaled_floor(
     :func:`_scaled_min_periods` against the body's actual ``forward_periods``, so
     the pre-flight floor and the run-time floor are numerically identical (cf.
     :func:`_enforce_min_floor`, which reads the default-config floor and so cannot
-    track a run-time-scaled one). Periods-axis only — the sample stride is a date
-    stride; ``n_raw`` is the full date count *before* sampling.
+    track a run-time-scaled one). ``n_raw`` is the count *before* sampling on
+    ``axis`` — the date count on the ``"periods"`` axis, the event-row count on
+    the ``"events"`` axis (the event battery strides its own event axis at the
+    same horizon; see :func:`_sample_events_non_overlapping`).
     """
     floor = _scaled_min_periods(base, forward_periods)
     if n_raw < floor:
@@ -520,11 +524,12 @@ def _enforce_scaled_floor(
             name,
             reason,
             n_obs=n_raw,
-            n_obs_axis="periods",
+            n_obs_axis=axis,
             min_required=floor,
             descriptive=False,  # every stride-sampling metric runs a hypothesis test
             alternative=alternative,
             warning_codes=warning_codes,
+            forward_periods=forward_periods,
             **extra,
         )
     return None
@@ -560,6 +565,7 @@ def _warn_below_floor(
     code: WarningCode,
     *,
     axis: str = "periods",
+    expected_warnings: tuple[str, ...] = (),
 ) -> str | None:
     """Flag the degraded tier when ``n`` falls below the declared ``warn_<axis>``.
 
@@ -574,10 +580,15 @@ def _warn_below_floor(
     Like :func:`_enforce_min_floor`, reads the default-config ``sample_threshold``
     only; a run-time-scaled floor is not re-derived here, so dynamic-floor metrics
     warn in-body.
+
+    ``expected_warnings`` is the caller's study-level declaration (injected by
+    ``evaluate``): a declared code keeps its structured record — the return value
+    is unchanged — and only the per-run ``UserWarning`` echo stops.
     """
     warn = getattr(metric.sample_threshold, f"warn_{axis}")
     if warn is not None and n < warn:
-        warnings.warn(message, UserWarning, stacklevel=3)
+        if code.value not in expected_warnings:
+            warnings.warn(message, UserWarning, stacklevel=3)
         return code.value
     return None
 
@@ -588,6 +599,8 @@ def _warn_below_scaled_floor(
     forward_periods: int,
     message: str,
     code: WarningCode,
+    *,
+    expected_warnings: tuple[str, ...] = (),
 ) -> str | None:
     """Warn-tier twin of :func:`_enforce_scaled_floor`.
 
@@ -596,11 +609,17 @@ def _warn_below_scaled_floor(
     :func:`_scaled_min_periods` against the body's actual ``forward_periods`` —
     the same source the dynamic resolver's ``warn_periods`` uses — so the
     pre-flight DEGRADED tier and the run-time warning fire on one identical
-    floor. Periods-axis only (the sample stride is a date stride).
+    floor. Axis-agnostic: the caller supplies the raw count on whichever axis it
+    strides (dates, or the event axis of the event battery).
+
+    ``expected_warnings`` is the caller's study-level declaration (injected by
+    ``evaluate``): a declared code keeps its structured record and only the
+    per-run ``UserWarning`` echo stops.
     """
     warn = _scaled_min_periods(base_warn, forward_periods)
     if n_raw < warn:
-        warnings.warn(message, UserWarning, stacklevel=3)
+        if code.value not in expected_warnings:
+            warnings.warn(message, UserWarning, stacklevel=3)
         return code.value
     return None
 
@@ -690,6 +709,31 @@ def _estimate_within_date_icc(
     return r_hat, n0, "icc"
 
 
+# Deflation below which the clustering correction is treated as the identity:
+# a scale of 0.95 moves a z of 2 to 1.9 and the two-sided p from 0.0455 to
+# 0.0574 — the third decimal. Under independence the ICC(1) estimate is
+# clipped at 0 but its sampling noise is not, so without a floor the deflator
+# "applied" on every multi-asset run (100% of iid draws, mean scale 0.99),
+# fired EVENT_CLUSTERING_ADJUSTED on nothing, and moved event_hit_rate off the
+# exact binomial for a correction that did not exist.
+KP_MATERIAL_SCALE: float = 0.95
+
+
+def _kp_deflation_scale(r_hat: float | None, n_eff: float) -> float | None:
+    """The clustering deflator when it is worth applying, else ``None``.
+
+    ``None`` when the ICC could not be estimated, when no period holds two
+    units (``n_eff <= 1``), when the estimate is non-positive (a design
+    effect is a variance *inflation*; a negative sample correlation is not a
+    licence to shrink the SE — the same rule ``common_beta`` applies), or when
+    the deflation is immaterial (``scale >= KP_MATERIAL_SCALE``).
+    """
+    if r_hat is None or n_eff <= 1.0 or r_hat <= 0.0:
+        return None
+    scale = _kp_cluster_scale(r_hat, n_eff)
+    return scale if scale < KP_MATERIAL_SCALE else None
+
+
 def _kp_cluster_scale(r_hat: float, n_eff: float) -> float:
     r"""Design-effect deflator for a pooled statistic under within-period correlation.
 
@@ -715,6 +759,85 @@ def _kp_cluster_scale(r_hat: float, n_eff: float) -> float:
     return float(1.0 / np.sqrt(1.0 + (n_eff - 1.0) * r_hat))
 
 
+def _deflate_for_within_date_clustering(
+    scores: pl.DataFrame,
+    value_col: str,
+    stat: float,
+    metric_name: str,
+    metadata: dict[str, Any],
+    warning_codes: list[str],
+    *,
+    expected_warnings: tuple[str, ...] = (),
+) -> float:
+    r"""Deflate a pooled statistic for same-period clustering of its own score.
+
+    The pooled event statistics — a hit count, a rank correlation — treat every
+    event as an independent draw. Events sharing a period share that period's
+    shock, so they are not, and the pooled statistic grows with $\sqrt{N}$ for
+    no new information: an ``event_hit_rate`` on 20 assets all firing on the
+    same 40 dates rejected 63.5% of true nulls at a nominal 5%.
+
+    This is the same correction ``bmp_z`` and ``directional_hit_rate`` already
+    apply, factored out: estimate the within-period intraclass correlation of
+    the metric's own per-event score with :func:`_estimate_within_date_icc`,
+    then scale the statistic by the Kish design effect
+    :func:`_kp_cluster_scale`. With one event per period the estimate is
+    undefined and the statistic is returned untouched — the correction is the
+    identity exactly when there is nothing to correct.
+
+    The estimate and the deflator are written to ``metadata`` whenever they
+    exist; ``kolari_pynnonen_applied`` says whether the statistic was actually
+    scaled. It is not when $\hat r \le 0$ or when the scale sits above
+    ``KP_MATERIAL_SCALE`` (see :func:`_kp_deflation_scale`): an earlier
+    version applied at $\hat r = 0$, scale 1.0, so the code fired on 100% of
+    iid multi-asset runs and ``event_hit_rate`` left the exact binomial for
+    nothing. A deflation that actually bit fires
+    ``EVENT_CLUSTERING_ADJUSTED``, because the change is data-driven rather
+    than configured.
+
+    Args:
+        scores: Frame with ``date`` and the per-event score column.
+        value_col: The score column — the quantity whose mean drives ``stat``.
+        stat: The pooled statistic to deflate.
+        metric_name: For the warning text.
+        metadata: Mutated with the disclosure keys.
+        warning_codes: Mutated with the code when the deflator applies.
+        expected_warnings: Study-level declaration; silences the echo only.
+
+    Returns:
+        The deflated statistic (or ``stat`` unchanged).
+    """
+    r_hat, n_eff, source = _estimate_within_date_icc(scores, value_col)
+    metadata["kolari_pynnonen_r"] = r_hat
+    metadata["kolari_pynnonen_n_eff"] = n_eff
+    metadata["kolari_pynnonen_r_source"] = source
+    scale = _kp_deflation_scale(r_hat, n_eff)
+    if scale is None:
+        metadata["kolari_pynnonen_applied"] = False
+        if r_hat is not None and n_eff > 1.0:
+            # Disclose the deflator that was judged immaterial.
+            metadata["kolari_pynnonen_scaling"] = _kp_cluster_scale(r_hat, n_eff)
+        return stat
+    metadata["kolari_pynnonen_applied"] = True
+    metadata["kolari_pynnonen_scaling"] = scale
+    metadata["stat_uncorrected"] = stat
+    code = WarningCode.EVENT_CLUSTERING_ADJUSTED.value
+    if code not in expected_warnings:
+        warnings.warn(
+            f"{metric_name}: events share periods (mean {n_eff:.1f} per event "
+            f"period, within-period correlation of the per-event score "
+            f"r={r_hat:.3f}), so they are not independent draws. The statistic "
+            f"is deflated by the Kish design effect ({scale:.3f}) before the "
+            f"p-value; the point estimate is unchanged. Uncorrected statistic "
+            f"in metadata['stat_uncorrected'].",
+            UserWarning,
+            stacklevel=3,
+        )
+    if code not in warning_codes:
+        warning_codes.append(code)
+    return stat * scale
+
+
 def _pick_event_return_col(data: pl.DataFrame) -> str:
     """Return the preferred return column for event analysis.
 
@@ -725,6 +848,298 @@ def _pick_event_return_col(data: pl.DataFrame) -> str:
     would silently route the same factor through different series.
     """
     return "abnormal_return" if "abnormal_return" in data.columns else "forward_return"
+
+
+def _attach_abnormal_return(
+    data: pl.DataFrame,
+    *,
+    return_col: str = "forward_return",
+    estimation_window: int = 60,
+    forward_periods: int = 5,
+    price_col: str = "price",
+    factor_col: str = "factor",
+    out_col: str = "_abnormal_return",
+) -> tuple[pl.DataFrame, dict[str, Any]]:
+    r"""Attach the event family's abnormal return $AR_{it} = R_{it} - E[R_{it}]$.
+
+    Every event statistic in factrix — the CAAR $t$, the BMP $z$, the Corrado
+    rank $z$, the per-event quality summaries — is defined on an *abnormal*
+    return, and until this helper existed each of them silently used the raw
+    forward return instead. The difference is not cosmetic: with no expected
+    return subtracted, any unconditional drift is read as event alpha. On a
+    20-asset panel drifting 0.08% per period with 30 events per asset at
+    uniformly random dates carrying **zero** information, ``bmp_z`` returned
+    $z = 5.34$ ($p = 9\times10^{-8}$); the same panel with the estimation-window
+    mean subtracted returns $z = 1.15$.
+
+    Two models, in the order the standard event-study literature prefers what
+    is available ([MacKinlay (1997)][mackinlay-1997] §3):
+
+    - **Market-adjusted**, when the panel already carries an
+      ``abnormal_return`` column: that column is used as-is. It is what
+      :func:`~factrix.preprocess.compute_abnormal_return` produces — the
+      return less the equal-weight cross-sectional mean of the same period,
+      i.e. the market-model form with $\alpha = 0$, $\beta = 1$. This is the
+      branch :func:`_pick_event_return_col` was written for.
+    - **Mean-adjusted** otherwise ([Brown-Warner (1985)][brown-warner-1985]):
+      $AR_{it} = R_{it} - \hat\mu_i$, with $\hat\mu_i$ the mean of the same
+      asset's returns over an ``estimation_window`` that **ends before the
+      event window opens**. No market model is fitted — factrix does not
+      require a benchmark column and will not invent one. Which returns feed
+      $\hat\mu_i$ depends on what the panel carries
+      (``estimation_window_source``):
+
+      - With a ``price_col``, the mean of the one-bar returns over the
+        ``estimation_window`` bars ending at $t$ — the same window ``bmp_z``
+        estimates its volatility on. ``return_col`` is a per-bar average
+        (:func:`~factrix.preprocess.compute_forward_return` divides by the
+        horizon), so the units match with no scaling, and no lag is needed:
+        the bar $(t-1, t]$ precedes the event's forward return, which opens
+        at $t + 1$. This is the textbook BMP estimation window — mean and
+        volatility from the same bars. An earlier version estimated
+        $\hat\mu_i$ on lagged forward-return *rows* here as well; aligning
+        the two windows is neutral on every Gaussian null measured and does
+        **not** remove ``bmp_z``'s skew sensitivity (see its Notes: the bias
+        is $E[\hat\mu / \hat\sigma] \neq 0$ from the shared window, which the
+        textbook form carries too).
+      - Without one, the mean of the ``return_col`` rows over the
+        ``estimation_window`` rows ending at $t - h$ (lagged by
+        ``forward_periods``, for exactly the reason ``bmp_z`` lags its
+        fallback volatility): a window ending at $t$ would contain the
+        event's own overlapping forward return and subtract part of the
+        effect from itself. The last row in that window, $t - h$, spans bars
+        $(t - h + 1, t + 1]$ — up to and including the bar before the
+        event's forward return opens at $t + 2$, none of which the tested
+        return contains.
+
+    An event whose asset has too little history for the estimation window gets
+    a null ``out_col`` and is dropped by the caller's finiteness filter, the
+    same way ``bmp_z`` already drops events with no estimation-window
+    volatility. ``min_samples`` is ``min(20, estimation_window)`` so a caller
+    that deliberately shortens the window still gets an estimate.
+
+    Args:
+        data: Full panel — event *and* non-event rows. The non-event rows are
+            the estimation window; passing only event rows estimates the mean
+            from events alone, which is not the same quantity.
+        return_col: Raw return column to adjust.
+        estimation_window: Bars (with ``price_col``) or rows (without) of
+            history behind $\hat\mu_i$.
+        forward_periods: Overlap horizon; the lag applied to $\hat\mu_i$ on
+            the row path.
+        price_col: Price column; when present the mean is taken on one-bar
+            returns derived from it.
+        factor_col: Event column (``!= 0`` marks an event), read only for
+            the ``estimation_window_event_share`` diagnostic.
+        out_col: Name of the attached abnormal-return column.
+
+    Returns:
+        ``(frame, diagnostics)`` — the frame with ``out_col`` attached (sorted
+        by asset then date when both are present), and the diagnostics every
+        consumer surfaces in ``metadata``: ``abnormal_return_model``,
+        ``estimation_window``, ``estimation_window_source`` (``"price"`` or
+        the ``return_col`` name), ``estimation_window_lag`` (``0`` on the
+        price path) and ``estimation_window_event_share`` (below).
+
+    Notes:
+        **Identifying condition, and what happens when it fails.** The
+        mean-adjusted model estimates $E[R_{it}]$ from the asset's own recent
+        history, and that history contains the realised forward returns of the
+        asset's *earlier* events. The model is identified when the share of
+        estimation-window periods that lie inside another event's forward
+        window is small; then $\hat\mu_i$ is the unconditional mean. When a
+        trigger fires densely, or $h$ is long, most of the window is other
+        events' realised returns: event $j$'s abnormal return is then
+        negatively correlated with event $i$'s for $i < j$, the cross-event
+        sample variance overstates the variance of the mean abnormal return,
+        and **every** consumer of this helper reads conservative — the
+        opposite failure from the drift leak it exists to remove. It is a
+        property of the model, not a coding error: using one-bar returns for
+        $\hat\mu$ leaves it unchanged (the contamination is in the bars),
+        and masking every bar inside an event window out of the estimation
+        sample over-corrects (7–15% size), because at these densities almost
+        nothing survives and the surviving noise is shared across events.
+
+        Measured sizes at a nominal 5% (300 draws, iid Gaussian null,
+        price-derived forward returns, 20 assets with a 5% trigger unless
+        stated), ``bmp_z`` / ``corrado_rank`` / ``event_hit_rate`` / ``caar``:
+        $h = 1$: 4.3 / 4.7 / 6.0 / 4.7% (share 0.05); $h = 5$: 3.7 / 4.3 /
+        1.7 / 2.3% (0.21); $h = 21$: 0.3 / 2.0 / 1.7 / 5.0% (0.60); one asset
+        with an 8% trigger at $h = 5$: 1.3 / 1.3 / 3.3 / 1.7% (0.33) and at
+        $h = 21$: 0.0 / 0.0 / 0.7 / 0.0% (0.81); 20 names all firing on the
+        same 40 periods at $h = 5$ with no shared shock: 0.7 / 2.7 / 1.0 /
+        2.3% (0.33). ``caar`` is the least affected because its
+        calendar-time portfolio averages same-period events before the
+        variance is taken. The share in brackets is published as
+        ``estimation_window_event_share`` — the mean over the tested events
+        of the fraction of their window periods inside another event's
+        forward window on the same asset — and every consumer fires
+        ``ESTIMATION_WINDOW_CONTAMINATED`` above
+        ``ESTIMATION_WINDOW_EVENT_SHARE_WARN`` (0.25), which separates the
+        cells above at or below ~2% from the rest.
+
+        **The market-adjusted branch does not close it.** Routing the same
+        panels through :func:`~factrix.preprocess.compute_abnormal_return`
+        (cross-sectional de-meaning, no estimation window) measured 3.0 /
+        3.7 / 1.7 / 4.0% at $h = 5$ and 0.3 / 1.0 / 1.3 / 5.7% at $h = 21$
+        on the iid panel — the de-meaned returns of events on different
+        names with overlapping windows are negatively correlated through
+        the shared cross-sectional mean, the same mechanism on the other
+        axis — and on the same-period panel it removes the effect itself
+        (power at a 0.15σ effect: 54 / 64 / 53 / 47% mean-adjusted, 0 / 4 /
+        0 / 7% market-adjusted), because the cross-sectional mean *is* the
+        event return when every name fires together. factrix therefore does
+        not switch models on the share; the code is advisory, and the honest
+        reading of a flagged p-value is an upper bound.
+    """
+    diagnostics: dict[str, Any] = {}
+    if _pick_event_return_col(data) == "abnormal_return":
+        diagnostics["abnormal_return_model"] = "market_adjusted_supplied"
+        diagnostics["estimation_window"] = None
+        diagnostics["estimation_window_source"] = None
+        diagnostics["estimation_window_lag"] = None
+        diagnostics["estimation_window_event_share"] = None
+        return data.with_columns(pl.col("abnormal_return").alias(out_col)), diagnostics
+
+    diagnostics["abnormal_return_model"] = "mean_adjusted"
+    diagnostics["estimation_window"] = estimation_window
+    sort_keys = [k for k in ("asset_id", "date") if k in data.columns]
+    frame = data.sort(sort_keys) if sort_keys else data
+    has_asset = "asset_id" in frame.columns
+    uses_price = price_col in frame.columns
+    if uses_price:
+        bar = pl.col(price_col) / pl.col(price_col).shift(1) - 1.0
+        if has_asset:
+            bar = bar.over("asset_id")
+        frame = frame.with_columns(bar.alias("_bar_return"))
+        source_col = "_bar_return"
+        lag = 0
+    else:
+        source_col = return_col
+        lag = forward_periods
+    diagnostics["estimation_window_source"] = "price" if uses_price else return_col
+    diagnostics["estimation_window_lag"] = lag
+    # Mask NaN to null before the rolling mean. polars skips nulls and honours
+    # min_samples, but a float NaN is a *value* to it and propagates through
+    # every window that contains it — one bad cell would otherwise blank the
+    # abnormal return of the next `estimation_window` events (project-wide
+    # convention: NaN is masked, never fed to a rolling aggregate).
+    finite_source = pl.when(_finite_expr(source_col)).then(pl.col(source_col))
+    mean_expr = finite_source.rolling_mean(
+        window_size=estimation_window, min_samples=min(20, estimation_window)
+    )
+    if lag > 0:
+        mean_expr = mean_expr.shift(lag)
+    if has_asset:
+        mean_expr = mean_expr.over("asset_id")
+    out = frame.with_columns((pl.col(return_col) - mean_expr).alias(out_col))
+    diagnostics["estimation_window_event_share"] = _estimation_window_event_share(
+        out,
+        factor_col,
+        out_col,
+        estimation_window=estimation_window,
+        forward_periods=forward_periods,
+        lag=lag,
+        bars=uses_price,
+        has_asset=has_asset,
+    )
+    if uses_price:
+        out = out.drop("_bar_return")
+    return out, diagnostics
+
+
+def _estimation_window_event_share(
+    frame: pl.DataFrame,
+    factor_col: str,
+    ar_col: str,
+    *,
+    estimation_window: int,
+    forward_periods: int,
+    lag: int,
+    bars: bool,
+    has_asset: bool,
+) -> float | None:
+    """Mean share of the tested events' estimation windows inside other events'
+    forward windows — the diagnostic behind ``ESTIMATION_WINDOW_CONTAMINATED``.
+
+    A period is "inside an event's forward window" when the return it
+    contributes to the estimation window overlaps the forward return
+    ``(t+1, t+1+h]`` of some event at ``t`` on the same asset. On the bar
+    path (``bars=True``) the period is the bar ``(s-1, s]``, inside when an
+    event sits at ``s-1-h .. s-2``; on the row path the period is the row
+    ``s`` whose return spans ``(s+1, s+1+h]``, inside when an event sits within
+    ``h-1`` rows on either side. The indicator is then averaged over the same
+    window (and lag) as the mean itself, and the result averaged over the
+    event rows with a finite abnormal return. ``None`` when there are none.
+    """
+    if factor_col not in frame.columns:
+        return None
+    is_event = (_finite_expr(factor_col) & (pl.col(factor_col) != 0)).cast(pl.Float64)
+    if bars:
+        inside = is_event.rolling_sum(window_size=forward_periods, min_samples=1).shift(
+            2
+        )
+    else:
+        inside = is_event.rolling_sum(
+            window_size=2 * forward_periods - 1, min_samples=1, center=True
+        )
+    contaminated = (inside.fill_null(0.0) > 0).cast(pl.Float64)
+    share = contaminated.rolling_mean(
+        window_size=estimation_window, min_samples=min(20, estimation_window)
+    )
+    if lag > 0:
+        share = share.shift(lag)
+    if has_asset:
+        share = share.over("asset_id")
+    tested = frame.with_columns(share.alias("_share")).filter(
+        _finite_expr(factor_col)
+        & (pl.col(factor_col) != 0)
+        & _finite_expr(ar_col)
+        & pl.col("_share").is_not_null()
+    )
+    if tested.height == 0:
+        return None
+    return float(tested["_share"].mean())  # type: ignore[arg-type]
+
+
+def _warn_estimation_window_contamination(
+    metric_name: str,
+    metadata: dict[str, Any],
+    warning_codes: list[str],
+    *,
+    expected_warnings: tuple[str, ...] = (),
+) -> None:
+    """Fire ``ESTIMATION_WINDOW_CONTAMINATED`` when the mean-adjusted model's
+    identifying condition fails (see :func:`_attach_abnormal_return` Notes).
+
+    Reads ``metadata["estimation_window_event_share"]``; nothing fires on the
+    market-adjusted branch (``None``) or below
+    ``ESTIMATION_WINDOW_EVENT_SHARE_WARN``. The statistic is not changed —
+    the code says its null is conservative.
+    """
+    from factrix._types import ESTIMATION_WINDOW_EVENT_SHARE_WARN
+
+    share = metadata.get("estimation_window_event_share")
+    if share is None or share <= ESTIMATION_WINDOW_EVENT_SHARE_WARN:
+        return
+    code = WarningCode.ESTIMATION_WINDOW_CONTAMINATED.value
+    if code not in expected_warnings:
+        warnings.warn(
+            f"{metric_name}: on average {share:.0%} of each tested event's "
+            f"estimation-window periods lie inside another event's "
+            f"forward-return window on the same asset (advisory floor "
+            f"{ESTIMATION_WINDOW_EVENT_SHARE_WARN:.0%}). The mean-adjusted "
+            f"abnormal return then subtracts neighbouring events' realised "
+            f"returns rather than the unconditional mean, the per-event "
+            f"abnormal returns are negatively correlated, and the test is "
+            f"conservative. Supply an 'abnormal_return' column "
+            f"(compute_abnormal_return) when the event universe is a small "
+            f"share of the panel, or read the p-value as an upper bound.",
+            UserWarning,
+            stacklevel=3,
+        )
+    if code not in warning_codes:
+        warning_codes.append(code)
 
 
 def _sample_non_overlapping(
@@ -839,6 +1254,131 @@ def _sample_event_spaced(
             keep[i] = True
             last_kept = int(ordinal)
     return data.filter(pl.Series(keep))
+
+
+def _sample_events_non_overlapping(
+    events: pl.DataFrame,
+    forward_periods: int,
+    *,
+    calendar_dates: pl.Series | None = None,
+    asset_col: str = "asset_id",
+) -> pl.DataFrame:
+    """Stride an event *row* frame so no asset keeps two overlapping windows.
+
+    The panel-level entry point to :func:`_sample_event_spaced`. That helper
+    walks one ordered event series; this one supplies the calendar ordinal it
+    needs and applies it **per asset**, because a forward-return window
+    ``(t, t+h]`` can only overlap another window on the *same* asset.
+
+    Why every event significance test needs it: with ``h``-period forward
+    returns, two events on one asset fewer than ``h`` periods apart share
+    future bars, so their returns are not independent draws. Pooling them
+    inflates the test's effective sample and, with it, every cross-event
+    statistic (``t``, ``z``, the binomial hit count). On a single-asset panel
+    the cross-asset clustering corrections (Kolari-Pynnönen, the event-period
+    collapse) have nothing to work with — time is the only clustering axis —
+    so this pass is the whole discipline.
+
+    Ordinals come from ``calendar_dates`` (the full panel's date column) when
+    supplied, so the gap is measured on the underlying calendar rather than on
+    the sparse event dates; without it the event dates themselves are the
+    calendar. ``forward_periods <= 1`` and an empty frame are no-ops.
+
+    Args:
+        events: Event rows (already filtered to ``factor != 0`` and to finite
+            values), with ``date`` and — for a panel — ``asset_col``. A frame
+            without ``date`` carries no gap to measure and passes through.
+        forward_periods: Minimum calendar gap required between kept events.
+        calendar_dates: Full-panel ``date`` column defining the calendar.
+        asset_col: Asset identifier; a frame without it is treated as one asset.
+
+    Returns:
+        The kept event rows, sorted by asset then date.
+    """
+    if forward_periods <= 1 or events.height == 0 or "date" not in events.columns:
+        return events
+    dates = events["date"] if calendar_dates is None else calendar_dates
+    calendar = pl.DataFrame({"date": dates.unique().sort()}).with_columns(
+        pl.int_range(pl.len()).alias("_calendar_ordinal")
+    )
+    joined = events.join(calendar, on="date", how="left")
+    if asset_col not in joined.columns:
+        parts = [joined.sort("date")]
+    else:
+        parts = [
+            part.sort("date")
+            for part in joined.sort([asset_col, "date"]).partition_by(asset_col)
+        ]
+    kept = pl.concat(
+        [
+            _sample_event_spaced(part, forward_periods, ordinal_col="_calendar_ordinal")
+            for part in parts
+        ]
+    )
+    return kept.drop("_calendar_ordinal")
+
+
+def _warn_event_window_overlap(
+    metric_name: str,
+    n_events: int,
+    n_sampled: int,
+    forward_periods: int,
+    metadata: dict[str, Any],
+    warning_codes: list[str],
+    *,
+    expected_warnings: tuple[str, ...] = (),
+) -> None:
+    """Record the overlap the event-axis spacing pass had to remove.
+
+    Fires once per metric when :func:`_sample_events_non_overlapping` (or
+    :func:`_sample_event_spaced`) dropped at least one event — i.e. some
+    consecutive pair on one asset sat closer than ``forward_periods`` and their
+    ``(t, t+h]`` windows overlapped. The dropped count is the measurement, so
+    it is always written to ``metadata``; the code fires only when the count is
+    non-zero. Declaring it via ``evaluate(..., expected_warnings=(...,))``
+    keeps the record and stops the ``UserWarning`` echo.
+    """
+    dropped = n_events - n_sampled
+    metadata["n_events_overlapping"] = dropped
+    metadata["n_events_sampled"] = n_sampled
+    if dropped <= 0:
+        return
+    code = WarningCode.EVENT_WINDOW_OVERLAP.value
+    if code not in expected_warnings:
+        warnings.warn(
+            f"{metric_name}: {dropped} of {n_events} events sat within "
+            f"forward_periods={forward_periods} of the previously kept event on "
+            f"the same asset, so their forward-return windows overlapped. The "
+            f"test runs on the {n_sampled} non-overlapping events that survive "
+            f"the spacing pass; overlapping events are not independent draws "
+            f"and pooling them inflates the statistic.",
+            UserWarning,
+            stacklevel=3,
+        )
+    if code not in warning_codes:
+        warning_codes.append(code)
+
+
+def _event_sample_threshold(self: MetricBase) -> SampleThreshold:
+    """Event floor shared by the event significance tests that stride their
+    event axis at ``forward_periods``.
+
+    ``min_events`` stays the static math floor ``MIN_EVENTS_HARD``, enforced
+    in-body against the *sampled* (post-spacing) count — pre-flight counts raw
+    non-zero factor rows, which is the documented loose upper bound. The
+    **warn** floor is the one that has to scale: the spacing pass keeps about
+    one event in ``h`` per asset, so a raw series needs ``h`` times
+    ``MIN_EVENTS_WARN`` events to land on ``MIN_EVENTS_WARN`` independent
+    ones. Delegates to the same :func:`_scaled_min_periods` the in-body
+    :func:`_warn_below_scaled_floor` call reads, so the pre-flight DEGRADED
+    tier and the run-time warning fire on one identical floor.
+    """
+    from factrix._types import MIN_EVENTS_HARD, MIN_EVENTS_WARN
+
+    return SampleThreshold(
+        min_events=MIN_EVENTS_HARD,
+        warn_events=_scaled_min_periods(MIN_EVENTS_WARN, self.forward_periods),
+    )
 
 
 def _scaled_min_periods(base: int, forward_periods: int) -> int:
@@ -1145,7 +1685,11 @@ def _read_drop_stats(frame: pl.DataFrame) -> dict[str, Any] | None:
 
 
 def _warn_if_high_drop_rate(
-    stats: dict[str, Any], metric_name: str, *, axis: str = "periods"
+    stats: dict[str, Any],
+    metric_name: str,
+    *,
+    axis: str = "periods",
+    expected_warnings: tuple[str, ...] = (),
 ) -> str | None:
     """Emit one aggregate ``UserWarning`` when the drop rate clears the floor.
 
@@ -1156,11 +1700,16 @@ def _warn_if_high_drop_rate(
     count keys via the ``axis`` token (``n_<axis>_in`` etc.); the message names
     the axis. Returns ``None`` (no warning) when ``drop_rate`` is at or below
     :data:`DROP_RATE_WARN_THRESHOLD`. Uses ``warnings.warn`` so the advisory
-    surfaces in notebooks; the default filter dedupes sweep loops.
+    surfaces in notebooks; the default filter dedupes sweep loops. A code the
+    caller declared via ``evaluate(..., expected_warnings=(...,))`` is still
+    returned (the record is kept) but its echo is suppressed.
     """
     drop_rate = float(stats["drop_rate"])
     if drop_rate <= DROP_RATE_WARN_THRESHOLD:
         return None
+    code = _DROP_CODE_BY_AXIS[axis].value
+    if code in expected_warnings:
+        return code
     warnings.warn(
         f"{metric_name}: {drop_rate:.0%} of {axis} dropped "
         f"({stats[f'dropped_{axis}']}/{stats[f'n_{axis}_in']}) — "
@@ -1169,7 +1718,7 @@ def _warn_if_high_drop_rate(
         UserWarning,
         stacklevel=3,
     )
-    return _DROP_CODE_BY_AXIS[axis].value
+    return code
 
 
 def _surface_drop_stats(
@@ -1179,6 +1728,7 @@ def _surface_drop_stats(
     warning_codes: list[str],
     *,
     axis: str = "periods",
+    expected_warnings: tuple[str, ...] = (),
 ) -> None:
     """Copy an upstream primitive's drop-stat schema into a consumer's result.
 
@@ -1197,7 +1747,9 @@ def _surface_drop_stats(
     if stats is None:
         return
     metadata.update(stats)
-    code = _warn_if_high_drop_rate(stats, metric_name, axis=axis)
+    code = _warn_if_high_drop_rate(
+        stats, metric_name, axis=axis, expected_warnings=expected_warnings
+    )
     if code is not None:
         warning_codes.append(code)
 
@@ -1210,6 +1762,7 @@ def _surface_null_drop(
     metric_name: str,
     metadata: dict[str, Any],
     warning_codes: list[str],
+    expected_warnings: tuple[str, ...] = (),
 ) -> None:
     """Record a SERIES→SCALAR consumer's own null-drop with the shared schema.
 
@@ -1234,7 +1787,9 @@ def _surface_null_drop(
         drop_reason=drop_reason,
     )
     metadata.update(stats)
-    code = _warn_if_high_drop_rate(stats, metric_name, axis="periods")
+    code = _warn_if_high_drop_rate(
+        stats, metric_name, axis="periods", expected_warnings=expected_warnings
+    )
     if code is not None:
         warning_codes.append(code)
 

@@ -8,6 +8,7 @@ import numpy as np
 import polars as pl
 import pytest
 from factrix._stats import _calc_t_stat, _p_value_from_t
+from factrix.metrics._helpers import KP_MATERIAL_SCALE
 from factrix.metrics.caar import (
     bmp_z,
     caar,
@@ -15,30 +16,78 @@ from factrix.metrics.caar import (
 )
 from factrix.metrics.event_quality import event_hit_rate, event_ic
 
+from .conftest import with_estimation_window
+
+# Non-event days prepended before the first event so every event has an
+# estimation window behind it (the event family subtracts an estimation-window
+# mean; an event without one is dropped as non-finite).
+_CALENDAR_WARMUP = 70
+
+
+def _calendar_return_series(
+    event_ordinals: list[int],
+    returns: list[float],
+    n_calendar: int,
+    warmup: int = _CALENDAR_WARMUP,
+) -> np.ndarray:
+    """The full-calendar forward_return series behind :func:`_event_calendar_panel`."""
+    series = np.zeros(warmup + n_calendar)
+    for o, r in zip(event_ordinals, returns, strict=True):
+        series[warmup + o] = r
+    return series
+
+
+def _hand_abnormal_returns(
+    event_ordinals: list[int],
+    returns: list[float],
+    n_calendar: int,
+    forward_periods: int,
+    warmup: int = _CALENDAR_WARMUP,
+    estimation_window: int = 60,
+) -> dict[int, float]:
+    """Hand replication of the mean-adjusted abnormal return, by event ordinal.
+
+    ``AR_t = R_t - mean(R over the estimation_window ending forward_periods
+    rows before t)`` — the same quantity ``_attach_abnormal_return`` computes,
+    written out independently here so the metrics are checked against arithmetic
+    rather than against themselves.
+    """
+    series = _calendar_return_series(event_ordinals, returns, n_calendar, warmup)
+    out: dict[int, float] = {}
+    for o in event_ordinals:
+        i = warmup + o
+        end = i - forward_periods  # inclusive right edge of the estimation window
+        start = end - estimation_window + 1
+        if start < 0 or end < 0:
+            continue
+        out[o] = float(series[i] - series[start : end + 1].mean())
+    return out
+
 
 def _event_calendar_panel(
     event_ordinals: list[int],
     returns: list[float],
     n_calendar: int,
+    warmup: int = _CALENDAR_WARMUP,
 ) -> pl.DataFrame:
-    """Single-asset panel on a contiguous calendar of ``n_calendar`` days.
+    """Single-asset panel on a contiguous calendar of ``warmup + n_calendar`` days.
 
-    Events (factor=1, forward_return=given) sit at ``event_ordinals``; all
-    other days are non-events (factor=0). The non-event days populate the
-    full calendar so ``compute_caar``'s ``date_ordinal`` reflects true
-    calendar position, not event index.
+    Events (factor=1, forward_return=given) sit at ``warmup + event_ordinals``;
+    all other days are non-events (factor=0, zero return). The non-event days
+    populate the full calendar so ``compute_caar``'s ``date_ordinal`` reflects
+    true calendar position, not event index, and the leading ``warmup`` days
+    give the first event an estimation window.
     """
     base = datetime(2020, 1, 1)
-    ret_by_ord = dict(zip(event_ordinals, returns, strict=True))
+    ret_by_ord = {warmup + o: r for o, r in zip(event_ordinals, returns, strict=True)}
     rows = []
-    for i in range(n_calendar):
+    for i in range(warmup + n_calendar):
         d = base + timedelta(days=i)
-        is_event = i in ret_by_ord
         rows.append(
             {
                 "date": d,
                 "asset_id": "A",
-                "factor": 1.0 if is_event else 0.0,
+                "factor": 1.0 if i in ret_by_ord else 0.0,
                 "forward_return": ret_by_ord.get(i, 0.0),
             }
         )
@@ -67,21 +116,26 @@ def _make_event_signal(
     event_prob: float = 0.02,
     signal_strength: float = 0.01,
     seed: int = 42,
+    burn_in: int = 70,
 ) -> pl.DataFrame:
     """Synthetic event density data.
 
     Each day, each asset has ``event_prob`` chance of triggering an event
     (factor = +1 or -1). Post-event forward_return = signal_strength *
     sign(factor) + noise.
+
+    The first ``burn_in`` days carry returns but no events: the event family
+    subtracts an estimation-window mean, so an event with no history behind it
+    is dropped as non-finite. A real event study is set up the same way.
     """
     rng = np.random.default_rng(seed)
     dates = [datetime(2020, 1, 1) + timedelta(days=i) for i in range(n_dates)]
     assets = [f"asset_{i}" for i in range(n_assets)]
 
     rows = []
-    for d in dates:
+    for di, d in enumerate(dates):
         for a in assets:
-            is_event = rng.random() < event_prob
+            is_event = di >= burn_in and rng.random() < event_prob
             if is_event:
                 direction = rng.choice([-1.0, 1.0])
                 ret = signal_strength * direction + rng.normal(0, 0.02)
@@ -170,14 +224,16 @@ class TestComputeCaar:
     def test_n_events_reflects_clustering(self):
         d1 = datetime(2020, 1, 1)
         d2 = datetime(2020, 1, 2)
-        df = pl.DataFrame(
-            {
-                "date": [d1, d1, d1, d1, d1, d2],
-                "asset_id": ["a", "b", "c", "d", "e", "f"],
-                "factor": [1.0] * 6,
-                "forward_return": [0.01, 0.02, -0.01, 0.0, 0.03, -0.02],
-            }
-        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        df = with_estimation_window(
+            pl.DataFrame(
+                {
+                    "date": [d1, d1, d1, d1, d1, d2],
+                    "asset_id": ["a", "b", "c", "d", "e", "f"],
+                    "factor": [1.0] * 6,
+                    "forward_return": [0.01, 0.02, -0.01, 0.0, 0.03, -0.02],
+                }
+            ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        )
         result = compute_caar(df).sort("date")
         assert result["n_events"].to_list() == [5, 1]
 
@@ -193,13 +249,15 @@ def _two_event_panel(
     ret_a: float,
     ret_b: float,
 ) -> pl.DataFrame:
-    return pl.DataFrame(
-        {
-            "date": [datetime(2020, 1, 1), datetime(2020, 1, 2)],
-            "asset_id": ["A", "B"],
-            "factor": [factor_a, factor_b],
-            "forward_return": [ret_a, ret_b],
-        }
+    return with_estimation_window(
+        pl.DataFrame(
+            {
+                "date": [datetime(2020, 1, 1), datetime(2020, 1, 2)],
+                "asset_id": ["A", "B"],
+                "factor": [factor_a, factor_b],
+                "forward_return": [ret_a, ret_b],
+            }
+        )
     )
 
 
@@ -222,26 +280,30 @@ class TestComputeCaarInputForms:
     def test_magnitude_preserved_not_dropped(self):
         # Pins the post-change behaviour — sign-coerced math would yield
         # 0.01, magnitude-preserving math yields 0.025.
-        df = pl.DataFrame(
-            {
-                "date": [datetime(2020, 1, 1)],
-                "asset_id": ["A"],
-                "factor": [2.5],
-                "forward_return": [0.01],
-            }
+        df = with_estimation_window(
+            pl.DataFrame(
+                {
+                    "date": [datetime(2020, 1, 1)],
+                    "asset_id": ["A"],
+                    "factor": [2.5],
+                    "forward_return": [0.01],
+                }
+            )
         )
         result = compute_caar(df)
         assert result["caar"][0] == pytest.approx(0.025)
         assert result["caar"][0] != pytest.approx(0.01)
 
     def test_within_date_cs_average_weighted(self):
-        df = pl.DataFrame(
-            {
-                "date": [datetime(2020, 1, 1), datetime(2020, 1, 1)],
-                "asset_id": ["A", "B"],
-                "factor": [2.0, -1.0],
-                "forward_return": [0.03, 0.04],
-            }
+        df = with_estimation_window(
+            pl.DataFrame(
+                {
+                    "date": [datetime(2020, 1, 1), datetime(2020, 1, 1)],
+                    "asset_id": ["A", "B"],
+                    "factor": [2.0, -1.0],
+                    "forward_return": [0.03, 0.04],
+                }
+            )
         )
         result = compute_caar(df)
         assert len(result) == 1
@@ -271,13 +333,15 @@ class TestComputeCaarInputForms:
             compute_caar(df)
 
     def test_caller_can_opt_into_ternary_via_sign(self):
-        df = pl.DataFrame(
-            {
-                "date": [datetime(2020, 1, 1)],
-                "asset_id": ["A"],
-                "factor": [2.5],
-                "forward_return": [0.01],
-            }
+        df = with_estimation_window(
+            pl.DataFrame(
+                {
+                    "date": [datetime(2020, 1, 1)],
+                    "asset_id": ["A"],
+                    "factor": [2.5],
+                    "forward_return": [0.01],
+                }
+            )
         )
         coerced = df.with_columns(pl.col("factor").sign())
         result = compute_caar(coerced)
@@ -344,7 +408,10 @@ class TestCaarEventSpacedSampling:
     def test_pvalue_matches_handrolled_calendar_reference(self):
         # 90 events spanning a clustered block (gap 1, gets thinned) and a
         # sparse tail (gap 5, all kept). n=90 == MIN_EVENTS_WARN*fp, so no
-        # FEW_EVENTS warning fires — assert the path is clean.
+        # FEW_EVENTS warning fires; the clustered block is real overlap, so
+        # EVENT_WINDOW_OVERLAP is declared and its echo must stay silent. The
+        # block also fills most of each event's estimation window with other
+        # events' returns, so ESTIMATION_WINDOW_CONTAMINATED is declared too.
         fp = 3
         clustered = list(range(50))
         sparse = [60 + 5 * k for k in range(40)]
@@ -356,12 +423,22 @@ class TestCaarEventSpacedSampling:
         panel = _event_calendar_panel(ordinals, returns, n_cal)
         with warnings.catch_warnings():
             warnings.simplefilter("error", UserWarning)
-            caar_df = compute_caar(panel)
-            result = caar(caar_df, forward_periods=fp)
+            caar_df = compute_caar(panel, forward_periods=fp)
+            result = caar(
+                caar_df,
+                forward_periods=fp,
+                expected_warnings=(
+                    "event_window_overlap",
+                    "estimation_window_contaminated",
+                ),
+            )
 
+        assert "event_window_overlap" in result.warning_codes
+        assert "estimation_window_contaminated" in result.warning_codes
         kept = _greedy_keep(ordinals, fp)
-        ret_by_ord = dict(zip(ordinals, returns, strict=True))
-        kept_vals = np.array([ret_by_ord[o] for o in kept])
+        # The tested quantity is the ABNORMAL return, replicated by hand.
+        ar_by_ord = _hand_abnormal_returns(ordinals, returns, n_cal, fp)
+        kept_vals = np.array([ar_by_ord[o] for o in kept])
         t_ref = _calc_t_stat(
             float(kept_vals.mean()), float(kept_vals.std(ddof=1)), len(kept_vals)
         )
@@ -427,7 +504,12 @@ class TestBmpTest:
 
     def test_noise_not_significant(self, noise_signal):
         result = bmp_z(noise_signal)
-        assert abs(result.stat) < 2.0
+        # One draw from the null: |z| < 1.96 holds only 95% of the time, so a
+        # 2.0 bound would be testing the fixture's seed. The band still catches
+        # the failure mode this guards — a drift or scale error driving |z|
+        # into the range the pre-abnormal-return implementation reached (5.3
+        # on a pure-drift null).
+        assert abs(result.stat) < 3.0
 
     def test_no_events(self):
         df = pl.DataFrame(
@@ -452,8 +534,11 @@ class TestBmpTest:
         from factrix._codes import WarningCode
 
         with _warnings.catch_warnings():
-            _warnings.simplefilter("error")  # any warning would fail
-            result = bmp_z(strong_signal)
+            _warnings.simplefilter("error")  # any undeclared warning would fail
+            # The 2%-per-day trigger clusters on some assets, so the event-axis
+            # spacing pass has real work to do; declare that code and nothing
+            # else may surface.
+            result = bmp_z(strong_signal, expected_warnings=("event_window_overlap",))
         assert result.metadata["vol_source"] == "price"
         assert result.metadata["vol_estimation_lag"] == 0
         assert WarningCode.BMP_RETURN_VOL_FALLBACK.value not in result.warning_codes
@@ -483,18 +568,15 @@ class TestBmpTest:
         assert large_h.metadata["vol_estimation_lag"] == 20
         assert large_h.metadata["n_events"] < small_h.metadata["n_events"]
 
-    def test_kolari_pynnonen_shrinks_z_when_clustered(self, strong_signal):
-        """K-P adjustment must not expand |z|; when ρ>0 it strictly shrinks."""
+    def test_kolari_pynnonen_is_the_identity_on_independent_events(self, strong_signal):
+        """Independent triggers (2% per cell) give an ICC that is sampling
+        noise around zero; the deflator is disclosed but not applied."""
         raw = bmp_z(strong_signal, kolari_pynnonen_adjust=False)
         adj = bmp_z(strong_signal, kolari_pynnonen_adjust=True)
-        assert adj.metadata.get("kolari_pynnonen_applied") is True
-        r = adj.metadata["kolari_pynnonen_r"]
-        n_eff = adj.metadata["kolari_pynnonen_n_eff"]
-        assert 0.0 <= r <= 1.0
-        assert n_eff >= 1.0
-        # Scaling factor ≤ 1 always (r ∈ [0,1]), so |z_adj| ≤ |z_raw|.
-        assert abs(adj.stat) <= abs(raw.stat) + 1e-9
-        assert adj.metadata["stat_uncorrected"] == pytest.approx(raw.stat)
+        assert adj.metadata["kolari_pynnonen_applied"] is False
+        assert adj.metadata["kolari_pynnonen_scaling"] >= KP_MATERIAL_SCALE
+        assert adj.stat == pytest.approx(raw.stat)
+        assert "stat_uncorrected" not in adj.metadata
 
     def test_prediction_error_variance_default_off(self, strong_signal):
         result = bmp_z(strong_signal)
@@ -547,8 +629,11 @@ class TestBmpTest:
         assert both.value == pytest.approx(base.value * ratio, rel=1e-6)
         if both.metadata.get("kolari_pynnonen_applied"):
             assert abs(both.stat) <= abs(both.metadata["stat_uncorrected"]) + 1e-9
+            # Compare like with like: the PE-invariance claim is about the
+            # *uncorrected* BMP z. Comparing it to ``base.stat`` (the
+            # KP-shrunk z) only holds when the KP deflator happens to be ~1.
             assert both.metadata["stat_uncorrected"] == pytest.approx(
-                base.stat, rel=1e-6
+                base.metadata["stat_uncorrected"], rel=1e-6
             )
 
     def test_kolari_pynnonen_skipped_without_clusters(self):
@@ -621,16 +706,21 @@ def _make_continuous_signal(
     n_dates: int = 500,
     event_prob: float = 0.02,
     seed: int = 42,
+    burn_in: int = 70,
 ) -> pl.DataFrame:
-    """Synthetic continuous event density: stronger |density| → larger return."""
+    """Synthetic continuous event density: stronger |density| → larger return.
+
+    The first ``burn_in`` days carry returns but no events, so every event has
+    an estimation window behind it (see :func:`_make_event_signal`).
+    """
     rng = np.random.default_rng(seed)
     dates = [datetime(2020, 1, 1) + timedelta(days=i) for i in range(n_dates)]
     assets = [f"asset_{i}" for i in range(n_assets)]
 
     rows = []
-    for d in dates:
+    for di, d in enumerate(dates):
         for a in assets:
-            is_event = rng.random() < event_prob
+            is_event = di >= burn_in and rng.random() < event_prob
             if is_event:
                 magnitude = rng.uniform(0.5, 5.0)
                 direction = rng.choice([-1.0, 1.0])
@@ -660,9 +750,10 @@ class TestEventIc:
         df = _make_continuous_signal()
         result = event_ic(df)
         assert result.value > 0
-        assert (
-            result.metadata["method"]
-            == "Spearman rank correlation (|density| vs signed_car)"
+        assert result.metadata["method"] == (
+            "Spearman rank correlation between |factor| and "
+            "signed abnormal return; Fisher z with the "
+            "Fieller-Hartley-Pearson Spearman SE"
         )
 
     def test_discrete_signal_skipped(self, strong_signal):
@@ -717,14 +808,16 @@ class TestComputeCaarNonFinite:
 
     def _two_event_date(self, bad: float | None) -> pl.DataFrame:
         # One date, two events: one good return, one non-finite.
-        return pl.DataFrame(
-            {
-                "date": [datetime(2020, 1, 1)] * 2 + [datetime(2020, 1, 2)] * 2,
-                "asset_id": ["A", "B", "A", "B"],
-                "factor": [1.0, 1.0, 1.0, 1.0],
-                "forward_return": [0.02, bad, 0.04, 0.06],
-            }
-        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        return with_estimation_window(
+            pl.DataFrame(
+                {
+                    "date": [datetime(2020, 1, 1)] * 2 + [datetime(2020, 1, 2)] * 2,
+                    "asset_id": ["A", "B", "A", "B"],
+                    "factor": [1.0, 1.0, 1.0, 1.0],
+                    "forward_return": [0.02, bad, 0.04, 0.06],
+                }
+            ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        )
 
     @pytest.mark.parametrize("bad", [float("nan"), None])
     def test_non_finite_return_does_not_poison_date_mean(self, bad):
@@ -740,14 +833,16 @@ class TestComputeCaarNonFinite:
     def test_nan_factor_is_dropped(self):
         # NaN != 0 is True in polars, so a NaN factor survives the event
         # filter and would make signed_car NaN.
-        df = pl.DataFrame(
-            {
-                "date": [datetime(2020, 1, 1)] * 2,
-                "asset_id": ["A", "B"],
-                "factor": [1.0, float("nan")],
-                "forward_return": [0.02, 0.03],
-            }
-        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        df = with_estimation_window(
+            pl.DataFrame(
+                {
+                    "date": [datetime(2020, 1, 1)] * 2,
+                    "asset_id": ["A", "B"],
+                    "factor": [1.0, float("nan")],
+                    "forward_return": [0.02, 0.03],
+                }
+            ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        )
         with pytest.warns(UserWarning, match="non-finite"):
             out = compute_caar(df)
         assert out["caar"][0] == pytest.approx(0.02)
@@ -819,15 +914,19 @@ class TestCaarSameSampleContract:
         assert result.stat != 0.0
 
     def test_dropped_event_count_surfaces_from_compute_caar(self):
-        df = pl.DataFrame(
-            {
-                "date": [datetime(2020, 1, 1) + timedelta(days=i) for i in range(20)]
-                * 2,
-                "asset_id": ["A"] * 20 + ["B"] * 20,
-                "factor": [1.0] * 40,
-                "forward_return": [0.01] * 39 + [float("nan")],
-            }
-        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        df = with_estimation_window(
+            pl.DataFrame(
+                {
+                    "date": [
+                        datetime(2020, 1, 1) + timedelta(days=i) for i in range(20)
+                    ]
+                    * 2,
+                    "asset_id": ["A"] * 20 + ["B"] * 20,
+                    "factor": [1.0] * 40,
+                    "forward_return": [0.01] * 39 + [float("nan")],
+                }
+            ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        )
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
             result = caar(compute_caar(df), forward_periods=1)
@@ -916,6 +1015,20 @@ class TestKolariPynnonenDefault:
         assert result.metadata["kolari_pynnonen_applied"] is True
         assert "kolari_pynnonen_r" in result.metadata
 
+    def test_kolari_pynnonen_shrinks_z_when_clustered(self):
+        """K-P adjustment must not expand |z|; when rho > 0 it strictly shrinks."""
+        panel = self._null_panel(0, 4)
+        raw = bmp_z(panel, forward_periods=1, kolari_pynnonen_adjust=False)
+        adj = bmp_z(panel, forward_periods=1, kolari_pynnonen_adjust=True)
+        assert adj.metadata["kolari_pynnonen_applied"] is True
+        r = adj.metadata["kolari_pynnonen_r"]
+        n_eff = adj.metadata["kolari_pynnonen_n_eff"]
+        assert 0.0 < r <= 1.0
+        assert n_eff > 1.0
+        assert adj.metadata["kolari_pynnonen_scaling"] < KP_MATERIAL_SCALE
+        assert abs(adj.stat) < abs(raw.stat)
+        assert adj.metadata["stat_uncorrected"] == pytest.approx(raw.stat)
+
     def test_one_event_per_period_is_the_identity(self):
         panel = self._null_panel(1, 1)
         on = bmp_z(panel, forward_periods=1, estimation_window=60)
@@ -988,12 +1101,13 @@ class TestBmpZEventPeriodAdvisory:
         assert "few_events" not in result.warning_codes
 
     def test_one_event_per_period_does_not_fire(self):
-        # 20 events over 20 periods: no clustering, so the event-count
-        # floor is the only gate and the period advisory stays silent.
+        # 30 events over 30 periods: no clustering and the count clears the
+        # stride-scaled floor (h=1, so 30), leaving both FEW_EVENTS triggers
+        # silent.
         result = bmp_z(
-            self._panel(0, 1, n_dates=150), forward_periods=1, estimation_window=60
+            self._panel(0, 1, n_dates=190), forward_periods=1, estimation_window=60
         )
-        assert result.metadata["n_event_periods"] == result.metadata["n_events"] == 20
+        assert result.metadata["n_event_periods"] == result.metadata["n_events"] == 30
         assert "few_events" not in result.warning_codes
 
     def test_eight_period_null_size_band(self):
@@ -1012,3 +1126,58 @@ class TestBmpZEventPeriodAdvisory:
                 rej += r.p_value < 0.05
         # measured 0.107 (SE 0.015) at 400 reps
         assert 0.03 <= rej / reps <= 0.20
+
+
+class TestEstimandDifferenceIsPinned:
+    """``caar`` is magnitude-weighted and its siblings are sign-weighted, so
+    their ``value``s answer different questions. The docs say so; this pins the
+    behaviour they describe.
+    """
+
+    @staticmethod
+    def _intensity_panel() -> pl.DataFrame:
+        # Same events, graded intensity: half fire at 1, half at 10.
+        rng = np.random.default_rng(5)
+        n = 400
+        rets = rng.normal(0.0, 0.02, n)
+        factor = np.zeros(n)
+        for i, d in enumerate(range(80, n, 11)):
+            factor[d] = 1.0 if i % 2 else 10.0
+            rets[d] = 0.03 if i % 2 else 0.01
+        return pl.DataFrame(
+            {
+                "date": pl.Series(
+                    [datetime(2020, 1, 1) + timedelta(days=i) for i in range(n)],
+                    dtype=pl.Datetime("ms"),
+                ),
+                "asset_id": ["A"] * n,
+                "factor": factor,
+                "forward_return": rets,
+            }
+        )
+
+    def test_caar_is_magnitude_weighted_and_the_siblings_are_not(self):
+        panel = self._intensity_panel()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            magnitude = caar(compute_caar(panel, forward_periods=5), forward_periods=5)
+            coerced = caar(
+                compute_caar(
+                    panel.with_columns(pl.col("factor").sign()), forward_periods=5
+                ),
+                forward_periods=5,
+            )
+        # The high-intensity events dominate the magnitude-weighted value.
+        assert abs(magnitude.value) > 3 * abs(coerced.value)
+
+    def test_coercing_the_factor_puts_caar_on_the_siblings_footing(self):
+        panel = self._intensity_panel().with_columns(pl.col("factor").sign())
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            signed_caar = caar(
+                compute_caar(panel, forward_periods=5), forward_periods=5
+            )
+            hit = event_hit_rate(panel, forward_periods=5)
+        # Same sample, same weighting: both now describe the mean signed
+        # abnormal return of the same events.
+        assert signed_caar.n_obs == hit.n_obs

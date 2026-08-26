@@ -20,6 +20,53 @@ from factrix._axis import (
 from factrix._metric_index import Cell, MetricSpec
 from factrix._results import EvaluationResult, MetricResult
 
+ESTIMATION_WARMUP = 30
+"""Non-event rows prepended per asset by :func:`with_estimation_window`."""
+
+
+def with_estimation_window(
+    data: pl.DataFrame,
+    *,
+    n_warmup: int = ESTIMATION_WARMUP,
+    return_col: str = "forward_return",
+) -> pl.DataFrame:
+    """Prepend zero-return non-event rows so the event family has an estimation
+    window, without moving any expected value.
+
+    The event metrics subtract an estimation-window mean before testing
+    (``_attach_abnormal_return``), so an event with no prior history is dropped
+    as non-finite and a fixture built from events alone tests nothing. Warming
+    up with **zero** returns makes the estimated mean exactly zero, so the
+    abnormal return equals the raw return and a fixture's hand-computed
+    expectations carry over unchanged — the warm-up buys the history without
+    changing the arithmetic.
+
+    Every non-key column is filled with 0.0 (numeric) or the first observed
+    value, and ``factor`` is 0.0 so the warm-up rows are never events.
+    """
+    if data.is_empty():
+        return data
+    first_date = data["date"].min()
+    step = timedelta(days=1)
+    assets = data["asset_id"].unique().sort().to_list()
+    rows = []
+    for asset in assets:
+        for i in range(n_warmup, 0, -1):
+            row: dict[str, Any] = {
+                "date": first_date - i * step,
+                "asset_id": asset,
+                "factor": 0.0,
+                return_col: 0.0,
+            }
+            for col in data.columns:
+                if col in row:
+                    continue
+                value = data[col][0]
+                row[col] = 0.0 if isinstance(value, (int, float)) else value
+            rows.append(row)
+    warmup = pl.DataFrame(rows, schema=data.schema)
+    return pl.concat([warmup, data], how="vertical").sort(["asset_id", "date"])
+
 
 def make_spec(name: str) -> MetricSpec:
     """Minimal panel-cell MetricSpec for test fixtures."""

@@ -15,6 +15,8 @@ from factrix.metrics.mfe_mae import (
     mfe_mae,
 )
 
+from .conftest import with_estimation_window
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -223,14 +225,24 @@ class TestMfeMae:
 
 class TestProfitFactor:
     def _event_outcomes(self, returns: list[float]) -> pl.DataFrame:
+        """Events on consecutive days behind a zero-return estimation window.
+
+        ``profit_factor`` sums *abnormal* returns, so the events need history;
+        the zero warm-up leaves the abnormal return equal to the raw return
+        each case below is written against.
+        """
         n = len(returns)
-        return pl.DataFrame(
-            {
-                "date": [datetime(2020, 1, 1) + timedelta(days=i) for i in range(n)],
-                "asset_id": ["A"] * n,
-                "factor": [1.0] * n,
-                "forward_return": returns,
-            }
+        return with_estimation_window(
+            pl.DataFrame(
+                {
+                    "date": [
+                        datetime(2020, 1, 1) + timedelta(days=i) for i in range(n)
+                    ],
+                    "asset_id": ["A"] * n,
+                    "factor": [1.0] * n,
+                    "forward_return": returns,
+                }
+            )
         )
 
     def test_strong_signal_above_one(self, event_data):
@@ -415,3 +427,37 @@ class TestWorstAdverseQuartile:
                 float(mae_z.quantile(0.25))
             )
             assert "mae_z_p75" not in result.metadata
+
+
+class TestExcursionRatioEdges:
+    """The best possible outcome must not share a score with the worst."""
+
+    @staticmethod
+    def _per_event(mfe: list[float], mae: list[float]) -> pl.DataFrame:
+        return pl.DataFrame({"mfe": mfe, "mae": mae})
+
+    def test_no_adverse_excursion_is_unbounded_not_zero(self):
+        n = 40
+        rng = np.random.default_rng(0)
+        result = mfe_mae(self._per_event(list(rng.uniform(0.05, 0.09, n)), [0.0] * n))
+        assert math.isinf(result.value)
+        assert result.metadata["mfe_mae_ratio_status"] == (
+            "unbounded_no_adverse_excursion"
+        )
+
+    def test_no_excursion_at_all_is_undefined(self):
+        n = 40
+        result = mfe_mae(self._per_event([0.0] * n, [0.0] * n))
+        assert math.isnan(result.value)
+        assert result.metadata["mfe_mae_ratio_status"] == "undefined_no_excursion"
+
+    def test_ordinary_sample_is_finite(self):
+        n = 40
+        rng = np.random.default_rng(1)
+        result = mfe_mae(
+            self._per_event(
+                list(rng.uniform(0.02, 0.06, n)), list(-rng.uniform(0.01, 0.03, n))
+            )
+        )
+        assert math.isfinite(result.value)
+        assert result.metadata["mfe_mae_ratio_status"] == "finite"

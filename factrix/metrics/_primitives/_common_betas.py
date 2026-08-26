@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+import numpy as np
 import polars as pl
 
 from factrix._axis import (
@@ -14,6 +15,7 @@ from factrix._axis import (
     SpecRole,
 )
 from factrix._metric_index import cell
+from factrix._stats.ols import _ols_nw_slope_se
 from factrix._types import EPSILON
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import _attach_drop_stats, _finite_expr
@@ -34,6 +36,68 @@ _COMMON_BETA_DROP_REASON = (
 )
 
 
+def _ew_portfolio_slope(
+    data: pl.DataFrame,
+    betas: pl.DataFrame,
+    factor_col: str,
+    return_col: str,
+    forward_periods: int,
+) -> tuple[float | None, float | None, int]:
+    r"""Calendar-time equal-weight portfolio slope on the common factor.
+
+    The cross-asset test downstream treats the per-asset $\hat\beta_i$ as
+    independent draws. Assets loading on a common component do not give
+    independent betas, and $\mathrm{std}(\beta)/\sqrt{N}$ then understates
+    $\mathrm{Var}(\bar\beta)$ without bound: at $N = 8$ and a residual
+    correlation of 0.5 the iid test rejected 44.8% of true nulls at a nominal
+    5%, and 79.2% at 0.9.
+
+    The calendar-time form fixes it without an equicorrelation estimate
+    ([Fama (1998)][fama-1998] portfolio approach, the same construction
+    ``caar`` uses): with one regressor shared by every asset,
+    $\bar{\hat\beta} = \mathrm{mean}_i \hat\beta_i$ is exactly the OLS slope of
+    the equal-weight portfolio return $\bar R_t = \mathrm{mean}_i R_{it}$ on
+    $F_t$ whenever the assets share the regressor sample, and that
+    regression's residual $\bar\varepsilon_t$ carries whatever cross-asset
+    residual covariance and heteroskedasticity there is. Its Newey-West SE
+    with an $h - 1$ bandwidth (the overlap of $h$-period forward returns) is
+    the sampling variance of the mean beta *given* the betas.
+
+    Dates are those on which at least one surviving asset has a finite
+    ``(factor, return)`` pair; on an unbalanced panel the portfolio holds the
+    assets present that date and its slope can differ from the mean of the
+    per-asset slopes — both are reported so the gap is visible.
+
+    Returns ``(slope, var, n_periods)``; ``(None, None, n_periods)`` when
+    fewer than three dates carry a pair or the factor has no time variation.
+    """
+    if betas.height < 1:
+        return None, None, 0
+    # Pivot to a date x asset grid and average in numpy: a polars group_by
+    # mean sums in a thread-dependent order, and the last-ulp drift breaks the
+    # batch == single-factor equality the primitive promises.
+    survivors = data.join(betas.select("asset_id"), on="asset_id", how="inner")
+    wide_y = (
+        survivors.select("date", "asset_id", return_col)
+        .pivot(index="date", on="asset_id", values=return_col)
+        .sort("date")
+    )
+    wide_x = (
+        survivors.select("date", "asset_id", factor_col)
+        .pivot(index="date", on="asset_id", values=factor_col)
+        .sort("date")
+    )
+    y = np.nanmean(wide_y.drop("date").to_numpy().astype(np.float64), axis=1)
+    x = np.nanmean(wide_x.drop("date").to_numpy().astype(np.float64), axis=1)
+    n_periods = len(y)
+    if n_periods < 3:
+        return None, None, n_periods
+    slope, se, _ = _ols_nw_slope_se(y, x, lags=max(forward_periods - 1, 0))
+    if se < EPSILON:
+        return None, None, n_periods
+    return slope, se * se, n_periods
+
+
 @metric(
     cell=cell(FactorScope.COMMON, FactorDensity.DENSE, structure=DataStructure.PANEL),
     aggregation=Aggregation.TS_THEN_CS,
@@ -46,6 +110,7 @@ def compute_common_betas(
     data: pl.DataFrame,
     factor_cols: Sequence[str] = ("factor",),
     return_col: str = "forward_return",
+    forward_periods: int = 5,
 ) -> dict[str, pl.DataFrame]:
     r"""Per-asset time-series ordinary least squares (OLS).
 
@@ -72,11 +137,21 @@ def compute_common_betas(
         factor_cols: Factor column names to score. All factors run in a
             single query regardless of N.
         return_col: Forward-return column shared across factors.
+        forward_periods: Overlap horizon of ``return_col``; sets the
+            Newey-West bandwidth ($h - 1$) of the calendar-time slope
+            variance below. Injected by ``evaluate`` from the data's stamped
+            horizon.
 
     Returns:
         Dict mapping each factor name to a DataFrame with columns
         ``asset_id, beta, alpha, t_stat, r_squared, n_obs`` sorted by
-        ``asset_id``, plus a broadcast ``_drop_stats`` carrier column on the
+        ``asset_id``, three broadcast calendar-time columns —
+        ``ew_portfolio_beta`` / ``ew_portfolio_beta_var`` (the equal-weight
+        portfolio's slope on the factor and its Newey-West variance, the
+        sampling variance ``common_beta`` tests the mean beta with — see
+        :func:`_ew_portfolio_slope`; ``null`` when they cannot be estimated)
+        and ``ew_portfolio_periods`` (dates behind them) — plus a broadcast
+        ``_drop_stats`` carrier column on the
         assets axis (see :func:`_attach_drop_stats`) so cross-asset consumers
         can surface how much of the universe was silently dropped. An asset is
         emitted only with at least ``MIN_COMMON_BETA_PERIODS_HARD`` **finite**
@@ -85,6 +160,21 @@ def compute_common_betas(
         ``t_stat`` may be **null** — see Notes.
 
     Notes:
+        **``t_stat`` is homoskedastic and overlap-uncorrected.** It is the
+        textbook OLS $t$ from the closed forms above: no heteroskedasticity
+        correction and, more importantly here, no HAC term. With
+        ``forward_periods > 1`` each asset's forward-return series carries
+        MA($h-1$) dependence by construction (Hansen-Hodrick 1980), so this
+        $t$ is inflated by roughly $\sqrt{h}$ and its $p$-value is not usable
+        as a per-asset significance test at a long horizon. It is published as
+        a descriptive fit diagnostic — how well this asset's returns track the
+        factor, alongside ``r_squared`` — and ``common_beta_profile`` surfaces
+        it as such. For an actual single-asset slope test with a Newey-West
+        SE and an $h-1$ bandwidth floor, use
+        :func:`~factrix.metrics.predictive_beta.predictive_beta`. The
+        cross-asset headline, ``common_beta``, consumes only the $\beta$
+        vector and is unaffected.
+
         Sample definition: "complete pair" means *finite* pair — non-null and
         neither ``NaN`` nor ``±inf``. polars keeps ``NaN`` as an ordinary float
         (unlike pandas, where ``NaN`` is the missing marker), so a single
@@ -107,11 +197,11 @@ def compute_common_betas(
     if not cols:
         raise ValueError("factor_cols must be non-empty")
 
-    return {f: _common_betas_one(data, f, return_col) for f in cols}
+    return {f: _common_betas_one(data, f, return_col, forward_periods) for f in cols}
 
 
 def _common_betas_one(
-    data: pl.DataFrame, factor_col: str, return_col: str
+    data: pl.DataFrame, factor_col: str, return_col: str, forward_periods: int
 ) -> pl.DataFrame:
     # In-line asset count vs the raw universe, captured before the valid-mask
     # filter so the carried drop rate reflects the silent reduction the
@@ -193,6 +283,14 @@ def _common_betas_one(
         )
         .sort("asset_id")
         .collect()
+    )
+    ew_beta, ew_var, ew_periods = _ew_portfolio_slope(
+        data.filter(valid_mask), result, factor_col, return_col, forward_periods
+    )
+    result = result.with_columns(
+        pl.lit(ew_beta, dtype=pl.Float64).alias("ew_portfolio_beta"),
+        pl.lit(ew_var, dtype=pl.Float64).alias("ew_portfolio_beta_var"),
+        pl.lit(ew_periods, dtype=pl.Int64).alias("ew_portfolio_periods"),
     )
     return _attach_drop_stats(
         result,

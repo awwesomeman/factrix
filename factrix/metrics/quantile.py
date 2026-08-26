@@ -153,6 +153,7 @@ def quantile_spread(
     tie_policy: str = "ordinal",
     inference: NonOverlapping | NeweyWest = NON_OVERLAPPING,
     *,
+    expected_warnings: tuple[str, ...] = (),
     _precomputed_series: dict[str, pl.DataFrame] | None = None,
 ) -> dict[str, MetricResult]:
     """long-short spread (per-period mean).
@@ -294,6 +295,7 @@ def quantile_spread(
             full_series=(
                 full_series_by_factor[f] if full_series_by_factor is not None else None
             ),
+            expected_warnings=expected_warnings,
         )
         for f in cols
     }
@@ -310,6 +312,7 @@ def _quantile_spread_from_series(
     forward_periods: int,
     n_groups: int,
     full_series: pl.DataFrame | None,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     """Per-factor t-test pipeline shared by single and batch paths.
 
@@ -446,6 +449,7 @@ def _quantile_spread_from_series(
         metric_name="quantile_spread",
         metadata=metadata,
         warning_codes=warning_codes,
+        expected_warnings=expected_warnings,
     )
     # A NaN headline stat means the tested spread series carries no dispersion
     # (or the HAC SE collapsed): ``mean_spread`` still stands, the t does not.
@@ -478,6 +482,7 @@ def quantile_spread_vw(
     weight_col: str = "market_cap",
     tie_policy: str = "ordinal",
     lag_weights: bool = True,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Value-weighted long-short spread — alpha concentration diagnostic.
 
@@ -715,6 +720,7 @@ def quantile_spread_vw(
         metric_name="quantile_spread_vw",
         metadata=metadata,
         warning_codes=warning_codes,
+        expected_warnings=expected_warnings,
     )
     # A NaN headline stat means the tested spread series carries no dispersion
     # (or the HAC SE collapsed): ``mean_spread`` still stands, the t does not.

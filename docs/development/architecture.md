@@ -670,7 +670,11 @@ preserved (no `.sign()` coercion at this layer).
 Failure modes:
 
 - Ljung-Box p < 0.05 on residuals → `WarningCode.SERIAL_CORRELATION_DETECTED`.
-- Consecutive event gap < 2·`forward_periods` → `WarningCode.EVENT_WINDOW_OVERLAP`.
+- Consecutive event gap on one asset < `forward_periods` → the event is
+  dropped by the event-axis non-overlap sampling pass and
+  `WarningCode.EVENT_WINDOW_OVERLAP` fires once per metric. The gap that
+  matters is one horizon, not two: windows `(t, t+h]` and `(t', t'+h]`
+  share bars exactly when `t' - t < h`.
 
 ---
 

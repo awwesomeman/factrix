@@ -168,6 +168,28 @@ class TestEventAroundReturn:
         assert result.metadata["reason"] == "no_price_data"
         assert result.metadata["per_offset"] == {}
 
+    def test_reports_its_sample_size_on_the_event_axis(self, event_data):
+        # n_obs is the library's single source of truth for sample size, and
+        # this was the one event metric leaving it null — breaking the uniform
+        # column when the event battery is stacked with to_frame().
+        result = event_around_return(event_data)
+        n_events = event_data.filter(pl.col("factor") != 0).height
+        assert result.n_obs == n_events
+        assert result.n_obs_axis == "events"
+        assert result.metadata["n_events"] == n_events
+
+    def test_sample_size_counts_events_not_offset_rows(self, event_data):
+        # One event contributes one row per offset, so a longer offset list
+        # must not inflate the count.
+        few = event_around_return(event_data, offsets=[1])
+        many = event_around_return(event_data, offsets=[-3, -1, 1, 6, 12])
+        assert few.n_obs == many.n_obs
+
+    def test_short_circuit_stamps_a_zero_event_sample(self, no_price_data):
+        result = event_around_return(no_price_data)
+        assert result.n_obs == 0
+        assert result.n_obs_axis == "events"
+
 
 class TestEventMetricThroughEvaluate:
     def test_price_survives_dag_projection(self, event_data):
@@ -201,6 +223,48 @@ class TestEventMetricThroughEvaluate:
 # ---------------------------------------------------------------------------
 # signal_density
 # ---------------------------------------------------------------------------
+
+
+class TestSignalDensityCountsEveryFiringAsset:
+    """An undisclosed `n >= 2` filter dropped every asset that fired once,
+    understating bars-per-event on exactly the sparse triggers this metric
+    describes.
+    """
+
+    @staticmethod
+    def _panel(n_bars: int = 200) -> pl.DataFrame:
+        rows = []
+        for a in range(10):
+            # A0 fires 50 times (4 bars/event); A1..A9 fire once (200 each).
+            for d in range(n_bars):
+                is_event = d % 4 == 0 if a == 0 else d == 100
+                rows.append(
+                    {
+                        "date": datetime(2020, 1, 1) + timedelta(days=d),
+                        "asset_id": f"A{a}",
+                        "factor": 1.0 if is_event else 0.0,
+                        "forward_return": 0.01,
+                    }
+                )
+        return pl.DataFrame(rows)
+
+    def test_single_event_assets_are_counted(self):
+        result = signal_density(self._panel())
+        # (200/50 + 9 * 200/1) / 10 = 180.4, not the busy asset's 4.0.
+        assert result.value == pytest.approx(180.4)
+        assert result.metadata["n_assets_with_events"] == 10
+
+    def test_whole_panel_floor_still_applies(self):
+        rows = [
+            {
+                "date": datetime(2020, 1, 1),
+                "asset_id": "A",
+                "factor": 1.0,
+                "forward_return": 0.01,
+            }
+        ]
+        result = signal_density(pl.DataFrame(rows))
+        assert result.metadata["reason"] == "insufficient_events"
 
 
 class TestSignalDensity:
@@ -247,3 +311,86 @@ class TestImports:
                 signal_density,
             ]
         )
+
+
+class TestLeakageHeadline:
+    """The leakage score is positive by construction; drift must not add to it,
+    and a score that was never computed must not read as perfect.
+    """
+
+    @staticmethod
+    def _panel(drift: float, n: int = 400, seed: int = 0) -> pl.DataFrame:
+        rng = np.random.default_rng(seed)
+        rows = []
+        for a in range(4):
+            rets = rng.normal(drift, 0.01, n)
+            prices = 100.0 * np.cumprod(1.0 + rets)
+            for d in range(n):
+                rows.append(
+                    {
+                        "date": datetime(2020, 1, 1) + timedelta(days=d),
+                        "asset_id": f"A{a}",
+                        "factor": 1.0 if d >= 40 and d % 17 == 0 else 0.0,
+                        "price": float(prices[d]),
+                    }
+                )
+        return pl.DataFrame(rows)
+
+    def test_drift_does_not_inflate_the_leakage_score(self):
+        # Both panels have zero true leakage; the drifting one used to score
+        # ~2.5x higher purely from its trend.
+        flat = event_around_return(self._panel(0.0))
+        trending = event_around_return(self._panel(0.001))
+        assert trending.metadata["baseline_bar_return"] > 5e-4
+        assert trending.value == pytest.approx(flat.value, rel=1.5)
+
+    @staticmethod
+    def _signed_drift_panel(sign: float, n: int = 3000) -> pl.DataFrame:
+        # Almost pure drift: 0.2% a period with a 0.01% noise, an event every
+        # 40 periods, all carrying the same factor sign.
+        rng = np.random.default_rng(0)
+        rets = 0.002 + 0.0001 * rng.standard_normal(n)
+        prices = 100.0 * np.cumprod(1.0 + rets)
+        factor = np.zeros(n)
+        factor[40::40] = sign
+        return pl.DataFrame(
+            {
+                "date": [datetime(2020, 1, 1) + timedelta(days=d) for d in range(n)],
+                "asset_id": ["A"] * n,
+                "price": prices,
+                "factor": factor,
+            }
+        )
+
+    def test_drift_is_removed_on_both_factor_signs(self):
+        # The returns are signed, so the baseline must be too. Subtracting the
+        # unsigned drift from a short event's -mu scored 2 x mu (t ~ -400).
+        long = event_around_return(self._signed_drift_panel(1.0))
+        short = event_around_return(self._signed_drift_panel(-1.0))
+        assert long.value < 1e-4
+        assert short.value < 1e-4
+        assert short.value == pytest.approx(long.value, abs=1e-5)
+        # Pre-event offsets are single bars, so the signed baseline removes
+        # their drift entirely; post-event offsets are cumulative and carry
+        # k bars of it by design.
+        for result in (long, short):
+            for k, stats in result.metadata["per_offset"].items():
+                if k < 0 and stats.get("t") is not None:
+                    assert abs(stats["t"]) < 3
+
+    def test_score_is_reported_with_its_null_scale(self):
+        result = event_around_return(self._panel(0.0))
+        scale = result.metadata["leakage_null_scale"]
+        assert scale is not None and scale > 0
+        # A clean panel sits within a small multiple of the null scale — the
+        # number the score has to be read against, since it is never 0.
+        assert result.value < 3 * scale
+        for stats in result.metadata["per_offset"].values():
+            if stats.get("mean") is not None:
+                assert stats["se"] > 0
+                assert stats["t"] is not None
+
+    def test_no_pre_event_offset_reports_nan_not_zero(self):
+        result = event_around_return(self._panel(0.0), offsets=[1, 6, 12])
+        assert math.isnan(result.value)
+        assert result.metadata["reason"] == "no_pre_event_offset_with_enough_events"

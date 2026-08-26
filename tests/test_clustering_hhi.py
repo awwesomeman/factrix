@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 
 import polars as pl
 import pytest
+from factrix.metrics._helpers import _estimate_within_date_icc
 from factrix.metrics.clustering_hhi import clustering_hhi
 
 
@@ -69,3 +70,71 @@ class TestEventSelection:
         result = clustering_hhi(_panel(rows))
         assert result.metadata["n_event_periods"] == 20
         assert result.value == pytest.approx(1 / 20)
+
+
+class TestTheAxesHhiCannotSee:
+    """HHI is invariant to cross-sectional clustering and to temporal bursting.
+    Both are now measured beside it, because the documented "HHI >= 0.3 means
+    clustered" rule was unreachable and pointed users away from the regime the
+    Kolari-Pynnonen adjustment exists for.
+    """
+
+    @staticmethod
+    def _panel(n_assets: int, event_days: list[int], n_dates: int = 200):
+        rows = []
+        for d in range(n_dates):
+            for a in range(n_assets):
+                rows.append(
+                    {
+                        "date": datetime(2020, 1, 1) + timedelta(days=d),
+                        "asset_id": f"A{a}",
+                        "factor": 1.0 if d in event_days else 0.0,
+                        "forward_return": 0.01,
+                    }
+                )
+        return pl.DataFrame(rows)
+
+    def test_hhi_is_blind_to_cross_sectional_clustering(self):
+        days = list(range(10, 90, 2))
+        one = clustering_hhi(self._panel(1, days))
+        many = clustering_hhi(self._panel(20, days))
+        # Same HHI, same normalized HHI — 20x the same-period clustering.
+        assert one.value == pytest.approx(many.value)
+        assert one.metadata["hhi_normalized"] == pytest.approx(
+            many.metadata["hhi_normalized"]
+        )
+        assert many.metadata["hhi_normalized"] == pytest.approx(0.0, abs=1e-12)
+        # The companion measure is not blind.
+        assert one.metadata["events_per_period_mean"] == pytest.approx(1.0)
+        assert many.metadata["events_per_period_mean"] == pytest.approx(20.0)
+        assert many.metadata["max_events_per_period"] == 20
+
+    def test_events_per_period_mean_feeds_the_kp_adjustment(self):
+        # It is the same n_eff the deflator consumes, so the diagnostic and the
+        # correction read one number.
+        panel = self._panel(20, list(range(10, 90, 2)))
+        events = panel.filter(pl.col("factor") != 0).select(
+            "date", pl.col("factor").alias("_v")
+        )
+        _, n_eff, _ = _estimate_within_date_icc(events, "_v")
+        assert clustering_hhi(panel).metadata[
+            "events_per_period_mean"
+        ] == pytest.approx(n_eff)
+
+    def test_temporal_bursting_is_measured(self):
+        # 30 events on consecutive periods vs 30 spread far apart: identical
+        # HHI, opposite burst shares.
+        burst = clustering_hhi(self._panel(1, list(range(20, 50))), cluster_window=3)
+        spread = clustering_hhi(
+            self._panel(1, list(range(20, 200, 6))), cluster_window=3
+        )
+        assert burst.value == pytest.approx(spread.value, rel=0.2)
+        assert burst.metadata["share_events_in_bursts"] > 0.9
+        assert spread.metadata["share_events_in_bursts"] == pytest.approx(0.0)
+
+    def test_cluster_window_is_no_longer_inert(self):
+        panel = self._panel(1, list(range(20, 200, 5)))
+        narrow = clustering_hhi(panel, cluster_window=3)
+        wide = clustering_hhi(panel, cluster_window=10)
+        assert narrow.metadata["share_events_in_bursts"] == pytest.approx(0.0)
+        assert wide.metadata["share_events_in_bursts"] > 0.9
