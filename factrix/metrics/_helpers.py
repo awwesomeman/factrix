@@ -1366,6 +1366,7 @@ def _surface_null_drop(
     metric_name: str,
     metadata: dict[str, Any],
     warning_codes: list[str],
+    expected_warnings: tuple[str, ...] = (),
 ) -> None:
     """Record a SERIES→SCALAR consumer's own null-drop with the shared schema.
 
@@ -1390,7 +1391,9 @@ def _surface_null_drop(
         drop_reason=drop_reason,
     )
     metadata.update(stats)
-    code = _warn_if_high_drop_rate(stats, metric_name, axis="periods")
+    code = _warn_if_high_drop_rate(
+        stats, metric_name, axis="periods", expected_warnings=expected_warnings
+    )
     if code is not None:
         warning_codes.append(code)
 

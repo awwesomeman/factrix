@@ -67,6 +67,7 @@ def directional_hit_rate(
     forward_periods: int = 5,
     factor_col: str = "factor",
     return_col: str = "forward_return",
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Directional hit rate via the Pesaran-Timmermann (1992) test.
 
@@ -274,6 +275,7 @@ def directional_hit_rate(
         f"borderline p-values cautiously.",
         WarningCode.FEW_DIRECTIONAL_PAIRS,
         axis="pairs",
+        expected_warnings=expected_warnings,
     )
     if warn_code is not None:
         warning_codes.append(warn_code)

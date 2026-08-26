@@ -65,6 +65,7 @@ def oos_decay(
     value_col: str = "value",
     is_ratio: float = 0.7,
     survival_threshold: float = 0.5,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     """Single-split out-of-sample (OOS) survival ratio with sign-flip detection.
 
@@ -225,6 +226,7 @@ def oos_decay(
         metric_name="oos_decay",
         metadata=metadata,
         warning_codes=warning_codes,
+        expected_warnings=expected_warnings,
     )
     return MetricResult(
         value=survival,

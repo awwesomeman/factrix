@@ -74,6 +74,7 @@ def top_concentration(
     factor_col: str = "factor",
     return_col: str = "forward_return",
     weight_by: ConcentrationWeight = "abs_factor",
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Top-bucket concentration via Herfindahl-Hirschman index (HHI) inverse.
 
@@ -305,6 +306,7 @@ def top_concentration(
         f"it rejected 0 of 250 null draws at a nominal 5%): treat the p-value "
         f"as uninformative there and read the value descriptively.",
         WarningCode.BORDERLINE_PORTFOLIO_PERIODS,
+        expected_warnings=expected_warnings,
     )
     if warn_code is not None:
         warning_codes.append(warn_code)

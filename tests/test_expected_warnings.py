@@ -13,6 +13,7 @@ bit-for-bit unchanged.
 from __future__ import annotations
 
 import warnings
+from datetime import datetime, timedelta
 
 import factrix as fx
 import numpy as np
@@ -225,3 +226,114 @@ class TestDeclarationSurface:
         for res in results:
             few = _few_assets_warnings(res)
             assert few and all(w.expected for w in few)
+
+
+class TestEchoStopsForEveryMetric:
+    """The declaration is study-level, so it has to reach every warn path, not
+    only the two that gated on it by hand (``ic`` / ``fm_beta``). The matrix
+    below drives one metric per shared helper: ``_warn_below_floor``,
+    ``_warn_below_scaled_floor`` and the drop-rate helper behind
+    ``_surface_null_drop`` / ``_surface_drop_stats``.
+    """
+
+    @staticmethod
+    def _single_asset_panel(n_dates: int, rate: float, seed: int) -> pl.DataFrame:
+        rng = np.random.default_rng(seed)
+        flag = (rng.random(n_dates) < rate).astype(float)
+        rets = rng.normal(0.0, 0.01, n_dates)
+        raw = pl.DataFrame(
+            {
+                "date": [
+                    datetime(2020, 1, 1) + timedelta(days=i) for i in range(n_dates)
+                ],
+                "asset_id": ["A"] * n_dates,
+                "factor": flag,
+                "price": 100.0 * np.cumprod(1.0 + rets),
+            }
+        )
+        return fx.preprocess.compute_forward_return(raw, forward_periods=5)
+
+    @staticmethod
+    def _short_dense_panel(n_dates: int = 40) -> pl.DataFrame:
+        rng = np.random.default_rng(5)
+        raw = pl.DataFrame(
+            {
+                "date": [
+                    datetime(2020, 1, 1) + timedelta(days=i) for i in range(n_dates)
+                ],
+                "asset_id": ["A"] * n_dates,
+                "factor": rng.normal(size=n_dates),
+                "price": 100.0 * np.cumprod(1.0 + rng.normal(0, 0.01, n_dates)),
+            }
+        )
+        return fx.preprocess.compute_forward_return(raw, forward_periods=5)
+
+    def _cases(self):
+        thin_events = self._single_asset_panel(600, 0.05, seed=71)
+        return [
+            (
+                "predictive_beta",
+                self._short_dense_panel(),
+                {"pb": fx.metrics.predictive_beta()},
+                "unreliable_se_short_periods",
+            ),
+            (
+                "caar",
+                thin_events,
+                {"caar": fx.metrics.caar()},
+                "few_events",
+            ),
+            (
+                "corrado_rank",
+                thin_events,
+                {"c": fx.metrics.corrado_rank()},
+                "few_events",
+            ),
+            (
+                "event_hit_rate",
+                thin_events,
+                {"h": fx.metrics.event_hit_rate()},
+                "few_events",
+            ),
+            (
+                "bmp_z",
+                thin_events,
+                {"b": fx.metrics.bmp_z()},
+                "few_events",
+            ),
+        ]
+
+    def test_declaration_removes_the_echo_and_keeps_the_record(self):
+        # Run each case twice — undeclared, then declared — and compare. The
+        # undeclared run must echo the code (otherwise the case is vacuous);
+        # the declared run must echo strictly less while keeping an
+        # expected=True record.
+        for label, panel, metrics, code in self._cases():
+            with warnings.catch_warnings(record=True) as undeclared:
+                warnings.simplefilter("always")
+                plain = fx.evaluate(
+                    panel, metrics=metrics, factor_cols=["factor"], strict=False
+                )["factor"]
+            with warnings.catch_warnings(record=True) as declared:
+                warnings.simplefilter("always")
+                quiet = fx.evaluate(
+                    panel,
+                    metrics=metrics,
+                    factor_cols=["factor"],
+                    strict=False,
+                    expected_warnings=(code,),
+                )["factor"]
+
+            n_before = len([w for w in undeclared if f"{label}:" in str(w.message)])
+            n_after = len([w for w in declared if f"{label}:" in str(w.message)])
+            assert n_before > 0, f"{label} never echoed {code} — case is vacuous"
+            assert n_after < n_before, f"{label} still echoed {code}"
+
+            assert any(w.code.value == code for w in plain.warnings), label
+            records = [w for w in quiet.warnings if w.code.value == code]
+            assert records, f"{label} lost the {code} record"
+            assert all(w.expected for w in records), label
+            assert all(w.code.value != code for w in quiet.unexpected_warnings), label
+            # Inference is untouched by the declaration.
+            for key in metrics:
+                assert quiet.metrics[key].p_value == plain.metrics[key].p_value, label

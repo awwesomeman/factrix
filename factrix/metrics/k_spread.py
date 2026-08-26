@@ -180,6 +180,7 @@ def k_spread(
     factor_col: str = "factor",
     return_col: str = "forward_return",
     inference: NonOverlapping | NeweyWest = NON_OVERLAPPING,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Fixed-K Top-K vs Bottom-K long-short spread.
 
@@ -412,6 +413,7 @@ def k_spread(
         metric_name="k_spread",
         metadata=metadata,
         warning_codes=warning_codes,
+        expected_warnings=expected_warnings,
     )
     # A NaN headline stat means the tested spread series carries no dispersion
     # (or the HAC SE collapsed): ``mean_spread`` still stands, the t does not.

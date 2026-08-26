@@ -462,9 +462,7 @@ class TestBmpTest:
             # The 2%-per-day trigger clusters on some assets, so the event-axis
             # spacing pass has real work to do; declare that code and nothing
             # else may surface.
-            result = bmp_z(
-                strong_signal, expected_warnings=("event_window_overlap",)
-            )
+            result = bmp_z(strong_signal, expected_warnings=("event_window_overlap",))
         assert result.metadata["vol_source"] == "price"
         assert result.metadata["vol_estimation_lag"] == 0
         assert WarningCode.BMP_RETURN_VOL_FALLBACK.value not in result.warning_codes
