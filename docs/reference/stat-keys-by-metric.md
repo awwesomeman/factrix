@@ -361,7 +361,15 @@ Pre/post-event return profile; descriptive.
 - *descriptive*: `n_events` (distinct `(date, asset)` events behind the
   curve — also `n_obs`, axis `events`; one event contributes one row per
   offset, so this is not the row count), `per_offset` (dict
-  `offset → {mean, median, p25, p75, hit_rate, n}`), `interpretation`.
+  `offset → {mean, se, t, median, p25, p75, hit_rate, n}`, all measured as
+  **excess over** `baseline_bar_return`), `baseline_bar_return` (the panel's
+  unconditional mean single-bar return, subtracted so a trending asset does
+  not read as leaky), `leakage_null_scale` (`≈ 0.8 × mean se` — what the
+  headline is worth under *no* leakage, since `E|x̄| > 0` always and shrinks
+  as events accumulate), `interpretation`. `reason` is set to
+  `no_pre_event_offset_with_enough_events` and `value` is `NaN` when no
+  negative offset cleared the 5-event floor — `0.0` there was the *best*
+  possible score for a quantity never computed.
 - `p_value` is `None` — no hypothesis test runs, and no offset carries a
   `p`: the headline `value` is the pre-event leakage score and per-horizon
   `hit_rate` is a raw fraction of positive signed returns. Offsets overlap

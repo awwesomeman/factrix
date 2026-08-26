@@ -311,3 +311,52 @@ class TestImports:
                 signal_density,
             ]
         )
+
+
+class TestLeakageHeadline:
+    """The leakage score is positive by construction; drift must not add to it,
+    and a score that was never computed must not read as perfect.
+    """
+
+    @staticmethod
+    def _panel(drift: float, n: int = 400, seed: int = 0) -> pl.DataFrame:
+        rng = np.random.default_rng(seed)
+        rows = []
+        for a in range(4):
+            rets = rng.normal(drift, 0.01, n)
+            prices = 100.0 * np.cumprod(1.0 + rets)
+            for d in range(n):
+                rows.append(
+                    {
+                        "date": datetime(2020, 1, 1) + timedelta(days=d),
+                        "asset_id": f"A{a}",
+                        "factor": 1.0 if d >= 40 and d % 17 == 0 else 0.0,
+                        "price": float(prices[d]),
+                    }
+                )
+        return pl.DataFrame(rows)
+
+    def test_drift_does_not_inflate_the_leakage_score(self):
+        # Both panels have zero true leakage; the drifting one used to score
+        # ~2.5x higher purely from its trend.
+        flat = event_around_return(self._panel(0.0))
+        trending = event_around_return(self._panel(0.001))
+        assert trending.metadata["baseline_bar_return"] > 5e-4
+        assert trending.value == pytest.approx(flat.value, rel=1.5)
+
+    def test_score_is_reported_with_its_null_scale(self):
+        result = event_around_return(self._panel(0.0))
+        scale = result.metadata["leakage_null_scale"]
+        assert scale is not None and scale > 0
+        # A clean panel sits within a small multiple of the null scale — the
+        # number the score has to be read against, since it is never 0.
+        assert result.value < 3 * scale
+        for stats in result.metadata["per_offset"].values():
+            if stats.get("mean") is not None:
+                assert stats["se"] > 0
+                assert stats["t"] is not None
+
+    def test_no_pre_event_offset_reports_nan_not_zero(self):
+        result = event_around_return(self._panel(0.0), offsets=[1, 6, 12])
+        assert math.isnan(result.value)
+        assert result.metadata["reason"] == "no_pre_event_offset_with_enough_events"
