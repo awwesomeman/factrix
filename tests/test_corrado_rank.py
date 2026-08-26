@@ -311,3 +311,60 @@ class TestClusterRobustDenominator:
         assert result.metadata["reason"] == "insufficient_event_periods"
         assert result.metadata["n_events"] == 30
         assert result.n_obs == 3
+
+
+class TestStatisticAgainstHandComputation:
+    """The published formula, computed by hand on the sample the metric says
+    it tests: ranks over each asset's full non-missing series,
+    ``U = rank / (T + 1) - 0.5`` (Corrado 1989, with the Corrado & Zivney 1992
+    missing-data denominator), sign-adjusted, averaged per event period over
+    the non-overlap-sampled events, then ``z = mean / (sd / sqrt(D))``.
+    """
+
+    @staticmethod
+    def _panel(event_ordinals: list[int], n: int, seed: int = 0) -> pl.DataFrame:
+        rng = np.random.default_rng(seed)
+        returns = rng.normal(0.0, 1.0, n)
+        factor = np.zeros(n)
+        for o in event_ordinals:
+            factor[o] = 1.0
+        return pl.DataFrame(
+            {
+                "date": [datetime(2020, 1, 1) + timedelta(days=i) for i in range(n)],
+                "asset_id": ["A"] * n,
+                "factor": factor,
+                "forward_return": returns,
+            }
+        )
+
+    def test_z_matches_the_formula_on_the_sampled_events(self):
+        import scipy.stats as sp_stats
+
+        fp = 5
+        # A clustered block (thinned to every 5th) plus a spaced tail (all kept).
+        event_ordinals = list(range(20, 60)) + [70 + 5 * k for k in range(30)]
+        n = 260
+        panel = self._panel(event_ordinals, n)
+
+        result = corrado_rank(panel, forward_periods=fp)
+
+        returns = panel["forward_return"].to_numpy()
+        # rank / (T + 1) - 0.5 over the asset's full series (T = non-missing).
+        order = returns.argsort().argsort() + 1  # 1-based ranks, no ties here
+        u = order / (len(returns) + 1) - 0.5
+
+        # Greedy non-overlap keep, first event always kept.
+        kept, last = [], None
+        for o in sorted(event_ordinals):
+            if last is None or o - last >= fp:
+                kept.append(o)
+                last = o
+        # One asset, so one event per period: the per-period mean is the event.
+        u_bar = np.array([u[o] for o in kept])
+        mean_u = float(np.mean(u_bar))
+        z_ref = mean_u / (float(np.std(u_bar, ddof=1)) / np.sqrt(len(u_bar)))
+
+        assert result.n_obs == len(kept)
+        assert result.value == pytest.approx(mean_u)
+        assert result.stat == pytest.approx(z_ref)
+        assert result.p_value == pytest.approx(float(sp_stats.norm.sf(z_ref)))

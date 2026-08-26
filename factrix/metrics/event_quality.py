@@ -200,6 +200,29 @@ def event_hit_rate(
         event failed ``signed_car > 0`` and was scored as a **miss**, which
         both depressed the rate and inflated ``N``.
 
+        **What the null says.** $H_0: p = 0.5$ — a coin flip — not
+        $H_0: p = \hat p_{\text{base}}$, the unconditional frequency of
+        positive returns outside the events. The two differ whenever the
+        return series has drift: a long-only trigger on an asset that rose in
+        55% of all periods scores 55% with no signal at all, and against a
+        0.5 null a long enough sample calls that significant. The generalised
+        sign test of [Cowan (1992)][cowan-1992] answers this by taking $p_0$
+        from the estimation window; factrix does not, because the metric has
+        no estimation-window contract of its own. Read the hit rate against
+        the base rate yourself on a drifting series, or use ``caar`` /
+        ``bmp_z``, whose abnormal-return input is already de-drifted, when the
+        drift is the thing you need to control for.
+
+        **Independence.** The exact binomial treats the $N$ events as
+        independent trials, which is false for two events on one asset inside
+        one forward-return window: they share bars. Events are therefore
+        strided per asset first ([Brown-Warner (1985)][brown-warner-1985]
+        non-overlap sampling on the event axis, the same treatment ``caar``
+        applies), and ``EVENT_WINDOW_OVERLAP`` reports what that removed. What
+        the stride cannot address is same-*period* dependence across names —
+        for that, read ``clustering_hhi`` and prefer ``bmp_z`` or
+        ``corrado_rank``, whose statistics carry an explicit correction.
+
         ``return_col`` must be sign-symmetric around zero — ``signed_car =
         return_col * sign(factor_col)``, so an always-positive magnitude
         target (realised volatility, turnover) collapses ``sign(signed_car)``

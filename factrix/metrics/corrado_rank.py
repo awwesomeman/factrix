@@ -149,6 +149,23 @@ def corrado_rank(
         unmasked, every NaN return would enter the test as a maximal
         positive rank deviation.
 
+        **Missing data.** $T_i$ is the count of non-missing returns for asset
+        $i$, so the $\mathrm{rank} / (T_i + 1)$ scaling is the missing-data
+        denominator of [Corrado & Zivney (1992)][corrado-zivney-1992] rather
+        than a fixed window length: a gap in one asset's series shifts neither
+        its neighbours' ranks nor the uniform scaling, and the excluded event
+        count is reported.
+
+        **Time-axis overlap.** Before the per-period collapse, events are
+        strided per asset so no two kept events on one name sit inside one
+        forward-return window — [Brown-Warner (1985)][brown-warner-1985]
+        non-overlap sampling on the event axis, the same treatment ``caar``
+        applies to its event-period series. The collapse and the stride are
+        complements: the collapse removes same-period dependence across names,
+        the stride removes same-asset dependence across time. Without it the
+        rank test over-rejected a bursty single-asset trigger at 21% against a
+        nominal 5%; ``EVENT_WINDOW_OVERLAP`` reports what was removed.
+
         Short-circuits to ``MetricResult`` with
         ``metadata["reason"]="insufficient_events"`` when
         ``N_events < MIN_EVENTS_HARD``;

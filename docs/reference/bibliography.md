@@ -390,6 +390,19 @@ variant for two-sided / cumulative inference (re-rank within the
 event window); the source of the direction-adjustment idea adopted
 by factrix's Corrado rank-test path.
 
+### Cowan (1992)
+[](){ #cowan-1992 }
+
+Cowan, A. R. (1992). "Nonparametric Event Study Tests." *Review of
+Quantitative Finance and Accounting* 2(4), 343–358.
+
+Generalised sign test: the binomial null is the *estimation-window*
+proportion of positive abnormal returns rather than 0.5, which matters on
+a drifting series. factrix's ``event_hit_rate`` tests the 0.5 null and says
+so; it has no estimation-window contract from which to take Cowan's
+$p_0$, and the abnormal-return event tests (``caar`` / ``bmp_z``) are the
+route when the drift is what needs controlling for.
+
 ### Kolari & Pynnönen (2010)
 [](){ #kolari-pynnonen-2010 }
 

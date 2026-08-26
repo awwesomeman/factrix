@@ -496,6 +496,18 @@ def bmp_z(
         ``metadata["stat_uncorrected"]`` and
         ``metadata["kolari_pynnonen_r"]``.
 
+        **Time-axis overlap.** Events are first strided per asset so no two
+        kept events on one name sit inside one forward-return window — the
+        [Brown-Warner (1985)][brown-warner-1985] non-overlap sampling
+        convention, applied on the event axis rather than the calendar
+        (:func:`~factrix.metrics._helpers._sample_events_non_overlapping`), and
+        the same treatment ``caar`` applies to its event-period series. It is
+        the complement of the K-P adjustment above, not a substitute: K-P
+        deflates $z$ for events sharing a *period* across names, this removes
+        events sharing *bars* on one name. On a single-asset panel K-P is the
+        identity by construction, so this pass is the only overlap discipline
+        there; ``EVENT_WINDOW_OVERLAP`` reports what it removed.
+
         **Event validity.** An event enters the test only when its
         estimation-window vol is finite and above ``EPSILON`` *and* its
         signed AR is finite. The two rejection reasons are reported
