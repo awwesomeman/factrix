@@ -487,7 +487,12 @@ Fixed-K (top-K − bottom-K) long-short spread; the small-N sibling of
 
 - *primary*: `p_value` — non-overlapping `t`-test on the spread
   series (`method` records the inference member that ran).
-- *descriptive*: `k` (names per leg), `cross_sectional_dispersion`
+- *descriptive*: `k` (names per leg), `tie_ratio` / `tie_policy` (the
+  same tie diagnostics `quantile_spread` and `monotonicity` report —
+  the leg ranking used to be hard-coded `"ordinal"` with no tie ratio at
+  all, so a discrete signal's legs were filled by row order among tied
+  names and the arbitrary split was reported as a spread),
+  `cross_sectional_dispersion`
   (mean per-period cross-sectional return std), `top_return`,
   `bottom_return`, `n_periods` (**the sample the headline test ran on**,
   equal to `n_obs`: strided under `NON_OVERLAPPING`, full overlapping
