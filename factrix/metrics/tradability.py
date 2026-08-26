@@ -36,18 +36,27 @@ from factrix._axis import (
     InputShape,
 )
 from factrix._codes import WarningCode
+from factrix._errors import UserInputError
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
-from factrix._types import DDOF, EPSILON
+from factrix._types import (
+    DDOF,
+    DEFAULT_FORWARD_PERIODS,
+    DEFAULT_N_GROUPS,
+    EPSILON,
+)
 from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _assign_quantile_groups,
     _enforce_min_floor,
+    _finite_expr,
     _median_universe_size,
     _sample_non_overlapping,
     _short_circuit_output,
 )
+
+_DOCS_TRADABILITY = "api/metrics/tradability"
 
 _TR_CELL = cell(
     FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
@@ -204,7 +213,16 @@ def rank_turnover(
             forward_periods=forward_periods,
         )
 
-    sampled_df = _sample_non_overlapping(data, forward_periods)
+    # WHY: polars ``rank()`` sorts NaN *last*, i.e. treats it as larger than
+    # every real value, so a missing factor landed in the top tail; and
+    # ``pl.len()`` counted those rows, giving the wrong denominator for the
+    # tail cutoffs below. Together they pushed rank turnover to 1.0047 —
+    # outside the metric's own [0, 1] range — on a panel with 20% NaN factor
+    # cells. Every other ranking site in the library filters first; this was
+    # the last one that did not.
+    sampled_df = _sample_non_overlapping(data, forward_periods).filter(
+        _finite_expr(factor_col)
+    )
 
     ranked = sampled_df.select(
         "date",
@@ -298,8 +316,8 @@ def notional_turnover(
     data: pl.DataFrame,
     factor_col: str = "factor",
     *,
-    n_groups: int = 10,
-    forward_periods: int = 1,
+    n_groups: int = DEFAULT_N_GROUPS,
+    forward_periods: int = DEFAULT_FORWARD_PERIODS,
 ) -> MetricResult:
     """Portfolio notional turnover via top/bottom quantile membership churn.
 
@@ -327,11 +345,28 @@ def notional_turnover(
     Args:
         data: Panel with ``date, asset_id, factor``.
         factor_col: Name of the factor column.
-        n_groups: Number of quantile groups (default ``10`` = deciles).
-            Must be ≥ 3 so top and bottom are distinct buckets.
-        forward_periods: Rebalance stride. When ``> 1``, sub-samples at
-            stride ``h`` before pairing consecutive dates — matches a
-            holding-period-aligned rebalance schedule.
+        n_groups: Number of quantile groups (default
+            :data:`~factrix._types.DEFAULT_N_GROUPS` = 5 = quintiles, the
+            same constant ``quantile_spread`` defaults to). Must be ≥ 3 so
+            top and bottom are distinct buckets.
+        forward_periods: Rebalance stride (default
+            :data:`~factrix._types.DEFAULT_FORWARD_PERIODS`). When ``> 1``,
+            sub-samples at stride ``h`` before pairing consecutive dates —
+            matches a holding-period-aligned rebalance schedule.
+
+    Warning:
+        ``n_groups`` and ``forward_periods`` must match the ``quantile_spread``
+        run whose spread is paired with this turnover. The cost algebra in
+        ``breakeven_cost`` / ``net_spread`` is a statement about *one*
+        portfolio, so a τ measured on decile membership churn does not price a
+        quintile spread, and a τ per bar does not price a 5-period holding.
+        The two used to ship incompatible defaults (10 / 1 here against 5 / 5
+        there); on a 60-name, 400-period panel at ``gross_spread = 0.001``, the
+        matched pair gave breakeven 15.7 bps and net −9.14 bps while each
+        function at its own default gave 2.8 bps and −98.02 bps — breakeven
+        understated 5.6x, drag overstated 10.7x. They now share one constant,
+        and the consumers cross-check the pairing when handed ``MetricResult``s
+        instead of bare floats.
 
     Returns:
         MetricResult with ``value`` = mean per-rebalance turnover ∈ [0, 1].
@@ -485,6 +520,86 @@ def notional_turnover(
     )
 
 
+def _unpack_cost_inputs(
+    gross_spread: float | MetricResult,
+    turnover: float | MetricResult,
+    forward_periods: int,
+) -> tuple[float, float, dict[str, object]]:
+    """Resolve the two cost inputs and cross-check that they describe one book.
+
+    ``breakeven_cost`` / ``net_spread`` take a spread and a turnover and solve
+    a single portfolio's cost algebra. That algebra is only meaningful when the
+    two were computed on the *same* bucketing and the *same* rebalance stride —
+    a tau measured on decile membership churn does not price a quintile spread.
+    Bare floats carry no provenance, so nothing could be checked; when the
+    caller passes the producing ``MetricResult``s instead, the pairing is
+    verified here and recorded in the consumer's metadata.
+
+    Raises:
+        UserInputError: the two results disagree on ``n_groups``, or either
+            disagrees with the ``forward_periods`` this call was given.
+    """
+    checked: dict[str, object] = {}
+    spread_meta = (
+        gross_spread.metadata if isinstance(gross_spread, MetricResult) else {}
+    )
+    turnover_meta = turnover.metadata if isinstance(turnover, MetricResult) else {}
+
+    def _mismatch(field: str, left: object, right: object, detail: str) -> None:
+        raise UserInputError(
+            func_name="breakeven_cost / net_spread",
+            field=field,
+            value={"gross_spread": left, "turnover": right},
+            expected=detail,
+            docs_path=_DOCS_TRADABILITY,
+        )
+
+    spread_groups = spread_meta.get("n_groups")
+    turnover_groups = turnover_meta.get("n_groups")
+    if (
+        spread_groups is not None
+        and turnover_groups is not None
+        and spread_groups != turnover_groups
+    ):
+        _mismatch(
+            "n_groups",
+            spread_groups,
+            turnover_groups,
+            "the spread and the turnover to be computed on the same bucketing; "
+            "recompute one of them so both use the same n_groups (the shared "
+            "default is DEFAULT_N_GROUPS)",
+        )
+    if spread_groups is not None or turnover_groups is not None:
+        checked["n_groups"] = (
+            spread_groups if spread_groups is not None else turnover_groups
+        )
+
+    for label, meta in (("gross_spread", spread_meta), ("turnover", turnover_meta)):
+        upstream_h = meta.get("forward_periods")
+        if upstream_h is not None and upstream_h != forward_periods:
+            _mismatch(
+                "forward_periods",
+                upstream_h if label == "gross_spread" else None,
+                upstream_h if label == "turnover" else None,
+                f"the {label} to have been computed at the same rebalance "
+                f"stride as this call's forward_periods={forward_periods}; got "
+                f"{upstream_h} upstream",
+            )
+    if spread_meta or turnover_meta:
+        checked["forward_periods"] = forward_periods
+        checked["pairing_checked"] = True
+
+    spread_value = (
+        gross_spread.value
+        if isinstance(gross_spread, MetricResult)
+        else float(gross_spread)
+    )
+    turnover_value = (
+        turnover.value if isinstance(turnover, MetricResult) else float(turnover)
+    )
+    return float(spread_value), float(turnover_value), checked
+
+
 @metric(
     cell=_TR_CELL,
     aggregation=Aggregation.CS_THEN_TS,
@@ -492,10 +607,10 @@ def notional_turnover(
     sample_threshold=SampleThreshold(),
 )
 def breakeven_cost(
-    gross_spread: float,
-    turnover: float,
+    gross_spread: float | MetricResult,
+    turnover: float | MetricResult,
     *,
-    forward_periods: int = 1,
+    forward_periods: int = DEFAULT_FORWARD_PERIODS,
 ) -> MetricResult:
     """Breakeven single-leg trading cost in bps.
 
@@ -526,6 +641,19 @@ def breakeven_cost(
         turnover: Notional turnover ∈ [0, 1] from ``notional_turnover()``.
         forward_periods: Holding period matching the upstream
             ``compute_forward_return`` and ``notional_turnover`` stride.
+
+    Note:
+        **Pass the ``MetricResult``s, not their ``.value``.** Both data
+        arguments accept either a bare ``float`` or the producing
+        ``MetricResult``. Given the results, this function verifies that the
+        spread and the turnover describe the *same* portfolio — same
+        ``n_groups``, same ``forward_periods`` — and raises ``UserInputError``
+        when they do not, recording ``pairing_checked`` in metadata when they
+        do. Bare floats carry no provenance, so nothing can be checked: the
+        cost algebra silently prices a quintile spread with decile turnover if
+        that is what it is handed. With the pre-unification defaults that was
+        the *likely* outcome, not a corner case — breakeven came out 5.6x too
+        low and cost drag 10.7x too high.
 
     Returns:
         MetricResult with value = breakeven cost in bps.
@@ -576,6 +704,9 @@ def breakeven_cost(
     """
     if forward_periods < 1:
         raise ValueError(f"forward_periods must be ≥ 1, got {forward_periods!r}")
+    gross_spread, turnover, checked = _unpack_cost_inputs(
+        gross_spread, turnover, forward_periods
+    )
     if turnover < EPSILON:
         return MetricResult(
             value=float("inf"),
@@ -583,6 +714,7 @@ def breakeven_cost(
                 "gross_spread": gross_spread,
                 "turnover": turnover,
                 "forward_periods": forward_periods,
+                **checked,
             },
         )
 
@@ -598,6 +730,7 @@ def breakeven_cost(
             "gross_spread": gross_spread,
             "turnover": turnover,
             "forward_periods": forward_periods,
+            **checked,
         },
     )
 
@@ -609,11 +742,11 @@ def breakeven_cost(
     sample_threshold=SampleThreshold(),
 )
 def net_spread(
-    gross_spread: float,
-    turnover: float,
+    gross_spread: float | MetricResult,
+    turnover: float | MetricResult,
     estimated_cost_bps: float = 30.0,
     *,
-    forward_periods: int = 1,
+    forward_periods: int = DEFAULT_FORWARD_PERIODS,
 ) -> MetricResult:
     """Net spread after estimated trading costs (per-period).
 
@@ -654,6 +787,12 @@ def net_spread(
             it here.
         forward_periods: Holding period matching the upstream
             ``compute_forward_return`` and ``notional_turnover`` stride.
+
+    Note:
+        ``gross_spread`` and ``turnover`` accept the producing
+        ``MetricResult``s as well as bare floats; passing the results lets this
+        function verify that the two were computed on the same bucketing and
+        the same stride. See :func:`breakeven_cost`.
 
     Returns:
         MetricResult with value = net spread (per-period).
@@ -711,6 +850,9 @@ def net_spread(
     """
     if forward_periods < 1:
         raise ValueError(f"forward_periods must be ≥ 1, got {forward_periods!r}")
+    gross_spread, turnover, checked = _unpack_cost_inputs(
+        gross_spread, turnover, forward_periods
+    )
     # 4 × τ × c: τ is the mean per-leg replaced fraction, each replacement is a
     # sell plus a buy (2τ traded notional per leg) and the $1/$1 long-short
     # holds two legs. See Notes for the derivation.
@@ -725,5 +867,6 @@ def net_spread(
             "estimated_cost_bps": estimated_cost_bps,
             "turnover": turnover,
             "forward_periods": forward_periods,
+            **checked,
         },
     )

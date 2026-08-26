@@ -171,3 +171,22 @@ SampleAxis = Literal["periods", "events", "pairs", "asset_pairs", "assets"]
 # and is exposed as ``min_residual_df`` for callers who want the other
 # (``N >= 5K``) convention.
 MIN_ORTHOGONALIZE_RESIDUAL_ASSETS: int = 10
+
+
+# ---------------------------------------------------------------------------
+# Shared bucketing / horizon defaults
+# ---------------------------------------------------------------------------
+#
+# One source of truth for the long-short bucketing and the rebalance stride,
+# shared by ``quantile_spread``, ``quantile_spread_vw`` and
+# ``notional_turnover``. These three are designed to be read together — the
+# spread is the gross alpha, the turnover is what it costs to hold — and the
+# cost algebra in ``breakeven_cost`` / ``net_spread`` is only valid when the
+# spread and the turnover were computed on the *same* bucketing and the *same*
+# stride. They previously carried incompatible defaults (n_groups 5 vs 10,
+# forward_periods 5 vs 1), so running each at its own default understated
+# breakeven by 5.6x and overstated cost drag by 10.7x on a 60-name panel.
+# ``monotonicity`` deliberately keeps its own ``n_groups=10``: a decile curve
+# is the shape it is calibrated to read, not a long-short leg.
+DEFAULT_N_GROUPS: int = 5
+DEFAULT_FORWARD_PERIODS: int = 5

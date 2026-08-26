@@ -32,6 +32,8 @@ from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_t, _significance_marker
 from factrix._types import (
     DDOF,
+    DEFAULT_FORWARD_PERIODS,
+    DEFAULT_N_GROUPS,
     MIN_PORTFOLIO_PERIODS_HARD,
 )
 from factrix.inference import NEWEY_WEST, NON_OVERLAPPING, NeweyWest, NonOverlapping
@@ -148,8 +150,8 @@ def _quantile_groups_threshold(self) -> SampleThreshold:
 )
 def quantile_spread(
     data: pl.DataFrame,
-    forward_periods: int = 5,
-    n_groups: int = 5,
+    forward_periods: int = DEFAULT_FORWARD_PERIODS,
+    n_groups: int = DEFAULT_N_GROUPS,
     factor_cols: Sequence[str] = ("factor",),
     tie_policy: str = "ordinal",
     inference: NonOverlapping | NeweyWest = NON_OVERLAPPING,
@@ -422,6 +424,8 @@ def _quantile_spread_from_series(
         "n_periods_long_leg": int(long_arr.size),
         "n_periods_short_leg": int(short_arr.size),
         "median_cross_section": n_assets,
+        "n_groups": n_groups,
+        "forward_periods": forward_periods,
         "stat_type": "t",
         "h0": "mu=0",
         "method": sig_method,
@@ -548,8 +552,8 @@ def _vw_spread_series(
 )
 def quantile_spread_vw(
     data: pl.DataFrame,
-    forward_periods: int = 5,
-    n_groups: int = 5,
+    forward_periods: int = DEFAULT_FORWARD_PERIODS,
+    n_groups: int = DEFAULT_N_GROUPS,
     factor_col: str = "factor",
     return_col: str = "forward_return",
     weight_col: str = "market_cap",
@@ -796,6 +800,8 @@ def quantile_spread_vw(
         "n_periods": n_tested,
         "n_periods_strided": n,
         "median_cross_section": n_assets,
+        "n_groups": n_groups,
+        "forward_periods": forward_periods,
         "method": sig_method,
         "stat_type": "t",
         "h0": "mu=0",
