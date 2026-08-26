@@ -93,7 +93,8 @@ def _ew_portfolio_slope(
     if n_periods < 3:
         return None, None, n_periods
     slope, se, _ = _ols_nw_slope_se(y, x, lags=max(forward_periods - 1, 0))
-    if se < EPSILON:
+    # NaN (unformable fit) or ~0 (perfect fit): no usable variance either way.
+    if not np.isfinite(se) or se < EPSILON:
         return None, None, n_periods
     return slope, se * se, n_periods
 

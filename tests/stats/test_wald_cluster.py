@@ -101,12 +101,17 @@ class TestNWHACVectorMean:
 
     def test_matches_scalar_nw_for_k1(self):
         # K=1 case: joint NW HAC variance should match the scalar
-        # _newey_west_se² used by the existing HAC module.
+        # _newey_west_se² used by the existing HAC module — at the same
+        # bandwidth, and with the scalar SE's documented T/(T - L - 1)
+        # finite-sample scale divided back out (the vector-mean Wald path
+        # deliberately does not carry it; see _resolve_nw_lags).
+        from factrix._stats.constants import auto_bartlett
         from factrix._stats.hac import _newey_west_se
 
         rng = np.random.default_rng(seed=3)
         x = rng.standard_normal(200)
-        se = _newey_west_se(x)
+        n, lags = len(x), auto_bartlett(200)
+        se = _newey_west_se(x, lags=lags) / np.sqrt(n / (n - lags - 1))
         _, V = _nw_hac_vector_mean(x.reshape(-1, 1))
         assert V[0, 0] == pytest.approx(se * se, rel=1e-12)
 

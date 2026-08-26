@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import pytest
 from factrix._stats.bootstrap import (
@@ -132,8 +134,20 @@ class TestFixedBlockIndices:
 
     def test_rejects_zero_block_length(self):
         rng = np.random.default_rng()
-        with pytest.raises(ValueError, match="block_length must be >= 1"):
+        with pytest.raises(ValueError, match="invalid block_length"):
             _fixed_block_indices(10, 5, block_length=0, rng=rng)
+
+    def test_rejects_block_length_at_or_past_the_sample(self):
+        """L >= n makes every resample a rotation of the whole series, so
+        the centred bootstrap mean is identically 0 and p == 1/(B+1) on any
+        data. Refuse rather than return the strongest possible significance
+        from a validation-parameter typo."""
+        rng = np.random.default_rng()
+        for bad in (11, 30, 40):
+            with pytest.raises(ValueError, match="invalid block_length"):
+                _fixed_block_indices(30, 5, block_length=bad, rng=rng)
+        # ceil(min(3*sqrt(30), 30/3)) == 10 is the last admissible value.
+        assert _fixed_block_indices(30, 5, block_length=10, rng=rng).shape == (5, 30)
 
     def test_empty(self):
         rng = np.random.default_rng()
@@ -164,8 +178,13 @@ class TestStationaryBlockIndices:
 
     def test_rejects_short_block(self):
         rng = np.random.default_rng()
-        with pytest.raises(ValueError, match=r"mean_block_length must be >= 1\.0"):
+        with pytest.raises(ValueError, match="invalid block_length"):
             _stationary_block_indices(10, 5, mean_block_length=0.5, rng=rng)
+
+    def test_rejects_block_length_past_the_bound(self):
+        rng = np.random.default_rng()
+        with pytest.raises(ValueError, match="invalid block_length"):
+            _stationary_block_indices(30, 5, mean_block_length=200.0, rng=rng)
 
 
 class TestBlockBootstrapDiffP:
@@ -270,10 +289,15 @@ class TestBlockBootstrapDiffP:
         L = meta["block_length"]
         assert int(L) == L
 
-    def test_short_series_returns_one(self):
+    def test_short_series_withholds_the_test(self):
+        """n < 2 admits no test. NaN, not 1.0: an untestable sample is not
+        evidence for the null, and the old 0.0 block_length sentinel broke
+        the documented ``>= 1`` invariant for metadata readers."""
         p, meta = _block_bootstrap_diff_p(np.array([0.5]))
-        assert p == 1.0
+        assert math.isnan(p)
+        assert math.isnan(meta["block_length"])
         assert meta["n_resamples"] == 0
+        assert meta["studentized"] is False
 
     def test_p_floor_smoothing(self):
         # p should never be exactly 0 (Davison-Hinkley smoothing).
@@ -294,3 +318,173 @@ class TestRejectsNonFinite:
     def test_politis_white_falls_back_on_nan(self):
         x = np.array([0.1, float("nan"), 0.2, 0.3, 0.4, 0.5, 0.6, 0.7])
         assert _politis_white_block_length(x) == pytest.approx(1.75 * 8 ** (1 / 3))
+
+
+class TestStudentizedRoot:
+    """Götze-Künsch: the block bootstrap refines only for a studentized root."""
+
+    @staticmethod
+    def _ar1(n, phi, rng):
+        e = rng.normal(size=n + 200)
+        x = np.zeros(n + 200)
+        for t in range(1, n + 200):
+            x[t] = phi * x[t - 1] + e[t]
+        return x[200:]
+
+    def test_root_is_studentized_by_the_block_se(self):
+        """Hand-check: p counts |t*| >= |t_obs| with the batch-means SE."""
+        from factrix._stats.bootstrap import (
+            _batch_means_se,
+            _politis_white_block_length,
+            _stationary_block_indices,
+        )
+
+        rng = np.random.default_rng(0)
+        diff = rng.standard_normal(120)
+        p, meta = _block_bootstrap_diff_p(diff, n_resamples=199, rng_seed=7)
+        assert meta["studentized"] is True
+
+        L = _politis_white_block_length(diff, scheme="stationary")
+        assert meta["block_length"] == pytest.approx(L)
+        idx = _stationary_block_indices(120, 199, L, np.random.default_rng(7))
+        resamples = (diff - diff.mean())[idx]
+        se_boot = _batch_means_se(resamples, L)
+        usable = np.isfinite(se_boot) & (se_boot > 0)
+        t_boot = resamples.mean(axis=1)[usable] / se_boot[usable]
+        t_obs = diff.mean() / _batch_means_se(diff, L)[0]
+        expected = (np.sum(np.abs(t_boot) >= abs(t_obs)) + 1.0) / (usable.sum() + 1.0)
+        assert p == pytest.approx(expected)
+
+    def test_batch_means_se_matches_a_hand_computation(self):
+        from factrix._stats.bootstrap import _batch_means_se
+
+        x = np.arange(12.0)
+        # L=4 -> batches [0..3], [4..7], [8..11] with means 1.5, 5.5, 9.5.
+        batch_means = np.array([1.5, 5.5, 9.5])
+        assert _batch_means_se(x, 4)[0] == pytest.approx(
+            np.sqrt(batch_means.var(ddof=1) / 3)
+        )
+
+    def test_block_bound_always_leaves_enough_batches_to_studentize(self):
+        """The L <= ceil(min(3*sqrt(n), n/3)) bound guarantees >= 2 batches,
+        so the unstudentized fallback is unreachable from admissible input."""
+        from factrix._stats.bootstrap import _max_block_length
+
+        for n in range(2, 400):
+            assert n // _max_block_length(n) >= 2
+
+        rng = np.random.default_rng(2)
+        for n in (6, 20, 120):
+            _, meta = _block_bootstrap_diff_p(
+                rng.standard_normal(n), n_resamples=99, rng_seed=0
+            )
+            assert meta["studentized"] is True
+
+    def test_degenerate_series_falls_back_to_the_raw_mean_root(self):
+        """A zero-dispersion series leaves no SE to divide by."""
+        _, meta = _block_bootstrap_diff_p(np.full(40, 2.0), n_resamples=99, rng_seed=0)
+        assert meta["studentized"] is False
+
+    @pytest.mark.parametrize(("n", "phi"), [(120, 0.5), (500, 0.8)])
+    def test_size_beats_the_unstudentized_root(self, n, phi):
+        """Studentizing roughly halves the excess rejection under dependence."""
+        from factrix._stats.bootstrap import (
+            _politis_white_block_length,
+            _stationary_block_indices,
+        )
+
+        n_reps = 200
+        rng = np.random.default_rng(11)
+        studentized = plain = 0
+        for _ in range(n_reps):
+            diff = self._ar1(n, phi, rng)
+            p, _ = _block_bootstrap_diff_p(diff, n_resamples=299, rng_seed=1)
+            studentized += p < 0.05
+            # Same draws, unstudentized root (the pre-fix behaviour).
+            L = _politis_white_block_length(diff, scheme="stationary")
+            idx = _stationary_block_indices(n, 299, L, np.random.default_rng(1))
+            boot = (diff - diff.mean())[idx].mean(axis=1)
+            p_plain = (np.sum(np.abs(boot) >= abs(diff.mean())) + 1.0) / 300.0
+            plain += p_plain < 0.05
+        assert studentized <= plain
+        assert studentized / n_reps <= 0.13
+
+
+class TestOverlapHorizonFloor:
+    def test_block_length_is_floored_at_the_horizon(self):
+        rng = np.random.default_rng(3)
+        diff = rng.standard_normal(200)
+        _, meta = _block_bootstrap_diff_p(
+            diff, forward_periods=21, n_resamples=99, rng_seed=0
+        )
+        assert meta["block_length"] >= 21
+
+    def test_floor_respects_the_max_block_bound(self):
+        """h beyond ceil(min(3*sqrt(n), n/3)) clamps rather than raising."""
+        from factrix._stats.bootstrap import _max_block_length
+
+        rng = np.random.default_rng(3)
+        diff = rng.standard_normal(30)
+        _, meta = _block_bootstrap_diff_p(
+            diff, forward_periods=100, n_resamples=99, rng_seed=0
+        )
+        assert meta["block_length"] == _max_block_length(30)
+
+    def test_horizon_one_leaves_the_plug_in_alone(self):
+        rng = np.random.default_rng(3)
+        diff = rng.standard_normal(200)
+        _, floored = _block_bootstrap_diff_p(
+            diff, forward_periods=1, n_resamples=99, rng_seed=0
+        )
+        _, plain = _block_bootstrap_diff_p(diff, n_resamples=99, rng_seed=0)
+        assert floored["block_length"] == plain["block_length"]
+
+
+class TestPolitisWhiteCorrections:
+    def test_k_t_window_is_wide_enough_to_see_a_lag_five_spike(self):
+        """K_T = max(5, ceil(sqrt(log10 n))) per Politis-White section 4.
+
+        Behavioural pin rather than a source-text one: on an MA(5) series
+        whose only significant autocorrelation sits at lag 5, the lag
+        selector's first window (lags 1..K_T) must reach that spike, so m
+        advances past it and the plug-in returns a long block. A narrower
+        window would stop at m = 0, see only the (near-zero) lag-1 term and
+        return the L ~ 1 of an independent series.
+        """
+        for seed in (0, 1, 2):
+            rng = np.random.default_rng(seed)
+            e = rng.standard_normal(505)
+            ma5 = e[5:] + 0.9 * e[:-5]
+            assert _politis_white_block_length(ma5) > 5.0
+            assert _politis_white_block_length(rng.standard_normal(500)) < 5.0
+
+    def test_no_detectable_dependence_falls_through_to_the_unit_clamp(self):
+        """Ghat ~ 0 must give L = 1, not the inflated 1.75*T^(1/3) rule.
+
+        A white-noise draw whose sample lag-1 autocorrelation is ~0 drives
+        the estimated spectral derivative to ~0, so the plug-in L underflows
+        and has to land on the ``max(L, 1.0)`` clamp. The contradictory
+        early return this replaced sent the same case to the generic rule
+        (~10 at n = 200), an order of magnitude too long for a series with
+        no dependence at all.
+        """
+        x = np.random.default_rng(166).standard_normal(200)
+        centred = x - x.mean()
+        rho_1 = float(np.dot(centred[1:], centred[:-1]) / np.dot(centred, centred))
+        assert abs(rho_1) < 2e-3  # the regime the branch exists for
+        assert _politis_white_block_length(x) == 1.0
+        assert 1.75 * 200 ** (1 / 3) > 10.0  # what the removed branch returned
+
+    def test_auto_block_length_respects_the_documented_clamp(self):
+        from factrix._stats.bootstrap import (
+            _max_block_length,
+            _politis_white_block_length,
+        )
+
+        rng = np.random.default_rng(0)
+        for n in (50, 120, 500):
+            x = np.cumsum(rng.standard_normal(n)) * 0.01
+            assert 1.0 <= _politis_white_block_length(x) <= _max_block_length(n)
+        assert _max_block_length(50) == 17
+        assert _max_block_length(120) == 33
+        assert _max_block_length(500) == 68

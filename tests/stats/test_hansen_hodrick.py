@@ -62,8 +62,10 @@ class TestHansenHodrickTTest:
         t, _, _, clamped = _hansen_hodrick_t_test(x, forward_periods=1)
         assert clamped is False
         # Cross-check against NW with explicit lags=0 (γ₀-only, no kernel
-        # tail) — both reduce to √(γ₀ / n).
-        se_nw = _newey_west_se(x, lags=0)
+        # tail) — both reduce to √(γ₀ / n) once the NW SE's documented
+        # T/(T - L - 1) finite-sample scale (L = 0 here) is divided back out.
+        n = len(x)
+        se_nw = _newey_west_se(x, lags=0) / np.sqrt(n / (n - 1))
         se_hh, _ = _hansen_hodrick_se(x, forward_periods=1)
         assert abs(se_nw - se_hh) < 1e-12
         assert abs(t) > 1.0  # mean=0.3, n=150 — clearly non-zero

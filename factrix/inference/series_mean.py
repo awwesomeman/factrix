@@ -135,10 +135,30 @@ class NeweyWest:
     Keeps every observation and absorbs the autocorrelation induced by
     overlapping ``forward_periods``-period returns through HAC standard
     errors rather than dropping samples. Bandwidth is the
-    [Newey-West (1994)][newey-west-1994] automatic Bartlett rule
-    (``auto_bartlett``) floored at ``forward_periods - 1`` for the
-    induced MA(h-1) overlap; it is derived from the compute-time sample,
-    so the dataclass carries no lag knob.
+    [LLSW (2018)][llsw-2018] HAR rule ``1.3·√T`` floored at ``3(h - 1)``
+    and capped at ``T/3``; the SE carries the ``T/(T - L - 1)``
+    finite-sample scale and the t is read against effective df
+    ``min(1.5·T/L - 1, T/h - 1)`` rather than ``T - 1``. All three are
+    derived from the compute-time sample, so the dataclass carries no
+    lag knob. See ``factrix._stats.hac._newey_west_t_test`` for the
+    measured size table.
+
+    Not a strict upgrade over ``NonOverlapping``. ``NonOverlapping`` is
+    calibrated in every overlapping cell measured (4.5–5.4%) at the cost
+    of ``h-1`` of every ``h`` observations; ``NeweyWest`` keeps the whole
+    sample and measures 3.9–7.3% across ``T ∈ {60, 120, 240, 500} ×
+    h ∈ {1, 5, 21}``. Prefer ``NeweyWest`` when the per-period series is
+    itself autocorrelated — striding at ``h = 1`` does nothing for that,
+    and on AR(0.6) input the plain t-test underneath ``NonOverlapping``
+    rejects 32% where ``NeweyWest`` measures 5.4–8.1% — or when ``h`` is
+    long relative to ``T`` (measured power at ``h = 21``: .410 vs .297 at
+    ``T = 60``, .558 vs .528 at ``T = 120``). On an iid or purely
+    overlap-driven series ``NonOverlapping`` has equal or better power
+    and tighter size: at ``h = 1`` ``NeweyWest`` loses 7–13pp of power
+    because ``L = 1.3√T`` spends degrees of freedom on autocorrelation
+    that is not there, and at ``h ≥ 5`` the two are level (.628 vs .636
+    at ``T = 60``) or ``NonOverlapping`` wins from ``T = 240`` up.
+    Neither is calibrated above ``PERSISTENT_SERIES_AUTOCORR``.
     """
 
     test: ClassVar[str] = "t"
@@ -153,17 +173,25 @@ class NeweyWest:
     def compute(
         self, data: pl.DataFrame, *, value_col: str, forward_periods: int
     ) -> InferenceResult:
-        from factrix._stats import _newey_west_t_test, _resolve_nw_lags
-        from factrix._stats.constants import auto_bartlett
+        from factrix._stats import (
+            _hac_bandwidth_ill_conditioned,
+            _har_dof,
+            _newey_west_t_test,
+            _resolve_har_lags,
+        )
 
         vals = _clean_series(data, value_col).to_numpy()
         n = len(vals)
-        nw_lags = (
-            _resolve_nw_lags(n, auto_bartlett(n), forward_periods) if n >= 2 else 0
+        nw_lags = _resolve_har_lags(n, None, forward_periods) if n >= 2 else 0
+        t_stat, p_value, _ = _newey_west_t_test(
+            vals, lags=nw_lags, forward_periods=forward_periods
         )
-        t_stat, p_value, _ = _newey_west_t_test(vals, lags=nw_lags)
 
         warnings: frozenset[WarningCode] = frozenset()
+        # T < 5L: the kernel sum is estimated from too few lag products.
+        # Structural, not just a log line (finding: method-switch-warning norm).
+        if _hac_bandwidth_ill_conditioned(n, nw_lags):
+            warnings |= frozenset({WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED})
         # Persistence screen: above PERSISTENT_SERIES_AUTOCORR no member of
         # this family is calibrated (see WarningCode.SERIAL_CORRELATION_DETECTED).
         if _lag1_autocorr(vals) > PERSISTENT_SERIES_AUTOCORR:
@@ -179,7 +207,10 @@ class NeweyWest:
         return InferenceResult(
             stat=t_stat,
             p_value=p_value,
-            metadata={"nw_lags": nw_lags},
+            metadata={
+                "nw_lags": nw_lags,
+                "hac_dof": _har_dof(n, nw_lags, forward_periods) if n >= 3 else None,
+            },
             warnings=warnings,
             estimate=float(vals.mean()) if n else None,
             n_obs=n,
@@ -221,6 +252,7 @@ class HansenHodrick:
         from factrix._stats import _hansen_hodrick_t_test
 
         vals = _clean_series(data, value_col).to_numpy()
+        n = len(vals)
         t_stat, p_value, _, clamped = _hansen_hodrick_t_test(
             vals, forward_periods=forward_periods
         )
@@ -234,16 +266,21 @@ class HansenHodrick:
             warnings |= frozenset({WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE})
         # As in ``NeweyWest``: only a NaN from a sample the kernel could
         # actually run on is degeneracy rather than a shortage.
-        if math.isnan(t_stat) and len(vals) >= 3 and forward_periods >= 1:
+        if math.isnan(t_stat) and n >= 3 and forward_periods >= 1:
             warnings |= frozenset({WarningCode.DEGENERATE_VARIANCE})
-        if 0 < len(vals) < self.min_periods:
+        if 0 < n < self.min_periods:
             warnings |= frozenset({WarningCode.UNRELIABLE_SE_SHORT_PERIODS})
 
+        # ``estimate`` / ``n_obs`` were omitted here alone; all three siblings
+        # populate them, so a caller reading the harmonized point estimate or
+        # sample size off this member got None.
         return InferenceResult(
             stat=t_stat,
             p_value=p_value,
             metadata={"kernel": "rectangular", "variance_clamped": clamped},
             warnings=warnings,
+            estimate=float(vals.mean()) if n else None,
+            n_obs=n,
         )
 
 
@@ -253,15 +290,46 @@ class StationaryBootstrap:
 
     Resamples geometric-length blocks ([Politis-Romano 1994][politis-romano-1994])
     from the series, centred under $H_0: \mathbb{E}[x] = 0$, and reports the
-    two-sided empirical p — the fraction of bootstrap means at least as
-    extreme as the observed one (Davison-Hinkley ``+1`` smoothing). No
-    normality or asymptotic-variance assumption, unlike ``NeweyWest`` /
-    ``HansenHodrick``: appropriate when the series is short relative to its
-    dependence horizon or heavy-tailed / skewed enough that a HAC t-test is
-    unreliable. Block length resolves automatically per
-    [Politis-White (2004)][politis-white-2004]; the resolved seed is
-    reported in ``metadata`` so the run is reproducible after the fact even
-    though the dataclass itself carries no seed knob.
+    two-sided empirical p on a **studentized (bootstrap-t) root** — the
+    fraction of resamples whose $|\bar x^*/\widehat{se}^*|$ reaches the
+    observed $|\bar x/\widehat{se}|$, with $\widehat{se}$ the batch-means
+    block SE at the resolved block length (Davison-Hinkley ``+1``
+    smoothing). No normality or asymptotic-variance assumption, unlike
+    ``NeweyWest`` / ``HansenHodrick``: appropriate when the series is short
+    relative to its dependence horizon or heavy-tailed / skewed enough that
+    a HAC t-test is unreliable.
+
+    Block length resolves automatically per
+    [Politis-White (2004)][politis-white-2004], **floored at
+    ``forward_periods``**: the plug-in has to rediscover the dependence
+    horizon from a short noisy sample and systematically under-shoots it
+    (measured mean ``L`` of 7.95 against a needed 21 at T=60, h=21, for a
+    41.7% rejection rate at a nominal 5%). The resolved seed is reported in
+    ``metadata`` so the run is reproducible after the fact even though the
+    dataclass itself carries no seed knob.
+
+    Size on an overlapping MA(h-1) null at nominal 5% (300 sims per
+    cell, B=499), before = no horizon floor and an unstudentized root:
+
+    | T   | h  | before | after |
+    |-----|----|--------|-------|
+    | 30  | 5  | 0.247  | 0.110 |
+    | 60  | 5  | 0.172  | 0.077 |
+    | 120 | 5  | —      | 0.060 |
+    | 60  | 21 | 0.417  | 0.083 |
+    | 120 | 21 | 0.277  | 0.073 |
+    | 240 | 21 | —      | 0.093 |
+
+    On an AR(1) null (h=1, 400 sims, B=999): 0.075 / 0.152 / 0.265 at
+    n=30 for phi = 0 / 0.5 / 0.8, and 0.048 / 0.050 / 0.050 at n=500.
+    Short and strongly persistent is the worst cell and carries
+    ``SERIAL_CORRELATION_DETECTED``.
+
+    The root is studentized by a batch-means SE at the resolved block
+    length. A sample with no usable dispersion admits no such SE, and the
+    kernel falls back to the raw-mean root; that switch is reported as
+    ``metadata["studentized"] = False`` *and* as
+    ``WarningCode.DEGENERATE_VARIANCE``, never silently.
 
     Delegates to ``factrix._stats.bootstrap._block_bootstrap_diff_p`` —
     the same kernel backing ``factrix.stats.BlockBootstrap`` — so the
@@ -284,7 +352,9 @@ class StationaryBootstrap:
 
         vals = _clean_series(data, value_col).to_numpy()
         n = len(vals)
-        p_value, boot_metadata = _block_bootstrap_diff_p(vals)
+        p_value, boot_metadata = _block_bootstrap_diff_p(
+            vals, forward_periods=forward_periods
+        )
 
         warnings: frozenset[WarningCode] = frozenset()
         # Persistence screen: above PERSISTENT_SERIES_AUTOCORR no member of
@@ -293,6 +363,12 @@ class StationaryBootstrap:
             warnings |= frozenset({WarningCode.SERIAL_CORRELATION_DETECTED})
         if 0 < n < self.min_periods:
             warnings |= frozenset({WarningCode.UNRELIABLE_SE_SHORT_PERIODS})
+        # The kernel drops from the bootstrap-t root to the raw-mean root
+        # when it cannot form a block SE — a sample-driven method switch, so
+        # it must not be silent. Above n=2 the only way to get there is a
+        # sample with no usable dispersion, which is what the code names.
+        if n >= 2 and boot_metadata.get("studentized") is False:
+            warnings |= frozenset({WarningCode.DEGENERATE_VARIANCE})
 
         return InferenceResult(
             stat=float(vals.mean()) if n else float("nan"),

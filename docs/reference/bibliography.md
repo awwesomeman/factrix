@@ -49,6 +49,86 @@ Optimal Bartlett growth-rate reference; factrix keeps the citation for HAC
 background, while the default NW lag rule is Newey-West (1994)
 `auto_bartlett(T)`.
 
+### Lazarus, Lewis, Stock & Watson (2018)
+[](){ #llsw-2018 }
+
+Lazarus, E., Lewis, D. J., Stock, J. H. & Watson, M. W. (2018). "HAR
+Inference: Recommendations for Practice." *Journal of Business &
+Economic Statistics* 36(4), 541–559.
+
+Source of the `har_bandwidth(T) = 1.3·√T` Bartlett rule and the
+fixed-b Student-t approximation `ν = 1.5·T/L − 1` used by the
+series-mean HAC t-test (`factrix._stats.hac`). Replaces the
+Newey-West (1994) plug-in as the default bandwidth on that path.
+
+### Kiefer & Vogelsang (2005)
+[](){ #kiefer-vogelsang-2005 }
+
+Kiefer, N. M. & Vogelsang, T. J. (2005). "A New Asymptotic Theory for
+Heteroskedasticity-Autocorrelation Robust Tests." *Econometric Theory*
+21(6), 1130–1164.
+
+Fixed-b asymptotics: the limiting distribution of a kernel HAR
+t-statistic depends on the bandwidth ratio `b = L/T`, so the standard
+normal / `t_{T−1}` reference is wrong at research sample sizes. factrix
+uses the LLSW (2018) Student-t approximation to this distribution
+rather than tabulated fixed-b critical values.
+
+### Hamed & Rao (1998)
+[](){ #hamed-rao-1998 }
+
+Hamed, K. H. & Rao, A. R. (1998). "A Modified Mann-Kendall Trend Test
+for Autocorrelated Data." *Journal of Hydrology* 204(1–4), 182–196.
+
+Variance-inflation correction `Var*(S) = Var(S) · n/n*` that makes the
+Mann-Kendall trend test valid on a serially correlated series. Used by
+`ic_trend`, whose default input is an IC series carrying MA(h−1)
+overlap structure.
+
+### Amihud & Hurvich (2004)
+[](){ #amihud-hurvich-2004 }
+
+Amihud, Y. & Hurvich, C. M. (2004). "Predictive Regressions: A
+Reduced-Bias Estimation Method." *Journal of Financial and
+Quantitative Analysis* 39(4), 813–841.
+
+Augmented-regression estimator: add the bias-corrected AR(1) residual
+of the predictor as a second regressor, and the slope coefficient on
+the predictor is Stambaugh-bias-corrected with a valid OLS standard
+error. The production fix `predictive_beta` implements for
+Stambaugh (1999) bias.
+
+### Götze & Künsch (1996)
+[](){ #gotze-kunsch-1996 }
+
+Götze, F. & Künsch, H. R. (1996). "Second-Order Correctness of the
+Blockwise Bootstrap for Stationary Observations." *Annals of
+Statistics* 24(5), 1914–1933.
+
+The block bootstrap attains an asymptotic refinement over the normal
+approximation only for a *studentized* root. Basis for the
+bootstrap-t convention in `factrix._stats.bootstrap` and
+`factrix.stats.bootstrap_mean_ci`.
+
+### Lahiri (2003)
+[](){ #lahiri-2003 }
+
+Lahiri, S. N. (2003). *Resampling Methods for Dependent Data*.
+Springer.
+
+Textbook treatment of block-bootstrap validity, block-length
+conditions (`L = o(n)`) and studentization.
+
+### DiCiccio & Efron (1996)
+[](){ #diciccio-efron-1996 }
+
+DiCiccio, T. J. & Efron, B. (1996). "Bootstrap Confidence Intervals."
+*Statistical Science* 11(3), 189–228.
+
+Accuracy ordering of bootstrap intervals: the percentile interval is
+first-order accurate only, while bootstrap-t and BCa are second-order
+accurate. Motivates the studentized default in `bootstrap_mean_ci`.
+
 ### Andrews & Monahan (1992)
 [](){ #andrews-monahan-1992 }
 

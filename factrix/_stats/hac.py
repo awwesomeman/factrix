@@ -2,15 +2,16 @@
 
 Newey-West (Bartlett kernel) and Hansen-Hodrick (rectangular kernel)
 HAC SE / t-test for the mean of a (possibly overlapping) time series.
-``_resolve_nw_lags`` is the shared bandwidth picker honouring the
-forward-overlap horizon.
+``_resolve_har_lags`` (scalar series-mean HAR t-test) and
+``_resolve_nw_lags`` (multivariate OLS / Wald) are the two bandwidth
+pickers, both honouring the forward-overlap horizon.
 """
 
 from __future__ import annotations
 
 import numpy as np
 
-from factrix._stats.constants import auto_bartlett
+from factrix._stats.constants import auto_bartlett, har_bandwidth
 from factrix._stats.core import _p_value_from_t, _significance_marker
 from factrix._types import EPSILON
 
@@ -48,13 +49,22 @@ def _resolve_nw_lags(
     lags: int | None,
     forward_periods: int | None,
 ) -> int:
-    """Pick Bartlett-kernel bandwidth, honoring the overlap horizon.
+    """Pick Bartlett-kernel bandwidth for a *multivariate* HAC fit, honoring the overlap horizon.
 
     ``max(auto_bartlett(T), forward_periods - 1)`` when ``forward_periods``
     is provided; the Newey-West (1994) auto rule supplies the default
     Bartlett bandwidth and the ``h - 1`` floor is required for consistency
     when input series carries an MA(h-1) structure from overlapping forward
     returns. Clipped to ``n - 1`` so the kernel stays inside the sample.
+
+    This is the bandwidth for the ``_ols_nw_multivariate`` / Wald consumers
+    (``spanning_alpha``, ``common_quantile``, ``common_asymmetry``, the slice
+    tests). The scalar series-mean HAC t-test uses the wider, separately
+    size-checked :func:`_resolve_har_lags` instead — a K-restriction Wald
+    statistic inverts a K x K HAC matrix and degrades under a bandwidth that
+    helps the scalar test (measured: the K=5 slice joint test moves from 8-9%
+    to 21% at 50 periods per slice under the HAR rule), so the two families
+    deliberately do not share one rule.
     """
     if n < 2:
         return 0
@@ -62,6 +72,110 @@ def _resolve_nw_lags(
     if forward_periods is not None:
         base = max(base, max(forward_periods - 1, 0))
     return max(0, min(base, n - 1))
+
+
+#: Estimability cap on the HAR bandwidth, as a fraction of the sample.
+#: Beyond ``T / 3`` the kernel averages over so few effective blocks that the
+#: long-run variance is noise; ``arch`` applies the same ``n / 3`` bound to the
+#: block-bootstrap block length
+#: (:func:`factrix._stats.bootstrap._politis_white_block_length`).
+_MAX_BANDWIDTH_FRACTION = 3
+
+
+def _resolve_har_lags(
+    n: int,
+    lags: int | None,
+    forward_periods: int | None,
+) -> int:
+    """Pick the Bartlett-kernel bandwidth for the scalar series-mean HAR t-test.
+
+    ``max(har_bandwidth(T), 3 * (h - 1))``, capped at ``ceil(T / 3)``.
+
+    Two departures from :func:`_resolve_nw_lags`, both driven by measured
+    size (see :func:`_newey_west_t_test`'s Notes):
+
+    - The base rule is [Lazarus-Lewis-Stock-Watson (2018)][llsw-2018]'s
+      ``1.3*sqrt(T)`` HAR recommendation rather than the Newey-West (1994)
+      plug-in. The plug-in's 4-5 lags at research sample sizes leave the
+      Bartlett long-run variance badly downward-biased.
+    - The overlap floor is ``3 * (h - 1)``, not ``h - 1``. ``h - 1`` is the
+      *consistency* floor ([Hansen-Hodrick (1980)][hansen-hodrick-1980]
+      MA(h-1) structure) and nothing more: the Bartlett weight
+      ``w_j = 1 - j/(L+1)`` sends the lag-``(h-1)`` autocovariance to
+      ``1/h`` (near zero) when ``L = h - 1``, so a bandwidth exactly at the
+      consistency floor still discards most of the overlap covariance it is
+      there to capture. At ``L = 3(h - 1)`` the mean weight across the MA
+      band is about 0.83 instead of about 0.5, and the measured size at
+      ``T=240, h=21`` falls from 18.0% to 6.0%.
+
+    The ``ceil(T / 3)`` cap keeps the kernel estimable; it binds only in the
+    thin regime that :func:`_hac_bandwidth_ill_conditioned` flags. An explicit
+    ``lags`` replaces the base rule but is still floored by the overlap
+    horizon and subject to the cap.
+    """
+    if n < 2:
+        return 0
+    base = har_bandwidth(n) if lags is None else lags
+    if forward_periods is not None:
+        base = max(base, 3 * max(forward_periods - 1, 0))
+    cap = min(n - 1, max(1, -(-n // _MAX_BANDWIDTH_FRACTION)))
+    return max(0, min(base, cap))
+
+
+def _har_dof(n: int, lags: int, forward_periods: int | None) -> float:
+    """Effective degrees of freedom for a Bartlett-kernel HAR t-test.
+
+    ``min(1.5 · T / L - 1, T / h - 1)``, floored at 1.
+
+    The first term rests on [Lazarus-Lewis-Stock-Watson (2018)][llsw-2018]:
+    the fixed-``b`` limiting distribution of a Bartlett-kernel HAR t-statistic
+    ([Kiefer-Vogelsang (2005)][kiefer-vogelsang-2005]) is well approximated by
+    a Student ``t`` with about ``1.5·T/L`` degrees of freedom. Using
+    ``t_{T-1}`` instead — the previous convention — treats a bandwidth-``L``
+    HAC variance as if it were estimated from ``T`` independent observations.
+
+    Two departures from LLSW, both factrix choices rather than published
+    forms, stated here and on the ``statistical-methods`` docs page:
+
+    - The ``- 1``. LLSW's own Stata implementation (``harreg.ado``) uses
+      ``ceil(1.5 · T / S)`` with no subtraction. Subtracting one is a
+      small-sample conservatism worth under one degree of freedom; it is
+      kept because it never widens the test and costs no measurable power.
+    - The ``T / h - 1`` cap. Not in LLSW or KV: an h-period overlapping
+      series carries at most ``T / h`` independent observations no matter
+      how the kernel is tuned, and without the cap the ``h = 21`` cells
+      stay 2–3× oversized at moderate ``T`` (measured T=60, h=21:
+      12.2% -> 4.3%).
+
+    Consequence of the cap, disclosed rather than corrected: when
+    ``forward_periods`` is passed on a series with *less* dependence than
+    ``h`` implies — an already non-overlapping or nearly iid series — the
+    test is markedly conservative (measured size at h=21: 0.2% at T=60,
+    2.1% at T=120, 3.5% at T=240; AR(0.6) h=21 T=60: 0.8%). Power stays
+    high in those cells (0.82–1.0), so the cost is a wider interval rather
+    than a blind test. Pass ``forward_periods`` only for the horizon the
+    series is actually built from.
+    """
+    dof = 1.5 * n / max(lags, 1) - 1.0
+    if forward_periods is not None and forward_periods > 1:
+        dof = min(dof, n / forward_periods - 1.0)
+    return max(dof, 1.0)
+
+
+#: The HAC sum needs enough lag products per autocovariance to be stable; the
+#: standard crude rule is ``T >= 5 * L``. Below it the long-run variance is
+#: dominated by estimation noise and callers raise
+#: ``WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED``.
+_MIN_PERIODS_PER_LAG = 5
+
+
+def _hac_bandwidth_ill_conditioned(n: int, lags: int) -> bool:
+    """True when ``n_periods < 5 * lags`` — the HAC estimate is poorly conditioned.
+
+    Callers own the ``MetricResult`` / ``InferenceResult`` and map this to
+    :attr:`factrix._codes.WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED`.
+    """
+    return lags > 0 and n < _MIN_PERIODS_PER_LAG * lags
 
 
 # Andrews-Monahan clip on the AR(1) prewhitening coefficient: at |phi| -> 1 the
@@ -106,13 +220,21 @@ def _newey_west_se(
     in the sample. Bartlett kernel weights ``w_j = 1 - j/(L+1)``, the
     convention factor-research papers report against.
 
-    Known limit — measured, disclosed, not corrected by default: at the
-    sample sizes factor research works with, the Bartlett estimate
-    understates the long-run variance of a *persistent* series (AR(0.6):
-    50% of the truth at ``n = 50``, 61% at ``n = 150``; mean test rejects
-    11–21% at a nominal 5%). Above lag-1 autocorrelation 0.3 the tested
-    series is flagged ``SERIAL_CORRELATION_DETECTED`` so the regime is
-    never silent (see ``PERSISTENT_SERIES_AUTOCORR``).
+    Known limit — measured, disclosed, not corrected by default: the
+    Bartlett estimate still understates the long-run variance of a
+    *strongly* persistent series. With the LLSW bandwidth and effective
+    df now in force (see :func:`_resolve_har_lags` / :func:`_har_dof`) the
+    AR(0.6) mean test sits at 5.4–8.1% against a nominal 5% (8.1% at
+    T=60, 5.4% at T=1000; was 9–17%), but
+    AR(0.9) is 10–18% and no bandwidth rule fixes that. Above lag-1
+    autocorrelation 0.3 the tested series is flagged
+    ``SERIAL_CORRELATION_DETECTED`` so the regime is never silent (see
+    ``PERSISTENT_SERIES_AUTOCORR``).
+
+    The returned SE carries the ``T / (T - L - 1)`` finite-sample scale
+    (see the inline note below), so it is *not* the textbook
+    ``√(LRV / T)``. Squaring it and comparing against a hand-computed
+    Bartlett sum requires dividing the scale back out.
 
     ``prewhiten=True`` applies [Andrews-Monahan (1992)][andrews-monahan-1992]
     AR(1) prewhitening — fit ``x_t = φ x_{t-1} + e_t`` on the demeaned
@@ -130,7 +252,8 @@ def _newey_west_se(
 
     Args:
         values: 1-D array of time series observations.
-        lags: Number of lags. Defaults to ``auto_bartlett(T)``.
+        lags: Number of lags. Defaults to ``har_bandwidth(T)`` via
+            :func:`_resolve_har_lags`.
         forward_periods: Overlap horizon of the input series. When set,
             enforces ``lags >= forward_periods - 1`` — the minimum
             consistent bandwidth for overlapping h-period returns
@@ -148,7 +271,7 @@ def _newey_west_se(
     if n < 2:
         return 0.0
 
-    lags = _resolve_nw_lags(n, lags, forward_periods)
+    lags = _resolve_har_lags(n, lags, forward_periods)
     demeaned = values - float(np.mean(values))
 
     if prewhiten and n >= 4:
@@ -161,7 +284,21 @@ def _newey_west_se(
     else:
         lrv = _bartlett_long_run_variance(demeaned, lags)
 
-    variance_of_mean = max(lrv / n, 0.0)
+    # Small-sample scale ``T / (T - L - 1)``: a factrix choice, not a textbook
+    # or Stata one (Stata's ``newey`` scales by ``T/(T-k)`` with ``k`` the
+    # number of regressors — 1 for a mean — and never by the bandwidth). Its
+    # derivation: the Bartlett sum is built from autocovariances of a series
+    # demeaned *in sample*, so each ``γ̂_j`` carries a bias of about
+    # ``-γ_0/T``. For white noise that gives
+    # ``E[LRV̂] ≈ γ_0 (1 - (1 + 2 Σ_j w_j) / T) = γ_0 (1 - (L + 1) / T)``,
+    # which ``T / (T - L - 1)`` undoes exactly. Without it the SE is 5-15%
+    # too small at research sample sizes (h=5 size 8.2-9.6% vs 6.2-6.7%).
+    # It partly double-counts with the fixed-b reference distribution of
+    # :func:`_har_dof`, whose Kiefer-Vogelsang limit already embeds the
+    # demeaning; that is why the h=1 iid cells come out slightly *under*-sized
+    # (measured 4.3-4.7% at T <= 120). The trade is deliberate: the h>1
+    # overlap cells, which are the ones this library actually serves, need it.
+    variance_of_mean = max(lrv / n, 0.0) * (n / max(n - lags - 1, 1))
     return float(np.sqrt(variance_of_mean))
 
 
@@ -170,20 +307,69 @@ def _newey_west_t_test(
     lags: int | None = None,
     forward_periods: int | None = None,
 ) -> tuple[float, float, str]:
-    """Newey-West t-test for H₀: mean = 0.
+    """Newey-West HAR t-test for H₀: mean = 0.
+
+    Three pieces, all needed together for the test to be calibrated on
+    overlapping data:
+
+    1. Bandwidth ``max(1.3·√T, 3(h - 1))`` capped at ``T/3`` —
+       :func:`_resolve_har_lags`.
+    2. The ``T / (T - L - 1)`` finite-sample scale on the SE —
+       :func:`_newey_west_se`.
+    3. Effective degrees of freedom ``min(1.5·T/L - 1, T/h - 1)`` rather
+       than ``T - 1`` — :func:`_har_dof`.
 
     Args:
         values: 1-D array of time series observations.
         lags: Optional explicit Bartlett-kernel bandwidth. ``None`` uses
-            the Newey-West (1994) ``auto_bartlett(T)`` default.
-        forward_periods: Overlap horizon of the series. When set,
-            bandwidth is floored at ``forward_periods - 1`` to stay
-            consistent under the MA(h-1) overlap structure.
+            the [LLSW (2018)][llsw-2018] ``har_bandwidth(T)`` default.
+        forward_periods: Overlap horizon ``h`` of the series. Floors the
+            bandwidth at ``3(h - 1)`` and caps the effective df at
+            ``T/h - 1``. Pass it whenever the series is built from
+            overlapping h-period forward returns — omitting it leaves the
+            test oversized by 2–7×.
 
     Returns:
         ``(t_stat, p_value, significance_marker)``. A sample too short to
         run the kernel (``n < 3``) or one whose HAC SE collapses to zero
         returns ``(nan, nan, "")`` — see the degeneracy note below.
+
+    Notes:
+        Measured rejection frequency at a nominal 5%, 4000 replications
+        per cell, on a null MA(h-1) series built from overlapping
+        h-period sums of iid normals (``tests/stats/test_hac_overlap_size.py``
+        re-runs a small grid of these). "before" is the
+        ``max(auto_bartlett(T), h-1)`` bandwidth with ``t_{T-1}``:
+
+        | T   | h  | before | after |
+        |-----|----|--------|-------|
+        | 60  | 1  | 0.065  | 0.039 |
+        | 120 | 1  | 0.064  | 0.048 |
+        | 240 | 1  | 0.056  | 0.050 |
+        | 500 | 1  | 0.049  | 0.049 |
+        | 60  | 5  | 0.148  | 0.068 |
+        | 120 | 5  | 0.123  | 0.068 |
+        | 240 | 5  | 0.115  | 0.063 |
+        | 500 | 5  | 0.102  | 0.056 |
+        | 60  | 21 | 0.342  | 0.049 |
+        | 120 | 21 | 0.228  | 0.073 |
+        | 240 | 21 | 0.180  | 0.060 |
+        | 500 | 21 | 0.131  | 0.068 |
+
+        The cost is power, not size: against a mean of
+        ``2.5 / √(T/h)`` the same grid rejects 42–70%. ``NonOverlapping``
+        remains the more conservative overlap-aware path (it is
+        calibrated in every cell but throws away ``h-1`` of every ``h``
+        observations); ``NeweyWest`` is now competitive on size rather
+        than a strict trade of size for power.
+
+    References:
+        - [Lazarus, Lewis, Stock & Watson (2018)][llsw-2018]. "HAR
+          Inference: Recommendations for Practice." Journal of Business &
+          Economic Statistics, 36(4), 541–559.
+        - [Kiefer & Vogelsang (2005)][kiefer-vogelsang-2005]. "A New
+          Asymptotic Theory for Heteroskedasticity-Autocorrelation Robust
+          Tests." Econometric Theory, 21(6), 1130–1164.
     """
     from factrix._logging import get_metrics_logger
 
@@ -192,12 +378,13 @@ def _newey_west_t_test(
     if n < 3:
         return _NOT_COMPUTABLE
 
-    effective_lags = _resolve_nw_lags(n, lags, forward_periods)
+    effective_lags = _resolve_har_lags(n, lags, forward_periods)
     logger = get_metrics_logger()
     logger.debug("newey_west_t_test: n=%d lags=%d", n, effective_lags)
-    # WARNING: NW kernel needs enough samples per lag to estimate
-    # autocovariances; a crude but standard rule is T >= 5 * lags.
-    if effective_lags > 0 and n < 5 * effective_lags:
+    # NW kernel needs enough samples per lag to estimate autocovariances.
+    # Callers surface this structurally via ``_hac_bandwidth_ill_conditioned``;
+    # the log line stays for paths that hold no result object.
+    if _hac_bandwidth_ill_conditioned(n, effective_lags):
         logger.warning(
             "newey_west_t_test: n=%d < 5 * lags=%d — HAC estimate may be "
             "poorly conditioned. Consider smaller lags or more data.",
@@ -211,7 +398,7 @@ def _newey_west_t_test(
         return _NOT_COMPUTABLE
 
     t = mean / se
-    p = _p_value_from_t(t, n)
+    p = _p_value_from_t(t, n, dof=_har_dof(n, effective_lags, forward_periods))
     return t, p, _significance_marker(p)
 
 
@@ -364,9 +551,13 @@ def _driscoll_kraay_cov(
     lags_used = auto_bartlett(n_periods) if lags is None else lags
     lags_used = max(0, min(lags_used, n_periods - 1))
 
-    long_run_cov = _bartlett_lrcov(cross_section_sums, lags_used)
-    xtx_inv = np.linalg.inv(X.T @ X)
-    cov = xtx_inv @ long_run_cov @ xtx_inv
+    # numpy < 2.4 on Apple Accelerate raises spurious FP flags from small
+    # dense matmuls on finite input; singular designs are caught via
+    # ``LinAlgError`` and the degenerate-SE checks downstream.
+    with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+        long_run_cov = _bartlett_lrcov(cross_section_sums, lags_used)
+        xtx_inv = np.linalg.inv(X.T @ X)
+        cov = xtx_inv @ long_run_cov @ xtx_inv
     return cov, n_periods, lags_used
 
 

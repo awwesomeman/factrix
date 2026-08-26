@@ -51,6 +51,7 @@ References:
 from __future__ import annotations
 
 import functools
+import warnings
 from numbers import Integral
 
 import numpy as np
@@ -250,6 +251,52 @@ def holm_adjusted_p(
     return out
 
 
+#: Minimum bootstrap resamples for ``romano_wolf_adjusted_p``. The adjusted
+#: p has resolution ``1/(B+1)``, so below this the procedure cannot separate
+#: hypotheses at any conventional level. ``_block_bootstrap_diff_p`` documents
+#: >= 999 as the recommendation; this is the warn floor. Not a refusal: a
+#: handful of hand-built resamples is legitimate input for a deterministic
+#: step-down reference check.
+_MIN_ROMANO_WOLF_RESAMPLES: int = 99
+
+#: ``|mean(bootstrap)| / sd(bootstrap)`` above which the bootstrap columns look
+#: uncentred. Romano-Wolf needs the resample distribution drawn under the null,
+#: which the caller owns; an uncentred bootstrap is silently unrecoverable
+#: (``randn(999, 3) + 3.0`` against statistics ``[2.5, 1.0, 0.2]`` returns
+#: ``[0.969, 1.0, 1.0]`` - every hypothesis "not significant" because the whole
+#: reference distribution sits above them).
+#:
+#: The threshold is a heuristic, not a test with a size: one sample sd of
+#: off-centring is well beyond anything a correctly centred null bootstrap
+#: produces, but a legitimately skewed null distribution can sit above it and
+#: an offset of just under 1 sd slips through. It fires a ``warnings.warn``
+#: only — nothing downstream branches on it.
+_UNCENTRED_BOOTSTRAP_RATIO: float = 1.0
+
+
+def _warn_if_uncentred(bootstrap: np.ndarray) -> None:
+    """Warn when the bootstrap columns are far from centred under the null."""
+    if bootstrap.shape[0] < 2:
+        return
+    column_sd = np.std(bootstrap, axis=0, ddof=1)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ratio = np.abs(np.mean(bootstrap, axis=0)) / column_sd
+    offenders = np.flatnonzero(
+        np.isfinite(ratio) & (ratio > _UNCENTRED_BOOTSTRAP_RATIO)
+    )
+    if offenders.size:
+        warnings.warn(
+            f"romano_wolf_adjusted_p: bootstrap_statistics columns "
+            f"{offenders.tolist()} have |mean| / sd above "
+            f"{_UNCENTRED_BOOTSTRAP_RATIO}, which usually means they were not "
+            f"centred under the null. Centring is the caller's job (see this "
+            f"function's docstring); an uncentred bootstrap yields adjusted "
+            f"p-values that are not recoverable from the output.",
+            UserWarning,
+            stacklevel=3,
+        )
+
+
 def romano_wolf_adjusted_p(
     statistics: npt.ArrayLike,
     bootstrap_statistics: npt.ArrayLike,
@@ -324,6 +371,22 @@ def romano_wolf_adjusted_p(
             "romano_wolf_adjusted_p: bootstrap_statistics must have at "
             "least 1 resample."
         )
+    if bootstrap.shape[0] < _MIN_ROMANO_WOLF_RESAMPLES:
+        # Warn rather than raise: a handful of hand-built resamples is the
+        # right input for a deterministic step-down reference check, and the
+        # procedure is still well defined. It just has no usable resolution
+        # for real work.
+        warnings.warn(
+            f"romano_wolf_adjusted_p: B={bootstrap.shape[0]} resamples is "
+            f"below {_MIN_ROMANO_WOLF_RESAMPLES}. The adjusted p has "
+            f"resolution 1/(B+1), so every hypothesis lands on the same "
+            f"handful of values - at B=1, statistics [5.0, 0.1] both adjust "
+            f"to 0.5. Politis-White (2004) recommend >= 999 for two-sided 5% "
+            f"work.",
+            UserWarning,
+            stacklevel=2,
+        )
+    _warn_if_uncentred(bootstrap)
 
     if one_sided:
         observed_use = observed
@@ -425,11 +488,21 @@ def partial_conjunction_p(
     m = len(p)
     if m == 0:
         raise ValueError("partial_conjunction_p: p_values must be non-empty.")
+    # Type guard first, matching ``_resolve_family_size``. Without it
+    # ``min_pass=2.5`` reached ``sorted_p[min_pass - 1]`` and surfaced as a
+    # raw IndexError, and ``min_pass=True`` silently became ``k = 1`` - the
+    # union semantics ``partial_conjunction`` refuses outright because they
+    # inflate FDR to about 2q.
+    if isinstance(min_pass, bool) or not isinstance(min_pass, Integral):
+        raise ValueError(
+            f"partial_conjunction_p: min_pass must be an integer; got {min_pass!r}."
+        )
     if not 1 <= min_pass <= m:
         raise ValueError(
             f"partial_conjunction_p: min_pass ({min_pass}) must satisfy "
             f"1 <= min_pass <= m ({m})."
         )
+    min_pass = int(min_pass)
     sorted_p = np.sort(p)
     pc = (m - min_pass + 1) * float(sorted_p[min_pass - 1])
     return min(pc, 1.0)

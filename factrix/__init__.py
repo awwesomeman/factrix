@@ -41,14 +41,20 @@ typical usage patterns in a single fetch. Two access paths::
     text = ref.read_text(encoding="utf-8")  # the file is utf-8, not locale
 """
 
-import dataclasses
-import math
-from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, NoReturn
+# Underscore aliases: ``import factrix; dir(factrix)`` otherwise offers
+# ``math``, ``pl``, ``Any``, ``dataclasses``, ``MappingProxyType``,
+# ``TYPE_CHECKING`` and ``NoReturn`` alongside the real API, and
+# ``from factrix import *`` used to be the only thing ``__all__`` protected.
+import dataclasses as _dataclasses
+import math as _math
+from types import MappingProxyType as _MappingProxyType
+from typing import TYPE_CHECKING as _TYPE_CHECKING
+from typing import Any as _Any
+from typing import NoReturn as _NoReturn
 
-import polars as pl
+import polars as _pl
 
-if TYPE_CHECKING:
+if _TYPE_CHECKING:
     from factrix.metrics._base import MetricBase
 
 from factrix import datasets, inference, multi_factor, preprocess, stats
@@ -253,7 +259,7 @@ def evaluate(
     # no config object and therefore runs on its signature defaults.
     label_spec = {
         label: (
-            dataclasses.replace(
+            _dataclasses.replace(
                 type(inst).spec(),
                 sample_threshold=type(inst)._resolve_sample_threshold(inst),
             )
@@ -670,7 +676,7 @@ def _validate_metrics_arg(metrics: object) -> None:
             )
 
 
-def _resolve_forward_periods(data: pl.DataFrame, declared: int | None) -> int:
+def _resolve_forward_periods(data: _pl.DataFrame, declared: int | None) -> int:
     """Resolve the panel's single overlap horizon for this evaluation.
 
     Path A (primary): a panel built by ``compute_forward_return`` carries a
@@ -714,8 +720,8 @@ def _resolve_forward_periods(data: pl.DataFrame, declared: int | None) -> int:
 
 def _build_nodes(
     label_spec: "dict[str, MetricSpec]",
-    label_params: dict[str, dict[str, Any]],
-) -> tuple[list[_Node], dict[str, str], dict[str, dict[str, Any]]]:
+    label_params: dict[str, dict[str, _Any]],
+) -> tuple[list[_Node], dict[str, str], dict[str, dict[str, _Any]]]:
     """Build the by-value execution node graph for the DAG executor.
 
     Dedups user metrics into **consumer nodes** keyed by ``(name, config)`` —
@@ -730,12 +736,12 @@ def _build_nodes(
     """
     by_name = spec_by_name()
     node_by_key: dict[tuple[str, frozenset], str] = {}
-    node_kwargs: dict[str, dict[str, Any]] = {}
+    node_kwargs: dict[str, dict[str, _Any]] = {}
     node_spec: dict[str, MetricSpec] = {}
     name_counts: dict[str, int] = {}
     creation_order: list[str] = []
 
-    def intern(spec: MetricSpec, params: dict[str, Any]) -> str:
+    def intern(spec: MetricSpec, params: dict[str, _Any]) -> str:
         # List params (e.g. ``offsets=[...]``) are unhashable; coerce to a
         # tuple so the dedup key works. Only the key is affected — the stored
         # kwargs below keep the original list the metric signature expects.
@@ -815,7 +821,7 @@ def _is_type_routing_reason(reason: object) -> bool:
 def _raise_insufficient_sample(
     failed: "list[tuple[str, str]]",
     label_outputs: "dict[str, MetricResult]",
-) -> "NoReturn":
+) -> "_NoReturn":
     """Raise :class:`InsufficientSampleError` for a pure sample-shortfall battery.
 
     The counts come from the producer's own short-circuit stamp — ``n_obs`` /
@@ -892,7 +898,7 @@ def _enforce_strict(label_outputs: "dict[str, MetricResult]") -> None:
     failed = [
         (label, str(out.metadata.get("reason")))
         for label, out in label_outputs.items()
-        if math.isnan(out.value)
+        if _math.isnan(out.value)
         and out.metadata.get("reason")
         and not _is_type_routing_reason(out.metadata.get("reason"))
     ]
@@ -959,11 +965,11 @@ def _relabel_result(
             continue
         out = node_outputs.get(label_to_node[label])
         if out is not None:
-            label_outputs[label] = dataclasses.replace(out, name=label)
+            label_outputs[label] = _dataclasses.replace(out, name=label)
     if strict:
         _enforce_strict(label_outputs)
     warnings = [
-        dataclasses.replace(w, source=node_to_label[w.source])
+        _dataclasses.replace(w, source=node_to_label[w.source])
         if w.source is not None and w.source in node_to_label
         else w
         for w in result.warnings
@@ -972,14 +978,14 @@ def _relabel_result(
     warnings.extend(compatibility_warnings)
     if expected_warnings:
         warnings = [
-            dataclasses.replace(w, expected=True)
+            _dataclasses.replace(w, expected=True)
             if w.code.value in expected_warnings
             else w
             for w in warnings
         ]
-    return dataclasses.replace(
+    return _dataclasses.replace(
         result,
-        metrics=MappingProxyType(label_outputs),
+        metrics=_MappingProxyType(label_outputs),
         warnings=warnings,
     )
 
@@ -1023,7 +1029,7 @@ def _validate_factor_cols_arg(factor_cols: object) -> list[str]:
     return list(factor_cols)
 
 
-def _validate_factor_cols_on_data(data: pl.DataFrame, cols: list[str]) -> None:
+def _validate_factor_cols_on_data(data: _pl.DataFrame, cols: list[str]) -> None:
     missing = [c for c in cols if c not in data.columns]
     if missing:
         raise UserInputError(
@@ -1038,7 +1044,7 @@ def _validate_factor_cols_on_data(data: pl.DataFrame, cols: list[str]) -> None:
         )
 
 
-def _validate_factor_cols_numeric(data: pl.DataFrame, cols: list[str]) -> None:
+def _validate_factor_cols_numeric(data: _pl.DataFrame, cols: list[str]) -> None:
     non_numeric = [(c, data.schema[c]) for c in cols if not data.schema[c].is_numeric()]
     if not non_numeric:
         return
@@ -1055,7 +1061,7 @@ def _validate_factor_cols_numeric(data: pl.DataFrame, cols: list[str]) -> None:
     )
 
 
-def _validate_baseline_columns(data: pl.DataFrame) -> None:
+def _validate_baseline_columns(data: _pl.DataFrame) -> None:
     missing = [c for c in _BASELINE_COLUMNS if c not in data.columns]
     if not missing:
         return
@@ -1080,16 +1086,16 @@ def _validate_baseline_columns(data: pl.DataFrame) -> None:
 
 
 def _detect_factor_cell(
-    data: pl.DataFrame, factor_col: str
+    data: _pl.DataFrame, factor_col: str
 ) -> tuple[FactorScope, FactorDensity, DataStructure]:
-    temp = data.select("date", "asset_id", pl.col(factor_col).alias("factor"))
+    temp = data.select("date", "asset_id", _pl.col(factor_col).alias("factor"))
     scope, _ = _detect_scope(temp)
     density, _, _ = _detect_density(temp)
     return scope, density, _detect_structure(data)
 
 
-def _detect_factor_sparse_ratio(data: pl.DataFrame, factor_col: str) -> float:
-    temp = data.select("date", "asset_id", pl.col(factor_col).alias("factor"))
+def _detect_factor_sparse_ratio(data: _pl.DataFrame, factor_col: str) -> float:
+    temp = data.select("date", "asset_id", _pl.col(factor_col).alias("factor"))
     _, _, sparse_ratio = _detect_density(temp)
     return sparse_ratio
 
@@ -1222,7 +1228,7 @@ def _cell_mismatch_output(
     )
     if guidance is None:
         return output
-    return dataclasses.replace(
+    return _dataclasses.replace(
         output, metadata={**output.metadata, "guidance": guidance}
     )
 

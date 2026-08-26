@@ -20,13 +20,14 @@ import pytest
 from factrix._codes import WarningCode
 from factrix._stats import (
     _hansen_hodrick_t_test,
+    _har_dof,
     _newey_west_t_test,
     _p_value_from_t,
-    _resolve_nw_lags,
+    _resolve_har_lags,
     _t_stat_from_array,
 )
 from factrix._stats.bootstrap import _block_bootstrap_diff_p
-from factrix._stats.constants import MIN_PERIODS_WARN, auto_bartlett
+from factrix._stats.constants import MIN_PERIODS_WARN
 from factrix.inference import (
     NEWEY_WEST,
     NON_OVERLAPPING,
@@ -128,13 +129,16 @@ class TestNeweyWest:
         series = rng.standard_normal(60)
         df = _series_df(series)
         result = NEWEY_WEST.compute(df, value_col="ic", forward_periods=forward_periods)
-        nw_lags = _resolve_nw_lags(
-            len(series), auto_bartlett(len(series)), forward_periods
+        nw_lags = _resolve_har_lags(len(series), None, forward_periods)
+        t_direct, p_direct, _ = _newey_west_t_test(
+            series, lags=nw_lags, forward_periods=forward_periods
         )
-        t_direct, p_direct, _ = _newey_west_t_test(series, lags=nw_lags)
         assert result.stat == t_direct
         assert result.p_value == p_direct
-        assert result.metadata == {"nw_lags": nw_lags}
+        assert result.metadata == {
+            "nw_lags": nw_lags,
+            "hac_dof": _har_dof(len(series), nw_lags, forward_periods),
+        }
 
     def test_short_series_warns(self) -> None:
         series = np.random.default_rng(0).standard_normal(MIN_PERIODS_WARN - 5)
@@ -213,11 +217,16 @@ class TestStationaryBootstrap:
             "n_resamples",
             "scheme",
             "rng_seed",
+            "studentized",
         }
+        # forward_periods must be part of the replay: the member floors the
+        # resolved block length at the overlap horizon, so a replay without
+        # it reproduces a different (shorter-block) bootstrap.
         p_replay, _ = _block_bootstrap_diff_p(
-            series, rng_seed=result.metadata["rng_seed"]
+            series, forward_periods=5, rng_seed=result.metadata["rng_seed"]
         )
         assert result.p_value == p_replay
+        assert result.metadata["block_length"] >= 5
 
     def test_short_sample_warns(self) -> None:
         result = STATIONARY_BOOTSTRAP.compute(
@@ -303,3 +312,45 @@ class TestPersistenceScreen:
             forward_periods=h,
         )
         assert (WarningCode.SERIAL_CORRELATION_DETECTED in result.warnings) is flagged
+
+
+class TestStationaryBootstrapHonoursTheHorizon:
+    """`forward_periods` was accepted and discarded — the worst-calibrated
+    member of the family as a result (41.7% at T=60, h=21)."""
+
+    @staticmethod
+    def _overlapping_null(n_periods, horizon, rng):
+        e = rng.normal(size=n_periods + horizon)
+        cumulative = np.cumsum(np.concatenate([[0.0], e]))
+        return (
+            cumulative[horizon : horizon + n_periods] - cumulative[:n_periods]
+        ) / np.sqrt(horizon)
+
+    def test_block_length_is_floored_at_the_horizon(self) -> None:
+        series = np.random.default_rng(0).standard_normal(200)
+        result = STATIONARY_BOOTSTRAP.compute(
+            _series_df(series), value_col="ic", forward_periods=21
+        )
+        assert result.metadata["block_length"] >= 21
+        assert result.metadata["studentized"] is True
+
+    def test_horizon_changes_the_answer(self) -> None:
+        """Guard against a silent regression to ignoring the parameter."""
+        series = np.random.default_rng(0).standard_normal(200)
+        df = _series_df(series)
+        short = STATIONARY_BOOTSTRAP.compute(df, value_col="ic", forward_periods=1)
+        long = STATIONARY_BOOTSTRAP.compute(df, value_col="ic", forward_periods=21)
+        assert long.metadata["block_length"] > short.metadata["block_length"]
+
+    def test_size_on_an_overlapping_null(self) -> None:
+        rng = np.random.default_rng(20240607)
+        rejects = 0
+        n_reps = 100
+        for _ in range(n_reps):
+            vals = self._overlapping_null(120, 21, rng)
+            p, _ = _block_bootstrap_diff_p(
+                vals, forward_periods=21, n_resamples=299, rng_seed=0
+            )
+            rejects += p < 0.05
+        # Was 0.277 with the horizon discarded and an unstudentized root.
+        assert rejects / n_reps <= 0.14

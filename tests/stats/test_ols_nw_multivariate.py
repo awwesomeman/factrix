@@ -19,24 +19,26 @@ class TestPointEstimates:
         beta_lstsq, *_ = np.linalg.lstsq(X, y, rcond=None)
         np.testing.assert_allclose(beta, beta_lstsq, atol=1e-12)
 
-    def test_singular_design_returns_zeros(self):
+    def test_singular_design_is_not_computable(self):
+        """Zero beta / zero V produced a t = 0/0 downstream that read as a
+        non-rejection; a rank-deficient design has no estimate at all."""
         n = 100
         x1 = np.arange(n, dtype=float)
         # Two columns identical → X'X singular.
         X = np.column_stack([x1, x1])
         y = np.arange(n, dtype=float)
         beta, V, resid = _ols_nw_multivariate(y, X, lags=0)
-        np.testing.assert_array_equal(beta, np.zeros(2))
-        np.testing.assert_array_equal(V, np.zeros((2, 2)))
+        assert np.isnan(beta).all()
+        assert np.isnan(V).all()
         np.testing.assert_array_equal(resid, np.zeros(n))
 
-    def test_n_below_k_plus_one_returns_zeros(self):
+    def test_n_below_k_plus_one_is_not_computable(self):
         # 2 obs, 3 params — under-identified.
         X = np.array([[1.0, 0.5, -0.3], [1.0, 1.5, 0.2]])
         y = np.array([0.1, 0.2])
         beta, V, _ = _ols_nw_multivariate(y, X, lags=0)
-        np.testing.assert_array_equal(beta, np.zeros(3))
-        np.testing.assert_array_equal(V, np.zeros((3, 3)))
+        assert np.isnan(beta).all()
+        assert np.isnan(V).all()
 
 
 class TestHACVariance:

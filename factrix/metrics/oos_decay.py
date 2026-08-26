@@ -27,11 +27,13 @@ from factrix._axis import (
     FactorScope,
     InputShape,
 )
+from factrix._codes import WarningCode
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._types import EPSILON, MIN_OOS_PERIODS_HARD
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
+    DEGENERATE_SIGNAL_STATUS,
     _enforce_min_floor,
     _resolve_series_value_col,
     _short_circuit_output,
@@ -87,7 +89,14 @@ def oos_decay(
     Returns:
         MetricResult with:
 
-        - ``value``: survival ratio (NaN on short-circuit)
+        - ``value``: survival ratio ``|mean_oos| / |mean_is|``. NaN on a
+        short-circuit, and NaN when ``|mean_is| ~ 0``: the ratio is an
+        undefined 0/0 there, not a survival of zero. Reporting ``0.0``
+        VETOED a factor with a large out-of-sample mean as "fully
+        decayed" when the honest reading is "in-sample carried no signal
+        to decay from". That case raises
+        ``WarningCode.DEGENERATE_VARIANCE`` and keeps ``status="VETOED"``
+        — the gate must not read "cannot assess" as "passed".
         - ``stat``: ``None`` — descriptive only (no hypothesis test
         attached; a t-stat at ``MIN_OOS_PERIODS_HARD = 5`` would have power
         ~ 0 and would invite mis-reading the diagnostic as a
@@ -201,10 +210,24 @@ def oos_decay(
     mean_oos = float(oos_vals.mean())  # type: ignore[arg-type]
 
     sign_flipped = (mean_is > 0 and mean_oos < 0) or (mean_is < 0 and mean_oos > 0)
-    survival = 0.0 if abs(mean_is) < EPSILON else abs(mean_oos) / abs(mean_is)
+    # ``mean_is ~ 0`` makes the ratio an undefined 0/0, not a survival of
+    # zero. The former ``0.0`` VETOED a factor with a LARGE out-of-sample
+    # mean as "fully decayed", when the honest reading is "in-sample had no
+    # signal to decay from; the ratio is undefined". NaN + a warning code,
+    # matching the repo's degenerate-sample convention.
+    degenerate_is = abs(mean_is) < EPSILON
+    survival = float("nan") if degenerate_is else abs(mean_oos) / abs(mean_is)
 
-    if sign_flipped:
-        status: GateStatus = "VETOED"
+    status: GateStatus
+    if degenerate_is:
+        # No ratio to compare against the threshold. The gate stays VETOED -
+        # it is a gate, and "cannot assess" must not read as "passed" - but
+        # ``value`` is NaN and DEGENERATE_VARIANCE says why, matching the
+        # ``insufficient_oos_periods`` short circuit above, which is also
+        # VETOED-with-a-reason rather than a third status.
+        status = "VETOED"
+    elif sign_flipped:
+        status = "VETOED"
     elif survival >= survival_threshold:
         status = "PASS"
     else:
@@ -219,6 +242,9 @@ def oos_decay(
         "survival_threshold": survival_threshold,
     }
     warning_codes: list[str] = []
+    if degenerate_is:
+        metadata["signal_status"] = DEGENERATE_SIGNAL_STATUS
+        warning_codes.append(WarningCode.DEGENERATE_VARIANCE.value)
     _surface_null_drop(
         n_periods_in=sorted_series.height,
         n_periods_out=n,

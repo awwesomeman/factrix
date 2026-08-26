@@ -88,7 +88,8 @@ contrasts, not a sidecar to a primary value.
 
 - *primary*: `p_value` — `t`-test on the per-period IC series (non-overlapping stride with stride `forward_periods` by default, or Newey-West HAC if configured).
 - *descriptive*: `n_periods` (the sample the `value` / `stat` / `p_value` describe — the strided subsample under `NonOverlapping`, the full series under `NeweyWest` / `StationaryBootstrap`; equals `n_obs`), `n_periods_full` and `mean_ic_full` (the full per-period series, for reference), `forward_periods`, `tie_ratio` (median across periods), `min_assets_per_period` / `warn_assets_per_period` when the upstream IC series carries per-period asset counts, `stat_type` (`"t"`), `h0` (`"mu=0"`), `method`.
-- *warning*: `WarningCode.FEW_ASSETS` when retained per-period IC cross-sections are below `MIN_IC_ASSETS_WARN`.
+- *descriptive* (conditional, `NeweyWest`): `nw_lags` (resolved Bartlett bandwidth) and `hac_dof` (the effective degrees of freedom the `t` is read against; `None` when the sample is too short to run the kernel).
+- *warning*: `WarningCode.FEW_ASSETS` when retained per-period IC cross-sections are below `MIN_IC_ASSETS_WARN`; `WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED` under `NeweyWest` when the resolved bandwidth exceeds `n_periods / 5`.
 - *short-circuit*: `reason` `insufficient_ic_periods` (too few periods) carries `min_required`; `insufficient_ic_assets` (every cross-section below `MIN_IC_ASSETS_HARD`, so no per-period IC survived — common on one-valid-pair panels) carries `min_assets_required`.
 
 #### `ic_ir`
@@ -108,10 +109,14 @@ is emitted.
   post-hoc and the corrected `p_value` replaces the raw value.
 - *secondary-test* (conditional, Shanken applied):
   `p_value_uncorrected`, `stat_uncorrected`.
-- *descriptive*: `n_periods`, `newey_west_lags`, `forward_periods`,
+- *descriptive*: `n_periods`, `newey_west_lags` (the resolved HAR
+  bandwidth), `hac_dof` (the effective degrees of freedom the `t` is read
+  against), `forward_periods`,
   `is_estimated_factor`, `warning_codes` (conditional),
   `min_assets_per_period` / `warn_assets_per_period` when the upstream
   FM beta series carries per-period asset counts.
+- *warning*: `WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED` when the resolved
+  bandwidth exceeds `n_periods / 5`.
 - *descriptive* (conditional, Shanken applied): `shanken_c`,
   `shanken_factor_return_var`, `shanken_factor_return_var_source`.
 - *descriptive* (conditional, σ²_f ≈ 0): `shanken_correction` =
@@ -615,38 +620,147 @@ Stepwise selection meta-metric; descriptive `MetricResult` with
 
 Theil-Sen median slope on the IC series for magnitude; significance from
 the Mann-Kendall test on the same ranks. `MetricResult.stat` is Kendall's
-`tau` between the sequence index and the series, `p_value` its two-sided
-p (exact for small `n`, tie-corrected asymptotic otherwise). A constant
+`tau` between the sequence index and the series. A constant
 series has no rank ordering to test: `stat` / `p_value` are `None` with
 `degenerate_variance`, `value` (the zero slope) is kept.
 
-- *primary*: `p_value` — Mann-Kendall trend significance.
-- *descriptive*: `n_periods`, `ci_low`, `ci_high`,
-  `ci_excludes_zero`, `intercept`.
+Two departures from textbook Mann-Kendall, both because its null variance
+assumes serially independent observations and the default input (a
+per-period IC over h-period forward returns) is MA(h−1):
+
+- the series is sub-sampled to non-overlapping observations at stride
+  `forward_periods` before anything is computed, so `value` is a slope
+  *per sampled step* and `n_obs` is the survivor count;
+- `p_value` comes from the Hamed-Rao (1998) variance-inflated normal
+  statistic on the survivors, not from `scipy.stats.kendalltau`'s iid p.
+
+Measured null rejection at nominal 5% on an overlapping series: raw
+Mann-Kendall 0.37–0.68, strided + Hamed-Rao 0.02–0.05. The stride is
+~99% of that fix — in every overlap cell "strided" and "strided +
+Hamed-Rao" agree to within 1pp. Hamed-Rao handles residual persistence
+*after* striding and is not calibrated on its own (Hamed-Rao alone on an
+overlapping series: 0.16–0.32). Residual persistence that striding
+cannot remove (an AR factor at `h = 1`) still leaves the test oversized
+and carries `serial_correlation_detected`.
+
+The stride costs power, and at `forward_periods = 21` costs nearly all
+of it. Against a drift of 2 sd over the sample, raw Mann-Kendall versus
+strided + Hamed-Rao: 0.865 → 0.360 (`T=60, h=5`), 0.971 → 0.713
+(`T=120, h=5`), 0.999 → 0.952 (`T=240, h=5`), 0.888 → 0.086
+(`T=120, h=21`), 0.951 → 0.425 (`T=240, h=21`). At `h = 21` the metric
+needs roughly 240+ periods before it can detect anything.
+
+- *primary*: `p_value` — Hamed-Rao corrected Mann-Kendall trend
+  significance.
+- *descriptive*: `n_periods` (survivors after striding), `n_periods_raw`,
+  `stride`, `variance_inflation` (Hamed-Rao `n/n*`), `residual_autocorr`,
+  `ci_low`, `ci_high`, `ci_excludes_zero`, `intercept`.
 - *descriptive* (conditional, augmented Dickey-Fuller (ADF) run): `adf_stat`, `adf_p`,
-  `unit_root_suspected`.
+  `unit_root_suspected` — a suspected unit root now also raises
+  `persistent_regressor`.
 
 ### `predictive_beta` (`factrix.metrics.predictive_beta`)
 
 #### `predictive_beta`
 
 Single-asset dense predictive regression. `MetricResult.value` is the
-slope in `forward_return ~ factor`; `MetricResult.stat` is the
-Newey-West HAC `t` statistic for `H0: beta = 0`.
+**Stambaugh-bias-corrected** slope in `forward_return ~ factor`;
+`MetricResult.stat` is its `t` statistic for `H0: beta = 0`.
 
-- *primary*: `p_value` — two-sided HAC slope test.
+OLS on this regression is biased whenever the predictor is persistent
+*and* its AR(1) innovation correlates with the return innovation
+(Stambaugh 1999) — the classic dividend-yield artefact. The bias is the
+**product** of the two, which is why the ADF screen alone cannot detect
+it: ADF proxies persistence only. Measured against a true `beta = 0` at
+`T = 60, phi = 0.95, rho = -0.9`, plain OLS averaged `+0.076` and
+rejected 20.6% at a nominal 5%.
+
+The fix is the Amihud-Hurvich (2004) augmented regression: the
+bias-corrected AR(1) residual proxy enters as a second regressor, and
+the slope on the predictor is the reduced-bias estimator. Its standard
+error carries a generated-regressor term
+(`Var_aug + gamma^2 Var(phi_c) c^2`) — without it the proxy absorbs the
+correlated part of the return innovation and the test rejects ~50% of
+true nulls.
+
+Two departures from Amihud-Hurvich, both factrix choices. (1) The
+covariance inside the augmented regression is horizon-dependent: at
+`forward_periods = 1` it is AH's own homoskedastic `s^2 (X'X)^-1` read
+against `t_{m-3}`, because that regression is not overlapping and a
+Bartlett kernel there is pure downward bias in the SE (it cost 4pp of size
+at `T = 60`); at `h > 1` it is the Bartlett HAC covariance read against the
+fixed-`b` effective df `_har_dof`, since a single-restriction slope test is
+not the `K x K` Wald the narrow bandwidth rule exists for. (2) AH (2004) is
+an `h = 1` method — summing the innovation proxy over `t+1..t+h` is a
+factrix extension, and the design drops its last `h-1` rows rather than
+carrying zero-padded truncated proxy sums.
+
+Measured on 2000 draws per cell with a true `beta = 0`. The `rho = 0` rows
+carry no Stambaugh channel at all and are there to separate the correction
+from the inference:
+
+| T    | φ    | ρ    | h | bias (OLS → AH)   | size (OLS → AH) |
+|------|------|------|---|-------------------|-----------------|
+| 60   | 0.50 |  0.0 | 1 | +0.0010 → +0.0012 | 0.086 → 0.043   |
+| 60   | 0.90 |  0.0 | 1 | +0.0009 → −0.0007 | 0.091 → 0.050   |
+| 60   | 0.95 |  0.0 | 1 | −0.0014 → −0.0022 | 0.102 → 0.055   |
+| 60   | 0.99 |  0.0 | 1 | +0.0017 → +0.0015 | 0.084 → 0.050   |
+| 60   | 0.95 | −0.9 | 1 | +0.0670 → +0.0114 | 0.183 → 0.075   |
+| 120  | 0.95 | −0.9 | 1 | +0.0313 → +0.0026 | 0.125 → 0.083   |
+| 240  | 0.95 | −0.9 | 1 | +0.0147 → +0.0007 | 0.088 → 0.062   |
+| 60   | 0.50 |  0.0 | 5 | −0.0095 → −0.0137 | 0.144 → 0.121   |
+| 60   | 0.90 |  0.0 | 5 | −0.0029 → −0.0115 | 0.214 → 0.145   |
+| 120  | 0.50 |  0.0 | 5 | −0.0050 → −0.0059 | 0.107 → 0.097   |
+| 240  | 0.95 |  0.0 | 5 | +0.0002 → −0.0000 | 0.130 → 0.102   |
+| 60   | 0.95 | −0.9 | 5 | +0.2733 → −0.0031 | 0.370 → 0.058   |
+| 120  | 0.95 | −0.9 | 5 | +0.1449 → +0.0058 | 0.262 → 0.068   |
+| 1000 | 0.90 |  0.0 | 5 | −0.0005 → +0.0018 | 0.103 → 0.075   |
+
+Read the two blocks separately. At `h = 1` the corrected test is
+calibrated (4.3–5.5% at `rho = 0`, 6.2–8.3% in the strongest Stambaugh
+cells). At `h > 1` it is not — 7.5–14.5%, present at `rho = 0` for every
+`phi`, and plain OLS-NW carries the same excess. That is the
+overlapping-regression HAC problem, not the Stambaugh channel; see the
+[known-oversized regimes table](statistical-methods.md#hac-families).
+
+The correction also costs power where OLS's apparent power was partly its
+own bias: at `T = 60, phi = 0.95, rho = -0.9` the corrected test rejects
+28.8% of a true alternative against OLS's 88.6% (`T = 120`: 44.4% against
+90.7%). At `rho = 0`, where OLS is unbiased, the gap is small (63.2%
+against 70.5% at `T = 60`).
+
+- *primary*: `p_value` — two-sided bias-corrected slope test.
 - *descriptive*: `n_periods`, `n_periods_effective`
   (`n_periods // forward_periods` — the non-overlapping observations the
   short-sample gate reads), `residual_lag1_autocorr`, `newey_west_lags`,
-  `forward_periods`, `alpha`, `r_squared`, `factor_std`, `adf_stat`, `adf_p`,
+  `forward_periods`, `har_lags` (the HAR bandwidth the corrected slope test
+  uses; `newey_west_lags` stays the narrow rule the reported uncorrected OLS
+  slope is fitted with), `alpha`, `r_squared`, `factor_std`, `adf_stat`, `adf_p`,
   `adf_threshold`, `unit_root_suspected`.
+- *descriptive* (Stambaugh correction): `stambaugh_adjusted` (False only
+  when the sample is too short for the augmented design, in which case
+  `value` falls back to the plain OLS slope), `beta_ols_uncorrected`,
+  `stambaugh_bias_estimate` (`beta_ols_uncorrected - value`), `ar1_phi`,
+  `ar1_phi_corrected`, `innovation_corr` (`rho_hat`),
+  `stambaugh_bias_channel` (`|rho_hat * phi_corrected|`),
+  `ar1_phi_corrected_explosive` (`ar1_phi_corrected >= 1` — the corrected
+  AR(1) coefficient is deliberately not clamped, because clamping it
+  re-opens the bias the correction exists to close).
 - *warning*: `WarningCode.PERSISTENT_REGRESSOR` when the ADF p-value exceeds
-  `adf_threshold`; the HAC slope is still returned, but the predictive
-  regression may carry persistent-regressor bias. The flag is a unit-root
-  verdict on the regressor, **not** a size guarantee: a long sample gives ADF
-  the power to reject the unit root and silences the flag while the test stays
-  oversized (measured 14% at a nominal 5% for `T = 2500`, `h = 21` under a
-  Stambaugh design where the flag fired on 0% of draws).
+  `adf_threshold`, **or** `stambaugh_bias_channel` exceeds `0.7`, **or**
+  `ar1_phi_corrected_explosive`. The channel trigger is the one that
+  matters: it reads the actual bias channel rather than a unit-root verdict
+  on the regressor alone. ADF fired on 1% of runs at `phi = 0.5` where the
+  bias is already present, and stayed silent on 62% of biased runs at
+  `T = 240`. The threshold is 0.7 rather than the earlier 0.3 because a
+  size sweep over `T` in {60, 120, 240} x `phi` in {0.5, 0.9, 0.95, 0.99} x
+  `rho` in {-0.5, -0.9} puts every cell with a channel at or below 0.5 at
+  4.1–6.6% — calibrated — while cells above 0.8 sit at 5.7–9.1%. At 0.3 the
+  code fired on the whole `rho = -0.5` column and read "oversized here"
+  where it is not. The code means "the corrected test is itself somewhat
+  oversized in this regime", not "beta may carry Stambaugh bias" — the bias
+  is corrected. It is about the *regressor*: the `h > 1` over-rejection
+  above fires no code of its own.
 - *warning*: `WarningCode.SERIAL_CORRELATION_DETECTED` when the regression
   residuals' lag-1 autocorrelation exceeds `PERSISTENT_SERIES_AUTOCORR`.
 - *warning*: `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` when

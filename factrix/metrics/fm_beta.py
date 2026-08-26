@@ -167,12 +167,16 @@ def fm_beta(
     Args:
         beta_df: DataFrame with ``date, beta`` columns, plus optional
             ``n_assets`` from compute_fm_betas for thin-cross-section warnings.
-        newey_west_lags: Number of Newey-West (NW) lags. Defaults to
-            ``auto_bartlett(T)``.
+        newey_west_lags: Number of Newey-West (NW) lags. Defaults to the
+            HAR bandwidth ``har_bandwidth(T)`` = ``1.3 * sqrt(T)``
+            (``_resolve_har_lags``).
         forward_periods: Overlap horizon of the regression's forward
             return. When set, the NW bandwidth is floored at
-            ``forward_periods - 1`` so the kernel is consistent under
-            the MA($h-1$) overlap structure of $h$-period returns.
+            ``3 * (forward_periods - 1)`` and the effective degrees of
+            freedom are capped at ``T / forward_periods - 1``, so the
+            kernel is consistent *and* the reference distribution is
+            calibrated under the MA($h-1$) overlap structure of
+            $h$-period returns.
         is_estimated_factor: Set True when the ``Signal_i`` column used by
             ``compute_fm_betas`` is itself an **estimated** quantity
             (rolling ordinary least squares (OLS) $\beta$ to another factor, PCA score,
@@ -221,14 +225,20 @@ def fm_beta(
         $\overline{\beta} = \mathrm{mean}_t\,\beta_t$;
         $t = \overline{\beta} / \mathrm{SE}_{\mathrm{NW}}(\beta)$
         with kernel lag
-        $L = \max(\mathrm{auto\_bartlett}(T),\, h - 1)$.
+        $L = \min(\max(1.3\sqrt{T},\, 3(h - 1)),\, T/3)$ read against
+        effective degrees of freedom
+        $\nu = \min(1.5T/L - 1,\, T/h - 1)$.
         With ``is_estimated_factor=True``, the
         [Shanken (1992)][shanken-1992] single-factor correction scales
         SE by $\sqrt{1 + \overline{\beta}^2 / \sigma^2_f}$.
 
-        factrix uses the [Newey-West (1994)][newey-west-1994]
-        ``auto_bartlett(T)`` rule floored against the Hansen-Hodrick
-        overlap horizon. factrix's simplification of the Shanken
+        factrix uses the [LLSW (2018)][llsw-2018] HAR bandwidth rule
+        floored against the Hansen-Hodrick overlap horizon, with a
+        fixed-$b$ effective-df reference distribution. Three pieces of
+        that rule are factrix choices rather than published forms — the
+        $3(h-1)$ floor, the $T/(T-L-1)$ SE scale and the $T/h-1$ df cap
+        — each documented with its measured size in
+        ``factrix._stats.hac``. factrix's simplification of the Shanken
         variance omits the additive $+\sigma^2_f / T$ term, so the
         correction is honest only for large $T$.
 
@@ -292,7 +302,7 @@ def fm_beta(
     if warn_code is not None:
         warning_codes.append(warn_code)
 
-    from factrix._stats import _resolve_nw_lags
+    from factrix._stats import _har_dof, _resolve_har_lags
 
     mean_beta = float(np.mean(betas))
     t, p, _ = _newey_west_t_test(
@@ -300,7 +310,7 @@ def fm_beta(
         lags=newey_west_lags,
         forward_periods=forward_periods,
     )
-    actual_lags = _resolve_nw_lags(n, newey_west_lags, forward_periods)
+    actual_lags = _resolve_har_lags(n, newey_west_lags, forward_periods)
     beta_autocorr = _lag1_autocorr(betas)
     if beta_autocorr > PERSISTENT_SERIES_AUTOCORR:
         warning_codes.append(WarningCode.SERIAL_CORRELATION_DETECTED.value)
@@ -321,6 +331,7 @@ def fm_beta(
         "method": "Fama-MacBeth + Newey-West",
         "n_periods": n,
         "newey_west_lags": actual_lags,
+        "hac_dof": _har_dof(n, actual_lags, forward_periods) if n >= 3 else None,
         "forward_periods": forward_periods,
         "is_estimated_factor": is_estimated_factor,
     }
@@ -489,7 +500,12 @@ def _pooled_beta_driscoll_kraay(
         )
 
     se_slope = float(np.sqrt(max(float(cov[1, 1]), 0.0)))
-    t_stat = 0.0 if se_slope < EPSILON else slope / se_slope
+    # A zero clustered SE is degeneracy in the MAXIMUM-evidence direction
+    # (perfect fit, zero residuals), never the null. The former
+    # ``t = 0.0 -> p = 1.0`` reported "no relationship" for a sample that fits
+    # exactly, and carried no warning code - pooled_beta was the only metric
+    # in the library skipping the repo's own degenerate-sample convention.
+    t_stat = float("nan") if se_slope < EPSILON else slope / se_slope
     df_t = n_periods
     p = _p_value_from_t(t_stat, df_t)
 
@@ -513,13 +529,16 @@ def _pooled_beta_driscoll_kraay(
         "n_periods": n_periods,
         "driscoll_kraay_lags": dk_meta["driscoll_kraay_lags"],
     }
+    stat, p_out, alternative = _degenerate_test_fields(
+        t_stat, p, "two-sided", metadata, warning_codes
+    )
     return MetricResult(
-        p_value=p,
-        alternative="two-sided",
+        p_value=p_out,
+        alternative=alternative,
         value=slope,
         n_obs=n_obs,
         n_obs_axis="pairs",
-        stat=t_stat,
+        stat=stat,
         metadata=metadata,
         warning_codes=tuple(warning_codes),
     )
@@ -798,17 +817,26 @@ def pooled_beta(
             "n_clusters_intersection": g_i,
         }
 
+    # numpy < 2.4 on Apple Accelerate raises spurious FP flags from small
+    # dense matmuls on finite input; singular designs are caught via
+    # ``LinAlgError`` and the degenerate-SE checks downstream.
     try:
-        xtx_inv = np.linalg.inv(X.T @ X)
+        with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+            xtx_inv = np.linalg.inv(X.T @ X)
     except np.linalg.LinAlgError:
+        # Same convention: a singular design admits no t, and ``stat=0.0``
+        # read as a computed zero rather than a refusal.
         return MetricResult(
             value=slope,
             n_obs=n_obs,
             n_obs_axis="pairs",
-            stat=0.0,
+            stat=None,
+            metadata={"signal_status": "degenerate_variance"},
+            warning_codes=(WarningCode.DEGENERATE_VARIANCE.value,),
         )
 
-    V = c_obs * xtx_inv @ effective_meat @ xtx_inv
+    with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+        V = c_obs * xtx_inv @ effective_meat @ xtx_inv
     v_slope = V[1, 1]
     non_psd_fallback = False
     # Two-way V can be numerically non-PSD in small samples (CGM 2011
@@ -823,11 +851,16 @@ def pooled_beta(
         non_psd_fallback = True
     se_slope = float(np.sqrt(max(v_slope, 0.0)))
 
-    t_stat = 0.0 if se_slope < EPSILON else slope / se_slope
+    # A zero clustered SE is degeneracy in the MAXIMUM-evidence direction
+    # (perfect fit, zero residuals), never the null. The former
+    # ``t = 0.0 -> p = 1.0`` reported "no relationship" for a sample that fits
+    # exactly, and carried no warning code - pooled_beta was the only metric
+    # in the library skipping the repo's own degenerate-sample convention.
+    t_stat = float("nan") if se_slope < EPSILON else slope / se_slope
 
     p = _p_value_from_t(t_stat, df_t)
 
-    metadata = {
+    metadata: dict[str, object] = {
         "stat_type": "t",
         "h0": "β=0",
         "method": method_desc,
@@ -838,14 +871,19 @@ def pooled_beta(
     if n_non_finite_dropped:
         metadata["dropped_pairs"] = n_non_finite_dropped
 
+    degenerate_codes: list[str] = []
+    stat, p_out, alternative = _degenerate_test_fields(
+        t_stat, p, "two-sided", metadata, degenerate_codes
+    )
     return MetricResult(
-        p_value=p,
-        alternative="two-sided",
+        p_value=p_out,
+        alternative=alternative,
         value=slope,
         n_obs=n_obs,
         n_obs_axis="pairs",
-        stat=t_stat,
+        stat=stat,
         metadata=metadata,
+        warning_codes=tuple(degenerate_codes),
     )
 
 

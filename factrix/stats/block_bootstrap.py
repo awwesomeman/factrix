@@ -38,8 +38,23 @@ class BlockBootstrap:
 
     Block length resolves automatically from the input series via
     [Politis-White (2004)][politis-white-2004] when ``block_length="auto"``;
-    pass an integer
-    to fix it.
+    pass an integer to fix it. Either way the resolved value must land in
+    ``[1, ceil(min(3*sqrt(n), n/3))]``, checked against the *compute-time*
+    series length and raising ``UserInputError`` otherwise. The bound is
+    not decoration: at ``L >= n`` the circular fixed-block resample is a
+    pure rotation of the whole series, so every resample is a permutation
+    of the same values, the centred bootstrap mean is identically zero and
+    the empirical p is ``1/(B+1)`` on any data at all. The constructor
+    cannot enforce an ``n``-relative bound without ``n``, so it validates
+    type and ``>= 1`` only and the real check fires on first use.
+
+    The empirical p is computed on a **studentized (bootstrap-t) root**,
+    not on the raw mean: the block bootstrap only attains its asymptotic
+    refinement for a studentized statistic
+    ([Götze-Künsch (1996)][gotze-kunsch-1996],
+    [Lahiri (2003)][lahiri-2003]). See
+    ``factrix._stats.bootstrap._block_bootstrap_diff_p`` for the measured
+    size table.
 
     Applicability is restricted to ``(INDIVIDUAL, DENSE)`` —
     consistent with the slice-test functions that produce paired per-date

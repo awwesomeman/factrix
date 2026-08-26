@@ -98,6 +98,14 @@ class WarningCode(StrEnum):
     # (It formerly returned t=0, p=1.0 — "conservative", but it read an
     # estimator breakdown as a non-rejection.)
     RECT_KERNEL_NEGATIVE_VARIANCE = "rect_kernel_negative_variance"
+    # Fired when the resolved Bartlett bandwidth L is large relative to the
+    # period count T (``n_periods < 5 * L``), so each autocovariance in the
+    # kernel sum is estimated from few products and the long-run variance is
+    # dominated by estimation noise. Reached mainly when a long overlap
+    # horizon meets a short sample (h=21 at T=60 resolves L=20). This was a
+    # ``logger.warning`` only; per the project's method-switch-warning norm a
+    # regime this consequential belongs on the MetricResult.
+    HAC_BANDWIDTH_ILL_CONDITIONED = "hac_bandwidth_ill_conditioned"
     # Fired by a series-mean inference member when the sample admits no
     # t-statistic: every observation identical (zero dispersion), or a HAC
     # SE that collapses to zero. An identical-and-non-zero sample is
@@ -290,7 +298,17 @@ _WARNING_DESCRIPTIONS.update(
         "non-overlapping events — so read the code as the cost in sample of a "
         "trigger that fires in bursts, not as a defect. It cannot fire at "
         "forward_periods = 1 (consecutive events are already independent).",
-        WarningCode.PERSISTENT_REGRESSOR: "ADF p exceeds the configured threshold on the continuous factor; beta may carry Stambaugh bias.",
+        WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED: "The resolved Bartlett "
+        "bandwidth L exceeds n_periods / 5, so the HAC long-run variance is "
+        "estimated from too few lag products to be stable. Usually a long "
+        "forward_periods against a short sample. The t-test still runs with "
+        "the effective-df correction, but treat the p-value as indicative "
+        "only and lengthen the sample or shorten the horizon. In this regime "
+        "the effective-df cap at n_periods / forward_periods binds hard, so if "
+        "the series carries less dependence than forward_periods implies the "
+        "test is conservative rather than oversized (measured 0.2-3.5% against "
+        "a nominal 5% on an iid series at h=21).",
+        WarningCode.PERSISTENT_REGRESSOR: "The predictive regressor is in a regime the corrected test is less well sized in: ADF p exceeds the configured threshold (unit-root suspect), or the measured Stambaugh channel |rho_hat * phi_corrected| exceeds 0.7, or the bias-corrected AR(1) coefficient came out at or above one. The Stambaugh (1999) bias itself is CORRECTED via the Amihud-Hurvich (2004) augmented regression, so this is not 'beta may be biased' - at forward_periods=1 it is 'the strongest Stambaugh cells leave the corrected test at 6-8% against a nominal 5%, where the calibrated cells sit at 4-6%'. Note this code is about the regressor, NOT about overlap: at forward_periods>1 the test is 7.5-14.5% oversized for every phi INCLUDING rho=0, which is the overlapping-regression HAC problem and fires no code of its own. Read the p against a raised hurdle.",
         WarningCode.SERIAL_CORRELATION_DETECTED: "The tested per-period series has "
         "lag-1 autocorrelation above PERSISTENT_SERIES_AUTOCORR (0.3). No HAC or "
         "bootstrap path is calibrated here — measured 13–17% (NW), 12–19% "

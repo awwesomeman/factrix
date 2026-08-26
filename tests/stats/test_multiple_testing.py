@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import warnings
+
 import factrix as fx
 import numpy as np
 import pytest
@@ -472,3 +474,52 @@ class TestNonFiniteRejectedByEveryKernel:
         bad_boot[5, 1] = float("inf")
         with pytest.raises(ValueError, match="bootstrap_statistics must be finite"):
             romano_wolf_adjusted_p(statistics, bad_boot)
+
+
+class TestPartialConjunctionMinPassValidation:
+    """``min_pass`` was range-checked but never type-checked."""
+
+    def test_rejects_a_float(self):
+        """Reached ``sorted_p[min_pass - 1]`` and surfaced a raw IndexError."""
+        with pytest.raises(ValueError, match="min_pass must be an integer"):
+            partial_conjunction_p([0.1, 0.2, 0.3], min_pass=2.5)
+
+    def test_rejects_a_bool(self):
+        """``min_pass=True`` silently became k=1 - the union semantics
+        ``partial_conjunction`` refuses because they inflate FDR to ~2q."""
+        with pytest.raises(ValueError, match="min_pass must be an integer"):
+            partial_conjunction_p([0.1, 0.2, 0.3], min_pass=True)
+
+    def test_accepts_a_numpy_integer(self):
+        assert partial_conjunction_p(
+            [0.1, 0.2, 0.3], min_pass=np.int64(2)
+        ) == pytest.approx(0.4)
+
+
+class TestRomanoWolfResampleGuards:
+    def test_warns_below_the_resolution_floor(self):
+        """B=1 returns [0.5, 0.5] for statistics [5.0, 0.1] - no resolution."""
+        with pytest.warns(UserWarning, match="resolution"):
+            out = romano_wolf_adjusted_p([5.0, 0.1], [[0.0, 0.0]])
+        assert out.tolist() == [0.5, 0.5]
+
+    def test_silent_at_a_usable_resample_count(self):
+        rng = np.random.default_rng(0)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            romano_wolf_adjusted_p([2.5, 1.0, 0.2], rng.standard_normal((999, 3)))
+
+    def test_warns_when_the_bootstrap_is_not_centred(self):
+        """An uncentred bootstrap is silently unrecoverable: every hypothesis
+        comes back 'not significant' because the reference distribution sits
+        above the observed statistics."""
+        rng = np.random.default_rng(0)
+        with pytest.warns(UserWarning, match="not.*centred"):
+            out = romano_wolf_adjusted_p(
+                [2.5, 1.0, 0.2], rng.standard_normal((999, 3)) + 3.0
+            )
+        assert (out > 0.9).all()
+
+    def test_still_rejects_an_empty_bootstrap(self):
+        with pytest.raises(ValueError, match="at least 1 resample"):
+            romano_wolf_adjusted_p([1.0], np.zeros((0, 1)))

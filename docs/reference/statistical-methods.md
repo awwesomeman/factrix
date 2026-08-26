@@ -66,22 +66,47 @@ When NW HAC is selected, factrix uses the
 deterministic bandwidth, applied by `ic` (with `NeweyWest` inference), `fm_beta`,
 `pooled_beta`, `common_quantile_spread`, and `common_asymmetry`.
 
-The bandwidth rule is:
+There are **two** bandwidth rules, because the scalar mean $t$-test and
+the $K$-restriction Wald tests degrade in opposite directions under a
+wide kernel (see [section 6](#hac-families) for the full path table).
 
-- For NW HAC metric paths (`ic` with `NeweyWest` inference, `fm_beta`,
-  `pooled_beta`, `common_quantile_spread`, `common_asymmetry`, and slice Wald):
+- **Scalar series-mean HAR $t$-test** (`ic` with `NeweyWest` inference,
+  `caar`, `quantile_spread` under `NeweyWest`, `fm_beta` stage 2) —
+  `_resolve_har_lags`:
+  $$
+  L = \min\!\left(\max\!\left(1.3\sqrt{T},\; 3(h - 1)\right),\; \lceil T/3 \rceil\right)
+  $$
+  read against effective degrees of freedom
+  $\nu = \max\!\left(\min\!\left(1.5T/L - 1,\; T/h - 1\right),\; 1\right)$,
+  with the SE carrying a $T/(T - L - 1)$ finite-sample scale.
+- **Multivariate / $K$-restriction HAC paths** (`pooled_beta`,
+  `spanning_alpha`, `common_quantile_spread`, `common_asymmetry`, the
+  slice Wald tests, `_ols.py`) — `_resolve_nw_lags`:
   $$
   L = \max\!\left(\text{auto\_bartlett}(T),\; h - 1\right)
   $$
-  where $\text{auto\_bartlett}(T) = \max\!\left(1,\; \lfloor 4 \cdot (T/100)^{2/9} \rfloor\right)$ per Newey-West (1994).
+  where $\text{auto\_bartlett}(T) = \max\!\left(1,\; \lfloor 4 \cdot (T/100)^{2/9} \rfloor\right)$ per Newey-West (1994),
+  read against $t_{T-k}$ / $F_{r,\,T-k}$.
 
-with $h$ = `forward_periods`. The first term is the
-[Newey-West 1994][newey-west-1994] automatic Bartlett bandwidth; the second is the
-[Hansen-Hodrick 1980][hansen-hodrick-1980] overlap floor that ensures
-the kernel covers the MA(`h − 1`) structure of overlapping returns.
-factrix takes the maximum so the bandwidth is always at least large
-enough to absorb the overlap, with the Newey-West term taking over once
-`T` is large.
+with $h$ = `forward_periods`. The $1.3\sqrt{T}$ base is
+[LLSW (2018)][llsw-2018]'s HAR recommendation; `auto_bartlett` is the
+[Newey-West 1994][newey-west-1994] automatic Bartlett bandwidth; the
+$h - 1$ term is the [Hansen-Hodrick 1980][hansen-hodrick-1980] overlap
+floor that ensures the kernel covers the MA(`h − 1`) structure of
+overlapping returns. factrix takes the maximum so the bandwidth is
+always at least large enough to absorb the overlap.
+
+#### Three departures from the textbook HAR form
+
+Each is a factrix choice, not a published one, kept because it is
+load-bearing for measured size on overlapping horizons. The counterpart
+statements live in `factrix._stats.hac`'s docstring Notes.
+
+| Piece | Standard | What factrix does | Why | Measured consequence |
+|---|---|---|---|---|
+| Overlap floor | $h - 1$ (Hansen-Hodrick consistency floor) | $3(h-1)$ | At $L = h-1$ the Bartlett weight sends the lag-$(h{-}1)$ autocovariance to $1/h$, so the kernel discards most of the overlap covariance it exists to capture; at $3(h-1)$ the mean weight across the MA band is ≈0.83 rather than ≈0.5. | $T{=}240$, $h{=}21$: size 10.6% → 5.9%. |
+| SE scale | none (textbook is $\sqrt{\text{LRV}/T}$); Stata's `newey` scales by $T/(T-k)$ with $k$ = **regressor count**, never the bandwidth | $T/(T - L - 1)$ | Self-derived white-noise demeaning-bias correction: in-sample demeaning biases each $\hat\gamma_j$ by ≈$-\gamma_0/T$, giving $\mathbb{E}[\widehat{\text{LRV}}] \approx \gamma_0(1 - (L+1)/T)$, which this undoes exactly. | $h{=}5$: 8.2–9.6% → 6.2–6.7%. Partly double-counts with the fixed-$b$ reference (whose KV limit already embeds demeaning), so $h{=}1$ iid cells come out slightly *under*-sized (4.3–4.7% at $T \le 120$). |
+| Effective df | LLSW's `harreg.ado` uses $\lceil 1.5T/S \rceil$ | $\min(1.5T/L - 1,\; T/h - 1)$ | The $-1$ is a sub-one-df small-sample conservatism. The $T/h - 1$ cap is self-derived: an $h$-period overlapping series carries at most $T/h$ independent observations however the kernel is tuned. | Cap: $T{=}60$, $h{=}21$ size 12.2% → 4.3%. Cost: passing `forward_periods` on a series with *less* dependence than $h$ implies makes the test markedly conservative — measured 0.2% ($T{=}60$), 2.1% ($T{=}120$), 3.5% ($T{=}240$) on iid input at $h{=}21$. |
 
 Two choices factrix deliberately did not adopt:
 
@@ -150,7 +175,7 @@ approximation assumption all three analytic methods still make:
 | **Newey-West (1987)** | Bartlett-kernel HAC on the full overlapping series, bandwidth `L = max(bandwidth_base, h−1)`. | Simple, deterministic, asymptotically valid for arbitrary autocorrelation up to `L`. | Asymptotic Gaussian — finite-sample size distortion when `h/T` is non-trivial; bandwidth rule is conservative. | `ic` (with `NeweyWest` inference), `fm_beta` stage 2, `pooled_beta`, `common_quantile_spread`, `common_asymmetry`. |
 | **Hansen-Hodrick (HH) (1980)** | A generalized method of moments (GMM)-style HAC estimator with a rectangular kernel truncated at `h−1`; the canonical reference for overlap-aware long-horizon SEs. | Targets the MA(`h−1`) residual structure overlap induces. | Rectangular kernel can yield a non-PSD covariance matrix in finite samples; still asymptotic. | Exposed as `factrix.inference.HANSEN_HODRICK` (rectangular-kernel SE → t-statistic → two-sided p-value); also borrows the `h−1` lag idea as a floor on the NW bandwidth above. |
 | **Hodrick (1992) "1B"** | Reverse-regression: regress one-period return on the predictor sum `X_t = Σ x_{t-j}` over the last `h` periods. | Size-correct in finite samples even at large `h/T`; no bandwidth choice. | Coefficient interpretation differs — `β` is the response to a cumulative-predictor stimulus (MA on the RHS) rather than a long-horizon forecast slope (MA on the LHS in the standard form); not a drop-in replacement for the canonical `β`. | **Not implemented**. Cited as the right tool when overlap is severe; the `Individual × Continuous` cell side-steps the issue with non-overlapping resampling instead. |
-| **Stationary bootstrap (Politis-Romano 1994)** | Block-resamples the series (geometric block length, Politis-White 2004 automatic selection), centred under `H0`, and reports the empirical two-sided p from the resampled means. | No normality or asymptotic-variance assumption at all — valid when the IC/return distribution is heavy-tailed or skewed enough that NW's / HH's Gaussian p-value is itself suspect. | Heavier to compute (resampling, not closed-form); the reported `stat` is the observed mean, not a studentized ratio. | Exposed as `factrix.inference.STATIONARY_BOOTSTRAP` on `ic` only — `quantile_spread` / `k_spread` dispatch on a hard `isinstance(NeweyWest)` check that would need to go polymorphic first. |
+| **Stationary bootstrap (Politis-Romano 1994)** | Block-resamples the series (geometric block length, Politis-White 2004 automatic selection), centred under `H0`, studentizes both the observed and the resampled root by a batch-means SE at the same block length, and reports the empirical two-sided p from the resampled `t` ratios. | No normality or asymptotic-variance assumption at all — valid when the IC/return distribution is heavy-tailed or skewed enough that NW's / HH's Gaussian p-value is itself suspect. | Heavier to compute (resampling, not closed-form); the reported `stat` is the observed mean rather than the root the p is computed from. On a zero-dispersion sample there is no block SE to divide by, and the kernel falls back to the raw-mean root — reported as `metadata["studentized"] = False` and `degenerate_variance`. | Exposed as `factrix.inference.STATIONARY_BOOTSTRAP` on `ic` only — `quantile_spread` / `k_spread` dispatch on a hard `isinstance(NeweyWest)` check that would need to go polymorphic first. |
 
 Practical rule of thumb:
 
@@ -412,38 +437,54 @@ on top would double-count. Choosing the design-effect form is the
 engine-specific decision; the textbook K-P form is correct for the single-day
 BMP setting it was derived in.
 
-### HAC mean $t$-tests reference $t_{n-1}$ on the full overlapping sample
+### Which HAC family a test is in
+[](){ #hac-families }
 
-The Newey-West / Hansen-Hodrick mean $t$-tests (`factrix._stats.hac`, used by
-`fm_beta`, `ic` under `NEWEY_WEST`, and the spread metrics) reference
-$t_{n-1}$ using the **full** observation count, even though overlap and the
-estimated HAC SE reduce the effective sample. This is slightly
-**anti-conservative** on short series with a high bandwidth. It is retained for
-cross-metric comparability with the other $t$-paths, and the poor-conditioning
-guard (`WarningCode.UNRELIABLE_SE_SHORT_PERIODS`, plus the $n < 5\,\text{lags}$
-check inside the kernel) flags exactly the short/high-bandwidth regime where the
-gap matters. Distinct from the single-restriction NW-HAC **Wald** tests
-(`common_quantile_spread`, `common_asymmetry`), which *do* use a finite-sample
-$F_{r,\,T-k}$ reference.
+After the HAR calibration work, the same overlapping $h$-period input can
+reach two different bandwidth rules and three different reference
+distributions depending on which test consumes it. This table is the map;
+sizes are at a nominal 5% on a true null.
 
-Measured on the `spanning_alpha` path (true null, one base factor, 4000
-draws), the anti-conservatism is mild on iid residuals and substantial on
-autocorrelated ones — empirical size at a nominal 5%:
+| Path | Bandwidth | Reference distribution | Measured size |
+|---|---|---|---|
+| `ic` (`NEWEY_WEST`), `caar`, `quantile_spread` (`NeweyWest`), `fm_beta` stage 2 — scalar series mean | `_resolve_har_lags`: $\min(\max(1.3\sqrt T, 3(h{-}1)), \lceil T/3\rceil)$, SE scaled by $T/(T{-}L{-}1)$ | $t_\nu$, $\nu = \min(1.5T/L - 1,\ T/h - 1)$ | 3.9–7.3% over $T \in \{60,120,240,500\} \times h \in \{1,5,21\}$; 5.4–8.1% on AR(0.6) input at $h=1$; 0.2–3.5% (conservative) when `forward_periods` is passed on a series that is not actually overlapping |
+| `ic` / `caar` / `quantile_spread` under `NON_OVERLAPPING` — strided mean | none (stride $h$, no kernel) | $t_{n_{\text{strided}}-1}$ | 4.5–5.4% in every overlapping cell measured; 32% on AR(0.6) input at $h=1$, which striding cannot touch |
+| `predictive_beta` — single-restriction slope, $h = 1$ | none: Amihud-Hurvich's homoskedastic $s^2(X'X)^{-1}$ | $t_{m-3}$ | 4.3–5.5% at $\rho = 0$; 6.2–8.3% in the strongest Stambaugh cells |
+| `predictive_beta` — single-restriction slope, $h > 1$ | `_resolve_har_lags` | $t_\nu$ via `_har_dof` | **7.5–14.5%** — known-oversized, see below |
+| `spanning_alpha`, `pooled_beta`, `common_quantile_spread`, `common_asymmetry`, `_ols.py`, the slice tests — $K$-restriction Wald / multivariate | `_resolve_nw_lags`: $\max(\text{auto\_bartlett}(T), h-1)$ | $t_{T-k}$ / $F_{r,\,T-k}$ | 5.4–7.1% on iid residuals ($n = 60 \to 240$), 11.5–18.5% on AR(0.6); **8–9%** for the $K = 5$ slice joint test on 50–90-period slices |
+
+Two of these rows are **known-oversized regimes rather than calibrated
+ones**, and are disclosed rather than corrected:
+
+- The $K > 1$ Wald and slice tests keep the narrow bandwidth deliberately.
+  A wide bandwidth on a $K \times K$ HAC matrix read against $\chi^2$ /
+  $F$ critical values is exactly the case fixed-$b$ theory says needs
+  Kiefer-Vogelsang / LLSW $F$-type critical values — moving them to the HAR
+  rule measured *worse* (the $K = 5$ slice test goes from 8–9% to 21% at 50
+  periods per slice). The narrow rule is the lesser evil until fixed-$b$
+  Wald critical values are implemented.
+- `predictive_beta` at $h > 1$ is the single-restriction case, so it does
+  use the HAR rule; that took it from 10–19% to 7.5–14.5%, not to 5%. The
+  excess is present at $\rho = 0$ for every $\phi$ and plain OLS-NW carries
+  it too, so it is the overlapping-regression HAC problem rather than
+  anything about the Stambaugh correction.
+
+The residual anti-conservatism on **persistent** input is a property of the
+Bartlett kernel rather than of any one metric, so every row above inherits
+it. Measured on the `spanning_alpha` path (true null, one base factor, 4000
+draws):
 
 | residuals | $n=60$ | $n=120$ | $n=240$ |
 |---|---|---|---|
 | iid | 0.071 | 0.065 | 0.054 |
 | AR(0.6) | 0.185 | 0.135 | 0.115 |
 
-The iid column is the small-sample noise described above and shrinks
-normally. The AR column converges slowly enough to matter at realistic
-sample lengths, and is a property of the Bartlett kernel rather than of
-any one metric, so every HAC path listed here inherits it. It is
-disclosed rather than corrected: a finite-sample fix (fixed-$b$ critical
-values, or Andrews-Monahan prewhitening) would change every HAC $p$-value
-in the library and is a project rather than a patch. Read HAC $p$-values
-near the threshold as optimistic when the input is persistent — the
-`persistence` diagnostic in section 4 flags exactly that case.
+The AR column converges slowly enough to matter at realistic sample
+lengths. A finite-sample fix (fixed-$b$ critical values for the Wald paths,
+or Andrews-Monahan prewhitening) would change every HAC $p$-value in the
+library and is a project rather than a patch. Read HAC $p$-values near the
+threshold as optimistic when the input is persistent — the `persistence`
+diagnostic in section 4 flags exactly that case.
 
 ### Joint period test on short slices: known over-rejection
 
