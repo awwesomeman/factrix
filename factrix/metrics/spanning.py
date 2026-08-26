@@ -264,10 +264,11 @@ def spanning_alpha(
         >>> from factrix.preprocess import compute_forward_return
         >>> from factrix.metrics.quantile import compute_spread_series
         >>> from factrix.metrics.spanning import spanning_alpha
+        >>> import polars as pl
         >>> panel = compute_forward_return(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
-        ... )
+        ... ).with_columns(base=pl.col("factor").rank().over("date"))
         >>> spreads = compute_spread_series(panel, factor_cols=["factor", "base"])
         >>> result = spanning_alpha(
         ...     spreads["factor"], base_spreads={"base": spreads["base"]}
