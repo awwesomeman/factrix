@@ -160,6 +160,12 @@ def _sign_base_rate(adjusted: pl.DataFrame, factor_col: str) -> dict:
     Cowan's estimation-window proportion — with the same finiteness contract as
     the events themselves. Below ``_MIN_BASE_RATE_ROWS`` usable rows there is
     no estimate and the symmetric 0.5 is used, recorded as such.
+
+    This is the *unsigned* rate $p_{\uparrow} = P(AR > 0)$. A hit is signed
+    (``signed_car > 0``), so a negative-factor event scores a hit when
+    $AR < 0$, whose null probability is $1 - p_{\uparrow}$; the null a mixed
+    sample is tested against is formed in :func:`event_hit_rate` from the
+    share of events on each side (see ``sign_base_rate`` there).
     """
     non_events = adjusted.filter(
         (pl.col(factor_col) == 0)
@@ -168,12 +174,12 @@ def _sign_base_rate(adjusted: pl.DataFrame, factor_col: str) -> dict:
     )
     if non_events.height < _MIN_BASE_RATE_ROWS:
         return {
-            "sign_base_rate": 0.5,
+            "sign_base_rate_up": 0.5,
             "sign_base_rate_source": "assumed_symmetric",
             "n_base_rate_rows": non_events.height,
         }
     return {
-        "sign_base_rate": float(
+        "sign_base_rate_up": float(
             (non_events["_abnormal_return"] > 0).mean()  # type: ignore[arg-type]
         ),
         "sign_base_rate_source": "non_event_rows",
@@ -285,18 +291,29 @@ def event_hit_rate(
         event failed ``signed_car > 0`` and was scored as a **miss**, which
         both depressed the rate and inflated ``N``.
 
-        **What the null says.** $H_0: p = p_0$, the frequency with which the
-        abnormal return is positive *anyway* — the generalised sign test of
-        [Cowan (1992)][cowan-1992] — not $H_0: p = 0.5$. $p_0$ is estimated on
-        the non-event rows (Cowan's estimation-window proportion) and reported
-        as ``metadata["sign_base_rate"]``, with ``h0`` carrying the number
-        actually tested. Two distinct things would otherwise be read as skill:
-        drift, which the abnormal-return model removes, and **skew**, which it
-        does not — mean-adjusting sets $E[AR] = 0$, but a right-skewed return
-        has a negative median and is positive less than half the time, so a
-        0.5 null scores that asymmetry as a signal. With fewer than
-        ``_MIN_BASE_RATE_ROWS`` usable non-event rows there is nothing to
-        estimate from and the symmetric 0.5 is used, recorded as
+        **What the null says.** $H_0: p = p_0$, the frequency with which a
+        *hit* happens *anyway* — the generalised sign test of
+        [Cowan (1992)][cowan-1992] — not $H_0: p = 0.5$. The unsigned rate
+        $p_{\uparrow} = P(AR > 0)$ is estimated on the non-event rows (Cowan's
+        estimation-window proportion; ``metadata["sign_base_rate_up"]``). A hit
+        is signed, so a positive-factor event hits with probability
+        $p_{\uparrow}$ under the null and a negative-factor event with
+        $1 - p_{\uparrow}$; Cowan's test is one-directional and never needed
+        the distinction, but a mixed-sign trigger does. The null tested is the
+        mixture over the tested events,
+        $p_0 = w_{+}\,p_{\uparrow} + w_{-}\,(1 - p_{\uparrow})$ with $w_{\pm}$
+        the share of events on each side, reported as
+        ``metadata["sign_base_rate"]`` and in ``h0``. Measured on a
+        right-skewed iid null (20 assets, ``h = 5``, $p_{\uparrow} \approx
+        0.4$): with every event short-signed the unsigned $p_{\uparrow}$
+        rejected 100% of draws and the mixture 4.7%; all-long events are the
+        same under both. Two distinct things would otherwise be read as
+        skill: drift, which the abnormal-return model removes, and **skew**,
+        which it does not — mean-adjusting sets $E[AR] = 0$, but a
+        right-skewed return has a negative median and is positive less than
+        half the time, so a 0.5 null scores that asymmetry as a signal. With
+        fewer than ``_MIN_BASE_RATE_ROWS`` usable non-event rows there is
+        nothing to estimate from and the symmetric 0.5 is used, recorded as
         ``sign_base_rate_source="assumed_symmetric"``.
 
         **Independence.** The exact binomial treats the $N$ events as
@@ -372,10 +389,15 @@ def event_hit_rate(
     rate = hits / n
     metadata["n_events"] = n
     metadata["n_hits"] = hits
-    # The null is the frequency with which the abnormal return is positive
-    # anyway (Cowan 1992), not a coin flip: a skewed series is positive less
-    # (or more) than half the time with no signal at all.
-    p0 = float(metadata["sign_base_rate"])
+    # The null is the frequency with which a hit happens anyway (Cowan 1992),
+    # not a coin flip: a skewed series is positive less (or more) than half
+    # the time with no signal at all. Hits are signed, so the unsigned share
+    # of AR > 0 is the null for a long event and its complement for a short
+    # one; the tested p0 is the mixture over the events actually tested.
+    p_up = float(metadata["sign_base_rate_up"])
+    w_plus = float(np.mean(events[factor_col].to_numpy() > 0))
+    p0 = w_plus * p_up + (1.0 - w_plus) * (1.0 - p_up)
+    metadata["sign_base_rate"] = p0
     metadata["h0"] = f"p={p0:.4f}"
 
     # Same-period events share that period's shock, so they are not separate

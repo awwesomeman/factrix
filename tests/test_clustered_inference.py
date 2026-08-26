@@ -256,20 +256,36 @@ class TestCommonBetaUnderCrossAssetCorrelation:
         assert rejected / reps >= 0.5
 
 
-def _skewed_panel(seed: int, *, n: int = 2000, event_every: int = 9) -> pl.DataFrame:
+def _skewed_panel(
+    seed: int,
+    *,
+    n: int = 2000,
+    event_every: int = 9,
+    sign: float = 1.0,
+    sign_mix: float = 0.0,
+) -> pl.DataFrame:
     """One asset, no signal, but a right-skewed return: positive well under
-    half the time even though its mean is zero."""
+    half the time even though its mean is zero.
+
+    ``sign`` is the factor value on every event; ``sign_mix`` flips that share
+    of the events to the opposite side, so the hit rate is tested on a
+    mixed-sign trigger.
+    """
     rng = np.random.default_rng(seed)
     # Lognormal-minus-mean: E[x] = 0, median < 0, so P(x > 0) < 0.5.
     raw = rng.lognormal(mean=0.0, sigma=1.0, size=n)
     rets = 0.01 * (raw - raw.mean())
+    factor = np.array(
+        [sign if i >= 60 and i % event_every == 0 else 0.0 for i in range(n)]
+    )
+    if sign_mix > 0:
+        flip = (factor != 0) & (rng.random(n) < sign_mix)
+        factor[flip] = -factor[flip]
     return pl.DataFrame(
         {
             "date": [datetime(2020, 1, 1) + timedelta(days=i) for i in range(n)],
             "asset_id": ["A"] * n,
-            "factor": [
-                1.0 if i >= 60 and i % event_every == 0 else 0.0 for i in range(n)
-            ],
+            "factor": factor,
             "forward_return": rets,
         }
     )
@@ -287,6 +303,8 @@ class TestGeneralisedSignNull:
         assert result.metadata["sign_base_rate_source"] == "non_event_rows"
         # The skew is real: this series is positive well under half the time.
         assert p0 < 0.45
+        # Every event is long, so the tested null is the unsigned rate itself.
+        assert p0 == pytest.approx(result.metadata["sign_base_rate_up"])
         assert result.metadata["h0"] == f"p={p0:.4f}"
         # And the reported p is the exact binomial against that null.
         assert result.p_value == pytest.approx(
@@ -314,6 +332,53 @@ class TestGeneralisedSignNull:
         assert rejected_vs_half >= reps // 2
         assert rejected <= 2
 
+    def test_short_events_are_tested_against_the_complement(self):
+        # A hit on a short event is AR < 0, whose null frequency is 1 - p_up.
+        # Testing it against p_up read the skew as near-certain skill.
+        panel = _skewed_panel(0, sign=-1.0)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            result = event_hit_rate(panel, forward_periods=_H)
+        p_up = result.metadata["sign_base_rate_up"]
+        assert p_up < 0.45
+        assert result.metadata["sign_base_rate"] == pytest.approx(1.0 - p_up)
+        assert result.metadata["h0"] == f"p={1.0 - p_up:.4f}"
+        assert result.p_value == pytest.approx(
+            float(
+                sp_stats.binomtest(
+                    result.metadata["n_hits"], result.n_obs, 1.0 - p_up
+                ).pvalue
+            )
+        )
+
+    @pytest.mark.parametrize(("sign", "sign_mix"), [(-1.0, 0.0), (1.0, 0.5)])
+    def test_skew_is_not_read_as_skill_on_short_or_mixed_events(
+        self, sign, sign_mix
+    ):
+        # Measured at 300 draws on a 20-asset skewed panel: 100% rejection
+        # with every event short and 93% with a 50/50 mix under the unsigned
+        # null; 4.7% / 6.0% under the mixture.
+        reps = 12
+        rejected = rejected_unsigned = 0
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            for seed in range(reps):
+                r = event_hit_rate(
+                    _skewed_panel(seed, sign=sign, sign_mix=sign_mix),
+                    forward_periods=_H,
+                )
+                if r.p_value is not None and r.p_value < 0.05:
+                    rejected += 1
+                unsigned = float(
+                    sp_stats.binomtest(
+                        r.metadata["n_hits"], r.n_obs, r.metadata["sign_base_rate_up"]
+                    ).pvalue
+                )
+                if unsigned < 0.05:
+                    rejected_unsigned += 1
+        assert rejected_unsigned >= reps // 2
+        assert rejected <= 2
+
     def test_too_few_non_event_rows_fall_back_to_symmetry(self):
         # Every row is an event: nothing to estimate the base rate from.
         n = 120
@@ -329,5 +394,6 @@ class TestGeneralisedSignNull:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
             result = event_hit_rate(panel, forward_periods=_H)
+        assert result.metadata["sign_base_rate_up"] == 0.5
         assert result.metadata["sign_base_rate"] == 0.5
         assert result.metadata["sign_base_rate_source"] == "assumed_symmetric"
