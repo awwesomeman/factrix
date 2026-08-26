@@ -6,6 +6,8 @@ Single source of truth for the sample-size floors: no literal ``20`` /
 
 from __future__ import annotations
 
+import math
+
 # ``T < MIN_PERIODS_HARD`` → :class:`factrix._errors.InsufficientSampleError`
 # (no result — NW HAC SE biased beyond the floor where inference can
 # be trusted at all).
@@ -32,6 +34,28 @@ def auto_bartlett(T: int) -> int:
     heteroskedasticity-and-autocorrelation-consistent (HAC) sum always includes the first autocovariance.
     """
     return max(1, int(4 * (T / 100) ** (2 / 9)))
+
+
+def har_bandwidth(T: int) -> int:
+    """[Lazarus-Lewis-Stock-Watson (2018)][llsw-2018] HAR Bartlett-kernel bandwidth.
+
+    ``ceil(1.3 * sqrt(T))``, minimum 1. This is the "rule of thumb"
+    bandwidth LLSW recommend for practice, paired with fixed-b (rather
+    than standard-normal) critical values — see
+    :func:`factrix._stats.hac._har_dof`.
+
+    Why this and not :func:`auto_bartlett`: the Newey-West (1994)
+    ``4·(T/100)^{2/9}`` plug-in grows so slowly (4 lags at T=100, 5 at
+    T=500) that the Bartlett long-run variance is badly downward-biased
+    at research sample sizes, and the resulting mean t-test over-rejects
+    — measured 11–21% at a nominal 5% on AR(0.6), and 12–34% on
+    overlapping h-period returns. ``auto_bartlett`` is retained for the
+    Driscoll-Kraay and Wald paths, which sandwich a different score
+    sequence and are size-checked separately.
+    """
+    if T <= 0:
+        return 1
+    return max(1, math.ceil(1.3 * math.sqrt(T)))
 
 
 # Lag-1 autocorrelation of the tested per-period series (IC series, per-period

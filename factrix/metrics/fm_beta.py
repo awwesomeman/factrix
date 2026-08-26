@@ -292,7 +292,7 @@ def fm_beta(
     if warn_code is not None:
         warning_codes.append(warn_code)
 
-    from factrix._stats import _resolve_nw_lags
+    from factrix._stats import _resolve_har_lags
 
     mean_beta = float(np.mean(betas))
     t, p, _ = _newey_west_t_test(
@@ -300,7 +300,7 @@ def fm_beta(
         lags=newey_west_lags,
         forward_periods=forward_periods,
     )
-    actual_lags = _resolve_nw_lags(n, newey_west_lags, forward_periods)
+    actual_lags = _resolve_har_lags(n, newey_west_lags, forward_periods)
     beta_autocorr = _lag1_autocorr(betas)
     if beta_autocorr > PERSISTENT_SERIES_AUTOCORR:
         warning_codes.append(WarningCode.SERIAL_CORRELATION_DETECTED.value)

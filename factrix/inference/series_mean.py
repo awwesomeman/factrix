@@ -135,10 +135,21 @@ class NeweyWest:
     Keeps every observation and absorbs the autocorrelation induced by
     overlapping ``forward_periods``-period returns through HAC standard
     errors rather than dropping samples. Bandwidth is the
-    [Newey-West (1994)][newey-west-1994] automatic Bartlett rule
-    (``auto_bartlett``) floored at ``forward_periods - 1`` for the
-    induced MA(h-1) overlap; it is derived from the compute-time sample,
-    so the dataclass carries no lag knob.
+    [LLSW (2018)][llsw-2018] HAR rule ``1.3·√T`` floored at ``3(h - 1)``
+    and capped at ``T/3``; the SE carries the ``T/(T - L - 1)``
+    finite-sample scale and the t is read against effective df
+    ``min(1.5·T/L - 1, T/h - 1)`` rather than ``T - 1``. All three are
+    derived from the compute-time sample, so the dataclass carries no
+    lag knob. See ``factrix._stats.hac._newey_west_t_test`` for the
+    measured size table.
+
+    Not a strict upgrade over ``NonOverlapping``. ``NonOverlapping`` is
+    calibrated in every overlapping cell measured (4.5–5.4%) at the cost
+    of ``h-1`` of every ``h`` observations; ``NeweyWest`` keeps the whole
+    sample and measures 3.9–7.3% across ``T ∈ {60, 120, 240, 500} ×
+    h ∈ {1, 5, 21}``. Prefer ``NeweyWest`` for power on short samples and
+    ``NonOverlapping`` when size discipline matters more than power.
+    Neither is calibrated above ``PERSISTENT_SERIES_AUTOCORR``.
     """
 
     test: ClassVar[str] = "t"
@@ -153,17 +164,25 @@ class NeweyWest:
     def compute(
         self, data: pl.DataFrame, *, value_col: str, forward_periods: int
     ) -> InferenceResult:
-        from factrix._stats import _newey_west_t_test, _resolve_nw_lags
-        from factrix._stats.constants import auto_bartlett
+        from factrix._stats import (
+            _hac_bandwidth_ill_conditioned,
+            _har_dof,
+            _newey_west_t_test,
+            _resolve_har_lags,
+        )
 
         vals = _clean_series(data, value_col).to_numpy()
         n = len(vals)
-        nw_lags = (
-            _resolve_nw_lags(n, auto_bartlett(n), forward_periods) if n >= 2 else 0
+        nw_lags = _resolve_har_lags(n, None, forward_periods) if n >= 2 else 0
+        t_stat, p_value, _ = _newey_west_t_test(
+            vals, lags=nw_lags, forward_periods=forward_periods
         )
-        t_stat, p_value, _ = _newey_west_t_test(vals, lags=nw_lags)
 
         warnings: frozenset[WarningCode] = frozenset()
+        # T < 5L: the kernel sum is estimated from too few lag products.
+        # Structural, not just a log line (finding: method-switch-warning norm).
+        if _hac_bandwidth_ill_conditioned(n, nw_lags):
+            warnings |= frozenset({WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED})
         # Persistence screen: above PERSISTENT_SERIES_AUTOCORR no member of
         # this family is calibrated (see WarningCode.SERIAL_CORRELATION_DETECTED).
         if _lag1_autocorr(vals) > PERSISTENT_SERIES_AUTOCORR:
@@ -179,7 +198,10 @@ class NeweyWest:
         return InferenceResult(
             stat=t_stat,
             p_value=p_value,
-            metadata={"nw_lags": nw_lags},
+            metadata={
+                "nw_lags": nw_lags,
+                "hac_dof": _har_dof(n, nw_lags, forward_periods) if n >= 3 else None,
+            },
             warnings=warnings,
             estimate=float(vals.mean()) if n else None,
             n_obs=n,

@@ -1160,8 +1160,11 @@ def _sample_non_overlapping(
     every h observations. This is the most conservative overlap-aware
     path on the long-horizon limit theory documented by
     [Richardson-Stock (1989)][richardson-stock-1989];
-    ``_newey_west_t_test`` is the less-lossy
-    alternative (keeps all obs but corrects SE).
+    ``_newey_west_t_test`` keeps all observations and corrects the SE
+    instead — a different trade, not a strict improvement: striding is
+    calibrated in every overlapping cell measured (4.5–5.4% at a nominal
+    5%), the HAC t-test 3.9–7.3%. Prefer striding when size discipline
+    outranks power.
 
     Logs a WARNING at ``factrix.metrics`` when the sampled series
     has < 1.5 × MIN_SERIES_PERIODS_HARD rows — downstream t-tests may be frail

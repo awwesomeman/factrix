@@ -47,10 +47,13 @@ from factrix._stats.diagnostics import _lag1_autocorr, _ljung_box
 from factrix._stats.hac import (
     _bartlett_lrcov,
     _driscoll_kraay_cov,
+    _hac_bandwidth_ill_conditioned,
     _hansen_hodrick_se,
     _hansen_hodrick_t_test,
+    _har_dof,
     _newey_west_se,
     _newey_west_t_test,
+    _resolve_har_lags,
     _resolve_nw_lags,
 )
 from factrix._stats.ols import _ols_nw_multivariate, _ols_nw_slope_t
@@ -65,8 +68,10 @@ __all__ = [
     "_binomial_two_sided_p",
     "_calc_t_stat",
     "_driscoll_kraay_cov",
+    "_hac_bandwidth_ill_conditioned",
     "_hansen_hodrick_se",
     "_hansen_hodrick_t_test",
+    "_har_dof",
     "_lag1_autocorr",
     "_ljung_box",
     "_newey_west_se",
@@ -75,6 +80,7 @@ __all__ = [
     "_ols_nw_slope_t",
     "_p_value_from_t",
     "_p_value_from_z",
+    "_resolve_har_lags",
     "_resolve_nw_lags",
     "_significance_marker",
     "_t_stat_from_array",

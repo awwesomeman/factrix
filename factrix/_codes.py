@@ -98,6 +98,14 @@ class WarningCode(StrEnum):
     # (It formerly returned t=0, p=1.0 — "conservative", but it read an
     # estimator breakdown as a non-rejection.)
     RECT_KERNEL_NEGATIVE_VARIANCE = "rect_kernel_negative_variance"
+    # Fired when the resolved Bartlett bandwidth L is large relative to the
+    # period count T (``n_periods < 5 * L``), so each autocovariance in the
+    # kernel sum is estimated from few products and the long-run variance is
+    # dominated by estimation noise. Reached mainly when a long overlap
+    # horizon meets a short sample (h=21 at T=60 resolves L=20). This was a
+    # ``logger.warning`` only; per the project's method-switch-warning norm a
+    # regime this consequential belongs on the MetricResult.
+    HAC_BANDWIDTH_ILL_CONDITIONED = "hac_bandwidth_ill_conditioned"
     # Fired by a series-mean inference member when the sample admits no
     # t-statistic: every observation identical (zero dispersion), or a HAC
     # SE that collapses to zero. An identical-and-non-zero sample is
@@ -290,6 +298,12 @@ _WARNING_DESCRIPTIONS.update(
         "non-overlapping events — so read the code as the cost in sample of a "
         "trigger that fires in bursts, not as a defect. It cannot fire at "
         "forward_periods = 1 (consecutive events are already independent).",
+        WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED: "The resolved Bartlett "
+        "bandwidth L exceeds n_periods / 5, so the HAC long-run variance is "
+        "estimated from too few lag products to be stable. Usually a long "
+        "forward_periods against a short sample. The t-test still runs with "
+        "the effective-df correction, but treat the p-value as indicative "
+        "only and lengthen the sample or shorten the horizon.",
         WarningCode.PERSISTENT_REGRESSOR: "ADF p exceeds the configured threshold on the continuous factor; beta may carry Stambaugh bias.",
         WarningCode.SERIAL_CORRELATION_DETECTED: "The tested per-period series has "
         "lag-1 autocorrelation above PERSISTENT_SERIES_AUTOCORR (0.3). No HAC or "

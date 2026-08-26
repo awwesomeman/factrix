@@ -20,13 +20,14 @@ import pytest
 from factrix._codes import WarningCode
 from factrix._stats import (
     _hansen_hodrick_t_test,
+    _har_dof,
     _newey_west_t_test,
     _p_value_from_t,
-    _resolve_nw_lags,
+    _resolve_har_lags,
     _t_stat_from_array,
 )
 from factrix._stats.bootstrap import _block_bootstrap_diff_p
-from factrix._stats.constants import MIN_PERIODS_WARN, auto_bartlett
+from factrix._stats.constants import MIN_PERIODS_WARN
 from factrix.inference import (
     NEWEY_WEST,
     NON_OVERLAPPING,
@@ -128,13 +129,16 @@ class TestNeweyWest:
         series = rng.standard_normal(60)
         df = _series_df(series)
         result = NEWEY_WEST.compute(df, value_col="ic", forward_periods=forward_periods)
-        nw_lags = _resolve_nw_lags(
-            len(series), auto_bartlett(len(series)), forward_periods
+        nw_lags = _resolve_har_lags(len(series), None, forward_periods)
+        t_direct, p_direct, _ = _newey_west_t_test(
+            series, lags=nw_lags, forward_periods=forward_periods
         )
-        t_direct, p_direct, _ = _newey_west_t_test(series, lags=nw_lags)
         assert result.stat == t_direct
         assert result.p_value == p_direct
-        assert result.metadata == {"nw_lags": nw_lags}
+        assert result.metadata == {
+            "nw_lags": nw_lags,
+            "hac_dof": _har_dof(len(series), nw_lags, forward_periods),
+        }
 
     def test_short_series_warns(self) -> None:
         series = np.random.default_rng(0).standard_normal(MIN_PERIODS_WARN - 5)

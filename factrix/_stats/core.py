@@ -86,7 +86,7 @@ def _p_value_from_t(
     n: int,
     alternative: str = "two-sided",
     *,
-    dof: int | None = None,
+    dof: float | None = None,
 ) -> float:
     """P-value from t-statistic using t-distribution.
 
@@ -94,8 +94,10 @@ def _p_value_from_t(
         alternative: "two-sided" (default), "less" (left-tail), "greater" (right-tail).
         dof: Residual degrees of freedom. Defaults to ``n - 1`` (single-sample
             mean t-test). Pass an explicit value for a regression t-test where
-            ``k > 1`` parameters are estimated (``dof = n - k``). Returns 1.0
-            if the resolved ``dof`` is below 1.
+            ``k > 1`` parameters are estimated (``dof = n - k``), or a
+            fractional effective df for a HAR t-test
+            (:func:`factrix._stats.hac._har_dof`). Returns 1.0 if the
+            resolved ``dof`` is below 1.
     """
     dof = n - 1 if dof is None else dof
     if dof < 1:
