@@ -66,6 +66,33 @@ jobs:
       - name: Run pytest
         run: uv run --python ${{ matrix.python }} pytest
 
+  floor:
+    name: pytest (declared dependency floor, no pandas)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.8.x"
+          enable-cache: true
+
+      # The lockfile hides the declared floor entirely; this job installs the
+      # minimum engine versions from pyproject and deliberately omits the
+      # ``pandas`` extra so the polars-native base install is proven to
+      # import and test without pandas or pyarrow present.
+      - name: Install floor dependencies
+        run: |
+          uv venv --python 3.12 .venv-floor
+          uv pip install --python .venv-floor/bin/python \
+            "polars==1.38.1" "numpy==2.0.2" "scipy==1.13.1" \
+            "pytest==9.1.1" "pytest-mock==3.15.1" "tzdata>=2025.1" -e .
+
+      - name: Run pytest
+        run: .venv-floor/bin/python -m pytest -q
+
   doctest:
     name: pytest --doctest-modules
     runs-on: ubuntu-latest

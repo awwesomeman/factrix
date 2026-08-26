@@ -311,13 +311,17 @@ def _wald_two_way_cluster(
             f"{len(date_ids)} / {len(asset_ids)}."
         )
 
-    XtX = X.T @ X
-    try:
-        XtX_inv = np.linalg.inv(XtX)
-    except np.linalg.LinAlgError:
-        return _NOT_COMPUTABLE
-    beta = XtX_inv @ (X.T @ y)
-    resid = y - X @ beta
+    # numpy < 2.4 on Apple Accelerate raises spurious FP flags from small
+    # dense matmuls on finite input; singular designs are caught via
+    # ``LinAlgError`` and the degenerate-SE checks downstream.
+    with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+        XtX = X.T @ X
+        try:
+            XtX_inv = np.linalg.inv(XtX)
+        except np.linalg.LinAlgError:
+            return _NOT_COMPUTABLE
+        beta = XtX_inv @ (X.T @ y)
+        resid = y - X @ beta
 
     M_date, g_date = _cluster_meat(X, resid, date_ids)
     M_asset, g_asset = _cluster_meat(X, resid, asset_ids)

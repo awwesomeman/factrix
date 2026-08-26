@@ -75,12 +75,16 @@ def _adf_fit(y: np.ndarray, lags: int, *, n_drop: int) -> tuple[float, float, in
     dof = T - k
     if dof <= 0:
         return float("nan"), float("inf"), T
-    try:
-        beta, _, _, _ = np.linalg.lstsq(X, target, rcond=None)
-        xtx_inv = np.linalg.inv(X.T @ X)
-    except np.linalg.LinAlgError:
-        return float("nan"), float("inf"), T
-    resid = target - X @ beta
+    # numpy < 2.4 on Apple Accelerate raises spurious ``divide`` / ``overflow``
+    # FP flags from small dense matmuls on finite input; a singular design is
+    # still caught below via ``LinAlgError`` and the ``sigma2`` / ``se`` floors.
+    with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+        try:
+            beta, _, _, _ = np.linalg.lstsq(X, target, rcond=None)
+            xtx_inv = np.linalg.inv(X.T @ X)
+        except np.linalg.LinAlgError:
+            return float("nan"), float("inf"), T
+        resid = target - X @ beta
     ssr = float(np.dot(resid, resid))
     sigma2 = ssr / dof
     if sigma2 < EPSILON:
