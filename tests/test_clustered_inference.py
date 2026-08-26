@@ -35,11 +35,14 @@ def _clustered_event_panel(
     n_event_dates: int = 40,
     rho: float = 0.6,
     burn: int = 60,
+    effect: float = 0.0,
 ) -> pl.DataFrame:
     """Every asset fires on the same dates, and returns share a common shock.
 
     The maximum-clustering design: 800 events resting on 40 independent
-    periods, with a true null.
+    periods, with a true null. ``effect`` plants ``effect * factor`` on the
+    event rows' returns (in units of the 1% return sd), so both the sign and
+    the magnitude link are real.
     """
     rng = np.random.default_rng(seed)
     dates = [datetime(2020, 1, 1) + timedelta(days=i) for i in range(n_dates)]
@@ -52,12 +55,13 @@ def _clustered_event_panel(
         idio = rng.normal(0, 1, n_dates)
         rets = 0.01 * (np.sqrt(rho) * common + np.sqrt(1 - rho) * idio)
         for d in range(n_dates):
+            factor = (1.0 + rng.uniform(0, 1)) if d in event_days else 0.0
             rows.append(
                 {
                     "date": dates[d],
                     "asset_id": f"A{a}",
-                    "factor": (1.0 + rng.uniform(0, 1)) if d in event_days else 0.0,
-                    "forward_return": float(rets[d]),
+                    "factor": factor,
+                    "forward_return": float(rets[d] + 0.01 * effect * factor),
                 }
             )
     return pl.DataFrame(rows)
@@ -177,6 +181,36 @@ class TestEventHitRateUnderClustering:
         # power for size rather than splitting the difference.
         assert before >= 5
         assert rejected <= 2
+
+
+class TestDeflatedTestsKeepPower:
+    """A future 'fix' must not pass the size tests by rejecting nothing."""
+
+    def test_event_hit_rate_rejects_a_planted_effect(self):
+        reps = 12
+        rejected = 0
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            for seed in range(reps):
+                r = event_hit_rate(
+                    _clustered_event_panel(seed, effect=0.6), forward_periods=_H
+                )
+                if r.p_value is not None and r.p_value < 0.05:
+                    rejected += 1
+        assert rejected >= reps // 2
+
+    def test_event_ic_rejects_a_planted_magnitude_link(self):
+        reps = 12
+        rejected = 0
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            for seed in range(reps):
+                r = event_ic(
+                    _clustered_event_panel(seed, effect=0.6), forward_periods=_H
+                )
+                if r.p_value is not None and r.p_value < 0.05:
+                    rejected += 1
+        assert rejected >= reps // 2
 
 
 class TestEventIcInference:
