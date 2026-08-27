@@ -33,12 +33,12 @@ jobs:
       - name: Install dev tooling
         run: uv sync --frozen --python 3.12 --all-extras
 
-      - name: ruff check
-        run: uv run ruff check .
+      # Same command contributors' commit hook runs, so CI and local
+      # cannot drift: ruff check + ruff format --check, both gating.
+      - name: pre-commit (ruff check + ruff format --check)
+        run: uv run pre-commit run --all-files --hook-stage pre-commit
 
-      - name: ruff format --check
-        run: uv run ruff format --check .
-
+      # Push-time gate locally (scripts/hooks/pre-push); a job step here.
       - name: mypy
         run: uv run mypy factrix
 

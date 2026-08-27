@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # commit-msg: reject Co-Authored-By: Claude trailers.
 #
+# Wired through .pre-commit-config.yaml (``stages: [commit-msg]``),
+# which passes the commit-message file as the sole argument -- the
+# same contract Git's native commit-msg hook uses.
+#
 # GitHub's contributor graph surfaces every Co-Authored-By trailer as
 # a repo contributor; Claude Code's default scaffold injects the
 # Anthropic noreply address into commits, which pollutes the graph.
