@@ -16,7 +16,7 @@ import polars as pl
 import pytest
 from factrix._data_input import _FORWARD_PERIODS_COL, _OVERLAP_PERIODS_COL
 from factrix._errors import UserInputError
-from factrix.metrics import ic, notional_turnover, quantile_spread
+from factrix.metrics import ic, notional_turnover, quantile_spread, rank_turnover
 from factrix.multi_factor import bhy
 from factrix.preprocess import compute_forward_return
 from factrix.preprocess.returns import _overlap_on_grid
@@ -235,6 +235,27 @@ class TestStaleStampHintIsTimeAxisOnly:
             fx.InsufficientSampleError, match=r"compute_forward_return\(\.\.\., dates="
         ):
             fx.evaluate(stale, metrics={"ic": ic()}, factor_cols=["factor"])
+
+    def test_hand_written_period_axis_short_circuit_carries_the_hint(self):
+        """A metric that short-circuits outside the shared floor helpers still
+        declares its axis, so the hint follows the axis rather than the call
+        site."""
+        dates = pl.date_range(
+            pl.date(2024, 1, 1), pl.date(2024, 1, 6), "1d", eager=True
+        )
+        panel = pl.DataFrame(
+            {
+                "date": [d for d in dates for _ in range(4)],
+                "asset_id": [a for _ in dates for a in "ABCD"],
+                "factor": [
+                    float((i + t) % 4) for t in range(len(dates)) for i in range(4)
+                ],
+            }
+        )
+        out = rank_turnover(panel, overlap_periods=5)
+        assert out.n_obs_axis == "periods"
+        assert out.metadata["reason"] == "insufficient_dates"
+        assert "compute_forward_return(..., dates=" in out.metadata["hint"]
 
     def test_asset_axis_short_circuit_does_not_carry_the_hint(self):
         dates = pl.date_range(
