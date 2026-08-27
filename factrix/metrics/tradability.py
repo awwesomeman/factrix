@@ -209,6 +209,7 @@ def rank_turnover(
             "rank_turnover",
             "insufficient_dates",
             n_obs=len(all_dates),
+            n_obs_axis="periods",
             min_required=min_required,
             overlap_periods=overlap_periods,
         )

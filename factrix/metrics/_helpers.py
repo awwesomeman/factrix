@@ -254,6 +254,13 @@ def _aggregate_to_per_date(
     )
 
 
+# Axes whose sample count is a count of positions on the panel's period grid,
+# and so the only ones a stale ``overlap_periods`` stamp can shrink. The
+# remaining tokens ("assets", "pairs", "asset_pairs") count a cross-section,
+# which no evaluation-grid stamp bears on.
+_TIME_AXES: frozenset[SampleAxis] = frozenset({"periods", "events"})
+
+
 def _short_circuit_output(
     name: str,
     reason: str,
@@ -319,9 +326,14 @@ def _short_circuit_output(
     # sub-sampled by hand after compute_forward_return, whose overlap stamp
     # still says "horizon". At overlap 1 the stamp cannot be stale in that
     # direction, and a metric that already explains itself keeps its own hint.
+    # Only a shortfall on a time axis can be caused by a stale stamp: the
+    # scaled floors that read the stamp gate the period and event axes, so a
+    # cross-section shortfall (too few assets / pairs to rank) is unrelated to
+    # it however the panel was sampled, and must not be sent down that path.
     overlap = metadata.get("overlap_periods")
     if (
         reason.startswith("insufficient_")
+        and n_obs_axis in _TIME_AXES
         and "hint" not in metadata
         and isinstance(overlap, int)
         and overlap > 1
@@ -1248,23 +1260,24 @@ def _sample_event_spaced(
     *,
     ordinal_col: str = "date_ordinal",
 ) -> pl.DataFrame:
-    """Greedily keep event rows ``>= overlap_periods`` calendar steps apart.
+    """Greedily keep event rows ``>= overlap_periods`` grid steps apart.
 
     The event-period counterpart of :func:`_sample_non_overlapping`. That
     helper keeps every N-th *unique date* (index distance), which is correct
-    on a calendar-dense series but mis-samples an event-only series whose
-    dates are irregular: sparse events get further thinned (power loss) and
-    clustered events inside one forward-return window are admitted as
-    independent (iid assumption violated, ``t`` inflated).
+    on a series dense on the panel's period grid but mis-samples an event-only
+    series whose dates are irregular on it: sparse events get further thinned
+    (power loss) and clustered events inside one forward-return window are
+    admitted as independent (iid assumption violated, ``t`` inflated).
 
     This pass instead walks the event periods in order and keeps an event only
-    when its calendar gap — the difference in ``ordinal_col``, the position
-    on the full underlying calendar — to the previously kept event is
+    when its gap — the difference in ``ordinal_col``, the position on the full
+    underlying period grid — to the previously kept event is
     ``>= overlap_periods``. The first event is always kept. The result is a
     maximal subset whose consecutive kept dates are at least one full
     forward-return horizon apart, so the surviving observations no longer
     share overlapping forward-return windows ([Brown-Warner (1985)][brown-warner-1985]
-    non-overlap sampling, made calendar-aware for the event-period axis).
+    non-overlap sampling, measured on the period grid for the event-period
+    axis).
 
     ``overlap_periods <= 1`` is a no-op (consecutive events already
     independent); an empty frame returns unchanged. ``data`` must be sorted by
@@ -1272,10 +1285,10 @@ def _sample_event_spaced(
 
     Args:
         data: Event-date series, sorted by date, with an ``ordinal_col``
-            integer column giving each date's position on the full calendar.
-        overlap_periods: Minimum calendar gap (in those ordinal steps)
+            integer column giving each date's position on the full period grid.
+        overlap_periods: Minimum gap in periods (in those ordinal steps)
             required between consecutive kept events.
-        ordinal_col: Name of the full-calendar position column.
+        ordinal_col: Name of the period-grid position column.
 
     Returns:
         Filtered DataFrame containing only the kept event rows; all
@@ -1303,13 +1316,13 @@ def _sample_events_non_overlapping(
     """Stride an event *row* frame so no asset keeps two overlapping windows.
 
     The panel-level entry point to :func:`_sample_event_spaced`. That helper
-    walks one ordered event series; this one supplies the calendar ordinal it
-    needs and applies it **per asset**, because a forward-return window
+    walks one ordered event series; this one supplies the period-grid ordinal
+    it needs and applies it **per asset**, because a forward-return window
     ``(t, t+h]`` can only overlap another window on the *same* asset.
 
     Why every event significance test needs it: with ``h``-period forward
     returns, two events on one asset fewer than ``h`` periods apart share
-    future bars, so their returns are not independent draws. Pooling them
+    future periods, so their returns are not independent draws. Pooling them
     inflates the test's effective sample and, with it, every cross-event
     statistic (``t``, ``z``, the binomial hit count). On a single-asset panel
     the cross-asset clustering corrections (Kolari-Pynnönen, the event-period
@@ -1317,16 +1330,16 @@ def _sample_events_non_overlapping(
     so this pass is the whole discipline.
 
     Ordinals come from ``calendar_dates`` (the full panel's date column) when
-    supplied, so the gap is measured on the underlying calendar rather than on
-    the sparse event dates; without it the event dates themselves are the
-    calendar. ``overlap_periods <= 1`` and an empty frame are no-ops.
+    supplied, so the gap is measured on the underlying period grid rather than
+    on the sparse event dates; without it the event dates themselves are the
+    grid. ``overlap_periods <= 1`` and an empty frame are no-ops.
 
     Args:
         events: Event rows (already filtered to ``factor != 0`` and to finite
             values), with ``date`` and — for a panel — ``asset_col``. A frame
             without ``date`` carries no gap to measure and passes through.
-        overlap_periods: Minimum calendar gap required between kept events.
-        calendar_dates: Full-panel ``date`` column defining the calendar.
+        overlap_periods: Minimum gap in periods required between kept events.
+        calendar_dates: Full-panel ``date`` column defining the period grid.
         asset_col: Asset identifier; a frame without it is treated as one asset.
 
     Returns:

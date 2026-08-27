@@ -539,6 +539,21 @@ def bmp_z(
         With ``kolari_pynnonen_adjust=True``, scale $z$ by
         $1 / \sqrt{1 + (N_{\mathrm{eff}} - 1)\, \hat r}$.
 
+        **Scope of the $1/\sqrt{h}$ vol scale.** It converts a one-period vol
+        to the horizon of a forward return realised over $h$ periods of the
+        panel's own grid, so it is exact only on the unsampled full grid: on
+        an evaluation grid sub-sampled after ``compute_forward_return`` the
+        stamped $h$ no longer counts the periods the return actually spans.
+        **The p-value is unaffected either way.** The factor is common to
+        every event, so it cancels in
+        $z = \mathrm{mean}(\mathrm{SAR}) / (\mathrm{std}(\mathrm{SAR}) /
+        \sqrt{N})$ — numerator and denominator scale together — and the
+        Kolari-Pynnönen deflator is a function of the SAR *correlation*,
+        itself scale-free. Only the descriptive
+        ``metadata["std_sar"]`` (and ``value``, the mean SAR) shifts, by the
+        constant $\sqrt{h_{\text{stamped}} / h_{\text{true}}}$; read those two
+        as scaled units, not as absolute vol multiples, on a resampled grid.
+
         **Which K-P deflator.** Kolari-Pynnönen's published statistic
         multiplies by $\sqrt{(1 - \hat r) / (1 + (N_{\mathrm{eff}} - 1)\hat r)}$.
         The $(1 - \hat r)$ numerator belongs to their setting, where the
