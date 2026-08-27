@@ -69,7 +69,6 @@ from scipy import stats as sp_stats
 
 from factrix._data_input import _read_forward_periods_stamp
 from factrix._errors import UserInputError
-from factrix._metric_index import SampleThreshold
 from factrix._stats.bootstrap import (
     Scheme,
     _politis_white_block_length,
@@ -116,23 +115,12 @@ def _validate_method(method: str, func_name: str) -> None:
         )
 
 
-def _resolve_sample_threshold(metric: MetricBase) -> SampleThreshold:
-    """Resolve the metric instance's ``SampleThreshold`` for its actual config.
-
-    Calls the metric's normalized floor resolver against the **actual
-    instance** (not a default-built one), so a metric whose floor scales with a
-    non-default ``forward_periods`` (e.g. ``caar``) reports the floor for its own
-    horizon rather than the default-config floor baked into
-    ``cls.sample_threshold``.
-    """
-    return type(metric)._resolve_sample_threshold(metric)
-
-
 def _require_slice_floor(
     metric: MetricBase,
     labels: list[str],
     series_list: list[np.ndarray],
     *,
+    forward_periods: int | None,
     func_name: str,
 ) -> None:
     """Raise when any slice's per-period series is below the metric's own floor.
@@ -140,16 +128,18 @@ def _require_slice_floor(
     ``by_slice`` short-circuits a thin metric to NaN via the metric body; the
     date-disjoint slice tests build each slice's per-period series directly and
     would otherwise return a calibrated-looking p-value on a sub-floor regime.
-    Reuse the metric's own :class:`SampleThreshold` — the single source of
-    truth both paths read — so they agree on what counts as a thin sample, and
-    refuse (rather than emit) the contrast at that size: the inferential path
-    must be at least as protective as the descriptive one. The per-period series
-    length is the slice's time-axis sample, so only the time-series floors
-    (``min_periods`` / ``min_events``) bind — the cross-section floors
-    (``min_assets`` / ``min_pairs``) describe within-period width, which the
-    series has already collapsed.
+    Reuse the metric's own :class:`SampleThreshold`, resolved at the panel's
+    stamped ``forward_periods`` — the single source of truth both paths read —
+    so they agree on what counts as a thin sample, and refuse (rather than
+    emit) the contrast at that size: the inferential path must be at least as
+    protective as the descriptive one. An unstamped panel resolves the floor at
+    the metric's default horizon. The per-period series length is the slice's
+    time-axis sample, so only the time-series floors (``min_periods`` /
+    ``min_events``) bind — the cross-section floors (``min_assets`` /
+    ``min_pairs``) describe within-period width, which the series has already
+    collapsed.
     """
-    threshold = _resolve_sample_threshold(metric)
+    threshold = metric._resolved_sample_threshold(forward_periods)
     floor = max(
         (f for f in (threshold.min_periods, threshold.min_events) if f is not None),
         default=None,
@@ -164,12 +154,18 @@ def _require_slice_floor(
     if not thin:
         return
     detail = ", ".join(f"{lbl!r} (n_periods={n})" for lbl, n in thin)
+    horizon = (
+        f"the panel's stamped forward_periods={forward_periods}"
+        if forward_periods is not None
+        else "the metric's default horizon (panel carries no stamp)"
+    )
     raise ValueError(
         f"{func_name}: slice(s) {detail} fall below {type(metric).__name__!r}'s "
-        f"minimum sample floor ({floor}); by_slice short-circuits this metric "
-        f"to NaN at that size, so the date-disjoint tests refuse to return a "
-        f"contrast that is not calibrated. Use coarser regimes (each ≥{floor} "
-        f"periods) or a metric with a lower sample floor."
+        f"minimum sample floor ({floor}, resolved at {horizon}); "
+        f"by_slice short-circuits this metric to NaN at that size, "
+        f"so the date-disjoint tests refuse to return a contrast that is not "
+        f"calibrated. Use coarser regimes (each ≥{floor} periods) or a metric "
+        f"with a lower sample floor."
     )
 
 
@@ -220,7 +216,13 @@ def _build_per_slice_series(
                 f"within-slice variance estimate."
             )
         series_list.append(np.asarray(s, dtype=float))
-    _require_slice_floor(metric, labels, series_list, func_name=func_name)
+    _require_slice_floor(
+        metric,
+        labels,
+        series_list,
+        forward_periods=_read_forward_periods_stamp(data),
+        func_name=func_name,
+    )
     return labels, series_list
 
 
@@ -312,8 +314,11 @@ def slice_period_pairwise_test(
             is absent, or ``method`` is invalid.
         ValueError: Fewer than two slice values, any slice with fewer than
             two dates, or any slice whose per-period series is below the
-            metric's own ``SampleThreshold`` floor (the size at which
-            :func:`factrix.by_slice` short-circuits the metric to NaN).
+            metric's own ``SampleThreshold`` floor resolved at the panel's
+            stamped ``forward_periods`` (the size at which
+            :func:`factrix.by_slice` short-circuits the metric to NaN; see
+            :func:`factrix.sample_requirements`). An unstamped panel resolves
+            the floor at the metric's default horizon.
         TypeError: Metric is not slice-test-eligible (no ``per_date_series``
             capability / no producer).
     """
@@ -592,8 +597,11 @@ def slice_period_joint_test(
             is absent, or ``method`` is invalid.
         ValueError: Fewer than two slice values, any slice with fewer than
             two dates, or any slice whose per-period series is below the
-            metric's own ``SampleThreshold`` floor (the size at which
-            :func:`factrix.by_slice` short-circuits the metric to NaN).
+            metric's own ``SampleThreshold`` floor resolved at the panel's
+            stamped ``forward_periods`` (the size at which
+            :func:`factrix.by_slice` short-circuits the metric to NaN; see
+            :func:`factrix.sample_requirements`). An unstamped panel resolves
+            the floor at the metric's default horizon.
         TypeError: Metric is not slice-test-eligible.
 
     Warns:
