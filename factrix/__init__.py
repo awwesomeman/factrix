@@ -78,6 +78,7 @@ from factrix._data_input import (
     _read_forward_periods_stamp,
     _resolve_forward_periods,
     _resolve_overlap_periods,
+    _validate_overlap_periods,
 )
 from factrix._errors import (
     FactrixError,
@@ -730,7 +731,9 @@ def sample_requirements(
             ``overlap_periods`` must agree with the stamp; an unstamped panel
             requires it.
         overlap_periods: The evaluation-grid overlap, when no panel is at
-            hand (or the panel is unstamped). With neither ``data`` nor
+            hand (or the panel is unstamped). Validated exactly as
+            :func:`evaluate` validates a declared overlap — a positive
+            ``int`` (``bool`` rejected). With neither ``data`` nor
             ``overlap_periods`` the floor is resolved at the metric's default
             overlap — the same value ``metric.spec().sample_threshold`` carries.
 
@@ -740,6 +743,13 @@ def sample_requirements(
         breach; ``strict=False`` short-circuits the metric to NaN with a
         ``metric_unavailable`` warning; the soft tier always returns a value
         and attaches the axis' degraded-tier warning code.
+
+    Raises:
+        UserInputError: ``metric`` is not a metric instance;
+            ``overlap_periods`` is not a positive ``int``; or ``data`` is
+            given and its stamp disagrees with an explicit ``overlap_periods``
+            (unstamped, with no explicit value and no horizon stamp, it is
+            required).
 
     Examples:
         >>> import factrix as fx
@@ -776,8 +786,10 @@ def sample_requirements(
             horizon=_read_forward_periods_stamp(data),
             func_name="sample_requirements",
         )
+    elif overlap_periods is not None:
+        op = _validate_overlap_periods(overlap_periods, func_name="sample_requirements")
     else:
-        op = overlap_periods
+        op = None
     return metric._resolved_sample_threshold(op)
 
 
