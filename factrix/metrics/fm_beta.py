@@ -378,7 +378,9 @@ def fm_beta(
         warning_codes,
         expected_warnings=expected_warnings,
     )
-    _surface_drop_stats(beta_df, "fm_beta", metadata, warning_codes)
+    _surface_drop_stats(
+        beta_df, "fm_beta", metadata, warning_codes, expected_warnings=expected_warnings
+    )
     # A flat β series (or one whose Bartlett HAC SE collapses) admits no t;
     # ``mean_beta`` is still the premium estimate.
     stat, p_out, alternative = _degenerate_test_fields(
@@ -980,7 +982,13 @@ def fm_beta_sign_consistency(
         warning_codes,
         expected_warnings=expected_warnings,
     )
-    _surface_drop_stats(beta_df, "fm_beta_sign_consistency", metadata, warning_codes)
+    _surface_drop_stats(
+        beta_df,
+        "fm_beta_sign_consistency",
+        metadata,
+        warning_codes,
+        expected_warnings=expected_warnings,
+    )
     return MetricResult(
         value=consistent,
         n_obs=n,
