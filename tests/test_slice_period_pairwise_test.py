@@ -26,6 +26,8 @@ _PAIRWISE_COLS = [
     "df_num",
     "df_denom",
     "multiplicity",
+    "min_periods",
+    "reason",
 ]
 
 
@@ -375,3 +377,70 @@ def test_constant_slices_carry_nan_not_a_non_rejection(method: str):
     rest = out.filter(~is_ab)
     assert rest.height == 2
     assert np.isfinite(rest["p_adj"].to_numpy()).all()
+
+
+class TestNonStrict:
+    """``strict=False``: pairs touching a thin slice become unavailable rows,
+    the remaining pairs are tested with multiplicity over the tested family."""
+
+    @staticmethod
+    def _panel() -> pl.DataFrame:
+        # ic() floor at the default horizon is 50; "bear" sits below it.
+        return build_disjoint_period_panel(
+            seed=5,
+            spans={"bull": (60, 0.1), "bear": (30, 0.1), "flat": (60, 0.1)},
+            label_col="regime",
+        )
+
+    def test_strict_default_still_raises(self) -> None:
+        with pytest.raises(ValueError, match="sample floor"):
+            slice_period_pairwise_test(
+                self._panel(), ic(), by="regime", factor_col="factor"
+            )
+
+    @pytest.mark.parametrize("method", ["bootstrap", "analytic"])
+    def test_partial_valid_partition(self, method: str) -> None:
+        out = slice_period_pairwise_test(
+            self._panel(),
+            ic(),
+            by="regime",
+            factor_col="factor",
+            method=method,
+            rng_seed=1,
+            strict=False,
+        )
+        assert out.columns == _PAIRWISE_COLS
+        assert out.height == 3
+        assert (out["min_periods"] == 50).all()
+        touches_bear = (pl.col("slice_a") == "bear") | (pl.col("slice_b") == "bear")
+        thin = out.filter(touches_bear)
+        assert thin.height == 2
+        assert thin["reason"].to_list() == ["insufficient_periods"] * 2
+        assert np.isnan(thin["stat"].to_numpy()).all()
+        assert np.isnan(thin["p_raw"].to_numpy()).all()
+        assert np.isnan(thin["p_adj"].to_numpy()).all()
+        tested = out.filter(~touches_bear)
+        assert tested.height == 1
+        assert tested["reason"][0] is None
+        assert np.isfinite(tested["p_adj"][0])
+        # A single tested pair is its own family: no multiplicity inflation.
+        assert tested["p_adj"][0] == pytest.approx(tested["p_raw"][0])
+
+    def test_tested_family_matches_strict_run_on_valid_slices(self) -> None:
+        panel = self._panel()
+        kw = dict(by="regime", factor_col="factor", method="analytic")
+        loose = slice_period_pairwise_test(panel, ic(), strict=False, **kw)
+        only_valid = slice_period_pairwise_test(
+            panel.filter(pl.col("regime") != "bear"), ic(), **kw
+        )
+        touches_bear = (pl.col("slice_a") == "bear") | (pl.col("slice_b") == "bear")
+        assert loose.filter(~touches_bear).equals(only_valid)
+
+    def test_degenerate_pair_names_its_reason(self) -> None:
+        df = build_disjoint_period_panel(
+            seed=3, spans={"a": (60, 0.1), "b": (60, 0.1)}, label_col="regime"
+        ).with_columns(pl.col("factor").alias("forward_return"))
+        out = slice_period_pairwise_test(
+            df, ic(), by="regime", factor_col="factor", method="analytic"
+        )
+        assert out["reason"].to_list() == ["degenerate_variance"]

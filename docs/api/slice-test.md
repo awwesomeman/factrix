@@ -94,12 +94,32 @@ default horizon.
 
 Pairwise output is `(slice_a, slice_b, n_periods_a, n_periods_b,
 mean_diff, stat, p_raw, p_adj, stat_type, reference_dist, df_num,
-df_denom, multiplicity)` — per-slice `n_periods_*` because disjoint spans
-differ in length. In either slice test a pair whose contrast variance
+df_denom, multiplicity, min_periods, reason)` — per-slice `n_periods_*`
+because disjoint spans differ in length, `min_periods` the floor they
+were gated on. In either slice test a pair whose contrast variance
 collapses carries NaN in `stat` / `p_raw` / `p_adj` (no test, not a
-non-rejection) and is left out of the Holm family. The omnibus is a block-diagonal Wald χ² returning
-`(k_slices, stat, p_value, stat_type, reference_dist, df_num, df_denom,
-multiplicity)`.
+non-rejection) and is left out of the Holm family; the period tests name
+it `reason="degenerate_variance"`. The omnibus is a block-diagonal Wald
+χ² returning `(k_slices, n_periods_min, stat, p_value, stat_type,
+reference_dist, df_num, df_denom, multiplicity, min_periods, reason)`.
+
+### Non-strict batch mode (`slice_period_*` only)
+
+`strict=False` is the counterpart of `evaluate(strict=False)` for batch
+regime research, where one thin regime must not abort a sweep over
+factors × samples. A slice below the floor no longer raises; the affected
+rows come back in the same schema with `reason="insufficient_periods"`
+and NaN in `stat` / `p_*`:
+
+- **joint** — the omnibus restriction spans every slice, so one thin
+  slice makes the whole test unavailable: a single row with
+  `n_periods_min` (the shortest slice) against `min_periods`.
+- **pairwise** — every pair touching a thin slice is an unavailable row;
+  the remaining pairs are tested and form their own multiplicity family
+  (identical to running the test on the valid slices alone).
+
+`reason` is null on a tested row, so `reason.is_null()` is the filter to
+apply before folding rows from many runs into one family.
 
 ## Estimator dispatch
 

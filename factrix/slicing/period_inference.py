@@ -59,14 +59,16 @@ Matrix-row: slice_period_pairwise_test, slice_period_joint_test | (*, *, *, *, *
 
 from __future__ import annotations
 
+import math
 import warnings
 from itertools import combinations
-from typing import Literal
+from typing import Literal, NamedTuple
 
 import numpy as np
 import polars as pl
 from scipy import stats as sp_stats
 
+from factrix._codes import WarningCode
 from factrix._data_input import _read_forward_periods_stamp
 from factrix._errors import UserInputError
 from factrix._stats.bootstrap import (
@@ -115,15 +117,33 @@ def _validate_method(method: str, func_name: str) -> None:
         )
 
 
+_REASON_INSUFFICIENT_PERIODS = "insufficient_periods"
+_REASON_DEGENERATE_VARIANCE = WarningCode.DEGENERATE_VARIANCE.value
+
+
+class _SliceSeries(NamedTuple):
+    """Per-slice series plus the floor verdict the slice tests gate on."""
+
+    labels: list[str]
+    series: list[np.ndarray]
+    min_periods: int | None
+    thin: frozenset[str]
+
+
 def _require_slice_floor(
     metric: MetricBase,
     labels: list[str],
     series_list: list[np.ndarray],
     *,
     forward_periods: int | None,
+    strict: bool,
     func_name: str,
-) -> None:
-    """Raise when any slice's per-period series is below the metric's own floor.
+) -> tuple[int | None, frozenset[str]]:
+    """Gate every slice's per-period series on the metric's own floor.
+
+    Returns ``(floor, thin_labels)``. With ``strict=True`` a thin slice
+    raises; with ``strict=False`` the caller receives the thin labels and
+    emits structured unavailable rows for them instead.
 
     ``by_slice`` short-circuits a thin metric to NaN via the metric body; the
     date-disjoint slice tests build each slice's per-period series directly and
@@ -145,14 +165,14 @@ def _require_slice_floor(
         default=None,
     )
     if floor is None:
-        return
+        return None, frozenset()
     thin = [
         (lbl, int(s.shape[0]))
         for lbl, s in zip(labels, series_list, strict=True)
         if s.shape[0] < floor
     ]
-    if not thin:
-        return
+    if not thin or not strict:
+        return floor, frozenset(lbl for lbl, _ in thin)
     detail = ", ".join(f"{lbl!r} (n_periods={n})" for lbl, n in thin)
     horizon = (
         f"the panel's stamped forward_periods={forward_periods}"
@@ -175,15 +195,17 @@ def _build_per_slice_series(
     by: str,
     *,
     factor_col: str,
+    strict: bool,
     func_name: str,
-) -> tuple[list[str], list[np.ndarray]]:
+) -> _SliceSeries:
     """Partition ``data`` by ``by`` and build each slice's per-period series.
 
     Mirrors the cross-sectional :func:`_build_per_date_panel` front-end
     (producer → ``per_date_series``) but **does not inner-join on date** —
-    each slice keeps its own (disjoint) dates. Returns
-    ``(labels, [series_k])`` with each ``series_k`` a 1-D ``np.ndarray``
-    of that slice's per-period metric values.
+    each slice keeps its own (disjoint) dates. Returns a :class:`_SliceSeries`
+    — ``labels`` and one 1-D ``np.ndarray`` per slice of that slice's
+    per-period metric values, plus the resolved floor and the labels below it
+    (empty unless ``strict=False`` admitted them).
 
     Raises ``UserInputError`` if ``factor_col`` is absent; ``ValueError``
     on <2 slice values or any slice with <2 dates; ``TypeError`` (via
@@ -216,14 +238,15 @@ def _build_per_slice_series(
                 f"within-slice variance estimate."
             )
         series_list.append(np.asarray(s, dtype=float))
-    _require_slice_floor(
+    floor, thin = _require_slice_floor(
         metric,
         labels,
         series_list,
         forward_periods=_read_forward_periods_stamp(data),
+        strict=strict,
         func_name=func_name,
     )
-    return labels, series_list
+    return _SliceSeries(labels, series_list, floor, thin)
 
 
 def _bootstrap_slice_means(
@@ -259,6 +282,7 @@ def slice_period_pairwise_test(
     factor_col: str,
     method: Method = "bootstrap",
     rng_seed: int | None = None,
+    strict: bool = True,
 ) -> pl.DataFrame:
     """Pairwise cross-slice contrasts for a **date-disjoint** partition.
 
@@ -291,13 +315,29 @@ def slice_period_pairwise_test(
             (ignored by ``"analytic"``). ``None`` draws from system
             entropy. This is plumbing, not a statistical knob — block
             length, ``B``, and scheme are fixed by sensible defaults.
+        strict: ``True`` (default) raises ``ValueError`` when any slice is
+            below the metric's sample floor. ``False`` keeps the schema and
+            returns every pair touching a thin slice as an unavailable row
+            (``stat`` / ``p_raw`` / ``p_adj`` NaN, ``reason=
+            "insufficient_periods"``); the remaining pairs are tested and
+            their multiplicity family is the tested pairs only. The
+            ``strict=False`` counterpart of :func:`factrix.evaluate`'s
+            ``metric_unavailable`` short-circuit, for batch regime research
+            where one thin regime must not abort the sweep.
 
     Returns:
         Long-form ``pl.DataFrame`` with columns ``(slice_a, slice_b,
         n_periods_a, n_periods_b, mean_diff, stat, p_raw, p_adj, stat_type,
-        reference_dist, df_num, df_denom, multiplicity)``; one row per
-        ordered slice pair ``(a, b)``. ``n_periods_*`` are each slice's own
-        date counts (disjoint spans differ in length). ``mean_diff`` is the
+        reference_dist, df_num, df_denom, multiplicity, min_periods,
+        reason)``; one row per ordered slice pair ``(a, b)``. ``n_periods_*``
+        are each slice's own date counts (disjoint spans differ in length)
+        and ``min_periods`` the floor they were gated on (resolved at the
+        panel's stamped ``forward_periods``). ``reason`` is null on a tested
+        pair, ``"degenerate_variance"`` when the contrast variance collapsed
+        (NaN ``stat`` / ``p_raw`` / ``p_adj`` — no test, not a
+        non-rejection), or ``"insufficient_periods"`` for a pair admitted by
+        ``strict=False``; filter on ``reason.is_null()`` before folding rows
+        into a wider family. ``mean_diff`` is the
         signed ``μ_a − μ_b``; ``stat`` the studentized contrast
         ``(μ_a − μ_b)² / (v_a + v_b)``. The mechanism columns disclose the
         path: ``stat_type="wald"``, ``df_num=1``; ``reference_dist`` is
@@ -313,9 +353,9 @@ def slice_period_pairwise_test(
         UserInputError: ``metric`` is not a metric instance, ``factor_col``
             is absent, or ``method`` is invalid.
         ValueError: Fewer than two slice values, any slice with fewer than
-            two dates, or any slice whose per-period series is below the
-            metric's own ``SampleThreshold`` floor resolved at the panel's
-            stamped ``forward_periods`` (the size at which
+            two dates, or (``strict=True``) any slice whose per-period series
+            is below the metric's own ``SampleThreshold`` floor resolved at
+            the panel's stamped ``forward_periods`` (the size at which
             :func:`factrix.by_slice` short-circuits the metric to NaN; see
             :func:`factrix.sample_requirements`). An unstamped panel resolves
             the floor at the metric's default horizon.
@@ -324,13 +364,94 @@ def slice_period_pairwise_test(
     """
     _validate_metric_instance(metric, "slice_period_pairwise_test")
     _validate_method(method, "slice_period_pairwise_test")
-    labels, series_list = _build_per_slice_series(
-        data, metric, by, factor_col=factor_col, func_name="slice_period_pairwise_test"
+    built = _build_per_slice_series(
+        data,
+        metric,
+        by,
+        factor_col=factor_col,
+        strict=strict,
+        func_name="slice_period_pairwise_test",
     )
-    n_periods = [int(s.shape[0]) for s in series_list]
-    k = len(labels)
-    pairs = list(combinations(range(k), 2))
+    labels = built.labels
+    n_periods = [int(s.shape[0]) for s in built.series]
+    pairs = list(combinations(range(len(labels)), 2))
+    # Tested pairs are those whose slices both clear the floor; the contrast
+    # machinery below runs on that subset and the multiplicity family is the
+    # tested pairs only. Pairs touching a thin slice (``strict=False``) are
+    # assembled afterwards as unavailable rows in the same schema.
+    tested = [i for i, lbl in enumerate(labels) if lbl not in built.thin]
+    series_list = [built.series[i] for i in tested]
+    tested_pairs = list(combinations(range(len(tested)), 2))
+    contrasts = _pairwise_contrasts(
+        series_list,
+        [n_periods[i] for i in tested],
+        tested_pairs,
+        method=method,
+        forward_periods=_read_forward_periods_stamp(data),
+        rng_seed=rng_seed,
+    )
+    by_pair = {
+        (tested[i], tested[j]): row
+        for (i, j), row in zip(tested_pairs, contrasts, strict=True)
+    }
+    nan = float("nan")
+    rows = [by_pair.get(pair, (nan, nan, nan, nan, None)) for pair in pairs]
+    mean_diffs = [row[0] for row in rows]
+    stats = [row[1] for row in rows]
+    p_raw = [row[2] for row in rows]
+    p_adj = [row[3] for row in rows]
+    df_denoms = [row[4] for row in rows]
+    reasons = [
+        _REASON_INSUFFICIENT_PERIODS
+        if pair not in by_pair
+        else (_REASON_DEGENERATE_VARIANCE if math.isnan(stat) else None)
+        for pair, stat in zip(pairs, stats, strict=True)
+    ]
+    n_pairs = len(pairs)
+    return pl.DataFrame(
+        {
+            "slice_a": [labels[i] for i, _ in pairs],
+            "slice_b": [labels[j] for _, j in pairs],
+            "n_periods_a": [n_periods[i] for i, _ in pairs],
+            "n_periods_b": [n_periods[j] for _, j in pairs],
+            "mean_diff": mean_diffs,
+            "stat": stats,
+            "p_raw": p_raw,
+            "p_adj": p_adj,
+            "stat_type": ["wald"] * n_pairs,
+            "reference_dist": ["bootstrap_null" if method == "bootstrap" else "f"]
+            * n_pairs,
+            "df_num": [1] * n_pairs,
+            "df_denom": df_denoms,
+            "multiplicity": ["romano_wolf" if method == "bootstrap" else "holm"]
+            * n_pairs,
+            "min_periods": [built.min_periods] * n_pairs,
+            "reason": reasons,
+        },
+        schema_overrides={
+            "df_denom": pl.Float64,
+            "min_periods": pl.Int64,
+            "reason": pl.String,
+        },
+    )
 
+
+def _pairwise_contrasts(
+    series_list: list[np.ndarray],
+    n_periods: list[int],
+    pairs: list[tuple[int, int]],
+    *,
+    method: Method,
+    forward_periods: int | None,
+    rng_seed: int | None,
+) -> list[tuple[float, float, float, float, float | None]]:
+    """Studentized contrast per pair: ``(mean_diff, stat, p_raw, p_adj, df_denom)``.
+
+    A pair whose contrast variance collapses carries NaN in ``stat`` /
+    ``p_raw`` / ``p_adj`` (no test, not a non-rejection — see
+    ``_stats.wald._NOT_COMPUTABLE``) and is left out of the multiplicity
+    family, which runs over the computable pairs only.
+    """
     if method == "bootstrap":
         rng = np.random.default_rng(rng_seed)
         obs_means, boot = _bootstrap_slice_means(series_list, rng=rng)
@@ -376,10 +497,9 @@ def slice_period_pairwise_test(
                 t_arr[computable], boot_matrix, one_sided=False
             )
         stats = [float(t * t) for t in t_obs]
+        df_denoms: list[float | None] = [None] * len(pairs)
     else:
-        means, variances = _analytic_slice_moments(
-            series_list, _read_forward_periods_stamp(data)
-        )
+        means, variances = _analytic_slice_moments(series_list, forward_periods)
         mean_diffs = []
         stats = []
         p_raw = []
@@ -420,25 +540,8 @@ def slice_period_pairwise_test(
         if computable.any():
             p_adj[computable] = holm_adjusted_p(p_raw_arr[computable])
 
-    n_pairs = len(pairs)
-    reference_dist = "bootstrap_null" if method == "bootstrap" else "f"
-    multiplicity = "romano_wolf" if method == "bootstrap" else "holm"
-    return pl.DataFrame(
-        {
-            "slice_a": [labels[i] for i, _ in pairs],
-            "slice_b": [labels[j] for _, j in pairs],
-            "n_periods_a": [n_periods[i] for i, _ in pairs],
-            "n_periods_b": [n_periods[j] for _, j in pairs],
-            "mean_diff": mean_diffs,
-            "stat": stats,
-            "p_raw": p_raw,
-            "p_adj": list(p_adj),
-            "stat_type": ["wald"] * n_pairs,
-            "reference_dist": [reference_dist] * n_pairs,
-            "df_num": [1] * n_pairs,
-            "df_denom": ([None] * n_pairs if method == "bootstrap" else df_denoms),
-            "multiplicity": [multiplicity] * n_pairs,
-        }
+    return list(
+        zip(mean_diffs, stats, p_raw, (float(x) for x in p_adj), df_denoms, strict=True)
     )
 
 
@@ -550,6 +653,7 @@ def slice_period_joint_test(
     factor_col: str,
     method: Method = "bootstrap",
     rng_seed: int | None = None,
+    strict: bool = True,
 ) -> pl.DataFrame:
     """Omnibus block-diagonal Wald χ² that all K disjoint-slice means are equal.
 
@@ -578,11 +682,23 @@ def slice_period_joint_test(
             :func:`slice_period_pairwise_test`.
         rng_seed: Reproducibility seed for the ``"bootstrap"`` path
             (ignored by ``"analytic"``).
+        strict: ``True`` (default) raises ``ValueError`` when any slice is
+            below the metric's sample floor. ``False`` returns the same
+            single-row schema as an unavailable row instead (``stat`` /
+            ``p_value`` NaN, ``reason="insufficient_periods"``): the omnibus
+            restriction spans every slice, so one thin slice makes the whole
+            test unavailable. The ``strict=False`` counterpart of
+            :func:`factrix.evaluate`'s ``metric_unavailable`` short-circuit.
 
     Returns:
-        Single-row ``pl.DataFrame`` with columns ``(k_slices, stat,
-        p_value, stat_type, reference_dist, df_num, df_denom,
-        multiplicity)``. ``stat`` is the joint Wald statistic. The mechanism
+        Single-row ``pl.DataFrame`` with columns ``(k_slices, n_periods_min,
+        stat, p_value, stat_type, reference_dist, df_num, df_denom,
+        multiplicity, min_periods, reason)``. ``stat`` is the joint Wald
+        statistic; ``n_periods_min`` the shortest slice's date count and
+        ``min_periods`` the floor it was gated on (resolved at the panel's
+        stamped ``forward_periods``); ``reason`` is null when the test ran
+        and ``"insufficient_periods"`` on a ``strict=False`` unavailable
+        row. The mechanism
         columns
         disclose the reference: ``stat_type="wald"``, ``df_num=K-1``
         (restriction rank); ``reference_dist`` is ``"f"`` for
@@ -596,9 +712,9 @@ def slice_period_joint_test(
         UserInputError: ``metric`` is not a metric instance, ``factor_col``
             is absent, or ``method`` is invalid.
         ValueError: Fewer than two slice values, any slice with fewer than
-            two dates, or any slice whose per-period series is below the
-            metric's own ``SampleThreshold`` floor resolved at the panel's
-            stamped ``forward_periods`` (the size at which
+            two dates, or (``strict=True``) any slice whose per-period series
+            is below the metric's own ``SampleThreshold`` floor resolved at
+            the panel's stamped ``forward_periods`` (the size at which
             :func:`factrix.by_slice` short-circuits the metric to NaN; see
             :func:`factrix.sample_requirements`). An unstamped panel resolves
             the floor at the metric's default horizon.
@@ -628,11 +744,47 @@ def slice_period_joint_test(
     """
     _validate_metric_instance(metric, "slice_period_joint_test")
     _validate_method(method, "slice_period_joint_test")
-    labels, series_list = _build_per_slice_series(
-        data, metric, by, factor_col=factor_col, func_name="slice_period_joint_test"
+    built = _build_per_slice_series(
+        data,
+        metric,
+        by,
+        factor_col=factor_col,
+        strict=strict,
+        func_name="slice_period_joint_test",
     )
+    labels, series_list = built.labels, built.series
+    k = len(labels)
     shortest = min(len(series) for series in series_list)
-    if len(series_list) >= 3 and shortest < _JOINT_SHORT_SLICE_PERIODS:
+    reference_dist = "bootstrap_null" if method == "bootstrap" else "f"
+
+    def _row(
+        stat: float, p: float, df_denom: float | None, reason: str | None
+    ) -> pl.DataFrame:
+        return pl.DataFrame(
+            {
+                "k_slices": [k],
+                "n_periods_min": [shortest],
+                "stat": [stat],
+                "p_value": [p],
+                "stat_type": ["wald"],
+                "reference_dist": [reference_dist],
+                "df_num": [k - 1],
+                "df_denom": [df_denom],
+                "multiplicity": [None],
+                "min_periods": [built.min_periods],
+                "reason": [reason],
+            },
+            schema_overrides={
+                "df_denom": pl.Float64,
+                "multiplicity": pl.String,
+                "min_periods": pl.Int64,
+                "reason": pl.String,
+            },
+        )
+
+    if built.thin:
+        return _row(float("nan"), float("nan"), None, _REASON_INSUFFICIENT_PERIODS)
+    if k >= 3 and shortest < _JOINT_SHORT_SLICE_PERIODS:
         warnings.warn(
             f"slice_period_joint_test: {len(series_list)} slices with the shortest at "
             f"{shortest} periods (< {_JOINT_SHORT_SLICE_PERIODS}). On a true "
@@ -645,7 +797,6 @@ def slice_period_joint_test(
             UserWarning,
             stacklevel=2,
         )
-    k = len(labels)
     restriction = _equality_restriction(k)
 
     if method == "bootstrap":
@@ -653,6 +804,7 @@ def slice_period_joint_test(
         obs_means, boot = _bootstrap_slice_means(series_list, rng=rng)
         variances = boot.var(axis=1, ddof=1)
         stat, p = _wald_bootstrap_omnibus(obs_means, boot, variances, restriction)
+        df_denom = None
     else:
         means, variances = _analytic_slice_moments(
             series_list, _read_forward_periods_stamp(data)
@@ -671,15 +823,4 @@ def slice_period_joint_test(
         stat, p = _wald_p_linear(means, np.diag(variances), restriction, df_denom=nu)
         df_denom = nu
 
-    return pl.DataFrame(
-        {
-            "k_slices": [k],
-            "stat": [stat],
-            "p_value": [p],
-            "stat_type": ["wald"],
-            "reference_dist": ["bootstrap_null" if method == "bootstrap" else "f"],
-            "df_num": [k - 1],
-            "df_denom": [None if method == "bootstrap" else df_denom],
-            "multiplicity": [None],
-        }
-    )
+    return _row(stat, p, df_denom, None)
