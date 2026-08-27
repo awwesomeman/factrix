@@ -1918,7 +1918,11 @@ def _median_universe_size(data: pl.DataFrame) -> int:
 
 
 def _warn_thin_quantile_groups(
-    sampled: pl.DataFrame, n_groups: int, *, stacklevel: int = 3
+    sampled: pl.DataFrame,
+    n_groups: int,
+    *,
+    stacklevel: int = 3,
+    expected_warnings: tuple[str, ...] = (),
 ) -> bool:
     """Emit the thin-bucket advisory and report whether it fired.
 
@@ -1928,6 +1932,10 @@ def _warn_thin_quantile_groups(
     raises the *same* message off the *same* threshold — the value-weighted
     spread built its buckets inline and so reported clean on a panel where
     each leg was a single name.
+
+    ``expected_warnings`` is the caller's study-level declaration (injected by
+    ``evaluate``): a declared code stops only the echo. The return value is
+    unchanged, so the consumer still attaches the structured twin.
     """
     if not _is_thin_quantile_groups(sampled, n_groups):
         return False
@@ -1946,13 +1954,14 @@ def _warn_thin_quantile_groups(
             "This is already the coarsest long-short split; treat the "
             "spread as a fragile small-cross-section diagnostic."
         )
-    warnings.warn(
-        f"Median {per_group} assets per group (n_assets={median_n}, "
-        f"n_groups={n_groups}). Spread may be dominated by "
-        f"individual assets. {guidance}",
-        UserWarning,
-        stacklevel=stacklevel,
-    )
+    if WarningCode.THIN_QUANTILE_GROUPS.value not in expected_warnings:
+        warnings.warn(
+            f"Median {per_group} assets per group (n_assets={median_n}, "
+            f"n_groups={n_groups}). Spread may be dominated by "
+            f"individual assets. {guidance}",
+            UserWarning,
+            stacklevel=stacklevel,
+        )
     return True
 
 

@@ -273,7 +273,8 @@ def top_concentration(
         n_pos = int((finite_f > 0).sum())
         n_neg = int((finite_f < 0).sum())
         if finite_f.len() and (n_pos == 0 or n_neg == 0):
-            warning_codes.append(WarningCode.ONE_SIGNED_FACTOR.value)
+            code = WarningCode.ONE_SIGNED_FACTOR.value
+            warning_codes.append(code)
             one_signed_meta = {
                 "n_positive_factor_values": n_pos,
                 "n_negative_factor_values": n_neg,
@@ -283,17 +284,18 @@ def top_concentration(
             # the counts made every call a distinct warning and a by_slice
             # sweep or multi-factor evaluate emitted one per call instead of
             # one per session.
-            warnings.warn(
-                "top_concentration: weight_by='abs_factor' on a factor that "
-                "never changes sign. |factor| is a density weight only when "
-                "zero is the neutral point, and the HHI of |f| moves with an "
-                "arbitrary level shift. Centre the factor (cross-sectional "
-                "z-score) or use weight_by='alpha_contribution'. Counts are "
-                "in metadata['n_positive_factor_values'] / "
-                "['n_negative_factor_values'].",
-                UserWarning,
-                stacklevel=2,
-            )
+            if code not in expected_warnings:
+                warnings.warn(
+                    "top_concentration: weight_by='abs_factor' on a factor that "
+                    "never changes sign. |factor| is a density weight only when "
+                    "zero is the neutral point, and the HHI of |f| moves with an "
+                    "arbitrary level shift. Centre the factor (cross-sectional "
+                    "z-score) or use weight_by='alpha_contribution'. Counts are "
+                    "in metadata['n_positive_factor_values'] / "
+                    "['n_negative_factor_values'].",
+                    UserWarning,
+                    stacklevel=2,
+                )
     warn_code = _warn_below_scaled_floor(
         n_raw_periods,
         MIN_PORTFOLIO_PERIODS_WARN,

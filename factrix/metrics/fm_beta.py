@@ -313,16 +313,19 @@ def fm_beta(
     actual_lags = _resolve_har_lags(n, newey_west_lags, overlap_periods)
     beta_autocorr = _lag1_autocorr(betas)
     if beta_autocorr > PERSISTENT_SERIES_AUTOCORR:
-        warning_codes.append(WarningCode.SERIAL_CORRELATION_DETECTED.value)
-        warnings.warn(
-            f"fm_beta: the per-period beta series has lag-1 autocorrelation "
-            f"{beta_autocorr:.2f} (> {PERSISTENT_SERIES_AUTOCORR}). No HAC "
-            f"path is calibrated in this regime — Newey-West rejects 13–17% at a "
-            f"nominal 5% for phi=0.6 and ~30% at 0.85 — so read the p-value "
-            f"against a raised hurdle (t > 3) or lengthen the sample.",
-            UserWarning,
-            stacklevel=2,
-        )
+        code = WarningCode.SERIAL_CORRELATION_DETECTED.value
+        warning_codes.append(code)
+        if code not in expected_warnings:
+            warnings.warn(
+                f"fm_beta: the per-period beta series has lag-1 autocorrelation "
+                f"{beta_autocorr:.2f} (> {PERSISTENT_SERIES_AUTOCORR}). No HAC "
+                f"path is calibrated in this regime — Newey-West rejects 13–17% "
+                f"at a nominal 5% for phi=0.6 and ~30% at 0.85 — so read the "
+                f"p-value against a raised hurdle (t > 3) or lengthen the "
+                f"sample.",
+                UserWarning,
+                stacklevel=2,
+            )
 
     p_final = p
     metadata: dict = {
@@ -454,6 +457,7 @@ def _pooled_beta_driscoll_kraay(
     cluster_col: str,
     two_way_cluster_col: str | None,
     lags: int | None,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Driscoll-Kraay (1998) cross-section-robust SE path for ``pooled_beta``.
 
@@ -513,15 +517,17 @@ def _pooled_beta_driscoll_kraay(
 
     warning_codes: list[str] = []
     if n_periods < MIN_PERIODS_WARN:
-        warning_codes.append(WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value)
-        warnings.warn(
-            f"pooled_beta: Driscoll-Kraay SE on n_periods={n_periods} "
-            f"(< {MIN_PERIODS_WARN}); the cross-sectional HAC needs a long "
-            f"period series to be reliable. t-stat is returned but read "
-            f"p-values cautiously.",
-            UserWarning,
-            stacklevel=2,
-        )
+        code = WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value
+        warning_codes.append(code)
+        if code not in expected_warnings:
+            warnings.warn(
+                f"pooled_beta: Driscoll-Kraay SE on n_periods={n_periods} "
+                f"(< {MIN_PERIODS_WARN}); the cross-sectional HAC needs a long "
+                f"period series to be reliable. t-stat is returned but read "
+                f"p-values cautiously.",
+                UserWarning,
+                stacklevel=2,
+            )
 
     metadata = {
         "stat_type": "t",
@@ -564,6 +570,7 @@ def pooled_beta(
     two_way_cluster_col: str | None = None,
     driscoll_kraay: bool = False,
     driscoll_kraay_lags: int | None = None,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Pooled ordinary least squares (OLS) with clustered SE — robustness check against FM.
 
@@ -749,6 +756,7 @@ def pooled_beta(
             cluster_col=cluster_col,
             two_way_cluster_col=two_way_cluster_col,
             lags=driscoll_kraay_lags,
+            expected_warnings=expected_warnings,
         )
 
     clusters_a = data[cluster_col].to_numpy()

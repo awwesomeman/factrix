@@ -816,18 +816,19 @@ def bmp_z(
         "bmp_z", metadata, warning_codes, expected_warnings=expected_warnings
     )
     if not uses_price:
-        warning_codes.append(WarningCode.BMP_RETURN_VOL_FALLBACK.value)
-        warnings.warn(
-            f"bmp_z: no 'price' column; estimation-window volatility falls back "
-            f"to the per-asset rolling std of '{return_col}', lagged by "
-            f"overlap_periods={overlap_periods} so the window ends before each "
-            f"event's forward return. This is a coarser, horizon-overlapping vol "
-            f"proxy than a price-derived one-period std — supply 'price' for the "
-            f"clean BMP "
-            f"standardiser.",
-            UserWarning,
-            stacklevel=2,
-        )
+        code = WarningCode.BMP_RETURN_VOL_FALLBACK.value
+        warning_codes.append(code)
+        if code not in expected_warnings:
+            warnings.warn(
+                f"bmp_z: no 'price' column; estimation-window volatility falls "
+                f"back to the per-asset rolling std of '{return_col}', lagged by "
+                f"overlap_periods={overlap_periods} so the window ends before "
+                f"each event's forward return. This is a coarser, "
+                f"horizon-overlapping vol proxy than a price-derived one-period "
+                f"std — supply 'price' for the clean BMP standardiser.",
+                UserWarning,
+                stacklevel=2,
+            )
 
     if kolari_pynnonen_adjust:
         r_hat, n_eff, kp_source = _estimate_within_date_icc(
