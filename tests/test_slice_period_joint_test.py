@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import factrix as fx
 import polars as pl
 import pytest
@@ -13,6 +15,7 @@ from tests._slice_panel import build_disjoint_period_panel
 
 _JOINT_COLS = [
     "k_slices",
+    "n_periods_min",
     "stat",
     "p_value",
     "stat_type",
@@ -20,6 +23,8 @@ _JOINT_COLS = [
     "df_num",
     "df_denom",
     "multiplicity",
+    "min_periods",
+    "reason",
 ]
 
 
@@ -318,3 +323,64 @@ class TestFloorFollowsPanelStamp:
                 by="regime",
                 factor_col="factor",
             )
+
+
+class TestNonStrict:
+    """``strict=False``: a thin slice yields a structured unavailable row."""
+
+    @staticmethod
+    def _panel() -> pl.DataFrame:
+        # ic() floor at the default horizon is 50; "bear" sits below it.
+        return build_disjoint_period_panel(
+            seed=5,
+            spans={"bull": (60, 0.1), "bear": (30, 0.1), "flat": (60, 0.1)},
+            label_col="regime",
+        )
+
+    def test_strict_default_still_raises(self) -> None:
+        with pytest.raises(ValueError, match="sample floor"):
+            slice_period_joint_test(
+                self._panel(), ic(), by="regime", factor_col="factor"
+            )
+
+    @pytest.mark.parametrize("method", ["bootstrap", "analytic"])
+    def test_thin_slice_returns_unavailable_row(self, method: str) -> None:
+        out = slice_period_joint_test(
+            self._panel(),
+            ic(),
+            by="regime",
+            factor_col="factor",
+            method=method,
+            strict=False,
+        )
+        assert out.columns == _JOINT_COLS
+        row = out.row(0, named=True)
+        assert row["reason"] == "insufficient_periods"
+        assert (row["k_slices"], row["n_periods_min"], row["min_periods"]) == (
+            3,
+            30,
+            50,
+        )
+        assert math.isnan(row["stat"]) and math.isnan(row["p_value"])
+        assert row["df_denom"] is None
+
+    def test_tested_row_carries_null_reason_and_floor(self) -> None:
+        df = build_disjoint_period_panel(
+            seed=5, spans={"a": (60, 0.1), "b": (60, 0.1)}, label_col="regime"
+        )
+        out = slice_period_joint_test(
+            df, ic(), by="regime", factor_col="factor", rng_seed=1, strict=False
+        )
+        row = out.row(0, named=True)
+        assert row["reason"] is None
+        assert (row["n_periods_min"], row["min_periods"]) == (60, 50)
+        assert math.isfinite(row["p_value"])
+
+    def test_non_strict_matches_strict_when_all_clear(self) -> None:
+        df = build_disjoint_period_panel(
+            seed=5, spans={"a": (60, 0.1), "b": (60, 0.1)}, label_col="regime"
+        )
+        kw = dict(by="regime", factor_col="factor", rng_seed=1)
+        strict = slice_period_joint_test(df, ic(), **kw)
+        loose = slice_period_joint_test(df, ic(), strict=False, **kw)
+        assert strict.equals(loose)
