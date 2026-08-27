@@ -16,7 +16,7 @@ import polars as pl
 import pytest
 from factrix._data_input import _FORWARD_PERIODS_COL, _OVERLAP_PERIODS_COL
 from factrix._errors import UserInputError
-from factrix.metrics import ic, quantile_spread
+from factrix.metrics import ic, notional_turnover, quantile_spread
 from factrix.multi_factor import bhy
 from factrix.preprocess import compute_forward_return
 from factrix.preprocess.returns import _overlap_on_grid
@@ -207,6 +207,53 @@ class TestEvaluateOnCoarseGrid:
             (20, 1),
             (H, 3),
         ]
+
+
+class TestStaleStampHintIsTimeAxisOnly:
+    """The "rebuild with dates=" sentence belongs to time-axis shortfalls.
+
+    A stale ``overlap_periods`` stamp can only shrink a floor counted in
+    periods (or event periods). A cross-section shortfall — too few assets to
+    fill the requested buckets — is unrelated to how the panel was sampled in
+    time, so the hint must not be attached to it however large the stamp is.
+    """
+
+    def test_period_axis_short_circuit_carries_the_hint(self, raw, grid):
+        full = compute_forward_return(raw, forward_periods=H)
+        stale = full.filter(pl.col("date").is_in(grid.gather_every(H).implode()))
+        out = fx.evaluate(
+            stale, metrics={"ic": ic()}, factor_cols=["factor"], strict=False
+        )["factor"].metrics["ic"]
+        assert out.n_obs_axis == "periods"
+        assert out.metadata["reason"] == "insufficient_ic_periods"
+        assert "compute_forward_return(..., dates=" in out.metadata["hint"]
+
+    def test_period_axis_hint_reaches_the_strict_error(self, raw, grid):
+        full = compute_forward_return(raw, forward_periods=H)
+        stale = full.filter(pl.col("date").is_in(grid.gather_every(H).implode()))
+        with pytest.raises(
+            fx.InsufficientSampleError, match=r"compute_forward_return\(\.\.\., dates="
+        ):
+            fx.evaluate(stale, metrics={"ic": ic()}, factor_cols=["factor"])
+
+    def test_asset_axis_short_circuit_does_not_carry_the_hint(self):
+        dates = pl.date_range(
+            pl.date(2024, 1, 1), pl.date(2024, 1, 20), "1d", eager=True
+        )
+        panel = pl.DataFrame(
+            {
+                "date": [d for d in dates for _ in range(4)],
+                "asset_id": [a for _ in dates for a in "ABCD"],
+                "factor": [
+                    float((i + t) % 4) for t in range(len(dates)) for i in range(4)
+                ],
+            }
+        )
+        out = notional_turnover(panel, n_groups=10, overlap_periods=5)
+        assert out.n_obs_axis == "assets"
+        assert out.metadata["reason"] == "insufficient_assets_for_quantile_groups"
+        assert out.metadata["overlap_periods"] == 5
+        assert "hint" not in out.metadata
 
 
 class TestIdentityIsTheHorizon:

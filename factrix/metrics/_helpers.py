@@ -254,6 +254,13 @@ def _aggregate_to_per_date(
     )
 
 
+# Axes whose sample count is a count of positions on the panel's period grid,
+# and so the only ones a stale ``overlap_periods`` stamp can shrink. The
+# remaining tokens ("assets", "pairs", "asset_pairs") count a cross-section,
+# which no evaluation-grid stamp bears on.
+_TIME_AXES: frozenset[SampleAxis] = frozenset({"periods", "events"})
+
+
 def _short_circuit_output(
     name: str,
     reason: str,
@@ -319,9 +326,14 @@ def _short_circuit_output(
     # sub-sampled by hand after compute_forward_return, whose overlap stamp
     # still says "horizon". At overlap 1 the stamp cannot be stale in that
     # direction, and a metric that already explains itself keeps its own hint.
+    # Only a shortfall on a time axis can be caused by a stale stamp: the
+    # scaled floors that read the stamp gate the period and event axes, so a
+    # cross-section shortfall (too few assets / pairs to rank) is unrelated to
+    # it however the panel was sampled, and must not be sent down that path.
     overlap = metadata.get("overlap_periods")
     if (
         reason.startswith("insufficient_")
+        and n_obs_axis in _TIME_AXES
         and "hint" not in metadata
         and isinstance(overlap, int)
         and overlap > 1
