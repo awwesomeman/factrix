@@ -47,6 +47,7 @@ typical usage patterns in a single fetch. Two access paths::
 # ``from factrix import *`` used to be the only thing ``__all__`` protected.
 import dataclasses as _dataclasses
 import math as _math
+from collections.abc import Iterable as _Iterable
 from types import MappingProxyType as _MappingProxyType
 from typing import TYPE_CHECKING as _TYPE_CHECKING
 from typing import Any as _Any
@@ -382,6 +383,7 @@ def evaluate_horizons(
     metrics: "dict[str, MetricBase]",
     factor_cols: list[str],
     forward_periods: list[int],
+    dates: "_pl.Series | _Iterable[object] | None" = None,
     strict: bool = True,
     expected_warnings: tuple[str, ...] = (),
 ) -> list[EvaluationResult]:
@@ -430,6 +432,11 @@ def evaluate_horizons(
             Duplicates are rejected — they would yield a duplicate
             ``(factor, forward_periods)`` identity that ``compare`` / ``bhy``
             reject downstream.
+        dates: Optional evaluation grid, forwarded unchanged to each inner
+            :func:`factrix.preprocess.compute_forward_return` call. Every
+            horizon is then evaluated on the same caller-chosen dates and
+            each result carries its own derived ``overlap_periods``; the
+            ``(factor, forward_periods)`` identity is unaffected.
         strict: Forwarded unchanged to each inner :func:`evaluate`.
         expected_warnings: Forwarded unchanged to each inner
             :func:`evaluate` — the declaration is a property of the study,
@@ -474,7 +481,9 @@ def evaluate_horizons(
     raw = _coerce_data(data)
     results: list[EvaluationResult] = []
     for horizon in horizons:
-        panel = preprocess.compute_forward_return(raw, forward_periods=horizon)
+        panel = preprocess.compute_forward_return(
+            raw, forward_periods=horizon, dates=dates
+        )
         per_factor = evaluate(
             panel,
             metrics=metrics,
@@ -989,6 +998,15 @@ def _raise_insufficient_sample(
         f"{label}: {reason} (n_{axis}={actual}, required={required})"
         for label, reason, axis, actual, required in shortfalls
     )
+    # A stride-scaled floor carries one sentence on the most common false
+    # shortfall (a stale overlap stamp on a hand-sub-sampled panel); surface
+    # it once, whichever metric stamped it.
+    hints = dict.fromkeys(
+        hint
+        for label, _ in failed
+        if isinstance(hint := label_outputs[label].metadata.get("hint"), str)
+    )
+    hint_text = (" " + " ".join(hints)) if hints else ""
     _, _, axis, actual, required = shortfalls[0]
     raise InsufficientSampleError(
         f"evaluate(): {len(shortfalls)} metric(s) below their sample floor on "
@@ -997,7 +1015,7 @@ def _raise_insufficient_sample(
         f"extend the sample on the binding axis, reconfigure the metric "
         f"(a bucketed metric needs n_groups <= n_assets), or pass strict=False "
         f"to receive NaN placeholders and read is_applicable / reason from "
-        f"EvaluationResult.to_frame().",
+        f"EvaluationResult.to_frame().{hint_text}",
         axis=axis,
         actual=actual,
         required=required,

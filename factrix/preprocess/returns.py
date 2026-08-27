@@ -9,13 +9,16 @@ Use ``adapt()`` to rename before calling.
 """
 
 import warnings
+from collections.abc import Iterable
 
+import numpy as np
 import polars as pl
 
 from factrix._codes import WarningCode
 from factrix._errors import UserInputError
 
 _DOCS_FORWARD_RETURN = "api/preprocess#compute_forward_return"
+_DOCS_EVALUATION_GRID = "api/preprocess#evaluating-on-a-coarser-grid"
 _DOCS_WINSORIZE_FORWARD_RETURN = "api/preprocess#winsorize_forward_return"
 
 
@@ -93,10 +96,123 @@ def _warn_if_ragged(indexed: pl.DataFrame, n_periods: int) -> None:
         )
 
 
+def _resolve_evaluation_grid(
+    grid: pl.DataFrame, dates: object
+) -> tuple[pl.Series, list[int]]:
+    """Map caller-chosen evaluation dates onto the panel's period grid.
+
+    Every value must be a member of the panel's distinct-date grid — nothing
+    is snapped. Snapping backward would evaluate a factor observed after the
+    entry period (look-ahead); snapping forward would silently move the entry
+    period. Returns the matched dates (in the grid's dtype) and their sorted
+    period indices on the *full* grid.
+    """
+    if isinstance(dates, pl.Series):
+        wanted = dates
+    elif isinstance(dates, str | bytes) or not isinstance(dates, Iterable):
+        raise UserInputError(
+            func_name="compute_forward_return",
+            field="dates",
+            value=type(dates).__name__,
+            expected="a polars Series or a sequence of dates on the panel's grid",
+            docs_path=_DOCS_EVALUATION_GRID,
+        )
+    else:
+        wanted = pl.Series("date", list(dates))
+    if wanted.len() == 0:
+        raise UserInputError(
+            func_name="compute_forward_return",
+            field="dates",
+            value=[],
+            expected="at least one evaluation date on the panel's grid",
+            docs_path=_DOCS_EVALUATION_GRID,
+        )
+    grid_dtype = grid.schema["date"]
+    if wanted.dtype != grid_dtype:
+        # A Date value names a Datetime period unambiguously (its midnight),
+        # and a Datetime in another time unit re-expresses the same instant
+        # (a Python datetime list arrives as microseconds; membership is
+        # still checked exactly after the cast). Any other mismatch —
+        # Datetime -> Date would truncate, i.e. snap; a String would be
+        # parsed — is rejected rather than coerced.
+        same_zone_datetime = (
+            isinstance(wanted.dtype, pl.Datetime)
+            and isinstance(grid_dtype, pl.Datetime)
+            and wanted.dtype.time_zone == grid_dtype.time_zone
+        )
+        if same_zone_datetime or (
+            wanted.dtype == pl.Date and isinstance(grid_dtype, pl.Datetime)
+        ):
+            wanted = wanted.cast(grid_dtype)
+        else:
+            raise UserInputError(
+                func_name="compute_forward_return",
+                field="dates",
+                value=str(wanted.dtype),
+                expected=(
+                    f"dates with the panel's date dtype ({grid_dtype}); values "
+                    "are matched exactly against the panel's grid, never "
+                    "parsed or snapped"
+                ),
+                docs_path=_DOCS_EVALUATION_GRID,
+            )
+    wanted = wanted.unique().alias("date")
+    on_grid = wanted.is_in(grid["date"].implode())
+    if not on_grid.all():
+        missing = wanted.filter(~on_grid).sort().to_list()
+        raise UserInputError(
+            func_name="compute_forward_return",
+            field="dates",
+            value=missing[:5],
+            expected=(
+                f"every evaluation date to be a member of the panel's distinct-"
+                f"date grid ({len(missing)} are not). Dates are matched "
+                "exactly and never snapped: snapping backward would read a "
+                "factor observed after the entry period, snapping forward "
+                "would move the entry period. Pick the evaluation dates from "
+                "the panel's own dates."
+            ),
+            docs_path=_DOCS_EVALUATION_GRID,
+        )
+    matched = grid.join(wanted.to_frame(), on="date", how="inner").sort("_period_index")
+    return matched["date"], matched["_period_index"].to_list()
+
+
+def _overlap_on_grid(kept_index: list[int], forward_periods: int) -> int:
+    """Overlap of adjacent observations on an evaluation grid.
+
+    A row at period index ``i`` carries the return over ``(i + 1, i + 1 + h]``
+    on the full grid, so two kept rows ``i < j`` overlap exactly when
+    ``j - i < h``. The overlap statistic is::
+
+        overlap_periods = 1 + max_i #{ j kept : 0 < j - i < h }
+
+    i.e. one more than the largest number of later kept rows any kept row
+    shares future periods with. On the full grid this is ``h``; at a constant
+    stride ``s >= h`` it is 1; at stride ``s < h`` it is ``ceil(h / s)``.
+
+    ``max`` rather than a typical (median) count is deliberate. Under uneven
+    spacing on the period grid, a count that under-states the true overlap
+    by one leaves an MA term the non-overlapping stride does not remove, and
+    the stride t-test over-rejects (measured 12-13% at a nominal 5%); a count
+    that over-states it by one only thins the strided sample (size intact,
+    some power lost). The Newey-West path is insensitive either way — its
+    bandwidth is dominated by the ``1.3 * sqrt(T)`` base.
+    """
+    idx = np.asarray(sorted(kept_index), dtype=np.int64)
+    if idx.size == 0:
+        return 1
+    # #{j : 0 < idx_j - idx_i < h} == searchsorted(idx, idx_i + h) - (i + 1)
+    upper = np.searchsorted(idx, idx + forward_periods, side="left")
+    counts = upper - (np.arange(idx.size) + 1)
+    return int(1 + counts.max())
+
+
 def compute_forward_return(
     data: pl.DataFrame,
     forward_periods: int = 5,
     *,
+    dates: pl.Series | Iterable[object] | None = None,
     overwrite: bool = False,
 ) -> pl.DataFrame:
     """Step 1: Compute per-period forward return per asset.
@@ -129,6 +245,15 @@ def compute_forward_return(
             5). On a daily panel this is 5 trading days; on a weekly panel, 5
             weeks; on 1-min bars, 5 minutes. Which frequency those periods
             represent is the caller's responsibility.
+        dates: Optional evaluation grid — the dates to keep, as a polars
+            ``Series`` or a sequence. Every value must be a member of the
+            panel's distinct-date grid (matched exactly, never snapped; see
+            Raises). The return is still computed on the full grid at
+            ``forward_periods``; only rows on these dates are returned, and
+            the ``overlap_periods`` stamp is *derived* from their spacing on
+            the full period grid (see Notes) instead of being set to the
+            horizon. ``None`` (default) keeps every date and stamps
+            ``overlap_periods = forward_periods``.
         overwrite: Allow recomputation when ``data`` already carries a
             ``forward_return`` column. ``False`` (default) raises rather
             than silently overwrite — the function is **not idempotent**:
@@ -142,17 +267,23 @@ def compute_forward_return(
         UserInputError: ``forward_periods`` is not a positive ``int``;
             ``data`` carries duplicate ``(date, asset_id)`` rows or a
             non-temporal ``date`` column; ``data`` already has a
-            ``forward_return`` column and ``overwrite`` is ``False``; or the
+            ``forward_return`` column and ``overwrite`` is ``False``; the
             horizon / price data leaves no finite forward returns after
-            filtering.
+            filtering; or ``dates`` is empty, has a dtype the panel's
+            ``date`` cannot match exactly, or contains a value that is not on
+            the panel's distinct-date grid.
 
     Returns:
-        Input DataFrame with ``forward_return`` column appended and the
-        overlap horizon ``forward_periods`` stamped on as a reserved column —
-        the single source of truth ``factrix.evaluate`` reads (it strips the
-        column before dispatch, so it never reaches a metric or ``to_frame``).
-        Rows where forward return is not finite (tail nulls, NaN, +inf, -inf)
-        are dropped.
+        Input DataFrame with ``forward_return`` column appended and two
+        reserved stamp columns — ``_forward_periods`` (the return horizon,
+        the hypothesis) and ``_overlap_periods`` (the overlap of adjacent
+        observations on the evaluation grid, the quantity inference consumes;
+        equal to the horizon unless ``dates`` was given). They are the
+        single source of truth ``factrix.evaluate`` reads (it strips both
+        before dispatch, so they never reach a metric or ``to_frame``). Rows
+        where forward return is not finite (tail nulls, NaN, +inf, -inf) are
+        dropped; with ``dates``, rows off the evaluation grid are dropped
+        too.
 
     Notes:
         **The horizon is measured on the panel's period grid.** The distinct
@@ -173,6 +304,44 @@ def compute_forward_return(
         ``i + 1 + h``, so it contributes fewer rows than a complete one.
         Reindex onto a common grid if the horizons must be comparable across
         names.
+
+        **Evaluating on a coarser grid.** A factor is often observed on a
+        finer grid than it is traded on — the price grid supplies the return
+        horizon, while the evaluation happens on a caller-chosen rebalance
+        grid. Two separate quantities then matter. ``forward_periods`` is the
+        economic horizon and names the hypothesis; it is the same on any
+        grid. ``overlap_periods`` is how many adjacent *evaluation*
+        observations share future periods, which is what the HAC bandwidth
+        and effective degrees of freedom, the non-overlapping stride and the
+        stride-scaled sample floors consume. On the full grid the two
+        coincide, so a panel sub-sampled by hand *after* this function keeps
+        a stale ``overlap_periods = forward_periods`` stamp: a 60-period
+        return evaluated every 60 periods is treated as 60-fold overlapping
+        and the stride-scaled floor rejects it outright. Pass the evaluation
+        grid as ``dates`` instead and the overlap is derived here, on the
+        full grid, as::
+
+            overlap_periods = 1 + max_i #{ j in dates : 0 < idx(j) - idx(i) < h }
+
+        with ``idx`` the period index on the panel's *full* distinct-date
+        grid. The row at ``i`` covers ``(i + 1, i + 1 + h]``, so two kept
+        rows overlap exactly when they are fewer than ``h`` periods apart.
+        Stride 60 at ``h = 60`` gives 1; stride 20 gives 3; the full grid
+        gives ``h``. The maximum, not a typical count, is used because the
+        evaluation grid may be spaced unevenly on the period grid:
+        under-stating the overlap by one leaves dependence the stride does
+        not remove and the stride t-test over-rejects (12-13% at a nominal
+        5% in simulation), while over-stating it by one only thins the
+        strided sample. The derivation must run here rather than on the
+        returned panel: the ``is_finite`` filter below removes any period on
+        which every asset's return is non-finite, so an index rebuilt from
+        the output's own dates would compress the gaps and under-count.
+
+        The unit of ``forward_return`` does not change with the grid: it is
+        the return per period **of the horizon** (the ``/ forward_periods``
+        below), not per evaluation period. Every p-value on the affected
+        paths is scale-invariant, and a per-evaluation-period rate is not
+        defined on an unevenly spaced grid.
 
         **Non-finite prices are blanked before the division, not after.** The
         filter used to be applied to the *quotient*: with a ``+Inf``
@@ -242,6 +411,21 @@ def compute_forward_return(
         ... )
         >>> isinstance(results, dict) and "factor" in results
         True
+
+        A 60-period return evaluated every 60 periods: the horizon stays 60
+        (the hypothesis), while the derived overlap is 1, so inference treats
+        the sampled observations as non-overlapping:
+
+        >>> raw = fx.datasets.make_cs_panel(n_assets=30, n_dates=1500)
+        >>> grid = raw["date"].unique().sort()
+        >>> sampled = compute_forward_return(
+        ...     raw, forward_periods=60, dates=grid.gather_every(60)
+        ... )
+        >>> sampled["date"].n_unique()
+        24
+        >>> result = fx.evaluate(sampled, metrics={"ic": ic()}, factor_cols=["factor"])
+        >>> (result["factor"].forward_periods, result["factor"].overlap_periods)
+        (60, 1)
     """
     forward_periods = _validate_forward_periods(forward_periods)
 
@@ -285,6 +469,14 @@ def compute_forward_return(
     n_periods = grid.height
     indexed = data.join(grid, on="date", how="left")
 
+    # The evaluation grid is resolved against the FULL period grid, before the
+    # is_finite filter below can remove a period on which every asset's return
+    # is non-finite — an index rebuilt from the output's own dates would
+    # compress those gaps and under-count the overlap.
+    evaluation_grid: tuple[pl.Series, list[int]] | None = (
+        _resolve_evaluation_grid(grid, dates) if dates is not None else None
+    )
+
     _warn_if_ragged(indexed, n_periods)
 
     # Entry at period i+1, exit at period i+1+h, both looked up by index rather
@@ -318,6 +510,11 @@ def compute_forward_return(
         .drop("_period_index", "_entry_index", "_exit_index", "_entry", "_exit")
         .filter(pl.col("forward_return").is_finite())
     )
+    overlap_periods = forward_periods
+    if evaluation_grid is not None:
+        kept_dates, kept_index = evaluation_grid
+        out = out.filter(pl.col("date").is_in(kept_dates.implode()))
+        overlap_periods = _overlap_on_grid(kept_index, forward_periods)
     if out.is_empty():
         raise UserInputError(
             func_name="compute_forward_return",
@@ -326,15 +523,16 @@ def compute_forward_return(
             expected=(
                 "at least one finite forward_return after applying the row "
                 f"horizon forward_periods={forward_periods}; the panel may be "
-                "too short, or price contains only non-finite returns"
+                "too short, price contains only non-finite returns, or every "
+                "evaluation date in dates= falls inside the horizon's tail"
             ),
             docs_path=_DOCS_FORWARD_RETURN,
         )
-    # Stamp the overlap horizon as the single source of truth for the data;
-    # evaluate reads it instead of taking forward_periods at the metric / call
-    # layer (the three could silently diverge — see compute_forward_return docs).
+    # Stamp both horizons as the single source of truth for the data; evaluate
+    # reads them instead of taking them at the metric / call layer (the layers
+    # could silently diverge — see compute_forward_return docs).
     return _stamp_horizons(
-        out, forward_periods=forward_periods, overlap_periods=forward_periods
+        out, forward_periods=forward_periods, overlap_periods=overlap_periods
     )
 
 

@@ -1,4 +1,4 @@
-"""``fx.evaluate_horizons`` — thin sweep over overlap horizons that flattens
+"""``fx.evaluate_horizons`` — thin sweep over return horizons that flattens
 to ``list[EvaluationResult]`` and feeds ``compare`` / ``bhy`` directly."""
 
 from __future__ import annotations

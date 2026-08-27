@@ -413,11 +413,16 @@ class DagExecutor:
                         if reason == "upstream_unavailable"
                         else WarningCode.METRIC_UNAVAILABLE
                     )
+                    hint = out.metadata.get("hint")
                     warnings.append(
                         Warning(
                             code=short_circuit_code,
                             source=label,
-                            message=reason,
+                            message=(
+                                f"{reason} — {hint}"
+                                if isinstance(hint, str)
+                                else reason
+                            ),
                         )
                     )
                 for code in out.warning_codes:

@@ -314,6 +314,19 @@ def _short_circuit_output(
     )
 
     metadata: dict[str, object] = {"reason": reason, **extra_metadata}
+    # A data shortage on a floor that scales with the evaluation-grid overlap
+    # carries one sentence on its most common false trigger: a panel
+    # sub-sampled by hand after compute_forward_return, whose overlap stamp
+    # still says "horizon". At overlap 1 the stamp cannot be stale in that
+    # direction, and a metric that already explains itself keeps its own hint.
+    overlap = metadata.get("overlap_periods")
+    if (
+        reason.startswith("insufficient_")
+        and "hint" not in metadata
+        and isinstance(overlap, int)
+        and overlap > 1
+    ):
+        metadata["hint"] = STALE_OVERLAP_HINT
     p: float | None = None if descriptive else 1.0
     return MetricResult(
         value=float("nan"),
@@ -533,6 +546,21 @@ def _enforce_scaled_floor(
             **extra,
         )
     return None
+
+
+# One sentence every stride-scaled ``insufficient_*`` short-circuit carries
+# (``metadata["hint"]``; echoed by ``evaluate``'s InsufficientSampleError and
+# the bundle Warning). The floor scales with ``overlap_periods``, so the most
+# common way to trip it on a healthy panel is a panel sub-sampled to a coarser
+# evaluation grid *after* ``compute_forward_return`` — its overlap stamp still
+# says "horizon" while the true overlap on that grid is smaller.
+STALE_OVERLAP_HINT: str = (
+    "If this panel was sub-sampled to a coarser evaluation grid after "
+    "compute_forward_return, its overlap_periods stamp is stale (it still "
+    "counts the horizon on the full grid); rebuild it with "
+    "compute_forward_return(..., dates=<evaluation dates>) so the overlap is "
+    "derived on that grid."
+)
 
 
 def _scaled_periods_threshold(
