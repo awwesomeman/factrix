@@ -168,6 +168,7 @@ def monotonicity(
     direction: MRDirection = "increasing",
     n_bootstrap: int = 1000,
     seed: int | None = None,
+    expected_warnings: tuple[str, ...] = (),
 ) -> dict[str, MetricResult]:
     """Quantile return monotonicity — Patton-Timmermann (2010) MR test.
 
@@ -268,8 +269,17 @@ def monotonicity(
     # same panel (depends only on `date` + `overlap_periods`).
     filtered = _sample_non_overlapping(data, overlap_periods)
     tie_ratios = _compute_tie_ratios_batch(filtered, cols)
-    for f in cols:
-        _warn_high_tie_ratio(tie_ratios[f], "monotonicity", tie_policy)
+    # Echo per factor (the helper gates on ``expected_warnings``); the
+    # predicate is kept so each factor's result carries the structured code.
+    high_tie_ratio = {
+        f: _warn_high_tie_ratio(
+            tie_ratios[f],
+            "monotonicity",
+            tie_policy,
+            expected_warnings=expected_warnings,
+        )
+        for f in cols
+    }
 
     grouped = _assign_quantile_groups_batch(filtered, cols, n_groups, tie_policy)
 
@@ -399,6 +409,9 @@ def monotonicity(
             n_obs_axis="periods",
             stat=j_stat,
             metadata=metadata,
+            warning_codes=(
+                (WarningCode.HIGH_TIE_RATIO.value,) if high_tie_ratio[f] else ()
+            ),
         )
 
     return results

@@ -36,6 +36,7 @@ from factrix._axis import (
     FactorDensity,
     FactorScope,
 )
+from factrix._codes import WarningCode
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._types import DDOF, MIN_PORTFOLIO_PERIODS_HARD
@@ -322,7 +323,12 @@ def k_spread(
     # forward_return is null on the last ``overlap_periods`` rows per asset.
     sampled = _sample_non_overlapping(data, overlap_periods)
     tie_ratio = _compute_tie_ratio(sampled, factor_col)
-    _warn_high_tie_ratio(tie_ratio, "k_spread", tie_policy)
+    high_tie_ratio = _warn_high_tie_ratio(
+        tie_ratio,
+        "k_spread",
+        tie_policy,
+        expected_warnings=expected_warnings,
+    )
     series, clean = _build_k_spread_series(
         sampled, k, factor_col, return_col, tie_policy
     )
@@ -451,6 +457,8 @@ def k_spread(
         **sig_extra,
     }
     warning_codes = list(sig_codes)
+    if high_tie_ratio:
+        warning_codes.append(WarningCode.HIGH_TIE_RATIO.value)
     # Drop stats describe the strided series this consumer collapsed, whatever
     # sample the headline test ended up running on.
     _surface_null_drop(

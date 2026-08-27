@@ -29,6 +29,7 @@ from factrix._axis import (
     FactorDensity,
     FactorScope,
 )
+from factrix._codes import WarningCode
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import (
@@ -49,6 +50,8 @@ __all__ = [
     "common_quantile_spread",
 ]
 
+_MIN_BUCKET_PERIODS_WARN = 5
+
 
 @metric(
     cell=cell(FactorScope.COMMON, FactorDensity.DENSE, structure=DataStructure.PANEL),
@@ -63,6 +66,7 @@ def common_quantile_spread(
     n_groups: int = 5,
     overlap_periods: int | None = None,
     nw_lags: int | None = None,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     """Bucket time-series factor by historical quantiles, test conditional means.
 
@@ -177,7 +181,11 @@ def common_quantile_spread(
         )
 
     per_bucket_periods = n_periods // n_groups
-    if per_bucket_periods < 5:
+    thin_bucket_periods = per_bucket_periods < _MIN_BUCKET_PERIODS_WARN
+    if (
+        thin_bucket_periods
+        and WarningCode.THIN_QUANTILE_PERIODS.value not in expected_warnings
+    ):
         warnings.warn(
             f"common_quantile_spread: avg {per_bucket_periods} periods per "
             f"bucket (T={n_periods}, n_groups={n_groups}). Each bucket mean "
@@ -232,6 +240,8 @@ def common_quantile_spread(
         rho, rho_p = float("nan"), float("nan")
 
     warning_codes: list[str] = []
+    if thin_bucket_periods:
+        warning_codes.append(WarningCode.THIN_QUANTILE_PERIODS.value)
     metadata: dict[str, object] = {
         "stat_type": "wald (NW HAC)",
         "h0": "beta_top = beta_bottom",

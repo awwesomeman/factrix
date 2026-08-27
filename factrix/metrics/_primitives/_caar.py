@@ -12,6 +12,7 @@ from factrix._axis import (
     OutputShape,
     SpecRole,
 )
+from factrix._codes import WarningCode
 from factrix._metric_index import cell
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
@@ -36,6 +37,7 @@ def compute_caar(
     return_col: str = "forward_return",
     estimation_window: int = 60,
     overlap_periods: int = 5,
+    expected_warnings: tuple[str, ...] = (),
 ) -> pl.DataFrame:
     r"""Per-event-period weighted abnormal return series.
 
@@ -76,6 +78,9 @@ def compute_caar(
             whose events were *all* non-finite leaves the output entirely,
             so a per-period column could not carry it). Consumers surface it
             as ``metadata["n_events_dropped_non_finite"]``.
+        sparse_magnitude_weighted: whether the input factor is mixed-sign and
+            not a clean ``{-1, 0, +1}`` ternary. Broadcast as a constant so
+            downstream event tests can attach the structured warning code.
 
     Non-finite handling:
         polars' ``mean`` propagates float ``NaN`` (it only skips nulls), so a
@@ -93,7 +98,11 @@ def compute_caar(
         in polars, so a NaN factor survives the event filter and would make
         ``_signed_car`` NaN.
     """
-    if _is_sparse_magnitude_weighted(data, factor_col):
+    sparse_magnitude_weighted = _is_sparse_magnitude_weighted(data, factor_col)
+    if (
+        sparse_magnitude_weighted
+        and WarningCode.SPARSE_MAGNITUDE_WEIGHTED.value not in expected_warnings
+    ):
         warnings.warn(
             "compute_caar: factor column is mixed-sign and not a clean ±1 "
             "ternary. The result is the Sefcik-Thompson (1986) "
@@ -134,7 +143,10 @@ def compute_caar(
     n_dropped = events.filter(~raw_finite).height
     n_dropped_no_window = events.filter(raw_finite & ~ar_finite).height
     events = events.filter(raw_finite & ar_finite)
-    if n_dropped > 0:
+    if (
+        n_dropped > 0
+        and WarningCode.NON_FINITE_INPUT_DROPPED.value not in expected_warnings
+    ):
         warnings.warn(
             f"compute_caar: dropped {n_dropped} of {n_events_in} event rows with "
             f"a non-finite '{return_col}' or '{factor_col}' before aggregating. "
@@ -157,6 +169,7 @@ def compute_caar(
         .sort("date")
         .with_columns(
             pl.lit(n_dropped, dtype=pl.Int64).alias("n_events_dropped_non_finite"),
+            pl.lit(sparse_magnitude_weighted).alias("sparse_magnitude_weighted"),
             pl.lit(n_dropped_no_window, dtype=pl.Int64).alias(
                 "n_events_dropped_no_estimation_window"
             ),

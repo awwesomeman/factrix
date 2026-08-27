@@ -327,7 +327,6 @@ def _quantile_spread_from_series(
     step across every factor while the single-factor path stays a one-liner.
     """
     tie_ratio = _compute_tie_ratio(sampled, factor_col)
-    _warn_high_tie_ratio(tie_ratio, "quantile_spread", tie_policy)
     spread_vals = _finite_values(series["spread"])
     n_strided = len(spread_vals)
     sc = _enforce_scaled_floor(
@@ -375,6 +374,12 @@ def _quantile_spread_from_series(
             n_groups=n_groups,
         )
 
+    high_tie_ratio = _warn_high_tie_ratio(
+        tie_ratio,
+        "quantile_spread",
+        tie_policy,
+        expected_warnings=expected_warnings,
+    )
     arr = spread_vals.to_numpy()
     # Headline test: ``inference`` selects non-overlap t vs Newey-West HAC.
     # ``mean_spread`` is the full-sample mean under HAC, the non-overlap mean
@@ -443,6 +448,8 @@ def _quantile_spread_from_series(
         **sig_extra,
     }
     warning_codes = list(sig_codes)
+    if high_tie_ratio:
+        warning_codes.append(WarningCode.HIGH_TIE_RATIO.value)
     # Structured twin of the spread primitive's thin-group advisory: surface the
     # same condition on warning_codes so result-only inspection sees it.
     if _is_thin_quantile_groups(sampled, n_groups):
@@ -694,7 +701,6 @@ def quantile_spread_vw(
     if lag_weights:
         sampled = _lag_within_asset(sampled, weight_col)
     tie_ratio = _compute_tie_ratio(sampled, factor_col)
-    _warn_high_tie_ratio(tie_ratio, "quantile_spread_vw", tie_policy)
     # Same dual-channel thin-bucket advisory the equal-weighted sibling gets,
     # off the same threshold: this metric exists as a capacity / robustness
     # cross-check, so it must not be the one that reports clean on a panel
@@ -763,6 +769,12 @@ def quantile_spread_vw(
             weights_lagged=lag_weights,
         )
 
+    high_tie_ratio = _warn_high_tie_ratio(
+        tie_ratio,
+        "quantile_spread_vw",
+        tie_policy,
+        expected_warnings=expected_warnings,
+    )
     arr = spread_vals.to_numpy()
     # Same headline chokepoint as the equal-weighted sibling, so the pair is
     # tested the same way on the same date set: ``NON_OVERLAPPING`` reproduces
@@ -813,6 +825,8 @@ def quantile_spread_vw(
         **sig_extra,
     }
     warning_codes = list(sig_codes)
+    if high_tie_ratio:
+        warning_codes.append(WarningCode.HIGH_TIE_RATIO.value)
     # Structured twin of the thin-bucket advisory raised above.
     if _is_thin_quantile_groups(sampled, n_groups):
         warning_codes.append(WarningCode.THIN_QUANTILE_GROUPS.value)

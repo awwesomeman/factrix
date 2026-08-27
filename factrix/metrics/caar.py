@@ -72,6 +72,7 @@ from factrix.metrics._helpers import (
     _enforce_scaled_floor,
     _estimate_within_date_icc,
     _event_sample_threshold,
+    _is_sparse_magnitude_weighted,
     _kp_cluster_scale,
     _kp_deflation_scale,
     _sample_event_spaced,
@@ -148,10 +149,12 @@ def caar(
 
     Args:
         caar_df: Output of ``compute_caar()`` with columns ``date, caar,
-            n_events, date_ordinal, n_events_dropped_non_finite``. The last
-            column is optional (hand-built frames omit it); when present its
-            row-0 value is echoed into
-            ``metadata["n_events_dropped_non_finite"]``.
+            n_events, date_ordinal, n_events_dropped_non_finite,
+            sparse_magnitude_weighted``. The diagnostic columns are optional
+            (hand-built frames omit them); when present the non-finite count is
+            echoed into ``metadata["n_events_dropped_non_finite"]`` and the
+            sparse-magnitude flag becomes ``WarningCode.SPARSE_MAGNITUDE_WEIGHTED``
+            on ``warning_codes``.
         overlap_periods: Sampling interval for non-overlapping dates.
             Maps to ``config.overlap_periods`` — the return horizon used
             in ``compute_forward_return``. Distinct from
@@ -278,6 +281,17 @@ def caar(
     total_events = (
         int(caar_df["n_events"].sum()) if "n_events" in caar_df.columns else n
     )
+    warning_codes: list[str] = []
+    if caar_df.height:
+        if "sparse_magnitude_weighted" in caar_df.columns and bool(
+            caar_df["sparse_magnitude_weighted"][0]
+        ):
+            warning_codes.append(WarningCode.SPARSE_MAGNITUDE_WEIGHTED.value)
+        if (
+            "n_events_dropped_non_finite" in caar_df.columns
+            and int(caar_df["n_events_dropped_non_finite"][0]) > 0
+        ):
+            warning_codes.append(WarningCode.NON_FINITE_INPUT_DROPPED.value)
     raw_min_warn = _scaled_min_periods(MIN_EVENTS_WARN, overlap_periods)
     sc = _enforce_scaled_floor(
         "caar",
@@ -285,12 +299,12 @@ def caar(
         MIN_EVENTS_HARD,
         overlap_periods,
         "insufficient_event_periods",
+        warning_codes=tuple(warning_codes),
         axis="events",
     )
     if sc is not None:
         return sc
 
-    warning_codes: list[str] = []
     warn_code = _warn_below_scaled_floor(
         n,
         MIN_EVENTS_WARN,
@@ -802,6 +816,8 @@ def bmp_z(
     n_event_periods = int(valid["date"].n_unique())
 
     warning_codes: list[str] = []
+    if _is_sparse_magnitude_weighted(data, factor_col):
+        warning_codes.append(WarningCode.SPARSE_MAGNITUDE_WEIGHTED.value)
     metadata: dict = {
         "n_events": n_valid,
         "n_event_periods": n_event_periods,
