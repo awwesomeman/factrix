@@ -23,8 +23,8 @@ from factrix._types import (
 
 __all__ = ["cross_sectional_zscore", "mad_winsorize"]
 
-_DOCS_MAD_WINSORIZE = "api/preprocess#mad_winsorize"
-_DOCS_ZSCORE = "api/preprocess#cross_sectional_zscore"
+_DOCS_MAD_WINSORIZE = "api/preprocess#factrix.preprocess.mad_winsorize"
+_DOCS_ZSCORE = "api/preprocess#factrix.preprocess.cross_sectional_zscore"
 
 # Where the per-date centre is taken. ``"median"`` is the robust default;
 # ``"mean"`` buys an exactly mean-zero score at the cost of outlier

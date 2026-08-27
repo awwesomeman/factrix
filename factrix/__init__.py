@@ -538,9 +538,9 @@ def _validate_forward_periods_sweep(forward_periods: object) -> list[int]:
     return list(forward_periods)
 
 
-_DOCS_METRICS = "api/evaluate#metrics"
-_DOCS_FACTOR_COLS = "api/evaluate#factor_cols"
-_DOCS_DATA = "api/evaluate#data"
+_DOCS_METRICS = "api/evaluate#factrix.evaluate"
+_DOCS_FACTOR_COLS = "api/evaluate#factrix.evaluate"
+_DOCS_DATA = "api/evaluate#factrix.evaluate"
 
 
 def _is_metrics_overview(metrics: object) -> bool:
@@ -568,7 +568,7 @@ def _validate_expected_warnings_arg(expected_warnings: object) -> tuple[str, ...
     existing code — the declaration marks records as expected, so a typo
     would silently mark nothing.
     """
-    docs = "api/evaluate#expected_warnings"
+    docs = "api/evaluate#factrix.evaluate"
     if isinstance(expected_warnings, str) or not isinstance(
         expected_warnings, (tuple, list)
     ):

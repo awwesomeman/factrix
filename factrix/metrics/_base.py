@@ -138,7 +138,11 @@ class MetricMeta(type):
                 field=name,
                 value=supplied[name],
                 expected=expected_by_param[name],
-                docs_path=f"api/evaluate#{name}",
+                docs_path=(
+                    "api/evaluate#forward_periods-and-overlap_periods"
+                    if name == "overlap_periods"
+                    else "api/evaluate#factrix.evaluate"
+                ),
             )
 
 

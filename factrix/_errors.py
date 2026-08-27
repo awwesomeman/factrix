@@ -17,8 +17,16 @@ _AVAILABLE_PREVIEW = 15
 
 
 def _api_docs_path(func_name: str, anchor: str) -> str:
-    """Return the deployed API path for a snake-case function name."""
-    return f"api/{func_name.replace('_', '-')}#{anchor}"
+    """Return the deployed API path for a public function.
+
+    Mkdocstrings uses the fully qualified symbol as its heading id; parameter
+    names are not standalone anchors. ``anchor`` remains in the signature so
+    shared validators can report the field the caller supplied, but the link
+    targets the function contract that documents it.
+    """
+    del anchor
+    namespace = "factrix" if func_name == "compare" else "factrix.multi_factor"
+    return f"api/{func_name.replace('_', '-')}#{namespace}.{func_name}"
 
 
 def _truncate_repr(value: object) -> str:

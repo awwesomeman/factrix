@@ -225,7 +225,7 @@ def _validate_block_length(block_length: float, n: int, func_name: str) -> None:
                 f"a block length in [1, {b_max}] for a series of {n} "
                 f"observations (ceil(min(3*sqrt(n), n/3)))"
             ),
-            docs_path="api/stats#blockbootstrap",
+            docs_path="api/stats#factrix.stats.BlockBootstrap",
         )
 
 

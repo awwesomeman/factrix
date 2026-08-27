@@ -925,7 +925,7 @@ def partial_conjunction(
             field="min_pass",
             value=min_pass,
             expected=expected,
-            docs_path="api/partial-conjunction#min-pass-must-be-at-least-2",
+            docs_path="api/partial-conjunction#validation-summary",
         )
 
     if not expand_over:
@@ -939,7 +939,7 @@ def partial_conjunction(
                 "('forward_periods',) for cross-horizon replication). "
                 "partial_conjunction is undefined without a condition axis"
             ),
-            docs_path="api/partial-conjunction#expand-over-required",
+            docs_path="api/partial-conjunction#validation-summary",
         )
 
     if n_conditions is not None and n_conditions < min_pass:
@@ -951,7 +951,7 @@ def partial_conjunction(
                 f"n_conditions >= min_pass ({min_pass}); requiring more "
                 "passes than total conditions is unsatisfiable"
             ),
-            docs_path="api/partial-conjunction#n-conditions",
+            docs_path="api/partial-conjunction#validation-summary",
         )
 
     expand_over_tuple = tuple(expand_over)
@@ -1014,7 +1014,7 @@ def _partial_conjunction_one(
                     f"input so every identity has exactly {n_conditions} "
                     "conditions"
                 ),
-                docs_path="api/partial-conjunction#strict-vs-lenient",
+                docs_path="api/partial-conjunction#strict-vs-lenient-mode",
             )
 
         if m < min_pass:
@@ -1027,7 +1027,7 @@ def _partial_conjunction_one(
                     f"min_pass={min_pass} requires at least that many. "
                     "Either drop this identity from the input or lower min_pass"
                 ),
-                docs_path="api/partial-conjunction#insufficient-conditions",
+                docs_path="api/partial-conjunction#validation-summary",
             )
 
         ps = np.array([e.p_value for e in group], dtype=np.float64)
@@ -1105,7 +1105,10 @@ def partial_conjunction_across_metrics(
             field="min_pass",
             value=min_pass,
             expected="integer satisfying 2 <= min_pass <= len(metrics)",
-            docs_path="api/partial-conjunction-across-metrics#min-pass",
+            docs_path=(
+                "api/partial-conjunction-across-metrics"
+                "#factrix.multi_factor.partial_conjunction_across_metrics"
+            ),
         )
     min_pass_int = int(min_pass)
     if not 2 <= min_pass_int <= len(metric_list):
@@ -1116,7 +1119,10 @@ def partial_conjunction_across_metrics(
             expected=(
                 f"integer satisfying 2 <= min_pass <= len(metrics) ({len(metric_list)})"
             ),
-            docs_path="api/partial-conjunction-across-metrics#min-pass",
+            docs_path=(
+                "api/partial-conjunction-across-metrics"
+                "#factrix.multi_factor.partial_conjunction_across_metrics"
+            ),
         )
 
     q_target = _validate_q(q, func_name="partial_conjunction_across_metrics")
