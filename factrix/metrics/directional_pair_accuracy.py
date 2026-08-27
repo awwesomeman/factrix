@@ -171,6 +171,7 @@ def directional_pair_accuracy(
     warning_codes: list[str] = []
     if n_usable_pairs < MIN_PAIR_ACCURACY_PAIRS_WARN:
         code = WarningCode.FEW_ORDERING_PAIRS.value
+        warning_codes.append(code)
         if code not in expected_warnings:
             warnings.warn(
                 f"directional_pair_accuracy: n_pairs={n_usable_pairs} below "
@@ -181,8 +182,6 @@ def directional_pair_accuracy(
                 UserWarning,
                 stacklevel=3,
             )
-        warning_codes.append(code)
-
     pooled_accuracy = n_correct_pairs / n_usable_pairs
     mean_per_date_accuracy = float(np.mean(per_date_accuracy))
     min_pairs = min(pairs_per_period) if pairs_per_period else 0

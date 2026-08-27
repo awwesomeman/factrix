@@ -142,8 +142,7 @@ def _warn_if_high_ic_tie_ratio(
                 UserWarning,
                 stacklevel=2,
             )
-        if code not in warning_codes:
-            warning_codes.append(code)
+        warning_codes.append(code)
     return med
 
 
@@ -187,8 +186,7 @@ def _warn_if_few_ic_assets(
             UserWarning,
             stacklevel=2,
         )
-    if code not in warning_codes:
-        warning_codes.append(code)
+    warning_codes.append(code)
 
 
 def _ic_sample_threshold(self: MetricBase) -> SampleThreshold:
