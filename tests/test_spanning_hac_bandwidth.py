@@ -62,7 +62,7 @@ class TestOlsAlphaBandwidth:
         h = 5
         expected_lags = max(auto_bartlett(n), h - 1)
 
-        out = ols_alpha(candidate, base[:, None], forward_periods=h)
+        out = ols_alpha(candidate, base[:, None], overlap_periods=h)
         assert out.alpha_t == pytest.approx(
             _hand_hac_alpha_t(candidate, base, expected_lags), rel=1e-10
         )
@@ -79,12 +79,12 @@ class TestOlsAlphaBandwidth:
         base, candidate = _overlapping_pair(n=200)
         auto = auto_bartlett(200)
         # h - 1 below the auto rule: nothing changes.
-        below = ols_alpha(candidate, base[:, None], forward_periods=auto)
+        below = ols_alpha(candidate, base[:, None], overlap_periods=auto)
         assert below.alpha_t == pytest.approx(
             ols_alpha(candidate, base[:, None]).alpha_t, rel=1e-12
         )
         # h - 1 above it: the wider kernel must move the t.
-        above = ols_alpha(candidate, base[:, None], forward_periods=auto + 20)
+        above = ols_alpha(candidate, base[:, None], overlap_periods=auto + 20)
         assert above.alpha_t != pytest.approx(below.alpha_t, rel=1e-6)
         assert above.alpha_t == pytest.approx(
             _hand_hac_alpha_t(candidate, base, auto + 19), rel=1e-10
@@ -94,7 +94,7 @@ class TestOlsAlphaBandwidth:
         # The point of the floor: absorbing the MA(h-1) must not shrink the SE.
         base, candidate = _overlapping_pair(n=160, h=20)
         unfloored = abs(ols_alpha(candidate, base[:, None]).alpha_t)
-        floored = abs(ols_alpha(candidate, base[:, None], forward_periods=20).alpha_t)
+        floored = abs(ols_alpha(candidate, base[:, None], overlap_periods=20).alpha_t)
         assert floored < unfloored
 
 
@@ -112,7 +112,7 @@ class TestSpanningAlphaThreadsTheHorizon:
 
         default = spanning_alpha(cand_df, base_spreads={"base": base_df})
         floored = spanning_alpha(
-            cand_df, base_spreads={"base": base_df}, forward_periods=20
+            cand_df, base_spreads={"base": base_df}, overlap_periods=20
         )
 
         assert default.value == pytest.approx(floored.value)  # same point estimate

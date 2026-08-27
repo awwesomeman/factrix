@@ -113,12 +113,12 @@ class TestFamaMacbethTwoTier:
 
 class TestCaarTwoTier:
     def test_below_hard_short_circuits(self) -> None:
-        # caar uses _scaled_min_periods(MIN_EVENTS_HARD, forward_periods);
-        # forward_periods=1 keeps the scaled floor equal to the raw floor.
+        # caar uses _scaled_min_periods(MIN_EVENTS_HARD, overlap_periods);
+        # overlap_periods=1 keeps the scaled floor equal to the raw floor.
         df = _caar_df(MIN_EVENTS_HARD - 1)
         with warnings.catch_warnings():
             warnings.simplefilter("error", UserWarning)
-            out = caar(df, forward_periods=1)
+            out = caar(df, overlap_periods=1)
         assert math.isnan(out.value)
         assert out.stat is None
         assert out.metadata["reason"] == "insufficient_event_periods"
@@ -127,7 +127,7 @@ class TestCaarTwoTier:
         n = (MIN_EVENTS_HARD + MIN_EVENTS_WARN) // 2
         df = _caar_df(n)
         with pytest.warns(UserWarning, match="MIN_EVENTS_WARN"):
-            out = caar(df, forward_periods=1)
+            out = caar(df, overlap_periods=1)
         assert out.stat is not None
         assert WarningCode.FEW_EVENTS.value in out.warning_codes
 
@@ -135,7 +135,7 @@ class TestCaarTwoTier:
         df = _caar_df(MIN_EVENTS_WARN + 5)
         with warnings.catch_warnings():
             warnings.simplefilter("error", UserWarning)
-            out = caar(df, forward_periods=1)
+            out = caar(df, overlap_periods=1)
         assert out.stat is not None
         assert out.warning_codes == ()
 
@@ -151,7 +151,7 @@ class TestTopConcentrationTwoTier:
         df = _concentration_panel(MIN_PORTFOLIO_PERIODS_HARD - 1)
         with warnings.catch_warnings():
             warnings.simplefilter("error", UserWarning)
-            out = top_concentration(df, forward_periods=1, q_top=0.2)
+            out = top_concentration(df, overlap_periods=1, q_top=0.2)
         assert math.isnan(out.value)
         assert out.metadata["reason"] == "insufficient_portfolio_periods"
 
@@ -159,7 +159,7 @@ class TestTopConcentrationTwoTier:
         n = (MIN_PORTFOLIO_PERIODS_HARD + MIN_PORTFOLIO_PERIODS_WARN) // 2
         df = _concentration_panel(n)
         with pytest.warns(UserWarning, match="MIN_PORTFOLIO_PERIODS_WARN"):
-            out = top_concentration(df, forward_periods=1, q_top=0.2)
+            out = top_concentration(df, overlap_periods=1, q_top=0.2)
         assert out.stat is not None
         assert WarningCode.BORDERLINE_PORTFOLIO_PERIODS.value in out.warning_codes
 
@@ -167,7 +167,7 @@ class TestTopConcentrationTwoTier:
         df = _concentration_panel(MIN_PORTFOLIO_PERIODS_WARN + 5)
         with warnings.catch_warnings():
             warnings.simplefilter("error", UserWarning)
-            out = top_concentration(df, forward_periods=1, q_top=0.2)
+            out = top_concentration(df, overlap_periods=1, q_top=0.2)
         assert out.stat is not None
         assert out.warning_codes == ()
 

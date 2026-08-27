@@ -41,13 +41,13 @@ def _hand_abnormal_returns(
     event_ordinals: list[int],
     returns: list[float],
     n_calendar: int,
-    forward_periods: int,
+    overlap_periods: int,
     warmup: int = _CALENDAR_WARMUP,
     estimation_window: int = 60,
 ) -> dict[int, float]:
     """Hand replication of the mean-adjusted abnormal return, by event ordinal.
 
-    ``AR_t = R_t - mean(R over the estimation_window ending forward_periods
+    ``AR_t = R_t - mean(R over the estimation_window ending overlap_periods
     rows before t)`` — the same quantity ``_attach_abnormal_return`` computes,
     written out independently here so the metrics are checked against arithmetic
     rather than against themselves.
@@ -56,7 +56,7 @@ def _hand_abnormal_returns(
     out: dict[int, float] = {}
     for o in event_ordinals:
         i = warmup + o
-        end = i - forward_periods  # inclusive right edge of the estimation window
+        end = i - overlap_periods  # inclusive right edge of the estimation window
         start = end - estimation_window + 1
         if start < 0 or end < 0:
             continue
@@ -94,12 +94,12 @@ def _event_calendar_panel(
     return pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
 
-def _greedy_keep(ordinals: list[int], forward_periods: int) -> list[int]:
-    """Reference: greedily keep ordinals >= forward_periods calendar apart."""
+def _greedy_keep(ordinals: list[int], overlap_periods: int) -> list[int]:
+    """Reference: greedily keep ordinals >= overlap_periods calendar apart."""
     kept: list[int] = []
     last: int | None = None
     for o in ordinals:
-        if last is None or o - last >= forward_periods:
+        if last is None or o - last >= overlap_periods:
             kept.append(o)
             last = o
     return kept
@@ -398,7 +398,7 @@ class TestCaar:
         ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            result = caar(df, forward_periods=1)
+            result = caar(df, overlap_periods=1)
         assert result.metadata["total_events"] == result.metadata["n_event_periods"]
 
 
@@ -423,10 +423,10 @@ class TestCaarEventSpacedSampling:
         panel = _event_calendar_panel(ordinals, returns, n_cal)
         with warnings.catch_warnings():
             warnings.simplefilter("error", UserWarning)
-            caar_df = compute_caar(panel, forward_periods=fp)
+            caar_df = compute_caar(panel, overlap_periods=fp)
             result = caar(
                 caar_df,
-                forward_periods=fp,
+                overlap_periods=fp,
                 expected_warnings=(
                     "event_window_overlap",
                     "estimation_window_contaminated",
@@ -449,7 +449,7 @@ class TestCaarEventSpacedSampling:
         assert result.p_value == pytest.approx(p_ref)
 
     def test_sparse_events_not_downsampled(self):
-        # Every event already separated by > forward_periods → all kept,
+        # Every event already separated by > overlap_periods → all kept,
         # unlike index-stride sampling which would thin independent events.
         ordinals = [10 * k for k in range(25)]  # gap 10, fp 3
         rng = np.random.default_rng(1)
@@ -457,7 +457,7 @@ class TestCaarEventSpacedSampling:
         panel = _event_calendar_panel(ordinals, returns, ordinals[-1] + 1)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            result = caar(compute_caar(panel), forward_periods=3)
+            result = caar(compute_caar(panel), overlap_periods=3)
         assert result.metadata["n_event_periods_sampled"] == len(ordinals)
 
     def test_clustered_events_downsampled_to_calendar_gap(self):
@@ -469,7 +469,7 @@ class TestCaarEventSpacedSampling:
         panel = _event_calendar_panel(ordinals, returns, len(ordinals))
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            result = caar(compute_caar(panel), forward_periods=fp)
+            result = caar(compute_caar(panel), overlap_periods=fp)
         assert result.metadata["n_event_periods_sampled"] == len(
             _greedy_keep(ordinals, fp)
         )
@@ -486,7 +486,7 @@ class TestCaarEventSpacedSampling:
         panel = _event_calendar_panel(ordinals, returns, len(ordinals))
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            result = caar(compute_caar(panel), forward_periods=fp)
+            result = caar(compute_caar(panel), overlap_periods=fp)
         # 60 dates, every 3rd → 20 kept
         assert result.metadata["n_event_periods_sampled"] == 20
 
@@ -548,9 +548,9 @@ class TestBmpTest:
 
         no_price = strong_signal.drop("price")
         with pytest.warns(UserWarning, match="no 'price' column"):
-            result = bmp_z(no_price, forward_periods=5)
+            result = bmp_z(no_price, overlap_periods=5)
         assert result.metadata["vol_source"] == "forward_return"
-        # The fallback std is lagged by forward_periods so the estimation
+        # The fallback std is lagged by overlap_periods so the estimation
         # window ends before each event's own forward return.
         assert result.metadata["vol_estimation_lag"] == 5
         assert WarningCode.BMP_RETURN_VOL_FALLBACK.value in result.warning_codes
@@ -559,11 +559,11 @@ class TestBmpTest:
     def test_fallback_lag_scales_with_forward_periods(self, strong_signal):
         # A larger horizon lags the estimation window further, nulling more
         # early rows per asset → strictly fewer usable events. Confirms the
-        # lag is forward_periods-driven, not a fixed shift.
+        # lag is overlap_periods-driven, not a fixed shift.
         no_price = strong_signal.drop("price")
         with pytest.warns(UserWarning, match="no 'price' column"):
-            small_h = bmp_z(no_price, forward_periods=1)
-            large_h = bmp_z(no_price, forward_periods=20)
+            small_h = bmp_z(no_price, overlap_periods=1)
+            large_h = bmp_z(no_price, overlap_periods=20)
         assert small_h.metadata["vol_estimation_lag"] == 1
         assert large_h.metadata["vol_estimation_lag"] == 20
         assert large_h.metadata["n_events"] < small_h.metadata["n_events"]
@@ -860,12 +860,12 @@ class TestCaarSameSampleContract:
 
     def test_value_is_the_subsample_mean_not_the_full_mean(self):
         # Odd rows carry a large caar, even rows a small one. With
-        # forward_periods=2 the spacing pass keeps only the even ordinals,
+        # overlap_periods=2 the spacing pass keeps only the even ordinals,
         # so the subsample mean is well away from the full-series mean.
         vals = [0.10 if i % 2 else 0.0 for i in range(40)]
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            result = caar(_caar_series(vals), forward_periods=2)
+            result = caar(_caar_series(vals), overlap_periods=2)
 
         kept = vals[::2]
         assert result.metadata["n_event_periods_sampled"] == len(kept)
@@ -882,7 +882,7 @@ class TestCaarSameSampleContract:
         series = _caar_series(vals)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            result = caar(series, forward_periods=3)
+            result = caar(series, overlap_periods=3)
 
         kept = np.array(vals[::3])
         assert result.value == pytest.approx(float(kept.mean()))
@@ -900,7 +900,7 @@ class TestCaarSameSampleContract:
         vals: list[float | None] = [bad] + [0.01 * (i + 1) for i in range(19)]
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            result = caar(_caar_series(vals), forward_periods=2)
+            result = caar(_caar_series(vals), overlap_periods=2)
 
         assert result.metadata["n_event_periods_full"] == 20
         assert result.metadata["n_event_periods"] == 19
@@ -929,7 +929,7 @@ class TestCaarSameSampleContract:
         )
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            result = caar(compute_caar(df), forward_periods=1)
+            result = caar(compute_caar(df), overlap_periods=1)
         assert result.metadata["n_events_dropped_non_finite"] == 1
 
 
@@ -953,8 +953,8 @@ class TestBmpZNonFiniteReturns:
     def test_non_finite_return_excluded_from_the_test(self, strong_signal):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            clean = bmp_z(strong_signal, forward_periods=5)
-            result = bmp_z(self._poison_one_event(strong_signal), forward_periods=5)
+            clean = bmp_z(strong_signal, overlap_periods=5)
+            result = bmp_z(self._poison_one_event(strong_signal), overlap_periods=5)
 
         # Old behaviour: NaN SAR -> mean/std NaN -> z=0, p=1 at full n_obs.
         assert math.isfinite(result.stat)
@@ -972,7 +972,7 @@ class TestBmpZNonFiniteReturns:
     def test_clean_panel_has_no_non_finite_drops(self, strong_signal):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            result = bmp_z(strong_signal, forward_periods=5)
+            result = bmp_z(strong_signal, overlap_periods=5)
         assert result.metadata["n_dropped_non_finite_return"] == 0
         assert result.metadata["n_dropped"] == result.metadata["n_dropped_no_vol"]
 
@@ -1011,15 +1011,15 @@ class TestKolariPynnonenDefault:
         return pl.DataFrame(rows)
 
     def test_default_is_on_and_disclosed(self):
-        result = bmp_z(self._null_panel(0, 4), forward_periods=1, estimation_window=60)
+        result = bmp_z(self._null_panel(0, 4), overlap_periods=1, estimation_window=60)
         assert result.metadata["kolari_pynnonen_applied"] is True
         assert "kolari_pynnonen_r" in result.metadata
 
     def test_kolari_pynnonen_shrinks_z_when_clustered(self):
         """K-P adjustment must not expand |z|; when rho > 0 it strictly shrinks."""
         panel = self._null_panel(0, 4)
-        raw = bmp_z(panel, forward_periods=1, kolari_pynnonen_adjust=False)
-        adj = bmp_z(panel, forward_periods=1, kolari_pynnonen_adjust=True)
+        raw = bmp_z(panel, overlap_periods=1, kolari_pynnonen_adjust=False)
+        adj = bmp_z(panel, overlap_periods=1, kolari_pynnonen_adjust=True)
         assert adj.metadata["kolari_pynnonen_applied"] is True
         r = adj.metadata["kolari_pynnonen_r"]
         n_eff = adj.metadata["kolari_pynnonen_n_eff"]
@@ -1031,9 +1031,9 @@ class TestKolariPynnonenDefault:
 
     def test_one_event_per_period_is_the_identity(self):
         panel = self._null_panel(1, 1)
-        on = bmp_z(panel, forward_periods=1, estimation_window=60)
+        on = bmp_z(panel, overlap_periods=1, estimation_window=60)
         off = bmp_z(
-            panel, forward_periods=1, estimation_window=60, kolari_pynnonen_adjust=False
+            panel, overlap_periods=1, estimation_window=60, kolari_pynnonen_adjust=False
         )
         assert on.metadata["kolari_pynnonen_applied"] is False
         assert on.stat == pytest.approx(off.stat)
@@ -1048,10 +1048,10 @@ class TestKolariPynnonenDefault:
             warnings.simplefilter("ignore")
             for seed in range(reps):
                 panel = self._null_panel(1000 + seed, 4)
-                on = bmp_z(panel, forward_periods=1, estimation_window=60)
+                on = bmp_z(panel, overlap_periods=1, estimation_window=60)
                 off = bmp_z(
                     panel,
-                    forward_periods=1,
+                    overlap_periods=1,
                     estimation_window=60,
                     kolari_pynnonen_adjust=False,
                 )
@@ -1084,7 +1084,7 @@ class TestBmpZEventPeriodAdvisory:
     def test_clustered_below_warn_fires_on_event_periods(self):
         with pytest.warns(UserWarning, match="n_event_periods=8 below"):
             result = bmp_z(
-                self._panel(0, 4, n_dates=102), forward_periods=1, estimation_window=60
+                self._panel(0, 4, n_dates=102), overlap_periods=1, estimation_window=60
             )
         assert result.metadata["n_event_periods"] == 8
         assert result.metadata["n_events"] == 32
@@ -1095,7 +1095,7 @@ class TestBmpZEventPeriodAdvisory:
 
     def test_clustered_at_warn_is_clean(self):
         result = bmp_z(
-            self._panel(0, 4, n_dates=190), forward_periods=1, estimation_window=60
+            self._panel(0, 4, n_dates=190), overlap_periods=1, estimation_window=60
         )
         assert result.metadata["n_event_periods"] == 30
         assert "few_events" not in result.warning_codes
@@ -1105,7 +1105,7 @@ class TestBmpZEventPeriodAdvisory:
         # stride-scaled floor (h=1, so 30), leaving both FEW_EVENTS triggers
         # silent.
         result = bmp_z(
-            self._panel(0, 1, n_dates=190), forward_periods=1, estimation_window=60
+            self._panel(0, 1, n_dates=190), overlap_periods=1, estimation_window=60
         )
         assert result.metadata["n_event_periods"] == result.metadata["n_events"] == 30
         assert "few_events" not in result.warning_codes
@@ -1120,7 +1120,7 @@ class TestBmpZEventPeriodAdvisory:
             for seed in range(reps):
                 r = bmp_z(
                     self._panel(2000 + seed, 4, n_dates=102),
-                    forward_periods=1,
+                    overlap_periods=1,
                     estimation_window=60,
                 )
                 rej += r.p_value < 0.05
@@ -1160,12 +1160,12 @@ class TestEstimandDifferenceIsPinned:
         panel = self._intensity_panel()
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            magnitude = caar(compute_caar(panel, forward_periods=5), forward_periods=5)
+            magnitude = caar(compute_caar(panel, overlap_periods=5), overlap_periods=5)
             coerced = caar(
                 compute_caar(
-                    panel.with_columns(pl.col("factor").sign()), forward_periods=5
+                    panel.with_columns(pl.col("factor").sign()), overlap_periods=5
                 ),
-                forward_periods=5,
+                overlap_periods=5,
             )
         # The high-intensity events dominate the magnitude-weighted value.
         assert abs(magnitude.value) > 3 * abs(coerced.value)
@@ -1175,9 +1175,9 @@ class TestEstimandDifferenceIsPinned:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
             signed_caar = caar(
-                compute_caar(panel, forward_periods=5), forward_periods=5
+                compute_caar(panel, overlap_periods=5), overlap_periods=5
             )
-            hit = event_hit_rate(panel, forward_periods=5)
+            hit = event_hit_rate(panel, overlap_periods=5)
         # Same sample, same weighting: both now describe the mean signed
         # abnormal return of the same events.
         assert signed_caar.n_obs == hit.n_obs

@@ -29,7 +29,7 @@ class TestSymmetricDgp:
         T = 600
         f = rng.standard_normal(T)
         r = 0.05 * f + rng.standard_normal(T) * 0.5
-        out = common_asymmetry(_series_panel(f, r), forward_periods=1)
+        out = common_asymmetry(_series_panel(f, r), overlap_periods=1)
         # H0: β_long + β_short = 0; under symmetric DGP we should not reject.
         assert out.p_value > 0.05
         # Method B should run (continuous f → both sides have variation).
@@ -45,7 +45,7 @@ class TestAsymmetricDgp:
         T = 800
         f = rng.standard_normal(T)
         r = 0.20 * np.maximum(f, 0) + rng.standard_normal(T) * 0.4
-        out = common_asymmetry(_series_panel(f, r), forward_periods=1)
+        out = common_asymmetry(_series_panel(f, r), overlap_periods=1)
         assert out.value > 0
         assert out.p_value < 0.05
         assert out.metadata["beta_long"] > out.metadata["beta_short"]
@@ -82,7 +82,7 @@ class TestMethodBApplicability:
         T = 200
         f = rng.choice([-1.0, 1.0], size=T)
         r = 0.10 * f + rng.standard_normal(T) * 0.5
-        out = common_asymmetry(_series_panel(f, r), forward_periods=1)
+        out = common_asymmetry(_series_panel(f, r), overlap_periods=1)
         assert "p_wald_slopes" not in out.metadata
         assert "method_b_skipped" in out.metadata
         # Method A still ran.
@@ -95,7 +95,7 @@ class TestMethodBApplicability:
         T = 300
         f = rng.choice([-1.0, 0.0, 1.0], size=T)
         r = 0.10 * f + rng.standard_normal(T) * 0.5
-        out = common_asymmetry(_series_panel(f, r), forward_periods=1)
+        out = common_asymmetry(_series_panel(f, r), overlap_periods=1)
         assert "method_b_skipped" in out.metadata
         # n_zero accounted for and zero column added to design.
         assert out.metadata["n_zero"] > 0
@@ -124,7 +124,7 @@ class TestRatioDiagnostic:
             + 0.15 * np.minimum(f, 0)
             + rng.standard_normal(T) * 0.3
         )
-        out = common_asymmetry(_series_panel(f, r), forward_periods=1)
+        out = common_asymmetry(_series_panel(f, r), overlap_periods=1)
         assert out.metadata["abs_short_over_long"] > 1.0
 
 
@@ -148,7 +148,7 @@ class TestNonFiniteInput:
         f_nan, r_nan = f.copy(), r.copy()
         f_nan[5] = np.nan
         r_nan[9] = np.nan
-        out = common_asymmetry(_series_panel(f_nan, r_nan), forward_periods=1)
+        out = common_asymmetry(_series_panel(f_nan, r_nan), overlap_periods=1)
         assert np.isfinite(out.value)
         assert np.isfinite(out.stat)
         assert 0.0 <= out.p_value <= 1.0

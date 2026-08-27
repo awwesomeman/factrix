@@ -60,7 +60,7 @@ __all__ = [
     ),
     aggregation=Aggregation.CS_THEN_TS,
     # Periods floor scales with the non-overlap stride (see ``quantile``): the
-    # per-period HHI series is sub-sampled at ``forward_periods``, so the HARD and
+    # per-period HHI series is sub-sampled at ``overlap_periods``, so the HARD and
     # WARN floors and their in-body gates share ``MIN_PORTFOLIO_PERIODS_*`` +
     # ``_scaled_min_periods``.
     sample_threshold=_scaled_periods_threshold(
@@ -69,7 +69,7 @@ __all__ = [
 )
 def top_concentration(
     data: pl.DataFrame,
-    forward_periods: int = 5,
+    overlap_periods: int = 5,
     q_top: float = 0.2,
     factor_col: str = "factor",
     return_col: str = "forward_return",
@@ -172,7 +172,7 @@ def top_concentration(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> result = top_concentration(panel, forward_periods=5, q_top=0.2)
+        >>> result = top_concentration(panel, overlap_periods=5, q_top=0.2)
         >>> result.name == ""
         True
     """
@@ -185,7 +185,7 @@ def top_concentration(
             weight_by=weight_by,
         )
 
-    filtered = _sample_non_overlapping(data, forward_periods)
+    filtered = _sample_non_overlapping(data, overlap_periods)
     tie_ratio = _compute_tie_ratio(filtered, factor_col)
 
     # Top-bucket membership: the strict count cutoff ``k = max(1, floor(n·q_top))``
@@ -259,7 +259,7 @@ def top_concentration(
         "top_concentration",
         n_raw_periods,
         MIN_PORTFOLIO_PERIODS_HARD,
-        forward_periods,
+        overlap_periods,
         "insufficient_portfolio_periods",
         tie_ratio=tie_ratio,
     )
@@ -297,10 +297,10 @@ def top_concentration(
     warn_code = _warn_below_scaled_floor(
         n_raw_periods,
         MIN_PORTFOLIO_PERIODS_WARN,
-        forward_periods,
+        overlap_periods,
         f"top_concentration: {n_raw_periods} raw dates below "
-        f"MIN_PORTFOLIO_PERIODS_WARN*forward_periods="
-        f"{MIN_PORTFOLIO_PERIODS_WARN * forward_periods}; the one-sided t-test "
+        f"MIN_PORTFOLIO_PERIODS_WARN*overlap_periods="
+        f"{MIN_PORTFOLIO_PERIODS_WARN * overlap_periods}; the one-sided t-test "
         f"on the per-period diversification ratio is returned but df=n-1 inflates "
         f"t_crit, and near the floor it is extremely conservative (at 3 periods "
         f"it rejected 0 of 250 null draws at a nominal 5%): treat the p-value "

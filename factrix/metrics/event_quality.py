@@ -80,7 +80,7 @@ def _finite_events(
     return_col: str,
     *,
     estimation_window: int = 60,
-    forward_periods: int = 5,
+    overlap_periods: int = 5,
 ) -> tuple[pl.DataFrame, int, dict]:
     """Event rows (``factor != 0``) restricted to finite factor *and* return.
 
@@ -117,7 +117,7 @@ def _finite_events(
         data,
         return_col=return_col,
         estimation_window=estimation_window,
-        forward_periods=forward_periods,
+        overlap_periods=overlap_periods,
         factor_col=factor_col,
     )
     events = adjusted.filter(pl.col(factor_col) != 0)
@@ -193,7 +193,7 @@ def _spaced_events(
     data: pl.DataFrame,
     events: pl.DataFrame,
     metric_name: str,
-    forward_periods: int,
+    overlap_periods: int,
     metadata: dict,
     warning_codes: list[str],
     *,
@@ -203,7 +203,7 @@ def _spaced_events(
 
     Every hypothesis test in this module reduces per-event ``signed_car`` to a
     scalar and reads its p-value off an iid-draws null (binomial, Spearman,
-    D'Agostino). Two events on one asset closer than ``forward_periods`` share
+    D'Agostino). Two events on one asset closer than ``overlap_periods`` share
     future bars, so they are not two draws — pooling them inflates ``N`` and
     the test over-rejects. This is the same discipline ``caar`` applies to its
     event-period series, made per-asset here because the overlap is a
@@ -213,14 +213,14 @@ def _spaced_events(
     n_raw = events.height
     sampled = _sample_events_non_overlapping(
         events,
-        forward_periods,
+        overlap_periods,
         calendar_dates=data["date"] if "date" in data.columns else None,
     )
     _warn_event_window_overlap(
         metric_name,
         n_raw,
         sampled.height,
-        forward_periods,
+        overlap_periods,
         metadata,
         warning_codes,
         expected_warnings=expected_warnings,
@@ -228,15 +228,15 @@ def _spaced_events(
     _warn_estimation_window_contamination(
         metric_name, metadata, warning_codes, expected_warnings=expected_warnings
     )
-    raw_min_warn = _scaled_min_periods(MIN_EVENTS_WARN, forward_periods)
+    raw_min_warn = _scaled_min_periods(MIN_EVENTS_WARN, overlap_periods)
     warn_code = _warn_below_scaled_floor(
         n_raw,
         MIN_EVENTS_WARN,
-        forward_periods,
+        overlap_periods,
         f"{metric_name}: n_events={n_raw} below the floor of {raw_min_warn} "
-        f"(= MIN_EVENTS_WARN {MIN_EVENTS_WARN} x forward_periods "
-        f"{forward_periods}); {sampled.height} events survive non-overlap "
-        f"sampling at stride h={forward_periods}, which keeps up to one event "
+        f"(= MIN_EVENTS_WARN {MIN_EVENTS_WARN} x overlap_periods "
+        f"{overlap_periods}); {sampled.height} events survive non-overlap "
+        f"sampling at stride h={overlap_periods}, which keeps up to one event "
         f"in h per asset. The statistic is returned but its null assumes "
         f"independent draws and is power-thin on a sample this short.",
         WarningCode.FEW_EVENTS,
@@ -257,7 +257,7 @@ def event_hit_rate(
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
-    forward_periods: int = 5,
+    overlap_periods: int = 5,
     estimation_window: int = 60,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
@@ -265,7 +265,7 @@ def event_hit_rate(
 
     The static event floor (MIN_EVENTS_HARD) gates the hit-rate binomial test on
     the count of non-zero (event) observations that survive the event-axis
-    spacing pass; the warn floor scales with the forward_periods parameter (the
+    spacing pass; the warn floor scales with the overlap_periods parameter (the
     spacing stride), so the threshold is declared as a resolver (a callable
     sample_threshold) rather than a constant.
 
@@ -377,7 +377,7 @@ def event_hit_rate(
         factor_col,
         return_col,
         estimation_window=estimation_window,
-        forward_periods=forward_periods,
+        overlap_periods=overlap_periods,
     )
 
     metadata: dict = {
@@ -392,7 +392,7 @@ def event_hit_rate(
         data,
         events,
         "event_hit_rate",
-        forward_periods,
+        overlap_periods,
         metadata,
         warning_codes,
         expected_warnings=expected_warnings,
@@ -404,7 +404,7 @@ def event_hit_rate(
         n,
         "insufficient_events",
         axis="events",
-        forward_periods=forward_periods,
+        overlap_periods=overlap_periods,
     )
     if sc is not None:
         return sc
@@ -483,7 +483,7 @@ def event_ic(
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
-    forward_periods: int = 5,
+    overlap_periods: int = 5,
     estimation_window: int = 60,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
@@ -544,7 +544,7 @@ def event_ic(
         factor_col,
         return_col,
         estimation_window=estimation_window,
-        forward_periods=forward_periods,
+        overlap_periods=overlap_periods,
     )
     n = len(events)
 
@@ -575,7 +575,7 @@ def event_ic(
         data,
         events,
         "event_ic",
-        forward_periods,
+        overlap_periods,
         metadata,
         warning_codes,
         expected_warnings=expected_warnings,
@@ -587,7 +587,7 @@ def event_ic(
         n,
         "insufficient_events",
         axis="events",
-        forward_periods=forward_periods,
+        overlap_periods=overlap_periods,
     )
     if sc is not None:
         return sc
@@ -659,7 +659,7 @@ def profit_factor(
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
-    forward_periods: int = 5,
+    overlap_periods: int = 5,
     estimation_window: int = 60,
 ) -> MetricResult:
     r"""Profit factor = sum(gains) / sum(|losses|) across events.
@@ -713,7 +713,7 @@ def profit_factor(
         factor_col,
         return_col,
         estimation_window=estimation_window,
-        forward_periods=forward_periods,
+        overlap_periods=overlap_periods,
     )
     n = len(events)
 
@@ -769,7 +769,7 @@ def event_skewness(
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
-    forward_periods: int = 5,
+    overlap_periods: int = 5,
     estimation_window: int = 60,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
@@ -777,7 +777,7 @@ def event_skewness(
 
     The static event floor (MIN_EVENTS_HARD) gates the descriptive skewness on
     the count of non-zero (event) observations that survive the event-axis
-    spacing pass; the warn floor scales with the forward_periods parameter (the
+    spacing pass; the warn floor scales with the overlap_periods parameter (the
     spacing stride), so the threshold is declared as a resolver (a callable
     sample_threshold) rather than a constant.
 
@@ -831,7 +831,7 @@ def event_skewness(
         factor_col,
         return_col,
         estimation_window=estimation_window,
-        forward_periods=forward_periods,
+        overlap_periods=overlap_periods,
     )
     metadata: dict = {"n_events_dropped_non_finite": n_dropped, **ar_diagnostics}
     warning_codes: list[str] = []
@@ -839,7 +839,7 @@ def event_skewness(
         data,
         events,
         "event_skewness",
-        forward_periods,
+        overlap_periods,
         metadata,
         warning_codes,
         expected_warnings=expected_warnings,
@@ -851,7 +851,7 @@ def event_skewness(
         n,
         "insufficient_events",
         axis="events",
-        forward_periods=forward_periods,
+        overlap_periods=overlap_periods,
     )
     if sc is not None:
         return sc

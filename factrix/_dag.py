@@ -74,12 +74,12 @@ class CycleError(FactrixError):
 
 @dataclasses.dataclass(frozen=True)
 class _Node:
-    """A configured execution node — a ``MetricSpec`` at one ``forward_periods`` /
+    """A configured execution node — a ``MetricSpec`` at one ``overlap_periods`` /
     param configuration.
 
     By-value dedup keys the executor on ``node_id`` rather than
     ``spec.name`` so the same metric class can run at several configs in one
-    call (``{"ic_5d": ic(), "ic_20d": ic(forward_periods=20)}``). ``node_id``
+    call (``{"ic": ic(), "spread": quantile_spread(n_groups=5)}``). ``node_id``
     is ``spec.name`` for the sole config of a name and ``f"{spec.name}#{i}"``
     for additional configs; the per-node kwargs live in ``execute``'s
     ``kwargs_by_metric`` keyed by ``node_id``.
@@ -179,6 +179,7 @@ class DagExecutor:
         scope: FactorScope,
         density: FactorDensity,
         forward_periods: int,
+        overlap_periods: int,
         expected_warnings: tuple[str, ...] = (),
         kwargs_by_metric: Mapping[str, Mapping[str, Any]] | None = None,
     ) -> dict[str, EvaluationResult]:
@@ -231,7 +232,7 @@ class DagExecutor:
             handle = self._batch_handle(
                 node.spec,
                 kwargs_by_metric.get(nid, {}),
-                forward_periods,
+                overlap_periods,
                 expected_warnings=expected_warnings,
             )
 
@@ -283,6 +284,7 @@ class DagExecutor:
             scope,
             density,
             forward_periods,
+            overlap_periods,
             structure,
             n_assets,
             factor_n_periods,
@@ -294,7 +296,7 @@ class DagExecutor:
         self,
         spec: MetricSpec,
         kwargs: Mapping[str, Any],
-        forward_periods: int,
+        overlap_periods: int,
         *,
         expected_warnings: tuple[str, ...] = (),
     ) -> Callable[..., dict[str, Any]]:
@@ -303,7 +305,7 @@ class DagExecutor:
         Registry ``MetricBase`` classes expose ``__call_batch__`` directly
         (bound to a configured instance); bare ``fn_resolver`` callables are
         wrapped through the same :func:`_dispatch_batch` so both paths share
-        one dispatch body. ``forward_periods`` (the data's stamped overlap
+        one dispatch body. ``overlap_periods`` (the data's stamped evaluation-grid overlap
         horizon) and ``expected_warnings`` (the caller's study-level
         declaration, consumed by bodies that echo a ``UserWarning``) are
         injected into whichever callables declare them.
@@ -317,15 +319,15 @@ class DagExecutor:
         if isinstance(fn, type) and issubclass(fn, MetricBase):
             return functools.partial(
                 fn(**kw).__call_batch__,
-                forward_periods=forward_periods,
+                overlap_periods=overlap_periods,
                 expected_warnings=expected_warnings,
             )
 
         bare: Callable[..., Any] = fn
         bare_params = _callable_params(bare)
         inj: dict[str, Any] = {}
-        if "forward_periods" in bare_params:
-            inj["forward_periods"] = forward_periods
+        if "overlap_periods" in bare_params:
+            inj["overlap_periods"] = overlap_periods
         if "expected_warnings" in bare_params:
             inj["expected_warnings"] = expected_warnings
 
@@ -377,6 +379,7 @@ class DagExecutor:
         scope: FactorScope,
         density: FactorDensity,
         forward_periods: int,
+        overlap_periods: int,
         structure: DataStructure,
         n_assets: int,
         factor_n_periods: Mapping[str, int],
@@ -430,6 +433,7 @@ class DagExecutor:
                 factor=c,
                 cell=(scope, density, structure),
                 forward_periods=forward_periods,
+                overlap_periods=overlap_periods,
                 n_periods=factor_n_periods[c],
                 n_pairs=factor_n_pairs[c],
                 n_assets=n_assets,

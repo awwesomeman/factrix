@@ -263,7 +263,7 @@ def compute_forward_return(
             )
         data = data.drop("forward_return")
 
-    from factrix._data_input import _normalize_panel, _stamp_forward_periods
+    from factrix._data_input import _normalize_panel, _stamp_horizons
 
     # One structural gate: temporal ``date``, unique ``(date, asset_id)``, and
     # non-finite numerics blanked to null *before* any arithmetic. A duplicated
@@ -333,7 +333,9 @@ def compute_forward_return(
     # Stamp the overlap horizon as the single source of truth for the data;
     # evaluate reads it instead of taking forward_periods at the metric / call
     # layer (the three could silently diverge — see compute_forward_return docs).
-    return _stamp_forward_periods(out, forward_periods)
+    return _stamp_horizons(
+        out, forward_periods=forward_periods, overlap_periods=forward_periods
+    )
 
 
 def winsorize_forward_return(

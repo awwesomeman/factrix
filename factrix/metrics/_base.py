@@ -12,16 +12,16 @@ from factrix._axis import (
     OutputShape,
     SpecRole,
 )
-from factrix._data_input import _FORWARD_PERIODS_COL
+from factrix._data_input import _OVERLAP_PERIODS_COL
 from factrix._metric_index import Cell, MetricSpec, SampleThreshold
 
 # Parameters that ``evaluate`` injects at dispatch rather than the user
-# configuring per metric: ``forward_periods`` comes from the data's horizon
+# configuring per metric: ``overlap_periods`` comes from the data's overlap
 # stamp, ``expected_warnings`` from the caller's study-level declaration on
 # ``evaluate``. On metrics whose body declares them they remain dataclass
 # fields (kept out of the user-facing ``_param_names``); every metric
 # constructor rejects them with a targeted message, declared or not.
-_INJECTED_PARAMS: frozenset[str] = frozenset({"forward_periods", "expected_warnings"})
+_INJECTED_PARAMS: frozenset[str] = frozenset({"overlap_periods", "expected_warnings"})
 
 
 def _log_exception_once(
@@ -69,10 +69,10 @@ class MetricMeta(type):
             # keyword. Positional knobs are rejected rather than mapped: the
             # old mapping followed ``_param_names`` order, which is NOT the
             # body's signature order — dataclass field rules re-sort
-            # non-default fields first and ``forward_periods`` is removed as
+            # non-default fields first and ``overlap_periods`` is removed as
             # an injected param — so ``quantile_spread(df, 3)`` silently set
             # ``n_groups=3`` where the signature promises
-            # ``forward_periods=3``. No repo-internal caller, doc, or test
+            # ``overlap_periods=3``. No repo-internal caller, doc, or test
             # ever passed a second positional; failing loud costs nothing
             # and ends the misalignment class outright.
             if remaining_args:
@@ -85,7 +85,7 @@ class MetricMeta(type):
                     f"binding values to the wrong parameter."
                 )
             resolved_kwargs = kwargs.copy()
-            # A direct call may carry the injected horizon (``forward_periods``) —
+            # A direct call may carry the injected horizon (``overlap_periods``) —
             # it is not a constructor field, so route it to the call as the
             # per-invocation horizon rather than into ``cls(**...)``.
             injected = getattr(cls, "_injected_param_names", ())
@@ -102,7 +102,7 @@ class MetricMeta(type):
             return super().__call__(*args, **kwargs)
 
     def _reject_injected_params(cls, supplied: dict[str, Any]) -> None:
-        """Reject user-supplied injected params (``forward_periods`` /
+        """Reject user-supplied injected params (``overlap_periods`` /
         ``expected_warnings``).
 
         These are dispatch-injected, not per-metric knobs: ``evaluate`` injects
@@ -117,12 +117,14 @@ class MetricMeta(type):
 
             name = offending[0]
             expected_by_param = {
-                "forward_periods": (
-                    "'forward_periods' is no longer a metric parameter — it is "
-                    "the panel's overlap horizon, read from the data. Set it "
-                    "once via factrix.preprocess.compute_forward_return(data, "
-                    "forward_periods=<forward_periods>); evaluate reads it "
-                    "from there."
+                "overlap_periods": (
+                    "'overlap_periods' is not a metric parameter — it is the "
+                    "overlap of adjacent observations on the panel's "
+                    "evaluation grid, read from the data. "
+                    "factrix.preprocess.compute_forward_return stamps it "
+                    "(equal to forward_periods on the full grid, derived "
+                    "from dates= on a coarser one); evaluate reads it from "
+                    "there, or takes overlap_periods= for an unstamped panel."
                 ),
                 "expected_warnings": (
                     "'expected_warnings' is not a metric parameter — it is a "
@@ -157,7 +159,7 @@ class MetricBase(metaclass=MetricMeta):
     # Per-metric sample floor, resolved against a metric instance. The decorator
     # normalizes both declaration forms — a static :class:`SampleThreshold`
     # constant and a dynamic ``Callable[[MetricBase], SampleThreshold]`` (a floor
-    # that scales with run-time params such as ``forward_periods``) — into this
+    # that scales with run-time params such as ``overlap_periods``) — into this
     # single resolver, so no consumer ever sees the
     # ``SampleThreshold | Callable`` union.
     _resolve_sample_threshold: ClassVar[Callable[[MetricBase], SampleThreshold]]
@@ -182,14 +184,14 @@ class MetricBase(metaclass=MetricMeta):
 
     # Canonical injected horizon. Declared here (not a real attribute on the
     # base) so a floor resolver typed ``Callable[[MetricBase], SampleThreshold]``
-    # can read ``self.forward_periods`` — every metric that sub-samples carries it
+    # can read ``self.overlap_periods`` — every metric that sub-samples carries it
     # as a dataclass field; metrics without it never resolve a stride-scaled floor.
-    forward_periods: int
+    overlap_periods: int
     _impl: ClassVar[Callable]
     _first_param_name: ClassVar[str | None]
     _param_names: ClassVar[tuple[str, ...]]
     # Params injected from the data rather than configured per metric
-    # (``forward_periods``): kept out of ``_param_names``, rejected at the
+    # (``overlap_periods``): kept out of ``_param_names``, rejected at the
     # constructor, and injected at dispatch into the metrics whose ``_impl``
     # declares them. Empty for a metric that takes no injected param.
     _injected_param_names: ClassVar[tuple[str, ...]] = ()
@@ -231,11 +233,11 @@ class MetricBase(metaclass=MetricMeta):
         return {name: getattr(self, name) for name in self._param_names}
 
     def _resolved_sample_threshold(
-        self, forward_periods: int | None = None
+        self, overlap_periods: int | None = None
     ) -> SampleThreshold:
         """Resolve this instance's floor at the panel's overlap horizon.
 
-        ``forward_periods`` is injected from the data at dispatch, never
+        ``overlap_periods`` is injected from the data at dispatch, never
         configured, so the instance always carries the body's signature
         default; a stride-scaled floor resolved against the bare instance is
         the default-horizon floor, not the one the in-body gate applies at
@@ -245,15 +247,15 @@ class MetricBase(metaclass=MetricMeta):
         resolves the instance as configured.
         """
         inst: MetricBase = self
-        if forward_periods is not None and "forward_periods" in (
+        if overlap_periods is not None and "overlap_periods" in (
             self._injected_param_names
         ):
             inst = copy.copy(self)
-            object.__setattr__(inst, "forward_periods", forward_periods)
+            object.__setattr__(inst, "overlap_periods", overlap_periods)
         return type(self)._resolve_sample_threshold(inst)
 
     @staticmethod
-    def _stamped_forward_periods(data: Any) -> int | None:
+    def _stamped_overlap_periods(data: Any) -> int | None:
         """Read the panel's overlap horizon from the reserved stamp column.
 
         ``compute_forward_return`` stamps the horizon it built ``forward_return``
@@ -265,9 +267,9 @@ class MetricBase(metaclass=MetricMeta):
         default, still applies) and for a non-frame input (series consumers).
         """
         columns = getattr(data, "columns", None)
-        if columns is None or _FORWARD_PERIODS_COL not in columns:
+        if columns is None or _OVERLAP_PERIODS_COL not in columns:
             return None
-        stamp = data[_FORWARD_PERIODS_COL]
+        stamp = data[_OVERLAP_PERIODS_COL]
         if len(stamp) == 0:
             return None
         value = stamp[0]
@@ -275,7 +277,7 @@ class MetricBase(metaclass=MetricMeta):
 
     def _inject(
         self,
-        forward_periods: int | None,
+        overlap_periods: int | None,
         expected_warnings: tuple[str, ...] | None = None,
     ) -> dict[str, Any]:
         """Dispatch-time injected kwargs for ``_impl``.
@@ -285,7 +287,7 @@ class MetricBase(metaclass=MetricMeta):
         metric at its signature default.
         """
         supplied = {
-            "forward_periods": forward_periods,
+            "overlap_periods": overlap_periods,
             "expected_warnings": expected_warnings,
         }
         return {
@@ -297,23 +299,23 @@ class MetricBase(metaclass=MetricMeta):
     def __call__(
         self,
         *args: Any,
-        forward_periods: int | None = None,
+        overlap_periods: int | None = None,
         expected_warnings: tuple[str, ...] | None = None,
         **kwargs: Any,
     ) -> Any:
         """Evaluate the metric on a single input (one factor's view / upstream)."""
-        if forward_periods is None and args:
+        if overlap_periods is None and args:
             # Standalone call: the horizon is a property of the data, so read
             # the stamp rather than letting the signature default diverge from
             # what ``evaluate`` would use on the same panel.
-            forward_periods = self._stamped_forward_periods(args[0])
+            overlap_periods = self._stamped_overlap_periods(args[0])
         try:
             # Accessed via __class__ to avoid binding ``_impl`` as a method.
             return self.__class__._impl(
                 *args,
                 **{
                     **self._params(),
-                    **self._inject(forward_periods, expected_warnings),
+                    **self._inject(overlap_periods, expected_warnings),
                     **kwargs,
                 },
             )
@@ -334,7 +336,7 @@ class MetricBase(metaclass=MetricMeta):
         *,
         project: Callable[[str], Any],
         upstream: dict[str, dict[str, Any]],
-        forward_periods: int | None = None,
+        overlap_periods: int | None = None,
         expected_warnings: tuple[str, ...] | None = None,
     ) -> dict[str, Any]:
         """Run this metric across a factor batch; return ``{factor: output}``.
@@ -346,7 +348,7 @@ class MetricBase(metaclass=MetricMeta):
         ``batchable`` (whole panel), ``requires`` (consume upstream), plain
         (thin view) — are unified in :func:`_dispatch_batch`.
         """
-        inj = self._inject(forward_periods, expected_warnings)
+        inj = self._inject(overlap_periods, expected_warnings)
         if self.requires:
 
             def run_batch() -> dict[str, Any]:

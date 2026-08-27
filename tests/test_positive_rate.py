@@ -18,7 +18,7 @@ def _make_series(values: list[float]) -> pl.DataFrame:
 class TestComputePositiveRate:
     def test_all_positive(self):
         series = _make_series([0.01] * 20)
-        result = positive_rate(series, forward_periods=1)
+        result = positive_rate(series, overlap_periods=1)
         assert result.value == pytest.approx(1.0)
         # stat is the exact test's sufficient statistic: the hit count.
         assert result.stat == 20
@@ -26,7 +26,7 @@ class TestComputePositiveRate:
 
     def test_all_negative(self):
         series = _make_series([-0.01] * 20)
-        result = positive_rate(series, forward_periods=1)
+        result = positive_rate(series, overlap_periods=1)
         assert result.value == pytest.approx(0.0)
         assert result.stat == 0
         assert result.p_value == pytest.approx(2 * 0.5**20)
@@ -34,14 +34,14 @@ class TestComputePositiveRate:
     def test_half_and_half(self):
         values = [0.01] * 10 + [-0.01] * 10
         series = _make_series(values)
-        result = positive_rate(series, forward_periods=1)
+        result = positive_rate(series, overlap_periods=1)
         assert result.value == pytest.approx(0.5)
         assert result.stat == 10
         assert result.p_value == pytest.approx(1.0)
 
     def test_insufficient_data(self):
         series = _make_series([0.01] * 5)  # < MIN_SERIES_PERIODS_HARD=10
-        result = positive_rate(series, forward_periods=1)
+        result = positive_rate(series, overlap_periods=1)
         assert math.isnan(result.value)
         assert result.p_value is None or result.p_value >= 0.10
 
@@ -50,7 +50,7 @@ class TestComputePositiveRate:
         # 2 * 0.5**15 ≈ 6.1e-5, whereas the normal approx gives ≈ 6.3e-5
         # for z = √15. Any difference confirms the exact branch.
         series = _make_series([0.01] * 15)
-        result = positive_rate(series, forward_periods=1)
+        result = positive_rate(series, overlap_periods=1)
         assert result.metadata["method"] == "binomial exact test"
         # Exact p for 15/15 successes under H₀: p=0.5 is 2 * 0.5**15.
         assert result.p_value == pytest.approx(2 * 0.5**15)
@@ -62,7 +62,7 @@ class TestComputePositiveRate:
         from scipy.stats import binomtest
 
         series = _make_series([0.01] * 115 + [-0.01] * 85)
-        result = positive_rate(series, forward_periods=1)
+        result = positive_rate(series, overlap_periods=1)
         assert result.metadata["method"] == "binomial exact test"
         assert result.p_value == pytest.approx(binomtest(115, 200, 0.5).pvalue)
 
@@ -74,8 +74,8 @@ class TestNaNHandling:
         base = [0.01] * 30
         dirty = _make_series(base + [float("nan")] * 10)
         clean = _make_series(base)
-        r_dirty = positive_rate(dirty, forward_periods=1)
-        r_clean = positive_rate(clean, forward_periods=1)
+        r_dirty = positive_rate(dirty, overlap_periods=1)
+        r_clean = positive_rate(clean, overlap_periods=1)
         assert r_dirty.value == r_clean.value == 1.0
         assert r_dirty.n_obs == r_clean.n_obs == 30
         assert r_dirty.p_value == pytest.approx(r_clean.p_value)

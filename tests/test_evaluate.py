@@ -1,5 +1,5 @@
 """``fx.evaluate`` dict[str, Metric] API -- labels, strict, data-stamped
-forward_periods + by-value DAG dedup."""
+overlap_periods + by-value DAG dedup."""
 
 from __future__ import annotations
 
@@ -131,7 +131,7 @@ class TestByValueDedup:
         assert set(er.metrics) == {"a", "b"}
 
     def test_horizon_injected_from_data_into_every_metric(self):
-        # forward_periods is the data's stamped overlap horizon (5 here),
+        # overlap_periods is the data's stamped overlap horizon (5 here),
         # injected into every metric -- there is no per-metric override.
         er = fx.evaluate(
             _panel(),
@@ -141,8 +141,8 @@ class TestByValueDedup:
             },
             factor_cols=["factor"],
         )["factor"]
-        assert er.metrics["t"].metadata["forward_periods"] == 5
-        assert er.metrics["nw"].metadata["forward_periods"] == 5
+        assert er.metrics["t"].metadata["overlap_periods"] == 5
+        assert er.metrics["nw"].metadata["overlap_periods"] == 5
         assert er.forward_periods == 5
 
     def test_shared_producer_runs_once_across_configs(self):
@@ -158,37 +158,60 @@ class TestByValueDedup:
         assert er.plan.count("compute_ic [batchable]") == 1
 
     def test_metric_level_forward_periods_is_rejected(self):
-        # The mixed-horizon usage {"ic_5d": ic(), "ic_20d": ic(forward_periods=20)}
-        # is gone: forward_periods is not a metric parameter.
+        # The mixed-horizon usage {"ic_5d": ic(), "ic_20d": ic(overlap_periods=20)}
+        # is gone: overlap_periods is not a metric parameter.
         with pytest.raises(fx.UserInputError):
-            ic(forward_periods=20)
+            ic(overlap_periods=20)
+
+
+def _unstamped(panel=None):
+    from factrix._data_input import _FORWARD_PERIODS_COL, _OVERLAP_PERIODS_COL
+
+    return (panel if panel is not None else _panel()).drop(
+        _FORWARD_PERIODS_COL, _OVERLAP_PERIODS_COL
+    )
 
 
 class TestForwardPeriodsContract:
-    """The overlap horizon is a property of the data (stamp), declared once for
-    a self-attached panel (path B), never a per-metric knob."""
+    """Both horizons are properties of the data (stamps), declared once for a
+    self-attached panel (path B), never a per-metric knob. ``forward_periods``
+    is the return horizon (the hypothesis); ``overlap_periods`` is the
+    evaluation-grid overlap inference consumes."""
 
-    def test_horizon_read_from_stamp_when_omitted(self):
+    def test_horizons_read_from_stamps_when_omitted(self):
         er = fx.evaluate(_panel(), metrics={"ic": ic()}, factor_cols=["factor"])[
             "factor"
         ]
         assert er.forward_periods == 5  # read from the compute_forward_return stamp
+        assert er.overlap_periods == 5  # full grid: overlap equals the horizon
 
     def test_self_attached_panel_without_declaration_raises(self):
-        from factrix._data_input import _FORWARD_PERIODS_COL
-
-        unstamped = _panel().drop(_FORWARD_PERIODS_COL)
-        with pytest.raises(UserInputError, match="overlap horizon"):
-            fx.evaluate(unstamped, metrics={"ic": ic()}, factor_cols=["factor"])
+        with pytest.raises(UserInputError, match="return horizon"):
+            fx.evaluate(_unstamped(), metrics={"ic": ic()}, factor_cols=["factor"])
 
     def test_self_attached_panel_with_declaration_runs(self):
-        from factrix._data_input import _FORWARD_PERIODS_COL
-
-        unstamped = _panel().drop(_FORWARD_PERIODS_COL)
         er = fx.evaluate(
-            unstamped, metrics={"ic": ic()}, factor_cols=["factor"], forward_periods=5
+            _unstamped(),
+            metrics={"ic": ic()},
+            factor_cols=["factor"],
+            forward_periods=5,
         )["factor"]
         assert er.forward_periods == 5
+        # The overlap defaults to the horizon for an unstamped panel.
+        assert er.overlap_periods == 5
+        assert er.metrics["ic"].metadata["overlap_periods"] == 5
+
+    def test_self_attached_panel_accepts_explicit_overlap(self):
+        er = fx.evaluate(
+            _unstamped(),
+            metrics={"ic": ic()},
+            factor_cols=["factor"],
+            forward_periods=5,
+            overlap_periods=1,
+        )["factor"]
+        assert er.forward_periods == 5
+        assert er.overlap_periods == 1
+        assert er.metrics["ic"].metadata["overlap_periods"] == 1
 
     def test_declaration_conflicting_with_stamp_raises(self):
         with pytest.raises(UserInputError, match="stamp"):
@@ -199,14 +222,26 @@ class TestForwardPeriodsContract:
                 forward_periods=20,
             )
 
-    def test_stamp_column_never_leaks_into_outputs(self):
-        from factrix._data_input import _FORWARD_PERIODS_COL
+    def test_overlap_declaration_conflicting_with_stamp_raises(self):
+        with pytest.raises(UserInputError, match="stamped evaluation-grid overlap"):
+            fx.evaluate(
+                _panel(),
+                metrics={"ic": ic()},
+                factor_cols=["factor"],
+                overlap_periods=1,
+            )
+
+    def test_stamp_columns_never_leak_into_outputs(self):
+        from factrix._data_input import _FORWARD_PERIODS_COL, _OVERLAP_PERIODS_COL
 
         er = fx.evaluate(_panel(), metrics={"ic": ic()}, factor_cols=["factor"])[
             "factor"
         ]
-        assert _FORWARD_PERIODS_COL not in er.to_frame().columns
-        assert _FORWARD_PERIODS_COL not in er.metrics["ic"].metadata
+        for col in (_FORWARD_PERIODS_COL, _OVERLAP_PERIODS_COL):
+            assert col not in er.to_frame().columns
+            assert col not in er.metrics["ic"].metadata
+        assert er.to_frame()["overlap_periods"].to_list() == [5]
+        assert er.to_dict()["overlap_periods"] == 5
 
 
 class TestStrict:

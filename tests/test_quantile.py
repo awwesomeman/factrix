@@ -18,7 +18,7 @@ from factrix.metrics.quantile import (
 
 class TestQuantileSpreadSeries:
     def test_perfect_panel(self, tiny_panel):
-        series = compute_spread_series(tiny_panel, forward_periods=1, n_groups=5)[
+        series = compute_spread_series(tiny_panel, overlap_periods=1, n_groups=5)[
             "factor"
         ]
         assert "spread" in series.columns
@@ -55,30 +55,30 @@ class TestComputeSpreadSeriesBatch:
                 )
         panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         batch = compute_spread_series(
-            panel, forward_periods=1, n_groups=5, factor_cols=["f1", "f2"]
+            panel, overlap_periods=1, n_groups=5, factor_cols=["f1", "f2"]
         )
         for col in ("f1", "f2"):
             single = compute_spread_series(
-                panel, forward_periods=1, n_groups=5, factor_cols=[col]
+                panel, overlap_periods=1, n_groups=5, factor_cols=[col]
             )[col]
             assert batch[col].equals(single), col
 
     def test_empty_factor_list_rejected(self, tiny_panel):
         with pytest.raises(ValueError, match="non-empty"):
             compute_spread_series(
-                tiny_panel, forward_periods=1, n_groups=5, factor_cols=[]
+                tiny_panel, overlap_periods=1, n_groups=5, factor_cols=[]
             )
 
     def test_two_group_small_cross_section_warning_is_actionable(self, tiny_panel):
         with pytest.warns(UserWarning, match="coarsest long-short split") as caught:
-            compute_spread_series(tiny_panel, forward_periods=1, n_groups=2)
+            compute_spread_series(tiny_panel, overlap_periods=1, n_groups=2)
 
         assert "Consider reducing n_groups" not in str(caught[0].message)
 
 
 class TestQuantileSpread:
     def test_noisy_panel(self, noisy_panel):
-        series = compute_spread_series(noisy_panel, forward_periods=1, n_groups=5)[
+        series = compute_spread_series(noisy_panel, overlap_periods=1, n_groups=5)[
             "factor"
         ]
         assert len(series) >= 5
@@ -98,12 +98,12 @@ class TestQuantileSpread:
                 "forward_return": [0.01, 0.02, 0.03, 0.04, 0.05] * 2,
             }
         ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        result = quantile_spread(df, forward_periods=1, n_groups=5)["factor"]
+        result = quantile_spread(df, overlap_periods=1, n_groups=5)["factor"]
         assert math.isnan(result.value)
 
     def test_decomposition_in_metadata(self, tiny_panel):
         """spread = long_alpha + short_alpha (per-period)."""
-        series = compute_spread_series(tiny_panel, forward_periods=1, n_groups=5)[
+        series = compute_spread_series(tiny_panel, overlap_periods=1, n_groups=5)[
             "factor"
         ]
         for row in series.iter_rows(named=True):
@@ -112,7 +112,7 @@ class TestQuantileSpread:
             assert long + short == pytest.approx(row["spread"])
 
     def test_metadata_has_long_short(self, noisy_panel):
-        result = quantile_spread(noisy_panel, forward_periods=1, n_groups=5)["factor"]
+        result = quantile_spread(noisy_panel, overlap_periods=1, n_groups=5)["factor"]
         if result.value != 0.0:
             assert "long_alpha" in result.metadata
             assert "short_alpha" in result.metadata
@@ -136,10 +136,10 @@ class TestQuantileSpread:
         ]
         panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
-        series = compute_spread_series(panel, forward_periods=1, n_groups=5)["factor"]
+        series = compute_spread_series(panel, overlap_periods=1, n_groups=5)["factor"]
         assert series["spread"].to_list() == [0.0] * n_dates
 
-        result = quantile_spread(panel, forward_periods=1, n_groups=5)["factor"]
+        result = quantile_spread(panel, overlap_periods=1, n_groups=5)["factor"]
         assert result.value == 0.0
         assert result.stat == 0.0
         assert result.p_value == 1.0
@@ -147,7 +147,7 @@ class TestQuantileSpread:
         assert result.metadata["signal_status"] == "no_signal_zero_variance_factor"
 
     def test_n_groups_asset_floor_short_circuits(self, tiny_panel):
-        result = quantile_spread(tiny_panel, forward_periods=1, n_groups=6)["factor"]
+        result = quantile_spread(tiny_panel, overlap_periods=1, n_groups=6)["factor"]
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "insufficient_assets_for_quantile_groups"
         assert result.metadata["min_required"] == 6
@@ -169,7 +169,7 @@ class TestQuantileSpread:
             pl.col("factor").cast(pl.Float64),
         )
 
-        result = quantile_spread(panel, forward_periods=1, n_groups=5)["factor"]
+        result = quantile_spread(panel, overlap_periods=1, n_groups=5)["factor"]
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "insufficient_assets_for_quantile_groups"
         assert result.metadata["max_assets_per_date"] == 0
@@ -188,7 +188,7 @@ class TestQuantileSpread:
         ]
         panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
-        result = quantile_spread(panel, forward_periods=1, n_groups=5)["factor"]
+        result = quantile_spread(panel, overlap_periods=1, n_groups=5)["factor"]
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "insufficient_assets_for_quantile_groups"
         assert result.metadata["max_assets_per_date"] == 3
@@ -217,16 +217,16 @@ class TestQuantileSpreadVW:
 
     def test_basic(self):
         df = self._make_panel_with_cap()
-        result = quantile_spread_vw(df, forward_periods=1, n_groups=5)
+        result = quantile_spread_vw(df, overlap_periods=1, n_groups=5)
         # With density, VW spread should be nonzero
         assert result.value != 0.0 or result.metadata.get("reason")
 
     def test_lag_weights_flag_recorded(self):
         df = self._make_panel_with_cap()
-        default = quantile_spread_vw(df, forward_periods=1, n_groups=5)
+        default = quantile_spread_vw(df, overlap_periods=1, n_groups=5)
         explicit_off = quantile_spread_vw(
             df,
-            forward_periods=1,
+            overlap_periods=1,
             n_groups=5,
             lag_weights=False,
         )
@@ -245,7 +245,7 @@ class TestQuantileSpreadVW:
                 "forward_return": [0.01, 0.02, 0.03, 0.04, 0.05],
             }
         ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        result = quantile_spread_vw(df, forward_periods=1, n_groups=5)
+        result = quantile_spread_vw(df, overlap_periods=1, n_groups=5)
         assert math.isnan(result.value)
         assert result.metadata.get("reason") == "no_weight_column"
         assert result.metadata.get("missing_column") == "market_cap"
@@ -272,7 +272,7 @@ class TestQuantileSpreadVW:
         panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
         result = quantile_spread_vw(
-            panel, forward_periods=1, n_groups=5, tie_policy=tie_policy
+            panel, overlap_periods=1, n_groups=5, tie_policy=tie_policy
         )
         assert result.value == 0.0
         assert result.stat == 0.0
@@ -304,7 +304,7 @@ class TestQuantileSpreadVW:
 
         result = quantile_spread_vw(
             panel,
-            forward_periods=1,
+            overlap_periods=1,
             n_groups=5,
             tie_policy=tie_policy,
             lag_weights=False,
@@ -332,7 +332,7 @@ class TestQuantileSpreadVW:
         ]
         panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
-        result = quantile_spread_vw(panel, forward_periods=1, n_groups=5)
+        result = quantile_spread_vw(panel, overlap_periods=1, n_groups=5)
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "insufficient_assets_for_quantile_groups"
         assert result.metadata["max_assets_per_date"] == 3
@@ -352,9 +352,9 @@ class TestQuantileSpreadInference:
         import factrix as fx
 
         panel = self._ample_panel()
-        default = quantile_spread(panel, forward_periods=5, n_groups=5)["factor"]
+        default = quantile_spread(panel, overlap_periods=5, n_groups=5)["factor"]
         explicit = quantile_spread(
-            panel, forward_periods=5, n_groups=5, inference=fx.inference.NON_OVERLAPPING
+            panel, overlap_periods=5, n_groups=5, inference=fx.inference.NON_OVERLAPPING
         )["factor"]
         assert explicit.value == default.value
         assert explicit.p_value == default.p_value
@@ -366,7 +366,7 @@ class TestQuantileSpreadInference:
 
         panel = self._ample_panel()
         nw = quantile_spread(
-            panel, forward_periods=5, n_groups=5, inference=fx.inference.NEWEY_WEST
+            panel, overlap_periods=5, n_groups=5, inference=fx.inference.NEWEY_WEST
         )["factor"]
         assert nw.metadata["method"] == "Newey-West HAC t-test"
         assert "nw_lags" in nw.metadata
@@ -384,7 +384,7 @@ class TestQuantileSpreadInference:
         raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=400, seed=6)
         panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
         nw = quantile_spread(
-            panel, forward_periods=5, n_groups=5, inference=fx.inference.NEWEY_WEST
+            panel, overlap_periods=5, n_groups=5, inference=fx.inference.NEWEY_WEST
         )["factor"]
         assert nw.metadata["method"] == "Newey-West HAC t-test"
         assert "inference_overridden" not in nw.metadata
@@ -398,7 +398,7 @@ class TestQuantileSpreadInference:
         with pytest.raises(fx.IncompatibleInferenceError) as exc:
             quantile_spread(
                 panel,
-                forward_periods=5,
+                overlap_periods=5,
                 n_groups=5,
                 inference=fx.inference.HANSEN_HODRICK,
             )
@@ -410,7 +410,7 @@ class TestQuantileSpreadInference:
 
         panel = self._ample_panel()
         with pytest.raises(fx.IncompatibleInferenceError):
-            quantile_spread(panel, forward_periods=5, n_groups=5, inference="newey")
+            quantile_spread(panel, overlap_periods=5, n_groups=5, inference="newey")
 
 
 class TestThinQuantileGroups:
@@ -431,7 +431,7 @@ class TestThinQuantileGroups:
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            res = quantile_spread(self._thin_panel(), forward_periods=5, n_groups=5)[
+            res = quantile_spread(self._thin_panel(), overlap_periods=5, n_groups=5)[
                 "factor"
             ]
         assert WarningCode.THIN_QUANTILE_GROUPS.value in res.warning_codes
@@ -442,7 +442,7 @@ class TestThinQuantileGroups:
 
         raw = fx.datasets.make_cs_panel(n_assets=80, n_dates=200, seed=1)
         panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
-        res = quantile_spread(panel, forward_periods=5, n_groups=5)["factor"]
+        res = quantile_spread(panel, overlap_periods=5, n_groups=5)["factor"]
         assert WarningCode.THIN_QUANTILE_GROUPS.value not in res.warning_codes
 
     def test_warning_suggests_concrete_n_groups(self):
@@ -450,7 +450,7 @@ class TestThinQuantileGroups:
 
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            quantile_spread(self._thin_panel(), forward_periods=5, n_groups=5)
+            quantile_spread(self._thin_panel(), overlap_periods=5, n_groups=5)
         msgs = [str(w.message) for w in caught if "assets per group" in str(w.message)]
         assert msgs and "Reduce n_groups to ~" in msgs[0]
 
@@ -500,7 +500,7 @@ class TestQuantileSpreadVWMissingReturns:
         """
         panel = _long_panel(self._rows(missing_top_return=True))
         result = quantile_spread_vw(
-            panel, forward_periods=1, n_groups=5, lag_weights=False
+            panel, overlap_periods=1, n_groups=5, lag_weights=False
         )
         # Top bucket return is A8's 0.10; bottom bucket is 0.0 -> spread 0.10.
         assert result.value == pytest.approx(0.10)
@@ -508,13 +508,13 @@ class TestQuantileSpreadVWMissingReturns:
     def test_matches_the_no_missing_case(self):
         with_missing = quantile_spread_vw(
             _long_panel(self._rows(missing_top_return=True)),
-            forward_periods=1,
+            overlap_periods=1,
             n_groups=5,
             lag_weights=False,
         )
         without = quantile_spread_vw(
             _long_panel(self._rows(missing_top_return=False)),
-            forward_periods=1,
+            overlap_periods=1,
             n_groups=5,
             lag_weights=False,
         )
@@ -535,7 +535,7 @@ class TestQuantileSpreadVWMissingReturns:
             ]
 
         result = quantile_spread_vw(
-            _long_panel(build), forward_periods=1, n_groups=5, lag_weights=False
+            _long_panel(build), overlap_periods=1, n_groups=5, lag_weights=False
         )
         from factrix._codes import WarningCode
 
@@ -567,7 +567,7 @@ class TestQuantileSpreadVWMissingReturns:
 
         with pytest.warns(UserWarning, match="of periods dropped"):
             result = quantile_spread_vw(
-                _long_panel(build), forward_periods=1, n_groups=5, lag_weights=False
+                _long_panel(build), overlap_periods=1, n_groups=5, lag_weights=False
             )
         assert result.n_obs == 30
         assert result.value == pytest.approx(0.10)
@@ -609,7 +609,7 @@ class TestUniverseReturnRankedOnly:
 
     def test_unranked_names_do_not_shift_the_leg_benchmark(self):
         result = quantile_spread(
-            self._half_ranked_panel(), forward_periods=1, n_groups=5
+            self._half_ranked_panel(), overlap_periods=1, n_groups=5
         )["factor"]
         md = result.metadata
         # Ranked names all sit at ~0%: both excess legs are genuinely ~0.
@@ -622,7 +622,7 @@ class TestUniverseReturnRankedOnly:
         from factrix.metrics.quantile import compute_spread_series
 
         panel = self._half_ranked_panel()
-        series = compute_spread_series(panel, forward_periods=1, n_groups=5)["factor"]
+        series = compute_spread_series(panel, overlap_periods=1, n_groups=5)["factor"]
         expected = (
             panel.filter(pl.col("factor").is_not_null())
             .group_by("date")
@@ -664,7 +664,7 @@ class TestQuantileSpreadNonFiniteSeries:
         )
         result = quantile_spread(
             panel,
-            forward_periods=1,
+            overlap_periods=1,
             n_groups=5,
             _precomputed_series={"factor": series},
         )["factor"]
@@ -703,7 +703,7 @@ class TestSmallCrossSectionKeying:
             ]
 
         panel = _long_panel(build, n_dates=200)
-        result = quantile_spread(panel, forward_periods=1, n_groups=3)["factor"]
+        result = quantile_spread(panel, overlap_periods=1, n_groups=3)["factor"]
         assert result.metadata["median_cross_section"] == 12
         assert WarningCode.FEW_ASSETS.value in result.warning_codes
 
@@ -736,7 +736,7 @@ class TestSmallCrossSectionSize:
                     ),
                     forward_periods=5,
                 )
-                out = quantile_spread(panel, forward_periods=5, n_groups=2)["factor"]
+                out = quantile_spread(panel, overlap_periods=5, n_groups=2)["factor"]
                 assert out.metadata["method"] == "non-overlapping t-test"
                 rejected += out.p_value is not None and out.p_value < 0.05
         assert 0.01 <= rejected / reps <= 0.16
@@ -776,7 +776,7 @@ class TestQuantileSpreadVwThroughEvaluate:
         res = results["factor"].metrics["vw"]
         assert res.metadata.get("reason") != "no_weight_column"
         assert not math.isnan(res.value)
-        direct = quantile_spread_vw(panel, forward_periods=2, n_groups=5)
+        direct = quantile_spread_vw(panel, overlap_periods=2, n_groups=5)
         assert res.value == pytest.approx(direct.value)
 
     def test_market_cap_is_not_mistaken_for_a_factor(self):
@@ -826,16 +826,16 @@ class TestValueWeightedThinDiagnostics:
     def test_vw_matches_ew_diagnostics_on_the_same_panel(self):
         panel = self._thin_panel()
         with pytest.warns(UserWarning, match="assets per group"):
-            ew = quantile_spread(panel, forward_periods=1, n_groups=5)["factor"]
+            ew = quantile_spread(panel, overlap_periods=1, n_groups=5)["factor"]
         with pytest.warns(UserWarning, match="assets per group"):
-            vw = quantile_spread_vw(panel, forward_periods=1, n_groups=5)
+            vw = quantile_spread_vw(panel, overlap_periods=1, n_groups=5)
         assert WarningCode.THIN_QUANTILE_GROUPS.value in vw.warning_codes
         assert WarningCode.FEW_ASSETS.value in vw.warning_codes
         assert set(ew.warning_codes) == set(vw.warning_codes)
 
     def test_wide_panel_stays_clean(self):
         panel = self._thin_panel(n_assets=60, n_dates=80)
-        vw = quantile_spread_vw(panel, forward_periods=1, n_groups=5)
+        vw = quantile_spread_vw(panel, overlap_periods=1, n_groups=5)
         assert vw.warning_codes == ()
         assert vw.metadata["median_cross_section"] == 60
 
@@ -865,15 +865,15 @@ class TestValueWeightedInference:
 
     def test_default_reproduces_the_previous_non_overlap_t(self):
         panel = self._panel()
-        out = quantile_spread_vw(panel, forward_periods=5, n_groups=5)
+        out = quantile_spread_vw(panel, overlap_periods=5, n_groups=5)
         assert out.metadata["method"] == "non-overlapping t-test"
         assert out.n_obs == out.metadata["n_periods_strided"]
 
     def test_newey_west_keeps_every_date(self):
         panel = self._panel()
-        strided = quantile_spread_vw(panel, forward_periods=5, n_groups=5)
+        strided = quantile_spread_vw(panel, overlap_periods=5, n_groups=5)
         hac = quantile_spread_vw(
-            panel, forward_periods=5, n_groups=5, inference=NEWEY_WEST
+            panel, overlap_periods=5, n_groups=5, inference=NEWEY_WEST
         )
         assert hac.n_obs > strided.n_obs
         # 200 dates less the first, whose lagged weight is null by
@@ -888,10 +888,10 @@ class TestValueWeightedInference:
     def test_pair_shares_the_inference_allowlist(self):
         panel = self._panel()
         ew = quantile_spread(
-            panel, forward_periods=5, n_groups=5, inference=NEWEY_WEST
+            panel, overlap_periods=5, n_groups=5, inference=NEWEY_WEST
         )["factor"]
         vw = quantile_spread_vw(
-            panel, forward_periods=5, n_groups=5, inference=NEWEY_WEST
+            panel, overlap_periods=5, n_groups=5, inference=NEWEY_WEST
         )
         # Same date set and same inference member, so the pair is comparable;
         # the VW leg gives up the first date to the weight lag.
@@ -902,5 +902,5 @@ class TestValueWeightedInference:
         panel = self._panel(n_assets=20, n_dates=60)
         with pytest.raises(IncompatibleInferenceError):
             quantile_spread_vw(
-                panel, forward_periods=5, n_groups=5, inference=HANSEN_HODRICK
+                panel, overlap_periods=5, n_groups=5, inference=HANSEN_HODRICK
             )

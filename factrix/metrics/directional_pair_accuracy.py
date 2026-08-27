@@ -55,7 +55,7 @@ __all__ = [
 )
 def directional_pair_accuracy(
     data: pl.DataFrame,
-    forward_periods: int = 5,
+    overlap_periods: int = 5,
     factor_col: str = "factor",
     return_col: str = "forward_return",
 ) -> MetricResult:
@@ -70,7 +70,7 @@ def directional_pair_accuracy(
     Args:
         data: Long panel with ``date``, ``asset_id``, ``factor_col`` and
             ``return_col``.
-        forward_periods: Sampling stride for non-overlapping dates; match the
+        overlap_periods: Sampling stride for non-overlapping dates; match the
             forward-return horizon so overlapping windows do not dominate the
             per-date series.
         factor_col: Ranking column.
@@ -98,7 +98,7 @@ def directional_pair_accuracy(
             descriptive=True,
         )
 
-    sampled = _sample_non_overlapping(data, forward_periods)
+    sampled = _sample_non_overlapping(data, overlap_periods)
     rows_in = sampled.height
     paired = sampled.select(
         "date",

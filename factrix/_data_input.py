@@ -48,29 +48,52 @@ the validation and dispatch contract is identical.
 _BASELINE_COLUMNS: tuple[str, ...] = ("date", "asset_id", "forward_return")
 _OPTIONAL_COLUMNS: tuple[str, ...] = ("price", "market_cap")
 
-# Reserved column carrying the panel's single overlap horizon (the
-# ``forward_periods`` used to build ``forward_return``). ``compute_forward_return``
-# stamps it once; ``evaluate`` reads it and strips it before dispatch, so it
-# never reaches a metric, a projection, or ``EvaluationResult.to_frame``. A
-# constant int column is the one carrier that survives the ordinary polars
-# transforms a panel goes through between construction and evaluation
-# (``with_columns`` winsorize / abnormal-return, ``partition_by`` in ``by_slice``,
-# user ``.with_columns(sector)`` / joins) — DataFrame-level metadata does not.
+# Reserved columns carrying the two horizon-like facts about a panel:
+#
+# * ``_forward_periods`` — the economic return horizon, the ``forward_periods``
+#   ``compute_forward_return`` built ``forward_return`` with. It names the
+#   hypothesis (``EvaluationResult.forward_periods``, the multi-factor identity).
+# * ``_overlap_periods`` — the overlap of adjacent observations on the panel's
+#   evaluation grid, the quantity inference consumes (HAC bandwidth and
+#   effective df, the non-overlapping stride, the stride-scaled sample floors).
+#   Equal to the horizon on the full grid; smaller when the panel was built on
+#   a coarser evaluation grid via ``compute_forward_return(..., dates=)``.
+#
+# ``compute_forward_return`` stamps both once; ``evaluate`` reads them and
+# strips them before dispatch, so they never reach a metric, a projection, or
+# ``EvaluationResult.to_frame``. A constant int column is the one carrier that
+# survives the ordinary polars transforms a panel goes through between
+# construction and evaluation (``with_columns`` winsorize / abnormal-return,
+# ``partition_by`` in ``by_slice``, user ``.with_columns(sector)`` / joins) —
+# DataFrame-level metadata does not.
 _FORWARD_PERIODS_COL: str = "_forward_periods"
+_OVERLAP_PERIODS_COL: str = "_overlap_periods"
 
 
-def _stamp_forward_periods(data: pl.DataFrame, forward_periods: int) -> pl.DataFrame:
-    """Stamp the panel's single overlap horizon as a reserved constant column."""
+def _stamp_horizons(
+    data: pl.DataFrame, *, forward_periods: int, overlap_periods: int
+) -> pl.DataFrame:
+    """Stamp the return horizon and the evaluation-grid overlap as reserved columns."""
     return data.with_columns(
-        pl.lit(forward_periods, dtype=pl.Int32).alias(_FORWARD_PERIODS_COL)
+        pl.lit(forward_periods, dtype=pl.Int32).alias(_FORWARD_PERIODS_COL),
+        pl.lit(overlap_periods, dtype=pl.Int32).alias(_OVERLAP_PERIODS_COL),
     )
 
 
-def _read_forward_periods_stamp(data: pl.DataFrame) -> int | None:
-    """Read the stamped overlap horizon, or ``None`` when the panel carries none."""
-    if _FORWARD_PERIODS_COL not in data.columns or data.height == 0:
+def _read_int_stamp(data: pl.DataFrame, column: str) -> int | None:
+    if column not in data.columns or data.height == 0:
         return None
-    return int(data[_FORWARD_PERIODS_COL][0])
+    return int(data[column][0])
+
+
+def _read_forward_periods_stamp(data: pl.DataFrame) -> int | None:
+    """Read the stamped return horizon, or ``None`` when the panel carries none."""
+    return _read_int_stamp(data, _FORWARD_PERIODS_COL)
+
+
+def _read_overlap_periods_stamp(data: pl.DataFrame) -> int | None:
+    """Read the stamped evaluation-grid overlap, or ``None`` when absent."""
+    return _read_int_stamp(data, _OVERLAP_PERIODS_COL)
 
 
 _DOCS_DATA_SCHEMA = "api/data-schema"

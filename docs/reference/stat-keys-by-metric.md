@@ -86,8 +86,8 @@ contrasts, not a sidecar to a primary value.
 
 #### `ic`
 
-- *primary*: `p_value` — `t`-test on the per-period IC series (non-overlapping stride with stride `forward_periods` by default, or Newey-West HAC if configured).
-- *descriptive*: `n_periods` (the sample the `value` / `stat` / `p_value` describe — the strided subsample under `NonOverlapping`, the full series under `NeweyWest` / `StationaryBootstrap`; equals `n_obs`), `n_periods_full` and `mean_ic_full` (the full per-period series, for reference), `forward_periods`, `tie_ratio` (median across periods), `min_assets_per_period` / `warn_assets_per_period` when the upstream IC series carries per-period asset counts, `stat_type` (`"t"`), `h0` (`"mu=0"`), `method`.
+- *primary*: `p_value` — `t`-test on the per-period IC series (non-overlapping stride with stride `overlap_periods` by default, or Newey-West HAC if configured).
+- *descriptive*: `n_periods` (the sample the `value` / `stat` / `p_value` describe — the strided subsample under `NonOverlapping`, the full series under `NeweyWest` / `StationaryBootstrap`; equals `n_obs`), `n_periods_full` and `mean_ic_full` (the full per-period series, for reference), `overlap_periods`, `tie_ratio` (median across periods), `min_assets_per_period` / `warn_assets_per_period` when the upstream IC series carries per-period asset counts, `stat_type` (`"t"`), `h0` (`"mu=0"`), `method`.
 - *descriptive* (conditional, `NeweyWest`): `nw_lags` (resolved Bartlett bandwidth) and `hac_dof` (the effective degrees of freedom the `t` is read against; `None` when the sample is too short to run the kernel).
 - *warning*: `WarningCode.FEW_ASSETS` when retained per-period IC cross-sections are below `MIN_IC_ASSETS_WARN`; `WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED` under `NeweyWest` when the resolved bandwidth exceeds `n_periods / 5`.
 - *short-circuit*: `reason` `insufficient_ic_periods` (too few periods) carries `min_required`; `insufficient_ic_assets` (every cross-section below `MIN_IC_ASSETS_HARD`, so no per-period IC survived — common on one-valid-pair panels) carries `min_assets_required`.
@@ -111,7 +111,7 @@ is emitted.
   `p_value_uncorrected`, `stat_uncorrected`.
 - *descriptive*: `n_periods`, `newey_west_lags` (the resolved HAR
   bandwidth), `hac_dof` (the effective degrees of freedom the `t` is read
-  against), `forward_periods`,
+  against), `overlap_periods`,
   `is_estimated_factor`, `warning_codes` (conditional),
   `min_assets_per_period` / `warn_assets_per_period` when the upstream
   FM beta series carries per-period asset counts.
@@ -191,7 +191,7 @@ Boehmer-Musumeci-Poulsen standardised-abnormal-return cross-sectional
 - *descriptive*: `n_events`, `n_event_periods` (distinct event periods —
   the effective sample once events cluster; `FEW_EVENTS` fires on it when
   below `MIN_EVENTS_WARN` and events share periods, and on the raw event
-  count when it is below `MIN_EVENTS_WARN × forward_periods`),
+  count when it is below `MIN_EVENTS_WARN × overlap_periods`),
   `n_events_overlapping` / `n_events_sampled` (removed by, and surviving,
   the per-asset non-overlap spacing pass; a non-zero removal fires
   `EVENT_WINDOW_OVERLAP`), `abnormal_return_model` / `estimation_window` /
@@ -236,7 +236,7 @@ Boehmer-Musumeci-Poulsen standardised-abnormal-return cross-sectional
   `"market_adjusted_supplied"`), `estimation_window`, `estimation_window_lag`,
   `estimation_window_source`, `estimation_window_event_share` (see `bmp_z`;
   `ESTIMATION_WINDOW_CONTAMINATED` above the advisory share),
-  `forward_periods` (the spacing stride),
+  `overlap_periods` (the spacing stride),
   `n_events_overlapping` / `n_events_sampled` (removed by, and surviving,
   the spacing pass; a non-zero removal fires `EVENT_WINDOW_OVERLAP`).
 
@@ -249,7 +249,7 @@ Boehmer-Musumeci-Poulsen standardised-abnormal-return cross-sectional
 binomial test at every `n`.
 
 - *primary*: `p_value` — exact binomial test on non-overlapping wins
-  (stride `forward_periods`).
+  (stride `overlap_periods`).
 - *descriptive*: `n_hits`. The trial count is the period-axis drop-stat
   `n_periods_out` (the surviving non-overlapping observations).
 
@@ -629,7 +629,7 @@ assumes serially independent observations and the default input (a
 per-period IC over h-period forward returns) is MA(h−1):
 
 - the series is sub-sampled to non-overlapping observations at stride
-  `forward_periods` before anything is computed, so `value` is a slope
+  `overlap_periods` before anything is computed, so `value` is a slope
   *per sampled step* and `n_obs` is the survivor count;
 - `p_value` comes from the Hamed-Rao (1998) variance-inflated normal
   statistic on the survivors, not from `scipy.stats.kendalltau`'s iid p.
@@ -643,7 +643,7 @@ overlapping series: 0.16–0.32). Residual persistence that striding
 cannot remove (an AR factor at `h = 1`) still leaves the test oversized
 and carries `serial_correlation_detected`.
 
-The stride costs power, and at `forward_periods = 21` costs nearly all
+The stride costs power, and at `overlap_periods = 21` costs nearly all
 of it. Against a drift of 2 sd over the sample, raw Mann-Kendall versus
 strided + Hamed-Rao: 0.865 → 0.360 (`T=60, h=5`), 0.971 → 0.713
 (`T=120, h=5`), 0.999 → 0.952 (`T=240, h=5`), 0.888 → 0.086
@@ -685,7 +685,7 @@ true nulls.
 
 Two departures from Amihud-Hurvich, both factrix choices. (1) The
 covariance inside the augmented regression is horizon-dependent: at
-`forward_periods = 1` it is AH's own homoskedastic `s^2 (X'X)^-1` read
+`overlap_periods = 1` it is AH's own homoskedastic `s^2 (X'X)^-1` read
 against `t_{m-3}`, because that regression is not overlapping and a
 Bartlett kernel there is pure downward bias in the SE (it cost 4pp of size
 at `T = 60`); at `h > 1` it is the Bartlett HAC covariance read against the
@@ -731,9 +731,9 @@ against 70.5% at `T = 60`).
 
 - *primary*: `p_value` — two-sided bias-corrected slope test.
 - *descriptive*: `n_periods`, `n_periods_effective`
-  (`n_periods // forward_periods` — the non-overlapping observations the
+  (`n_periods // overlap_periods` — the non-overlapping observations the
   short-sample gate reads), `residual_lag1_autocorr`, `newey_west_lags`,
-  `forward_periods`, `har_lags` (the HAR bandwidth the corrected slope test
+  `overlap_periods`, `har_lags` (the HAR bandwidth the corrected slope test
   uses; `newey_west_lags` stays the narrow rule the reported uncorrected OLS
   slope is fitted with), `alpha`, `r_squared`, `factor_std`, `adf_stat`, `adf_p`,
   `adf_threshold`, `unit_root_suspected`.
@@ -863,12 +863,12 @@ inference.
 #### `rank_turnover`
 
 - *descriptive*: `mean_rank_autocorrelation`,
-  `std_rank_autocorrelation`, `n_pairs`, `forward_periods`,
+  `std_rank_autocorrelation`, `n_pairs`, `overlap_periods`,
   `quantile`, `n_cross_section_mean`.
 
 #### `notional_turnover`
 
-- *descriptive*: `n_rebalances`, `n_groups`, `forward_periods`,
+- *descriptive*: `n_rebalances`, `n_groups`, `overlap_periods`,
   `mean_tail_size`.
 
 #### `breakeven_cost`
@@ -876,14 +876,14 @@ inference.
 Scalar-input metric (consumes pre-aggregated scalars rather than a
 date-keyed DataFrame).
 
-- *descriptive*: `gross_spread`, `turnover`, `forward_periods`.
+- *descriptive*: `gross_spread`, `turnover`, `overlap_periods`.
 
 #### `net_spread`
 
 Scalar-input metric.
 
 - *descriptive*: `gross_spread`, `cost_drag`, `estimated_cost_bps`,
-  `turnover`, `forward_periods`.
+  `turnover`, `overlap_periods`.
 
 ## Short-circuit envelope
 

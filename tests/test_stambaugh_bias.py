@@ -111,7 +111,7 @@ class TestBiasAndSize:
         for _ in range(n_reps):
             x, y = _stambaugh_draw(n_periods, phi, rho, horizon, rng)
             result = predictive_beta(
-                _panel(x, y), forward_periods=horizon, adf_threshold=None
+                _panel(x, y), overlap_periods=horizon, adf_threshold=None
             )
             betas_ah.append(result.value)
             betas_ols.append(result.metadata["beta_ols_uncorrected"])
@@ -150,7 +150,7 @@ class TestBiasChannelWarning:
     def test_fires_on_the_product_not_the_adf_screen(self):
         rng = np.random.default_rng(11)
         x, y = _stambaugh_draw(240, 0.95, -0.9, 1, rng)
-        result = predictive_beta(_panel(x, y), forward_periods=1, adf_threshold=None)
+        result = predictive_beta(_panel(x, y), overlap_periods=1, adf_threshold=None)
         assert result.metadata["stambaugh_bias_channel"] > _STAMBAUGH_CHANNEL_WARN
         assert WarningCode.PERSISTENT_REGRESSOR.value in result.warning_codes
 
@@ -158,14 +158,14 @@ class TestBiasChannelWarning:
         """A persistent regressor with rho = 0 carries no Stambaugh bias."""
         rng = np.random.default_rng(11)
         x, y = _stambaugh_draw(240, 0.5, 0.0, 1, rng)
-        result = predictive_beta(_panel(x, y), forward_periods=1, adf_threshold=None)
+        result = predictive_beta(_panel(x, y), overlap_periods=1, adf_threshold=None)
         assert result.metadata["stambaugh_bias_channel"] <= _STAMBAUGH_CHANNEL_WARN
         assert WarningCode.PERSISTENT_REGRESSOR.value not in result.warning_codes
 
     def test_metadata_reports_the_correction_applied(self):
         rng = np.random.default_rng(12)
         x, y = _stambaugh_draw(200, 0.9, -0.8, 1, rng)
-        result = predictive_beta(_panel(x, y), forward_periods=1, adf_threshold=None)
+        result = predictive_beta(_panel(x, y), overlap_periods=1, adf_threshold=None)
         assert result.metadata["stambaugh_adjusted"] is True
         assert result.metadata["stambaugh_bias_estimate"] == pytest.approx(
             result.metadata["beta_ols_uncorrected"] - result.value

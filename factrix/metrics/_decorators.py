@@ -98,9 +98,9 @@ def metric(
 
         fields = non_default_fields + default_fields
 
-        # ``forward_periods`` is the panel's overlap horizon — a property of the
+        # ``overlap_periods`` is the panel's overlap horizon — a property of the
         # data, not a per-metric knob. It stays a dataclass field (so threshold
-        # hooks can read ``self.forward_periods`` and the body keeps its
+        # hooks can read ``self.overlap_periods`` and the body keeps its
         # signature default for standalone calls), but it is removed from the
         # user-configurable ``_param_names``: ``evaluate`` injects the data's
         # stamped horizon at dispatch time and the public constructor rejects it.

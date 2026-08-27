@@ -1,4 +1,4 @@
-"""Bandwidth resolution + forward_periods floor on Newey-West."""
+"""Bandwidth resolution + overlap_periods floor on Newey-West."""
 
 from __future__ import annotations
 
@@ -14,35 +14,35 @@ from factrix._stats.constants import auto_bartlett
 
 class TestResolveNwLags:
     def test_default_rule_of_thumb(self):
-        assert _resolve_nw_lags(n=100, lags=None, forward_periods=None) == 4
-        assert _resolve_nw_lags(n=30, lags=None, forward_periods=None) == 3
-        assert _resolve_nw_lags(n=200, lags=None, forward_periods=None) == (
+        assert _resolve_nw_lags(n=100, lags=None, overlap_periods=None) == 4
+        assert _resolve_nw_lags(n=30, lags=None, overlap_periods=None) == 3
+        assert _resolve_nw_lags(n=200, lags=None, overlap_periods=None) == (
             auto_bartlett(200)
         )
 
     def test_explicit_lags_passthrough(self):
-        assert _resolve_nw_lags(n=100, lags=7, forward_periods=None) == 7
+        assert _resolve_nw_lags(n=100, lags=7, overlap_periods=None) == 7
 
     def test_forward_periods_floors_default_lags(self):
-        # auto_bartlett(100) = 4; forward_periods=6 floors at 5.
-        assert _resolve_nw_lags(n=100, lags=None, forward_periods=6) == 5
+        # auto_bartlett(100) = 4; overlap_periods=6 floors at 5.
+        assert _resolve_nw_lags(n=100, lags=None, overlap_periods=6) == 5
 
     def test_forward_periods_floors_explicit_lags(self):
         # explicit lags=2 is too small; h=5 requires at least 4
-        assert _resolve_nw_lags(n=100, lags=2, forward_periods=5) == 4
+        assert _resolve_nw_lags(n=100, lags=2, overlap_periods=5) == 4
 
     def test_forward_periods_one_is_noop(self):
         # h=1 means non-overlapping; floor reduces to h-1=0, so default wins
-        default = _resolve_nw_lags(n=100, lags=None, forward_periods=None)
-        assert _resolve_nw_lags(n=100, lags=None, forward_periods=1) == default
+        default = _resolve_nw_lags(n=100, lags=None, overlap_periods=None)
+        assert _resolve_nw_lags(n=100, lags=None, overlap_periods=1) == default
 
     def test_clip_to_n_minus_one(self):
-        # small sample: lag can't exceed n-1 regardless of forward_periods
-        assert _resolve_nw_lags(n=5, lags=None, forward_periods=10) == 4
+        # small sample: lag can't exceed n-1 regardless of overlap_periods
+        assert _resolve_nw_lags(n=5, lags=None, overlap_periods=10) == 4
 
     def test_short_sample_returns_zero(self):
-        assert _resolve_nw_lags(n=0, lags=None, forward_periods=5) == 0
-        assert _resolve_nw_lags(n=1, lags=None, forward_periods=5) == 0
+        assert _resolve_nw_lags(n=0, lags=None, overlap_periods=5) == 0
+        assert _resolve_nw_lags(n=1, lags=None, overlap_periods=5) == 0
 
 
 class TestNewyWestTForwardPeriods:
@@ -51,8 +51,8 @@ class TestNewyWestTForwardPeriods:
         rng = np.random.default_rng(42)
         x = np.cumsum(rng.standard_normal(200)) * 0.1 + 0.05
         se_default = _newey_west_se(x)
-        # forward_periods=20 forces larger lags than the auto default.
-        se_h20 = _newey_west_se(x, forward_periods=20)
+        # overlap_periods=20 forces larger lags than the auto default.
+        se_h20 = _newey_west_se(x, overlap_periods=20)
         assert se_h20 > se_default
 
     def test_t_test_forward_periods_lowers_t(self):
@@ -60,7 +60,7 @@ class TestNewyWestTForwardPeriods:
         rng = np.random.default_rng(0)
         x = np.cumsum(rng.standard_normal(200)) * 0.05 + 0.02
         t_naive, _, _ = _newey_west_t_test(x)
-        t_hac, _, _ = _newey_west_t_test(x, forward_periods=20)
+        t_hac, _, _ = _newey_west_t_test(x, overlap_periods=20)
         assert abs(t_hac) <= abs(t_naive) + 1e-9
 
     def test_prewhitening_widens_se_on_a_persistent_series(self):

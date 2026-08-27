@@ -376,7 +376,7 @@ class TestDeclaredPeriodsFloorsVisible:
         from factrix.metrics.concentration import top_concentration
 
         # Floor scales with the non-overlap stride; spec() resolves at the
-        # default config (forward_periods=5).
+        # default config (overlap_periods=5).
         st = top_concentration.spec().sample_threshold
         assert st.min_periods == _scaled_min_periods(MIN_PORTFOLIO_PERIODS_HARD, 5)
         assert st.warn_periods == _scaled_min_periods(MIN_PORTFOLIO_PERIODS_WARN, 5)
@@ -396,7 +396,7 @@ class TestDeclaredPeriodsFloorsVisible:
             rank_turnover,
         )
 
-        # Hook resolves against the default config (forward_periods=1).
+        # Hook resolves against the default config (overlap_periods=1).
         st = rank_turnover.spec().sample_threshold
         assert st.min_periods == _rank_turnover_min_dates(1)
 
@@ -438,7 +438,7 @@ class TestDeclaredEventFloorsVisible:
         from factrix.metrics._helpers import _scaled_min_periods
         from factrix.metrics.caar import caar
 
-        # Hook resolves against the default config (forward_periods=5).
+        # Hook resolves against the default config (overlap_periods=5).
         st = caar.spec().sample_threshold
         assert st.min_events == _scaled_min_periods(MIN_EVENTS_HARD, 5)
         assert st.warn_events == _scaled_min_periods(MIN_EVENTS_WARN, 5)

@@ -178,9 +178,19 @@ class EvaluationResult:
             ``DataStructure.PANEL`` or ``DataStructure.TIMESERIES``
             resolved from the panel's asset count; ``scope`` and
             ``density`` default to INDIVIDUAL / DENSE.
-        forward_periods: The data's overlap horizon — read from the panel's
-            ``compute_forward_return`` stamp (or the declared fallback for a
-            self-attached panel). A property of the data, not a per-metric knob.
+        forward_periods: The economic return horizon — the ``forward_periods``
+            ``forward_return`` was built with, in periods of the price grid.
+            Read from the panel's ``compute_forward_return`` stamp (or the
+            declared fallback for a self-attached panel). A property of the
+            data, not a per-metric knob; joins the hypothesis identity.
+        overlap_periods: The overlap of adjacent observations on the
+            evaluation grid — the quantity inference consumed (HAC bandwidth
+            and effective df, non-overlapping stride, stride-scaled floors).
+            Equal to ``forward_periods`` on the full grid; smaller on a
+            coarser evaluation grid (``compute_forward_return(..., dates=)``).
+            Bookkeeping only — it does **not** join the hypothesis identity,
+            because the same horizon evaluated on two grids is one hypothesis
+            estimated twice, not two hypotheses.
         n_periods: Number of unique dates in the factor panel where
             the factor column is non-null. A panel structural property —
             independent of any individual metric's estimator.
@@ -214,6 +224,7 @@ class EvaluationResult:
     factor: str
     cell: tuple[FactorScope, FactorDensity, DataStructure]
     forward_periods: int
+    overlap_periods: int
     n_periods: int
     n_pairs: int
     n_assets: int
@@ -258,6 +269,7 @@ class EvaluationResult:
         | ``factor`` | str | :attr:`factor` |
         | ``forward_periods`` | i64 | :attr:`forward_periods` |
         | *one column per* :attr:`params` *key* | inferred | :attr:`params` value |
+        | ``overlap_periods`` | i64 | :attr:`overlap_periods` (bookkeeping, not identity) |
         | ``n_assets`` | i64 | :attr:`n_assets` |
         | ``metric_name`` | str | ``MetricResult.name`` |
         | ``value`` | f64 \| null | ``MetricResult.value`` |
@@ -300,6 +312,7 @@ class EvaluationResult:
                 "factor": self.factor,
                 "forward_periods": self.forward_periods,
                 **dict(self.params),
+                "overlap_periods": self.overlap_periods,
                 "n_assets": self.n_assets,
                 **_output_row(key, out, by_metric),
             }
@@ -310,6 +323,7 @@ class EvaluationResult:
             "forward_periods": pl.Int64,
             # params values are caller-supplied Hashables — let polars infer.
             **dict.fromkeys(self.params),
+            "overlap_periods": pl.Int64,
             **{k: v for k, v in _TO_FRAME_SCHEMA.items() if k != "factor"},
         }
         return pl.DataFrame(rows, schema=schema)
@@ -319,8 +333,8 @@ class EvaluationResult:
 
         Layout (top-level keys, stable order):
 
-        - ``factor`` / ``cell`` / ``forward_periods`` / ``n_periods`` /
-          ``n_pairs`` / ``n_assets`` / ``params`` / ``metadata``
+        - ``factor`` / ``cell`` / ``forward_periods`` / ``overlap_periods`` /
+          ``n_periods`` / ``n_pairs`` / ``n_assets`` / ``params`` / ``metadata``
         - ``metrics``: ``label -> {value, p_value, alternative, stat, n_obs,
           n_obs_axis, is_applicable, reason, metadata}``
         - ``warnings``: list of ``{code, source, message, expected}``
@@ -337,6 +351,7 @@ class EvaluationResult:
                 "structure": structure.value,
             },
             "forward_periods": self.forward_periods,
+            "overlap_periods": self.overlap_periods,
             "n_periods": self.n_periods,
             "n_pairs": self.n_pairs,
             "n_assets": self.n_assets,
@@ -364,6 +379,7 @@ class EvaluationResult:
             ("factor", self.factor),
             ("cell", f"({scope.value}, {density.value}, {structure.value})"),
             ("forward_periods", self.forward_periods),
+            ("overlap_periods", self.overlap_periods),
             ("n_periods", self.n_periods),
             ("n_pairs", self.n_pairs),
             ("n_assets", self.n_assets),

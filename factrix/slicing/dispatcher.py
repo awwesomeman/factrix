@@ -34,6 +34,7 @@ def by_slice(
     by: str,
     factor_col: str,
     forward_periods: int | None = None,
+    overlap_periods: int | None = None,
     strict: bool = True,
 ) -> dict[str, EvaluationResult]:
     """Partition ``data`` by ``by`` and run :func:`factrix.evaluate` per slice.
@@ -77,11 +78,15 @@ def by_slice(
         factor_col: The factor column to evaluate. Single-factor by
             design — multi-factor / multi-metric batching is the job of
             :func:`factrix.evaluate`.
-        forward_periods: The data's overlap horizon, forwarded to
+        forward_periods: The data's return horizon, forwarded to
             ``evaluate`` on every per-slice call. Normally omitted — it is
             read from the panel's ``compute_forward_return`` stamp (which
             survives partitioning). Pass it only to declare the horizon for a
             self-attached ``forward_return`` panel that carries no stamp.
+        overlap_periods: The evaluation-grid overlap, forwarded to
+            ``evaluate`` alongside ``forward_periods`` with the same
+            stamp-first contract; for an unstamped panel it defaults to the
+            horizon.
         strict: Forwarded to ``evaluate``. ``True`` (default) raises if
             the metric is inapplicable to a slice; ``False`` surfaces a
             NaN result with a warning.
@@ -145,6 +150,7 @@ def by_slice(
             metrics={label: metric},
             factor_cols=[factor_col],
             forward_periods=forward_periods,
+            overlap_periods=overlap_periods,
             strict=strict,
         )
         result = bundle[factor_col]

@@ -35,7 +35,7 @@ from factrix.metrics._helpers import (
 )
 def compute_spread_series(
     data: pl.DataFrame,
-    forward_periods: int = 5,
+    overlap_periods: int = 5,
     n_groups: int = 5,
     factor_cols: Sequence[str] = ("factor",),
     return_col: str = "forward_return",
@@ -50,7 +50,7 @@ def compute_spread_series(
 
     Args:
         data: Panel with ``date, asset_id, factor, forward_return``.
-        forward_periods: Number of periods forward.
+        overlap_periods: Number of periods forward.
         n_groups: Number of quantile groups.
         factor_cols: Factor column names to score. All factors run in a
             single polars query (one ``with_columns`` + one
@@ -72,7 +72,7 @@ def compute_spread_series(
             bottom_return[t] = mean_{i in Q_bot} return[i, t]
             spread[t]        = top_return[t] - bottom_return[t]
 
-        factrix uses non-overlap sub-sampling (stride ``forward_periods``)
+        factrix uses non-overlap sub-sampling (stride ``overlap_periods``)
         before bucketing, not overlapping panel re-balancing — keeps the
         spread series free of MA(h-1) autocorrelation so downstream
         non-overlap t-tests are valid without heteroskedasticity-and-autocorrelation-consistent (HAC).
@@ -93,7 +93,7 @@ def compute_spread_series(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> spreads = compute_spread_series(panel, forward_periods=5, n_groups=5)
+        >>> spreads = compute_spread_series(panel, overlap_periods=5, n_groups=5)
         >>> spread_df = spreads["factor"]
         >>> set(spread_df.columns) >= {"date", "spread", "top_return", "bottom_return"}
         True
@@ -102,7 +102,7 @@ def compute_spread_series(
     if not cols:
         raise ValueError("factor_cols must be non-empty")
 
-    sampled = _sample_non_overlapping(data, forward_periods)
+    sampled = _sample_non_overlapping(data, overlap_periods)
 
     _warn_thin_quantile_groups(sampled, n_groups)
 

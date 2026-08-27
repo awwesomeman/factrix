@@ -40,7 +40,7 @@ class TestDirectionalPairAccuracy:
                 [(1.0, 1.0), (2.0, 2.0), (3.0, 3.0), (4.0, 4.0)],
             ]
         )
-        result = directional_pair_accuracy(data, forward_periods=1)
+        result = directional_pair_accuracy(data, overlap_periods=1)
         assert result.value == pytest.approx(1.0)
         assert result.p_value is None
         assert result.stat is None
@@ -61,7 +61,7 @@ class TestDirectionalPairAccuracy:
                 [(1.0, 4.0), (2.0, 3.0), (3.0, 2.0), (4.0, 1.0)],
             ]
         )
-        result = directional_pair_accuracy(data, forward_periods=1)
+        result = directional_pair_accuracy(data, overlap_periods=1)
         assert result.value == pytest.approx(0.0)
         assert result.metadata["n_incorrect_pairs"] == 30
 
@@ -70,7 +70,7 @@ class TestDirectionalPairAccuracy:
         large_reversed_date = [[(float(i), float(9 - i)) for i in range(10)]]
         data = _panel([*small_correct_dates, *large_reversed_date])
 
-        result = directional_pair_accuracy(data, forward_periods=1)
+        result = directional_pair_accuracy(data, overlap_periods=1)
 
         assert result.metadata["n_correct_pairs"] == 10
         assert result.metadata["n_incorrect_pairs"] == 45
@@ -93,7 +93,7 @@ class TestDirectionalPairAccuracy:
                 [(1.0, 1.0), (2.0, 2.0), (3.0, 3.0), (4.0, 4.0), (5.0, 5.0)],
             ]
         )
-        result = directional_pair_accuracy(data, forward_periods=1)
+        result = directional_pair_accuracy(data, overlap_periods=1)
         assert result.value == pytest.approx(1.0)
         assert result.metadata["n_raw_pairs"] == 36
         assert result.metadata["n_pairs"] == 34
@@ -104,7 +104,7 @@ class TestDirectionalPairAccuracy:
 
     def test_insufficient_comparable_pairs_short_circuits_on_pairs_axis(self):
         data = _panel([[(1.0, 1.0), (2.0, 2.0)]])
-        result = directional_pair_accuracy(data, forward_periods=1)
+        result = directional_pair_accuracy(data, overlap_periods=1)
         assert math.isnan(result.value)
         assert result.p_value is None
         assert result.n_obs_axis == "asset_pairs"
@@ -122,7 +122,7 @@ class TestDirectionalPairAccuracy:
         )
         assert MIN_PAIR_ACCURACY_PAIRS_HARD <= 12 < MIN_PAIR_ACCURACY_PAIRS_WARN
         with pytest.warns(UserWarning, match="MIN_PAIR_ACCURACY_PAIRS_WARN"):
-            result = directional_pair_accuracy(data, forward_periods=1)
+            result = directional_pair_accuracy(data, overlap_periods=1)
         assert result.metadata["n_pairs"] == 12
         assert WarningCode.FEW_ORDERING_PAIRS.value in result.warning_codes
 
@@ -149,6 +149,6 @@ class TestDirectionalPairAccuracy:
         assert verdict.blockers == []
 
         with pytest.warns(UserWarning, match="MIN_PAIR_ACCURACY_PAIRS_WARN"):
-            result = directional_pair_accuracy(data, forward_periods=1)
+            result = directional_pair_accuracy(data, overlap_periods=1)
         assert result.metadata["n_pairs"] == MIN_PAIR_ACCURACY_PAIRS_HARD
         assert result.value == pytest.approx(1.0)

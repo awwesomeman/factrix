@@ -109,8 +109,8 @@ per_date_series = per_date_series_rename("caar")
 
 def _caar_sample_threshold(self: MetricBase) -> SampleThreshold:
     """Dynamic event floor for ``caar``: the raw event-period count scales with
-    ``forward_periods`` because the t-test runs on a non-overlap subsample
-    (stride ``forward_periods``). Delegates to the same ``_scaled_min_periods``
+    ``overlap_periods`` because the t-test runs on a non-overlap subsample
+    (stride ``overlap_periods``). Delegates to the same ``_scaled_min_periods``
     the in-body short-circuit reads, so pre-flight and run-time floors agree.
 
     Unlike the sibling event tests (:func:`_event_sample_threshold`), the *hard*
@@ -119,8 +119,8 @@ def _caar_sample_threshold(self: MetricBase) -> SampleThreshold:
     can be gated on the same scaled number.
     """
     return SampleThreshold(
-        min_events=_scaled_min_periods(MIN_EVENTS_HARD, self.forward_periods),
-        warn_events=_scaled_min_periods(MIN_EVENTS_WARN, self.forward_periods),
+        min_events=_scaled_min_periods(MIN_EVENTS_HARD, self.overlap_periods),
+        warn_events=_scaled_min_periods(MIN_EVENTS_WARN, self.overlap_periods),
     )
 
 
@@ -135,13 +135,13 @@ def _caar_sample_threshold(self: MetricBase) -> SampleThreshold:
 def caar(
     caar_df: pl.DataFrame,
     *,
-    forward_periods: int = 5,
+    overlap_periods: int = 5,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""CAAR significance: is mean CAAR significantly different from zero?
 
     The event floor is dynamic — the minimum event-period count scales with the
-    forward_periods parameter (non-overlapping stride) — so it is declared as a
+    overlap_periods parameter (non-overlapping stride) — so it is declared as a
     resolver (a callable sample_threshold) rather than a constant. Pre-flight
     counts non-zero factor rows as a loose upper bound; this in-body short-circuit
     on event periods stays authoritative.
@@ -152,8 +152,8 @@ def caar(
             column is optional (hand-built frames omit it); when present its
             row-0 value is echoed into
             ``metadata["n_events_dropped_non_finite"]``.
-        forward_periods: Sampling interval for non-overlapping dates.
-            Maps to ``config.forward_periods`` — the return horizon used
+        overlap_periods: Sampling interval for non-overlapping dates.
+            Maps to ``config.overlap_periods`` — the return horizon used
             in ``compute_forward_return``. Distinct from
             ``EventConfig.event_window_post`` which controls MFE/MAE.
 
@@ -188,13 +188,13 @@ def caar(
         The subsample is drawn **calendar-aware**: the CAAR series is
         event-period-indexed (``compute_caar`` keeps only ``factor != 0``
         rows), so its dates are calendar-irregular. Sampling every
-        ``forward_periods``-th *row* (index distance) would mis-handle both
+        ``overlap_periods``-th *row* (index distance) would mis-handle both
         regimes — sparse events get further thinned (power loss), clustered
         events inside one forward-return window are admitted as independent
         (iid violated, $t$ inflated). Instead a greedy pass over
         ``date_ordinal`` (each event's position on the full calendar) keeps
         an event only when its calendar gap to the previously kept event is
-        ``>= forward_periods``, so consecutive kept observations no longer
+        ``>= overlap_periods``, so consecutive kept observations no longer
         share overlapping forward-return windows. The alternative —
         reindexing to a dense calendar with zero-fill before fixed-stride
         sampling — was rejected: the zero padding would dominate the
@@ -260,7 +260,7 @@ def caar(
         ...     forward_periods=5,
         ... )
         >>> caar_df = compute_caar(panel)
-        >>> result = caar(caar_df, forward_periods=5)
+        >>> result = caar(caar_df, overlap_periods=5)
         >>> result.name == ""
         True
     """
@@ -278,12 +278,12 @@ def caar(
     total_events = (
         int(caar_df["n_events"].sum()) if "n_events" in caar_df.columns else n
     )
-    raw_min_warn = _scaled_min_periods(MIN_EVENTS_WARN, forward_periods)
+    raw_min_warn = _scaled_min_periods(MIN_EVENTS_WARN, overlap_periods)
     sc = _enforce_scaled_floor(
         "caar",
         n,
         MIN_EVENTS_HARD,
-        forward_periods,
+        overlap_periods,
         "insufficient_event_periods",
         axis="events",
     )
@@ -294,11 +294,11 @@ def caar(
     warn_code = _warn_below_scaled_floor(
         n,
         MIN_EVENTS_WARN,
-        forward_periods,
+        overlap_periods,
         f"caar: n_event_periods={n} below the floor of {raw_min_warn} "
-        f"(= MIN_EVENTS_WARN {MIN_EVENTS_WARN} x forward_periods "
-        f"{forward_periods}). The t-test runs on the subsample left after "
-        f"non-overlap sampling at stride h={forward_periods}, which keeps "
+        f"(= MIN_EVENTS_WARN {MIN_EVENTS_WARN} x overlap_periods "
+        f"{overlap_periods}). The t-test runs on the subsample left after "
+        f"non-overlap sampling at stride h={overlap_periods}, which keeps "
         f"about one period in h, so the raw series must carry h times "
         f"MIN_EVENTS_WARN periods to land on {MIN_EVENTS_WARN} independent "
         f"observations. caar is an equal-weight calendar-time portfolio "
@@ -321,7 +321,7 @@ def caar(
         )
     # caar_df is already free of null/NaN caar (filtered above), so the
     # spacing pass allocates its slots to usable dates only.
-    sampled_df = _sample_event_spaced(caar_df, forward_periods)
+    sampled_df = _sample_event_spaced(caar_df, overlap_periods)
     sampled = sampled_df["caar"]
     n_sampled = len(sampled)
 
@@ -351,7 +351,7 @@ def caar(
         "caar",
         n,
         n_sampled,
-        forward_periods,
+        overlap_periods,
         metadata,
         warning_codes,
         expected_warnings=expected_warnings,
@@ -406,7 +406,7 @@ def bmp_z(
     factor_col: str = "factor",
     return_col: str = "forward_return",
     estimation_window: int = 60,
-    forward_periods: int = 5,
+    overlap_periods: int = 5,
     kolari_pynnonen_adjust: bool = True,
     include_prediction_error_variance: bool = False,
     expected_warnings: tuple[str, ...] = (),
@@ -415,7 +415,7 @@ def bmp_z(
 
     The static event floor (MIN_EVENTS_HARD) gates the standardized-AR z-test on
     the count of events with a usable estimation-window volatility that survive
-    the event-axis spacing pass; the warn floor scales with the forward_periods
+    the event-axis spacing pass; the warn floor scales with the overlap_periods
     parameter (the spacing stride), so the threshold is declared as a resolver
     (a callable sample_threshold) rather than a constant.
 
@@ -427,7 +427,7 @@ def bmp_z(
 
     Uses ``price`` column for estimation-window volatility if available;
     falls back to per-asset historical ``forward_return`` std otherwise.
-    The fallback std is lagged by ``forward_periods`` so the estimation
+    The fallback std is lagged by ``overlap_periods`` so the estimation
     window ends before each event's own forward return (which spans
     ``(t, t+h]``) rather than leaking the event AR into its own
     standardiser; it remains a coarser, horizon-overlapping vol proxy
@@ -449,10 +449,10 @@ def bmp_z(
             estimation window.
         estimation_window: Number of periods before each event for
             volatility estimation (default 60).
-        forward_periods: Return horizon for vol scaling (default 5),
+        overlap_periods: Return horizon for vol scaling (default 5),
             counted in panel rows — not calendar days. When using
             price-derived one-period vol, scales by
-            ``1/sqrt(forward_periods)`` to match per-period forward_return.
+            ``1/sqrt(overlap_periods)`` to match per-period forward_return.
         kolari_pynnonen_adjust: On by default. Apply the
             [Kolari-Pynnönen (2010)][kolari-pynnonen-2010] adjustment for
             cross-sectional correlation of SAR. BMP assumes events are
@@ -532,7 +532,7 @@ def bmp_z(
     Notes:
         For each event $i$: estimate pre-event vol $\sigma_i$ over the
         ``estimation_window``, scaled to the forward horizon by
-        $1/\sqrt{h}$ (with $h$ = ``forward_periods``) when a ``price`` column is
+        $1/\sqrt{h}$ (with $h$ = ``overlap_periods``) when a ``price`` column is
         available;
         $\mathrm{SAR}_i = \mathrm{AR}^{\mathrm{signed}}_i / \sigma_i$; aggregate to
         $z = \mathrm{mean}(\mathrm{SAR}) / (\mathrm{std}(\mathrm{SAR}) / \sqrt{N})$.
@@ -581,7 +581,7 @@ def bmp_z(
         return: the asset's estimation-window mean is subtracted from
         ``return_col`` — taken on the same ``estimation_window`` bars of
         one-bar returns as $\sigma_i$ when ``price`` is present, on
-        ``return_col`` rows lagged by ``forward_periods`` otherwise — or an
+        ``return_col`` rows lagged by ``overlap_periods`` otherwise — or an
         ``abnormal_return`` column on the input is used as supplied (see
         :func:`~factrix.metrics._helpers._attach_abnormal_return` for both
         models and ``metadata["abnormal_return_model"]`` /
@@ -652,7 +652,7 @@ def bmp_z(
         ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> result = bmp_z(panel, forward_periods=5)
+        >>> result = bmp_z(panel, overlap_periods=5)
         >>> result.name == ""
         True
     """
@@ -666,7 +666,7 @@ def bmp_z(
         data.sort(["asset_id", "date"]),
         return_col=return_col,
         estimation_window=estimation_window,
-        forward_periods=forward_periods,
+        overlap_periods=overlap_periods,
         factor_col=factor_col,
     )
 
@@ -677,13 +677,13 @@ def bmp_z(
                 "_period_ret"
             )
         )
-        # WHY: forward_return = (price[t+1+forward_periods]/price[t+1] - 1)
-        # / forward_periods has std ≈ σ_1 / sqrt(forward_periods), where σ_1 is
+        # WHY: forward_return = (price[t+1+overlap_periods]/price[t+1] - 1)
+        # / overlap_periods has std ≈ σ_1 / sqrt(overlap_periods), where σ_1 is
         # the one-period (one-row) return std. Scale estimation vol to match.
         # "One period" is whatever the panel's own frequency is — factrix never
         # reads the calendar, so this holds for daily, weekly or monthly rows.
-        vol_scale = 1.0 / np.sqrt(forward_periods)
-        # Price one-period returns at [t-forward_periods+1, t] precede the event
+        vol_scale = 1.0 / np.sqrt(overlap_periods)
+        # Price one-period returns at [t-overlap_periods+1, t] precede the event
         # window (t, t+h], so no extra lag is needed.
         vol_lag = 0
     else:
@@ -693,8 +693,8 @@ def bmp_z(
         # ending at row t would standardise the event AR with a window that
         # already contains that event's own (and adjacent) forward returns —
         # the numerator leaks into its own denominator. Lag the fallback std by
-        # forward_periods so the estimation window ends before the event window.
-        vol_lag = forward_periods
+        # overlap_periods so the estimation window ends before the event window.
+        vol_lag = overlap_periods
 
     # Strict BMP (1991) denominator for mean-adjusted residuals: a
     # forecast SE is √(1 + 1/T) larger than the in-sample residual std.
@@ -704,7 +704,7 @@ def bmp_z(
         vol_scale *= float(np.sqrt(1.0 + 1.0 / estimation_window))
 
     # With price the window [t-N+1, t] already precedes the event window; the
-    # fallback adds a forward_periods lag (see above) so it too ends pre-event.
+    # fallback adds a overlap_periods lag (see above) so it too ends pre-event.
     # Same min_samples expression as the mean in _attach_abnormal_return, so
     # a deliberately short window yields a vol wherever it yields a mean.
     est_vol_expr = pl.col("_period_ret").rolling_std(
@@ -754,10 +754,10 @@ def bmp_z(
     # Overlap discipline on the TIME axis. The Kolari-Pynnonen adjustment below
     # handles same-period cross-asset correlation; it has nothing to work with
     # on a single asset, where the only clustering axis is time. Two events on
-    # one asset less than forward_periods apart share future bars, so pooling
+    # one asset less than overlap_periods apart share future bars, so pooling
     # them into the cross-sectional z counts one draw twice.
     valid = _sample_events_non_overlapping(
-        valid, forward_periods, calendar_dates=sorted_df["date"]
+        valid, overlap_periods, calendar_dates=sorted_df["date"]
     )
     n_valid = len(valid)
 
@@ -770,7 +770,7 @@ def bmp_z(
         n_valid,
         "insufficient_estimation_window",
         axis="events",
-        forward_periods=forward_periods,
+        overlap_periods=overlap_periods,
         n_events_raw=n_valid_raw,
     )
     if sc is not None:
@@ -807,7 +807,7 @@ def bmp_z(
         "bmp_z",
         n_valid_raw,
         n_valid,
-        forward_periods,
+        overlap_periods,
         metadata,
         warning_codes,
         expected_warnings=expected_warnings,
@@ -820,7 +820,7 @@ def bmp_z(
         warnings.warn(
             f"bmp_z: no 'price' column; estimation-window volatility falls back "
             f"to the per-asset rolling std of '{return_col}', lagged by "
-            f"forward_periods={forward_periods} so the window ends before each "
+            f"overlap_periods={overlap_periods} so the window ends before each "
             f"event's forward return. This is a coarser, horizon-overlapping vol "
             f"proxy than a price-derived one-period std — supply 'price' for the "
             f"clean BMP "
@@ -861,15 +861,15 @@ def bmp_z(
     #     corrado_rank apply: the spacing pass above keeps about one event in
     #     h per asset, so the raw count must carry h times MIN_EVENTS_WARN to
     #     land on MIN_EVENTS_WARN independent ones.
-    raw_min_warn = _scaled_min_periods(MIN_EVENTS_WARN, forward_periods)
+    raw_min_warn = _scaled_min_periods(MIN_EVENTS_WARN, overlap_periods)
     warn_code = _warn_below_scaled_floor(
         n_valid_raw,
         MIN_EVENTS_WARN,
-        forward_periods,
+        overlap_periods,
         f"bmp_z: n_events={n_valid_raw} below the floor of {raw_min_warn} "
-        f"(= MIN_EVENTS_WARN {MIN_EVENTS_WARN} x forward_periods "
-        f"{forward_periods}); {n_valid} events and {n_event_periods} event "
-        f"periods survive non-overlap sampling at stride h={forward_periods}, "
+        f"(= MIN_EVENTS_WARN {MIN_EVENTS_WARN} x overlap_periods "
+        f"{overlap_periods}); {n_valid} events and {n_event_periods} event "
+        f"periods survive non-overlap sampling at stride h={overlap_periods}, "
         f"which keeps up to one event in h per asset. z is returned but the "
         f"cross-sectional test is power-thin on a sample this short.",
         WarningCode.FEW_EVENTS,

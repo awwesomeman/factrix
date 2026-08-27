@@ -42,7 +42,7 @@ class TestComputeForwardReturn:
         df = _make_price_data()
         result = compute_forward_return(df, forward_periods=1)
         assert result["forward_return"].null_count() == 0
-        # 5 dates per asset, forward_periods=1, t+1 entry:
+        # 5 dates per asset, overlap_periods=1, t+1 entry:
         # need price[t+1] (entry) and price[t+2] (exit) → 3 valid rows per asset
         assert len(result) == 6
 
@@ -55,7 +55,7 @@ class TestComputeForwardReturn:
         assert b_ret < 0
 
     def test_divided_by_periods(self):
-        """forward_return = (price[t+1+forward_periods]/price[t+1] - 1) / forward_periods."""
+        """forward_return = (price[t+1+overlap_periods]/price[t+1] - 1) / overlap_periods."""
         df = _make_price_data()
         # Asset A: price 100 → 121 over 2 periods → raw return 0.21
         # Per-period: 0.21 / 2 = 0.105
@@ -145,7 +145,7 @@ class TestComputeForwardReturn:
         assert result["forward_return"].is_finite().all()
 
     def test_horizon_too_long_raises_clear_error(self):
-        with pytest.raises(UserInputError, match=r"too short|forward_periods=10"):
+        with pytest.raises(UserInputError, match=r"too short|overlap_periods=10"):
             compute_forward_return(_make_price_data(), forward_periods=10)
 
 

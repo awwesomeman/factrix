@@ -127,7 +127,7 @@ class TestNonFiniteReturns:
         assert nan_result.value == pytest.approx(null_result.value)
         # The non-finite cell is excluded from the ranked sample, which is the
         # abnormal-return series: it starts once the estimation mean exists
-        # (min_samples=20 plus the forward_periods lag of 5), so 300 - 24 cells
+        # (min_samples=20 plus the overlap_periods lag of 5), so 300 - 24 cells
         # would remain and the hole removes one more.
         assert nan_result.metadata["n_total_obs"] == 275
         assert nan_result.metadata["n_total_obs"] == null_result.metadata["n_total_obs"]
@@ -173,7 +173,7 @@ class TestNonFiniteReturns:
         assert result.metadata["n_events_dropped_non_finite"] == 0
         assert result.metadata["n_events_dropped_no_estimation_window"] == 0
         # 300 rows less the 24 the estimation mean needs (min_samples=20 plus
-        # the forward_periods lag of 5).
+        # the overlap_periods lag of 5).
         assert result.metadata["n_total_obs"] == 276
 
 
@@ -292,7 +292,7 @@ class TestClusterRobustDenominator:
         # Event periods are four calendar steps apart, so the horizon is four:
         # every event clears the non-overlap stride and the collapse is the
         # identity, as the docstring above describes.
-        result = corrado_rank(pl.DataFrame(rows), forward_periods=4)
+        result = corrado_rank(pl.DataFrame(rows), overlap_periods=4)
         assert result.n_obs == len(event_days)
         assert result.metadata["events_per_period_mean"] == pytest.approx(15.0)
         assert result.stat > 0
@@ -353,11 +353,11 @@ class TestStatisticAgainstHandComputation:
         n = 260
         panel = self._panel(event_ordinals, n)
 
-        result = corrado_rank(panel, forward_periods=fp)
+        result = corrado_rank(panel, overlap_periods=fp)
 
         returns = panel["forward_return"].to_numpy()
         # The ranked quantity is the ABNORMAL return: R_t less the mean of the
-        # estimation window ending forward_periods rows earlier (60 rows,
+        # estimation window ending overlap_periods rows earlier (60 rows,
         # min_samples 20). Rows without that mean have no abnormal return and
         # never enter the ranking.
         window, min_samples = 60, 20

@@ -1,7 +1,7 @@
 """Series-mean inference methods — ``factrix.inference`` members.
 
 Verifies:
-- The df-based ``compute(df, *, value_col, forward_periods)`` contract
+- The df-based ``compute(df, *, value_col, overlap_periods)`` contract
   matches the underlying ``factrix._stats`` kernels bit-for-bit.
 - ``min_periods`` soft floor surfaces ``UNRELIABLE_SE_SHORT_PERIODS``;
   Hansen-Hodrick clamp surfaces ``RECT_KERNEL_NEGATIVE_VARIANCE``.
@@ -75,20 +75,20 @@ def _same(a: float, b: float) -> bool:
 
 
 class TestNonOverlapping:
-    @pytest.mark.parametrize("forward_periods", [1, 5, 10])
-    def test_bit_equal_to_kernel(self, forward_periods: int) -> None:
+    @pytest.mark.parametrize("overlap_periods", [1, 5, 10])
+    def test_bit_equal_to_kernel(self, overlap_periods: int) -> None:
         rng = np.random.default_rng(0)
         series = rng.standard_normal(120) + 0.1
         df = _series_df(series)
         result = NON_OVERLAPPING.compute(
-            df, value_col="ic", forward_periods=forward_periods
+            df, value_col="ic", overlap_periods=overlap_periods
         )
-        sampled = series[::forward_periods]
+        sampled = series[::overlap_periods]
         assert result.stat == _t_stat_from_array(sampled)
         assert result.p_value == _p_value_from_t(
             _t_stat_from_array(sampled), len(sampled)
         )
-        assert result.metadata["stride"] == forward_periods
+        assert result.metadata["stride"] == overlap_periods
         assert result.metadata["n_obs_sampled"] == len(sampled)
 
     def test_sorts_by_date_before_striding(self) -> None:
@@ -97,8 +97,8 @@ class TestNonOverlapping:
         series = np.arange(40.0)
         df = _series_df(series)
         shuffled = df.sample(fraction=1.0, shuffle=True, seed=1)
-        a = NON_OVERLAPPING.compute(df, value_col="ic", forward_periods=5)
-        b = NON_OVERLAPPING.compute(shuffled, value_col="ic", forward_periods=5)
+        a = NON_OVERLAPPING.compute(df, value_col="ic", overlap_periods=5)
+        b = NON_OVERLAPPING.compute(shuffled, value_col="ic", overlap_periods=5)
         assert a.stat == b.stat
         assert a.p_value == b.p_value
 
@@ -107,12 +107,12 @@ class TestNonOverlapping:
         df = _series_df(series).with_columns(
             pl.when(pl.col("ic") == 3.0).then(None).otherwise(pl.col("ic")).alias("ic")
         )
-        result = NON_OVERLAPPING.compute(df, value_col="ic", forward_periods=1)
+        result = NON_OVERLAPPING.compute(df, value_col="ic", overlap_periods=1)
         assert result.metadata["n_obs_original"] == 19
 
     def test_short_sample_warns(self) -> None:
         result = NON_OVERLAPPING.compute(
-            _series_df(np.arange(10.0)), value_col="ic", forward_periods=1
+            _series_df(np.arange(10.0)), value_col="ic", overlap_periods=1
         )
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS in result.warnings
 
@@ -123,27 +123,27 @@ class TestNonOverlapping:
 
 
 class TestNeweyWest:
-    @pytest.mark.parametrize("forward_periods", [1, 5, 10])
-    def test_bit_equal_to_kernel_nw1994(self, forward_periods: int) -> None:
+    @pytest.mark.parametrize("overlap_periods", [1, 5, 10])
+    def test_bit_equal_to_kernel_nw1994(self, overlap_periods: int) -> None:
         rng = np.random.default_rng(42)
         series = rng.standard_normal(60)
         df = _series_df(series)
-        result = NEWEY_WEST.compute(df, value_col="ic", forward_periods=forward_periods)
-        nw_lags = _resolve_har_lags(len(series), None, forward_periods)
+        result = NEWEY_WEST.compute(df, value_col="ic", overlap_periods=overlap_periods)
+        nw_lags = _resolve_har_lags(len(series), None, overlap_periods)
         t_direct, p_direct, _ = _newey_west_t_test(
-            series, lags=nw_lags, forward_periods=forward_periods
+            series, lags=nw_lags, overlap_periods=overlap_periods
         )
         assert result.stat == t_direct
         assert result.p_value == p_direct
         assert result.metadata == {
             "nw_lags": nw_lags,
-            "hac_dof": _har_dof(len(series), nw_lags, forward_periods),
+            "hac_dof": _har_dof(len(series), nw_lags, overlap_periods),
         }
 
     def test_short_series_warns(self) -> None:
         series = np.random.default_rng(0).standard_normal(MIN_PERIODS_WARN - 5)
         result = NEWEY_WEST.compute(
-            _series_df(series), value_col="ic", forward_periods=5
+            _series_df(series), value_col="ic", overlap_periods=5
         )
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS in result.warnings
 
@@ -153,7 +153,7 @@ class TestNeweyWest:
         # It is *not* DEGENERATE_VARIANCE — nothing here shows a collapsed
         # SE — so only the short-sample code fires.
         result = NEWEY_WEST.compute(
-            _series_df(np.array([0.0])), value_col="ic", forward_periods=5
+            _series_df(np.array([0.0])), value_col="ic", overlap_periods=5
         )
         assert math.isnan(result.stat)
         assert math.isnan(result.p_value)
@@ -165,7 +165,7 @@ class TestNeweyWest:
         # The reported shape: identical, non-zero observations. Evidence is
         # maximal, so the one outcome that must NOT appear is p=1.
         result = NEWEY_WEST.compute(
-            _series_df(np.full(40, 0.03)), value_col="ic", forward_periods=5
+            _series_df(np.full(40, 0.03)), value_col="ic", overlap_periods=5
         )
         assert result.p_value != 1.0
         assert math.isnan(result.p_value)
@@ -173,15 +173,15 @@ class TestNeweyWest:
 
 
 class TestHansenHodrick:
-    @pytest.mark.parametrize("forward_periods", [2, 5, 10])
-    def test_bit_equal_to_kernel(self, forward_periods: int) -> None:
+    @pytest.mark.parametrize("overlap_periods", [2, 5, 10])
+    def test_bit_equal_to_kernel(self, overlap_periods: int) -> None:
         rng = np.random.default_rng(42)
         series = rng.standard_normal(60)
         result = HansenHodrick().compute(
-            _series_df(series), value_col="ic", forward_periods=forward_periods
+            _series_df(series), value_col="ic", overlap_periods=overlap_periods
         )
         t_direct, p_direct, _, clamped = _hansen_hodrick_t_test(
-            series, forward_periods=forward_periods
+            series, overlap_periods=overlap_periods
         )
         # ``==`` is not enough: a clamped kernel makes both sides NaN, and the
         # point of the test is that compute delegates rather than recomputes.
@@ -192,7 +192,7 @@ class TestHansenHodrick:
     def test_clamp_surfaces_warning(self) -> None:
         series = np.random.default_rng(0).standard_normal(10)
         result = HansenHodrick().compute(
-            _series_df(series), value_col="ic", forward_periods=4
+            _series_df(series), value_col="ic", overlap_periods=4
         )
         assert result.metadata["variance_clamped"] is True
         assert WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE in result.warnings
@@ -202,7 +202,7 @@ class TestStationaryBootstrap:
     def test_stat_is_observed_mean(self) -> None:
         series = np.random.default_rng(0).standard_normal(80) + 0.2
         result = STATIONARY_BOOTSTRAP.compute(
-            _series_df(series), value_col="ic", forward_periods=5
+            _series_df(series), value_col="ic", overlap_periods=5
         )
         assert result.stat == pytest.approx(float(series.mean()))
         assert 0.0 < result.p_value <= 1.0
@@ -210,7 +210,7 @@ class TestStationaryBootstrap:
     def test_metadata_reports_reproducible_seed(self) -> None:
         series = np.random.default_rng(1).standard_normal(80)
         result = STATIONARY_BOOTSTRAP.compute(
-            _series_df(series), value_col="ic", forward_periods=5
+            _series_df(series), value_col="ic", overlap_periods=5
         )
         assert set(result.metadata) == {
             "block_length",
@@ -219,18 +219,18 @@ class TestStationaryBootstrap:
             "rng_seed",
             "studentized",
         }
-        # forward_periods must be part of the replay: the member floors the
+        # overlap_periods must be part of the replay: the member floors the
         # resolved block length at the overlap horizon, so a replay without
         # it reproduces a different (shorter-block) bootstrap.
         p_replay, _ = _block_bootstrap_diff_p(
-            series, forward_periods=5, rng_seed=result.metadata["rng_seed"]
+            series, overlap_periods=5, rng_seed=result.metadata["rng_seed"]
         )
         assert result.p_value == p_replay
         assert result.metadata["block_length"] >= 5
 
     def test_short_sample_warns(self) -> None:
         result = STATIONARY_BOOTSTRAP.compute(
-            _series_df(np.arange(10.0)), value_col="ic", forward_periods=1
+            _series_df(np.arange(10.0)), value_col="ic", overlap_periods=1
         )
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS in result.warnings
 
@@ -274,7 +274,7 @@ class TestPersistenceScreen:
     )
     def test_persistent_series_is_flagged(self, member) -> None:
         result = member.compute(
-            _series_df(self._ar1(0.85)), value_col="ic", forward_periods=1
+            _series_df(self._ar1(0.85)), value_col="ic", overlap_periods=1
         )
         assert WarningCode.SERIAL_CORRELATION_DETECTED in result.warnings
 
@@ -285,7 +285,7 @@ class TestPersistenceScreen:
         result = member.compute(
             _series_df(np.random.default_rng(3).standard_normal(240)),
             value_col="ic",
-            forward_periods=1,
+            overlap_periods=1,
         )
         assert WarningCode.SERIAL_CORRELATION_DETECTED not in result.warnings
 
@@ -309,13 +309,13 @@ class TestPersistenceScreen:
             # estimate is stable at every h.
             _series_df(self._ar1(phi, n=240 * h)),
             value_col="ic",
-            forward_periods=h,
+            overlap_periods=h,
         )
         assert (WarningCode.SERIAL_CORRELATION_DETECTED in result.warnings) is flagged
 
 
 class TestStationaryBootstrapHonoursTheHorizon:
-    """`forward_periods` was accepted and discarded — the worst-calibrated
+    """`overlap_periods` was accepted and discarded — the worst-calibrated
     member of the family as a result (41.7% at T=60, h=21)."""
 
     @staticmethod
@@ -329,7 +329,7 @@ class TestStationaryBootstrapHonoursTheHorizon:
     def test_block_length_is_floored_at_the_horizon(self) -> None:
         series = np.random.default_rng(0).standard_normal(200)
         result = STATIONARY_BOOTSTRAP.compute(
-            _series_df(series), value_col="ic", forward_periods=21
+            _series_df(series), value_col="ic", overlap_periods=21
         )
         assert result.metadata["block_length"] >= 21
         assert result.metadata["studentized"] is True
@@ -338,8 +338,8 @@ class TestStationaryBootstrapHonoursTheHorizon:
         """Guard against a silent regression to ignoring the parameter."""
         series = np.random.default_rng(0).standard_normal(200)
         df = _series_df(series)
-        short = STATIONARY_BOOTSTRAP.compute(df, value_col="ic", forward_periods=1)
-        long = STATIONARY_BOOTSTRAP.compute(df, value_col="ic", forward_periods=21)
+        short = STATIONARY_BOOTSTRAP.compute(df, value_col="ic", overlap_periods=1)
+        long = STATIONARY_BOOTSTRAP.compute(df, value_col="ic", overlap_periods=21)
         assert long.metadata["block_length"] > short.metadata["block_length"]
 
     def test_size_on_an_overlapping_null(self) -> None:
@@ -349,7 +349,7 @@ class TestStationaryBootstrapHonoursTheHorizon:
         for _ in range(n_reps):
             vals = self._overlapping_null(120, 21, rng)
             p, _ = _block_bootstrap_diff_p(
-                vals, forward_periods=21, n_resamples=299, rng_seed=0
+                vals, overlap_periods=21, n_resamples=299, rng_seed=0
             )
             rejects += p < 0.05
         # Was 0.277 with the horizon discarded and an unstudentized root.

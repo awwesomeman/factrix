@@ -61,7 +61,7 @@ def common_quantile_spread(
     factor_col: str = "factor",
     return_col: str = "forward_return",
     n_groups: int = 5,
-    forward_periods: int | None = None,
+    overlap_periods: int | None = None,
     nw_lags: int | None = None,
 ) -> MetricResult:
     """Bucket time-series factor by historical quantiles, test conditional means.
@@ -84,10 +84,10 @@ def common_quantile_spread(
         return_col: Column carrying the forward return.
         n_groups: Number of quantile buckets ``K`` to cut the factor
             history into.
-        forward_periods: Overlap horizon of the forward return; floors
+        overlap_periods: Overlap horizon of the forward return; floors
             the Newey-West (NW) bandwidth.
         nw_lags: Override for the NW lag count. ``None`` resolves to
-            the standard rule given ``forward_periods`` and ``T``.
+            the standard rule given ``overlap_periods`` and ``T``.
 
     Returns:
         ``MetricResult`` whose ``value`` is the top-bottom bucket
@@ -108,7 +108,7 @@ def common_quantile_spread(
 
         factrix uses NW HAC + Wald rather than Welch t for cross-method
         comparability with ``common_asymmetry`` / ``common_beta`` and
-        because ``forward_periods > 1`` breaks the iid assumption Welch
+        because ``overlap_periods > 1`` breaks the iid assumption Welch
         relies on.
 
     References:
@@ -116,7 +116,7 @@ def common_quantile_spread(
         the Wald test.
         [Newey-West 1994][newey-west-1994]: automatic Bartlett bandwidth
         used by the default lag resolver.
-        [Hansen-Hodrick 1980][hansen-hodrick-1980]: ``forward_periods - 1``
+        [Hansen-Hodrick 1980][hansen-hodrick-1980]: ``overlap_periods - 1``
         floor for overlapping returns.
 
     Examples:
@@ -198,7 +198,7 @@ def common_quantile_spread(
     X = np.zeros((n_periods, n_groups))
     X[np.arange(n_periods), bucket_idx] = 1.0
 
-    lags = _resolve_nw_lags(n_periods, nw_lags, forward_periods)
+    lags = _resolve_nw_lags(n_periods, nw_lags, overlap_periods)
     beta, V_hac, _ = _ols_nw_multivariate(r, X, lags=lags)
 
     R = np.zeros((1, n_groups))

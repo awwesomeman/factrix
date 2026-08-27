@@ -2,7 +2,7 @@
 
 The catalog surfaces (``list_metrics`` / ``metrics_summary`` /
 ``spec().sample_threshold``) report the default-configuration floor;
-``evaluate`` gates in-body on the injected ``forward_periods``. This public
+``evaluate`` gates in-body on the injected ``overlap_periods``. This public
 resolver returns the run-time floor for the instance as configured, at the
 stamped or declared horizon, so a coverage audit can be planned against the
 number the run will actually apply.
@@ -16,27 +16,27 @@ from factrix._errors import UserInputError
 from factrix.metrics import ic, positive_rate
 
 
-def _stamped(forward_periods: int):
+def _stamped(overlap_periods: int):
     raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120, seed=3)
-    return fx.preprocess.compute_forward_return(raw, forward_periods=forward_periods)
+    return fx.preprocess.compute_forward_return(raw, forward_periods=overlap_periods)
 
 
 class TestConfiguration:
     def test_ic_default_inference_is_stride_scaled(self):
         assert fx.sample_requirements(ic()).min_periods == 50
-        assert fx.sample_requirements(ic(), forward_periods=1).min_periods == 10
+        assert fx.sample_requirements(ic(), overlap_periods=1).min_periods == 10
 
     def test_ic_newey_west_is_a_fixed_hac_bound(self):
         nw = ic(inference=fx.inference.NEWEY_WEST)
         assert fx.sample_requirements(nw).min_periods == 20
-        assert fx.sample_requirements(nw, forward_periods=1).min_periods == 20
+        assert fx.sample_requirements(nw, overlap_periods=1).min_periods == 20
 
     def test_positive_rate_scales_with_horizon(self):
         assert (
-            fx.sample_requirements(positive_rate(), forward_periods=1).min_periods == 10
+            fx.sample_requirements(positive_rate(), overlap_periods=1).min_periods == 10
         )
         assert (
-            fx.sample_requirements(positive_rate(), forward_periods=5).min_periods == 50
+            fx.sample_requirements(positive_rate(), overlap_periods=5).min_periods == 50
         )
 
     def test_default_matches_spec_threshold(self):
@@ -54,8 +54,8 @@ class TestHorizonResolution:
         )
 
     def test_explicit_horizon_must_match_stamp(self):
-        with pytest.raises(UserInputError, match="stamped overlap horizon"):
-            fx.sample_requirements(positive_rate(), data=_stamped(5), forward_periods=1)
+        with pytest.raises(UserInputError, match="stamped evaluation-grid overlap"):
+            fx.sample_requirements(positive_rate(), data=_stamped(5), overlap_periods=1)
 
     def test_unstamped_panel_requires_explicit_horizon(self):
         raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120, seed=3)
@@ -63,7 +63,7 @@ class TestHorizonResolution:
             fx.sample_requirements(positive_rate(), data=raw)
         assert (
             fx.sample_requirements(
-                positive_rate(), data=raw, forward_periods=2
+                positive_rate(), data=raw, overlap_periods=2
             ).min_periods
             == 20
         )
@@ -76,5 +76,5 @@ class TestHorizonResolution:
 
     def test_instance_is_not_mutated(self):
         m = positive_rate()
-        fx.sample_requirements(m, forward_periods=1)
-        assert m.forward_periods == 5
+        fx.sample_requirements(m, overlap_periods=1)
+        assert m.overlap_periods == 5

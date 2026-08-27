@@ -32,12 +32,12 @@ def _ord_frame(ordinals: list[int]) -> pl.DataFrame:
     ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
 
-def _greedy_keep(ordinals: list[int], forward_periods: int) -> list[int]:
-    """Reference: greedily keep ordinals >= forward_periods apart."""
+def _greedy_keep(ordinals: list[int], overlap_periods: int) -> list[int]:
+    """Reference: greedily keep ordinals >= overlap_periods apart."""
     kept: list[int] = []
     last: int | None = None
     for o in ordinals:
-        if last is None or o - last >= forward_periods:
+        if last is None or o - last >= overlap_periods:
             kept.append(o)
             last = o
     return kept
@@ -46,26 +46,26 @@ def _greedy_keep(ordinals: list[int], forward_periods: int) -> list[int]:
 class TestSampleEventSpaced:
     def test_fp1_is_noop(self):
         df = _ord_frame([0, 1, 5, 6, 20])
-        result = _sample_event_spaced(df, forward_periods=1)
+        result = _sample_event_spaced(df, overlap_periods=1)
         assert result["date_ordinal"].to_list() == [0, 1, 5, 6, 20]
 
     def test_empty_unchanged(self):
         df = _ord_frame([])
-        result = _sample_event_spaced(df, forward_periods=5)
+        result = _sample_event_spaced(df, overlap_periods=5)
         assert result.height == 0
 
     def test_sparse_events_all_kept(self):
-        # Every gap already exceeds forward_periods → greedy keeps all.
+        # Every gap already exceeds overlap_periods → greedy keeps all.
         ordinals = [0, 10, 25, 40, 100]
         df = _ord_frame(ordinals)
-        result = _sample_event_spaced(df, forward_periods=5)
+        result = _sample_event_spaced(df, overlap_periods=5)
         assert result["date_ordinal"].to_list() == ordinals
 
     def test_clustered_events_thinned_by_calendar_gap(self):
         # Consecutive calendar days (gap=1) thinned to >= 5 apart.
         ordinals = list(range(10))  # 0..9, all gap 1
         df = _ord_frame(ordinals)
-        result = _sample_event_spaced(df, forward_periods=5)
+        result = _sample_event_spaced(df, overlap_periods=5)
         # greedy from 0: keep 0, next >=5 is 5, next >=10 none → [0, 5]
         assert result["date_ordinal"].to_list() == [0, 5]
 
@@ -73,7 +73,7 @@ class TestSampleEventSpaced:
         ordinals = [0, 2, 4, 5, 11, 12, 20, 21, 22, 50]
         df = _ord_frame(ordinals)
         for fp in (2, 3, 5, 7):
-            result = _sample_event_spaced(df, forward_periods=fp)
+            result = _sample_event_spaced(df, overlap_periods=fp)
             assert result["date_ordinal"].to_list() == _greedy_keep(ordinals, fp)
 
     def test_dense_calendar_equals_index_stride(self):
@@ -81,8 +81,8 @@ class TestSampleEventSpaced:
         # pass coincides with the legacy every-N-th-row sampling.
         ordinals = list(range(12))
         df = _ord_frame(ordinals)
-        spaced = _sample_event_spaced(df, forward_periods=3)["date_ordinal"].to_list()
-        index_stride = _sample_non_overlapping(df, forward_periods=3)[
+        spaced = _sample_event_spaced(df, overlap_periods=3)["date_ordinal"].to_list()
+        index_stride = _sample_non_overlapping(df, overlap_periods=3)[
             "date_ordinal"
         ].to_list()
         assert spaced == index_stride == [0, 3, 6, 9]
@@ -94,7 +94,7 @@ class TestSampleNonOverlapping:
         df = pl.DataFrame({"date": dates, "v": range(10)}).with_columns(
             pl.col("date").cast(pl.Datetime("ms"))
         )
-        result = _sample_non_overlapping(df, forward_periods=1)
+        result = _sample_non_overlapping(df, overlap_periods=1)
         assert len(result) == 10
 
     def test_every_3(self):
@@ -102,12 +102,12 @@ class TestSampleNonOverlapping:
         df = pl.DataFrame({"date": dates, "v": range(10)}).with_columns(
             pl.col("date").cast(pl.Datetime("ms"))
         )
-        result = _sample_non_overlapping(df, forward_periods=3)
+        result = _sample_non_overlapping(df, overlap_periods=3)
         # 10 unique dates, every 3rd → indices [0,3,6,9] = 4 dates
         assert result["date"].n_unique() == 4
 
     def test_preserves_all_assets_on_sampled_dates(self, tiny_panel):
-        result = _sample_non_overlapping(tiny_panel, forward_periods=1)
+        result = _sample_non_overlapping(tiny_panel, overlap_periods=1)
         for dt in result["date"].unique():
             n = result.filter(pl.col("date") == dt)["asset_id"].n_unique()
             assert n == 5

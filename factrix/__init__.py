@@ -71,9 +71,11 @@ from factrix._dag import CycleError, DagExecutor, _Node
 from factrix._data_input import (
     _BASELINE_COLUMNS,
     _FORWARD_PERIODS_COL,
+    _OVERLAP_PERIODS_COL,
     DataInput,
     _coerce_data,
     _read_forward_periods_stamp,
+    _read_overlap_periods_stamp,
 )
 from factrix._errors import (
     FactrixError,
@@ -122,6 +124,7 @@ def evaluate(
     metrics: "dict[str, MetricBase]",
     factor_cols: list[str],
     forward_periods: int | None = None,
+    overlap_periods: int | None = None,
     strict: bool = True,
     expected_warnings: tuple[str, ...] = (),
 ) -> "dict[str, EvaluationResult]":
@@ -151,7 +154,7 @@ def evaluate(
             quantile_spread(n_groups=10)}`` — via by-value DAG dedup; shared
             upstream producers are computed once per distinct config.
             ``forward_periods`` is **not** a metric knob: every metric runs at
-            the data's single overlap horizon. To compare horizons, use
+            the data's single return horizon. To compare horizons, use
             :func:`evaluate_horizons` on the clean raw panel.
             Scalar-input helpers (for example ``breakeven_cost`` /
             ``net_spread``) are post-processing utilities, not
@@ -160,14 +163,27 @@ def evaluate(
         factor_cols: Names of factor columns on ``data``. List-only —
             single ``str`` is rejected. Non-empty, no duplicates, every
             name must exist on ``data``.
-        forward_periods: The data's overlap horizon (rows of the time axis).
+        forward_periods: The data's return horizon — the ``forward_periods``
+            ``forward_return`` was built with, in periods of the price grid.
             Normally omitted — :func:`factrix.preprocess.compute_forward_return`
             stamps it on the panel and it is read from there. Pass it only to
             **declare** the horizon for a self-attached ``forward_return``
             column that carries no stamp; a value disagreeing with the stamp is
             rejected. Stamped on every :class:`EvaluationResult` as
-            ``forward_periods`` and injected into each metric (surfaced in
-            ``result.metrics[label].metadata["forward_periods"]``).
+            ``forward_periods``; it names the hypothesis and never changes
+            with the evaluation grid.
+        overlap_periods: The overlap of adjacent observations on the
+            evaluation grid — the quantity inference consumes (HAC bandwidth
+            and effective df, non-overlapping stride, stride-scaled floors).
+            Normally omitted — ``compute_forward_return`` stamps it too: equal
+            to ``forward_periods`` on the full grid, derived on a coarser
+            grid passed via ``dates=``. For an unstamped self-attached panel
+            it defaults to ``forward_periods``; pass it only when the panel
+            was built on a coarser grid than the horizon. A value disagreeing
+            with the stamp is rejected. Stamped on every
+            :class:`EvaluationResult` as ``overlap_periods`` (bookkeeping,
+            not identity) and injected into each metric (surfaced in
+            ``result.metrics[label].metadata["overlap_periods"]``).
         strict: When ``True`` (default), raise if a metric is incompatible
             with the factor cell (scope / density / structure) or if a metric
             that *fits* the data could not produce a value — a data shortage
@@ -243,13 +259,16 @@ def evaluate(
     _validate_factor_cols_on_data(data, cols)
     _validate_factor_cols_numeric(data, cols)
 
-    # The overlap horizon is a property of the data: read the stamp left by
-    # compute_forward_return, then strip it so it never reaches a metric,
+    # Both horizons are properties of the data: read the stamps left by
+    # compute_forward_return, then strip them so they never reach a metric,
     # projection, or to_frame. A self-attached forward_return panel (no stamp)
-    # must declare its horizon once via forward_periods= (path B).
+    # must declare its horizon once via forward_periods= (path B); its
+    # overlap defaults to the horizon unless declared via overlap_periods=.
     fp = _resolve_forward_periods(data, forward_periods)
-    if _FORWARD_PERIODS_COL in data.columns:
-        data = data.drop(_FORWARD_PERIODS_COL)
+    op = _resolve_overlap_periods(data, overlap_periods, horizon=fp)
+    data = data.drop(
+        [c for c in (_FORWARD_PERIODS_COL, _OVERLAP_PERIODS_COL) if c in data.columns]
+    )
 
     from factrix.metrics._base import MetricBase
 
@@ -261,7 +280,7 @@ def evaluate(
         label: (
             _dataclasses.replace(
                 type(inst).spec(),
-                sample_threshold=inst._resolved_sample_threshold(fp),
+                sample_threshold=inst._resolved_sample_threshold(op),
             )
             if isinstance(inst, MetricBase)
             else inst.__metric_spec__
@@ -339,6 +358,7 @@ def evaluate(
             scope=scope,
             density=density,
             forward_periods=fp,
+            overlap_periods=op,
             expected_warnings=expected,
             kwargs_by_metric=node_kwargs,
         )
@@ -365,7 +385,7 @@ def evaluate_horizons(
     strict: bool = True,
     expected_warnings: tuple[str, ...] = (),
 ) -> list[EvaluationResult]:
-    """Sweep ``evaluate`` across several overlap horizons of one raw panel.
+    """Sweep ``evaluate`` across several return horizons of one raw panel.
 
     A thin composition over the existing primitives — for each horizon it
     rebuilds the panel with
@@ -680,29 +700,29 @@ def sample_requirements(
     metric: _Any,
     *,
     data: _pl.DataFrame | None = None,
-    forward_periods: int | None = None,
+    overlap_periods: int | None = None,
 ) -> SampleThreshold:
-    """Resolve a configured metric's sample floor at a panel's overlap horizon.
+    """Resolve a configured metric's sample floor at a panel's overlap.
 
     The floor a metric gates on depends on its configuration (e.g.
     ``ic(inference=NeweyWest())`` needs fewer periods than the default
     non-overlapping t-test) and, for metrics that sub-sample at the overlap
-    stride, on the panel's ``forward_periods``. ``list_metrics`` /
+    stride, on the panel's ``overlap_periods``. ``list_metrics`` /
     ``metrics_summary`` / ``inspect_data`` report the default-configuration
     floor; this is the run-time one — the same resolution :func:`evaluate`
     and the ``slice_period_*`` tests apply.
 
     Args:
         metric: A metric **instance** (``ic()``, ``positive_rate()``, …).
-        data: Panel whose stamped horizon (set by
+        data: Panel whose stamped overlap (set by
             :func:`factrix.preprocess.compute_forward_return`) resolves the
             floor. Resolved exactly as :func:`evaluate` does: an explicit
-            ``forward_periods`` must agree with the stamp; an unstamped panel
+            ``overlap_periods`` must agree with the stamp; an unstamped panel
             requires it.
-        forward_periods: The overlap horizon, when no panel is at hand (or
-            the panel is unstamped). With neither ``data`` nor
-            ``forward_periods`` the floor is resolved at the metric's default
-            horizon — the same value ``metric.spec().sample_threshold`` carries.
+        overlap_periods: The evaluation-grid overlap, when no panel is at
+            hand (or the panel is unstamped). With neither ``data`` nor
+            ``overlap_periods`` the floor is resolved at the metric's default
+            overlap — the same value ``metric.spec().sample_threshold`` carries.
 
     Returns:
         :class:`SampleThreshold` with the hard ``min_*`` and soft ``warn_*``
@@ -718,7 +738,7 @@ def sample_requirements(
         50
         >>> fx.sample_requirements(ic(inference=fx.inference.NEWEY_WEST)).min_periods
         20
-        >>> fx.sample_requirements(positive_rate(), forward_periods=1).min_periods
+        >>> fx.sample_requirements(positive_rate(), overlap_periods=1).min_periods
         10
         >>> raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
         >>> panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
@@ -739,16 +759,18 @@ def sample_requirements(
             expected="a metric instance, e.g. ic() or positive_rate()",
             docs_path="api/inspect-data",
         )
-    fp = (
-        _resolve_forward_periods(data, forward_periods)
+    op = (
+        _resolve_overlap_periods(
+            data, overlap_periods, horizon=_read_forward_periods_stamp(data)
+        )
         if data is not None
-        else forward_periods
+        else overlap_periods
     )
-    return metric._resolved_sample_threshold(fp)
+    return metric._resolved_sample_threshold(op)
 
 
 def _resolve_forward_periods(data: _pl.DataFrame, declared: int | None) -> int:
-    """Resolve the panel's single overlap horizon for this evaluation.
+    """Resolve the panel's return horizon for this evaluation.
 
     Path A (primary): a panel built by ``compute_forward_return`` carries a
     horizon stamp — the single source of truth. Path B (escape hatch): a
@@ -765,7 +787,7 @@ def _resolve_forward_periods(data: _pl.DataFrame, declared: int | None) -> int:
                 field="forward_periods",
                 value=declared,
                 expected=(
-                    f"forward_periods to match the data's stamped overlap "
+                    f"forward_periods to match the data's stamped return "
                     f"horizon ({stamp}, set by compute_forward_return). The "
                     f"horizon is a property of the data — omit forward_periods, "
                     f"or rebuild forward_return at horizon {declared}."
@@ -780,12 +802,60 @@ def _resolve_forward_periods(data: _pl.DataFrame, declared: int | None) -> int:
         field="forward_periods",
         value=None,
         expected=(
-            "the data's overlap horizon. Either build forward_return via "
+            "the data's return horizon. Either build forward_return via "
             "factrix.preprocess.compute_forward_return(data, forward_periods=<forward_periods>) "
             "(which stamps the horizon), or, for a self-attached forward_return "
             "column, declare it once with evaluate(..., forward_periods=<forward_periods>)."
         ),
         docs_path="api/evaluate#forward_periods",
+    )
+
+
+def _resolve_overlap_periods(
+    data: _pl.DataFrame, declared: int | None, *, horizon: int | None
+) -> int:
+    """Resolve the evaluation-grid overlap inference will consume.
+
+    Same contract as :func:`_resolve_forward_periods`: the stamp left by
+    ``compute_forward_return`` is the truth and a disagreeing declaration is
+    rejected. The unstamped fallback differs in one respect — the overlap
+    defaults to the resolved horizon (``horizon``), because a self-attached
+    ``forward_return`` on the full grid overlaps by exactly its horizon; only
+    a panel built on a coarser grid needs ``overlap_periods=`` spelled out.
+    """
+    stamp = _read_overlap_periods_stamp(data)
+    if stamp is not None:
+        if declared is not None and declared != stamp:
+            raise UserInputError(
+                func_name="evaluate",
+                field="overlap_periods",
+                value=declared,
+                expected=(
+                    f"overlap_periods to match the data's stamped evaluation-"
+                    f"grid overlap ({stamp}, derived by compute_forward_return). "
+                    f"The overlap is a property of the data — omit "
+                    f"overlap_periods, or rebuild forward_return on the grid "
+                    f"that overlaps by {declared} (compute_forward_return(..., "
+                    f"dates=...))."
+                ),
+                docs_path="api/evaluate#overlap_periods",
+            )
+        return stamp
+    if declared is not None:
+        return declared
+    if horizon is not None:
+        return horizon
+    raise UserInputError(
+        func_name="evaluate",
+        field="overlap_periods",
+        value=None,
+        expected=(
+            "the evaluation-grid overlap. Build forward_return via "
+            "factrix.preprocess.compute_forward_return (which stamps it), or "
+            "declare forward_periods= (the overlap then defaults to the horizon) "
+            "and overlap_periods= when the panel sits on a coarser grid."
+        ),
+        docs_path="api/evaluate#overlap_periods",
     )
 
 
@@ -859,7 +929,7 @@ def _build_nodes(
                     docs_path=_DOCS_METRICS,
                 )
             # Producers carry no inherited consumer config: the sole parameter a
-            # requires-pulled producer ever shared was ``forward_periods``, now
+            # requires-pulled producer ever shared was ``overlap_periods``, now
             # injected globally from the data stamp at dispatch. One producer
             # node is reused across all consumers naming it.
             pid = intern(by_name[pname], {})

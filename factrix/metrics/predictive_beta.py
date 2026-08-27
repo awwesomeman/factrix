@@ -73,7 +73,7 @@ def predictive_beta(
     data: pl.DataFrame,
     *,
     newey_west_lags: int | None = None,
-    forward_periods: int = 5,
+    overlap_periods: int = 5,
     adf_threshold: float | None = 0.10,
     factor_col: str = "factor",
     return_col: str = "forward_return",
@@ -84,7 +84,7 @@ def predictive_beta(
     Fits the direct predictive regression
     $R_{t+h} = \alpha + \beta F_t + \varepsilon_t$ on one asset and tests
     ``H0: beta = 0``. The Bartlett lag defaults to the Newey-West (1994)
-    automatic rule, floored at ``forward_periods - 1`` so overlapping
+    automatic rule, floored at ``overlap_periods - 1`` so overlapping
     forward-return windows do not understate the standard error.
 
     ``value`` is the **Stambaugh-bias-corrected** slope, not the raw OLS
@@ -108,9 +108,9 @@ def predictive_beta(
     ``metadata["stambaugh_bias_estimate"]``.
 
     **What the correction does and does not fix.** At
-    ``forward_periods = 1`` the corrected test is calibrated: 4.3–5.5% at a
+    ``overlap_periods = 1`` the corrected test is calibrated: 4.3–5.5% at a
     nominal 5% when $\rho = 0$ and 6.2–8.3% in the strongest Stambaugh
-    cells, against 8.4–18.3% for plain OLS. At ``forward_periods > 1`` it
+    cells, against 8.4–18.3% for plain OLS. At ``overlap_periods > 1`` it
     is not — 7.5–14.5% measured, and the excess is there at $\rho = 0$ for
     every $\phi$, so it is neither the Stambaugh channel nor the
     near-unit-root regime. It is the overlapping-regression HAC problem
@@ -131,7 +131,7 @@ def predictive_beta(
             ``factor_col`` and ``return_col``.
         newey_west_lags: Optional explicit Bartlett lag. ``None`` uses the
             project default bandwidth.
-        forward_periods: Forward-return horizon injected by ``evaluate`` from
+        overlap_periods: Forward-return horizon injected by ``evaluate`` from
             the panel metadata; standalone calls may pass it directly.
         adf_threshold: Augmented Dickey-Fuller p-value above which the
             factor is flagged as a *unit-root suspect*. ``None`` disables
@@ -182,7 +182,7 @@ def predictive_beta(
 
         ``SERIAL_CORRELATION_DETECTED`` is the complementary screen, on the
         residuals this regression actually produced, read at stride
-        ``forward_periods``: above ``PERSISTENT_SERIES_AUTOCORR`` no HAC or
+        ``overlap_periods``: above ``PERSISTENT_SERIES_AUTOCORR`` no HAC or
         bootstrap path in the library is calibrated, which is the same rule
         ``fm_beta`` and the series-mean inference members apply to their own
         tested series. The stride matters — overlapping forward returns give
@@ -193,7 +193,7 @@ def predictive_beta(
         the same reason.
 
         ``UNRELIABLE_SE_SHORT_PERIODS`` reads the **effective** sample
-        ``n_obs // forward_periods``, not the raw pair count. Overlapping
+        ``n_obs // overlap_periods``, not the raw pair count. Overlapping
         forward returns mean ``n`` rows carry about ``n / h`` independent
         observations, and the HAC lag floor rises with ``h`` at the same time,
         so a raw count well clear of the floor can still be a handful of
@@ -250,7 +250,7 @@ def predictive_beta(
             factor_std=x_std,
         )
 
-    lags = _resolve_nw_lags(n, newey_west_lags, forward_periods)
+    lags = _resolve_nw_lags(n, newey_west_lags, overlap_periods)
     beta_ols, t_ols, p_ols, resid = _ols_nw_slope_t(y, x, lags=lags)
     # The headline test is a SINGLE-restriction slope t, so it takes the HAR
     # bandwidth and the fixed-b effective df that the scalar series-mean path
@@ -258,7 +258,7 @@ def predictive_beta(
     # the narrow rule does not apply to one restriction. The uncorrected OLS
     # slope above stays on the narrow rule so it remains the pre-correction
     # reference it is reported as.
-    har_lags = _resolve_har_lags(n, newey_west_lags, forward_periods)
+    har_lags = _resolve_har_lags(n, newey_west_lags, overlap_periods)
     # Stambaugh (1999) bias correction via the Amihud-Hurvich (2004)
     # augmented regression. Reported as the headline beta: the uncorrected
     # OLS slope is biased by (sigma_ev/sigma_v^2)(1+3phi)/T whenever the
@@ -266,7 +266,7 @@ def predictive_beta(
     # innovation - the classic dividend-yield artefact, +0.076 against a true
     # 0 at T=60, phi=0.95, rho=-0.9, with a 20.6% rejection rate. The raw OLS
     # slope stays in metadata.
-    fit = _amihud_hurvich_beta(y, x, lags=har_lags, forward_periods=forward_periods)
+    fit = _amihud_hurvich_beta(y, x, lags=har_lags, overlap_periods=overlap_periods)
     if math.isnan(fit.beta):
         # Too short / degenerate for the augmented design; fall back to the
         # plain slope so the metric still reports what it can.
@@ -318,7 +318,7 @@ def predictive_beta(
     ):
         warning_codes.append(WarningCode.PERSISTENT_REGRESSOR.value)
     # Persistence screen on this regression's own residuals, taken at stride
-    # forward_periods — exactly what inference.NonOverlapping does to its
+    # overlap_periods — exactly what inference.NonOverlapping does to its
     # tested series, and for the same reason. Overlapping forward returns give
     # the raw residuals an MA(h-1) structure by construction, which the HAC lag
     # floor (h - 1) already absorbs; screening the raw series would therefore
@@ -328,18 +328,18 @@ def predictive_beta(
     # PERSISTENT_SERIES_AUTOCORR no HAC or bootstrap path here is calibrated,
     # so the response is a raised hurdle or a longer sample, not a different
     # estimator.
-    resid_autocorr = _lag1_autocorr(resid[:: max(forward_periods, 1)])
+    resid_autocorr = _lag1_autocorr(resid[:: max(overlap_periods, 1)])
     if resid_autocorr > PERSISTENT_SERIES_AUTOCORR:
         warning_codes.append(WarningCode.SERIAL_CORRELATION_DETECTED.value)
     # Effective sample, not raw rows: overlapping forward returns leave about
     # n / h independent observations while the HAC lag floor grows with h, so
     # the short-sample gate has to read the same axis the standard error does.
     # h = 1 leaves this identical to the raw count.
-    n_effective = n // max(forward_periods, 1)
+    n_effective = n // max(overlap_periods, 1)
     warn_code = _warn_below_floor(
         predictive_beta,
         n_effective,
-        f"predictive_beta: n_periods={n} at forward_periods={forward_periods} "
+        f"predictive_beta: n_periods={n} at overlap_periods={overlap_periods} "
         f"leaves an effective sample of {n_effective} non-overlapping "
         f"observations, below MIN_PERIODS_WARN={MIN_PERIODS_WARN}; Newey-West "
         f"HAC inference is not calibrated there (measured 17.5% rejection at a "
@@ -360,7 +360,7 @@ def predictive_beta(
         "residual_lag1_autocorr": resid_autocorr,
         "newey_west_lags": lags,
         "har_lags": har_lags,
-        "forward_periods": forward_periods,
+        "overlap_periods": overlap_periods,
         "alpha": alpha,
         "r_squared": r_squared,
         "factor_std": x_std,

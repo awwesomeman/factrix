@@ -126,7 +126,7 @@ class TestTheDeflator:
         )
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            result = event_hit_rate(thin, forward_periods=1)
+            result = event_hit_rate(thin, overlap_periods=1)
         assert result.metadata["kolari_pynnonen_applied"] is False
         assert result.metadata["kolari_pynnonen_scaling"] >= KP_MATERIAL_SCALE
         assert result.metadata["stat_type"] == "binomial_hits"
@@ -137,7 +137,7 @@ class TestEventHitRateUnderClustering:
     def test_clustered_events_switch_to_the_deflated_normal(self):
         panel = _clustered_event_panel(0)
         with pytest.warns(UserWarning, match="events share periods"):
-            result = event_hit_rate(panel, forward_periods=_H)
+            result = event_hit_rate(panel, overlap_periods=_H)
         assert WarningCode.EVENT_CLUSTERING_ADJUSTED.value in result.warning_codes
         assert result.metadata["stat_type"] == "z"
         assert result.metadata["kolari_pynnonen_applied"] is True
@@ -159,7 +159,7 @@ class TestEventHitRateUnderClustering:
         )
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            result = event_hit_rate(panel, forward_periods=_H)
+            result = event_hit_rate(panel, overlap_periods=_H)
         assert WarningCode.EVENT_CLUSTERING_ADJUSTED.value not in result.warning_codes
         assert result.metadata["stat_type"] == "binomial_hits"
         assert result.metadata["kolari_pynnonen_applied"] is False
@@ -170,7 +170,7 @@ class TestEventHitRateUnderClustering:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             for seed in range(reps):
-                r = event_hit_rate(_clustered_event_panel(seed), forward_periods=_H)
+                r = event_hit_rate(_clustered_event_panel(seed), overlap_periods=_H)
                 if r.p_value is not None and r.p_value < 0.05:
                     rejected += 1
                 z0 = r.metadata["stat_uncorrected"]
@@ -193,7 +193,7 @@ class TestDeflatedTestsKeepPower:
             warnings.simplefilter("ignore")
             for seed in range(reps):
                 r = event_hit_rate(
-                    _clustered_event_panel(seed, effect=0.6), forward_periods=_H
+                    _clustered_event_panel(seed, effect=0.6), overlap_periods=_H
                 )
                 if r.p_value is not None and r.p_value < 0.05:
                     rejected += 1
@@ -206,7 +206,7 @@ class TestDeflatedTestsKeepPower:
             warnings.simplefilter("ignore")
             for seed in range(reps):
                 r = event_ic(
-                    _clustered_event_panel(seed, effect=0.6), forward_periods=_H
+                    _clustered_event_panel(seed, effect=0.6), overlap_periods=_H
                 )
                 if r.p_value is not None and r.p_value < 0.05:
                     rejected += 1
@@ -232,7 +232,7 @@ class TestEventIcInference:
         )
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            result = event_ic(panel, forward_periods=_H)
+            result = event_ic(panel, overlap_periods=_H)
         rho, n_obs = result.value, result.n_obs
         assert result.stat == pytest.approx(np.arctanh(rho) * np.sqrt(n_obs - 3) / 1.06)
         # One approximation behind stat and p, not two.
@@ -244,7 +244,7 @@ class TestEventIcInference:
 class TestCommonBetaCalendarTimeSe:
     def test_correlated_betas_widen_the_se_and_disclose_it(self):
         betas = compute_common_betas(
-            _correlated_beta_panel(0, rho=0.9), forward_periods=1
+            _correlated_beta_panel(0, rho=0.9), overlap_periods=1
         )["factor"]
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
@@ -294,7 +294,7 @@ class TestCommonBetaCalendarTimeSe:
                     _correlated_beta_panel(
                         seed, rho=rho, beta_sd=beta_sd, hetero_vol=hetero_vol
                     ),
-                    forward_periods=1,
+                    overlap_periods=1,
                 )["factor"]
                 p = common_beta(betas).p_value
                 if p is not None and p < 0.05:
@@ -313,7 +313,7 @@ class TestCommonBetaCalendarTimeSe:
             warnings.simplefilter("ignore")
             for seed in range(reps):
                 betas = compute_common_betas(
-                    _correlated_beta_panel(seed, rho=0.9), forward_periods=1
+                    _correlated_beta_panel(seed, rho=0.9), overlap_periods=1
                 )["factor"]
                 r = common_beta(betas)
                 t0 = r.metadata["stat_uncorrected"]
@@ -335,7 +335,7 @@ class TestCommonBetaCalendarTimeSe:
                     _correlated_beta_panel(
                         seed, n_assets=20, rho=0.5, beta_mean=0.4, beta_sd=0.5
                     ),
-                    forward_periods=1,
+                    overlap_periods=1,
                 )["factor"]
                 p = common_beta(betas).p_value
                 if p is not None and p < 0.05:
@@ -385,7 +385,7 @@ class TestGeneralisedSignNull:
         panel = _skewed_panel(0)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            result = event_hit_rate(panel, forward_periods=_H)
+            result = event_hit_rate(panel, overlap_periods=_H)
         p0 = result.metadata["sign_base_rate"]
         assert result.metadata["sign_base_rate_source"] == "non_event_rows"
         # The skew is real: this series is positive well under half the time.
@@ -408,7 +408,7 @@ class TestGeneralisedSignNull:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             for seed in range(reps):
-                r = event_hit_rate(_skewed_panel(seed), forward_periods=_H)
+                r = event_hit_rate(_skewed_panel(seed), overlap_periods=_H)
                 if r.p_value is not None and r.p_value < 0.05:
                     rejected += 1
                 naive = float(
@@ -425,7 +425,7 @@ class TestGeneralisedSignNull:
         panel = _skewed_panel(0, sign=-1.0)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            result = event_hit_rate(panel, forward_periods=_H)
+            result = event_hit_rate(panel, overlap_periods=_H)
         p_up = result.metadata["sign_base_rate_up"]
         assert p_up < 0.45
         assert result.metadata["sign_base_rate"] == pytest.approx(1.0 - p_up)
@@ -450,7 +450,7 @@ class TestGeneralisedSignNull:
             for seed in range(reps):
                 r = event_hit_rate(
                     _skewed_panel(seed, sign=sign, sign_mix=sign_mix),
-                    forward_periods=_H,
+                    overlap_periods=_H,
                 )
                 if r.p_value is not None and r.p_value < 0.05:
                     rejected += 1
@@ -478,7 +478,7 @@ class TestGeneralisedSignNull:
         )
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            result = event_hit_rate(panel, forward_periods=_H)
+            result = event_hit_rate(panel, overlap_periods=_H)
         assert result.metadata["sign_base_rate_up"] == 0.5
         assert result.metadata["sign_base_rate"] == 0.5
         assert result.metadata["sign_base_rate_source"] == "assumed_symmetric"

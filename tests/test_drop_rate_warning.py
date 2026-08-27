@@ -102,7 +102,7 @@ class TestConsumerWarning:
     def test_high_drop_rate_warns_and_codes(self):
         ic_df = compute_ic(_thinned_panel())["factor"]
         with pytest.warns(UserWarning, match="of periods dropped"):
-            result = ic(ic_df, forward_periods=5)
+            result = ic(ic_df, overlap_periods=5)
         assert WarningCode.EXCESSIVE_PERIOD_DROPS.value in result.warning_codes
         assert result.metadata["drop_rate"] > DROP_RATE_WARN_THRESHOLD
         # Full five-key schema lands in metadata for programmatic inspection.
@@ -112,7 +112,7 @@ class TestConsumerWarning:
         ic_df = compute_ic(_full_panel())["factor"]
         with warnings.catch_warnings():
             warnings.simplefilter("error")
-            result = ic(ic_df, forward_periods=5)
+            result = ic(ic_df, overlap_periods=5)
         assert WarningCode.EXCESSIVE_PERIOD_DROPS.value not in result.warning_codes
         # Schema is still recorded even when below threshold.
         assert result.metadata["drop_rate"] == 0.0
@@ -141,7 +141,7 @@ class TestConsumerWarning:
         assert ic_df.height == 0
         with warnings.catch_warnings():
             warnings.simplefilter("error")
-            result = ic(ic_df, forward_periods=5)
+            result = ic(ic_df, overlap_periods=5)
         # Short-circuit output: NaN value, its own reason, no drop code.
         assert result.value != result.value  # NaN
         assert "reason" in result.metadata
@@ -168,7 +168,7 @@ class TestEvaluateBoundary:
         panel = _thinned_panel()
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            direct = ic(compute_ic(panel)["factor"], forward_periods=5)
+            direct = ic(compute_ic(panel)["factor"], overlap_periods=5)
             results = fx.evaluate(
                 panel, metrics={"m": ic()}, factor_cols=["factor"], forward_periods=5
             )

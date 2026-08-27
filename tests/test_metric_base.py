@@ -261,9 +261,9 @@ class TestPositionalKnobsRejected:
 
     The old positional mapping followed ``_param_names`` order, which is not
     the body's signature order: dataclass field rules re-sort non-default
-    fields first and ``forward_periods`` is removed as an injected param.
+    fields first and ``overlap_periods`` is removed as an injected param.
     Concretely, ``quantile_spread(df, 3)`` — a call that reads as
-    ``forward_periods=3`` straight off the signature — silently bound
+    ``overlap_periods=3`` straight off the signature — silently bound
     ``n_groups=3`` and reported numbers for the wrong configuration.
     """
 
@@ -297,7 +297,7 @@ class TestPositionalKnobsRejected:
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            result = quantile_spread(self._panel(), forward_periods=3, n_groups=3)
+            result = quantile_spread(self._panel(), overlap_periods=3, n_groups=3)
         assert result["factor"].n_obs is not None
 
     def test_constructor_form_is_unaffected(self):
@@ -352,19 +352,19 @@ class TestStandaloneReadsTheForwardPeriodsStamp:
         assert standalone.p_value == evaluated.p_value
 
     def test_explicit_argument_still_wins_on_an_unstamped_panel(self):
-        from factrix._data_input import _FORWARD_PERIODS_COL
+        from factrix._data_input import _FORWARD_PERIODS_COL, _OVERLAP_PERIODS_COL
         from factrix.metrics.quantile import quantile_spread
 
-        panel = self._panel(20).drop(_FORWARD_PERIODS_COL)
+        panel = self._panel(20).drop(_FORWARD_PERIODS_COL, _OVERLAP_PERIODS_COL)
         stamped = quantile_spread(self._panel(20), n_groups=3)["factor"]
-        explicit = quantile_spread(panel, n_groups=3, forward_periods=20)["factor"]
+        explicit = quantile_spread(panel, n_groups=3, overlap_periods=20)["factor"]
         assert explicit.n_obs == stamped.n_obs
 
     def test_unstamped_panel_falls_back_to_the_signature_default(self):
-        from factrix._data_input import _FORWARD_PERIODS_COL
+        from factrix._data_input import _FORWARD_PERIODS_COL, _OVERLAP_PERIODS_COL
         from factrix.metrics.quantile import quantile_spread
 
-        panel = self._panel(20).drop(_FORWARD_PERIODS_COL)
+        panel = self._panel(20).drop(_FORWARD_PERIODS_COL, _OVERLAP_PERIODS_COL)
         out = quantile_spread(panel, n_groups=3)["factor"]
         # 200 periods sampled every 5 -> 40 draws, minus the trailing window.
         assert out.n_obs > 30

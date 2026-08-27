@@ -80,7 +80,7 @@ class TestICSeriesTools:
         series = _ic_series(null_every=3)  # ~1/3 null
         with pytest.warns(UserWarning, match="of periods dropped"):
             result = (
-                fn(series) if name != "positive_rate" else fn(series, forward_periods=1)
+                fn(series) if name != "positive_rate" else fn(series, overlap_periods=1)
             )
         assert EXCESSIVE in result.warning_codes
         assert result.metadata["drop_rate"] > DROP_RATE_WARN_THRESHOLD
@@ -99,7 +99,7 @@ class TestICSeriesTools:
         with warnings.catch_warnings():
             warnings.simplefilter("error")
             result = (
-                fn(series) if name != "positive_rate" else fn(series, forward_periods=1)
+                fn(series) if name != "positive_rate" else fn(series, overlap_periods=1)
             )
         assert EXCESSIVE not in result.warning_codes
         assert result.metadata["drop_rate"] == 0.0
@@ -129,7 +129,7 @@ class TestICSeriesTools:
 class TestSpreadTools:
     def test_quantile_spread_surfaces_null_drop(self):
         with pytest.warns(UserWarning, match="of periods dropped"):
-            result = quantile_spread(_spread_panel(), forward_periods=1)["factor"]
+            result = quantile_spread(_spread_panel(), overlap_periods=1)["factor"]
         assert EXCESSIVE in result.warning_codes
         assert result.metadata["drop_rate"] == pytest.approx(0.5, abs=0.02)
         assert "NaN" in result.metadata["drop_reason"]
@@ -141,7 +141,7 @@ class TestSpreadTools:
         # ``drop_nulls`` kept, so drop_rate read 0.0 while a NaN sat in the
         # tested sample. An empty leg is now null: dropped, and counted.
         with pytest.warns(UserWarning, match="of periods dropped"):
-            result = quantile_spread_vw(_spread_panel(), forward_periods=1)
+            result = quantile_spread_vw(_spread_panel(), overlap_periods=1)
         assert set(DROP_STAT_KEYS) <= set(result.metadata)
         assert result.metadata["drop_rate"] == pytest.approx(0.5, abs=0.02)
         assert "NaN" in result.metadata["drop_reason"]
@@ -153,7 +153,7 @@ class TestSpreadTools:
         # k_spread's top-k/bottom-k yields a spread even on thin dates, so the
         # drop rate is low here — the schema is still recorded. Single-factor
         # path returns a MetricResult directly.
-        result = k_spread(_spread_panel(), forward_periods=1)
+        result = k_spread(_spread_panel(), overlap_periods=1)
         assert set(DROP_STAT_KEYS) <= set(result.metadata)
         assert result.metadata["drop_rate"] >= 0.0
 

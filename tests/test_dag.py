@@ -168,6 +168,7 @@ class TestBatchablePath:
             "scope": FactorScope.INDIVIDUAL,
             "density": FactorDensity.DENSE,
             "forward_periods": 1,
+            "overlap_periods": 1,
         }
         panel = _build_panel(factor_cols=("a", "b", "c"))
 
@@ -202,6 +203,7 @@ class TestPerFactorPath:
             "scope": FactorScope.INDIVIDUAL,
             "density": FactorDensity.DENSE,
             "forward_periods": 1,
+            "overlap_periods": 1,
         }
         panel = _build_panel(factor_cols=("a", "b"))
         ex = DagExecutor(
@@ -234,6 +236,7 @@ class TestStage1Share:
             "scope": FactorScope.INDIVIDUAL,
             "density": FactorDensity.DENSE,
             "forward_periods": 1,
+            "overlap_periods": 1,
         }
         panel = _build_panel(factor_cols=("x",))
         ex = DagExecutor(
@@ -269,6 +272,7 @@ class TestByValueNodes:
             "scope": FactorScope.INDIVIDUAL,
             "density": FactorDensity.DENSE,
             "forward_periods": 1,
+            "overlap_periods": 1,
         }
         panel = _build_panel(factor_cols=("x",))
         ex = DagExecutor(nodes, fn_resolver={"per_factor": per_factor}.__getitem__)
@@ -319,6 +323,7 @@ class TestWarningCodeLift:
             "scope": FactorScope.INDIVIDUAL,
             "density": FactorDensity.DENSE,
             "forward_periods": 1,
+            "overlap_periods": 1,
         }
         panel = _build_panel(factor_cols=("x",))
         ex = DagExecutor(_nodes(spec), fn_resolver={"flagged": flagged}.__getitem__)
@@ -359,6 +364,7 @@ class TestShortCircuitPropagation:
             "scope": FactorScope.INDIVIDUAL,
             "density": FactorDensity.DENSE,
             "forward_periods": 1,
+            "overlap_periods": 1,
         }
         panel = _build_panel(factor_cols=("x",))
         ex = DagExecutor(
@@ -391,6 +397,7 @@ class TestShortCircuitPropagation:
             "scope": FactorScope.INDIVIDUAL,
             "density": FactorDensity.DENSE,
             "forward_periods": 1,
+            "overlap_periods": 1,
         }
         panel = _build_panel(factor_cols=("x",))
         ex = DagExecutor(
@@ -507,6 +514,7 @@ class TestEndToEndIcCell:
             "scope": FactorScope.INDIVIDUAL,
             "density": FactorDensity.DENSE,
             "forward_periods": 5,
+            "overlap_periods": 5,
         }
         raw = fx.datasets.make_cs_panel(n_assets=15, n_dates=80)
         panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)

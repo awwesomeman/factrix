@@ -415,7 +415,7 @@ class TestOverlapHorizonFloor:
         rng = np.random.default_rng(3)
         diff = rng.standard_normal(200)
         _, meta = _block_bootstrap_diff_p(
-            diff, forward_periods=21, n_resamples=99, rng_seed=0
+            diff, overlap_periods=21, n_resamples=99, rng_seed=0
         )
         assert meta["block_length"] >= 21
 
@@ -426,7 +426,7 @@ class TestOverlapHorizonFloor:
         rng = np.random.default_rng(3)
         diff = rng.standard_normal(30)
         _, meta = _block_bootstrap_diff_p(
-            diff, forward_periods=100, n_resamples=99, rng_seed=0
+            diff, overlap_periods=100, n_resamples=99, rng_seed=0
         )
         assert meta["block_length"] == _max_block_length(30)
 
@@ -434,7 +434,7 @@ class TestOverlapHorizonFloor:
         rng = np.random.default_rng(3)
         diff = rng.standard_normal(200)
         _, floored = _block_bootstrap_diff_p(
-            diff, forward_periods=1, n_resamples=99, rng_seed=0
+            diff, overlap_periods=1, n_resamples=99, rng_seed=0
         )
         _, plain = _block_bootstrap_diff_p(diff, n_resamples=99, rng_seed=0)
         assert floored["block_length"] == plain["block_length"]

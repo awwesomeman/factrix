@@ -331,7 +331,7 @@ def _block_bootstrap_diff_p(
     block_length: int | Literal["auto"] = "auto",
     n_resamples: int = 999,
     scheme: Scheme = "stationary",
-    forward_periods: int | None = None,
+    overlap_periods: int | None = None,
     rng_seed: int | None = None,
 ) -> tuple[float, dict[str, float | int | str]]:
     r"""Two-sided empirical p for ``H₀: E[diff] = 0`` on a paired series.
@@ -391,7 +391,7 @@ def _block_bootstrap_diff_p(
         scheme: ``"fixed"`` (fixed-length circular blocks,
             Politis-Romano 1992) or ``"stationary"`` (geometric blocks,
             Politis-Romano 1994).
-        forward_periods: Overlap horizon ``h`` of the series. When set,
+        overlap_periods: Overlap horizon ``h`` of the series. When set,
             floors the resolved block length at ``h``: Politis-Romano
             validity needs the mean block length to dominate the
             dependence horizon, and with a *known* MA(h-1) structure the
@@ -450,8 +450,8 @@ def _block_bootstrap_diff_p(
     # Floor at the KNOWN overlap horizon before validating. The plug-in
     # estimates the dependence horizon from the sample; when the caller
     # already knows it exactly there is no reason to accept a shorter block.
-    if forward_periods is not None and forward_periods > 1:
-        L = max(L, float(min(forward_periods, _max_block_length(n))))
+    if overlap_periods is not None and overlap_periods > 1:
+        L = max(L, float(min(overlap_periods, _max_block_length(n))))
     _validate_block_length(L, n, "BlockBootstrap")
 
     # Resolve seed up front so it can be reported back even when None.

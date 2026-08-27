@@ -1,7 +1,7 @@
 """Dynamic sample-threshold resolver.
 
 A metric whose floor is a function of its own parameters (e.g. ``ic``'s periods
-floor scales with ``forward_periods``) declares ``sample_threshold`` as a
+floor scales with ``overlap_periods``) declares ``sample_threshold`` as a
 ``Callable[[MetricBase], SampleThreshold]`` rather than a constant. The decorator
 normalizes both forms into one resolver; the floor baked at the default config
 lands on ``cls.sample_threshold`` so ``spec()`` / ``inspect_data`` can pre-flight
@@ -28,16 +28,16 @@ def _by_name(info: DataInspection, name: str):
 
 class TestHookResolution:
     def test_spec_resolves_dynamic_floor_from_default_params(self):
-        # ic default forward_periods=5, non-overlapping → MIN_SERIES_PERIODS_HARD * 5.
+        # ic default overlap_periods=5, non-overlapping → MIN_SERIES_PERIODS_HARD * 5.
         st = ic.spec().sample_threshold
         assert st.min_periods == MIN_SERIES_PERIODS_HARD * 5
 
     def test_forward_periods_is_not_a_metric_param(self):
-        # forward_periods is the data's overlap horizon, not a per-metric knob:
+        # overlap_periods is the data's overlap horizon, not a per-metric knob:
         # constructing a metric with it is rejected (the floor scales off the
         # signature default, resolved at spec() time — see the test above).
         with pytest.raises(fx.UserInputError):
-            REGISTRY["ic"](forward_periods=10)
+            REGISTRY["ic"](overlap_periods=10)
 
     def test_static_metric_keeps_empty_spec_threshold(self):
         # A constant-floor metric resolves to that constant (here empty); the
@@ -64,7 +64,7 @@ class TestHookResolution:
 
 class TestInspectDataPreflight:
     def test_dynamic_floor_gates_short_panel(self):
-        # forward_periods=5 default needs MIN_SERIES_PERIODS_HARD*5 = 50 input periods;
+        # overlap_periods=5 default needs MIN_SERIES_PERIODS_HARD*5 = 50 input periods;
         # 30 dates is short, so inspect_data now flags ic unusable — the floor
         # that used to be invisible at pre-flight.
         short = fx.datasets.make_cs_panel(n_assets=40, n_dates=30, seed=0)
@@ -75,7 +75,7 @@ class TestInspectDataPreflight:
         assert _by_name(inspect_data(long_panel), "ic").usable is True
 
 
-# Periods-axis metrics that sub-sample at ``forward_periods``: the resolver and
+# Periods-axis metrics that sub-sample at ``overlap_periods``: the resolver and
 # the in-body gate must agree on one stride-scaled floor.
 
 
@@ -155,7 +155,7 @@ _STRIDE_SAMPLED_IDS = [c[0] for c in _STRIDE_SAMPLED_CASES]
 
 class TestStrideSampledPeriodsFloorConsistency:
     """For every stride-sampling metric, the pre-flight floor (``spec()``,
-    resolved at default ``forward_periods=5``) and the in-body run-time floor
+    resolved at default ``overlap_periods=5``) and the in-body run-time floor
     are one numerically identical stride-scaled value."""
 
     @pytest.mark.parametrize(
@@ -166,7 +166,7 @@ class TestStrideSampledPeriodsFloorConsistency:
     def test_spec_floor_is_stride_scaled(self, name, metric, base, _build, _kwargs):
         from factrix.metrics._helpers import _scaled_min_periods
 
-        # Default forward_periods=5 (a stride > 1): the floor scales to base * 5,
+        # Default overlap_periods=5 (a stride > 1): the floor scales to base * 5,
         # not the raw base — without scaling, pre-flight is too loose.
         assert metric.spec().sample_threshold.min_periods == _scaled_min_periods(
             base, 5
@@ -185,13 +185,13 @@ class TestStrideSampledPeriodsFloorConsistency:
         # Raw input one date below the scaled floor → the body short-circuits and
         # reports the very floor the spec pre-flights (same _scaled_min_periods).
         sub = build(spec_floor - 1)
-        res = _scalar(metric(sub, forward_periods=5, **kwargs))
+        res = _scalar(metric(sub, overlap_periods=5, **kwargs))
         assert res.metadata["reason"].startswith("insufficient")
         assert res.metadata["min_required"] == spec_floor
         assert spec_floor == _scaled_min_periods(base, 5)
 
     def test_runtime_floor_tracks_actual_forward_periods(self):
-        # The in-body floor re-derives from the *actual* forward_periods, not the
+        # The in-body floor re-derives from the *actual* overlap_periods, not the
         # default baked into spec(): 24 raw dates clear base*5=15 at stride 5 but
         # trip base*10=30 at stride 10 (same _scaled_min_periods source).
         from factrix._types import MIN_PORTFOLIO_PERIODS_HARD
@@ -200,9 +200,9 @@ class TestStrideSampledPeriodsFloorConsistency:
         panel = _cs_panel(30)
         raw = panel["date"].n_unique()
         assert MIN_PORTFOLIO_PERIODS_HARD * 5 <= raw < MIN_PORTFOLIO_PERIODS_HARD * 10
-        ok = quantile_spread(panel, forward_periods=5)["factor"]
+        ok = quantile_spread(panel, overlap_periods=5)["factor"]
         assert ok.metadata.get("reason") is None
-        gated = quantile_spread(panel, forward_periods=10)["factor"]
+        gated = quantile_spread(panel, overlap_periods=10)["factor"]
         assert gated.metadata["min_required"] == MIN_PORTFOLIO_PERIODS_HARD * 10
 
     def test_inspect_and_runtime_agree_on_subfloor_panel(self):
@@ -214,7 +214,7 @@ class TestStrideSampledPeriodsFloorConsistency:
         sub = _cs_panel(quantile_spread.spec().sample_threshold.min_periods - 1)
         assert _by_name(inspect_data(sub), "quantile_spread").usable is False
         assert (
-            quantile_spread(sub, forward_periods=5)["factor"]
+            quantile_spread(sub, overlap_periods=5)["factor"]
             .metadata["reason"]
             .startswith("insufficient")
         )

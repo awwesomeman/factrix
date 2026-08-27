@@ -74,28 +74,28 @@ def per_date_series(series: pl.DataFrame) -> pl.DataFrame:
     input_shape=InputShape.SERIES,
     requires={"series": compute_ic},
     # Periods floor scales with the non-overlap stride: the binomial runs on the
-    # ``raw_n / forward_periods`` sampled dates, so pre-flight and the in-body
+    # ``raw_n / overlap_periods`` sampled dates, so pre-flight and the in-body
     # gate share ``MIN_SERIES_PERIODS_HARD`` + ``_scaled_min_periods``.
     sample_threshold=_scaled_periods_threshold(MIN_SERIES_PERIODS_HARD),
 )
 def positive_rate(
     series: pl.DataFrame,
     value_col: str = "value",
-    forward_periods: int = 5,
+    overlap_periods: int = 5,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     """Positive rate = proportion of periods where value > 0.
 
     Args:
         series: DataFrame with ``date`` and ``value_col``.
-        forward_periods: Sampling interval for non-overlapping dates.
+        overlap_periods: Sampling interval for non-overlapping dates.
 
     Returns:
         MetricResult with value = positive rate (0.0-1.0).
 
     Notes:
         ``rate = (#{t : value_t > 0}) / n`` on a non-overlapping subsample
-        at stride ``forward_periods``. Two-sided **exact** binomial test
+        at stride ``overlap_periods``. Two-sided **exact** binomial test
         against ``H0: p = 0.5`` (:func:`scipy.stats.binomtest`) at every
         ``n``; ``stat`` is the hit count (``stat_type="binomial_hits"``) —
         the sufficient statistic of the test actually run — never a
@@ -125,24 +125,24 @@ def positive_rate(
         ...     forward_periods=5,
         ... )
         >>> series = compute_ic(panel)["factor"].rename({"ic": "value"}).select("date", "value")
-        >>> result = positive_rate(series, forward_periods=5)
+        >>> result = positive_rate(series, overlap_periods=5)
         >>> result.name == ""
         True
     """
     value_col = _resolve_series_value_col(series, value_col)
     # Primary periods gate: raw date count vs the stride-scaled floor, matching
-    # inspect_data pre-flight (raw_n vs MIN_SERIES_PERIODS_HARD * forward_periods).
+    # inspect_data pre-flight (raw_n vs MIN_SERIES_PERIODS_HARD * overlap_periods).
     sc = _enforce_scaled_floor(
         "positive_rate",
         series["date"].n_unique(),
         MIN_SERIES_PERIODS_HARD,
-        forward_periods,
+        overlap_periods,
         "insufficient_positive_rate_samples",
     )
     if sc is not None:
         return sc
 
-    sampled = _sample_non_overlapping(series, forward_periods)
+    sampled = _sample_non_overlapping(series, overlap_periods)
     # polars ``drop_nulls`` keeps float NaN; a NaN would count as a non-hit in
     # ``vals > 0`` and bias the rate toward 0, so drop it alongside nulls.
     vals = sampled[value_col].drop_nulls().drop_nans()
