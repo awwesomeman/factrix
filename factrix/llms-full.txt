@@ -578,7 +578,7 @@ All exceptions inherit from `FactrixError`:
 
 ## WarningCode reference
 
-The canonical glosses live in `factrix._codes.WarningCode.description` and are regenerated into `docs/reference/_generated_warning_codes.md`. The 28 evaluation-side codes (the preprocess and data-shape codes are in that generated reference):
+The canonical glosses live in `factrix._codes.WarningCode.description` and are regenerated into `docs/reference/_generated_warning_codes.md`. The 28 evaluation-side codes (the preprocess and data-shape codes are in that generated reference; of those, `non_finite_input_dropped` is also attached by `caar` when `compute_caar` drops non-finite event rows):
 
 | WarningCode | Description |
 |---|---|

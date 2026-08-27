@@ -180,7 +180,13 @@ def monotonicity(
         data: Panel with ``date, asset_id, factor, forward_return``.
         n_groups: Number of quantile groups (default 10 for a ~2000-name
             universe). Use 5 for ``n_assets < 1000``, 3 for ``n_assets < 200``.
-        tie_policy: Bucketing tie-break policy, see ``_assign_quantile_groups``.
+        tie_policy: Bucketing tie-break policy — the same knob and values as
+            ``quantile_spread`` / ``k_spread``, see ``_assign_quantile_groups``.
+            Under ``"ordinal"`` the realised per-period tie ratio is reported
+            in ``metadata["tie_ratio"]``; when its median exceeds
+            ``TIE_RATIO_WARN_THRESHOLD`` the result carries
+            ``WarningCode.HIGH_TIE_RATIO`` and echoes a ``UserWarning`` unless
+            the code is declared in ``expected_warnings``.
         direction: Which monotone pattern H1 asserts — ``"increasing"``
             (default) or ``"decreasing"`` in bucket index. Declare it from the
             factor's hypothesis; running both and reporting the smaller p is a
