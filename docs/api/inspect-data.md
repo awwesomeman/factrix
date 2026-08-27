@@ -21,6 +21,25 @@ the upstream diagnostics first and call the helper directly.
 
 <hr>
 
+## Resolved floor for a configured metric
+
+The tiers above read each metric's **default-configuration** `sample_threshold`
+(as do `list_metrics` / `metrics_summary`). The floor a run gates on can differ:
+the configuration changes it (`ic(inference=NEWEY_WEST)` needs 20 periods, the
+default non-overlapping t-test 50), and stride-scaled floors follow the panel's
+`forward_periods` (`positive_rate()` needs 10 periods at `forward_periods=1`, 50
+at 5). `sample_requirements` resolves the floor for an instance at a horizon —
+the same resolution `evaluate` and the `slice_period_*` tests apply — so a
+coverage audit (regime slices, IS/OOS splits) can be planned against the
+number the run will actually use. `evaluate(strict=True)` raises on a hard
+`min_*` breach; `strict=False` short-circuits the metric to NaN with a
+`metric_unavailable` warning; the soft `warn_*` tier always returns a value
+and attaches the axis' degraded-tier warning code.
+
+::: factrix.sample_requirements
+
+<hr>
+
 ## Result structure
 
 `inspect_data` returns a `DataInspection` carrying the detected data

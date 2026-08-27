@@ -258,6 +258,22 @@ Typed pre-flight introspection that combines axis detection with a per-metric us
   - `unusable` (`MetricApplicabilityGroup` / `Tier.UNUSABLE`): Metrics that will short-circuit to NaN.
 - The usability tier classification is determined using the metric's `SampleThreshold`.
 - `.to_metrics_dict()` on a group returns the `{label: instance}` dictionary that `evaluate(metrics=...)` expects.
+- The verdict reads each metric's **default-configuration** floor. For the floor a configured instance gates on at run time, use `sample_requirements`.
+
+---
+
+### `sample_requirements`
+
+```python
+def sample_requirements(
+    metric: Metric,
+    *,
+    data: pl.DataFrame | None = None,
+    forward_periods: int | None = None,
+) -> SampleThreshold:
+```
+
+Resolves a configured metric instance's `SampleThreshold` (hard `min_*` / soft `warn_*` per axis) at the panel's overlap horizon — the same floor `evaluate` and the `slice_period_*` tests apply. `data=` reads the stamped horizon exactly as `evaluate` does (an explicit `forward_periods` must agree; an unstamped panel needs it); `forward_periods=` alone resolves at that horizon; neither resolves the default horizon (what `list_metrics` / `metrics_summary` / `inspect_data` report). E.g. `ic()` → `min_periods=50`, `ic(inference=NEWEY_WEST)` → `20`, `positive_rate()` at `forward_periods=1` → `10`, at `5` → `50`.
 
 ---
 

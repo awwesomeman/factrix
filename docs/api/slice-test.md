@@ -83,6 +83,15 @@ covariance. A two-valued `method` flag selects the estimator:
 | `"bootstrap"` (default) | Independent stationary block bootstrap (Politis-White automatic block length) | Romano-Wolf step-down | Short regimes (T ≈ 30-80); never invalid |
 | `"analytic"` | Per-slice Newey-West HAC, Welch-style pairwise contrast | Holm step-down | Long spans (T ≳ 100); fast, deterministic |
 
+Each slice's per-period series must clear the metric's own sample floor,
+resolved at the panel's stamped `forward_periods` — the same floor
+`by_slice` short-circuits on — otherwise the test raises `ValueError`
+rather than return an uncalibrated contrast. Plan the partition against
+[`sample_requirements`](inspect-data.md#resolved-floor-for-a-configured-metric)
+(e.g. `positive_rate()` needs 10 periods per slice at `forward_periods=1`,
+50 at the default 5). An unstamped panel resolves the floor at the metric's
+default horizon.
+
 Pairwise output is `(slice_a, slice_b, n_periods_a, n_periods_b,
 mean_diff, stat, p_raw, p_adj, stat_type, reference_dist, df_num,
 df_denom, multiplicity)` — per-slice `n_periods_*` because disjoint spans

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import copy
 import logging
 from collections.abc import Callable, Sequence
 from typing import Any, ClassVar
@@ -228,6 +229,28 @@ class MetricBase(metaclass=MetricMeta):
     def _params(self) -> dict[str, Any]:
         """Configured parameter values, pulled from the instance's slots."""
         return {name: getattr(self, name) for name in self._param_names}
+
+    def _resolved_sample_threshold(
+        self, forward_periods: int | None = None
+    ) -> SampleThreshold:
+        """Resolve this instance's floor at the panel's overlap horizon.
+
+        ``forward_periods`` is injected from the data at dispatch, never
+        configured, so the instance always carries the body's signature
+        default; a stride-scaled floor resolved against the bare instance is
+        the default-horizon floor, not the one the in-body gate applies at
+        run time. Pass the panel's horizon (its stamp, or the caller's
+        explicit declaration) to resolve the floor the run will actually
+        gate on; ``None`` (or a metric that takes no injected horizon)
+        resolves the instance as configured.
+        """
+        inst: MetricBase = self
+        if forward_periods is not None and "forward_periods" in (
+            self._injected_param_names
+        ):
+            inst = copy.copy(self)
+            object.__setattr__(inst, "forward_periods", forward_periods)
+        return type(self)._resolve_sample_threshold(inst)
 
     @staticmethod
     def _stamped_forward_periods(data: Any) -> int | None:

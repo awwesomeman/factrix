@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import factrix as fx
+import polars as pl
 import pytest
-from factrix import slice_period_joint_test
+from factrix import slice_period_joint_test, slice_period_pairwise_test
 from factrix._errors import UserInputError
-from factrix.metrics import ic, monotonicity
+from factrix.metrics import ic, monotonicity, positive_rate
 
 from tests._slice_panel import build_disjoint_period_panel
 
@@ -272,3 +274,47 @@ class TestShortSliceDisclosure:
                 )
                 rejected += out["p_value"][0] < 0.05
         assert low <= rejected / reps <= high
+
+
+class TestFloorFollowsPanelStamp:
+    """The slice-test floor is resolved at the panel's stamped horizon — the
+    same floor ``by_slice`` gates on — not at the metric's default horizon."""
+
+    @staticmethod
+    def _panel(forward_periods: int) -> pl.DataFrame:
+        df = build_disjoint_period_panel(
+            seed=7, spans={"a": (20, 0.02), "b": (20, 0.02)}, label_col="regime"
+        )
+        return df.with_columns(pl.lit(forward_periods).alias("_forward_periods"))
+
+    def test_stamp_one_admits_twenty_period_slices(self) -> None:
+        panel = self._panel(1)
+        per_slice = fx.by_slice(
+            panel, positive_rate(), by="regime", factor_col="factor", strict=False
+        )
+        assert all(r.metrics["positive_rate"].n_obs == 20 for r in per_slice.values())
+        joint = slice_period_joint_test(
+            panel, positive_rate(), by="regime", factor_col="factor", rng_seed=1
+        )
+        assert joint["k_slices"].item() == 2
+        pairwise = slice_period_pairwise_test(
+            panel, positive_rate(), by="regime", factor_col="factor", rng_seed=1
+        )
+        assert pairwise.select("n_periods_a", "n_periods_b").row(0) == (20, 20)
+
+    def test_stamp_five_refuses_and_names_the_horizon(self) -> None:
+        with pytest.raises(
+            ValueError, match=r"floor \(50, resolved at .*forward_periods=5"
+        ):
+            slice_period_joint_test(
+                self._panel(5), positive_rate(), by="regime", factor_col="factor"
+            )
+
+    def test_unstamped_panel_falls_back_to_default_horizon(self) -> None:
+        with pytest.raises(ValueError, match="default horizon"):
+            slice_period_pairwise_test(
+                self._panel(1).drop("_forward_periods"),
+                positive_rate(),
+                by="regime",
+                factor_col="factor",
+            )
