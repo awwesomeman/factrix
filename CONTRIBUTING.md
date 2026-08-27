@@ -10,9 +10,13 @@ GitHub-facing quick start. Canonical policy:
 git clone https://github.com/awwesomeman/factrix.git
 cd factrix
 uv sync --extra dev
-python scripts/setup_dev.py
+python scripts/setup_dev.py   # installs the pre-commit framework hooks
 uv run pytest
 ```
+
+Hooks are declared in `.pre-commit-config.yaml`. Refresh their pinned
+versions with `uv run pre-commit autoupdate`; the ruff `rev` must be bumped
+together with the `ruff==` pin in `pyproject.toml` (a test enforces it).
 
 For release checks, sync the docs toolchain too:
 
