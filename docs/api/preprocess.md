@@ -71,8 +71,8 @@ forward return pairs its row at period index `i + 1` with its row at
 `i + 1 + forward_periods`. This used to be a positional shift within each
 asset, which equals a time horizon only on a *complete* per-asset panel: with
 one asset missing 20 periods mid-sample, a "5-period" return silently spanned
-25 real periods, contaminating both the return and the overlap horizon stamped
-in `_forward_periods` that every downstream HAC inference reads. Suspensions,
+25 real periods, contaminating both the return and the overlap stamped in
+`_overlap_periods` that every downstream HAC inference reads. Suspensions,
 halts, delist-relist and staggered entry are ordinary in regional equity data,
 and sparse event panels are ragged by construction.
 
@@ -91,6 +91,87 @@ returning an empty panel.
 Its bounds must satisfy `0 <= lower <= upper <= 1`; invalid ordering,
 out-of-range values, non-numeric values, and `bool` bounds raise
 [`UserInputError`](errors.md).
+
+## Evaluating on a coarser grid
+
+A factor is often observed on a finer grid than it is traded on: the price
+grid supplies the return horizon, while the evaluation happens on a
+caller-chosen rebalance grid. Two separate quantities then live on the panel,
+and `compute_forward_return` stamps both:
+
+| Stamp | Name on `EvaluationResult` | Meaning |
+|---|---|---|
+| `_forward_periods` | `forward_periods` | The **return horizon** — the `forward_periods` the return was built with, in periods of the price grid. It names the hypothesis: the `(factor, forward_periods, *params)` identity that `compare` / `bhy` use, and the axis `expand_over` may name. Never changes with the evaluation grid. |
+| `_overlap_periods` | `overlap_periods` | The **overlap of adjacent observations on the evaluation grid** — what inference consumes: the HAC bandwidth and effective degrees of freedom, the non-overlapping stride, and the stride-scaled sample floors. Bookkeeping only; it does not join the identity, because the same horizon evaluated on two grids is one hypothesis estimated twice. |
+
+On the full grid the two coincide. That is why sub-sampling a panel **by
+hand after** `compute_forward_return` goes wrong: the `overlap_periods` stamp
+still says "horizon", so a 60-period return evaluated every 60 periods is
+treated as 60-fold overlapping and the stride-scaled floor (`50 × 60`
+periods for `ic()`) rejects a healthy 24-period panel with
+`insufficient_ic_periods`. The short-circuit message says so and points here.
+
+Pass the evaluation grid as `dates=` instead. The return is still computed on
+the full grid at `forward_periods`, only rows on those dates are kept, and
+the overlap is derived on the **full** period index:
+
+```
+overlap_periods = 1 + max_i #{ j in dates : 0 < idx(j) − idx(i) < h }
+```
+
+The row at period `i` covers `(i + 1, i + 1 + h]`, so two kept rows overlap
+exactly when they are fewer than `h` periods apart. Stride 60 at `h = 60`
+gives 1; stride 20 gives 3; the full grid gives `h`.
+
+```python
+import factrix as fx
+from factrix.metrics import ic, quantile_spread
+from factrix.preprocess import compute_forward_return
+
+raw = fx.datasets.make_cs_panel(n_assets=30, n_dates=1500)      # fine grid
+grid = raw["date"].unique().sort()
+rebalance_dates = grid.gather_every(60)                        # every 60th period
+
+panel = compute_forward_return(raw, forward_periods=60, dates=rebalance_dates)
+result = fx.evaluate(
+    panel, metrics={"ic": ic(), "spread": quantile_spread()}, factor_cols=["factor"]
+)["factor"]
+
+result.forward_periods   # 60 — the hypothesis
+result.overlap_periods   # 1  — derived: adjacent evaluations share no future period
+result.metrics["ic"].n_obs        # 24, the sampled periods (no stride applied)
+result.metrics["spread"].n_obs    # 24
+```
+
+Three details of the derivation are deliberate:
+
+- **Every date must be on the grid; nothing is snapped.** Snapping backward
+  would read a factor observed after the entry period (look-ahead); snapping
+  forward would silently move the entry period. A value off the grid raises
+  [`UserInputError`](errors.md). A `Date` value names a `Datetime` period
+  unambiguously and a `Datetime` in another time unit is the same instant;
+  any other dtype mismatch is rejected rather than parsed.
+- **The maximum, not a typical count.** The evaluation grid may be spaced
+  unevenly on the period grid. Under-stating the overlap by one leaves
+  dependence the non-overlapping stride does not remove and the stride
+  t-test over-rejects (measured 8.3% at a nominal 5% on the test grid in
+  `tests/stats/test_uneven_grid_overlap_size.py`, 21.7% with no stride);
+  over-stating it by one only thins the strided sample (size intact, some
+  power lost). The Newey-West path is insensitive either way (5.5%).
+- **Derived inside `compute_forward_return`, on the full index.** The
+  `is_finite` filter removes any period on which every asset's return is
+  non-finite; an index rebuilt from the returned panel's own dates would
+  compress those gaps and under-count the overlap — the dangerous direction.
+
+The unit of `forward_return` does not change with the grid: it is the return
+**per period of the horizon** (the `/ forward_periods` normalisation), not
+per evaluation period. Every p-value on the affected paths is
+scale-invariant, and a per-evaluation-period rate is not defined on an
+unevenly spaced grid.
+
+`evaluate_horizons(..., dates=)` forwards the same grid to every horizon of
+a sweep; each result carries its own derived `overlap_periods` while the
+`(factor, forward_periods)` identity is unaffected.
 
 ::: factrix.preprocess.compute_forward_return
 

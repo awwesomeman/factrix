@@ -88,13 +88,32 @@ wide kernel (see [section 6](#hac-families) for the full path table).
   where $\text{auto\_bartlett}(T) = \max\!\left(1,\; \lfloor 4 \cdot (T/100)^{2/9} \rfloor\right)$ per Newey-West (1994),
   read against $t_{T-k}$ / $F_{r,\,T-k}$.
 
-with $h$ = `forward_periods`. The $1.3\sqrt{T}$ base is
+with $h$ = `overlap_periods` — the overlap of adjacent observations on the
+evaluation grid, stamped by `compute_forward_return` (equal to
+`forward_periods` on the full grid, derived from `dates=` on a coarser one).
+The $1.3\sqrt{T}$ base is
 [LLSW (2018)][llsw-2018]'s HAR recommendation; `auto_bartlett` is the
 [Newey-West 1994][newey-west-1994] automatic Bartlett bandwidth; the
 $h - 1$ term is the [Hansen-Hodrick 1980][hansen-hodrick-1980] overlap
 floor that ensures the kernel covers the MA(`h − 1`) structure of
 overlapping returns. factrix takes the maximum so the bandwidth is
 always at least large enough to absorb the overlap.
+
+Both bandwidth rules and the effective-df cap $T/h - 1$ read
+`overlap_periods`, not the return horizon. On the full grid the two are
+equal; on a coarser evaluation grid built with
+`compute_forward_return(..., dates=)` the overlap is the derived
+`1 + max_i #\{j : 0 < \mathrm{idx}(j) - \mathrm{idx}(i) < h\}`
+([Evaluating on a coarser grid](../api/preprocess.md#evaluating-on-a-coarser-grid)).
+**Disclosure:** the size tables in this section were measured on regular
+grids (a constant stride, overlap equal to the horizon). On an unevenly
+spaced evaluation grid the scalar series-mean paths were re-checked at the
+derived overlap — `NonOverlapping` 5.8% and `NeweyWest` 5.5% at a nominal 5%
+on the `(20, 20, 40)`-spaced grid in
+`tests/stats/test_uneven_grid_overlap_size.py` — but the Amihud-Hurvich
+path of `predictive_beta` and the $K$-restriction Wald paths have not been
+re-measured there, and the $T/h - 1$ cap is less conservative on a
+sub-sampled panel by construction.
 
 #### Three departures from the textbook HAR form
 

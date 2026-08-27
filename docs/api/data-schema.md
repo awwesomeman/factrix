@@ -108,6 +108,26 @@ projected per factor before a metric's keyword arguments are known, so a
 `inspect_data` reports `quantile_spread_vw` as unusable, with a blocker naming
 the column, on a panel that has no `market_cap`.
 
+## Reserved columns
+
+[`compute_forward_return`](preprocess.md) stamps two constant `Int32`
+columns on the panel. They are never treated as factor columns, are read by
+`evaluate` / `by_slice` / `sample_requirements` / the `slice_period_*` tests
+as the single source of truth, and are stripped before dispatch, so they never
+reach a metric or `to_frame()`. Do not write them by hand.
+
+| Column | Carries | Surfaces as |
+|---|---|---|
+| `_forward_periods` | The return horizon — the `forward_periods` the return was built with, in periods of the price grid. Names the hypothesis. | `EvaluationResult.forward_periods`; the `(factor, forward_periods, *params)` identity |
+| `_overlap_periods` | The overlap of adjacent observations on the evaluation grid — what inference consumes (HAC bandwidth and df, non-overlapping stride, stride-scaled floors). Equal to the horizon on the full grid; derived from `dates=` on a coarser one ([Evaluating on a coarser grid](preprocess.md#evaluating-on-a-coarser-grid)). | `EvaluationResult.overlap_periods` (bookkeeping, not identity); `metadata["overlap_periods"]` on every metric |
+
+A constant column is the one carrier that survives the ordinary polars
+transforms a panel goes through between construction and evaluation
+(`with_columns`, joins, `partition_by` in `by_slice`); DataFrame-level
+metadata does not. A self-attached `forward_return` panel carries neither
+stamp and declares `forward_periods=` (and, on a coarser grid,
+`overlap_periods=`) on `evaluate`.
+
 ---
 
 ## Common errors

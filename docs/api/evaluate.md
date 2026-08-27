@@ -17,6 +17,25 @@ title: factrix.evaluate
 
 <hr>
 
+## `forward_periods=` and `overlap_periods=`
+
+Both are properties of the data, normally read from the stamps
+[`compute_forward_return`](preprocess.md) leaves on the panel, and never
+per-metric knobs. They answer different questions:
+
+| Argument | Question | Read from | Declare it when |
+|---|---|---|---|
+| `forward_periods` | Over how many periods of the price grid was the return measured? The hypothesis; joins the `(factor, forward_periods, *params)` identity. | `_forward_periods` stamp | The panel carries a self-attached `forward_return` with no stamp. |
+| `overlap_periods` | How many adjacent evaluation observations share future periods? What inference consumes. | `_overlap_periods` stamp (equal to the horizon on the full grid; derived from `dates=` on a coarser one) | The unstamped panel sits on a coarser evaluation grid than its horizon. Otherwise it defaults to `forward_periods`. |
+
+A value that disagrees with its stamp raises [`UserInputError`](errors.md)
+rather than silently overriding the data. Both surface on the result —
+`forward_periods` as identity, `overlap_periods` as bookkeeping — and
+`overlap_periods` is injected into every metric as
+`metadata["overlap_periods"]`. See
+[Evaluating on a coarser grid](preprocess.md#evaluating-on-a-coarser-grid)
+for why the two are kept apart.
+
 ## Use cases
 
 <div class="grid cards" markdown>
