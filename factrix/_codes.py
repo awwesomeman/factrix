@@ -354,8 +354,9 @@ _WARNING_DESCRIPTIONS.update(
         "corrado_rank / bmp_z / event_hit_rate / event_ic / event_skewness) "
         "with a raw event count below MIN_EVENTS_WARN (30) x overlap_periods. "
         "The floor is scaled because every one of these tests first strides "
-        "its event axis at the forward-return horizon — keeping at most one "
-        "event in h per asset — so a raw series must carry h x 30 events to land on 30 "
+        "its event axis at overlap_periods — keeping at most one event per "
+        "overlap window per asset — so a raw series must carry "
+        "overlap_periods x 30 events to land on 30 "
         "independent ones. The message states the scaled floor, the raw count "
         "and the count that survived sampling; caar and corrado_rank count "
         "event *periods* on that axis (caar an equal-weight calendar-time "
@@ -402,7 +403,14 @@ _WARNING_DESCRIPTIONS.update(
         "forward_return, lagged by overlap_periods so it ends before the event's "
         "forward window. This is a coarser, horizon-overlapping vol proxy than a "
         "price-derived one-period std — supply price for the clean BMP "
-        "standardiser.",
+        "standardiser. Either path's horizon scale (1/sqrt(overlap_periods) on "
+        "the price path) is exact only on the unsampled full grid, where the "
+        "stamped overlap_periods counts the periods the forward return spans; "
+        "the p-value does not depend on it, because the factor is common to "
+        "every event and cancels in z = mean(SAR) / (std(SAR) / sqrt(N)) and in "
+        "the scale-free Kolari-Pynnonen deflator. Only the descriptive "
+        "metadata['std_sar'] and the mean-SAR value shift, by a constant, on a "
+        "resampled evaluation grid.",
         WarningCode.UPSTREAM_UNAVAILABLE: "DAG-executor consumer skipped because an upstream "
         "producer short-circuited. The downstream MetricResult carries "
         "metadata['upstream'] / ['upstream_reason'] for the original cause.",
