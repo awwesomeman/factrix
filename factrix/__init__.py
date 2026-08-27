@@ -76,7 +76,8 @@ from factrix._data_input import (
     DataInput,
     _coerce_data,
     _read_forward_periods_stamp,
-    _read_overlap_periods_stamp,
+    _resolve_forward_periods,
+    _resolve_overlap_periods,
 )
 from factrix._errors import (
     FactrixError,
@@ -768,104 +769,16 @@ def sample_requirements(
             expected="a metric instance, e.g. ic() or positive_rate()",
             docs_path="api/inspect-data",
         )
-    op = (
-        _resolve_overlap_periods(
-            data, overlap_periods, horizon=_read_forward_periods_stamp(data)
+    if data is not None:
+        op = _resolve_overlap_periods(
+            data,
+            overlap_periods,
+            horizon=_read_forward_periods_stamp(data),
+            func_name="sample_requirements",
         )
-        if data is not None
-        else overlap_periods
-    )
+    else:
+        op = overlap_periods
     return metric._resolved_sample_threshold(op)
-
-
-def _resolve_forward_periods(data: _pl.DataFrame, declared: int | None) -> int:
-    """Resolve the panel's return horizon for this evaluation.
-
-    Path A (primary): a panel built by ``compute_forward_return`` carries a
-    horizon stamp — the single source of truth. Path B (escape hatch): a
-    self-attached ``forward_return`` panel carries no stamp, so the caller must
-    declare the horizon once via ``forward_periods=`` (a statement about the
-    data's overlap, not a per-metric knob). A declaration that disagrees with
-    the stamp is rejected rather than silently resolved.
-    """
-    stamp = _read_forward_periods_stamp(data)
-    if stamp is not None:
-        if declared is not None and declared != stamp:
-            raise UserInputError(
-                func_name="evaluate",
-                field="forward_periods",
-                value=declared,
-                expected=(
-                    f"forward_periods to match the data's stamped return "
-                    f"horizon ({stamp}, set by compute_forward_return). The "
-                    f"horizon is a property of the data — omit forward_periods, "
-                    f"or rebuild forward_return at horizon {declared}."
-                ),
-                docs_path="api/evaluate#forward_periods",
-            )
-        return stamp
-    if declared is not None:
-        return declared
-    raise UserInputError(
-        func_name="evaluate",
-        field="forward_periods",
-        value=None,
-        expected=(
-            "the data's return horizon. Either build forward_return via "
-            "factrix.preprocess.compute_forward_return(data, forward_periods=<forward_periods>) "
-            "(which stamps the horizon), or, for a self-attached forward_return "
-            "column, declare it once with evaluate(..., forward_periods=<forward_periods>)."
-        ),
-        docs_path="api/evaluate#forward_periods",
-    )
-
-
-def _resolve_overlap_periods(
-    data: _pl.DataFrame, declared: int | None, *, horizon: int | None
-) -> int:
-    """Resolve the evaluation-grid overlap inference will consume.
-
-    Same contract as :func:`_resolve_forward_periods`: the stamp left by
-    ``compute_forward_return`` is the truth and a disagreeing declaration is
-    rejected. The unstamped fallback differs in one respect — the overlap
-    defaults to the resolved horizon (``horizon``), because a self-attached
-    ``forward_return`` on the full grid overlaps by exactly its horizon; only
-    a panel built on a coarser grid needs ``overlap_periods=`` spelled out.
-    """
-    stamp = _read_overlap_periods_stamp(data)
-    if stamp is not None:
-        if declared is not None and declared != stamp:
-            raise UserInputError(
-                func_name="evaluate",
-                field="overlap_periods",
-                value=declared,
-                expected=(
-                    f"overlap_periods to match the data's stamped evaluation-"
-                    f"grid overlap ({stamp}, derived by compute_forward_return). "
-                    f"The overlap is a property of the data — omit "
-                    f"overlap_periods, or rebuild forward_return on the grid "
-                    f"that overlaps by {declared} (compute_forward_return(..., "
-                    f"dates=...))."
-                ),
-                docs_path="api/evaluate#overlap_periods",
-            )
-        return stamp
-    if declared is not None:
-        return declared
-    if horizon is not None:
-        return horizon
-    raise UserInputError(
-        func_name="evaluate",
-        field="overlap_periods",
-        value=None,
-        expected=(
-            "the evaluation-grid overlap. Build forward_return via "
-            "factrix.preprocess.compute_forward_return (which stamps it), or "
-            "declare forward_periods= (the overlap then defaults to the horizon) "
-            "and overlap_periods= when the panel sits on a coarser grid."
-        ),
-        docs_path="api/evaluate#overlap_periods",
-    )
 
 
 def _build_nodes(

@@ -8,7 +8,6 @@ import factrix as fx
 import polars as pl
 import pytest
 from factrix import slice_period_joint_test, slice_period_pairwise_test
-from factrix._data_input import _stamp_horizons
 from factrix._errors import UserInputError
 from factrix.metrics import ic, monotonicity, positive_rate
 
@@ -283,16 +282,17 @@ class TestShortSliceDisclosure:
 
 
 class TestFloorFollowsPanelStamp:
-    """The slice-test floor is resolved at the panel's stamped horizon — the
-    same floor ``by_slice`` gates on — not at the metric's default horizon."""
+    """The slice-test floor is resolved at the panel's stamped — or, on an
+    unstamped panel, declared — ``overlap_periods``, the same value
+    ``by_slice`` / ``evaluate`` resolve, not at the metric's default."""
 
     @staticmethod
-    def _panel(overlap_periods: int) -> pl.DataFrame:
-        df = build_disjoint_period_panel(
-            seed=7, spans={"a": (20, 0.02), "b": (20, 0.02)}, label_col="regime"
-        )
-        return _stamp_horizons(
-            df, forward_periods=overlap_periods, overlap_periods=overlap_periods
+    def _panel(overlap_periods: int | None) -> pl.DataFrame:
+        return build_disjoint_period_panel(
+            seed=7,
+            spans={"a": (20, 0.02), "b": (20, 0.02)},
+            label_col="regime",
+            overlap_periods=overlap_periods,
         )
 
     def test_stamp_one_admits_twenty_period_slices(self) -> None:
@@ -318,14 +318,78 @@ class TestFloorFollowsPanelStamp:
                 self._panel(5), positive_rate(), by="regime", factor_col="factor"
             )
 
-    def test_unstamped_panel_falls_back_to_default_horizon(self) -> None:
-        with pytest.raises(ValueError, match="default horizon"):
+    def test_unstamped_panel_requires_a_declared_overlap(self) -> None:
+        """No silent fallback to the metric's default: declare it, as
+        ``evaluate`` demands on the same panel."""
+        with pytest.raises(UserInputError, match="overlap_periods"):
             slice_period_pairwise_test(
-                self._panel(1).drop("_forward_periods", "_overlap_periods"),
+                self._panel(None),
                 positive_rate(),
                 by="regime",
                 factor_col="factor",
             )
+
+    def test_declared_overlap_resolves_the_floor(self) -> None:
+        """A declared overlap of 1 admits the same 20-period slices a stamp
+        of 1 does."""
+        panel = self._panel(None)
+        joint = slice_period_joint_test(
+            panel,
+            positive_rate(),
+            by="regime",
+            factor_col="factor",
+            overlap_periods=1,
+            rng_seed=1,
+        )
+        assert joint["k_slices"].item() == 2
+        assert joint["min_periods"].item() == 10
+        pairwise = slice_period_pairwise_test(
+            panel,
+            positive_rate(),
+            by="regime",
+            factor_col="factor",
+            overlap_periods=1,
+            rng_seed=1,
+        )
+        assert pairwise.select("n_periods_a", "n_periods_b").row(0) == (20, 20)
+
+    def test_declared_overlap_disagreeing_with_the_stamp_raises(self) -> None:
+        with pytest.raises(UserInputError, match="stamped evaluation-grid overlap"):
+            slice_period_joint_test(
+                self._panel(1),
+                positive_rate(),
+                by="regime",
+                factor_col="factor",
+                overlap_periods=5,
+            )
+
+    def test_by_slice_and_slice_test_agree_on_an_unstamped_panel(self) -> None:
+        """The descriptive and the inferential path resolve one overlap."""
+        panel = self._panel(None)
+        per_slice = fx.by_slice(
+            panel,
+            positive_rate(),
+            by="regime",
+            factor_col="factor",
+            forward_periods=1,
+            overlap_periods=1,
+            strict=False,
+        )
+        assert all(r.metrics["positive_rate"].n_obs == 20 for r in per_slice.values())
+        assert all(r.metrics["positive_rate"].is_applicable for r in per_slice.values())
+        joint = slice_period_joint_test(
+            panel,
+            positive_rate(),
+            by="regime",
+            factor_col="factor",
+            overlap_periods=1,
+            rng_seed=1,
+        )
+        assert joint["reason"].item() is None
+        assert (
+            joint["min_periods"].item()
+            == fx.sample_requirements(positive_rate(), overlap_periods=1).min_periods
+        )
 
 
 class TestNonStrict:

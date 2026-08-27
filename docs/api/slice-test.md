@@ -84,13 +84,17 @@ covariance. A two-valued `method` flag selects the estimator:
 | `"analytic"` | Per-slice Newey-West HAC, Welch-style pairwise contrast | Holm step-down | Long spans (T ≳ 100); fast, deterministic |
 
 Each slice's per-period series must clear the metric's own sample floor,
-resolved at the panel's stamped `forward_periods` — the same floor
-`by_slice` short-circuits on — otherwise the test raises `ValueError`
+resolved at the panel's stamped or declared `overlap_periods` — the same
+floor `by_slice` short-circuits on — otherwise the test raises `ValueError`
 rather than return an uncalibrated contrast. Plan the partition against
 [`sample_requirements`](inspect-data.md#resolved-floor-for-a-configured-metric)
-(e.g. `positive_rate()` needs 10 periods per slice at `forward_periods=1`,
-50 at the default 5). An unstamped panel resolves the floor at the metric's
-default horizon.
+(e.g. `positive_rate()` needs 10 periods per slice at `overlap_periods=1`,
+50 at the default 5). Resolution follows `evaluate`'s contract: the stamp
+left by `compute_forward_return` is the truth, a declared
+`overlap_periods=` disagreeing with it is rejected, and an unstamped
+(self-attached `forward_return`) panel must declare it — the same value
+`by_slice(..., overlap_periods=)` takes, so the descriptive and the
+inferential path never gate at different floors.
 
 Pairwise output is `(slice_a, slice_b, n_periods_a, n_periods_b,
 mean_diff, stat, p_raw, p_adj, stat_type, reference_dist, df_num,

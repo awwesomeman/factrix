@@ -13,6 +13,7 @@ import datetime as dt
 
 import numpy as np
 import polars as pl
+from factrix._data_input import _stamp_horizons
 
 
 def build_labelled_raw_panel(
@@ -63,6 +64,7 @@ def build_disjoint_period_panel(
     label_col: str,
     n_assets: int = 40,
     noise: float = 0.3,
+    overlap_periods: int | None = 5,
 ) -> pl.DataFrame:
     """Raw panel whose labels occupy **disjoint** calendar spans.
 
@@ -73,6 +75,11 @@ def build_disjoint_period_panel(
     cross-sectional slice tests reject with ``<2 aligned dates`` and the
     ``slice_period_*`` pair handles. Spans may differ in length, exercising
     the per-slice ``n_periods_*`` reporting.
+
+    ``overlap_periods`` stamps the panel the way ``compute_forward_return``
+    would (horizon and overlap alike); pass ``None`` for the unstamped,
+    self-attached ``forward_return`` panel that must declare its overlap at
+    the call site.
     """
     rng = np.random.default_rng(seed)
     cursor = dt.date(2024, 1, 1)
@@ -97,7 +104,12 @@ def build_disjoint_period_panel(
                 }
             )
         )
-    return pl.concat(frames)
+    panel = pl.concat(frames)
+    if overlap_periods is None:
+        return panel
+    return _stamp_horizons(
+        panel, forward_periods=overlap_periods, overlap_periods=overlap_periods
+    )
 
 
 def build_autocorrelated_ic_panel(
