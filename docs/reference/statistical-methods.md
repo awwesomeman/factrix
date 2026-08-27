@@ -610,6 +610,40 @@ and the regression kernels `_ols_nw_slope_t` / `_ols_nw_multivariate`
 would need their own measurement first — a vector series needs a VAR(1)
 fit and regression scores a different derivation.
 
+### Which path to read: a routing guide from the size measurements
+
+The measurements above and in §1 say where each inference path is
+calibrated and where it is not. This table turns them into the choice a
+user faces after a warning fires — *keep the path, switch member, or
+change the sample*. None of these rows changes a default: every deliberate
+deviation in factrix is additive (it warns or refuses), so the routing is
+the reader's, not the library's. Sizes are true-null rejection rates at a
+nominal 5%; sample sizes count periods on the evaluation grid after the
+`overlap_periods` stride.
+
+| Input regime | What you see | What the measurements say | Read / do |
+|---|---|---|---|
+| Overlapping `forward_periods` panel, per-period series not persistent (the everyday case) | No warning | `NEWEY_WEST` 5–9% on real overlapping IC (h = 5, n = 240 / 480: 5.2% / 8.8%); `NON_OVERLAPPING` calibrated. | Keep the default member. |
+| Persistent per-period series (lag-1 φ ≥ 0.3 on the *tested* series) | `serial_correlation_detected` | No path is calibrated — NW 13–17%, stationary bootstrap 12–19%, plain *t* 32–34% at φ = 0.6 (table above). | Do **not** switch member; it moves the number without fixing it. Read the *t* against a raised hurdle (*t* > 3) or lengthen the sample. A coarser `overlap_periods` stride under `NON_OVERLAPPING` also helps mechanically — the strided sample sits at φ^h, and AR(0.6) strided at h = 21 measures 4.5%. |
+| Short strided series (fewer than ~120 periods after the stride) | `unreliable_se_short_periods`, or nothing on a moderately short series | The *t* / NW branch runs 7–9%. The bootstrap p is *worse* here — 13.6% at n = 12, 9.8% at 30, 7.4% at 60, reaching 5.2% only by 120 — and the strided series is short exactly when the horizon is long. | Stay on the analytic *t* / NW. Do not reach for the bootstrap to rescue a short sample; shorten the stride or lengthen the history instead. |
+| Long strided series (≥ ~120 periods) whose distribution is in doubt (heavy tails, skew) | No warning | At n ≥ 120 the bootstrap is at its nominal size (5.2%) while the analytic branch still carries its 7–9% baseline. | `STATIONARY_BOOTSTRAP` is the better-calibrated read on `ic`; the spread metrics keep `NON_OVERLAPPING` / `NEWEY_WEST` (their allowlist). This is a documented option, not a default — see §1. |
+| Heavy-tailed *and* short | `unreliable_se_short_periods` | The *t* is size-robust to tails — 3–4% on t(3) input, i.e. conservative — while the small-n bootstrap is not (6–14%). | Keep the *t*. Tails are not a reason to bootstrap a short series. |
+| Thin cross-section (few names per leg) | `few_assets` | Each leg mean rests on a handful of names: a noisier estimate, not a differently-distributed one. The automatic bootstrap switch this once triggered rejected 8–20% against the *t*'s 7–9% and keyed on the wrong axis; it was removed. | Keep the requested member; read `n_assets` and treat the spread as fragile. |
+| Joint test on K ≥ 3 short slices | `slice_period_joint_test` warning | 8–9% for K = 5 on 50–90-period slices, converging by T ≈ 150; the bootstrap path inherits it (12%). K = 2 is calibrated throughout. | Read the pairwise contrasts on the same slices (5–6%) rather than the joint p, or lengthen the slices. |
+| Few event periods after the stride | `few_events` | Power-thin, not size-inflated for `caar` / `corrado_rank`; `bmp_z` is ~10% at 8 effective periods, ~7% at 15, clearing by ~30. | Read borderline p-values cautiously; extend the event history rather than switching estimator — all three count the same event periods. |
+| 3–19 portfolio periods in `top_concentration` | `borderline_portfolio_periods` | Extremely conservative at the bottom of the range: 0 of 250 null draws rejected at exactly 3 periods. | Treat `value` as descriptive until the series is well inside the range; the p carries essentially no information there. |
+
+Two rules fall out of the table. A *size* problem driven by persistence or
+a short sample is not fixed by changing the inference member — the
+analytic and bootstrap paths inherit the same small-sample distortion —
+so the honest response is a raised hurdle or more periods. A
+*distribution* problem on a long series is the one case where the
+bootstrap earns its cost, and it is offered there rather than routed to
+automatically because a default that silently moves a number is the line
+every other deviation in this library has stayed behind.
+
+---
+
 ## 7. Missing-value convention (null vs NaN)
 
 polars distinguishes `null` (missing) from float `NaN` (a value), and
