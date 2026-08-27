@@ -110,41 +110,63 @@ resync the environment instead of patching tests.
 
 ### Git hooks
 
-`.githooks/` at the repo root holds version-controlled hook scripts.
-Run once after a fresh clone:
+Hooks are managed by the [pre-commit](https://pre-commit.com/) framework;
+`.pre-commit-config.yaml` at the repo root declares them and
+`scripts/hooks/` holds the two repo-local hook scripts. Run once after a
+fresh clone:
 
 ```bash
 python scripts/setup_dev.py
 ```
 
-The script sets `git config core.hooksPath .githooks`. Idempotent —
-re-running is a no-op; aborts (non-zero exit) if `core.hooksPath` is
-already pointed at a different path so a contributor's dotfiles-
-managed hook surface is not silently overwritten. The setting is
-per-clone and local; it does not propagate across machines, so every
-clone / new machine must run the script once. `git worktree`
-instances share `.git/config` with their primary clone, so one run at
-the primary clone covers every worktree under it. After activation,
-all hooks below run automatically; no per-hook install needed.
+The script runs `pre-commit install` for the `pre-commit`, `commit-msg`
+and `pre-push` stages, and unsets a leftover `core.hooksPath` from the
+pre-framework setup (it would shadow the installed hooks). Idempotent —
+re-running just rewrites the same shims; aborts (non-zero exit) if
+`core.hooksPath` points at some other path, so a contributor's
+dotfiles-managed hook surface is not silently overwritten. The
+installation is per-clone and local; it does not propagate across
+machines, so every clone / new machine must run the script once. `git
+worktree` instances share `.git/hooks` with their primary clone, so one
+run at the primary clone covers every worktree under it.
 
-`pre-commit` — when staged changes include `*.py`, runs `ruff check`
-+ `ruff format --check` (mirrors CI's `lint` job). Fail → blocks the
-commit; fix-then-commit, or use `git commit --no-verify` to bypass.
-Scoped to staged files, so commits touching only YAML / Markdown / .txt
-don't trigger.
+`pre-commit` — when staged changes include `*.py` / `*.ipynb`, runs
+`ruff check` + `ruff format --check`. Both gate rather than rewrite: a
+hook run never mutates your files. CI's `lint` job runs the same
+`uv run pre-commit run --all-files --hook-stage pre-commit`, so local and
+CI cannot drift. Fail → blocks the commit; fix-then-commit, or use
+`git commit --no-verify` to bypass. Scoped to staged files, so commits
+touching only YAML / Markdown / .txt don't trigger.
+
+`commit-msg` — rejects `Co-Authored-By: Claude <...@anthropic.com>`
+trailers, which GitHub would surface on the repo's contributor graph.
 
 `pre-push` — for `v1.0.0+` release commits (`chore(release): vX.Y.Z`),
 checks that the `## vX.Y.Z` section in `CHANGELOG.md` has ≥ 25 non-blank
 lines. Below threshold → blocks the push, forcing you to add WHY narrative
 (BREAKING migration, behavioural direction, motivation) before pushing. Pre-1.0
-release commits skip this gate; see the Pre-1.0 version guide in section 9. To
-bypass: `git push --no-verify`.
+release commits skip this gate; see the Pre-1.0 version guide in section 9. It
+also runs `mkdocs build --strict` when the push touches docs-relevant paths and
+`uv run mypy factrix` when it touches `factrix/**/*.py`. To bypass:
+`git push --no-verify`.
 
 Adjust the threshold (per-shell):
 
 ```bash
 CHANGELOG_MIN_LINES=10 git push
 ```
+
+Run any stage by hand without committing:
+
+```bash
+uv run pre-commit run --all-files --hook-stage pre-commit
+```
+
+Maintenance: `uv run pre-commit autoupdate` bumps each `rev` to the
+latest upstream tag. The ruff `rev` must stay equal to the `ruff==` pin
+in `pyproject.toml` — that pin is the source of truth, so bump it to
+match in the same commit. `tests/test_precommit_ruff_pin.py` fails when
+the two diverge.
 
 Rationale: see section 9 for release-note and pre-1.0 policy.
 

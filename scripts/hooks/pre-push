@@ -3,6 +3,13 @@
 # strict build when the push touches docs-relevant paths + mypy
 # when the push touches factrix/ source.
 #
+# Wired through .pre-commit-config.yaml (``stages: [pre-push]``).
+# pre-commit consumes Git's pre-push stdin itself and hands hooks the
+# resolved range as PRE_COMMIT_FROM_REF / PRE_COMMIT_TO_REF instead,
+# so stdin is already drained by the time this script runs;
+# ``_ref_lines`` below reconstructs the ref line from those variables
+# and falls back to real stdin when Git invokes the script directly.
+#
 # When the push includes a ``chore(release): vX.Y.Z`` commit for v1.0.0 or
 # later, the corresponding ``## vX.Y.Z`` section in CHANGELOG.md (as committed
 # at that release) must have at least CHANGELOG_MIN_LINES non-blank lines.
@@ -37,6 +44,25 @@ MYPY_PATH_RE='^factrix/.*\.py$'
 
 needs_mkdocs=0
 needs_mypy=0
+
+# Emit ``<local_ref> <local_sha> <remote_ref> <remote_sha>`` lines in
+# Git's pre-push stdin format. Only the two SHA fields are read below,
+# so the ref fields are placeholders when synthesised.
+#
+# * pre-commit with a resolved range -> one line for that range.
+# * pre-commit without one (whole-tree push, or a manual
+#   ``pre-commit run --hook-stage pre-push``) -> treat HEAD as a new
+#   branch, i.e. scan commits not yet on any remote.
+# * Git invoking this script directly -> the real stdin lines.
+_ref_lines() {
+    if [ -n "${PRE_COMMIT_FROM_REF:-}" ] && [ -n "${PRE_COMMIT_TO_REF:-}" ]; then
+        printf 'HEAD %s HEAD %s\n' "$PRE_COMMIT_TO_REF" "$PRE_COMMIT_FROM_REF"
+    elif [ -n "${PRE_COMMIT:-}" ]; then
+        printf 'HEAD %s HEAD %s\n' "$(git rev-parse HEAD)" "$ZERO"
+    else
+        cat
+    fi
+}
 
 while read -r local_ref local_sha remote_ref remote_sha; do
     [ "$local_sha" = "$ZERO" ] && continue
@@ -95,7 +121,7 @@ while read -r local_ref local_sha remote_ref remote_sha; do
             needs_mypy=1
         fi
     fi
-done
+done < <(_ref_lines)
 
 if [ "$needs_mkdocs" -eq 1 ]; then
     tmp=$(mktemp -d)
