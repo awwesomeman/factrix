@@ -32,6 +32,8 @@ from factrix.metrics import (
     fm_beta,
     ic,
     ic_ir,
+    k_spread,
+    monotonicity,
     pooled_beta,
     quantile_spread,
     quantile_spread_vw,
@@ -418,6 +420,25 @@ class TestHighTieRatio:
             panel,
             {"spread": metric},
             "median tie_ratio",
+        )
+
+    @pytest.mark.parametrize(
+        "label, metric",
+        [("ks", k_spread(k=5)), ("mono", monotonicity(n_groups=3, n_bootstrap=50))],
+    )
+    def test_declared_is_quiet_but_recorded_on_the_other_bucket_metrics(
+        self, label, metric
+    ):
+        _assert_declared_is_quiet_but_recorded(
+            _tied_panel(), {label: metric}, WarningCode.HIGH_TIE_RATIO, label
+        )
+
+    @pytest.mark.parametrize(
+        "metric", [k_spread(k=5), monotonicity(n_groups=3, n_bootstrap=50)]
+    )
+    def test_undeclared_other_bucket_metrics_still_echo(self, metric):
+        _assert_undeclared_still_echoes(
+            _tied_panel(), {"m": metric}, "median tie_ratio"
         )
 
     def test_code_is_attached_to_the_result(self):
