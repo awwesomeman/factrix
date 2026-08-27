@@ -162,7 +162,9 @@ class SampleThreshold:
 
     The same constants are read by the metric's own short-circuit
     logic at run time — single source of truth for what counts as
-    "thin sample" per metric.
+    "thin sample" per metric. The spec carries the floor at the metric's
+    default configuration; :func:`factrix.sample_requirements` resolves it
+    for a configured instance at the panel's ``forward_periods``.
 
     Per axis the ``min_*`` floor must not exceed the ``warn_*`` floor:
     a metric is unusable below ``min``, degraded between ``min`` and
@@ -650,6 +652,10 @@ def list_metrics() -> dict[str, list[MetricSpec]]:
     cell filter is retired; ``inspect_data`` subsumes it with a
     structure-aware, sample-floor-aware verdict.)
 
+    Each spec's ``sample_threshold`` is the floor at the metric's **default
+    configuration**; the floor a configured instance gates on at a panel's
+    ``forward_periods`` comes from :func:`factrix.sample_requirements`.
+
     Source of truth is the registered ``@metric`` classes in each
     ``factrix/metrics/*.py`` module, loaded by :mod:`factrix._metric_index`.
 
@@ -672,9 +678,11 @@ def metrics_summary() -> pl.DataFrame:
     ``(family, metric)``.
 
     Use this to *browse* the catalog; reach for :func:`list_metrics` when you
-    need the full ``MetricSpec`` (cell, aggregation, sample thresholds) for
-    programmatic filtering, and :func:`factrix.inspect_data` for which metrics
-    actually run on a given panel.
+    need the full ``MetricSpec`` (cell, aggregation, default-configuration
+    sample thresholds) for programmatic filtering, :func:`factrix.inspect_data`
+    for which metrics actually run on a given panel, and
+    :func:`factrix.sample_requirements` for a configured instance's floor at
+    the panel's ``forward_periods``.
 
     Examples:
         >>> import factrix as fx

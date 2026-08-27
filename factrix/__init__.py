@@ -261,7 +261,7 @@ def evaluate(
         label: (
             _dataclasses.replace(
                 type(inst).spec(),
-                sample_threshold=type(inst)._resolve_sample_threshold(inst),
+                sample_threshold=inst._resolved_sample_threshold(fp),
             )
             if isinstance(inst, MetricBase)
             else inst.__metric_spec__
@@ -674,6 +674,77 @@ def _validate_metrics_arg(metrics: object) -> None:
                 ),
                 docs_path=_DOCS_METRICS,
             )
+
+
+def sample_requirements(
+    metric: _Any,
+    *,
+    data: _pl.DataFrame | None = None,
+    forward_periods: int | None = None,
+) -> SampleThreshold:
+    """Resolve a configured metric's sample floor at a panel's overlap horizon.
+
+    The floor a metric gates on depends on its configuration (e.g.
+    ``ic(inference=NeweyWest())`` needs fewer periods than the default
+    non-overlapping t-test) and, for metrics that sub-sample at the overlap
+    stride, on the panel's ``forward_periods``. ``list_metrics`` /
+    ``metrics_summary`` / ``inspect_data`` report the default-configuration
+    floor; this is the run-time one — the same resolution :func:`evaluate`
+    and the ``slice_period_*`` tests apply.
+
+    Args:
+        metric: A metric **instance** (``ic()``, ``positive_rate()``, …).
+        data: Panel whose stamped horizon (set by
+            :func:`factrix.preprocess.compute_forward_return`) resolves the
+            floor. Resolved exactly as :func:`evaluate` does: an explicit
+            ``forward_periods`` must agree with the stamp; an unstamped panel
+            requires it.
+        forward_periods: The overlap horizon, when no panel is at hand (or
+            the panel is unstamped). With neither ``data`` nor
+            ``forward_periods`` the floor is resolved at the metric's default
+            horizon — the same value ``metric.spec().sample_threshold`` carries.
+
+    Returns:
+        :class:`SampleThreshold` with the hard ``min_*`` and soft ``warn_*``
+        floors per axis. ``evaluate(strict=True)`` raises on a hard-floor
+        breach; ``strict=False`` short-circuits the metric to NaN with a
+        ``metric_unavailable`` warning; the soft tier always returns a value
+        and attaches the axis' degraded-tier warning code.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.metrics import ic, positive_rate
+        >>> fx.sample_requirements(ic()).min_periods
+        50
+        >>> fx.sample_requirements(ic(inference=fx.inference.NEWEY_WEST)).min_periods
+        20
+        >>> fx.sample_requirements(positive_rate(), forward_periods=1).min_periods
+        10
+        >>> raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
+        >>> panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
+        >>> fx.sample_requirements(positive_rate(), data=panel).min_periods
+        50
+    """
+    from factrix.metrics._base import MetricBase
+
+    if not isinstance(metric, MetricBase):
+        raise UserInputError(
+            func_name="sample_requirements",
+            field="metric",
+            value=(
+                f"{metric.__name__} (the class)"
+                if isinstance(metric, type)
+                else type(metric).__name__
+            ),
+            expected="a metric instance, e.g. ic() or positive_rate()",
+            docs_path="api/inspect-data",
+        )
+    fp = (
+        _resolve_forward_periods(data, forward_periods)
+        if data is not None
+        else forward_periods
+    )
+    return metric._resolved_sample_threshold(fp)
 
 
 def _resolve_forward_periods(data: _pl.DataFrame, declared: int | None) -> int:
@@ -1268,6 +1339,7 @@ __all__ = [
     "inspect_data",
     "list_metrics",
     "metrics_summary",
+    "sample_requirements",
     # Slicing dispatcher + cross-slice inference functions
     "by_slice",
     "slice_joint_test",
