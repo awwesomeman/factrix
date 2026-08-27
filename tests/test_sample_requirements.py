@@ -68,6 +68,18 @@ class TestHorizonResolution:
             == 20
         )
 
+    def test_rejects_an_invalid_explicit_overlap(self):
+        """Validated as ``evaluate`` validates a declared overlap: a positive
+        int, ``bool`` rejected — never silently clamped to 1."""
+        for bad in (0, -1, True, "5"):
+            with pytest.raises(UserInputError, match="overlap_periods") as excinfo:
+                fx.sample_requirements(positive_rate(), overlap_periods=bad)
+            assert excinfo.value.func_name == "sample_requirements"
+            assert excinfo.value.field == "overlap_periods"
+        assert (
+            fx.sample_requirements(positive_rate(), overlap_periods=1).min_periods == 10
+        )
+
     def test_rejects_class_and_non_metric(self):
         with pytest.raises(UserInputError, match="metric instance"):
             fx.sample_requirements(positive_rate)

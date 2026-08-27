@@ -96,6 +96,140 @@ def _read_overlap_periods_stamp(data: pl.DataFrame) -> int | None:
     return _read_int_stamp(data, _OVERLAP_PERIODS_COL)
 
 
+_DOCS_OVERLAP_PERIODS = "api/evaluate#overlap_periods"
+_DOCS_FORWARD_PERIODS = "api/evaluate#forward_periods"
+
+
+def _validate_overlap_periods(declared: object, *, func_name: str) -> int:
+    """Type/range-check a caller-declared evaluation-grid overlap.
+
+    Same shape as ``preprocess.returns._validate_forward_periods``: a
+    positive ``int``, ``bool`` rejected. Applied wherever a caller declares
+    the overlap (``evaluate``, ``by_slice``, the ``slice_period_*`` tests,
+    ``sample_requirements``) so a nonsensical value fails at the boundary
+    rather than deep inside a stride computation.
+    """
+    if not isinstance(declared, int) or isinstance(declared, bool):
+        raise UserInputError(
+            func_name=func_name,
+            field="overlap_periods",
+            value=declared,
+            expected="a positive int count of periods, e.g. 5",
+            docs_path=_DOCS_OVERLAP_PERIODS,
+        )
+    if declared <= 0:
+        raise UserInputError(
+            func_name=func_name,
+            field="overlap_periods",
+            value=declared,
+            expected="a positive int count of periods (> 0)",
+            docs_path=_DOCS_OVERLAP_PERIODS,
+        )
+    return declared
+
+
+def _resolve_forward_periods(
+    data: pl.DataFrame, declared: int | None, *, func_name: str = "evaluate"
+) -> int:
+    """Resolve the panel's return horizon for this evaluation.
+
+    Path A (primary): a panel built by ``compute_forward_return`` carries a
+    horizon stamp — the single source of truth. Path B (escape hatch): a
+    self-attached ``forward_return`` panel carries no stamp, so the caller must
+    declare the horizon once via ``forward_periods=`` (a statement about the
+    data's overlap, not a per-metric knob). A declaration that disagrees with
+    the stamp is rejected rather than silently resolved.
+    """
+    stamp = _read_forward_periods_stamp(data)
+    if stamp is not None:
+        if declared is not None and declared != stamp:
+            raise UserInputError(
+                func_name=func_name,
+                field="forward_periods",
+                value=declared,
+                expected=(
+                    f"forward_periods to match the data's stamped return "
+                    f"horizon ({stamp}, set by compute_forward_return). The "
+                    f"horizon is a property of the data — omit forward_periods, "
+                    f"or rebuild forward_return at horizon {declared}."
+                ),
+                docs_path=_DOCS_FORWARD_PERIODS,
+            )
+        return stamp
+    if declared is not None:
+        return declared
+    raise UserInputError(
+        func_name=func_name,
+        field="forward_periods",
+        value=None,
+        expected=(
+            "the data's return horizon. Either build forward_return via "
+            "factrix.preprocess.compute_forward_return(data, forward_periods=<forward_periods>) "
+            "(which stamps the horizon), or, for a self-attached forward_return "
+            f"column, declare it once with {func_name}(..., forward_periods=<forward_periods>)."
+        ),
+        docs_path=_DOCS_FORWARD_PERIODS,
+    )
+
+
+def _resolve_overlap_periods(
+    data: pl.DataFrame,
+    declared: int | None,
+    *,
+    horizon: int | None,
+    func_name: str = "evaluate",
+) -> int:
+    """Resolve the evaluation-grid overlap inference will consume.
+
+    Same contract as :func:`_resolve_forward_periods`: the stamp left by
+    ``compute_forward_return`` is the truth and a disagreeing declaration is
+    rejected. Callers that also resolve a horizon (``evaluate``) pass it as
+    ``horizon``: an unstamped panel then defaults to it, because a
+    self-attached ``forward_return`` on the full grid overlaps by exactly its
+    horizon and only a coarser grid needs ``overlap_periods=`` spelled out.
+    Callers with no horizon of their own (the ``slice_period_*`` tests) pass
+    ``horizon=None``, so an unstamped panel must declare the overlap.
+    """
+    if declared is not None:
+        declared = _validate_overlap_periods(declared, func_name=func_name)
+    stamp = _read_overlap_periods_stamp(data)
+    if stamp is not None:
+        if declared is not None and declared != stamp:
+            raise UserInputError(
+                func_name=func_name,
+                field="overlap_periods",
+                value=declared,
+                expected=(
+                    f"overlap_periods to match the data's stamped evaluation-"
+                    f"grid overlap ({stamp}, derived by compute_forward_return). "
+                    f"The overlap is a property of the data — omit "
+                    f"overlap_periods, or rebuild forward_return on the grid "
+                    f"that overlaps by {declared} (compute_forward_return(..., "
+                    f"dates=...))."
+                ),
+                docs_path=_DOCS_OVERLAP_PERIODS,
+            )
+        return stamp
+    if declared is not None:
+        return declared
+    if horizon is not None:
+        return horizon
+    raise UserInputError(
+        func_name=func_name,
+        field="overlap_periods",
+        value=None,
+        expected=(
+            "the evaluation-grid overlap. Build forward_return via "
+            "factrix.preprocess.compute_forward_return(data, "
+            "forward_periods=<forward_periods>) (which stamps both the horizon "
+            "and the evaluation-grid overlap), or declare the overlap on the "
+            f"unstamped panel with {func_name}(..., "
+            "overlap_periods=<overlap_periods>)."
+        ),
+        docs_path=_DOCS_OVERLAP_PERIODS,
+    )
+
+
 _DOCS_DATA_SCHEMA = "api/data-schema"
 
 
