@@ -444,6 +444,18 @@ class TestPooledClusteredSEAgainstHandComputation:
         assert out.p_value == pytest.approx(float(p_ref))
         assert out.metadata["n_clusters"] == g
 
+    def test_one_way_too_few_clusters_hides_the_slope(self):
+        panel = self._panel(n_dates=2, n_assets=15)
+
+        out = pooled_beta(panel)
+
+        assert np.isnan(out.value)
+        assert out.stat is None
+        assert out.p_value == 1.0
+        assert out.metadata["reason"] == "insufficient_clusters"
+        assert out.metadata["n_clusters"] == 2
+        assert WarningCode.METRIC_UNAVAILABLE.value in out.warning_codes
+
     def test_two_way_is_the_cgm_sum_and_thompson_df(self):
         from factrix.metrics.fm_beta import _cluster_meat, pooled_beta
         from scipy import stats as sp_stats
@@ -482,3 +494,17 @@ class TestPooledClusteredSEAgainstHandComputation:
         assert out.p_value == pytest.approx(float(2 * sp_stats.t.sf(abs(t_ref), df)))
         assert out.metadata["n_clusters_a"] == g_a
         assert out.metadata["n_clusters_b"] == g_b
+
+    def test_two_way_too_few_clusters_hides_the_slope(self):
+        panel = self._panel(n_dates=10, n_assets=2)
+
+        out = pooled_beta(panel, two_way_cluster_col="asset_id")
+
+        assert np.isnan(out.value)
+        assert out.stat is None
+        assert out.p_value == 1.0
+        assert out.metadata["reason"] == "insufficient_clusters"
+        assert out.metadata["n_clusters"] == 2
+        assert out.metadata["n_clusters_a"] == 10
+        assert out.metadata["n_clusters_b"] == 2
+        assert WarningCode.METRIC_UNAVAILABLE.value in out.warning_codes

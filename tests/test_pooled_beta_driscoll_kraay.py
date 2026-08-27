@@ -92,9 +92,12 @@ class TestDriscollKraayPath:
         # < 3 distinct periods → cross-sectional HAC undefined.
         df = _common_factor_panel(n_dates=2, n_assets=30, rho=0.0)
         res = pooled_beta(df, driscoll_kraay=True)
+        assert np.isnan(res.value)
         assert res.stat is None
         assert res.metadata["reason"] == "insufficient_periods"
+        assert res.metadata["n_periods"] == 2
         assert res.p_value == 1.0
+        assert WarningCode.METRIC_UNAVAILABLE.value in res.warning_codes
 
     def test_mutually_exclusive_with_two_way_cluster(self):
         df = _common_factor_panel(n_dates=40, n_assets=10, rho=0.2)

@@ -128,13 +128,16 @@ is emitted.
 
 - *primary*: `p_value` — single- or two-way clustered OLS `t`. When
   the cluster count G < 3 the test is short-circuited with `stat =
-  None` and `p_value = 1.0`.
+  None`, `value = NaN`, and `p_value = 1.0`; the algebraic slope is not
+  exposed as a usable pooled beta when its declared covariance estimator
+  cannot be formed.
 - Sample size: `MetricResult.n_obs` (row count entering the test).
 - *descriptive*: `n_clusters` (one-way) or `n_clusters_a`,
   `n_clusters_b`, `n_clusters_intersection` (two-way).
 - *descriptive* (conditional, short-circuit): `reason =
   "insufficient_clusters"`, `n_clusters` (smallest G — first-class
-  `n_obs` carries the row count), `min_required` (always 3).
+  `n_obs` carries the row count), `min_required` (always 3), plus
+  `metric_unavailable` in `warning_codes`.
 - *descriptive* (conditional): `variance_non_psd_fallback` — names
   the fallback path when the meat matrix is non-PSD.
 - *descriptive* (Driscoll-Kraay path, `driscoll_kraay=True`):
@@ -142,7 +145,8 @@ is emitted.
   cross-sectional score-sum series), and `driscoll_kraay_lags` (the
   Bartlett bandwidth used). The DK path uses `df = n_periods − 1`,
   emits `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` below 30 periods, and
-  short-circuits with `reason = "insufficient_periods"` below 3.
+  short-circuits to `value = NaN` with `reason = "insufficient_periods"`
+  below 3.
 
 #### `fm_beta_sign_consistency`
 
