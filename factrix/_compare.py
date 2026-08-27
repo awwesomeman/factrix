@@ -104,7 +104,7 @@ def compare(
                         f"missing on factor={r.factor!r}"
                     ),
                     candidates=sorted(r.metrics),
-                    docs_path="api/compare#metrics",
+                    docs_path="api/compare#parameter-details",
                 )
             out = r.metrics[spec]
             row[spec] = _float_or_none(out.value)
@@ -121,7 +121,7 @@ def compare(
                 value=sort_by,
                 expected="one of the columns produced by compare()",
                 candidates=sort_candidates,
-                docs_path="api/compare#sort_by",
+                docs_path="api/compare#parameter-details",
             )
         data = data.sort(sort_by, descending=descending, nulls_last=True)
         data = data.with_columns(

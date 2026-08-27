@@ -268,7 +268,7 @@ def bootstrap_mean_ci(
             field="ci",
             value=ci,
             expected="a coverage level strictly inside (0, 1)",
-            docs_path="api/stats#bootstrap_mean_ci",
+            docs_path="api/stats#factrix.stats.bootstrap_mean_ci",
         )
     if method not in ("studentized", "percentile"):
         raise UserInputError(
@@ -276,7 +276,7 @@ def bootstrap_mean_ci(
             field="method",
             value=method,
             expected="'studentized' or 'percentile'",
-            docs_path="api/stats#bootstrap_mean_ci",
+            docs_path="api/stats#factrix.stats.bootstrap_mean_ci",
         )
     values = np.asarray(values, dtype=float)
     if values.ndim != 1:
@@ -285,7 +285,7 @@ def bootstrap_mean_ci(
             field="values",
             value=values.shape,
             expected="a 1-D array of observations",
-            docs_path="api/stats#bootstrap_mean_ci",
+            docs_path="api/stats#factrix.stats.bootstrap_mean_ci",
         )
     if len(values) < 2:
         raise UserInputError(
@@ -293,7 +293,7 @@ def bootstrap_mean_ci(
             field="values",
             value=len(values),
             expected="at least 2 observations to resample",
-            docs_path="api/stats#bootstrap_mean_ci",
+            docs_path="api/stats#factrix.stats.bootstrap_mean_ci",
         )
     if n_bootstrap < _BOOTSTRAP_RESAMPLES_FLOOR:
         raise UserInputError(
@@ -304,7 +304,7 @@ def bootstrap_mean_ci(
                 f"at least {_BOOTSTRAP_RESAMPLES_FLOOR} resamples — below that "
                 f"the interval endpoints are resampling noise"
             ),
-            docs_path="api/stats#bootstrap_mean_ci",
+            docs_path="api/stats#factrix.stats.bootstrap_mean_ci",
         )
     if statistic is not None and method == "studentized":
         raise UserInputError(
@@ -316,7 +316,7 @@ def bootstrap_mean_ci(
                 "studentized root needs a block SE of the statistic on every "
                 "resample, which is only available for the mean"
             ),
-            docs_path="api/stats#bootstrap_mean_ci",
+            docs_path="api/stats#factrix.stats.bootstrap_mean_ci",
         )
 
     if block_length is None:

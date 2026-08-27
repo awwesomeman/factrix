@@ -96,8 +96,8 @@ def _read_overlap_periods_stamp(data: pl.DataFrame) -> int | None:
     return _read_int_stamp(data, _OVERLAP_PERIODS_COL)
 
 
-_DOCS_OVERLAP_PERIODS = "api/evaluate#overlap_periods"
-_DOCS_FORWARD_PERIODS = "api/evaluate#forward_periods"
+_DOCS_OVERLAP_PERIODS = "api/evaluate#forward_periods-and-overlap_periods"
+_DOCS_FORWARD_PERIODS = "api/evaluate#forward_periods-and-overlap_periods"
 
 
 def _validate_overlap_periods(declared: object, *, func_name: str) -> int:

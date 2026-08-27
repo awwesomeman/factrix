@@ -17,9 +17,11 @@ import polars as pl
 from factrix._codes import WarningCode
 from factrix._errors import UserInputError
 
-_DOCS_FORWARD_RETURN = "api/preprocess#compute_forward_return"
+_DOCS_FORWARD_RETURN = "api/preprocess#factrix.preprocess.compute_forward_return"
 _DOCS_EVALUATION_GRID = "api/preprocess#evaluating-on-a-coarser-grid"
-_DOCS_WINSORIZE_FORWARD_RETURN = "api/preprocess#winsorize_forward_return"
+_DOCS_WINSORIZE_FORWARD_RETURN = (
+    "api/preprocess#factrix.preprocess.winsorize_forward_return"
+)
 
 
 def _validate_forward_periods(forward_periods: object) -> int:

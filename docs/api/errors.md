@@ -96,7 +96,7 @@ Every user-facing raise that takes a named input renders the same three-part mes
 bhy(): unknown expand_over='univere_id'
   Did you mean: "universe_id"?
   Available: ['regime_id', 'sector', 'universe_id']
-  Docs: https://awwesomeman.github.io/factrix/api/bhy#expand_over
+  Docs: https://awwesomeman.github.io/factrix/api/bhy#factrix.multi_factor.bhy
 ```
 
 | Line | What to look at |

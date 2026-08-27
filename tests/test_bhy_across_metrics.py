@@ -136,7 +136,10 @@ def test_descriptive_metric_fails_loudly():
     ]
     with pytest.raises(UserInputError, match="FDR control") as excinfo:
         bhy_across_metrics(results, metrics=["ic", "shape"])
-    assert "/api/bhy-across-metrics#metrics" in excinfo.value.docs_url
+    assert (
+        "/api/bhy-across-metrics#factrix.multi_factor.bhy_across_metrics"
+        in excinfo.value.docs_url
+    )
 
 
 @pytest.mark.parametrize("metrics", [["ic"], ["ic", "ic"]])
@@ -150,7 +153,10 @@ def test_metric_container_error_links_to_deployed_page():
     results = [_two_metric_result("f1", 0.01, 0.02)]
     with pytest.raises(UserInputError) as excinfo:
         bhy_across_metrics(results, metrics=("ic", "spread"))  # type: ignore[arg-type]
-    assert "/api/bhy-across-metrics#metrics" in excinfo.value.docs_url
+    assert (
+        "/api/bhy-across-metrics#factrix.multi_factor.bhy_across_metrics"
+        in excinfo.value.docs_url
+    )
 
 
 def test_mixed_horizons_warns_with_cross_metric_function_name():
