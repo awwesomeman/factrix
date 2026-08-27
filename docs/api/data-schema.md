@@ -8,7 +8,7 @@ Single-source contract for every `factrix` entry point that consumes a panel. Ev
 
 | Column | dtype | Semantics |
 |---|---|---|
-| `date` | `Date` or `Datetime` (**required** — a `String` or integer date is rejected) | Observation timestamp. Frequency-agnostic — the horizon is measured in periods of the panel's own distinct-date grid, never in calendar time. |
+| `date` | `Date` or `Datetime` (**required** — a `String` or integer date is rejected) | Observation timestamp. Ordering key only — the horizon is measured in periods of the panel's own distinct-date grid, never in calendar time ([Period grid, not calendar](../development/architecture.md#period-grid-not-calendar)). |
 | `asset_id` | `Utf8` / `Categorical` | Cross-section identifier. Identical for COMMON-scope factors (`df.group_by("date").agg((pl.col("factor").n_unique() == 1).alias("is_common"))["is_common"].all()` is `True`). |
 | `factor` | numeric (`Int*` / `Float*`) | The signal value. Dense: real-valued exposure (z-score, IC-rankable). Sparse: zero-encoded `{0, R}` event trigger, where `0` marks non-events. |
 | `forward_return` | `Float64` | Look-ahead return over the horizon used at evaluate time. Attach via [`compute_forward_return`](preprocess.md) so the horizon is explicit and aligned with `forward_periods`. |

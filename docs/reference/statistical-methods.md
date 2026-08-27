@@ -35,7 +35,8 @@ The five sections are the only first-class disciplines in factrix:
    BMP-style standardised AR, Corrado rank.
 
 !!! note "Every estimator here is frequency-agnostic"
-    No estimator in factrix reads the calendar. `date` is only an ordering
+    No estimator in factrix reads the calendar (the library-wide principle:
+    [Period grid, not calendar](../development/architecture.md#period-grid-not-calendar)). `date` is only an ordering
     key, and every window, lag, horizon and stride (`forward_periods`,
     `estimation_window`, `window`, Bartlett lags, block lengths) is a count
     of **panel rows**, i.e. of whatever period one row represents. There is

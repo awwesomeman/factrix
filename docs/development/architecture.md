@@ -16,9 +16,41 @@ factor per `(scope, density, structure)` cell from the cell's mainstream
 metric (information coefficient (IC) / FM-λ / CAAR / TS-β). Dense
 time-series mainstream metrics use Newey-West (NW)
 heteroskedasticity-and-autocorrelation-consistent (HAC) inference; CAAR uses
-calendar-aware non-overlap sampling on the event-period series. Realistic execution simulation,
+event-period-indexed non-overlap sampling on the event-period series. Realistic execution simulation,
 tradability proxies, and portfolio construction are out of scope — feed
 screened factors into Zipline / Backtrader / `vectorbt` downstream.
+
+---
+
+## Period grid, not calendar
+
+**factrix never reads the calendar.** This is a first-order design principle,
+not an implementation detail, and every other page that mentions frequency
+links here.
+
+- `date` is an ordering and alignment key. Its granularity — minutes, days,
+  weeks, months — is never inspected; a `Date` or `Datetime` dtype is required
+  only so ordering is unambiguous.
+- Every horizon, window, lag, stride and sample floor is a **count of periods
+  on the panel's own grid** — the distinct sorted `date` values present in the
+  panel — never calendar time and never row position within an asset.
+  `forward_periods=5` is five periods of whatever one row represents.
+- There is no annualisation factor, no trading-day constant, no
+  business-day calendar and no date arithmetic anywhere in the library.
+- The evaluation grid may be spaced unevenly in periods (a caller-chosen
+  rebalance grid on a finer price grid). Nothing assumes a constant stride;
+  quantities that depend on spacing (overlap, non-overlapping stride) are
+  derived from period indices, never from dates.
+- Which real-world cadence a period represents, and aligning the factor and
+  price sources onto one grid, is the caller's responsibility
+  ([Preparing data §5](../guides/preparing-data.md#5-frequency-alignment-is-the-callers-job)).
+
+**Wording rule.** Documentation, docstrings, warning messages and code
+comments say *periods*. They do not say days, trading days, weeks,
+month-ends or any other calendar unit, and examples that need a concrete
+cadence say so explicitly ("on a daily panel, five periods is five days")
+rather than baking it into the contract. A reviewer who finds calendar
+vocabulary in a contract-level statement should treat it as a defect.
 
 ---
 
