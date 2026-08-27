@@ -267,6 +267,7 @@ def quantile_spread(
             factor_cols=cols,
             tie_policy=tie_policy,
             overlap_periods=overlap_periods,
+            expected_warnings=expected_warnings,
         )
     )
     # The HAC path needs the full overlapping spread series (every date);
@@ -278,6 +279,7 @@ def quantile_spread(
             factor_cols=cols,
             tie_policy=tie_policy,
             overlap_periods=1,
+            expected_warnings=expected_warnings,
         )
         if isinstance(inference, NeweyWest)
         else None
@@ -697,7 +699,7 @@ def quantile_spread_vw(
     # off the same threshold: this metric exists as a capacity / robustness
     # cross-check, so it must not be the one that reports clean on a panel
     # whose legs hold a single name each.
-    _warn_thin_quantile_groups(sampled, n_groups)
+    _warn_thin_quantile_groups(sampled, n_groups, expected_warnings=expected_warnings)
 
     vw_series = _vw_spread_series(
         sampled,

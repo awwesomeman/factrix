@@ -40,6 +40,7 @@ def compute_spread_series(
     factor_cols: Sequence[str] = ("factor",),
     return_col: str = "forward_return",
     tie_policy: str = "ordinal",
+    expected_warnings: tuple[str, ...] = (),
 ) -> dict[str, pl.DataFrame]:
     """Per-period long-short spread series (non-overlapping).
 
@@ -104,7 +105,7 @@ def compute_spread_series(
 
     sampled = _sample_non_overlapping(data, overlap_periods)
 
-    _warn_thin_quantile_groups(sampled, n_groups)
+    _warn_thin_quantile_groups(sampled, n_groups, expected_warnings=expected_warnings)
 
     # Neutralise non-finite returns at the producer boundary: polars ``mean``
     # propagates float NaN, so one NaN return would turn a whole bucket mean —

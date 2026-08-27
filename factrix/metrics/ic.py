@@ -99,10 +99,20 @@ def _median_tie_ratio(ic_df: pl.DataFrame) -> float:
     return float("nan") if med is None else float(med)  # type: ignore[arg-type]
 
 
-def _warn_if_high_ic_tie_ratio(ic_df: pl.DataFrame, metric_name: str) -> float:
-    """Emit ``UserWarning`` when median tie_ratio exceeds the global threshold.
+def _warn_if_high_ic_tie_ratio(
+    ic_df: pl.DataFrame,
+    metric_name: str,
+    warning_codes: list[str],
+    *,
+    expected_warnings: tuple[str, ...] = (),
+) -> float:
+    """Flag a tie-heavy IC and return the median for the caller's metadata.
 
-    Returns the median for the caller to stash in metadata.
+    The structured ``HIGH_TIE_RATIO`` code is always appended — it is the
+    record. A caller who declared the code via
+    ``evaluate(..., expected_warnings=("high_tie_ratio",))`` only quiets the
+    per-run ``UserWarning`` echo; the record is later marked ``expected=True``
+    at result assembly, never dropped.
 
     The caveat is **range attenuation**, not bias. The Pearson correlation of
     mid-ranks *is* the tie-corrected Spearman coefficient (Kendall & Stuart;
@@ -118,18 +128,22 @@ def _warn_if_high_ic_tie_ratio(ic_df: pl.DataFrame, metric_name: str) -> float:
     """
     med = _median_tie_ratio(ic_df)
     if not math.isnan(med) and med > TIE_RATIO_WARN_THRESHOLD:
-        _warnings.warn(
-            f"{metric_name}: median tie_ratio={med:.3f} exceeds "
-            f"{TIE_RATIO_WARN_THRESHOLD:.2f}. The estimator is already the "
-            f"tie-corrected Spearman (Pearson on mid-ranks, identical to "
-            f"scipy.stats.spearmanr), so this is not a bias — but heavy ties "
-            f"shrink the attainable range of rho below ±1, so do not compare "
-            f"this IC magnitude against a factor with a different tie "
-            f"density. A continuous transform of the factor restores the "
-            f"full range.",
-            UserWarning,
-            stacklevel=2,
-        )
+        code = WarningCode.HIGH_TIE_RATIO.value
+        if code not in expected_warnings:
+            _warnings.warn(
+                f"{metric_name}: median tie_ratio={med:.3f} exceeds "
+                f"{TIE_RATIO_WARN_THRESHOLD:.2f}. The estimator is already the "
+                f"tie-corrected Spearman (Pearson on mid-ranks, identical to "
+                f"scipy.stats.spearmanr), so this is not a bias — but heavy "
+                f"ties shrink the attainable range of rho below ±1, so do not "
+                f"compare this IC magnitude against a factor with a different "
+                f"tie density. A continuous transform of the factor restores "
+                f"the full range.",
+                UserWarning,
+                stacklevel=2,
+            )
+        if code not in warning_codes:
+            warning_codes.append(code)
     return med
 
 
@@ -301,7 +315,10 @@ def ic(
         True
     """
     _check_applicable_inference(inference, applicable_inference, func_name="ic")
-    median_tie = _warn_if_high_ic_tie_ratio(ic_df, "ic")
+    warning_codes: list[str] = []
+    median_tie = _warn_if_high_ic_tie_ratio(
+        ic_df, "ic", warning_codes, expected_warnings=expected_warnings
+    )
     # Mean is order-invariant; the inference method owns date-ordering for
     # its stride / lag math.
     ic_vals = ic_df["ic"].drop_nulls().drop_nans()
@@ -368,7 +385,6 @@ def ic(
         "method": inference.summary,
         "tie_ratio": median_tie,
     }
-    warning_codes: list[str] = []
     _warn_if_few_ic_assets(
         ic_df, "ic", metadata, warning_codes, expected_warnings=expected_warnings
     )
@@ -455,7 +471,10 @@ def ic_ir(
         >>> result.name == ""
         True
     """
-    median_tie = _warn_if_high_ic_tie_ratio(ic_df, "ic_ir")
+    warning_codes: list[str] = []
+    median_tie = _warn_if_high_ic_tie_ratio(
+        ic_df, "ic_ir", warning_codes, expected_warnings=expected_warnings
+    )
     ic_vals = ic_df["ic"].drop_nulls().drop_nans()
     n = len(ic_vals)
     sc = _enforce_min_floor(ic_ir, "ic_ir", n, "insufficient_ic_periods")
@@ -474,7 +493,6 @@ def ic_ir(
 
     ratio = mean_ic / std_ic
 
-    warning_codes: list[str] = []
     warn_code = _warn_below_floor(
         ic_ir,
         n,

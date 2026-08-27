@@ -58,6 +58,7 @@ def directional_pair_accuracy(
     overlap_periods: int = 5,
     factor_col: str = "factor",
     return_col: str = "forward_return",
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     """Pairwise ordering accuracy for small allocation universes.
 
@@ -169,15 +170,18 @@ def directional_pair_accuracy(
 
     warning_codes: list[str] = []
     if n_usable_pairs < MIN_PAIR_ACCURACY_PAIRS_WARN:
-        warnings.warn(
-            f"directional_pair_accuracy: n_pairs={n_usable_pairs} below "
-            f"MIN_PAIR_ACCURACY_PAIRS_WARN={MIN_PAIR_ACCURACY_PAIRS_WARN}; the "
-            f"descriptive ordering accuracy is returned, but the comparable-pair "
-            f"sample is thin. Read it as a fragile small-N diagnostic.",
-            UserWarning,
-            stacklevel=3,
-        )
-        warning_codes.append(WarningCode.FEW_ORDERING_PAIRS.value)
+        code = WarningCode.FEW_ORDERING_PAIRS.value
+        if code not in expected_warnings:
+            warnings.warn(
+                f"directional_pair_accuracy: n_pairs={n_usable_pairs} below "
+                f"MIN_PAIR_ACCURACY_PAIRS_WARN={MIN_PAIR_ACCURACY_PAIRS_WARN}; "
+                f"the descriptive ordering accuracy is returned, but the "
+                f"comparable-pair sample is thin. Read it as a fragile "
+                f"small-N diagnostic.",
+                UserWarning,
+                stacklevel=3,
+            )
+        warning_codes.append(code)
 
     pooled_accuracy = n_correct_pairs / n_usable_pairs
     mean_per_date_accuracy = float(np.mean(per_date_accuracy))
