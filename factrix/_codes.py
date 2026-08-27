@@ -45,6 +45,13 @@ class WarningCode(StrEnum):
     # cross-section size): a wide panel cut into
     # many buckets can trip this without tripping FEW_ASSETS.
     THIN_QUANTILE_GROUPS = "thin_quantile_groups"
+    # Fired by ``ic`` / ``ic_ir`` when the median per-period tie_ratio exceeds
+    # TIE_RATIO_WARN_THRESHOLD (0.3). The caveat is RANGE ATTENUATION, not
+    # bias: the estimator is already the tie-corrected Spearman (Pearson on
+    # mid-ranks, what scipy.stats.spearmanr computes), but heavy ties shrink
+    # the attainable range of rho below +-1, so the IC magnitude is not
+    # comparable against a factor with a different tie density.
+    HIGH_TIE_RATIO = "high_tie_ratio"
     # Fired when a sparse ``factor`` column carries mixed signs but is
     # not a clean ±1 ternary (e.g. ``{-2.5, 0, +1.3}``). The CAAR /
     # sparse-panel statistic is the magnitude-weighted Sefcik-Thompson
@@ -332,6 +339,13 @@ _WARNING_DESCRIPTIONS.update(
         "reduce n_groups (the warning suggests a value) or treat the spread as a "
         "fragile small-cross-section diagnostic. Distinct from few_assets, which "
         "keys off the absolute cross-section size.",
+        WarningCode.HIGH_TIE_RATIO: "ic / ic_ir with a median per-period "
+        "tie_ratio above TIE_RATIO_WARN_THRESHOLD (0.3). Not a bias: the "
+        "estimator is already the tie-corrected Spearman (Pearson on "
+        "mid-ranks, identical to scipy.stats.spearmanr). Heavy ties instead "
+        "shrink the attainable range of rho below +-1, so do not compare this "
+        "IC magnitude against a factor with a different tie density; a "
+        "continuous transform of the factor restores the full range.",
         WarningCode.SPARSE_MAGNITUDE_WEIGHTED: "Sparse factor column is mixed-sign and not a "
         "clean ±1 ternary; statistic is magnitude-weighted (Sefcik-Thompson) "
         "rather than textbook MacKinlay signed CAAR — apply .sign() before "
