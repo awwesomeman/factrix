@@ -21,7 +21,7 @@ import polars as pl
 import pytest
 from factrix._codes import WarningCode
 from factrix._errors import UserInputError
-from factrix.metrics import ic, quantile_spread
+from factrix.metrics import ic, ic_ir, quantile_spread
 
 
 def _thin_panel(n_assets: int = 6, n_dates: int = 220) -> pl.DataFrame:
@@ -337,3 +337,82 @@ class TestEchoStopsForEveryMetric:
             # Inference is untouched by the declaration.
             for key in metrics:
                 assert quiet.metrics[key].p_value == plain.metrics[key].p_value, label
+
+
+def _drop_panel(
+    n_periods: int = 80, n_assets: int = 6, dropped: int = 16
+) -> pl.DataFrame:
+    """Thin cross-section whose first ``dropped`` periods carry no factor.
+
+    ``compute_ic`` drops those periods, so every consumer of the shared
+    primitive surfaces ``excessive_period_drops`` alongside ``few_assets``.
+    """
+    rng = np.random.default_rng(3)
+    factor = rng.normal(size=(n_periods, n_assets))
+    ret = 0.3 * factor + rng.normal(size=(n_periods, n_assets))
+    rows = [
+        {
+            "date": datetime(2020, 1, 1) + timedelta(days=period),
+            "asset_id": str(asset),
+            "factor": None if period < dropped else float(factor[period, asset]),
+            "forward_return": float(ret[period, asset]),
+        }
+        for period in range(n_periods)
+        for asset in range(n_assets)
+    ]
+    return pl.DataFrame(rows)
+
+
+_DROP_METRICS = {
+    "ic": ic(inference=fx.inference.NEWEY_WEST),
+    "ic_ir": ic_ir(),
+}
+
+
+class TestDropEchoFollowsDeclaration:
+    """Drop-rate echoes from a shared primitive obey the same contract."""
+
+    def test_undeclared_drop_rate_still_echoes(self):
+        with pytest.warns(UserWarning, match="of periods dropped"):
+            results = fx.evaluate(
+                _drop_panel(),
+                metrics=_DROP_METRICS,
+                factor_cols=["factor"],
+                forward_periods=1,
+                strict=False,
+            )
+        res = results["factor"]
+        codes = {w.code for w in res.warnings}
+        assert WarningCode.EXCESSIVE_PERIOD_DROPS in codes
+        assert all(not w.expected for w in res.warnings)
+
+    def test_mixed_declaration_silences_every_declared_echo(self):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            results = fx.evaluate(
+                _drop_panel(),
+                metrics=_DROP_METRICS,
+                factor_cols=["factor"],
+                forward_periods=1,
+                strict=False,
+                expected_warnings=("few_assets", "excessive_period_drops"),
+            )
+        assert not [w for w in caught if issubclass(w.category, UserWarning)], [
+            str(w.message) for w in caught
+        ]
+        res = results["factor"]
+        for name in _DROP_METRICS:
+            assert "excessive_period_drops" in res.metrics[name].warning_codes
+            assert "few_assets" in res.metrics[name].warning_codes
+        declared = [
+            w
+            for w in res.warnings
+            if w.code in (WarningCode.EXCESSIVE_PERIOD_DROPS, WarningCode.FEW_ASSETS)
+        ]
+        assert {w.source for w in declared} >= set(_DROP_METRICS)
+        assert all(w.expected for w in declared)
+        assert not [
+            w
+            for w in res.unexpected_warnings
+            if w.code in (WarningCode.EXCESSIVE_PERIOD_DROPS, WarningCode.FEW_ASSETS)
+        ]

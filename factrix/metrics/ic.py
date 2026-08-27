@@ -372,7 +372,9 @@ def ic(
     _warn_if_few_ic_assets(
         ic_df, "ic", metadata, warning_codes, expected_warnings=expected_warnings
     )
-    _surface_drop_stats(ic_df, "ic", metadata, warning_codes)
+    _surface_drop_stats(
+        ic_df, "ic", metadata, warning_codes, expected_warnings=expected_warnings
+    )
     # Surface the inference method's own soft-floor signals (e.g. a thin
     # post-stride sample tripping UNRELIABLE_SE_SHORT_PERIODS); de-dup so a
     # code already raised by the drop-stats pass is not repeated.
@@ -493,7 +495,9 @@ def ic_ir(
     _warn_if_few_ic_assets(
         ic_df, "ic_ir", metadata, warning_codes, expected_warnings=expected_warnings
     )
-    _surface_drop_stats(ic_df, "ic_ir", metadata, warning_codes)
+    _surface_drop_stats(
+        ic_df, "ic_ir", metadata, warning_codes, expected_warnings=expected_warnings
+    )
     return MetricResult(
         value=ratio,
         n_obs=n,

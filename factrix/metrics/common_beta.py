@@ -337,6 +337,7 @@ def common_beta_profile(
     common_betas_df: pl.DataFrame,
     *,
     neutral_epsilon: float = EPSILON,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     """Descriptive sign and dispersion profile of per-asset common-factor betas.
 
@@ -411,7 +412,12 @@ def common_beta_profile(
 
     warning_codes: list[str] = []
     _surface_drop_stats(
-        common_betas_df, "common_beta_profile", metadata, warning_codes, axis="assets"
+        common_betas_df,
+        "common_beta_profile",
+        metadata,
+        warning_codes,
+        axis="assets",
+        expected_warnings=expected_warnings,
     )
     return MetricResult(
         value=spread,
@@ -437,7 +443,10 @@ def common_beta_profile(
     requires={"common_betas_df": compute_common_betas},
     sample_threshold=SampleThreshold(min_assets=1),
 )
-def common_beta_r_squared(common_betas_df: pl.DataFrame) -> MetricResult:
+def common_beta_r_squared(
+    common_betas_df: pl.DataFrame,
+    expected_warnings: tuple[str, ...] = (),
+) -> MetricResult:
     r"""Average $R^2$ across per-asset TS regressions — ``value`` $= \mathrm{mean}_i R^2_i$.
 
     $R^2_i$ comes from asset $i$'s regression
@@ -497,7 +506,12 @@ def common_beta_r_squared(common_betas_df: pl.DataFrame) -> MetricResult:
     }
     warning_codes: list[str] = []
     _surface_drop_stats(
-        common_betas_df, "common_beta_r_squared", metadata, warning_codes, axis="assets"
+        common_betas_df,
+        "common_beta_r_squared",
+        metadata,
+        warning_codes,
+        axis="assets",
+        expected_warnings=expected_warnings,
     )
     return MetricResult(
         value=float(np.mean(r2_vals)),
@@ -686,7 +700,10 @@ def compute_rolling_common_beta(
     requires={"common_betas_df": compute_common_betas},
     sample_threshold=SampleThreshold(min_assets=2),
 )
-def common_beta_sign_consistency(common_betas_df: pl.DataFrame) -> MetricResult:
+def common_beta_sign_consistency(
+    common_betas_df: pl.DataFrame,
+    expected_warnings: tuple[str, ...] = (),
+) -> MetricResult:
     """Symmetric sign-agreement across per-asset βs — `value = max(pos, 1−pos)` where `pos = mean_i 1{β_i > 0}`.
 
     Range [0.5, 1.0]: 0.5 = βs evenly split (no directional consensus);
@@ -755,6 +772,7 @@ def common_beta_sign_consistency(common_betas_df: pl.DataFrame) -> MetricResult:
         metadata,
         warning_codes,
         axis="assets",
+        expected_warnings=expected_warnings,
     )
     return MetricResult(
         value=consistency,
