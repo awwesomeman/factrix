@@ -114,7 +114,7 @@ def _partition(
                 field=field,
                 value=name,
                 expected="partition key, not the hypothesis identifier 'factor'",
-                docs_path=_api_docs_path(func_name, field),
+                docs_path=_api_docs_path(func_name),
             )
 
     _check_param_keys(results, keys=keys, func_name=func_name, field=field)
@@ -139,7 +139,7 @@ def _partition(
                     "it on `EvaluationResult.params`; it then joins the "
                     "identifier without partitioning the family"
                 ),
-                docs_path=_api_docs_path(func_name, "partition-key"),
+                docs_path=_api_docs_path(func_name),
             )
         seen[identifier] = idx
         entries.append(
@@ -174,7 +174,7 @@ def _attach_p_values(
                     f"target metric {metric!r} has no p-values (all results returned None). "
                     "Descriptive metrics without formal hypothesis tests cannot be used for FDR control"
                 ),
-                docs_path=_api_docs_path(func_name, "metrics"),
+                docs_path=_api_docs_path(func_name),
             )
 
     return [
@@ -275,7 +275,7 @@ def _check_param_keys(
             f"EvaluationResult.params, or drop it from {field}. "
             f"Param keys seen across the input: {available or ['<none>']!r}"
         ),
-        docs_path=_api_docs_path(func_name, field),
+        docs_path=_api_docs_path(func_name),
     )
 
 
@@ -315,7 +315,7 @@ def _resolve_p_value(
                 f"{metric!r}; missing on factor={result.factor!r}"
             ),
             candidates=sorted(result.metrics),
-            docs_path=_api_docs_path(func_name, "metrics"),
+            docs_path=_api_docs_path(func_name),
         ) from None
 
     p = out.p_value
@@ -337,7 +337,7 @@ def _resolve_p_value(
                 f"factor={result.factor!r} has no p-value for "
                 f"metric {metric!r}"
             ),
-            docs_path=_api_docs_path(func_name, "metrics"),
+            docs_path=_api_docs_path(func_name),
         )
 
     p_float = float(p)
@@ -351,6 +351,6 @@ def _resolve_p_value(
                 f"has NaN p for metric {metric!r} — drop the result "
                 "or pick a different metric"
             ),
-            docs_path=_api_docs_path(func_name, "metrics"),
+            docs_path=_api_docs_path(func_name),
         )
     return p_float
