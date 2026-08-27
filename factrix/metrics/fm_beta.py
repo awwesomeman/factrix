@@ -465,8 +465,9 @@ def _pooled_beta_driscoll_kraay(
     (``factrix._stats.hac._driscoll_kraay_cov``): per-observation scores summed
     cross-sectionally per period, Bartlett-HAC'd over the period series,
     sandwiched with ``(X'X)⁻¹``. ``df = T_periods - 1``. Short-circuits
-    with ``stat=None`` / ``p=1.0`` below ``_MIN_DK_PERIODS_HARD`` periods (HAC
-    undefined), mirroring the clustered ``G < 3`` guard.
+    with ``value=NaN`` / ``stat=None`` / ``p=1.0`` below
+    ``_MIN_DK_PERIODS_HARD`` periods (HAC undefined), mirroring the clustered
+    ``G < 3`` guard.
     """
     if two_way_cluster_col is not None:
         raise ValueError(
@@ -491,18 +492,13 @@ def _pooled_beta_driscoll_kraay(
 
     n_periods = int(dk_meta["n_periods"])
     if n_periods < _MIN_DK_PERIODS_HARD:
-        return MetricResult(
-            p_value=1.0,
-            alternative="two-sided",
-            value=slope,
+        return _short_circuit_output(
+            "pooled_beta",
+            "insufficient_periods",
             n_obs=n_obs,
             n_obs_axis="pairs",
-            stat=None,
-            metadata={
-                "reason": "insufficient_periods",
-                "n_periods": n_periods,
-                "min_required": _MIN_DK_PERIODS_HARD,
-            },
+            n_periods=n_periods,
+            min_required=_MIN_DK_PERIODS_HARD,
         )
 
     se_slope = float(np.sqrt(max(float(cov[1, 1]), 0.0)))
@@ -597,10 +593,13 @@ def pooled_beta(
     ``method`` string). ``driscoll_kraay=True`` is mutually exclusive
     with ``two_way_cluster_col`` (raises ``ValueError``).
 
-    Short-circuits when ``n_obs < 10`` (no regression), returns ``stat=None``
-    with $p=1.0$ when the effective $G < 3$ (SE undefined with < 3
-    clusters) — or, on the DK path, when fewer than 3 distinct periods
-    leave the cross-sectional HAC undefined.
+    Short-circuits to ``value=NaN`` / ``stat=None`` / $p=1.0$ when
+    ``n_obs < 10`` (no regression), when the effective $G < 3$ (clustered SE
+    undefined), or, on the DK path, when fewer than 3 distinct periods leave
+    the cross-sectional HAC undefined. The slope computed before an SE floor
+    fails is not exposed as the headline value: without a valid covariance
+    estimate, downstream aggregation cannot distinguish it from a fully
+    inferential pooled beta.
 
     Formula:
         Point estimate:
@@ -670,11 +669,14 @@ def pooled_beta(
         slope that ``MetricResult`` rejects outright, turning one bad cell
         into a hard failure of the whole panel.
 
-        factrix reports ``stat = None`` (rather than 0) when ``G < 3``
-        because the cluster-robust variance is undefined with too few
-        clusters; falling back to a homoskedastic SE in that regime
-        would silently break the panel-correlation guarantee that
-        motivated using clustered SE in the first place.
+        factrix reports ``value = NaN`` and ``stat = None`` (rather than a
+        finite slope and zero statistic) when ``G < 3`` because the
+        cluster-robust variance is undefined with too few clusters. Retaining
+        the algebraic OLS slope in the headline field would let downstream
+        aggregation treat an inference-unavailable cell as a valid pooled
+        beta; falling back to a homoskedastic SE would silently break the
+        panel-correlation guarantee that motivated using clustered SE in the
+        first place.
 
     References:
         - [Petersen (2009)][petersen-2009]. "Estimating Standard Errors
@@ -769,18 +771,13 @@ def pooled_beta(
 
     if two_way_cluster_col is None:
         if g_a < 3:
-            return MetricResult(
-                p_value=1.0,
-                alternative="two-sided",
-                value=slope,
+            return _short_circuit_output(
+                "pooled_beta",
+                "insufficient_clusters",
                 n_obs=n_obs,
                 n_obs_axis="pairs",
-                stat=None,
-                metadata={
-                    "reason": "insufficient_clusters",
-                    "n_clusters": g_a,
-                    "min_required": 3,
-                },
+                n_clusters=g_a,
+                min_required=3,
             )
         effective_meat = (g_a / (g_a - 1)) * meat_a
         df_t = g_a
@@ -797,20 +794,15 @@ def pooled_beta(
         inter_ids = ids_a.astype(np.int64) * (int(ids_b.max()) + 1) + ids_b
         meat_i, g_i = _cluster_meat(X, resid, inter_ids)
         if min(g_a, g_b) < 3:
-            return MetricResult(
-                p_value=1.0,
-                alternative="two-sided",
-                value=slope,
+            return _short_circuit_output(
+                "pooled_beta",
+                "insufficient_clusters",
                 n_obs=n_obs,
                 n_obs_axis="pairs",
-                stat=None,
-                metadata={
-                    "reason": "insufficient_clusters",
-                    "n_clusters": min(g_a, g_b),
-                    "min_required": 3,
-                    "n_clusters_a": g_a,
-                    "n_clusters_b": g_b,
-                },
+                n_clusters=min(g_a, g_b),
+                min_required=3,
+                n_clusters_a=g_a,
+                n_clusters_b=g_b,
             )
         effective_meat = (
             (g_a / (g_a - 1)) * meat_a
