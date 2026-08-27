@@ -42,7 +42,7 @@ class TestSpreadComputation:
         rng = np.random.default_rng(0)
         factor = np.arange(8, dtype=float)  # distinct → unambiguous ranks
         returns = rng.normal(0.0, 0.02, size=(6, 8))
-        result = k_spread(_panel_from_matrix(factor, returns), forward_periods=1, k=2)
+        result = k_spread(_panel_from_matrix(factor, returns), overlap_periods=1, k=2)
 
         assert result.value == pytest.approx(_expected_spread(factor, returns, k=2))
         assert result.metadata["k"] == 2
@@ -52,7 +52,7 @@ class TestSpreadComputation:
         rng = np.random.default_rng(1)
         factor = np.arange(10, dtype=float)
         returns = rng.normal(0.0, 0.03, size=(8, 10))
-        result = k_spread(_panel_from_matrix(factor, returns), forward_periods=1, k=3)
+        result = k_spread(_panel_from_matrix(factor, returns), overlap_periods=1, k=3)
 
         expected_disp = float(np.mean(returns.std(axis=1, ddof=1)))
         assert result.metadata["cross_sectional_dispersion"] == pytest.approx(
@@ -67,7 +67,7 @@ class TestSmallNSignificanceSwitch:
         rng = np.random.default_rng(2)
         factor = np.arange(40, dtype=float)
         returns = rng.normal(0.001, 0.02, size=(30, 40))
-        result = k_spread(_panel_from_matrix(factor, returns), forward_periods=1, k=5)
+        result = k_spread(_panel_from_matrix(factor, returns), overlap_periods=1, k=5)
         assert result.metadata["method"] == "non-overlapping t-test"
         assert "p_value_t" not in result.metadata
 
@@ -82,21 +82,21 @@ class TestSmallNSignificanceSwitch:
         factor = np.arange(20, dtype=float)
         returns = rng.normal(0.001, 0.02, size=(40, 20))
         panel = _panel_from_matrix(factor, returns)
-        result = k_spread(panel, forward_periods=1, k=5)
+        result = k_spread(panel, overlap_periods=1, k=5)
 
         assert result.metadata["method"] == "non-overlapping t-test"
         assert "p_value_t" not in result.metadata
         # the thin cross-section surfaces as a warning, not as a different test
         assert "few_assets" in result.warning_codes
         # reproducible run-to-run under the fixed seed
-        again = k_spread(panel, forward_periods=1, k=5)
+        again = k_spread(panel, overlap_periods=1, k=5)
         assert result.p_value == again.p_value
 
     def test_large_cross_section_emits_no_switch_warning(self):
         rng = np.random.default_rng(8)
         factor = np.arange(40, dtype=float)
         returns = rng.normal(0.001, 0.02, size=(30, 40))
-        result = k_spread(_panel_from_matrix(factor, returns), forward_periods=1, k=5)
+        result = k_spread(_panel_from_matrix(factor, returns), overlap_periods=1, k=5)
         assert result.warning_codes == ()
 
 
@@ -105,7 +105,7 @@ class TestShortCircuits:
         rng = np.random.default_rng(4)
         factor = np.arange(8, dtype=float)
         returns = rng.normal(0.0, 0.02, size=(10, 8))
-        result = k_spread(_panel_from_matrix(factor, returns), forward_periods=1, k=5)
+        result = k_spread(_panel_from_matrix(factor, returns), overlap_periods=1, k=5)
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "insufficient_assets_for_k_legs"
         assert result.metadata["max_assets_per_date"] == 8
@@ -114,7 +114,7 @@ class TestShortCircuits:
         rng = np.random.default_rng(5)
         factor = np.arange(8, dtype=float)
         returns = rng.normal(0.0, 0.02, size=(2, 8))  # 2 dates < MIN_PORTFOLIO_PERIODS
-        result = k_spread(_panel_from_matrix(factor, returns), forward_periods=1, k=2)
+        result = k_spread(_panel_from_matrix(factor, returns), overlap_periods=1, k=2)
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "insufficient_portfolio_periods"
 
@@ -122,7 +122,7 @@ class TestShortCircuits:
         factor = np.arange(8, dtype=float)
         returns = np.zeros((5, 8))
         df = _panel_from_matrix(factor, returns).drop("forward_return")
-        result = k_spread(df, forward_periods=1, k=2)
+        result = k_spread(df, overlap_periods=1, k=2)
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "no_return_column"
 
@@ -130,13 +130,13 @@ class TestShortCircuits:
         factor = np.arange(8, dtype=float)
         returns = np.zeros((5, 8))
         with pytest.raises(ValueError, match="k must be"):
-            k_spread(_panel_from_matrix(factor, returns), forward_periods=1, k=0)
+            k_spread(_panel_from_matrix(factor, returns), overlap_periods=1, k=0)
 
     def test_constant_factor_returns_explicit_no_signal(self):
         rng = np.random.default_rng(9)
         factor = np.ones(8, dtype=float)
         returns = rng.normal(0.0, 0.02, size=(6, 8))
-        result = k_spread(_panel_from_matrix(factor, returns), forward_periods=1, k=2)
+        result = k_spread(_panel_from_matrix(factor, returns), overlap_periods=1, k=2)
 
         assert result.value == 0.0
         assert result.stat == 0.0
@@ -186,7 +186,7 @@ class TestUnderfilledDatesDropped:
                 }
             )
         df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        result = k_spread(df, forward_periods=1, k=2)
+        result = k_spread(df, overlap_periods=1, k=2)
         assert result.n_obs == 3  # only the three 6-asset dates
 
     def test_null_factor_rows_excluded_from_leg_count(self):
@@ -207,7 +207,7 @@ class TestUnderfilledDatesDropped:
                     }
                 )
         df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        result = k_spread(df, forward_periods=1, k=2)
+        result = k_spread(df, overlap_periods=1, k=2)
         assert result.n_obs == 4  # all four dates qualify (date 1 has 5 valid)
 
 
@@ -221,7 +221,7 @@ class TestQuantileSpreadSharesPolicy:
         factor = np.arange(20, dtype=float)
         returns = rng.normal(0.001, 0.02, size=(40, 20))
         out = quantile_spread(
-            _panel_from_matrix(factor, returns), forward_periods=1, n_groups=5
+            _panel_from_matrix(factor, returns), overlap_periods=1, n_groups=5
         )["factor"]
         assert out.metadata["method"] == "non-overlapping t-test"
         assert WarningCode.FEW_ASSETS.value in out.warning_codes
@@ -231,7 +231,7 @@ class TestQuantileSpreadSharesPolicy:
         factor = np.arange(40, dtype=float)
         returns = rng.normal(0.001, 0.02, size=(30, 40))
         out = quantile_spread(
-            _panel_from_matrix(factor, returns), forward_periods=1, n_groups=5
+            _panel_from_matrix(factor, returns), overlap_periods=1, n_groups=5
         )["factor"]
         assert out.metadata["method"] == "non-overlapping t-test"
 
@@ -250,9 +250,9 @@ class TestInference:
         import factrix as fx
 
         panel = self._ample_panel()
-        default = k_spread(panel, forward_periods=5, k=5)
+        default = k_spread(panel, overlap_periods=5, k=5)
         explicit = k_spread(
-            panel, forward_periods=5, k=5, inference=fx.inference.NON_OVERLAPPING
+            panel, overlap_periods=5, k=5, inference=fx.inference.NON_OVERLAPPING
         )
         assert explicit.value == default.value
         assert explicit.p_value == default.p_value
@@ -263,7 +263,7 @@ class TestInference:
         import factrix as fx
 
         panel = self._ample_panel()
-        nw = k_spread(panel, forward_periods=5, k=5, inference=fx.inference.NEWEY_WEST)
+        nw = k_spread(panel, overlap_periods=5, k=5, inference=fx.inference.NEWEY_WEST)
         assert nw.metadata["method"] == "Newey-West HAC t-test"
         assert "nw_lags" in nw.metadata
         # HAC keeps every date; the full series is longer than the strided one,
@@ -278,7 +278,7 @@ class TestInference:
 
         raw = fx.datasets.make_cs_panel(n_assets=15, n_dates=400, seed=4)
         panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
-        nw = k_spread(panel, forward_periods=5, k=3, inference=fx.inference.NEWEY_WEST)
+        nw = k_spread(panel, overlap_periods=5, k=3, inference=fx.inference.NEWEY_WEST)
         assert nw.metadata["method"] == "Newey-West HAC t-test"
         assert "inference_overridden" not in nw.metadata
         assert WarningCode.FEW_ASSETS.value in nw.warning_codes
@@ -289,7 +289,7 @@ class TestInference:
         panel = self._ample_panel()
         with pytest.raises(fx.IncompatibleInferenceError) as exc:
             k_spread(
-                panel, forward_periods=5, k=5, inference=fx.inference.HANSEN_HODRICK
+                panel, overlap_periods=5, k=5, inference=fx.inference.HANSEN_HODRICK
             )
         assert exc.value.func_name == "k_spread"
         assert exc.value.applicable == ("NeweyWest", "NonOverlapping")
@@ -299,7 +299,7 @@ class TestInference:
 
         panel = self._ample_panel()
         with pytest.raises(fx.IncompatibleInferenceError):
-            k_spread(panel, forward_periods=5, k=5, inference="newey")
+            k_spread(panel, overlap_periods=5, k=5, inference="newey")
 
 
 class TestDispatch:
@@ -343,15 +343,15 @@ class TestNonFiniteFactors:
     def test_nan_factor_does_not_lead_the_long_leg(self):
         """A NaN factor used to take rank 1 and drag a 0.0-return name into
         the long leg, halving the measured spread."""
-        clean = k_spread(self._panel(5.0), forward_periods=1, k=2)
-        with_nan = k_spread(self._panel(float("nan")), forward_periods=1, k=2)
+        clean = k_spread(self._panel(5.0), overlap_periods=1, k=2)
+        with_nan = k_spread(self._panel(float("nan")), overlap_periods=1, k=2)
         assert clean.value == pytest.approx(0.20)
         assert with_nan.value == pytest.approx(0.20)
         assert with_nan.metadata["top_return"] == pytest.approx(0.10)
 
     def test_null_and_nan_factors_are_treated_alike(self):
-        nan_result = k_spread(self._panel(float("nan")), forward_periods=1, k=2)
-        null_result = k_spread(self._panel(None), forward_periods=1, k=2)
+        nan_result = k_spread(self._panel(float("nan")), overlap_periods=1, k=2)
+        null_result = k_spread(self._panel(None), overlap_periods=1, k=2)
         assert nan_result.value == pytest.approx(null_result.value)
         assert nan_result.metadata["median_cross_section"] == 9
 
@@ -372,7 +372,7 @@ class TestNonFiniteFactors:
                     }
                 )
         panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        result = k_spread(panel, forward_periods=1, k=2)
+        result = k_spread(panel, overlap_periods=1, k=2)
         assert result.value == pytest.approx(0.20)
         assert math.isfinite(result.metadata["cross_sectional_dispersion"])
 
@@ -401,7 +401,7 @@ class TestSmallCrossSectionKeying:
                     }
                 )
         panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        result = k_spread(panel, forward_periods=1, k=3)
+        result = k_spread(panel, overlap_periods=1, k=3)
         assert result.metadata["median_cross_section"] == 12
         assert WarningCode.FEW_ASSETS.value in result.warning_codes
 
@@ -434,7 +434,7 @@ class TestKSpreadTiePolicy:
     def test_tie_ratio_is_reported(self):
         panel = self._ternary_panel()
         with pytest.warns(UserWarning, match="tie_ratio"):
-            out = k_spread(panel, forward_periods=1, k=5)
+            out = k_spread(panel, overlap_periods=1, k=5)
         assert out.metadata["tie_ratio"] > 0.8
         assert out.metadata["tie_policy"] == "ordinal"
 
@@ -452,13 +452,13 @@ class TestKSpreadTiePolicy:
         panel = self._ternary_panel()
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            ordinal = k_spread(panel, forward_periods=1, k=5)
-            average = k_spread(panel, forward_periods=1, k=5, tie_policy="average")
+            ordinal = k_spread(panel, overlap_periods=1, k=5)
+            average = k_spread(panel, overlap_periods=1, k=5, tie_policy="average")
         assert average.metadata["tie_policy"] == "average"
         assert ordinal.value != average.value
         assert average.n_obs < ordinal.n_obs
 
     def test_continuous_factor_does_not_warn(self, noisy_panel):
-        out = k_spread(noisy_panel, forward_periods=1, k=5)
+        out = k_spread(noisy_panel, overlap_periods=1, k=5)
         assert out.metadata["tie_ratio"] == pytest.approx(0.0)
         assert out.metadata["tie_policy"] == "ordinal"

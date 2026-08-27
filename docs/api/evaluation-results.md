@@ -17,8 +17,9 @@ The leading `factor` / `forward_periods` / `params` block is the **hypothesis id
 
 **Schema:**
 - `factor` (`str`): The factor column name.
-- `forward_periods` (`i64`): The panel's overlap horizon.
+- `forward_periods` (`i64`): The return horizon — the hypothesis.
 - one column per `params` key (dtype inferred): the caller-supplied hypothesis knobs. A `params` key colliding with a fixed column name above raises `ValueError`. Results whose `params` keys differ need `pl.concat(..., how="diagonal")`.
+- `overlap_periods` (`i64`): The evaluation-grid overlap inference consumed (equal to `forward_periods` on the full grid). Bookkeeping, not identity.
 - `n_assets` (`i64`): Total unique assets.
 - `metric_name` (`str`): The metric identifier.
 - `value` (`f64` | `null`): The calculated metric value (NaN/Inf are normalized to `null`).

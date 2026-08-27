@@ -252,12 +252,42 @@ Three responsibilities sit upstream of `compute_forward_return`:
   the same date axis the panel uses; mismatched labels propagate
   silently into `by_slice` and screening calls.
 
+### Cross-source alignment: where the boundary sits
+
+When prices and factors come from several sources (several markets, a
+vendor feed and an internal signal), the joins are the caller's, and
+`compute_forward_return` sees only the result. The boundary is:
+
+- **The horizon is counted on the union grid.** The panel's distinct-date
+  grid is the union of every asset's dates, and `forward_periods` is a step
+  along that grid. Two markets with different non-trading periods share one
+  grid; the horizon is `h` periods of the union.
+- **Prices on the common observable grid stay `null` on non-trading
+  periods — never forward-fill them.** A filled entry price makes the
+  position enter at the *previous* period's price, and a filled exit price
+  shortens the true holding period; both fabricate a return that was not
+  available. A market closed at the entry or exit period simply has no
+  observation to pair, so its assets drop out of that period's
+  cross-section rather than stretching the window. Expect
+  `ragged_period_grid` from `compute_forward_return` on such a union grid;
+  it is the documented consequence, not a defect.
+- **The factor is a point-in-time as-of join.** Align each factor
+  observation to the latest value known at the period it is evaluated on
+  (backward as-of), with a freshness tolerance that drops values older than
+  the study allows. That join is the caller's; factrix does not infer
+  staleness.
+- **The evaluation grid can be coarser than the price grid.** Pass the
+  rebalance dates as `compute_forward_return(..., dates=)` rather than
+  filtering the panel afterwards, so the horizon stays what it is and the
+  overlap inference consumes is derived on the full grid
+  ([Evaluating on a coarser grid](../api/preprocess.md#evaluating-on-a-coarser-grid)).
+
 ## 6. Missing data
 
 | Source | factrix behaviour | Caller action |
 |---|---|---|
 | NaN in `factor` | Rewritten to `null` at ingestion, so it is a missing value like any other: it depresses `n_obs` and may trip sample-size guards, and never enters a rank. | Drop or impute before optional factor preprocessing or `compute_forward_return`. |
-| NaN / inf in `price` | Rewritten to `null` at ingestion *before* the return is formed, so a `+inf` price is a gap rather than a fabricated `-100 %` return; rows whose `forward_return` cannot be formed are dropped. Tail rows where `i + 1 + forward_periods` runs off the asset's grid are dropped by the same rule. | If a daily NaN reflects a true gap (suspended trading, holiday), the drop is correct. If imputable (forward-fill from previous close), impute before calling. |
+| NaN / inf in `price` | Rewritten to `null` at ingestion *before* the return is formed, so a `+inf` price is a gap rather than a fabricated `-100 %` return; rows whose `forward_return` cannot be formed are dropped. Tail rows where `i + 1 + forward_periods` runs off the asset's grid are dropped by the same rule. | If the gap is real (suspended trading, a closed market), the drop is correct: the asset has no observation to pair at that period and leaves that period's cross-section. Do not forward-fill a price to close the gap — a filled entry price enters at the previous period's price and a filled exit price shortens the true holding period (see [§5](#cross-source-alignment-where-the-boundary-sits)). Only a genuine feed error should be repaired, from the source. |
 | `forward_periods <= 0`, non-`int`, or `bool` | Raises [`UserInputError`](../api/errors.md); the horizon must be a positive integer row count. | Pass an explicit row horizon such as `1`, `5`, or `20`. |
 | Horizon too long / no finite returns after filtering | Raises [`UserInputError`](../api/errors.md) instead of returning an empty panel. | Shorten the horizon, extend the panel, or clean price values before calling. |
 | Single-asset panel (`n_assets == 1`) | `DataStructure` auto-switches to `TIMESERIES`. Dense PANEL metrics (`individual_continuous` and `common_continuous`) raise [`IncompatibleAxisError`](../api/errors.md). | Use `predictive_beta` for dense predictive-regression slope inference, `directional_hit_rate` for sign prediction, or a sparse metric whose cell allows `TIMESERIES`. |

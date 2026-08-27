@@ -31,7 +31,7 @@ from factrix.metrics._helpers import (
 )
 def compute_group_returns(
     data: pl.DataFrame,
-    forward_periods: int = 5,
+    overlap_periods: int = 5,
     n_groups: int = 5,
     factor_col: str = "factor",
     return_col: str = "forward_return",
@@ -40,7 +40,7 @@ def compute_group_returns(
     """Mean forward return per quantile bucket (for monotonicity charts).
 
     Formula:
-        1. Sample dates every ``forward_periods`` rows (non-overlapping).
+        1. Sample dates every ``overlap_periods`` rows (non-overlapping).
         2. Per sampled date, assign each asset to a quantile group
            0..n_groups-1 by ``factor`` (see ``_assign_quantile_groups``
            for tie_policy semantics).
@@ -78,11 +78,11 @@ def compute_group_returns(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> groups = compute_group_returns(panel, forward_periods=5, n_groups=5)
+        >>> groups = compute_group_returns(panel, overlap_periods=5, n_groups=5)
         >>> set(groups.columns) >= {"group", "mean_return"}
         True
     """
-    sampled = _sample_non_overlapping(data, forward_periods)
+    sampled = _sample_non_overlapping(data, overlap_periods)
     grouped = _assign_quantile_groups(
         sampled,
         factor_col,

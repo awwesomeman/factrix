@@ -107,7 +107,7 @@ def _spread_significance(
     3–4% at a nominal 5% — while the bootstrap p carries the usual small-n
     distortion (iid input: 13.6% at ``n = 12``, 9.8% at 30, 7.4% at 60,
     5.2% only by 120) and the strided spread series is short exactly when
-    ``forward_periods`` is large. Through the public path the bootstrap
+    ``overlap_periods`` is large. Through the public path the bootstrap
     branch rejected 8–20% against the ``t`` branch's 7–9%. And the switch
     keyed on the cross-section while the bootstrap's validity depends on
     the number of periods, so it was effectively random which estimator a
@@ -153,7 +153,7 @@ def _spread_significance_with_inference(
     *,
     strided_spread: np.ndarray,
     full_spread: pl.DataFrame | None,
-    forward_periods: int,
+    overlap_periods: int,
     n_assets: int,
 ) -> tuple[float, float, float, str, dict[str, object], tuple[str, ...]]:
     """Single headline-significance chokepoint shared by every spread metric.
@@ -199,7 +199,7 @@ def _spread_significance_with_inference(
 
     assert full_spread is not None  # narrowed by use_hac
     res = inference.compute(
-        full_spread, value_col="spread", forward_periods=forward_periods
+        full_spread, value_col="spread", overlap_periods=overlap_periods
     )
     full_vals = _finite_values(full_spread["spread"])
     full_mean = float(full_vals.mean())  # type: ignore[arg-type]
@@ -314,6 +314,19 @@ def _short_circuit_output(
     )
 
     metadata: dict[str, object] = {"reason": reason, **extra_metadata}
+    # A data shortage on a floor that scales with the evaluation-grid overlap
+    # carries one sentence on its most common false trigger: a panel
+    # sub-sampled by hand after compute_forward_return, whose overlap stamp
+    # still says "horizon". At overlap 1 the stamp cannot be stale in that
+    # direction, and a metric that already explains itself keeps its own hint.
+    overlap = metadata.get("overlap_periods")
+    if (
+        reason.startswith("insufficient_")
+        and "hint" not in metadata
+        and isinstance(overlap, int)
+        and overlap > 1
+    ):
+        metadata["hint"] = STALE_OVERLAP_HINT
     p: float | None = None if descriptive else 1.0
     return MetricResult(
         value=float("nan"),
@@ -469,7 +482,7 @@ def _enforce_min_floor(
     Reads ``metric.sample_threshold`` — the default-config floor baked at class
     creation. This gate holds the metric class, not a configured instance, so it
     cannot know the run-time params a scaled floor depends on. A metric whose
-    floor scales with run-time params (e.g. ``forward_periods``) enforces it in
+    floor scales with run-time params (e.g. ``overlap_periods``) enforces it in
     its own body, re-deriving the floor from the same source its resolver uses,
     rather than through here.
     """
@@ -493,7 +506,7 @@ def _enforce_scaled_floor(
     name: str,
     n_raw: int,
     base: int,
-    forward_periods: int,
+    overlap_periods: int,
     reason: str,
     alternative: PValueAlternative = "two-sided",
     warning_codes: tuple[str, ...] = (),
@@ -505,12 +518,12 @@ def _enforce_scaled_floor(
     stride-scaled periods floor — the run-time twin of a dynamic
     ``sample_threshold`` resolver.
 
-    A metric that sub-samples dates at stride ``forward_periods`` declares its
+    A metric that sub-samples dates at stride ``overlap_periods`` declares its
     floor as
-    ``SampleThreshold(min_periods=_scaled_min_periods(base, forward_periods))``
+    ``SampleThreshold(min_periods=_scaled_min_periods(base, overlap_periods))``
     so ``inspect_data`` pre-flights ``raw_n >= base * h`` against the full panel.
     This gate re-derives that *same* floor from the *same* ``base`` and
-    :func:`_scaled_min_periods` against the body's actual ``forward_periods``, so
+    :func:`_scaled_min_periods` against the body's actual ``overlap_periods``, so
     the pre-flight floor and the run-time floor are numerically identical (cf.
     :func:`_enforce_min_floor`, which reads the default-config floor and so cannot
     track a run-time-scaled one). ``n_raw`` is the count *before* sampling on
@@ -518,7 +531,7 @@ def _enforce_scaled_floor(
     the ``"events"`` axis (the event battery strides its own event axis at the
     same horizon; see :func:`_sample_events_non_overlapping`).
     """
-    floor = _scaled_min_periods(base, forward_periods)
+    floor = _scaled_min_periods(base, overlap_periods)
     if n_raw < floor:
         return _short_circuit_output(
             name,
@@ -529,10 +542,25 @@ def _enforce_scaled_floor(
             descriptive=False,  # every stride-sampling metric runs a hypothesis test
             alternative=alternative,
             warning_codes=warning_codes,
-            forward_periods=forward_periods,
+            overlap_periods=overlap_periods,
             **extra,
         )
     return None
+
+
+# One sentence every stride-scaled ``insufficient_*`` short-circuit carries
+# (``metadata["hint"]``; echoed by ``evaluate``'s InsufficientSampleError and
+# the bundle Warning). The floor scales with ``overlap_periods``, so the most
+# common way to trip it on a healthy panel is a panel sub-sampled to a coarser
+# evaluation grid *after* ``compute_forward_return`` — its overlap stamp still
+# says "horizon" while the true overlap on that grid is smaller.
+STALE_OVERLAP_HINT: str = (
+    "If this panel was sub-sampled to a coarser evaluation grid after "
+    "compute_forward_return, its overlap_periods stamp is stale (it still "
+    "counts the horizon on the full grid); rebuild it with "
+    "compute_forward_return(..., dates=<evaluation dates>) so the overlap is "
+    "derived on that grid."
+)
 
 
 def _scaled_periods_threshold(
@@ -541,7 +569,7 @@ def _scaled_periods_threshold(
     """Build a dynamic ``periods`` floor resolver scaled to the sample stride.
 
     The returned ``Callable[[MetricBase], SampleThreshold]`` scales ``base`` (and
-    optional ``warn``) by the instance's ``forward_periods`` through
+    optional ``warn``) by the instance's ``overlap_periods`` through
     :func:`_scaled_min_periods` — the same source the in-body
     :func:`_enforce_scaled_floor` gate reads — so a metric that sub-samples at
     that stride pre-flights and gates against one numerically identical floor.
@@ -549,7 +577,7 @@ def _scaled_periods_threshold(
     """
 
     def _resolver(self: MetricBase) -> SampleThreshold:
-        fp = self.forward_periods
+        fp = self.overlap_periods
         return SampleThreshold(
             min_periods=_scaled_min_periods(base, fp),
             warn_periods=None if warn is None else _scaled_min_periods(warn, fp),
@@ -596,7 +624,7 @@ def _warn_below_floor(
 def _warn_below_scaled_floor(
     n_raw: int,
     base_warn: int,
-    forward_periods: int,
+    overlap_periods: int,
     message: str,
     code: WarningCode,
     *,
@@ -606,7 +634,7 @@ def _warn_below_scaled_floor(
 
     Flags the degraded tier when the raw (pre-sampling) count falls below the
     stride-scaled warn floor, re-derived from ``base_warn`` and
-    :func:`_scaled_min_periods` against the body's actual ``forward_periods`` —
+    :func:`_scaled_min_periods` against the body's actual ``overlap_periods`` —
     the same source the dynamic resolver's ``warn_periods`` uses — so the
     pre-flight DEGRADED tier and the run-time warning fire on one identical
     floor. Axis-agnostic: the caller supplies the raw count on whichever axis it
@@ -616,7 +644,7 @@ def _warn_below_scaled_floor(
     ``evaluate``): a declared code keeps its structured record and only the
     per-run ``UserWarning`` echo stops.
     """
-    warn = _scaled_min_periods(base_warn, forward_periods)
+    warn = _scaled_min_periods(base_warn, overlap_periods)
     if n_raw < warn:
         if code.value not in expected_warnings:
             warnings.warn(message, UserWarning, stacklevel=3)
@@ -855,7 +883,7 @@ def _attach_abnormal_return(
     *,
     return_col: str = "forward_return",
     estimation_window: int = 60,
-    forward_periods: int = 5,
+    overlap_periods: int = 5,
     price_col: str = "price",
     factor_col: str = "factor",
     out_col: str = "_abnormal_return",
@@ -904,7 +932,7 @@ def _attach_abnormal_return(
         textbook form carries too).
       - Without one, the mean of the ``return_col`` rows over the
         ``estimation_window`` rows ending at $t - h$ (lagged by
-        ``forward_periods``, for exactly the reason ``bmp_z`` lags its
+        ``overlap_periods``, for exactly the reason ``bmp_z`` lags its
         fallback volatility): a window ending at $t$ would contain the
         event's own overlapping forward return and subtract part of the
         effect from itself. The last row in that window, $t - h$, spans bars
@@ -925,7 +953,7 @@ def _attach_abnormal_return(
         return_col: Raw return column to adjust.
         estimation_window: Bars (with ``price_col``) or rows (without) of
             history behind $\hat\mu_i$.
-        forward_periods: Overlap horizon; the lag applied to $\hat\mu_i$ on
+        overlap_periods: Overlap horizon; the lag applied to $\hat\mu_i$ on
             the row path.
         price_col: Price column; when present the mean is taken on one-bar
             returns derived from it.
@@ -1016,7 +1044,7 @@ def _attach_abnormal_return(
         lag = 0
     else:
         source_col = return_col
-        lag = forward_periods
+        lag = overlap_periods
     diagnostics["estimation_window_source"] = "price" if uses_price else return_col
     diagnostics["estimation_window_lag"] = lag
     # Mask NaN to null before the rolling mean. polars skips nulls and honours
@@ -1038,7 +1066,7 @@ def _attach_abnormal_return(
         factor_col,
         out_col,
         estimation_window=estimation_window,
-        forward_periods=forward_periods,
+        overlap_periods=overlap_periods,
         lag=lag,
         bars=uses_price,
         has_asset=has_asset,
@@ -1054,7 +1082,7 @@ def _estimation_window_event_share(
     ar_col: str,
     *,
     estimation_window: int,
-    forward_periods: int,
+    overlap_periods: int,
     lag: int,
     bars: bool,
     has_asset: bool,
@@ -1076,12 +1104,12 @@ def _estimation_window_event_share(
         return None
     is_event = (_finite_expr(factor_col) & (pl.col(factor_col) != 0)).cast(pl.Float64)
     if bars:
-        inside = is_event.rolling_sum(window_size=forward_periods, min_samples=1).shift(
+        inside = is_event.rolling_sum(window_size=overlap_periods, min_samples=1).shift(
             2
         )
     else:
         inside = is_event.rolling_sum(
-            window_size=2 * forward_periods - 1, min_samples=1, center=True
+            window_size=2 * overlap_periods - 1, min_samples=1, center=True
         )
     contaminated = (inside.fill_null(0.0) > 0).cast(pl.Float64)
     share = contaminated.rolling_mean(
@@ -1144,13 +1172,13 @@ def _warn_estimation_window_contamination(
 
 def _sample_non_overlapping(
     data: pl.DataFrame,
-    forward_periods: int,
+    overlap_periods: int,
 ) -> pl.DataFrame:
     """Keep every N-th date to produce a non-overlapping series.
 
     Algorithm:
         1. ``unique_dates = sort(data[date].unique())``
-        2. ``sampled = unique_dates[::forward_periods]``  (every N-th)
+        2. ``sampled = unique_dates[::overlap_periods]``  (every N-th)
         3. Return ``data.filter(date ∈ sampled)``
 
     Why: with h-period forward returns, consecutive dates' forward
@@ -1178,8 +1206,8 @@ def _sample_non_overlapping(
 
     Args:
         data: DataFrame with a ``date`` column.
-        forward_periods: Sampling interval (typically equals the
-            ``forward_periods`` of the forward-return column).
+        overlap_periods: Sampling interval (typically equals the
+            ``overlap_periods`` of the forward-return column).
 
     Returns:
         Filtered DataFrame containing only the sampled dates; all
@@ -1188,13 +1216,13 @@ def _sample_non_overlapping(
     from factrix._logging import get_metrics_logger
     from factrix._types import MIN_SERIES_PERIODS_HARD
 
-    sampled_dates = data["date"].unique().sort().gather_every(forward_periods)
+    sampled_dates = data["date"].unique().sort().gather_every(overlap_periods)
     result = data.filter(pl.col("date").is_in(sampled_dates.implode()))
     n_after = len(sampled_dates)
     logger = get_metrics_logger()
     logger.debug(
-        "non_overlap_sample: forward_periods=%d n_dates_before=%d n_after=%d",
-        forward_periods,
+        "non_overlap_sample: overlap_periods=%d n_dates_before=%d n_after=%d",
+        overlap_periods,
         data["date"].n_unique(),
         n_after,
     )
@@ -1206,21 +1234,21 @@ def _sample_non_overlapping(
         logger.warning(
             "non_overlap_sample shrunk to n=%d (< %d = MIN_SERIES_PERIODS_HARD*1.5); "
             "downstream significance tests may be unreliable. "
-            "forward_periods=%d",
+            "overlap_periods=%d",
             n_after,
             min_safe,
-            forward_periods,
+            overlap_periods,
         )
     return result
 
 
 def _sample_event_spaced(
     data: pl.DataFrame,
-    forward_periods: int,
+    overlap_periods: int,
     *,
     ordinal_col: str = "date_ordinal",
 ) -> pl.DataFrame:
-    """Greedily keep event rows ``>= forward_periods`` calendar steps apart.
+    """Greedily keep event rows ``>= overlap_periods`` calendar steps apart.
 
     The event-period counterpart of :func:`_sample_non_overlapping`. That
     helper keeps every N-th *unique date* (index distance), which is correct
@@ -1232,20 +1260,20 @@ def _sample_event_spaced(
     This pass instead walks the event periods in order and keeps an event only
     when its calendar gap — the difference in ``ordinal_col``, the position
     on the full underlying calendar — to the previously kept event is
-    ``>= forward_periods``. The first event is always kept. The result is a
+    ``>= overlap_periods``. The first event is always kept. The result is a
     maximal subset whose consecutive kept dates are at least one full
     forward-return horizon apart, so the surviving observations no longer
     share overlapping forward-return windows ([Brown-Warner (1985)][brown-warner-1985]
     non-overlap sampling, made calendar-aware for the event-period axis).
 
-    ``forward_periods <= 1`` is a no-op (consecutive events already
+    ``overlap_periods <= 1`` is a no-op (consecutive events already
     independent); an empty frame returns unchanged. ``data`` must be sorted by
     date and carry ``ordinal_col`` (``compute_caar`` emits ``date_ordinal``).
 
     Args:
         data: Event-date series, sorted by date, with an ``ordinal_col``
             integer column giving each date's position on the full calendar.
-        forward_periods: Minimum calendar gap (in those ordinal steps)
+        overlap_periods: Minimum calendar gap (in those ordinal steps)
             required between consecutive kept events.
         ordinal_col: Name of the full-calendar position column.
 
@@ -1253,13 +1281,13 @@ def _sample_event_spaced(
         Filtered DataFrame containing only the kept event rows; all
         columns untouched.
     """
-    if forward_periods <= 1 or data.height == 0:
+    if overlap_periods <= 1 or data.height == 0:
         return data
     ordinals = data[ordinal_col].to_numpy()
     keep = np.zeros(data.height, dtype=bool)
     last_kept: int | None = None
     for i, ordinal in enumerate(ordinals):
-        if last_kept is None or ordinal - last_kept >= forward_periods:
+        if last_kept is None or ordinal - last_kept >= overlap_periods:
             keep[i] = True
             last_kept = int(ordinal)
     return data.filter(pl.Series(keep))
@@ -1267,7 +1295,7 @@ def _sample_event_spaced(
 
 def _sample_events_non_overlapping(
     events: pl.DataFrame,
-    forward_periods: int,
+    overlap_periods: int,
     *,
     calendar_dates: pl.Series | None = None,
     asset_col: str = "asset_id",
@@ -1291,20 +1319,20 @@ def _sample_events_non_overlapping(
     Ordinals come from ``calendar_dates`` (the full panel's date column) when
     supplied, so the gap is measured on the underlying calendar rather than on
     the sparse event dates; without it the event dates themselves are the
-    calendar. ``forward_periods <= 1`` and an empty frame are no-ops.
+    calendar. ``overlap_periods <= 1`` and an empty frame are no-ops.
 
     Args:
         events: Event rows (already filtered to ``factor != 0`` and to finite
             values), with ``date`` and — for a panel — ``asset_col``. A frame
             without ``date`` carries no gap to measure and passes through.
-        forward_periods: Minimum calendar gap required between kept events.
+        overlap_periods: Minimum calendar gap required between kept events.
         calendar_dates: Full-panel ``date`` column defining the calendar.
         asset_col: Asset identifier; a frame without it is treated as one asset.
 
     Returns:
         The kept event rows, sorted by asset then date.
     """
-    if forward_periods <= 1 or events.height == 0 or "date" not in events.columns:
+    if overlap_periods <= 1 or events.height == 0 or "date" not in events.columns:
         return events
     dates = events["date"] if calendar_dates is None else calendar_dates
     calendar = pl.DataFrame({"date": dates.unique().sort()}).with_columns(
@@ -1320,7 +1348,7 @@ def _sample_events_non_overlapping(
         ]
     kept = pl.concat(
         [
-            _sample_event_spaced(part, forward_periods, ordinal_col="_calendar_ordinal")
+            _sample_event_spaced(part, overlap_periods, ordinal_col="_calendar_ordinal")
             for part in parts
         ]
     )
@@ -1331,7 +1359,7 @@ def _warn_event_window_overlap(
     metric_name: str,
     n_events: int,
     n_sampled: int,
-    forward_periods: int,
+    overlap_periods: int,
     metadata: dict[str, Any],
     warning_codes: list[str],
     *,
@@ -1341,7 +1369,7 @@ def _warn_event_window_overlap(
 
     Fires once per metric when :func:`_sample_events_non_overlapping` (or
     :func:`_sample_event_spaced`) dropped at least one event — i.e. some
-    consecutive pair on one asset sat closer than ``forward_periods`` and their
+    consecutive pair on one asset sat closer than ``overlap_periods`` and their
     ``(t, t+h]`` windows overlapped. The dropped count is the measurement, so
     it is always written to ``metadata``; the code fires only when the count is
     non-zero. Declaring it via ``evaluate(..., expected_warnings=(...,))``
@@ -1356,7 +1384,7 @@ def _warn_event_window_overlap(
     if code not in expected_warnings:
         warnings.warn(
             f"{metric_name}: {dropped} of {n_events} events sat within "
-            f"forward_periods={forward_periods} of the previously kept event on "
+            f"overlap_periods={overlap_periods} of the previously kept event on "
             f"the same asset, so their forward-return windows overlapped. The "
             f"test runs on the {n_sampled} non-overlapping events that survive "
             f"the spacing pass; overlapping events are not independent draws "
@@ -1370,7 +1398,7 @@ def _warn_event_window_overlap(
 
 def _event_sample_threshold(self: MetricBase) -> SampleThreshold:
     """Event floor shared by the event significance tests that stride their
-    event axis at ``forward_periods``.
+    event axis at ``overlap_periods``.
 
     ``min_events`` stays the static math floor ``MIN_EVENTS_HARD``, enforced
     in-body against the *sampled* (post-spacing) count — pre-flight counts raw
@@ -1386,11 +1414,11 @@ def _event_sample_threshold(self: MetricBase) -> SampleThreshold:
 
     return SampleThreshold(
         min_events=MIN_EVENTS_HARD,
-        warn_events=_scaled_min_periods(MIN_EVENTS_WARN, self.forward_periods),
+        warn_events=_scaled_min_periods(MIN_EVENTS_WARN, self.overlap_periods),
     )
 
 
-def _scaled_min_periods(base: int, forward_periods: int) -> int:
+def _scaled_min_periods(base: int, overlap_periods: int) -> int:
     """Raw-sample minimum for a metric that will sub-sample at stride h.
 
     ``MIN_*_PERIODS`` constants are calibrated for the *effective*
@@ -1401,7 +1429,7 @@ def _scaled_min_periods(base: int, forward_periods: int) -> int:
     observations after sampling. Clamps ``h ≥ 1`` so ``h = 1`` is a
     no-op.
     """
-    return base * max(forward_periods, 1)
+    return base * max(overlap_periods, 1)
 
 
 def _lag_within_asset(

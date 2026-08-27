@@ -157,7 +157,7 @@ def fm_beta(
     beta_df: pl.DataFrame,
     *,
     newey_west_lags: int | None = None,
-    forward_periods: int | None = None,
+    overlap_periods: int | None = None,
     is_estimated_factor: bool = False,
     factor_return_var: float | None = None,
     expected_warnings: tuple[str, ...] = (),
@@ -170,10 +170,10 @@ def fm_beta(
         newey_west_lags: Number of Newey-West (NW) lags. Defaults to the
             HAR bandwidth ``har_bandwidth(T)`` = ``1.3 * sqrt(T)``
             (``_resolve_har_lags``).
-        forward_periods: Overlap horizon of the regression's forward
+        overlap_periods: Overlap horizon of the regression's forward
             return. When set, the NW bandwidth is floored at
-            ``3 * (forward_periods - 1)`` and the effective degrees of
-            freedom are capped at ``T / forward_periods - 1``, so the
+            ``3 * (overlap_periods - 1)`` and the effective degrees of
+            freedom are capped at ``T / overlap_periods - 1``, so the
             kernel is consistent *and* the reference distribution is
             calibrated under the MA($h-1$) overlap structure of
             $h$-period returns.
@@ -278,7 +278,7 @@ def fm_beta(
         ...     forward_periods=5,
         ... )
         >>> beta_df = compute_fm_betas(panel)["factor"]
-        >>> result = fm_beta(beta_df, forward_periods=5)
+        >>> result = fm_beta(beta_df, overlap_periods=5)
         >>> result.name == ""
         True
     """
@@ -308,9 +308,9 @@ def fm_beta(
     t, p, _ = _newey_west_t_test(
         betas,
         lags=newey_west_lags,
-        forward_periods=forward_periods,
+        overlap_periods=overlap_periods,
     )
-    actual_lags = _resolve_har_lags(n, newey_west_lags, forward_periods)
+    actual_lags = _resolve_har_lags(n, newey_west_lags, overlap_periods)
     beta_autocorr = _lag1_autocorr(betas)
     if beta_autocorr > PERSISTENT_SERIES_AUTOCORR:
         warning_codes.append(WarningCode.SERIAL_CORRELATION_DETECTED.value)
@@ -331,8 +331,8 @@ def fm_beta(
         "method": "Fama-MacBeth + Newey-West",
         "n_periods": n,
         "newey_west_lags": actual_lags,
-        "hac_dof": _har_dof(n, actual_lags, forward_periods) if n >= 3 else None,
-        "forward_periods": forward_periods,
+        "hac_dof": _har_dof(n, actual_lags, overlap_periods) if n >= 3 else None,
+        "overlap_periods": overlap_periods,
         "is_estimated_factor": is_estimated_factor,
     }
 

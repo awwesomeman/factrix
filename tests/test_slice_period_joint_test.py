@@ -8,6 +8,7 @@ import factrix as fx
 import polars as pl
 import pytest
 from factrix import slice_period_joint_test, slice_period_pairwise_test
+from factrix._data_input import _stamp_horizons
 from factrix._errors import UserInputError
 from factrix.metrics import ic, monotonicity, positive_rate
 
@@ -286,11 +287,13 @@ class TestFloorFollowsPanelStamp:
     same floor ``by_slice`` gates on — not at the metric's default horizon."""
 
     @staticmethod
-    def _panel(forward_periods: int) -> pl.DataFrame:
+    def _panel(overlap_periods: int) -> pl.DataFrame:
         df = build_disjoint_period_panel(
             seed=7, spans={"a": (20, 0.02), "b": (20, 0.02)}, label_col="regime"
         )
-        return df.with_columns(pl.lit(forward_periods).alias("_forward_periods"))
+        return _stamp_horizons(
+            df, forward_periods=overlap_periods, overlap_periods=overlap_periods
+        )
 
     def test_stamp_one_admits_twenty_period_slices(self) -> None:
         panel = self._panel(1)
@@ -309,7 +312,7 @@ class TestFloorFollowsPanelStamp:
 
     def test_stamp_five_refuses_and_names_the_horizon(self) -> None:
         with pytest.raises(
-            ValueError, match=r"floor \(50, resolved at .*forward_periods=5"
+            ValueError, match=r"floor \(50, resolved at .*overlap_periods=5"
         ):
             slice_period_joint_test(
                 self._panel(5), positive_rate(), by="regime", factor_col="factor"
@@ -318,7 +321,7 @@ class TestFloorFollowsPanelStamp:
     def test_unstamped_panel_falls_back_to_default_horizon(self) -> None:
         with pytest.raises(ValueError, match="default horizon"):
             slice_period_pairwise_test(
-                self._panel(1).drop("_forward_periods"),
+                self._panel(1).drop("_forward_periods", "_overlap_periods"),
                 positive_rate(),
                 by="regime",
                 factor_col="factor",

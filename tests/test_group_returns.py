@@ -36,7 +36,7 @@ class TestUnbucketedNamesExcluded:
         an extra ``group=None`` bucket."""
         out = compute_group_returns(
             _panel(_rows(factor_of=lambda a: float(a) if a < 5 else None)),
-            forward_periods=1,
+            overlap_periods=1,
             n_groups=5,
         )
         assert out["group"].null_count() == 0
@@ -45,7 +45,7 @@ class TestUnbucketedNamesExcluded:
     def test_nan_factor_is_unbucketed_too(self):
         out = compute_group_returns(
             _panel(_rows(factor_of=lambda a: float("nan") if a == 9 else float(a))),
-            forward_periods=1,
+            overlap_periods=1,
             n_groups=5,
         )
         assert out["group"].null_count() == 0
@@ -59,7 +59,7 @@ class TestUnbucketedNamesExcluded:
             _panel(_rows(factor_of=lambda _a: None)).with_columns(
                 pl.col("factor").cast(pl.Float64)
             ),
-            forward_periods=1,
+            overlap_periods=1,
             n_groups=5,
         )
         assert out.height == 0
@@ -71,7 +71,7 @@ class TestNonFiniteReturns:
         the whole bucket."""
         out = compute_group_returns(
             _panel(_rows(return_of=lambda a: float("nan") if a == 9 else 0.01 * a)),
-            forward_periods=1,
+            overlap_periods=1,
             n_groups=5,
         )
         assert all(math.isfinite(v) for v in out["mean_return"].to_list())

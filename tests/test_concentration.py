@@ -23,7 +23,7 @@ class TestQ1Concentration:
                     }
                 )
         df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        result = top_concentration(df, forward_periods=1, q_top=0.2)
+        result = top_concentration(df, overlap_periods=1, q_top=0.2)
         # Top 20% = 4 stocks, all with similar |factor| → eff_n near 4
         assert result.value > 2.0  # reasonably diversified
 
@@ -44,7 +44,7 @@ class TestQ1Concentration:
                     }
                 )
         df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        result = top_concentration(df, forward_periods=1, q_top=0.2)
+        result = top_concentration(df, overlap_periods=1, q_top=0.2)
         assert result.value < 2.0  # highly concentrated
 
     def test_alpha_contribution_sees_return_concentration(self):
@@ -68,13 +68,13 @@ class TestQ1Concentration:
         df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         density = top_concentration(
             df,
-            forward_periods=1,
+            overlap_periods=1,
             q_top=0.2,
             weight_by="abs_factor",
         )
         alpha = top_concentration(
             df,
-            forward_periods=1,
+            overlap_periods=1,
             q_top=0.2,
             weight_by="alpha_contribution",
         )
@@ -123,20 +123,20 @@ class TestTopBucketMembership:
         """n=10, q=0.2 selects 2 names, not 3 (percent-rank cutoff was
         inclusive at the boundary and took one name too many)."""
         result = top_concentration(
-            self._uniform_panel(10), forward_periods=1, q_top=0.2
+            self._uniform_panel(10), overlap_periods=1, q_top=0.2
         )
         assert result.metadata["mean_n_top"] == 2.0
 
     def test_count_cutoff_does_not_drift_with_n(self):
         """n=100, q=0.2 selects 20, not 21 — the old off-by-one grew with n."""
         result = top_concentration(
-            self._uniform_panel(100), forward_periods=1, q_top=0.2
+            self._uniform_panel(100), overlap_periods=1, q_top=0.2
         )
         assert result.metadata["mean_n_top"] == 20.0
 
     def test_bucket_never_empty(self):
         """floor(n*q) == 0 still selects the single top name."""
-        result = top_concentration(self._uniform_panel(4), forward_periods=1, q_top=0.2)
+        result = top_concentration(self._uniform_panel(4), overlap_periods=1, q_top=0.2)
         assert result.metadata["mean_n_top"] == 1.0
 
     def test_null_factors_do_not_shrink_the_bucket(self):
@@ -148,7 +148,7 @@ class TestTopBucketMembership:
         panel = self._uniform_panel(
             10, factor_of=lambda i: float(i + 1) if i < 5 else None
         )
-        result = top_concentration(panel, forward_periods=1, q_top=0.2)
+        result = top_concentration(panel, overlap_periods=1, q_top=0.2)
         assert result.metadata["mean_n_top"] == 1.0
         assert result.n_obs == 10
 
@@ -157,7 +157,7 @@ class TestTopBucketMembership:
         panel = self._uniform_panel(
             10, factor_of=lambda i: float("nan") if i == 0 else float(i)
         )
-        result = top_concentration(panel, forward_periods=1, q_top=0.2)
+        result = top_concentration(panel, overlap_periods=1, q_top=0.2)
         # 9 finite names -> floor(9*0.2) = 1, and it must be asset A9 (factor
         # 9.0), not the NaN one.
         assert result.metadata["mean_n_top"] == 1.0
@@ -188,7 +188,7 @@ class TestAlphaContributionWeights:
                 )
         result = top_concentration(
             _panel(rows),
-            forward_periods=1,
+            overlap_periods=1,
             q_top=0.2,
             weight_by="alpha_contribution",
         )
@@ -215,7 +215,7 @@ class TestAlphaContributionWeights:
                 )
         result = top_concentration(
             _panel(rows),
-            forward_periods=1,
+            overlap_periods=1,
             q_top=0.2,
             weight_by="alpha_contribution",
         )
@@ -259,7 +259,7 @@ class TestOneSignedFactorWarning:
         from factrix.metrics.concentration import top_concentration
 
         with pytest.warns(UserWarning, match="never changes sign"):
-            result = top_concentration(self._panel(shift=-10.0), forward_periods=1)
+            result = top_concentration(self._panel(shift=-10.0), overlap_periods=1)
         assert WarningCode.ONE_SIGNED_FACTOR.value in result.warning_codes
         assert result.value is not None  # advisory only — metric still ran
 
@@ -282,8 +282,8 @@ class TestOneSignedFactorWarning:
         large = self._panel(shift=-10.0, n_assets=45)
         with _warnings.catch_warnings(record=True) as caught:
             _warnings.simplefilter("default")
-            first = top_concentration(small, forward_periods=1)
-            second = top_concentration(large, forward_periods=1)
+            first = top_concentration(small, overlap_periods=1)
+            second = top_concentration(large, overlap_periods=1)
 
         one_signed = [w for w in caught if "never changes sign" in str(w.message)]
         assert len(one_signed) == 1, (
@@ -302,7 +302,7 @@ class TestOneSignedFactorWarning:
         """The keys are conditional — they describe why the code fired."""
         from factrix.metrics.concentration import top_concentration
 
-        result = top_concentration(self._panel(shift=0.0), forward_periods=1)
+        result = top_concentration(self._panel(shift=0.0), overlap_periods=1)
         assert "n_positive_factor_values" not in result.metadata
         assert "n_negative_factor_values" not in result.metadata
 
@@ -310,7 +310,7 @@ class TestOneSignedFactorWarning:
         from factrix._codes import WarningCode
         from factrix.metrics.concentration import top_concentration
 
-        result = top_concentration(self._panel(shift=0.0), forward_periods=1)
+        result = top_concentration(self._panel(shift=0.0), overlap_periods=1)
         assert WarningCode.ONE_SIGNED_FACTOR.value not in result.warning_codes
 
     def test_alpha_contribution_is_exempt(self):
@@ -320,6 +320,6 @@ class TestOneSignedFactorWarning:
         from factrix.metrics.concentration import top_concentration
 
         result = top_concentration(
-            self._panel(shift=-10.0), forward_periods=1, weight_by="alpha_contribution"
+            self._panel(shift=-10.0), overlap_periods=1, weight_by="alpha_contribution"
         )
         assert WarningCode.ONE_SIGNED_FACTOR.value not in result.warning_codes

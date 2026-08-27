@@ -2,7 +2,7 @@
 
 Every test in the event battery whose p-value assumes independent per-event
 draws (``caar``, ``bmp_z``, ``corrado_rank``, ``event_hit_rate``, ``event_ic``,
-``event_skewness``) strides its own event axis at ``forward_periods``, per
+``event_skewness``) strides its own event axis at ``overlap_periods``, per
 asset, before it tests anything. Without it a trigger that fires in bursts on
 one name hands each test the same shock several times over: with a single
 asset there is no cross-section for the Kolari-Pynnönen adjustment or the
@@ -64,7 +64,7 @@ def _burst_panel(
 
 
 class TestSampleEventsNonOverlapping:
-    """The shared helper: per asset, gap >= forward_periods, first kept."""
+    """The shared helper: per asset, gap >= overlap_periods, first kept."""
 
     @staticmethod
     def _events(ordinals: dict[str, list[int]], n_cal: int = 60) -> pl.DataFrame:
@@ -133,7 +133,7 @@ class TestBurstsAreThinnedByEveryEventTest:
         panel = _burst_panel()
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            result = metric(panel, forward_periods=_H)
+            result = metric(panel, overlap_periods=_H)
         n_bursts = len(range(60, 900 - 60, 40))
         assert result.metadata["n_events_sampled"] == n_bursts
         assert result.metadata["n_events_overlapping"] == n_bursts * 3
@@ -143,7 +143,7 @@ class TestBurstsAreThinnedByEveryEventTest:
         panel = _burst_panel()
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            result = caar(compute_caar(panel), forward_periods=_H)
+            result = caar(compute_caar(panel), overlap_periods=_H)
         n_bursts = len(range(60, 900 - 60, 40))
         assert result.metadata["n_events_sampled"] == n_bursts
         assert result.n_obs == n_bursts
@@ -157,7 +157,7 @@ class TestBurstsAreThinnedByEveryEventTest:
         )
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            result = event_ic(panel, forward_periods=_H)
+            result = event_ic(panel, overlap_periods=_H)
         assert result.metadata["n_events_sampled"] == result.n_obs
         assert result.metadata["n_events_overlapping"] > 0
 
@@ -173,7 +173,7 @@ class TestEventWindowOverlapCode:
     def test_fires_once_when_the_spacing_pass_removed_events(self, metric):
         panel = _burst_panel()
         with pytest.warns(UserWarning, match="forward-return windows overlapped"):
-            result = metric(panel, forward_periods=_H)
+            result = metric(panel, overlap_periods=_H)
         assert result.warning_codes.count(WarningCode.EVENT_WINDOW_OVERLAP.value) == 1
 
     @pytest.mark.parametrize(
@@ -186,7 +186,7 @@ class TestEventWindowOverlapCode:
         panel = _burst_panel(burst=1)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            result = metric(panel, forward_periods=_H)
+            result = metric(panel, overlap_periods=_H)
         assert WarningCode.EVENT_WINDOW_OVERLAP.value not in result.warning_codes
         assert result.metadata["n_events_overlapping"] == 0
 
@@ -196,7 +196,7 @@ class TestEventWindowOverlapCode:
             warnings.simplefilter("error", UserWarning)
             result = event_hit_rate(
                 panel,
-                forward_periods=_H,
+                overlap_periods=_H,
                 expected_warnings=("event_window_overlap", "few_events"),
             )
         assert WarningCode.EVENT_WINDOW_OVERLAP.value in result.warning_codes
@@ -217,7 +217,7 @@ class TestNullSizeUnderClusteredEvents:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             for seed in range(reps):
-                r = metric(_burst_panel(seed=seed), forward_periods=_H)
+                r = metric(_burst_panel(seed=seed), overlap_periods=_H)
                 if r.p_value is not None and r.p_value < 0.05:
                     rej += 1
         # 60 reps at a true 5% has SE ~2.8pp; the band catches a return to the
@@ -246,11 +246,11 @@ class TestEventBatteryReportsOneAxisToken:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
             results = {
-                "caar": caar(compute_caar(panel), forward_periods=_H),
-                "bmp_z": bmp_z(panel, forward_periods=_H),
-                "corrado_rank": corrado_rank(panel, forward_periods=_H),
-                "event_hit_rate": event_hit_rate(panel, forward_periods=_H),
-                "event_skewness": event_skewness(panel, forward_periods=_H),
+                "caar": caar(compute_caar(panel), overlap_periods=_H),
+                "bmp_z": bmp_z(panel, overlap_periods=_H),
+                "corrado_rank": corrado_rank(panel, overlap_periods=_H),
+                "event_hit_rate": event_hit_rate(panel, overlap_periods=_H),
+                "event_skewness": event_skewness(panel, overlap_periods=_H),
                 "profit_factor": profit_factor(panel),
                 "signal_density": signal_density(panel),
                 "mfe_mae": mfe_mae(compute_mfe_mae(panel, window=10)),

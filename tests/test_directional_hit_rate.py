@@ -44,7 +44,7 @@ class TestStatisticCorrectness:
         rng = np.random.default_rng(0)
         x = rng.normal(size=200)
         y = 0.5 * x + rng.normal(size=200)
-        result = directional_hit_rate(_ts_panel(x, y), forward_periods=1)
+        result = directional_hit_rate(_ts_panel(x, y), overlap_periods=1)
 
         ref_value, ref_stat = _pt_reference(x, y)
         assert result.value == pytest.approx(ref_value)
@@ -56,7 +56,7 @@ class TestStatisticCorrectness:
         rng = np.random.default_rng(1)
         x = rng.normal(size=300)
         y = x + 0.3 * rng.normal(size=300)  # strong sign agreement
-        result = directional_hit_rate(_ts_panel(x, y), forward_periods=1)
+        result = directional_hit_rate(_ts_panel(x, y), overlap_periods=1)
         assert result.value > 0.5
         assert result.stat > 0
         assert result.p_value < 0.01
@@ -65,7 +65,7 @@ class TestStatisticCorrectness:
         rng = np.random.default_rng(2)
         x = rng.normal(size=400)
         y = rng.normal(size=400)  # no relation
-        result = directional_hit_rate(_ts_panel(x, y), forward_periods=1)
+        result = directional_hit_rate(_ts_panel(x, y), overlap_periods=1)
         assert result.p_value > 0.05
 
     def test_negative_predictor_scores_poorly_one_sided(self):
@@ -74,7 +74,7 @@ class TestStatisticCorrectness:
         rng = np.random.default_rng(3)
         x = rng.normal(size=300)
         y = -x + 0.3 * rng.normal(size=300)
-        result = directional_hit_rate(_ts_panel(x, y), forward_periods=1)
+        result = directional_hit_rate(_ts_panel(x, y), overlap_periods=1)
         assert result.value < 0.5
         assert result.stat < 0
         assert result.p_value > 0.95
@@ -91,7 +91,7 @@ class TestDivergenceFromHitRate:
         y = np.where(rng.random(n) < 0.85, 1.0, -1.0) * (rng.random(n) + 0.1)
         x = np.where(rng.random(n) < 0.85, 1.0, -1.0) * (rng.random(n) + 0.1)
 
-        pt = directional_hit_rate(_ts_panel(x, y), forward_periods=1)
+        pt = directional_hit_rate(_ts_panel(x, y), overlap_periods=1)
 
         agree = pl.DataFrame(
             {
@@ -99,7 +99,7 @@ class TestDivergenceFromHitRate:
                 "value": (np.sign(x) == np.sign(y)).astype(float),
             }
         )
-        naive = positive_rate(agree, forward_periods=1)
+        naive = positive_rate(agree, overlap_periods=1)
 
         # Naive binomial sees a high hit rate and calls it significant;
         # PT, conditioning on the imbalanced marginals, does not.
@@ -114,7 +114,7 @@ class TestShortCircuits:
         n = MIN_DIRECTIONAL_PAIRS_HARD - 1
         x = rng.normal(size=n)
         y = rng.normal(size=n)
-        result = directional_hit_rate(_ts_panel(x, y), forward_periods=1)
+        result = directional_hit_rate(_ts_panel(x, y), overlap_periods=1)
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "insufficient_directional_samples"
         # Short-circuit is labelled on the pairs axis (pooled (date, asset)
@@ -125,7 +125,7 @@ class TestShortCircuits:
         rng = np.random.default_rng(6)
         x = np.abs(rng.normal(size=100)) + 0.1  # all positive
         y = rng.normal(size=100)
-        result = directional_hit_rate(_ts_panel(x, y), forward_periods=1)
+        result = directional_hit_rate(_ts_panel(x, y), overlap_periods=1)
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "degenerate_directional_variance"
         assert result.n_obs_axis == "pairs"
@@ -134,7 +134,7 @@ class TestShortCircuits:
         rng = np.random.default_rng(7)
         x = rng.normal(size=50)
         df = _ts_panel(x, x).drop("forward_return")
-        result = directional_hit_rate(df, forward_periods=1)
+        result = directional_hit_rate(df, overlap_periods=1)
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "no_return_column"
 
@@ -142,7 +142,7 @@ class TestShortCircuits:
         # Exact-zero predictions have undefined direction and must not count.
         x = np.array([0.0] * 30 + [1.0] * 30 + [-1.0] * 30)
         y = np.array([1.0] * 30 + [1.0] * 30 + [-1.0] * 30)
-        result = directional_hit_rate(_ts_panel(x, y), forward_periods=1)
+        result = directional_hit_rate(_ts_panel(x, y), overlap_periods=1)
         assert result.n_obs == 60  # the 30 zero-factor rows dropped
         assert result.n_obs_axis == "pairs"
         assert result.value == pytest.approx(1.0)
@@ -159,7 +159,7 @@ class TestPairsAxisWarnTier:
         x = rng.normal(size=n)
         y = 0.6 * x + rng.normal(size=n)
         with pytest.warns(UserWarning, match="MIN_DIRECTIONAL_PAIRS_WARN"):
-            result = directional_hit_rate(_ts_panel(x, y), forward_periods=1)
+            result = directional_hit_rate(_ts_panel(x, y), overlap_periods=1)
         assert not math.isnan(result.value)
         assert result.n_obs == n
         assert result.n_obs_axis == "pairs"
@@ -170,7 +170,7 @@ class TestPairsAxisWarnTier:
         rng = np.random.default_rng(12)
         x = rng.normal(size=200)
         y = 0.5 * x + rng.normal(size=200)
-        result = directional_hit_rate(_ts_panel(x, y), forward_periods=1)
+        result = directional_hit_rate(_ts_panel(x, y), overlap_periods=1)
         assert WarningCode.FEW_DIRECTIONAL_PAIRS.value not in result.warning_codes
 
     def test_wide_short_panel_clears_floor_on_pairs(self):
@@ -187,7 +187,7 @@ class TestPairsAxisWarnTier:
             "forward_return": rng.normal(size=n_dates * n_assets),
         }
         df = pl.DataFrame(rows)
-        result = directional_hit_rate(df, forward_periods=1)
+        result = directional_hit_rate(df, overlap_periods=1)
         assert not math.isnan(result.value)
         assert result.n_obs == n_dates * n_assets
         assert result.n_obs_axis == "pairs"
@@ -217,7 +217,7 @@ class TestCrossSectionalCorrection:
         rng = np.random.default_rng(20)
         x = rng.normal(size=200)
         y = 0.5 * x + rng.normal(size=200)
-        result = directional_hit_rate(_ts_panel(x, y), forward_periods=1)
+        result = directional_hit_rate(_ts_panel(x, y), overlap_periods=1)
         assert result.metadata["kolari_pynnonen_applied"] is False
         assert result.metadata["kolari_pynnonen_r"] is None
         assert "stat_uncorrected" not in result.metadata
@@ -228,7 +228,7 @@ class TestCrossSectionalCorrection:
         # A heavy shared daily shock correlates same-date hits; the K-P
         # deflation must shrink |S_n| and raise the one-sided p-value.
         result = self._panel(common_weight=0.9, seed=0)
-        result = directional_hit_rate(result, forward_periods=1)
+        result = directional_hit_rate(result, overlap_periods=1)
         m = result.metadata
         assert m["kolari_pynnonen_applied"] is True
         assert m["kolari_pynnonen_r"] > 0.0
@@ -272,16 +272,16 @@ class TestCrossSectionalCorrection:
         import polars as pl
 
         panel = self._panel(common_weight=0.0, seed=1)
-        clean = directional_hit_rate(panel, forward_periods=1)
+        clean = directional_hit_rate(panel, overlap_periods=1)
         dirty = panel.with_columns(
             pl.when(pl.int_range(pl.len()) % 7 == 0)
             .then(float("nan"))
             .otherwise(pl.col("forward_return"))
             .alias("forward_return")
         )
-        r = directional_hit_rate(dirty, forward_periods=1)
+        r = directional_hit_rate(dirty, overlap_periods=1)
         ref = directional_hit_rate(
-            dirty.filter(pl.col("forward_return").is_not_nan()), forward_periods=1
+            dirty.filter(pl.col("forward_return").is_not_nan()), overlap_periods=1
         )
         assert r.n_obs == ref.n_obs < clean.n_obs
         assert r.value == pytest.approx(ref.value)
@@ -312,5 +312,5 @@ class TestDispatch:
         ts = fx.preprocess.compute_forward_return(
             raw.filter(pl.col("asset_id") == first), forward_periods=5
         )
-        result = directional_hit_rate(ts, forward_periods=5)
+        result = directional_hit_rate(ts, overlap_periods=5)
         assert math.isnan(result.value) or 0.0 <= result.value <= 1.0

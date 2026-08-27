@@ -41,7 +41,7 @@ def _ew_portfolio_slope(
     betas: pl.DataFrame,
     factor_col: str,
     return_col: str,
-    forward_periods: int,
+    overlap_periods: int,
 ) -> tuple[float | None, float | None, int]:
     r"""Calendar-time equal-weight portfolio slope on the common factor.
 
@@ -92,7 +92,7 @@ def _ew_portfolio_slope(
     n_periods = len(y)
     if n_periods < 3:
         return None, None, n_periods
-    slope, se, _ = _ols_nw_slope_se(y, x, lags=max(forward_periods - 1, 0))
+    slope, se, _ = _ols_nw_slope_se(y, x, lags=max(overlap_periods - 1, 0))
     # NaN (unformable fit) or ~0 (perfect fit): no usable variance either way.
     if not np.isfinite(se) or se < EPSILON:
         return None, None, n_periods
@@ -111,7 +111,7 @@ def compute_common_betas(
     data: pl.DataFrame,
     factor_cols: Sequence[str] = ("factor",),
     return_col: str = "forward_return",
-    forward_periods: int = 5,
+    overlap_periods: int = 5,
 ) -> dict[str, pl.DataFrame]:
     r"""Per-asset time-series ordinary least squares (OLS).
 
@@ -138,7 +138,7 @@ def compute_common_betas(
         factor_cols: Factor column names to score. All factors run in a
             single query regardless of N.
         return_col: Forward-return column shared across factors.
-        forward_periods: Overlap horizon of ``return_col``; sets the
+        overlap_periods: Overlap horizon of ``return_col``; sets the
             Newey-West bandwidth ($h - 1$) of the calendar-time slope
             variance below. Injected by ``evaluate`` from the data's stamped
             horizon.
@@ -164,7 +164,7 @@ def compute_common_betas(
         **``t_stat`` is homoskedastic and overlap-uncorrected.** It is the
         textbook OLS $t$ from the closed forms above: no heteroskedasticity
         correction and, more importantly here, no HAC term. With
-        ``forward_periods > 1`` each asset's forward-return series carries
+        ``overlap_periods > 1`` each asset's forward-return series carries
         MA($h-1$) dependence by construction (Hansen-Hodrick 1980), so this
         $t$ is inflated by roughly $\sqrt{h}$ and its $p$-value is not usable
         as a per-asset significance test at a long horizon. It is published as
@@ -198,11 +198,11 @@ def compute_common_betas(
     if not cols:
         raise ValueError("factor_cols must be non-empty")
 
-    return {f: _common_betas_one(data, f, return_col, forward_periods) for f in cols}
+    return {f: _common_betas_one(data, f, return_col, overlap_periods) for f in cols}
 
 
 def _common_betas_one(
-    data: pl.DataFrame, factor_col: str, return_col: str, forward_periods: int
+    data: pl.DataFrame, factor_col: str, return_col: str, overlap_periods: int
 ) -> pl.DataFrame:
     # In-line asset count vs the raw universe, captured before the valid-mask
     # filter so the carried drop rate reflects the silent reduction the
@@ -286,7 +286,7 @@ def _common_betas_one(
         .collect()
     )
     ew_beta, ew_var, ew_periods = _ew_portfolio_slope(
-        data.filter(valid_mask), result, factor_col, return_col, forward_periods
+        data.filter(valid_mask), result, factor_col, return_col, overlap_periods
     )
     result = result.with_columns(
         pl.lit(ew_beta, dtype=pl.Float64).alias("ew_portfolio_beta"),

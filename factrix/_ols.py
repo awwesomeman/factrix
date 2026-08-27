@@ -30,17 +30,17 @@ def ols_alpha(
     candidate: np.ndarray,
     base_matrix: np.ndarray,
     *,
-    forward_periods: int = 1,
+    overlap_periods: int = 1,
 ) -> _OLSResult:
     """OLS regression ``candidate = alpha + beta @ base + epsilon`` with a HAC t on alpha.
 
     Point estimates are plain OLS. ``alpha_t`` divides by the Newey-West
     HAC standard error (Bartlett kernel, [Newey-West (1994)][newey-west-1994]
-    automatic bandwidth, floored at ``forward_periods - 1``) rather than the
+    automatic bandwidth, floored at ``overlap_periods - 1``) rather than the
     homoskedastic OLS SE. Spanning alphas are routinely reported with HAC
     t-stats (Barillas-Shanken, Fama-French).
 
-    ``forward_periods`` is the overlap horizon of the spread series being
+    ``overlap_periods`` is the overlap horizon of the spread series being
     regressed. Spreads built from ``h``-period overlapping forward returns
     carry MA(``h-1``) residual autocorrelation
     ([Hansen-Hodrick (1980)][hansen-hodrick-1980]), and a Bartlett kernel
@@ -160,7 +160,7 @@ def ols_alpha(
     # HAC covariance of the OLS coefficients; ``_ols_nw_multivariate`` returns
     # zeros when X'X is singular, which the EPSILON guard below turns into
     # the same degenerate result the OLS path produced.
-    lags = _resolve_nw_lags(n_obs, auto_bartlett(n_obs), forward_periods)
+    lags = _resolve_nw_lags(n_obs, auto_bartlett(n_obs), overlap_periods)
     _, v_hac, _ = _ols_nw_multivariate(candidate, X, lags=lags)
     se_alpha = float(np.sqrt(max(v_hac[0, 0], 0.0)))
 

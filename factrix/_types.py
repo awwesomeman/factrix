@@ -184,7 +184,7 @@ MIN_ORTHOGONALIZE_RESIDUAL_ASSETS: int = 10
 # cost algebra in ``breakeven_cost`` / ``net_spread`` is only valid when the
 # spread and the turnover were computed on the *same* bucketing and the *same*
 # stride. They previously carried incompatible defaults (n_groups 5 vs 10,
-# forward_periods 5 vs 1), so running each at its own default understated
+# overlap_periods 5 vs 1), so running each at its own default understated
 # breakeven by 5.6x and overstated cost drag by 10.7x on a 60-name panel.
 # ``monotonicity`` deliberately keeps its own ``n_groups=10``: a decile curve
 # is the shape it is calibrated to read, not a long-short leg.

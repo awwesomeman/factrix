@@ -71,7 +71,7 @@ def _monotonicity_sample_threshold(self) -> SampleThreshold:
     """Stride-scaled periods floor plus an instance-derived ``min_assets = n_groups``.
 
     The periods floor scales with the non-overlap stride (see ``quantile``):
-    the per-period Spearman series is sub-sampled at ``forward_periods``, so
+    the per-period Spearman series is sub-sampled at ``overlap_periods``, so
     pre-flight and the in-body gate share ``MIN_MONOTONICITY_PERIODS_HARD`` +
     ``_scaled_min_periods``.
 
@@ -160,7 +160,7 @@ def _mr_test(
 )
 def monotonicity(
     data: pl.DataFrame,
-    forward_periods: int = 5,
+    overlap_periods: int = 5,
     n_groups: int = 10,
     factor_cols: Sequence[str] = ("factor",),
     return_col: str = "forward_return",
@@ -234,7 +234,7 @@ def monotonicity(
         ...     forward_periods=5,
         ... )
         >>> result = monotonicity(
-        ...     panel, forward_periods=5, n_groups=5, n_bootstrap=200, seed=0
+        ...     panel, overlap_periods=5, n_groups=5, n_bootstrap=200, seed=0
         ... )
         >>> result["factor"].name == ""
         True
@@ -265,8 +265,8 @@ def monotonicity(
     n_raw_periods = data["date"].n_unique()
 
     # Sample non-overlapping once — shared across all factors on the
-    # same panel (depends only on `date` + `forward_periods`).
-    filtered = _sample_non_overlapping(data, forward_periods)
+    # same panel (depends only on `date` + `overlap_periods`).
+    filtered = _sample_non_overlapping(data, overlap_periods)
     tie_ratios = _compute_tie_ratios_batch(filtered, cols)
     for f in cols:
         _warn_high_tie_ratio(tie_ratios[f], "monotonicity", tie_policy)
@@ -328,7 +328,7 @@ def monotonicity(
             "monotonicity",
             n_raw_periods,
             MIN_MONOTONICITY_PERIODS_HARD,
-            forward_periods,
+            overlap_periods,
             "insufficient_monotonicity_periods",
             n_groups=n_groups,
             tie_ratio=tie_ratios[f],

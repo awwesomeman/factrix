@@ -43,6 +43,7 @@ def _sample_result(
         factor="mom_12_1",
         cell=(FactorScope.INDIVIDUAL, FactorDensity.DENSE, DataStructure.PANEL),
         forward_periods=5,
+        overlap_periods=5,
         n_periods=100,
         n_pairs=2500,
         n_assets=25,
@@ -91,6 +92,7 @@ class TestEvaluationResultToFrame:
         assert df.columns == [
             "factor",
             "forward_periods",
+            "overlap_periods",
             "n_assets",
             "metric_name",
             "value",
@@ -115,7 +117,7 @@ class TestEvaluationResultToFrame:
         assert df.height == 2
 
     def test_carries_hypothesis_identity(self):
-        """(factor, forward_periods, *params) — the same tuple to_dict and
+        """(factor, overlap_periods, *params) — the same tuple to_dict and
         compare carry. Without it an evaluate_horizons stack is unreadable."""
         r = dataclasses.replace(
             _sample_result(_sample_group()), params={"universe": "tw50", "k": 3}

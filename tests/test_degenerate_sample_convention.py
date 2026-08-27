@@ -156,9 +156,9 @@ class TestHansenHodrickReportsEstimateAndNObs:
             HANSEN_HODRICK,
             STATIONARY_BOOTSTRAP,
         ):
-            result = member.compute(df, value_col="ic", forward_periods=5)
+            result = member.compute(df, value_col="ic", overlap_periods=5)
             assert result.n_obs is not None, member.summary
             assert result.estimate is not None, member.summary
         assert HANSEN_HODRICK.compute(
-            df, value_col="ic", forward_periods=5
+            df, value_col="ic", overlap_periods=5
         ).estimate == pytest.approx(float(series.mean()))

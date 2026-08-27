@@ -29,7 +29,7 @@ class TestPredictiveBetaStatistic:
         x = rng.normal(size=240)
         y = 0.7 * x + 0.35 * rng.normal(size=240)
 
-        result = predictive_beta(_ts_panel(x, y), forward_periods=5)
+        result = predictive_beta(_ts_panel(x, y), overlap_periods=5)
         reference_beta = np.polyfit(x, y, 1)[0]
 
         # ``value`` is the Stambaugh-corrected slope; the raw OLS slope
@@ -51,7 +51,7 @@ class TestPredictiveBetaStatistic:
         x = np.cumsum(rng.normal(size=240))
         y = 0.05 * x + rng.normal(size=240)
 
-        result = predictive_beta(_ts_panel(x, y), forward_periods=1)
+        result = predictive_beta(_ts_panel(x, y), overlap_periods=1)
 
         assert result.metadata["adf_p"] > 0.10
         assert result.metadata["unit_root_suspected"] is True
@@ -61,7 +61,7 @@ class TestPredictiveBetaStatistic:
         rng = np.random.default_rng(0)
         result = predictive_beta(
             _ts_panel(rng.normal(size=120), rng.normal(size=120)),
-            forward_periods=1,
+            overlap_periods=1,
             adf_threshold=None,
         )
         assert "adf_stat" not in result.metadata
@@ -80,7 +80,7 @@ class TestPredictiveBetaStatistic:
         rng = np.random.default_rng(2)
         x = rng.normal(size=300)
         y = rng.normal(size=300)
-        result = predictive_beta(_ts_panel(x, y), forward_periods=1)
+        result = predictive_beta(_ts_panel(x, y), overlap_periods=1)
         assert result.p_value > 0.05
 
     def test_pairwise_complete_rows_define_sample(self) -> None:
@@ -94,7 +94,7 @@ class TestPredictiveBetaStatistic:
             .alias("forward_return")
         )
 
-        result = predictive_beta(panel, forward_periods=1)
+        result = predictive_beta(panel, overlap_periods=1)
         assert result.n_obs == 72
 
 
@@ -110,7 +110,7 @@ class TestPredictiveBetaShortCircuits:
     def test_degenerate_factor_variance(self) -> None:
         x = np.ones(MIN_PERIODS_HARD)
         y = np.arange(MIN_PERIODS_HARD, dtype=float)
-        result = predictive_beta(_ts_panel(x, y), forward_periods=1)
+        result = predictive_beta(_ts_panel(x, y), overlap_periods=1)
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "degenerate_factor_variance"
         assert result.n_obs == MIN_PERIODS_HARD
@@ -130,7 +130,7 @@ class TestPredictiveBetaShortCircuits:
         with pytest.warns(UserWarning, match="MIN_PERIODS_WARN"):
             result = predictive_beta(
                 _ts_panel(rng.normal(size=n), rng.normal(size=n)),
-                forward_periods=1,
+                overlap_periods=1,
             )
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value in result.warning_codes
 
@@ -249,7 +249,7 @@ class TestPredictiveBetaOverlapAndPersistenceScreens:
         x = rng.normal(size=n)
         y = rng.normal(size=n)
         with pytest.warns(UserWarning, match="effective sample"):
-            result = predictive_beta(_ts_panel(x, y), forward_periods=21)
+            result = predictive_beta(_ts_panel(x, y), overlap_periods=21)
         assert result.metadata["n_periods"] == n
         assert result.metadata["n_periods_effective"] == n // 21
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value in result.warning_codes
@@ -260,7 +260,7 @@ class TestPredictiveBetaOverlapAndPersistenceScreens:
         rng = np.random.default_rng(4)
         n = 120
         result = predictive_beta(
-            _ts_panel(rng.normal(size=n), rng.normal(size=n)), forward_periods=1
+            _ts_panel(rng.normal(size=n), rng.normal(size=n)), overlap_periods=1
         )
         assert result.metadata["n_periods_effective"] == n
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value not in result.warning_codes
@@ -275,7 +275,7 @@ class TestPredictiveBetaOverlapAndPersistenceScreens:
         for i in range(1, n):
             y[i] = 0.8 * y[i - 1] + eps[i]
         x = rng.normal(size=n)
-        result = predictive_beta(_ts_panel(x, y), forward_periods=1)
+        result = predictive_beta(_ts_panel(x, y), overlap_periods=1)
         assert result.metadata["residual_lag1_autocorr"] > 0.3
         assert WarningCode.SERIAL_CORRELATION_DETECTED.value in result.warning_codes
 
@@ -295,14 +295,14 @@ class TestPredictiveBetaOverlapAndPersistenceScreens:
             }
         )
         panel = fx.preprocess.compute_forward_return(d, forward_periods=21)
-        result = predictive_beta(panel, forward_periods=21)
+        result = predictive_beta(panel, overlap_periods=21)
         assert WarningCode.SERIAL_CORRELATION_DETECTED.value not in result.warning_codes
 
     def test_iid_residuals_do_not_flag_serial_correlation(self):
         rng = np.random.default_rng(6)
         n = 400
         result = predictive_beta(
-            _ts_panel(rng.normal(size=n), rng.normal(size=n)), forward_periods=1
+            _ts_panel(rng.normal(size=n), rng.normal(size=n)), overlap_periods=1
         )
         assert WarningCode.SERIAL_CORRELATION_DETECTED.value not in result.warning_codes
 
@@ -315,7 +315,7 @@ class TestPredictiveBetaOverlapAndPersistenceScreens:
             warnings.simplefilter("error", UserWarning)
             result = predictive_beta(
                 _ts_panel(rng.normal(size=n), rng.normal(size=n)),
-                forward_periods=21,
+                overlap_periods=21,
                 expected_warnings=("unreliable_se_short_periods",),
             )
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value in result.warning_codes

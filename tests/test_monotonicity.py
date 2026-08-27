@@ -21,7 +21,7 @@ class TestComputeMonotonicity:
         # sampling. Use noisy_panel (20 dates × 30 assets) with perfect
         # factor-return alignment.
         result = monotonicity(
-            self._perfect(noisy_panel), forward_periods=1, n_groups=5, seed=0
+            self._perfect(noisy_panel), overlap_periods=1, n_groups=5, seed=0
         )["factor"]
         # Every adjacent bucket step is strictly positive and identical across
         # periods, so the MR statistic is the (positive) common step.
@@ -41,7 +41,7 @@ class TestComputeMonotonicity:
         n_bootstrap = 200
         result = monotonicity(
             self._perfect(noisy_panel),
-            forward_periods=1,
+            overlap_periods=1,
             n_groups=5,
             n_bootstrap=n_bootstrap,
             seed=0,
@@ -63,7 +63,7 @@ class TestComputeMonotonicity:
                 "forward_return"
             )
         )
-        result = monotonicity(inverted, forward_periods=1, n_groups=5, seed=0)["factor"]
+        result = monotonicity(inverted, overlap_periods=1, n_groups=5, seed=0)["factor"]
         # H1 is "increasing" by default, so a perfectly decreasing pattern is
         # the furthest thing from it: J < 0 and the p is at its ceiling.
         assert result.value < 0
@@ -81,7 +81,7 @@ class TestComputeMonotonicity:
         )
         result = monotonicity(
             inverted,
-            forward_periods=1,
+            overlap_periods=1,
             n_groups=5,
             direction="decreasing",
             n_bootstrap=200,
@@ -104,7 +104,7 @@ class TestComputeMonotonicity:
                 "forward_return": [0.01, 0.02, 0.03, 0.04, 0.05],
             }
         ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        result = monotonicity(df, forward_periods=1, n_groups=5)["factor"]
+        result = monotonicity(df, overlap_periods=1, n_groups=5)["factor"]
         # Only 1 date < MIN_MONOTONICITY_PERIODS_HARD=5
         assert math.isnan(result.value)
         assert result.p_value is None or result.p_value >= 0.10
@@ -130,7 +130,7 @@ class TestComputeMonotonicity:
             pl.col("date").cast(pl.Datetime("ms")),
             pl.col("forward_return").cast(pl.Float64),
         )
-        result = monotonicity(df, forward_periods=1, n_groups=2)["factor"]
+        result = monotonicity(df, overlap_periods=1, n_groups=2)["factor"]
 
         assert math.isnan(result.value)
         # The buckets could not be filled — an assets-axis failure, named as
@@ -155,7 +155,7 @@ class TestSmallUniverse:
     def test_names_the_assets_axis_not_periods(self):
         """T=240 is ample; the binding constraint is the 8-name cross-section,
         so the reason and the axis must say assets, not periods."""
-        result = monotonicity(self._panel(8), forward_periods=5)["factor"]
+        result = monotonicity(self._panel(8), overlap_periods=5)["factor"]
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "insufficient_assets_for_quantile_groups"
         assert result.n_obs_axis == "assets"
@@ -165,7 +165,7 @@ class TestSmallUniverse:
     def test_carries_a_warning_code(self):
         from factrix._codes import WarningCode
 
-        result = monotonicity(self._panel(8), forward_periods=5)["factor"]
+        result = monotonicity(self._panel(8), overlap_periods=5)["factor"]
         assert WarningCode.METRIC_UNAVAILABLE.value in result.warning_codes
         assert WarningCode.THIN_QUANTILE_GROUPS.value in result.warning_codes
 
@@ -180,7 +180,7 @@ class TestSmallUniverse:
         assert cls._resolve_sample_threshold(monotonicity_metric()).min_assets == 10
 
     def test_downscaled_n_groups_runs_on_the_same_panel(self):
-        result = monotonicity(self._panel(8), forward_periods=5, n_groups=3)["factor"]
+        result = monotonicity(self._panel(8), overlap_periods=5, n_groups=3)["factor"]
         assert not math.isnan(result.value)
         assert result.n_obs_axis == "periods"
 
@@ -214,18 +214,18 @@ class TestMonotonicityBatch:
                 )
         panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         batch = monotonicity(
-            panel, forward_periods=1, n_groups=5, factor_cols=["f1", "f2"]
+            panel, overlap_periods=1, n_groups=5, factor_cols=["f1", "f2"]
         )
         for col in ("f1", "f2"):
             single = monotonicity(
-                panel, forward_periods=1, n_groups=5, factor_cols=[col]
+                panel, overlap_periods=1, n_groups=5, factor_cols=[col]
             )[col]
             assert batch[col].value == pytest.approx(single.value)
             assert batch[col].stat == pytest.approx(single.stat)
 
     def test_empty_factor_list_rejected(self, noisy_panel):
         with pytest.raises(ValueError, match="non-empty"):
-            monotonicity(noisy_panel, forward_periods=1, n_groups=5, factor_cols=[])
+            monotonicity(noisy_panel, overlap_periods=1, n_groups=5, factor_cols=[])
 
 
 class TestBatchTieRatio:
@@ -322,7 +322,7 @@ class TestPattonTimmermannMRTest:
             panel = self._null_panel(n_dates=120, n_assets=40, seed=100 + rep)
             result = monotonicity(
                 panel,
-                forward_periods=1,
+                overlap_periods=1,
                 n_groups=n_groups,
                 n_bootstrap=99,
                 seed=rep,
@@ -338,7 +338,7 @@ class TestPattonTimmermannMRTest:
 
         panel = self._null_panel(n_dates=60, n_assets=20, seed=3)
         result = monotonicity(
-            panel, forward_periods=1, n_groups=4, n_bootstrap=100, seed=2
+            panel, overlap_periods=1, n_groups=4, n_bootstrap=100, seed=2
         )["factor"]
         diffs = np.asarray(result.metadata["mr_adjacent_diffs"])
         assert len(diffs) == 3  # n_groups - 1 adjacent steps
@@ -347,7 +347,7 @@ class TestPattonTimmermannMRTest:
 
     def test_bootstrap_is_reproducible_and_reports_its_seed(self):
         panel = self._null_panel(n_dates=60, n_assets=20, seed=4)
-        kwargs = {"forward_periods": 1, "n_groups": 4, "n_bootstrap": 100}
+        kwargs = {"overlap_periods": 1, "n_groups": 4, "n_bootstrap": 100}
         a = monotonicity(panel, seed=7, **kwargs)["factor"]
         b = monotonicity(panel, seed=7, **kwargs)["factor"]
         assert a.p_value == b.p_value
@@ -380,7 +380,7 @@ class TestPattonTimmermannMRTest:
             }
         ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = monotonicity(
-            panel, forward_periods=1, n_groups=5, n_bootstrap=200, seed=5
+            panel, overlap_periods=1, n_groups=5, n_bootstrap=200, seed=5
         )["factor"]
         assert result.value > 0
         assert result.p_value < 0.05
@@ -408,7 +408,7 @@ class TestTieRatioCountsFiniteValuesOnly:
                 )
         panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = monotonicity(
-            panel, forward_periods=1, n_groups=3, n_bootstrap=50, seed=0
+            panel, overlap_periods=1, n_groups=3, n_bootstrap=50, seed=0
         )["factor"]
         assert result.metadata["tie_ratio"] == pytest.approx(0.0)
 
@@ -432,7 +432,7 @@ class TestTieRatioCountsFiniteValuesOnly:
                 )
         panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = monotonicity(
-            panel, forward_periods=1, n_groups=3, n_bootstrap=50, seed=0
+            panel, overlap_periods=1, n_groups=3, n_bootstrap=50, seed=0
         )["factor"]
         assert result.metadata["tie_ratio"] == pytest.approx(0.0)
 
@@ -457,7 +457,7 @@ class TestTieRatioCountsFiniteValuesOnly:
         panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         with pytest.warns(UserWarning, match="tie_ratio"):
             result = monotonicity(
-                panel, forward_periods=1, n_groups=3, n_bootstrap=50, seed=0
+                panel, overlap_periods=1, n_groups=3, n_bootstrap=50, seed=0
             )["factor"]
         assert result.metadata["tie_ratio"] == pytest.approx(0.8)
 

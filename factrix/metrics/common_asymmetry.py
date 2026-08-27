@@ -10,7 +10,7 @@ Two methods, both fit by OLS with Newey-West (NW) heteroskedasticity-and-autocor
 tested by a finite-sample Wald F so cross-method p-values stay comparable and the
 overlapping-forward-return autocorrelation is handled the same way
 as `common_beta`. Welch t is intentionally avoided — its iid
-assumption breaks under `forward_periods > 1`.
+assumption breaks under `overlap_periods > 1`.
 
 - Method A (conditional means): `r = β_long·I(f>0) + β_short·I(f<0)
   + β_zero·I(f=0)`. H0: `β_long + β_short = 0` — symmetric magnitude.
@@ -74,7 +74,7 @@ def common_asymmetry(
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
-    forward_periods: int | None = None,
+    overlap_periods: int | None = None,
     nw_lags: int | None = None,
 ) -> MetricResult:
     """Long/short asymmetry of factor → return relationship.
@@ -94,11 +94,11 @@ def common_asymmetry(
         data: Long panel; aggregated to per-date ``(_f, _r)`` internally.
         factor_col: Column carrying the factor.
         return_col: Column carrying the forward return.
-        forward_periods: Overlap horizon of the forward return; used
+        overlap_periods: Overlap horizon of the forward return; used
             to floor the NW bandwidth so the kernel is consistent
             with the autocorrelation it must absorb.
         nw_lags: Override for the NW lag count. ``None`` resolves to
-            the standard rule given ``forward_periods`` and ``T``.
+            the standard rule given ``overlap_periods`` and ``T``.
 
     Returns:
         ``MetricResult`` whose ``value`` is the method-A magnitude;
@@ -123,7 +123,7 @@ def common_asymmetry(
         symmetry, positive when the long side dominates in magnitude.
 
         factrix runs both methods under NW HAC + Wald (not Welch t)
-        because ``forward_periods > 1`` breaks the iid assumption Welch
+        because ``overlap_periods > 1`` breaks the iid assumption Welch
         relies on, and using one estimator family across A and B keeps
         cross-method p-values comparable.
 
@@ -132,7 +132,7 @@ def common_asymmetry(
         the Wald tests for both methods.
         [Newey-West 1994][newey-west-1994]: automatic Bartlett bandwidth
         used by the default lag resolver.
-        [Hansen-Hodrick 1980][hansen-hodrick-1980]: ``forward_periods - 1``
+        [Hansen-Hodrick 1980][hansen-hodrick-1980]: ``overlap_periods - 1``
         floor for overlapping returns.
 
     Examples:
@@ -202,7 +202,7 @@ def common_asymmetry(
             ),
         )
 
-    lags = _resolve_nw_lags(n_periods, nw_lags, forward_periods)
+    lags = _resolve_nw_lags(n_periods, nw_lags, overlap_periods)
 
     # Drop the zero column when n_zero==0 to keep the design matrix full-rank.
     cols = [pos_mask.astype(float), neg_mask.astype(float)]

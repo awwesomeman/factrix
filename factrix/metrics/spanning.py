@@ -209,7 +209,7 @@ def _align_spread_series(
 def spanning_alpha(
     factor_spread: pl.DataFrame,
     base_spreads: dict[str, pl.DataFrame] | None = None,
-    forward_periods: int = 1,
+    overlap_periods: int = 1,
 ) -> MetricResult:
     r"""Test whether a factor has alpha after controlling for base factors.
 
@@ -221,7 +221,7 @@ def spanning_alpha(
         base_spreads: Mapping of base factor name → DataFrame with ``date, spread``.
             Required: with no base factors there is nothing to span against,
             so the metric short-circuits (see Returns).
-        forward_periods: Overlap horizon of the spread series. Spreads built
+        overlap_periods: Overlap horizon of the spread series. Spreads built
             from ``h``-period overlapping forward returns carry MA(``h-1``)
             residual autocorrelation, so the HAC bandwidth is floored at
             ``h - 1``. Leave at ``1`` for genuinely non-overlapping spreads
@@ -276,7 +276,7 @@ def spanning_alpha(
 
         The bandwidth is
         $L = \max(\mathrm{auto\_bartlett}(T),\, h - 1)$ with
-        $h = $ ``forward_periods`` — the [Newey-West (1994)][newey-west-1994]
+        $h = $ ``overlap_periods`` — the [Newey-West (1994)][newey-west-1994]
         automatic rule floored against the
         [Hansen-Hodrick (1980)][hansen-hodrick-1980] overlap horizon, the same
         rule ``fm_beta`` and ``ic`` apply. $p$ is read against
@@ -359,7 +359,7 @@ def spanning_alpha(
     if sc is not None:
         return sc
 
-    ols = _ols_alpha(candidate_arr, base_matrix, forward_periods=forward_periods)
+    ols = _ols_alpha(candidate_arr, base_matrix, overlap_periods=overlap_periods)
 
     base_names = list(base_arrays.keys())
     beta_dict = dict(zip(base_names, ols.betas, strict=False)) if base_names else {}
@@ -503,7 +503,7 @@ def greedy_forward_selection(
         ...             fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=s),
         ...             forward_periods=5,
         ...         ),
-        ...         forward_periods=5,
+        ...         overlap_periods=5,
         ...     )["factor"]
         ...     for s in seeds
         ... }

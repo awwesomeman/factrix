@@ -34,7 +34,7 @@ class TestComputeRankTurnover:
         result = rank_turnover(df)
         assert result.value == pytest.approx(0.0, abs=0.01)
         assert result.metadata["n_periods"] == 4
-        assert result.metadata["forward_periods"] == 1
+        assert result.metadata["overlap_periods"] == 1
         assert result.metadata["quantile"] is None
 
     def test_n_obs_axis_is_periods_not_pairs(self):
@@ -60,7 +60,7 @@ class TestComputeRankTurnover:
     def test_insufficient_dates_for_horizon(self):
         """2·h + 1 dates is the minimum for SE to be defined."""
         df = _panel(4, ["A", "B", "C"], lambda t, a: ord(a) + t)
-        result = rank_turnover(df, forward_periods=2)
+        result = rank_turnover(df, overlap_periods=2)
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "insufficient_dates"
         assert result.metadata["min_required"] == 5
@@ -69,7 +69,7 @@ class TestComputeRankTurnover:
         """Rank flips inside the holding window must not count as turnover.
 
         At even ``t`` ranks are (A=1,B=2,C=3); at odd ``t`` they are the
-        reverse. With ``forward_periods=2`` we sample only even dates, so
+        reverse. With ``overlap_periods=2`` we sample only even dates, so
         every pair's rank-AC is +1 → turnover=0.
         """
 
@@ -78,7 +78,7 @@ class TestComputeRankTurnover:
             return base if t % 2 == 0 else (4 - base)
 
         df = _panel(7, ["A", "B", "C"], factor)
-        result = rank_turnover(df, forward_periods=2)
+        result = rank_turnover(df, overlap_periods=2)
         assert result.value == pytest.approx(0.0, abs=0.01)
         assert result.metadata["n_periods"] == 3
 
@@ -94,8 +94,8 @@ class TestComputeRankTurnover:
         df = _panel(6, assets, lambda t, a: ord(a) + 0.1 * t)
         q = 0.2
 
-        filtered = rank_turnover(df, forward_periods=1, quantile=q)
-        unfiltered = rank_turnover(df, forward_periods=1)
+        filtered = rank_turnover(df, overlap_periods=1, quantile=q)
+        unfiltered = rank_turnover(df, overlap_periods=1)
 
         assert filtered.metadata["quantile"] == q
         assert filtered.metadata["n_cross_section_mean"] == pytest.approx(4.0)
@@ -109,8 +109,8 @@ class TestComputeRankTurnover:
 
     def test_forward_periods_validation(self):
         df = _panel(5, ["A", "B", "C"], lambda t, a: ord(a))
-        with pytest.raises(ValueError, match="forward_periods"):
-            rank_turnover(df, forward_periods=0)
+        with pytest.raises(ValueError, match="overlap_periods"):
+            rank_turnover(df, overlap_periods=0)
 
 
 class TestNotionalTurnover:
@@ -119,7 +119,7 @@ class TestNotionalTurnover:
     def test_static_factor(self):
         """Same tail sets every day → notional turnover = 0."""
         df = _panel(5, self.TEN_ASSETS, lambda t, a: ord(a))
-        result = notional_turnover(df, n_groups=5, forward_periods=1)
+        result = notional_turnover(df, n_groups=5, overlap_periods=1)
         assert result.value == pytest.approx(0.0)
         assert result.metadata["n_rebalances"] == 4
         assert result.metadata["n_groups"] == 5
@@ -163,7 +163,7 @@ class TestNotionalTurnover:
             return base if t % 2 == 0 else (9 - base)
 
         df = _panel(5, self.TEN_ASSETS, factor)
-        result = notional_turnover(df, n_groups=5, forward_periods=1)
+        result = notional_turnover(df, n_groups=5, overlap_periods=1)
         assert result.value == pytest.approx(1.0)
 
     def test_middle_shuffle_does_not_count(self):
@@ -223,7 +223,7 @@ class TestNotionalTurnover:
         assert 0.05 < result.value < 0.30
 
     def test_forward_periods_stride(self):
-        """forward_periods=2 sub-samples to odd/even dates only."""
+        """overlap_periods=2 sub-samples to odd/even dates only."""
 
         def factor(t, a):
             base = ord(a) - ord("A")
@@ -231,9 +231,9 @@ class TestNotionalTurnover:
 
         df = _panel(7, self.TEN_ASSETS, factor)
         # Even-only sample → ranks identical every sampled date → 0.
-        result = notional_turnover(df, n_groups=5, forward_periods=2)
+        result = notional_turnover(df, n_groups=5, overlap_periods=2)
         assert result.value == pytest.approx(0.0)
-        assert result.metadata["forward_periods"] == 2
+        assert result.metadata["overlap_periods"] == 2
 
     def test_insufficient_dates_short_circuits(self):
         df = _panel(1, self.TEN_ASSETS, lambda t, a: ord(a))
@@ -243,8 +243,8 @@ class TestNotionalTurnover:
 
     def test_validation(self):
         df = _panel(3, self.TEN_ASSETS, lambda t, a: ord(a))
-        with pytest.raises(ValueError, match="forward_periods"):
-            notional_turnover(df, forward_periods=0)
+        with pytest.raises(ValueError, match="overlap_periods"):
+            notional_turnover(df, overlap_periods=0)
         with pytest.raises(ValueError, match="n_groups"):
             notional_turnover(df, n_groups=2)
 
@@ -255,28 +255,28 @@ class TestBreakevenCost:
         # rebalance): gross=0.10/period, turnover=0.5/rebalance, fp=1.
         # Traded notional per rebalance = 4*0.5 = 2 (2 legs x sell+buy), so
         # the breakeven one-way cost is 0.10*1/(4*0.5)*10000 = 500 bps.
-        result = breakeven_cost(0.10, turnover=0.5, forward_periods=1)
+        result = breakeven_cost(0.10, turnover=0.5, overlap_periods=1)
         assert result.value == pytest.approx(500.0)
-        assert result.metadata["forward_periods"] == 1
+        assert result.metadata["overlap_periods"] == 1
 
     def test_zero_turnover(self):
-        result = breakeven_cost(0.10, turnover=0.0, forward_periods=1)
+        result = breakeven_cost(0.10, turnover=0.0, overlap_periods=1)
         assert result.value == float("inf")
 
     def test_forward_periods_scales_breakeven(self):
         """gross is per-period, turnover per-rebalance: breakeven scales by N.
 
-        Halving the per-period spread but holding for forward_periods=2 should give the
-        same breakeven as the forward_periods=1 baseline — the trader earns the spread
+        Halving the per-period spread but holding for overlap_periods=2 should give the
+        same breakeven as the overlap_periods=1 baseline — the trader earns the spread
         twice before paying the once-per-rebalance cost.
         """
-        baseline = breakeven_cost(0.10, turnover=0.5, forward_periods=1).value
-        scaled = breakeven_cost(0.05, turnover=0.5, forward_periods=2).value
+        baseline = breakeven_cost(0.10, turnover=0.5, overlap_periods=1).value
+        scaled = breakeven_cost(0.05, turnover=0.5, overlap_periods=2).value
         assert scaled == pytest.approx(baseline)
 
     def test_forward_periods_validation(self):
-        with pytest.raises(ValueError, match="forward_periods"):
-            breakeven_cost(0.10, turnover=0.5, forward_periods=0)
+        with pytest.raises(ValueError, match="overlap_periods"):
+            breakeven_cost(0.10, turnover=0.5, overlap_periods=0)
 
 
 class TestNetSpread:
@@ -284,14 +284,14 @@ class TestNetSpread:
         # Notional turnover=0.5 (per leg); cost=30bps one-way; fp=1.
         # net = 0.10 - 4*(30/10000)*0.5/1 = 0.10 - 0.006 = 0.094
         result = net_spread(
-            0.10, turnover=0.5, estimated_cost_bps=30, forward_periods=1
+            0.10, turnover=0.5, estimated_cost_bps=30, overlap_periods=1
         )
         assert result.value == pytest.approx(0.094)
-        assert result.metadata["forward_periods"] == 1
+        assert result.metadata["overlap_periods"] == 1
 
     def test_cost_exceeds_alpha(self):
         result = net_spread(
-            0.001, turnover=0.5, estimated_cost_bps=100, forward_periods=1
+            0.001, turnover=0.5, estimated_cost_bps=100, overlap_periods=1
         )
         assert result.value < 0
 
@@ -301,18 +301,18 @@ class TestNetSpread:
         than absolute values) pins the scaling invariant under any rescaling
         of inputs — which is the whole point of the fix."""
         baseline = net_spread(
-            0.10, turnover=0.5, estimated_cost_bps=30, forward_periods=1
+            0.10, turnover=0.5, estimated_cost_bps=30, overlap_periods=1
         )
         scaled = net_spread(
-            0.10, turnover=0.5, estimated_cost_bps=30, forward_periods=5
+            0.10, turnover=0.5, estimated_cost_bps=30, overlap_periods=5
         )
         assert scaled.metadata["cost_drag"] == pytest.approx(
             baseline.metadata["cost_drag"] / 5
         )
 
     def test_forward_periods_validation(self):
-        with pytest.raises(ValueError, match="forward_periods"):
-            net_spread(0.10, turnover=0.5, forward_periods=0)
+        with pytest.raises(ValueError, match="overlap_periods"):
+            net_spread(0.10, turnover=0.5, overlap_periods=0)
 
 
 class TestRankTurnoverIgnoresNonFiniteFactors:
@@ -338,15 +338,15 @@ class TestRankTurnoverIgnoresNonFiniteFactors:
         return pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
     def test_nan_and_null_agree(self):
-        nan_value = rank_turnover(self._panel_with(float("nan")), forward_periods=1)
-        null_value = rank_turnover(self._panel_with(None), forward_periods=1)
+        nan_value = rank_turnover(self._panel_with(float("nan")), overlap_periods=1)
+        null_value = rank_turnover(self._panel_with(None), overlap_periods=1)
         assert nan_value.value == pytest.approx(null_value.value)
 
     def test_poisoned_rows_leave_the_denominator_too(self):
         """``pl.len().over(date)`` counted the NaN rows, so the tail cutoffs
         used the wrong cross-section size on top of ranking NaN as largest."""
-        out = rank_turnover(self._panel_with(float("nan")), forward_periods=1)
-        clean = rank_turnover(self._panel_with(None), forward_periods=1)
+        out = rank_turnover(self._panel_with(float("nan")), overlap_periods=1)
+        clean = rank_turnover(self._panel_with(None), overlap_periods=1)
         assert out.metadata["n_cross_section_mean"] == pytest.approx(
             clean.metadata["n_cross_section_mean"]
         )
@@ -383,7 +383,7 @@ class TestCostInputPairing:
         spread = quantile_spread(panel)["factor"]
         turnover = notional_turnover(panel)
         assert spread.metadata["n_groups"] == turnover.metadata["n_groups"]
-        assert turnover.metadata["forward_periods"] == DEFAULT_FORWARD_PERIODS
+        assert turnover.metadata["overlap_periods"] == DEFAULT_FORWARD_PERIODS
         # The pairing check passes silently and is recorded.
         out = breakeven_cost(spread, turnover=turnover)
         assert out.metadata["pairing_checked"] is True
@@ -402,12 +402,12 @@ class TestCostInputPairing:
 
     def test_mismatched_stride_is_rejected(self):
         panel = self._panel()
-        turnover = notional_turnover(panel, forward_periods=1)
-        with pytest.raises(UserInputError, match="forward_periods"):
-            breakeven_cost(0.001, turnover=turnover, forward_periods=5)
+        turnover = notional_turnover(panel, overlap_periods=1)
+        with pytest.raises(UserInputError, match="overlap_periods"):
+            breakeven_cost(0.001, turnover=turnover, overlap_periods=5)
 
     def test_bare_floats_still_work_unchecked(self):
-        out = breakeven_cost(0.001, turnover=0.2, forward_periods=5)
+        out = breakeven_cost(0.001, turnover=0.2, overlap_periods=5)
         # gross * h / (4 * tau) * 1e4 = 0.001 * 5 / 0.8 * 1e4
         assert out.value == pytest.approx(62.5)
         assert "pairing_checked" not in out.metadata
@@ -422,6 +422,6 @@ class TestCostInputPairing:
             breakeven_cost(
                 spread.value,
                 turnover=turnover.value,
-                forward_periods=DEFAULT_FORWARD_PERIODS,
+                overlap_periods=DEFAULT_FORWARD_PERIODS,
             ).value
         )

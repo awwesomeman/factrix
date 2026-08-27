@@ -69,7 +69,7 @@ import polars as pl
 from scipy import stats as sp_stats
 
 from factrix._codes import WarningCode
-from factrix._data_input import _read_forward_periods_stamp
+from factrix._data_input import _read_overlap_periods_stamp
 from factrix._errors import UserInputError
 from factrix._stats.bootstrap import (
     Scheme,
@@ -135,7 +135,7 @@ def _require_slice_floor(
     labels: list[str],
     series_list: list[np.ndarray],
     *,
-    forward_periods: int | None,
+    overlap_periods: int | None,
     strict: bool,
     func_name: str,
 ) -> tuple[int | None, frozenset[str]]:
@@ -149,7 +149,7 @@ def _require_slice_floor(
     date-disjoint slice tests build each slice's per-period series directly and
     would otherwise return a calibrated-looking p-value on a sub-floor regime.
     Reuse the metric's own :class:`SampleThreshold`, resolved at the panel's
-    stamped ``forward_periods`` — the single source of truth both paths read —
+    stamped ``overlap_periods`` — the single source of truth both paths read —
     so they agree on what counts as a thin sample, and refuse (rather than
     emit) the contrast at that size: the inferential path must be at least as
     protective as the descriptive one. An unstamped panel resolves the floor at
@@ -159,7 +159,7 @@ def _require_slice_floor(
     ``min_pairs``) describe within-period width, which the series has already
     collapsed.
     """
-    threshold = metric._resolved_sample_threshold(forward_periods)
+    threshold = metric._resolved_sample_threshold(overlap_periods)
     floor = max(
         (f for f in (threshold.min_periods, threshold.min_events) if f is not None),
         default=None,
@@ -175,8 +175,8 @@ def _require_slice_floor(
         return floor, frozenset(lbl for lbl, _ in thin)
     detail = ", ".join(f"{lbl!r} (n_periods={n})" for lbl, n in thin)
     horizon = (
-        f"the panel's stamped forward_periods={forward_periods}"
-        if forward_periods is not None
+        f"the panel's stamped overlap_periods={overlap_periods}"
+        if overlap_periods is not None
         else "the metric's default horizon (panel carries no stamp)"
     )
     raise ValueError(
@@ -242,7 +242,7 @@ def _build_per_slice_series(
         metric,
         labels,
         series_list,
-        forward_periods=_read_forward_periods_stamp(data),
+        overlap_periods=_read_overlap_periods_stamp(data),
         strict=strict,
         func_name=func_name,
     )
@@ -332,7 +332,7 @@ def slice_period_pairwise_test(
         reason)``; one row per ordered slice pair ``(a, b)``. ``n_periods_*``
         are each slice's own date counts (disjoint spans differ in length)
         and ``min_periods`` the floor they were gated on (resolved at the
-        panel's stamped ``forward_periods``). ``reason`` is null on a tested
+        panel's stamped ``overlap_periods``). ``reason`` is null on a tested
         pair, ``"degenerate_variance"`` when the contrast variance collapsed
         (NaN ``stat`` / ``p_raw`` / ``p_adj`` — no test, not a
         non-rejection), or ``"insufficient_periods"`` for a pair admitted by
@@ -355,7 +355,7 @@ def slice_period_pairwise_test(
         ValueError: Fewer than two slice values, any slice with fewer than
             two dates, or (``strict=True``) any slice whose per-period series
             is below the metric's own ``SampleThreshold`` floor resolved at
-            the panel's stamped ``forward_periods`` (the size at which
+            the panel's stamped ``overlap_periods`` (the size at which
             :func:`factrix.by_slice` short-circuits the metric to NaN; see
             :func:`factrix.sample_requirements`). An unstamped panel resolves
             the floor at the metric's default horizon.
@@ -387,7 +387,7 @@ def slice_period_pairwise_test(
         [n_periods[i] for i in tested],
         tested_pairs,
         method=method,
-        forward_periods=_read_forward_periods_stamp(data),
+        overlap_periods=_read_overlap_periods_stamp(data),
         rng_seed=rng_seed,
     )
     by_pair = {
@@ -442,7 +442,7 @@ def _pairwise_contrasts(
     pairs: list[tuple[int, int]],
     *,
     method: Method,
-    forward_periods: int | None,
+    overlap_periods: int | None,
     rng_seed: int | None,
 ) -> list[tuple[float, float, float, float, float | None]]:
     """Studentized contrast per pair: ``(mean_diff, stat, p_raw, p_adj, df_denom)``.
@@ -499,7 +499,7 @@ def _pairwise_contrasts(
         stats = [float(t * t) for t in t_obs]
         df_denoms: list[float | None] = [None] * len(pairs)
     else:
-        means, variances = _analytic_slice_moments(series_list, forward_periods)
+        means, variances = _analytic_slice_moments(series_list, overlap_periods)
         mean_diffs = []
         stats = []
         p_raw = []
@@ -577,7 +577,7 @@ def _satterthwaite_df(variances: np.ndarray, n_periods: np.ndarray) -> float:
 
 def _analytic_slice_moments(
     series_list: list[np.ndarray],
-    forward_periods: int | None,
+    overlap_periods: int | None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Per-slice mean and Newey-West HAC variance of that mean.
 
@@ -591,7 +591,7 @@ def _analytic_slice_moments(
     means = np.empty(len(series_list))
     variances = np.empty(len(series_list))
     for i, s in enumerate(series_list):
-        lags = _hac_lags(forward_periods, len(s))
+        lags = _hac_lags(overlap_periods, len(s))
         mean, var = _nw_hac_vector_mean(s.reshape(-1, 1), lags=lags)
         means[i] = float(mean[0])
         variances[i] = float(var[0, 0])
@@ -696,7 +696,7 @@ def slice_period_joint_test(
         multiplicity, min_periods, reason)``. ``stat`` is the joint Wald
         statistic; ``n_periods_min`` the shortest slice's date count and
         ``min_periods`` the floor it was gated on (resolved at the panel's
-        stamped ``forward_periods``); ``reason`` is null when the test ran
+        stamped ``overlap_periods``); ``reason`` is null when the test ran
         and ``"insufficient_periods"`` on a ``strict=False`` unavailable
         row. The mechanism
         columns
@@ -714,7 +714,7 @@ def slice_period_joint_test(
         ValueError: Fewer than two slice values, any slice with fewer than
             two dates, or (``strict=True``) any slice whose per-period series
             is below the metric's own ``SampleThreshold`` floor resolved at
-            the panel's stamped ``forward_periods`` (the size at which
+            the panel's stamped ``overlap_periods`` (the size at which
             :func:`factrix.by_slice` short-circuits the metric to NaN; see
             :func:`factrix.sample_requirements`). An unstamped panel resolves
             the floor at the metric's default horizon.
@@ -807,7 +807,7 @@ def slice_period_joint_test(
         df_denom = None
     else:
         means, variances = _analytic_slice_moments(
-            series_list, _read_forward_periods_stamp(data)
+            series_list, _read_overlap_periods_stamp(data)
         )
         # Same finite-sample reference the pairwise path uses, generalised
         # to K slices: F_{K-1, ν} with the Satterthwaite ν on the diagonal

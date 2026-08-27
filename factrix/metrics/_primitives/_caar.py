@@ -35,7 +35,7 @@ def compute_caar(
     factor_col: str = "factor",
     return_col: str = "forward_return",
     estimation_window: int = 60,
-    forward_periods: int = 5,
+    overlap_periods: int = 5,
 ) -> pl.DataFrame:
     r"""Per-event-period weighted abnormal return series.
 
@@ -43,7 +43,7 @@ def compute_caar(
 
     The abnormal return is a real abnormal return: an ``abnormal_return``
     column on the input is used as-is (market-adjusted), and otherwise the
-    asset's estimation-window mean, lagged by ``forward_periods``, is
+    asset's estimation-window mean, lagged by ``overlap_periods``, is
     subtracted from ``return_col`` — see
     :func:`~factrix.metrics._helpers._attach_abnormal_return`. Events without
     enough history for that estimate carry a null abnormal return and are
@@ -110,7 +110,7 @@ def compute_caar(
         data,
         return_col=return_col,
         estimation_window=estimation_window,
-        forward_periods=forward_periods,
+        overlap_periods=overlap_periods,
         factor_col=factor_col,
     )
     events = adjusted.with_columns(

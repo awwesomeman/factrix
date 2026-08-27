@@ -97,7 +97,7 @@ title: factrix.metrics.tradability
     raw   = fx.datasets.make_cs_panel(
         n_assets=500, n_dates=500, ic_target=0.08, seed=2024,
     )
-    # Stamps the overlap horizon; every standalone call below reads it.
+    # Stamps both horizons; every standalone call below reads the overlap.
     panel = compute_forward_return(raw, forward_periods=5)
 
     # quantile_spread returns {factor_name: MetricResult}; notional_turnover

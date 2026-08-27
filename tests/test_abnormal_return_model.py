@@ -72,7 +72,7 @@ class TestAttachAbnormalReturn:
             }
         )
         out, diagnostics = _attach_abnormal_return(
-            panel, estimation_window=60, forward_periods=_H
+            panel, estimation_window=60, overlap_periods=_H
         )
         got = out["_abnormal_return"].to_numpy()
 
@@ -101,7 +101,7 @@ class TestAttachAbnormalReturn:
             }
         )
         out, _ = _attach_abnormal_return(
-            panel, estimation_window=60, forward_periods=_H
+            panel, estimation_window=60, overlap_periods=_H
         )
         got = out["_abnormal_return"].to_numpy()
         assert got[100] == pytest.approx(1.0)  # its own mean is still zero
@@ -124,7 +124,7 @@ class TestAttachAbnormalReturn:
             }
         )
         out, diagnostics = _attach_abnormal_return(
-            panel, estimation_window=60, forward_periods=_H
+            panel, estimation_window=60, overlap_periods=_H
         )
         assert diagnostics["estimation_window_source"] == "price"
         assert diagnostics["estimation_window_lag"] == 0
@@ -136,7 +136,7 @@ class TestAttachAbnormalReturn:
         assert got[t] == pytest.approx(expected)
         # Without a price the mean comes from lagged forward-return rows.
         out_rows, diag_rows = _attach_abnormal_return(
-            panel.drop("price"), estimation_window=60, forward_periods=_H
+            panel.drop("price"), estimation_window=60, overlap_periods=_H
         )
         assert diag_rows["estimation_window_source"] == "forward_return"
         assert diag_rows["estimation_window_lag"] == _H
@@ -148,7 +148,7 @@ class TestAttachAbnormalReturn:
         panel = _drift_panel(0).with_columns(
             (pl.col("forward_return") - 0.5).alias("abnormal_return")
         )
-        out, diagnostics = _attach_abnormal_return(panel, forward_periods=_H)
+        out, diagnostics = _attach_abnormal_return(panel, overlap_periods=_H)
         assert diagnostics["abnormal_return_model"] == "market_adjusted_supplied"
         assert out["_abnormal_return"].to_numpy() == pytest.approx(
             out["abnormal_return"].to_numpy()
@@ -168,7 +168,7 @@ class TestAttachAbnormalReturn:
             }
         )
         out, _ = _attach_abnormal_return(
-            panel, estimation_window=60, forward_periods=_H
+            panel, estimation_window=60, overlap_periods=_H
         )
         got = out["_abnormal_return"].to_numpy()
         assert np.isnan(got[50])
@@ -185,11 +185,11 @@ class TestDriftIsNotEventAlpha:
             warnings.simplefilter("ignore")
             return {
                 "caar": caar(
-                    compute_caar(panel, forward_periods=_H), forward_periods=_H
+                    compute_caar(panel, overlap_periods=_H), overlap_periods=_H
                 ).p_value,
-                "bmp_z": bmp_z(panel, forward_periods=_H).p_value,
-                "corrado_rank": corrado_rank(panel, forward_periods=_H).p_value,
-                "event_hit_rate": event_hit_rate(panel, forward_periods=_H).p_value,
+                "bmp_z": bmp_z(panel, overlap_periods=_H).p_value,
+                "corrado_rank": corrado_rank(panel, overlap_periods=_H).p_value,
+                "event_hit_rate": event_hit_rate(panel, overlap_periods=_H).p_value,
             }
 
     def test_rejection_rate_is_near_nominal_on_a_pure_drift_null(self):

@@ -207,8 +207,8 @@ class TestComputeIC:
 
         ic_df = compute_ic(noisy_panel)["factor"]
         for out in (
-            ic(ic_df, forward_periods=1),
-            ic(ic_df, forward_periods=1, inference=NEWEY_WEST),
+            ic(ic_df, overlap_periods=1),
+            ic(ic_df, overlap_periods=1, inference=NEWEY_WEST),
             ic_ir(ic_df),
         ):
             assert "tie_ratio" in out.metadata
@@ -238,8 +238,8 @@ class TestComputeIC:
         df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         ic_df = compute_ic(df)["factor"]
         for fn in (
-            lambda d: ic(d, forward_periods=1),
-            lambda d: ic(d, forward_periods=1, inference=NEWEY_WEST),
+            lambda d: ic(d, overlap_periods=1),
+            lambda d: ic(d, overlap_periods=1, inference=NEWEY_WEST),
             ic_ir,
         ):
             with pytest.warns(UserWarning, match="tie_ratio"):
@@ -263,8 +263,8 @@ class TestComputeIC:
         clean_ic = compute_ic(clean)["factor"]
         with warnings.catch_warnings():
             warnings.simplefilter("error", UserWarning)
-            ic(clean_ic, forward_periods=1)
-            ic(clean_ic, forward_periods=1, inference=NEWEY_WEST)
+            ic(clean_ic, overlap_periods=1)
+            ic(clean_ic, overlap_periods=1, inference=NEWEY_WEST)
             ic_ir(clean_ic)
 
 
@@ -311,7 +311,7 @@ class TestComputeICBatch:
 class TestIC:
     def test_positive_ic(self, noisy_panel):
         ic_df = compute_ic(noisy_panel)["factor"]
-        result = ic(ic_df, forward_periods=1)
+        result = ic(ic_df, overlap_periods=1)
         assert result.value > 0  # noisy_panel has positive IC
         assert result.stat > 0
         assert result.p_value < 0.10
@@ -323,7 +323,7 @@ class TestIC:
                 "ic": [0.05, 0.03, 0.04],
             }
         ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        result = ic(df, forward_periods=1)
+        result = ic(df, overlap_periods=1)
         assert math.isnan(result.value)
         # Genuine date shortfall (no compute_ic carrier) → periods-axis reason.
         assert result.metadata["reason"] == "insufficient_ic_periods"
@@ -338,7 +338,7 @@ class TestIC:
         raw = fx.datasets.make_cs_panel(n_assets=8, n_dates=120, seed=0)
         panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
         with pytest.warns(UserWarning, match="MIN_IC_ASSETS_WARN"):
-            result = ic(compute_ic(panel)["factor"], forward_periods=5)
+            result = ic(compute_ic(panel)["factor"], overlap_periods=5)
         assert not math.isnan(result.value)
         assert WarningCode.FEW_ASSETS.value in result.warning_codes
         assert result.metadata["min_assets_per_period"] == 8
@@ -410,17 +410,17 @@ class TestICInferenceWarningPropagation:
     def test_thin_non_overlap_surfaces_warning(self):
         from factrix._codes import WarningCode
 
-        # forward_periods=1 => n_sampled == n == 25: clears MIN_SERIES_PERIODS_HARD (10)
+        # overlap_periods=1 => n_sampled == n == 25: clears MIN_SERIES_PERIODS_HARD (10)
         # so no short-circuit, but below MIN_PERIODS_WARN (30) so the
         # non-overlapping inference flags UNRELIABLE_SE_SHORT_PERIODS.
-        result = ic(self._ic_series(25), forward_periods=1)
+        result = ic(self._ic_series(25), overlap_periods=1)
         assert not math.isnan(result.value)
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value in result.warning_codes
 
     def test_ample_sample_no_warning(self):
         from factrix._codes import WarningCode
 
-        result = ic(self._ic_series(40), forward_periods=1)
+        result = ic(self._ic_series(40), overlap_periods=1)
         assert not math.isnan(result.value)
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value not in result.warning_codes
 
@@ -428,14 +428,14 @@ class TestICInferenceWarningPropagation:
         from factrix._codes import WarningCode
 
         # n_sampled == MIN_PERIODS_WARN (30) is the first clean count (strict <).
-        clean = ic(self._ic_series(30), forward_periods=1)
+        clean = ic(self._ic_series(30), overlap_periods=1)
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value not in clean.warning_codes
         # One observation below the floor still warns.
-        warned = ic(self._ic_series(29), forward_periods=1)
+        warned = ic(self._ic_series(29), overlap_periods=1)
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value in warned.warning_codes
 
     def test_surfaced_codes_are_deduplicated(self):
-        result = ic(self._ic_series(25), forward_periods=1)
+        result = ic(self._ic_series(25), overlap_periods=1)
         assert len(result.warning_codes) == len(set(result.warning_codes))
 
 
@@ -461,7 +461,7 @@ class TestICInferenceAllowlist:
         with pytest.raises(fx.IncompatibleInferenceError) as exc:
             ic(
                 self._ic_series(40),
-                forward_periods=1,
+                overlap_periods=1,
                 inference=fx.inference.HANSEN_HODRICK,
             )
         assert exc.value.func_name == "ic"
@@ -476,7 +476,7 @@ class TestICInferenceAllowlist:
         import factrix as fx
 
         with pytest.raises(fx.IncompatibleInferenceError):
-            ic(self._ic_series(40), forward_periods=1, inference="newey")
+            ic(self._ic_series(40), overlap_periods=1, inference="newey")
 
     def test_allowlisted_members_pass(self):
         import factrix as fx
@@ -486,7 +486,7 @@ class TestICInferenceAllowlist:
             fx.inference.NEWEY_WEST,
             fx.inference.STATIONARY_BOOTSTRAP,
         ):
-            result = ic(self._ic_series(40), forward_periods=1, inference=member)
+            result = ic(self._ic_series(40), overlap_periods=1, inference=member)
             assert not math.isnan(result.value)
 
 
@@ -552,16 +552,16 @@ class TestICDispatch:
         return compute_ic(panel)["factor"]
 
     @pytest.mark.parametrize(
-        ("forward_periods", "value", "stat", "p_value"),
+        ("overlap_periods", "value", "stat", "p_value"),
         [
             (1, 0.049163258267725024, 5.404723194889399, 2.1264376169332541e-07),
             (5, 0.05749179559306142, 4.136962357146272, 0.00021830177834358518),
         ],
     )
     def test_regression_pins_dispatch_output(
-        self, forward_periods, value, stat, p_value
+        self, overlap_periods, value, stat, p_value
     ):
-        result = ic(self._ic_df(), forward_periods=forward_periods)
+        result = ic(self._ic_df(), overlap_periods=overlap_periods)
         assert result.value == pytest.approx(value, rel=1e-12)
         assert result.stat == pytest.approx(stat, rel=1e-12)
         assert result.p_value == pytest.approx(p_value, rel=1e-12)
@@ -585,7 +585,7 @@ class TestICDispatch:
         )
         from factrix._codes import WarningCode
 
-        r = ic(df, forward_periods=5)
+        r = ic(df, overlap_periods=5)
         assert r.n_obs == 40
         assert r.value == pytest.approx(-0.20)
         assert r.metadata["mean_ic_full"] == pytest.approx(0.0)
@@ -607,7 +607,7 @@ class TestICDispatch:
         df = pl.DataFrame({"date": dates, "ic": vals}).with_columns(
             pl.col("date").cast(pl.Datetime("ms"))
         )
-        r = ic(df, forward_periods=5)
+        r = ic(df, overlap_periods=5)
         assert r.value == pytest.approx(-0.20)
         assert r.n_obs == 40
 
@@ -635,8 +635,8 @@ class TestICNaNRobustness:
     def test_ic_matches_nan_free_series(self, inference):
         dirty = self._series_with_nan()
         clean = dirty.filter(pl.col("ic").is_not_nan())
-        r_dirty = ic(dirty, forward_periods=1, inference=inference)
-        r_clean = ic(clean, forward_periods=1, inference=inference)
+        r_dirty = ic(dirty, overlap_periods=1, inference=inference)
+        r_clean = ic(clean, overlap_periods=1, inference=inference)
         assert math.isfinite(r_dirty.value)
         assert r_dirty.value == pytest.approx(r_clean.value)
         assert r_dirty.n_obs == r_clean.n_obs == clean.height
@@ -672,7 +672,7 @@ class TestPersistentIcSeriesWarning:
         panel = build_autocorrelated_ic_panel(
             n_dates=240, seed=0, signal={"x": 0.0}, label_col="lbl", phi=0.85
         )
-        result = ic(compute_ic(panel)["factor"], forward_periods=1)
+        result = ic(compute_ic(panel)["factor"], overlap_periods=1)
         assert WarningCode.SERIAL_CORRELATION_DETECTED.value in result.warning_codes
 
     def test_overlapping_forward_returns_do_not_trip_the_screen(self):
@@ -685,7 +685,7 @@ class TestPersistentIcSeriesWarning:
             fx.datasets.make_cs_panel(n_assets=40, n_dates=300, seed=0),
             forward_periods=5,
         )
-        result = ic(compute_ic(panel)["factor"], forward_periods=5)
+        result = ic(compute_ic(panel)["factor"], overlap_periods=5)
         assert WarningCode.SERIAL_CORRELATION_DETECTED.value not in result.warning_codes
 
 
@@ -693,7 +693,7 @@ class TestEffectiveSampleFloor:
     """The periods floor is checked against the sample the estimator tests on.
 
     ``ic`` with the default non-overlapping inference strides the per-period IC
-    series at ``forward_periods``, so the raw date count and the tested count
+    series at ``overlap_periods``, so the raw date count and the tested count
     diverge as the horizon grows. The floor must follow the tested count —
     ``MIN_SERIES_PERIODS_HARD`` on the post-stride sample — not the raw dates,
     and ``MetricResult.n_obs`` must report the count the floor was checked
@@ -714,7 +714,7 @@ class TestEffectiveSampleFloor:
         from factrix.metrics._primitives import compute_ic
 
         panel = self._panel(80, 6)
-        result = ic(compute_ic(panel)["factor"], forward_periods=6)
+        result = ic(compute_ic(panel)["factor"], overlap_periods=6)
         assert result.n_obs_axis == "periods"
         # 74 usable dates strided at 6 -> 13 effective periods; far below a
         # raw-date reading of the floor, and that is the honest count.
@@ -726,7 +726,7 @@ class TestEffectiveSampleFloor:
         from factrix._codes import WarningCode
         from factrix.metrics._primitives import compute_ic
 
-        result = ic(compute_ic(self._panel(80, 6))["factor"], forward_periods=6)
+        result = ic(compute_ic(self._panel(80, 6))["factor"], overlap_periods=6)
         assert not math.isnan(result.value)
         assert result.p_value is not None
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value in result.warning_codes
@@ -748,7 +748,7 @@ class TestEffectiveSampleFloor:
         from factrix.metrics._primitives import compute_ic
 
         panel = self._panel(40, 6)  # 34 usable dates < 10 * 6
-        result = ic(compute_ic(panel)["factor"], forward_periods=6)
+        result = ic(compute_ic(panel)["factor"], overlap_periods=6)
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "insufficient_ic_periods"
         assert result.n_obs_axis == "periods"
@@ -772,7 +772,7 @@ class TestEffectiveSampleFloor:
         from factrix._codes import WarningCode
         from factrix.metrics._primitives import compute_ic
 
-        result = ic(compute_ic(self._panel(15, 1))["factor"], forward_periods=1)
+        result = ic(compute_ic(self._panel(15, 1))["factor"], overlap_periods=1)
         assert not math.isnan(result.value)
         assert result.n_obs == 13
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value in result.warning_codes
@@ -825,7 +825,7 @@ class TestTieWarningWording:
 
         panel = self._tied_panel()
         with pytest.warns(UserWarning) as record:
-            ic(compute_ic(panel)["factor"], forward_periods=1)
+            ic(compute_ic(panel)["factor"], overlap_periods=1)
         text = " ".join(str(w.message) for w in record)
         assert "range" in text
         assert "spearmanr" in text

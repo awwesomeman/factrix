@@ -75,7 +75,7 @@ class TestFiniteSampleScale:
     def test_t_is_read_against_the_effective_df(self) -> None:
         rng = np.random.default_rng(1)
         x = rng.standard_normal(240) + 0.15
-        t, p, _ = _newey_west_t_test(x, forward_periods=5)
+        t, p, _ = _newey_west_t_test(x, overlap_periods=5)
         lags = _resolve_har_lags(240, None, 5)
         dof = _har_dof(240, lags, 5)
         assert dof == pytest.approx(min(1.5 * 240 / lags - 1, 240 / 5 - 1))
@@ -110,7 +110,7 @@ class TestNullSize:
         rejects = 0
         for _ in range(n_reps):
             x = _overlapping_null(n_periods, horizon, rng)
-            _, p, _ = _newey_west_t_test(x, forward_periods=horizon)
+            _, p, _ = _newey_west_t_test(x, overlap_periods=horizon)
             rejects += p < 0.05
         rate = rejects / n_reps
         # Upper bound is the claim under test. The lower bound only guards
@@ -140,6 +140,6 @@ class TestNullSize:
         rejects = 0
         for _ in range(n_reps):
             x = _overlapping_null(n_periods, horizon, rng) + mu
-            _, p, _ = _newey_west_t_test(x, forward_periods=horizon)
+            _, p, _ = _newey_west_t_test(x, overlap_periods=horizon)
             rejects += p < 0.05
         assert rejects / n_reps > 0.55

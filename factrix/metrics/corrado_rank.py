@@ -57,7 +57,7 @@ def corrado_rank(
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
-    forward_periods: int = 5,
+    overlap_periods: int = 5,
     estimation_window: int = 60,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
@@ -65,7 +65,7 @@ def corrado_rank(
 
     The static event floor (MIN_EVENTS_HARD) gates the rank test on the count of
     non-zero (event) observations that survive the event-axis spacing pass; the
-    warn floor scales with the forward_periods parameter (the spacing stride),
+    warn floor scales with the overlap_periods parameter (the spacing stride),
     so the threshold is declared as a resolver (a callable sample_threshold)
     rather than a constant.
 
@@ -96,7 +96,7 @@ def corrado_rank(
     Args:
         data: Full panel with ``date, asset_id, factor, forward_return``.
             Must include non-event rows for ranking.
-        forward_periods: Forward-return horizon, injected by ``evaluate`` from
+        overlap_periods: Forward-return horizon, injected by ``evaluate`` from
             the panel metadata; standalone calls may pass it directly. Sets the
             minimum calendar gap between two kept events on one asset, so the
             tested events no longer share overlapping return windows.
@@ -223,7 +223,7 @@ def corrado_rank(
         data,
         return_col=return_col,
         estimation_window=estimation_window,
-        forward_periods=forward_periods,
+        overlap_periods=overlap_periods,
         factor_col=factor_col,
     )
     ar_col = "_abnormal_return"
@@ -267,7 +267,7 @@ def corrado_rank(
     # ``(t, t+h]`` windows overlap. On a single-asset panel that is the only
     # clustering axis there is, so without this pass the rank test over-rejects.
     events = _sample_events_non_overlapping(
-        events, forward_periods, calendar_dates=data["date"]
+        events, overlap_periods, calendar_dates=data["date"]
     )
     n_events_sampled = len(events)
 
@@ -281,7 +281,7 @@ def corrado_rank(
         "insufficient_events",
         axis="events",
         alternative="greater",
-        forward_periods=forward_periods,
+        overlap_periods=overlap_periods,
         n_events_raw=n_events,
     )
     if sc is not None:
@@ -342,14 +342,14 @@ def corrado_rank(
         "stat_type": "z",
         "h0": "mu_rank<=0",
         "method": "Corrado (1989) rank test",
-        "forward_periods": forward_periods,
+        "overlap_periods": overlap_periods,
         **ar_diagnostics,
     }
     _warn_event_window_overlap(
         "corrado_rank",
         n_events,
         n_events_sampled,
-        forward_periods,
+        overlap_periods,
         metadata,
         warning_codes,
         expected_warnings=expected_warnings,
@@ -357,15 +357,15 @@ def corrado_rank(
     _warn_estimation_window_contamination(
         "corrado_rank", metadata, warning_codes, expected_warnings=expected_warnings
     )
-    raw_min_warn = _scaled_min_periods(MIN_EVENTS_WARN, forward_periods)
+    raw_min_warn = _scaled_min_periods(MIN_EVENTS_WARN, overlap_periods)
     warn_code = _warn_below_scaled_floor(
         n_events,
         MIN_EVENTS_WARN,
-        forward_periods,
+        overlap_periods,
         f"corrado_rank: n_events={n_events} below the floor of {raw_min_warn} "
-        f"(= MIN_EVENTS_WARN {MIN_EVENTS_WARN} x forward_periods "
-        f"{forward_periods}); {n_event_periods} event periods survive "
-        f"non-overlap sampling at stride h={forward_periods}, which keeps "
+        f"(= MIN_EVENTS_WARN {MIN_EVENTS_WARN} x overlap_periods "
+        f"{overlap_periods}); {n_event_periods} event periods survive "
+        f"non-overlap sampling at stride h={overlap_periods}, which keeps "
         f"up to one event in h per asset. The denominator is the time-series "
         f"SD of the per-event-period mean rank, so the sample is those "
         f"periods, not the raw events: piling more same-period events on does "

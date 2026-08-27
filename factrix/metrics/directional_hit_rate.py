@@ -64,7 +64,7 @@ __all__ = [
 )
 def directional_hit_rate(
     data: pl.DataFrame,
-    forward_periods: int = 5,
+    overlap_periods: int = 5,
     factor_col: str = "factor",
     return_col: str = "forward_return",
     expected_warnings: tuple[str, ...] = (),
@@ -80,7 +80,7 @@ def directional_hit_rate(
         data: Panel with ``date, asset_id``, ``factor_col`` and
             ``return_col``. Pooled across all ``(date, asset)``
             observations on the non-overlapping subsample.
-        forward_periods: Sampling stride for non-overlapping dates;
+        overlap_periods: Sampling stride for non-overlapping dates;
             match the forward-return horizon so overlapping windows do
             not inflate the test.
         factor_col: Prediction column (default ``"factor"``).
@@ -166,7 +166,7 @@ def directional_hit_rate(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> result = directional_hit_rate(panel, forward_periods=5)
+        >>> result = directional_hit_rate(panel, overlap_periods=5)
         >>> result.name == ""
         True
     """
@@ -178,7 +178,7 @@ def directional_hit_rate(
             missing_column=return_col,
         )
 
-    sampled = _sample_non_overlapping(data, forward_periods)
+    sampled = _sample_non_overlapping(data, overlap_periods)
     # ``sign()`` maps NaN to NaN (not null) and ``NaN != 0`` is True, so a
     # non-finite factor / return would survive the filter and then read as a
     # *negative* sign in the numpy ``> 0`` test below. Require finite values.
@@ -197,7 +197,7 @@ def directional_hit_rate(
     # route through _enforce_scaled_floor): n here is the PT test's effective
     # sample size and feeds var_s directly, and sampled_pairs cannot be derived
     # from a param-only resolver — Σ assets-per-sampled-date drifts unboundedly
-    # from n_pairs/forward_periods on unbalanced panels. The full-panel
+    # from n_pairs/overlap_periods on unbalanced panels. The full-panel
     # pre-flight stays deliberately loose; this post-sampling count is the
     # authoritative gate.
     sc = _enforce_min_floor(

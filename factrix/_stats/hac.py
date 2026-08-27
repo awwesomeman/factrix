@@ -47,11 +47,11 @@ def _require_finite(values: np.ndarray, func_name: str) -> np.ndarray:
 def _resolve_nw_lags(
     n: int,
     lags: int | None,
-    forward_periods: int | None,
+    overlap_periods: int | None,
 ) -> int:
     """Pick Bartlett-kernel bandwidth for a *multivariate* HAC fit, honoring the overlap horizon.
 
-    ``max(auto_bartlett(T), forward_periods - 1)`` when ``forward_periods``
+    ``max(auto_bartlett(T), overlap_periods - 1)`` when ``overlap_periods``
     is provided; the Newey-West (1994) auto rule supplies the default
     Bartlett bandwidth and the ``h - 1`` floor is required for consistency
     when input series carries an MA(h-1) structure from overlapping forward
@@ -69,8 +69,8 @@ def _resolve_nw_lags(
     if n < 2:
         return 0
     base = auto_bartlett(n) if lags is None else lags
-    if forward_periods is not None:
-        base = max(base, max(forward_periods - 1, 0))
+    if overlap_periods is not None:
+        base = max(base, max(overlap_periods - 1, 0))
     return max(0, min(base, n - 1))
 
 
@@ -85,7 +85,7 @@ _MAX_BANDWIDTH_FRACTION = 3
 def _resolve_har_lags(
     n: int,
     lags: int | None,
-    forward_periods: int | None,
+    overlap_periods: int | None,
 ) -> int:
     """Pick the Bartlett-kernel bandwidth for the scalar series-mean HAR t-test.
 
@@ -116,13 +116,13 @@ def _resolve_har_lags(
     if n < 2:
         return 0
     base = har_bandwidth(n) if lags is None else lags
-    if forward_periods is not None:
-        base = max(base, 3 * max(forward_periods - 1, 0))
+    if overlap_periods is not None:
+        base = max(base, 3 * max(overlap_periods - 1, 0))
     cap = min(n - 1, max(1, -(-n // _MAX_BANDWIDTH_FRACTION)))
     return max(0, min(base, cap))
 
 
-def _har_dof(n: int, lags: int, forward_periods: int | None) -> float:
+def _har_dof(n: int, lags: int, overlap_periods: int | None) -> float:
     """Effective degrees of freedom for a Bartlett-kernel HAR t-test.
 
     ``min(1.5 · T / L - 1, T / h - 1)``, floored at 1.
@@ -148,17 +148,17 @@ def _har_dof(n: int, lags: int, forward_periods: int | None) -> float:
       12.2% -> 4.3%).
 
     Consequence of the cap, disclosed rather than corrected: when
-    ``forward_periods`` is passed on a series with *less* dependence than
+    ``overlap_periods`` is passed on a series with *less* dependence than
     ``h`` implies — an already non-overlapping or nearly iid series — the
     test is markedly conservative (measured size at h=21: 0.2% at T=60,
     2.1% at T=120, 3.5% at T=240; AR(0.6) h=21 T=60: 0.8%). Power stays
     high in those cells (0.82–1.0), so the cost is a wider interval rather
-    than a blind test. Pass ``forward_periods`` only for the horizon the
+    than a blind test. Pass ``overlap_periods`` only for the horizon the
     series is actually built from.
     """
     dof = 1.5 * n / max(lags, 1) - 1.0
-    if forward_periods is not None and forward_periods > 1:
-        dof = min(dof, n / forward_periods - 1.0)
+    if overlap_periods is not None and overlap_periods > 1:
+        dof = min(dof, n / overlap_periods - 1.0)
     return max(dof, 1.0)
 
 
@@ -206,7 +206,7 @@ def _bartlett_long_run_variance(demeaned: np.ndarray, lags: int) -> float:
 def _newey_west_se(
     values: np.ndarray,
     lags: int | None = None,
-    forward_periods: int | None = None,
+    overlap_periods: int | None = None,
     *,
     prewhiten: bool = False,
 ) -> float:
@@ -254,8 +254,8 @@ def _newey_west_se(
         values: 1-D array of time series observations.
         lags: Number of lags. Defaults to ``har_bandwidth(T)`` via
             :func:`_resolve_har_lags`.
-        forward_periods: Overlap horizon of the input series. When set,
-            enforces ``lags >= forward_periods - 1`` — the minimum
+        overlap_periods: Overlap horizon of the input series. When set,
+            enforces ``lags >= overlap_periods - 1`` — the minimum
             consistent bandwidth for overlapping h-period returns
             ([Hansen-Hodrick (1980)][hansen-hodrick-1980] MA(h-1) structure).
         prewhiten: Andrews-Monahan AR(1) prewhitening. Off by default;
@@ -271,7 +271,7 @@ def _newey_west_se(
     if n < 2:
         return 0.0
 
-    lags = _resolve_har_lags(n, lags, forward_periods)
+    lags = _resolve_har_lags(n, lags, overlap_periods)
     demeaned = values - float(np.mean(values))
 
     if prewhiten and n >= 4:
@@ -305,7 +305,7 @@ def _newey_west_se(
 def _newey_west_t_test(
     values: np.ndarray,
     lags: int | None = None,
-    forward_periods: int | None = None,
+    overlap_periods: int | None = None,
 ) -> tuple[float, float, str]:
     """Newey-West HAR t-test for H₀: mean = 0.
 
@@ -323,7 +323,7 @@ def _newey_west_t_test(
         values: 1-D array of time series observations.
         lags: Optional explicit Bartlett-kernel bandwidth. ``None`` uses
             the [LLSW (2018)][llsw-2018] ``har_bandwidth(T)`` default.
-        forward_periods: Overlap horizon ``h`` of the series. Floors the
+        overlap_periods: Overlap horizon ``h`` of the series. Floors the
             bandwidth at ``3(h - 1)`` and caps the effective df at
             ``T/h - 1``. Pass it whenever the series is built from
             overlapping h-period forward returns — omitting it leaves the
@@ -378,7 +378,7 @@ def _newey_west_t_test(
     if n < 3:
         return _NOT_COMPUTABLE
 
-    effective_lags = _resolve_har_lags(n, lags, forward_periods)
+    effective_lags = _resolve_har_lags(n, lags, overlap_periods)
     logger = get_metrics_logger()
     logger.debug("newey_west_t_test: n=%d lags=%d", n, effective_lags)
     # NW kernel needs enough samples per lag to estimate autocovariances.
@@ -393,25 +393,25 @@ def _newey_west_t_test(
         )
 
     mean = float(np.mean(values))
-    se = _newey_west_se(values, lags, forward_periods=forward_periods)
+    se = _newey_west_se(values, lags, overlap_periods=overlap_periods)
     if se < EPSILON:
         return _NOT_COMPUTABLE
 
     t = mean / se
-    p = _p_value_from_t(t, n, dof=_har_dof(n, effective_lags, forward_periods))
+    p = _p_value_from_t(t, n, dof=_har_dof(n, effective_lags, overlap_periods))
     return t, p, _significance_marker(p)
 
 
 def _hansen_hodrick_se(
     values: np.ndarray,
-    forward_periods: int,
+    overlap_periods: int,
 ) -> tuple[float, bool]:
     """[Hansen-Hodrick (1980)][hansen-hodrick-1980] rectangular-kernel HAC SE for a sample mean.
 
     Closed-form variance under the textbook MA(h-1) overlap structure
     induced by h-period forward returns:
 
-        Var(mean) = (γ₀ + 2 Σ_{j=1..h-1} γⱼ) / n,    h = forward_periods
+        Var(mean) = (γ₀ + 2 Σ_{j=1..h-1} γⱼ) / n,    h = overlap_periods
 
     Unlike the Bartlett kernel used by ``_newey_west_se``, weights are
     flat (1.0) inside ``j ≤ h-1`` and zero beyond. The estimator carries
@@ -421,7 +421,7 @@ def _hansen_hodrick_se(
 
     Args:
         values: 1-D array of the overlapping series whose mean is tested.
-        forward_periods: Overlap horizon ``h``. Must be ≥ 1; ``h = 1``
+        overlap_periods: Overlap horizon ``h``. Must be ≥ 1; ``h = 1``
             collapses to the iid SE (no autocovariance terms).
 
     Returns:
@@ -430,7 +430,7 @@ def _hansen_hodrick_se(
     """
     values = _require_finite(values, "_hansen_hodrick_se")
     n = len(values)
-    if n < 2 or forward_periods < 1:
+    if n < 2 or overlap_periods < 1:
         return 0.0, False
 
     mean = float(np.mean(values))
@@ -438,7 +438,7 @@ def _hansen_hodrick_se(
 
     gamma_0 = float(np.dot(demeaned, demeaned)) / n
     weighted_sum = gamma_0
-    lags = min(forward_periods - 1, n - 1)
+    lags = min(overlap_periods - 1, n - 1)
     for j in range(1, lags + 1):
         gamma_j = float(np.dot(demeaned[j:], demeaned[:-j])) / n
         weighted_sum += 2.0 * gamma_j
@@ -563,7 +563,7 @@ def _driscoll_kraay_cov(
 
 def _hansen_hodrick_t_test(
     values: np.ndarray,
-    forward_periods: int,
+    overlap_periods: int,
 ) -> tuple[float, float, str, bool]:
     """Hansen-Hodrick t-test for ``H₀: mean = 0`` on an overlapping series.
 
@@ -576,11 +576,11 @@ def _hansen_hodrick_t_test(
     """
     values = _require_finite(values, "_hansen_hodrick_t_test")
     n = len(values)
-    if n < 3 or forward_periods < 1:
+    if n < 3 or overlap_periods < 1:
         return (*_NOT_COMPUTABLE, False)
 
     mean = float(np.mean(values))
-    se, clamped = _hansen_hodrick_se(values, forward_periods)
+    se, clamped = _hansen_hodrick_se(values, overlap_periods)
     if se < EPSILON:
         return (*_NOT_COMPUTABLE, clamped)
 

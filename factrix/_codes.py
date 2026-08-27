@@ -119,7 +119,7 @@ class WarningCode(StrEnum):
     # Fired by ``bmp_z`` when no ``price`` column is present and the
     # estimation-window volatility falls back to the per-asset rolling std of
     # ``forward_return``. Because forward_return[t] looks ahead to [t+1, t+1+h],
-    # the fallback std is lagged by ``forward_periods`` so the estimation window
+    # the fallback std is lagged by ``overlap_periods`` so the estimation window
     # ends before the event's own forward window — but it is still a coarser,
     # horizon-overlapping volatility proxy than a price-derived one-period std.
     # The z-test is
@@ -288,7 +288,7 @@ _WARNING_DESCRIPTIONS.update(
         "Reused across panel time-series guards (MIN_PERIODS_WARN) and "
         "primitive inference (MIN_FM_PERIODS_WARN); both default to 30.",
         WarningCode.EVENT_WINDOW_OVERLAP: "Two events on one asset sat fewer "
-        "than forward_periods apart, so their forward-return windows "
+        "than overlap_periods apart, so their forward-return windows "
         "(t, t+h] overlapped and they are not independent draws. Every event "
         "significance test (caar / bmp_z / corrado_rank / event_hit_rate / "
         "event_ic / event_skewness) strides its event axis per asset before "
@@ -297,18 +297,18 @@ _WARNING_DESCRIPTIONS.update(
         "statistic is the calibrated one — it runs on the surviving "
         "non-overlapping events — so read the code as the cost in sample of a "
         "trigger that fires in bursts, not as a defect. It cannot fire at "
-        "forward_periods = 1 (consecutive events are already independent).",
+        "overlap_periods = 1 (consecutive events are already independent).",
         WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED: "The resolved Bartlett "
         "bandwidth L exceeds n_periods / 5, so the HAC long-run variance is "
         "estimated from too few lag products to be stable. Usually a long "
-        "forward_periods against a short sample. The t-test still runs with "
+        "overlap_periods against a short sample. The t-test still runs with "
         "the effective-df correction, but treat the p-value as indicative "
         "only and lengthen the sample or shorten the horizon. In this regime "
-        "the effective-df cap at n_periods / forward_periods binds hard, so if "
-        "the series carries less dependence than forward_periods implies the "
+        "the effective-df cap at n_periods / overlap_periods binds hard, so if "
+        "the series carries less dependence than overlap_periods implies the "
         "test is conservative rather than oversized (measured 0.2-3.5% against "
         "a nominal 5% on an iid series at h=21).",
-        WarningCode.PERSISTENT_REGRESSOR: "The predictive regressor is in a regime the corrected test is less well sized in: ADF p exceeds the configured threshold (unit-root suspect), or the measured Stambaugh channel |rho_hat * phi_corrected| exceeds 0.7, or the bias-corrected AR(1) coefficient came out at or above one. The Stambaugh (1999) bias itself is CORRECTED via the Amihud-Hurvich (2004) augmented regression, so this is not 'beta may be biased' - at forward_periods=1 it is 'the strongest Stambaugh cells leave the corrected test at 6-8% against a nominal 5%, where the calibrated cells sit at 4-6%'. Note this code is about the regressor, NOT about overlap: at forward_periods>1 the test is 7.5-14.5% oversized for every phi INCLUDING rho=0, which is the overlapping-regression HAC problem and fires no code of its own. Read the p against a raised hurdle.",
+        WarningCode.PERSISTENT_REGRESSOR: "The predictive regressor is in a regime the corrected test is less well sized in: ADF p exceeds the configured threshold (unit-root suspect), or the measured Stambaugh channel |rho_hat * phi_corrected| exceeds 0.7, or the bias-corrected AR(1) coefficient came out at or above one. The Stambaugh (1999) bias itself is CORRECTED via the Amihud-Hurvich (2004) augmented regression, so this is not 'beta may be biased' - at overlap_periods=1 it is 'the strongest Stambaugh cells leave the corrected test at 6-8% against a nominal 5%, where the calibrated cells sit at 4-6%'. Note this code is about the regressor, NOT about overlap: at overlap_periods>1 the test is 7.5-14.5% oversized for every phi INCLUDING rho=0, which is the overlapping-regression HAC problem and fires no code of its own. Read the p against a raised hurdle.",
         WarningCode.SERIAL_CORRELATION_DETECTED: "The tested per-period series has "
         "lag-1 autocorrelation above PERSISTENT_SERIES_AUTOCORR (0.3). No HAC or "
         "bootstrap path is calibrated here — measured 13–17% (NW), 12–19% "
@@ -338,7 +338,7 @@ _WARNING_DESCRIPTIONS.update(
         "calling for sign-flip semantics.",
         WarningCode.FEW_EVENTS: "An event significance test (caar / "
         "corrado_rank / bmp_z / event_hit_rate / event_ic / event_skewness) "
-        "with a raw event count below MIN_EVENTS_WARN (30) x forward_periods. "
+        "with a raw event count below MIN_EVENTS_WARN (30) x overlap_periods. "
         "The floor is scaled because every one of these tests first strides "
         "its event axis at the forward-return horizon — keeping at most one "
         "event in h per asset — so a raw series must carry h x 30 events to land on 30 "
@@ -385,7 +385,7 @@ _WARNING_DESCRIPTIONS.update(
         "invert the reading.",
         WarningCode.BMP_RETURN_VOL_FALLBACK: "bmp_z ran without a price column: the "
         "estimation-window volatility falls back to the per-asset rolling std of "
-        "forward_return, lagged by forward_periods so it ends before the event's "
+        "forward_return, lagged by overlap_periods so it ends before the event's "
         "forward window. This is a coarser, horizon-overlapping vol proxy than a "
         "price-derived one-period std — supply price for the clean BMP "
         "standardiser.",

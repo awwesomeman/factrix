@@ -179,7 +179,7 @@ def _warn_if_few_ic_assets(
 
 def _ic_sample_threshold(self: MetricBase) -> SampleThreshold:
     """Dynamic periods floor for ``ic``: the inference method's minimum input
-    length, which scales with ``forward_periods`` (non-overlapping stride) or
+    length, which scales with ``overlap_periods`` (non-overlapping stride) or
     is a fixed HAC bound. Delegates to the same ``min_input_periods`` the
     in-body short-circuit reads, so the pre-flight and run-time floors agree.
     """
@@ -187,7 +187,7 @@ def _ic_sample_threshold(self: MetricBase) -> SampleThreshold:
     # to ``ic``, but its declared param type is the ``MetricBase`` contract.
     inference = self.inference  # type: ignore[attr-defined]
     return SampleThreshold(
-        min_periods=inference.min_input_periods(self.forward_periods)
+        min_periods=inference.min_input_periods(self.overlap_periods)
     )
 
 
@@ -223,19 +223,19 @@ def _ic_shortfall_is_asset_driven(ic_df: pl.DataFrame, raw_min: int) -> bool:
 )
 def ic(
     ic_df: pl.DataFrame,
-    forward_periods: int = 5,
+    overlap_periods: int = 5,
     inference: NonOverlapping | NeweyWest | StationaryBootstrap = NON_OVERLAPPING,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Information coefficient (IC) mean significance: is mean IC significantly different from zero?
 
     The periods floor is dynamic — the minimum input length scales with the
-    forward_periods parameter and the inference method — so it is declared as a
+    overlap_periods parameter and the inference method — so it is declared as a
     resolver (a callable sample_threshold) rather than a constant.
 
     Args:
         ic_df: Output of ``compute_ic()``.
-        forward_periods: Overlap horizon of the forward returns; the
+        overlap_periods: Overlap horizon of the forward returns; the
             non-overlapping stride and the HAC bandwidth floor both key
             off it.
         inference: Significance-test method. ``fx.inference.NON_OVERLAPPING``
@@ -253,7 +253,7 @@ def ic(
     Notes:
         Given the per-period IC series $\mathrm{IC}_t$, $H_0:
         \mathbb{E}[\mathrm{IC}] = 0$. The non-overlapping path strides the
-        series at ``forward_periods`` (discarding $h-1$ of every $h$
+        series at ``overlap_periods`` (discarding $h-1$ of every $h$
         observations) to avoid the lag floor implied by overlapping
         forward returns; the Newey-West path keeps every observation and
         absorbs the induced MA($h-1$) autocorrelation through HAC standard
@@ -269,7 +269,7 @@ def ic(
 
     Method selection:
         The default ``NON_OVERLAPPING`` path tests on roughly
-        ``n / forward_periods`` effective observations; when that
+        ``n / overlap_periods`` effective observations; when that
         post-stride sample is thin it emits
         ``WarningCode.UNRELIABLE_SE_SHORT_PERIODS`` (now surfaced on the
         returned result's ``warning_codes``). ``NEWEY_WEST`` keeps every
@@ -296,7 +296,7 @@ def ic(
         ...     forward_periods=5,
         ... )
         >>> ic_df = compute_ic(panel)["factor"]
-        >>> result = ic(ic_df, forward_periods=5)
+        >>> result = ic(ic_df, overlap_periods=5)
         >>> result.name == ""
         True
     """
@@ -306,7 +306,7 @@ def ic(
     # its stride / lag math.
     ic_vals = ic_df["ic"].drop_nulls().drop_nans()
     n = len(ic_vals)
-    raw_min = inference.min_input_periods(forward_periods)
+    raw_min = inference.min_input_periods(overlap_periods)
     if n < raw_min:
         if _ic_shortfall_is_asset_driven(ic_df, raw_min):
             return _short_circuit_output(
@@ -315,7 +315,7 @@ def ic(
                 n_obs=n,
                 n_obs_axis="periods",
                 min_assets_required=MIN_IC_ASSETS_HARD,
-                forward_periods=forward_periods,
+                overlap_periods=overlap_periods,
                 hint=(
                     "every cross-section has fewer than MIN_IC_ASSETS_HARD valid "
                     "(factor, return) pairs or a degenerate (constant) factor / "
@@ -331,10 +331,10 @@ def ic(
             n_obs=n,
             n_obs_axis="periods",
             min_required=raw_min,
-            forward_periods=forward_periods,
+            overlap_periods=overlap_periods,
         )
 
-    result = inference.compute(ic_df, value_col="ic", forward_periods=forward_periods)
+    result = inference.compute(ic_df, value_col="ic", overlap_periods=overlap_periods)
 
     # Stride-based methods report a post-sampling count; guard on the
     # effective sample so a coarse stride cannot silently test ~nothing.
@@ -346,7 +346,7 @@ def ic(
             n_obs=int(n_sampled),
             n_obs_axis="periods",
             min_required=MIN_SERIES_PERIODS_HARD,
-            forward_periods=forward_periods,
+            overlap_periods=overlap_periods,
         )
 
     # value / stat / p / n_obs must describe the *same* sample. A stride-based
@@ -359,7 +359,7 @@ def ic(
         "n_periods": n_tested,
         "n_periods_full": n,
         "mean_ic_full": mean_ic_full,
-        "forward_periods": forward_periods,
+        "overlap_periods": overlap_periods,
         # stat / stat_type must reflect the test actually run — NonOverlapping
         # / NeweyWest report a t-ratio, StationaryBootstrap reports the
         # observed mean under an empirical (not t-distribution) p.

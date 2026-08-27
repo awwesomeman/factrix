@@ -1,4 +1,4 @@
-"""``fx.evaluate_horizons`` — thin sweep over overlap horizons that flattens
+"""``fx.evaluate_horizons`` — thin sweep over return horizons that flattens
 to ``list[EvaluationResult]`` and feeds ``compare`` / ``bhy`` directly."""
 
 from __future__ import annotations
@@ -35,9 +35,9 @@ class TestSweepShape:
             factor_cols=["factor"],
             forward_periods=[5, 20],
         )
-        # forward_periods is injected into the metric metadata per horizon.
+        # overlap_periods is injected into the metric metadata per horizon.
         seen = {
-            r.forward_periods: r.metrics["ic"].metadata["forward_periods"]
+            r.forward_periods: r.metrics["ic"].metadata["overlap_periods"]
             for r in results
         }
         assert seen == {5: 5, 20: 20}

@@ -195,7 +195,7 @@ def _ols_homoskedastic(
     The homoskedastic counterpart of :func:`_ols_nw_multivariate`, for the
     one caller that wants the covariance the estimator's source paper uses
     rather than a sandwich (:func:`_amihud_hurvich_beta` at
-    ``forward_periods = 1``). Same NaN-on-degenerate contract.
+    ``overlap_periods = 1``). Same NaN-on-degenerate contract.
     """
     y = _require_finite(y, "_ols_homoskedastic")
     X = _require_finite(X, "_ols_homoskedastic")
@@ -232,7 +232,7 @@ def _amihud_hurvich_beta(
     x: np.ndarray,
     *,
     lags: int,
-    forward_periods: int = 1,
+    overlap_periods: int = 1,
 ) -> AmihudHurvichFit:
     r"""[Amihud-Hurvich (2004)][amihud-hurvich-2004] reduced-bias predictive regression.
 
@@ -259,7 +259,7 @@ def _amihud_hurvich_beta(
        (AH eq. 6).
     2. Form the corrected innovation proxy
        $\hat v^c_t = x_t - \hat\theta_c - \hat\phi_c x_{t-1}$, summed over
-       the return window when ``forward_periods > 1`` (the Stambaugh
+       the return window when ``overlap_periods > 1`` (the Stambaugh
        channel then spans $v_{t+1},\dots,v_{t+h}$).
     3. Regress $y_t$ on $[1,\ x_t,\ \hat v^c]$. The coefficient on $x_t$ is
        the reduced-bias $\hat\beta_c$.
@@ -269,7 +269,7 @@ def _amihud_hurvich_beta(
     predictor, the augmented fit returns
     $\hat\beta_c = \beta + \gamma(\hat\phi_c - \phi)\,c$ where $c$ is the
     loading of $J$ on $x$ inside the augmented design ($c = 1$ at
-    ``forward_periods = 1``, where $J = x$). So
+    ``overlap_periods = 1``, where $J = x$). So
 
         $$\widehat{\mathrm{Var}}(\hat\beta_c)
           = \widehat{\mathrm{Var}}_{\text{aug}}(\hat\beta_c)
@@ -287,7 +287,7 @@ def _amihud_hurvich_beta(
     **Two departures from AH (2004), both factrix choices.**
 
     1. *The covariance inside the augmented regression is horizon-dependent.*
-       At ``forward_periods = 1`` it is AH's own homoskedastic
+       At ``overlap_periods = 1`` it is AH's own homoskedastic
        $s^2(X'X)^{-1}$ and the $t$ is read against $t_{m-3}$; the regression
        is not overlapping there, so a Bartlett kernel is pure downward bias
        in the SE. At $h > 1$ it is the Bartlett HAC covariance at ``lags``,
@@ -353,10 +353,10 @@ def _amihud_hurvich_beta(
         y: ``(n,)`` forward returns, ``y[t]`` spanning ``(t, t+h]``.
         x: ``(n,)`` predictor, aligned so ``x[t]`` predicts ``y[t]``.
         lags: Bartlett bandwidth for the augmented regression's HAC
-            covariance at ``forward_periods > 1``; ignored at
-            ``forward_periods = 1``, which uses the homoskedastic OLS
+            covariance at ``overlap_periods > 1``; ignored at
+            ``overlap_periods = 1``, which uses the homoskedastic OLS
             covariance instead.
-        forward_periods: Overlap horizon ``h`` of ``y``.
+        overlap_periods: Overlap horizon ``h`` of ``y``.
 
     Returns:
         :class:`AmihudHurvichFit`. Every field is NaN when the sample is too
@@ -390,7 +390,7 @@ def _amihud_hurvich_beta(
     theta_c = float(np.mean(x_cur)) - phi_c * float(np.mean(x_lag))
     innovation = x_cur - theta_c - phi_c * x_lag
 
-    h = max(int(forward_periods), 1)
+    h = max(int(overlap_periods), 1)
     if h > 1:
         # The channel spans v_{t+1}..v_{t+h}; the Jacobian of the proxy with
         # respect to phi is the matching sum of lagged predictor levels.

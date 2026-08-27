@@ -180,13 +180,13 @@ def _build_k_spread_series(
     ),
     aggregation=Aggregation.CS_THEN_TS,
     # Periods floor scales with the non-overlap stride (see ``quantile``): the
-    # spread series is sub-sampled at ``forward_periods``, so pre-flight and the
+    # spread series is sub-sampled at ``overlap_periods``, so pre-flight and the
     # in-body gate share ``MIN_PORTFOLIO_PERIODS_HARD`` + ``_scaled_min_periods``.
     sample_threshold=_k_spread_threshold,
 )
 def k_spread(
     data: pl.DataFrame,
-    forward_periods: int = 5,
+    overlap_periods: int = 5,
     k: int = 5,
     factor_col: str = "factor",
     return_col: str = "forward_return",
@@ -204,7 +204,7 @@ def k_spread(
     Args:
         data: Panel with ``date, asset_id``, ``factor_col`` and
             ``return_col``.
-        forward_periods: Sampling stride for non-overlapping dates;
+        overlap_periods: Sampling stride for non-overlapping dates;
             match the forward-return horizon.
         k: Number of names per leg (fixed count, not a quantile
             fraction). A date needs at least ``2 * k`` names to form
@@ -301,7 +301,7 @@ def k_spread(
         ...     fx.datasets.make_cs_panel(n_assets=20, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> result = k_spread(panel, forward_periods=5, k=3)
+        >>> result = k_spread(panel, overlap_periods=5, k=3)
         >>> result.name == ""
         True
     """
@@ -319,8 +319,8 @@ def k_spread(
     # skips nulls but ``pl.len`` would still count them, so ``_n_date`` would
     # overcount and the bottom-leg cutoff (``_rank > _n_date - k``) would point
     # past the last real rank — silently shrinking or emptying the short leg.
-    # forward_return is null on the last ``forward_periods`` rows per asset.
-    sampled = _sample_non_overlapping(data, forward_periods)
+    # forward_return is null on the last ``overlap_periods`` rows per asset.
+    sampled = _sample_non_overlapping(data, overlap_periods)
     tie_ratio = _compute_tie_ratio(sampled, factor_col)
     _warn_high_tie_ratio(tie_ratio, "k_spread", tie_policy)
     series, clean = _build_k_spread_series(
@@ -365,7 +365,7 @@ def k_spread(
         "k_spread",
         data["date"].n_unique(),
         MIN_PORTFOLIO_PERIODS_HARD,
-        forward_periods,
+        overlap_periods,
         "insufficient_portfolio_periods",
         k=k,
         tie_ratio=tie_ratio,
@@ -415,7 +415,7 @@ def k_spread(
             inference,
             strided_spread=arr,
             full_spread=full_series,
-            forward_periods=forward_periods,
+            overlap_periods=overlap_periods,
             n_assets=median_xs,
         )
     )

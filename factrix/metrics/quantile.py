@@ -76,8 +76,8 @@ _Q_CELL = cell(
 
 
 # Periods floor scales with the non-overlap stride: the headline t-test runs on
-# ``raw_n / forward_periods`` sampled dates, so pre-flight needs ``raw_n >=
-# MIN_PORTFOLIO_PERIODS_HARD * forward_periods`` to land that many effective
+# ``raw_n / overlap_periods`` sampled dates, so pre-flight needs ``raw_n >=
+# MIN_PORTFOLIO_PERIODS_HARD * overlap_periods`` to land that many effective
 # periods. The resolver and the in-body :func:`_enforce_scaled_floor` gate share
 # ``MIN_PORTFOLIO_PERIODS_HARD`` + ``_scaled_min_periods``, so the floors agree.
 _PORTFOLIO_PERIODS_FLOOR = _scaled_periods_threshold(MIN_PORTFOLIO_PERIODS_HARD)
@@ -150,7 +150,7 @@ def _quantile_groups_threshold(self) -> SampleThreshold:
 )
 def quantile_spread(
     data: pl.DataFrame,
-    forward_periods: int = DEFAULT_FORWARD_PERIODS,
+    overlap_periods: int = DEFAULT_FORWARD_PERIODS,
     n_groups: int = DEFAULT_N_GROUPS,
     factor_cols: Sequence[str] = ("factor",),
     tie_policy: str = "ordinal",
@@ -202,7 +202,7 @@ def quantile_spread(
         - ``n_obs`` == ``metadata["n_periods"]``: the periods the headline
           test used. Under ``NON_OVERLAPPING`` (and under any bootstrap
           override) that is the strided series; under ``NEWEY_WEST`` it is
-          the full overlapping series, which is ~``forward_periods`` times
+          the full overlapping series, which is ~``overlap_periods`` times
           longer — the HAC test never ran on the strided sample, so
           reporting the strided count beside a HAC p-value would misstate
           the test's degrees of freedom.
@@ -238,7 +238,7 @@ def quantile_spread(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> result = quantile_spread(panel, forward_periods=5, n_groups=5)
+        >>> result = quantile_spread(panel, overlap_periods=5, n_groups=5)
         >>> result["factor"].name == ""
         True
     """
@@ -256,8 +256,8 @@ def quantile_spread(
 
     # Sample once across all factors; bucketing tie_ratio is computed
     # on the sampled subset (what bucketing actually sees) rather than
-    # the full panel — ~N/forward_periods smaller scan.
-    sampled = _sample_non_overlapping(data, forward_periods)
+    # the full panel — ~N/overlap_periods smaller scan.
+    sampled = _sample_non_overlapping(data, overlap_periods)
     series_by_factor = (
         _precomputed_series
         if _precomputed_series is not None
@@ -266,18 +266,18 @@ def quantile_spread(
             n_groups=n_groups,
             factor_cols=cols,
             tie_policy=tie_policy,
-            forward_periods=forward_periods,
+            overlap_periods=overlap_periods,
         )
     )
     # The HAC path needs the full overlapping spread series (every date);
-    # ``forward_periods=1`` is the no-stride build of the same primitive.
+    # ``overlap_periods=1`` is the no-stride build of the same primitive.
     full_series_by_factor: dict[str, pl.DataFrame] | None = (
         compute_spread_series(
             data,
             n_groups=n_groups,
             factor_cols=cols,
             tie_policy=tie_policy,
-            forward_periods=1,
+            overlap_periods=1,
         )
         if isinstance(inference, NeweyWest)
         else None
@@ -293,7 +293,7 @@ def quantile_spread(
             factor_col=f,
             tie_policy=tie_policy,
             inference=inference,
-            forward_periods=forward_periods,
+            overlap_periods=overlap_periods,
             n_groups=n_groups,
             full_series=(
                 full_series_by_factor[f] if full_series_by_factor is not None else None
@@ -312,7 +312,7 @@ def _quantile_spread_from_series(
     factor_col: str,
     tie_policy: str,
     inference: NonOverlapping | NeweyWest,
-    forward_periods: int,
+    overlap_periods: int,
     n_groups: int,
     full_series: pl.DataFrame | None,
     expected_warnings: tuple[str, ...] = (),
@@ -332,7 +332,7 @@ def _quantile_spread_from_series(
         "quantile_spread",
         n_raw_periods,
         MIN_PORTFOLIO_PERIODS_HARD,
-        forward_periods,
+        overlap_periods,
         "insufficient_portfolio_periods",
         tie_ratio=tie_ratio,
         tie_policy=tie_policy,
@@ -391,7 +391,7 @@ def _quantile_spread_from_series(
             inference,
             strided_spread=arr,
             full_spread=clean_full_series,
-            forward_periods=forward_periods,
+            overlap_periods=overlap_periods,
             n_assets=n_assets,
         )
     )
@@ -425,7 +425,7 @@ def _quantile_spread_from_series(
         "n_periods_short_leg": int(short_arr.size),
         "median_cross_section": n_assets,
         "n_groups": n_groups,
-        "forward_periods": forward_periods,
+        "overlap_periods": overlap_periods,
         "stat_type": "t",
         "h0": "mu=0",
         "method": sig_method,
@@ -552,7 +552,7 @@ def _vw_spread_series(
 )
 def quantile_spread_vw(
     data: pl.DataFrame,
-    forward_periods: int = DEFAULT_FORWARD_PERIODS,
+    overlap_periods: int = DEFAULT_FORWARD_PERIODS,
     n_groups: int = DEFAULT_N_GROUPS,
     factor_col: str = "factor",
     return_col: str = "forward_return",
@@ -673,7 +673,7 @@ def quantile_spread_vw(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... ).with_columns(pl.lit(1e6).alias("market_cap"))
-        >>> result = quantile_spread_vw(panel, forward_periods=5, n_groups=5)
+        >>> result = quantile_spread_vw(panel, overlap_periods=5, n_groups=5)
         >>> result.name == ""
         True
     """
@@ -688,7 +688,7 @@ def quantile_spread_vw(
         inference, applicable_inference, func_name="quantile_spread_vw"
     )
 
-    sampled = _sample_non_overlapping(data, forward_periods)
+    sampled = _sample_non_overlapping(data, overlap_periods)
     if lag_weights:
         sampled = _lag_within_asset(sampled, weight_col)
     tie_ratio = _compute_tie_ratio(sampled, factor_col)
@@ -714,7 +714,7 @@ def quantile_spread_vw(
         "quantile_spread_vw",
         data["date"].n_unique(),
         MIN_PORTFOLIO_PERIODS_HARD,
-        forward_periods,
+        overlap_periods,
         "insufficient_portfolio_periods",
         tie_ratio=tie_ratio,
         tie_policy=tie_policy,
@@ -786,7 +786,7 @@ def quantile_spread_vw(
             inference,
             strided_spread=arr,
             full_spread=full_series,
-            forward_periods=forward_periods,
+            overlap_periods=overlap_periods,
             n_assets=n_assets,
         )
     )
@@ -801,7 +801,7 @@ def quantile_spread_vw(
         "n_periods_strided": n,
         "median_cross_section": n_assets,
         "n_groups": n_groups,
-        "forward_periods": forward_periods,
+        "overlap_periods": overlap_periods,
         "method": sig_method,
         "stat_type": "t",
         "h0": "mu=0",

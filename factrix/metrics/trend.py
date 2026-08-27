@@ -48,7 +48,7 @@ __all__ = [
 ]
 
 #: Minimum *non-overlapping* observations the trend test needs. The raw
-#: series must supply ``_MIN_TREND_PERIODS * forward_periods`` periods.
+#: series must supply ``_MIN_TREND_PERIODS * overlap_periods`` periods.
 _MIN_TREND_PERIODS = 10
 
 
@@ -67,7 +67,7 @@ _MIN_TREND_PERIODS = 10
 def ic_trend(
     series: pl.DataFrame,
     value_col: str = "value",
-    forward_periods: int = 5,
+    overlap_periods: int = 5,
     *,
     name: str = "ic_trend",
     adf_threshold: float | None = 0.10,
@@ -82,7 +82,7 @@ def ic_trend(
 
     Args:
         series: DataFrame with ``date`` and ``value_col``.
-        forward_periods: Overlap horizon of the input series, used as the
+        overlap_periods: Overlap horizon of the input series, used as the
             non-overlapping sampling stride. The default input is a
             per-period IC series built from h-period forward returns, so
             consecutive observations share ``h - 1`` bars; the trend test
@@ -139,7 +139,7 @@ def ic_trend(
         So:
 
         1. The series is sub-sampled to non-overlapping observations at
-           stride ``forward_periods`` (the same ``_sample_non_overlapping``
+           stride ``overlap_periods`` (the same ``_sample_non_overlapping``
            machinery ``positive_rate`` uses) before anything is computed.
            This is exactly calibrated for the overlap channel.
         2. The Mann-Kendall variance on the survivors carries the
@@ -260,7 +260,7 @@ def ic_trend(
         name,
         series["date"].n_unique(),
         _MIN_TREND_PERIODS,
-        forward_periods,
+        overlap_periods,
         "insufficient_trend_periods",
     )
     if sc is not None:
@@ -274,7 +274,7 @@ def ic_trend(
     # Mann-Kendall's null variance counts every pairwise comparison as an
     # independent draw - see the Notes block for the measured cost of
     # skipping this.
-    sorted_s = _sample_non_overlapping(series, forward_periods).sort("date")
+    sorted_s = _sample_non_overlapping(series, overlap_periods).sort("date")
     vals = sorted_s[value_col].drop_nulls().to_numpy()
     # polars drop_nulls does not drop float NaN; an all-NaN IC series
     # (e.g. from a constant factor whose per-period rank correlation is
@@ -326,7 +326,7 @@ def ic_trend(
         "method": "theil-sen slope + hamed-rao mann-kendall test",
         "n_periods": n,
         "n_periods_raw": n_raw,
-        "stride": forward_periods,
+        "stride": overlap_periods,
         "variance_inflation": variance_inflation,
         "ci_low": low_slope,
         "ci_high": high_slope,
