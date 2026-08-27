@@ -16,15 +16,13 @@ _VALUE_REPR_CAP = 120
 _AVAILABLE_PREVIEW = 15
 
 
-def _api_docs_path(func_name: str, anchor: str) -> str:
-    """Return the deployed API path for a public function.
+def _api_docs_path(func_name: str) -> str:
+    """Return the deployed API path for a public multi-factor / compare function.
 
-    Mkdocstrings uses the fully qualified symbol as its heading id; parameter
-    names are not standalone anchors. ``anchor`` remains in the signature so
-    shared validators can report the field the caller supplied, but the link
-    targets the function contract that documents it.
+    Mkdocstrings uses the fully qualified symbol as the heading id and
+    parameter names are not standalone anchors, so every validator on one
+    function links to that function's contract.
     """
-    del anchor
     namespace = "factrix" if func_name == "compare" else "factrix.multi_factor"
     return f"api/{func_name.replace('_', '-')}#{namespace}.{func_name}"
 

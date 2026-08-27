@@ -53,8 +53,7 @@ def _literal_docs_paths() -> set[str]:
 
 
 DOCS_PATHS = sorted(
-    _literal_docs_paths()
-    | {_api_docs_path(name, "field") for name in _DYNAMIC_DOCS_FUNCTIONS}
+    _literal_docs_paths() | {_api_docs_path(name) for name in _DYNAMIC_DOCS_FUNCTIONS}
 )
 
 

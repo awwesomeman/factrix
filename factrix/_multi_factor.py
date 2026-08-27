@@ -54,14 +54,14 @@ def _validate_metric_list(value: Any, *, func_name: str, field: str) -> list[str
     Used by ``bhy.metrics`` / ``compare.metrics`` so both surfaces give
     identical error messages for the same misuse.
     """
-    anchor = _api_docs_path(func_name, field)
+    docs_path = _api_docs_path(func_name)
     if not isinstance(value, list):
         raise UserInputError(
             func_name=func_name,
             field=field,
             value=type(value).__name__,
             expected=(f"list[str] (always a list, even for a single {field})"),
-            docs_path=anchor,
+            docs_path=docs_path,
         )
     if not value:
         raise UserInputError(
@@ -69,7 +69,7 @@ def _validate_metric_list(value: Any, *, func_name: str, field: str) -> list[str
             field=field,
             value=value,
             expected="non-empty list[str]",
-            docs_path=anchor,
+            docs_path=docs_path,
         )
     for i, spec in enumerate(value):
         if not isinstance(spec, str):
@@ -78,7 +78,7 @@ def _validate_metric_list(value: Any, *, func_name: str, field: str) -> list[str
                 field=f"{field}[{i}]",
                 value=type(spec).__name__,
                 expected="str metric label (e.g. 'ic')",
-                docs_path=anchor,
+                docs_path=docs_path,
             )
     return list(value)
 
@@ -93,7 +93,7 @@ def _validate_cross_metric_list(value: Any, *, func_name: str) -> list[str]:
             field="metrics",
             value=duplicates,
             expected="unique metric labels; duplicates would repeat one hypothesis",
-            docs_path=_api_docs_path(func_name, "metrics"),
+            docs_path=_api_docs_path(func_name),
         )
     if len(metrics) < 2:
         raise UserInputError(
@@ -104,7 +104,7 @@ def _validate_cross_metric_list(value: Any, *, func_name: str) -> list[str]:
                 "at least 2 metric labels for a cross-metric family; "
                 "use bhy() for one metric"
             ),
-            docs_path=_api_docs_path(func_name, "metrics"),
+            docs_path=_api_docs_path(func_name),
         )
     return metrics
 
@@ -117,7 +117,7 @@ def _validate_q(value: Any, *, func_name: str) -> float:
             field="q",
             value=value,
             expected="float in the open interval (0, 1)",
-            docs_path=_api_docs_path(func_name, "q"),
+            docs_path=_api_docs_path(func_name),
         )
     q = float(value)
     if not np.isfinite(q) or not 0.0 < q < 1.0:
@@ -126,7 +126,7 @@ def _validate_q(value: Any, *, func_name: str) -> float:
             field="q",
             value=value,
             expected="float in the open interval (0, 1)",
-            docs_path=_api_docs_path(func_name, "q"),
+            docs_path=_api_docs_path(func_name),
         )
     return q
 
@@ -149,7 +149,7 @@ def _require_non_empty_results(
                 "list[EvaluationResult], not the dict returned by evaluate() — "
                 "pass list(results.values())"
             ),
-            docs_path=_api_docs_path(func_name, "results"),
+            docs_path=_api_docs_path(func_name),
         )
     if not results:
         raise UserInputError(
@@ -157,7 +157,7 @@ def _require_non_empty_results(
             field="results",
             value=results,
             expected="non-empty list[EvaluationResult]",
-            docs_path=_api_docs_path(func_name, "results"),
+            docs_path=_api_docs_path(func_name),
         )
     from factrix._results import EvaluationResult
 
@@ -172,7 +172,7 @@ def _require_non_empty_results(
                     "evaluate(), pass list(results.values()); do not extend "
                     "a list with the dict itself, because that appends keys"
                 ),
-                docs_path=_api_docs_path(func_name, "results"),
+                docs_path=_api_docs_path(func_name),
             )
 
 
