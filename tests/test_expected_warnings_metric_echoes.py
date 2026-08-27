@@ -19,11 +19,15 @@ import datetime as dt
 import warnings
 
 import factrix as fx
+import numpy as np
 import polars as pl
 import pytest
 from factrix._codes import WarningCode
 from factrix.metrics import (
     bmp_z,
+    caar,
+    common_quantile_spread,
+    corrado_rank,
     directional_pair_accuracy,
     fm_beta,
     ic,
@@ -95,8 +99,6 @@ def _few_pairs_panel() -> pl.DataFrame:
 
 def _no_price_event_panel() -> pl.DataFrame:
     """Sparse event panel with no ``price`` column for the BMP standardiser."""
-    import numpy as np
-
     rng = np.random.default_rng(0)
     rows = []
     for d in range(400):
@@ -110,6 +112,59 @@ def _no_price_event_panel() -> pl.DataFrame:
                 }
             )
     return pl.DataFrame(rows)
+
+
+def _common_thin_bucket_panel() -> pl.DataFrame:
+    """Twenty periods cut into five historical buckets — four per bucket."""
+    rng = np.random.default_rng(13)
+    rows = [
+        {
+            "date": dt.datetime(2024, 1, 1) + dt.timedelta(days=d),
+            "asset_id": f"A{a}",
+            "factor": float(d),
+            "forward_return": float(0.001 * d + rng.normal(0, 0.01)),
+        }
+        for d in range(20)
+        for a in range(30)
+    ]
+    return pl.DataFrame(rows)
+
+
+def _mixed_magnitude_event_panel() -> pl.DataFrame:
+    """Sparse mixed-sign events with enough history and event periods."""
+    rng = np.random.default_rng(17)
+    rows = []
+    prices = np.full(12, 100.0)
+    for d in range(800):
+        period_returns = rng.normal(0, 0.01, size=12)
+        prices *= 1.0 + period_returns
+        event_period = d >= 80 and d % 20 == 0
+        for a in range(12):
+            rows.append(
+                {
+                    "date": dt.datetime(2020, 1, 1) + dt.timedelta(days=d),
+                    "asset_id": f"A{a}",
+                    "factor": (2.0 if a % 2 == 0 else -3.0) if event_period else 0.0,
+                    "forward_return": float(period_returns[a]),
+                    "price": float(prices[a]),
+                }
+            )
+    return pl.DataFrame(rows)
+
+
+def _non_finite_event_panel() -> pl.DataFrame:
+    """Clean ternary event panel with one non-finite event return."""
+    panel = _mixed_magnitude_event_panel().with_columns(pl.col("factor").sign())
+    event = panel.filter(pl.col("factor") != 0).row(0, named=True)
+    return panel.with_columns(
+        pl.when(
+            (pl.col("date") == event["date"])
+            & (pl.col("asset_id") == event["asset_id"])
+        )
+        .then(float("nan"))
+        .otherwise(pl.col("forward_return"))
+        .alias("forward_return")
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -307,7 +362,7 @@ class TestThinQuantileGroups:
 
 
 class TestHighTieRatio:
-    """``ic`` / ``ic_ir`` — the new HIGH_TIE_RATIO code.
+    """IC and quantile metrics — HIGH_TIE_RATIO in both estimator contexts.
 
     The tie-ratio advisory had no structured twin at all, so a declared
     sweep had no way to quiet it and result-only inspection never saw it.
@@ -329,10 +384,39 @@ class TestHighTieRatio:
             "icir",
         )
 
+    def test_declared_is_quiet_but_recorded_on_quantile_spread(self):
+        _assert_declared_is_quiet_but_recorded(
+            _tied_panel(),
+            {"qs": quantile_spread(n_groups=3)},
+            WarningCode.HIGH_TIE_RATIO,
+            "qs",
+        )
+
+    def test_declared_is_quiet_but_recorded_on_value_weighted_spread(self):
+        panel = _tied_panel().with_columns(pl.lit(1.0).alias("market_cap"))
+        _assert_declared_is_quiet_but_recorded(
+            panel,
+            {"vw": quantile_spread_vw(n_groups=3)},
+            WarningCode.HIGH_TIE_RATIO,
+            "vw",
+        )
+
     def test_undeclared_still_echoes(self):
         _assert_undeclared_still_echoes(
             _tied_panel(),
             {"ic": ic()},
+            "median tie_ratio",
+        )
+
+    @pytest.mark.parametrize(
+        "metric",
+        [quantile_spread(n_groups=3), quantile_spread_vw(n_groups=3)],
+    )
+    def test_undeclared_quantile_spreads_still_echo(self, metric):
+        panel = _tied_panel().with_columns(pl.lit(1.0).alias("market_cap"))
+        _assert_undeclared_still_echoes(
+            panel,
+            {"spread": metric},
             "median tie_ratio",
         )
 
@@ -357,3 +441,79 @@ class TestHighTieRatio:
             results = fx.evaluate(panel, metrics={"ic": ic()}, factor_cols=["factor"])
         codes = results["factor"].metrics["ic"].warning_codes
         assert WarningCode.HIGH_TIE_RATIO.value not in codes
+
+
+class TestThinCommonQuantilePeriods:
+    """``common_quantile_spread`` — THIN_QUANTILE_PERIODS."""
+
+    def test_declared_is_quiet_but_recorded(self):
+        _assert_declared_is_quiet_but_recorded(
+            _common_thin_bucket_panel(),
+            {"cq": common_quantile_spread(n_groups=5)},
+            WarningCode.THIN_QUANTILE_PERIODS,
+            "cq",
+            forward_periods=1,
+        )
+
+    def test_undeclared_still_echoes(self):
+        _assert_undeclared_still_echoes(
+            _common_thin_bucket_panel(),
+            {"cq": common_quantile_spread(n_groups=5)},
+            "periods per bucket",
+            forward_periods=1,
+        )
+
+
+class TestSparseMagnitudeWeighted:
+    """Event-test results record SPARSE_MAGNITUDE_WEIGHTED; CAAR owns the echo."""
+
+    def test_declared_is_quiet_but_recorded_on_each_event_test(self):
+        panel = _mixed_magnitude_event_panel()
+        metrics = {"caar": caar(), "bmp": bmp_z(), "corrado": corrado_rank()}
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            result = fx.evaluate(
+                panel,
+                metrics=metrics,
+                factor_cols=["factor"],
+                forward_periods=1,
+                expected_warnings=(WarningCode.SPARSE_MAGNITUDE_WEIGHTED.value,),
+            )["factor"]
+
+        for metric in metrics:
+            assert (
+                WarningCode.SPARSE_MAGNITUDE_WEIGHTED.value
+                in result.metrics[metric].warning_codes
+            )
+        records = _records(result, WarningCode.SPARSE_MAGNITUDE_WEIGHTED)
+        assert {record.source for record in records} == set(metrics)
+        assert all(record.expected for record in records)
+
+    def test_undeclared_still_echoes(self):
+        _assert_undeclared_still_echoes(
+            _mixed_magnitude_event_panel(),
+            {"caar": caar()},
+            "magnitude-weighted CAAR",
+            forward_periods=1,
+        )
+
+
+class TestCaarNonFiniteInputDropped:
+    """``compute_caar`` echo and ``caar`` record share NON_FINITE_INPUT_DROPPED."""
+
+    def test_declared_is_quiet_but_recorded(self):
+        _assert_declared_is_quiet_but_recorded(
+            _non_finite_event_panel(),
+            {"caar": caar()},
+            WarningCode.NON_FINITE_INPUT_DROPPED,
+            "caar",
+            forward_periods=1,
+        )
+
+    def test_undeclared_still_echoes(self):
+        _assert_undeclared_still_echoes(
+            _non_finite_event_panel(),
+            {"caar": caar()},
+            "non-finite",
+            forward_periods=1,
+        )

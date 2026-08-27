@@ -1601,28 +1601,34 @@ def _warn_high_tie_ratio(
     ratio: float,
     metric_name: str,
     tie_policy: str,
-) -> None:
-    """Emit a ``UserWarning`` when median tie_ratio exceeds the threshold.
+    *,
+    expected_warnings: tuple[str, ...] = (),
+) -> bool:
+    """Emit the high-tie advisory and report whether its condition holds.
 
     No-op for ``tie_policy="average"`` (the policy already handles ties
     honestly — warning would be noise) or NaN ratios. Uses ``warnings.warn``
     not ``logger`` so the advisory surfaces in notebooks where root logger
     defaults to WARNING. Python's default ``"default"`` filter dedupes
-    by (module, lineno, message) so sweep loops naturally emit once.
+    by (module, lineno, message) so sweep loops naturally emit once. A declared
+    ``HIGH_TIE_RATIO`` stops the echo only; the return value remains ``True``
+    so the metric still attaches the structured record.
     """
     if math.isnan(ratio) or ratio <= TIE_RATIO_WARN_THRESHOLD:
-        return
+        return False
     if tie_policy != "ordinal":
-        return
-    warnings.warn(
-        f"{metric_name}: median tie_ratio={ratio:.3f} exceeds "
-        f"{TIE_RATIO_WARN_THRESHOLD:.2f}. Ordinal tie-breaking on a "
-        f"low-cardinality factor injects sorting-artifact noise. "
-        f"Consider tie_policy='average' on the Config, or a coarser "
-        f"n_groups.",
-        UserWarning,
-        stacklevel=3,
-    )
+        return False
+    if WarningCode.HIGH_TIE_RATIO.value not in expected_warnings:
+        warnings.warn(
+            f"{metric_name}: median tie_ratio={ratio:.3f} exceeds "
+            f"{TIE_RATIO_WARN_THRESHOLD:.2f}. Ordinal tie-breaking on a "
+            f"low-cardinality factor injects sorting-artifact noise. "
+            f"Consider tie_policy='average' on the Config, or a coarser "
+            f"n_groups.",
+            UserWarning,
+            stacklevel=3,
+        )
+    return True
 
 
 # Per-axis WarningCode for the silent-drop flag. A drop along the time axis

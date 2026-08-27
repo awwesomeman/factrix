@@ -45,12 +45,12 @@ class WarningCode(StrEnum):
     # cross-section size): a wide panel cut into
     # many buckets can trip this without tripping FEW_ASSETS.
     THIN_QUANTILE_GROUPS = "thin_quantile_groups"
-    # Fired by ``ic`` / ``ic_ir`` when the median per-period tie_ratio exceeds
-    # TIE_RATIO_WARN_THRESHOLD (0.3). The caveat is RANGE ATTENUATION, not
-    # bias: the estimator is already the tie-corrected Spearman (Pearson on
-    # mid-ranks, what scipy.stats.spearmanr computes), but heavy ties shrink
-    # the attainable range of rho below +-1, so the IC magnitude is not
-    # comparable against a factor with a different tie density.
+    # Fired by ``common_quantile_spread`` when the historical time-series
+    # sample averages fewer than five periods per factor bucket.
+    THIN_QUANTILE_PERIODS = "thin_quantile_periods"
+    # Fired when the median per-period tie_ratio exceeds
+    # TIE_RATIO_WARN_THRESHOLD (0.3). For quantile spreads it flags ordinal
+    # tie-breaking noise; for IC / ICIR it flags range attenuation.
     HIGH_TIE_RATIO = "high_tie_ratio"
     # Fired when a sparse ``factor`` column carries mixed signs but is
     # not a clean ±1 ternary (e.g. ``{-2.5, 0, +1.3}``). The CAAR /
@@ -339,17 +339,22 @@ _WARNING_DESCRIPTIONS.update(
         "reduce n_groups (the warning suggests a value) or treat the spread as a "
         "fragile small-cross-section diagnostic. Distinct from few_assets, which "
         "keys off the absolute cross-section size.",
-        WarningCode.HIGH_TIE_RATIO: "ic / ic_ir with a median per-period "
-        "tie_ratio above TIE_RATIO_WARN_THRESHOLD (0.3). Not a bias: the "
-        "estimator is already the tie-corrected Spearman (Pearson on "
-        "mid-ranks, identical to scipy.stats.spearmanr). Heavy ties instead "
-        "shrink the attainable range of rho below +-1, so do not compare this "
-        "IC magnitude against a factor with a different tie density; a "
-        "continuous transform of the factor restores the full range.",
-        WarningCode.SPARSE_MAGNITUDE_WEIGHTED: "Sparse factor column is mixed-sign and not a "
-        "clean ±1 ternary; statistic is magnitude-weighted (Sefcik-Thompson) "
-        "rather than textbook MacKinlay signed CAAR — apply .sign() before "
-        "calling for sign-flip semantics.",
+        WarningCode.THIN_QUANTILE_PERIODS: "common_quantile_spread leaves fewer "
+        "than 5 periods per historical factor bucket on average. Each bucket "
+        "mean rests on a thin time-series sample; reduce n_groups or interpret "
+        "the conditional means cautiously.",
+        WarningCode.HIGH_TIE_RATIO: "Median per-period tie_ratio exceeds "
+        "TIE_RATIO_WARN_THRESHOLD (0.3). For quantile_spread with ordinal "
+        "tie-breaking, low factor cardinality injects sorting-artifact noise; "
+        "use tie_policy='average' or fewer groups. For ic / ic_ir, Spearman is "
+        "already tie-corrected, but heavy ties shrink the attainable range of "
+        "rho below +-1, so IC magnitudes are not comparable across different "
+        "tie densities.",
+        WarningCode.SPARSE_MAGNITUDE_WEIGHTED: "Sparse factor column is mixed-sign "
+        "and not a clean ±1 ternary. caar preserves magnitude "
+        "(Sefcik-Thompson), while bmp_z and corrado_rank use sign only; apply "
+        ".sign() before evaluation when the three metrics should share "
+        "sign-flip semantics.",
         WarningCode.FEW_EVENTS: "An event significance test (caar / "
         "corrado_rank / bmp_z / event_hit_rate / event_ic / event_skewness) "
         "with a raw event count below MIN_EVENTS_WARN (30) x overlap_periods. "
@@ -519,12 +524,11 @@ _WARNING_DESCRIPTIONS.update(
         "scale exists. cross_sectional_zscore returns null there and "
         "mad_winsorize skips the clip, rather than fabricating a score (n=1 "
         "used to yield 0.0, n=2 a constant +-0.6745 regardless of the values).",
-        WarningCode.NON_FINITE_INPUT_DROPPED: "NaN / +-Inf input values were "
-        "blanked to null. They are excluded from every per-date statistic and "
-        "from the output: a non-finite tick is a data error, not an extreme "
-        "value, and winsorizing it into the band would manufacture a plausible "
-        "finite number that survives every downstream "
-        "drop_nulls().drop_nans().",
+        WarningCode.NON_FINITE_INPUT_DROPPED: "NaN / +-Inf inputs were excluded "
+        "at the producer boundary. Preprocessing normalizers blank them to null; "
+        "compute_caar drops affected event rows and reports the count in "
+        "n_events_dropped_non_finite. A non-finite tick is a data error, not an "
+        "extreme value to coerce into a plausible statistic.",
         WarningCode.INSUFFICIENT_REGRESSION_DF: "orthogonalize_factor skipped a "
         "date whose cross-section left fewer than "
         "MIN_ORTHOGONALIZE_RESIDUAL_ASSETS residual degrees of freedom "

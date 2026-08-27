@@ -30,6 +30,7 @@ from factrix.metrics._helpers import (
     _attach_abnormal_return,
     _enforce_min_floor,
     _event_sample_threshold,
+    _is_sparse_magnitude_weighted,
     _sample_events_non_overlapping,
     _scaled_min_periods,
     _short_circuit_output,
@@ -208,6 +209,8 @@ def corrado_rank(
         >>> result.name == ""
         True
     """
+    sparse_magnitude_weighted = _is_sparse_magnitude_weighted(data, factor_col)
+
     # Rank only the finite returns. Ranking `return_col` directly is wrong
     # twice over: a null return produces a null rank, which propagates into
     # that period's mean and turns the event-period SD into NaN, handing
@@ -331,6 +334,8 @@ def corrado_rank(
         )
 
     warning_codes: list[str] = []
+    if sparse_magnitude_weighted:
+        warning_codes.append(WarningCode.SPARSE_MAGNITUDE_WEIGHTED.value)
     metadata: dict = {
         "n_event_periods": n_event_periods,
         "n_events": n_events,
