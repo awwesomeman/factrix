@@ -152,8 +152,9 @@ def caar(
             n_events, date_ordinal, n_events_dropped_non_finite,
             sparse_magnitude_weighted``. The diagnostic columns are optional
             (hand-built frames omit them); when present the non-finite count is
-            echoed into
-            ``metadata["n_events_dropped_non_finite"]``.
+            echoed into ``metadata["n_events_dropped_non_finite"]`` and the
+            sparse-magnitude flag becomes ``WarningCode.SPARSE_MAGNITUDE_WEIGHTED``
+            on ``warning_codes``.
         overlap_periods: Sampling interval for non-overlapping dates.
             Maps to ``config.overlap_periods`` — the return horizon used
             in ``compute_forward_return``. Distinct from
