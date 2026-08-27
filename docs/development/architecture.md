@@ -589,15 +589,15 @@ Failure modes:
 ```
 per-event-period mean of signed_car = return × factor      (cross-section step)
                                                        →  event-period-indexed CAAR
-calendar-aware non-overlap subsample by date_ordinal        →  independent event-period sample
+grid-aware non-overlap subsample by date_ordinal            →  independent event-period sample
                                                        →  OLS t-test on mean(CAAR)      (event-time step)
 ```
 
 The CAAR series is **event-period-indexed**: `compute_caar` filters to
 `factor != 0`, collapses same-period events to one cross-asset mean, and
-retains each event period's `date_ordinal` on the full panel calendar. The
+retains each event period's `date_ordinal` on the full panel grid. The
 `caar` procedure then takes a greedy non-overlap subsample where consecutive
-kept event periods are at least `forward_periods` calendar periods apart. This
+kept event periods are at least `forward_periods` grid periods apart. This
 keeps the event-only mean estimator intact while avoiding overlap-induced
 dependence from forward-return windows; dense zero-fill is deliberately not
 used because non-event zeros would dominate the sparse event mean.
@@ -605,7 +605,7 @@ used because non-event zeros would dominate the sparse event mean.
 Magnitude is preserved as a weight in `signed_car` (no `.sign()` coercion
 at this layer — `compute_caar`'s docstring carries the input-form
 behaviour table). User-facing `MEAN` reports the per-event-period mean (the
-average effect on event days); `n_obs` reflects the non-overlap event-period
+average effect on event periods); `n_obs` reflects the non-overlap event-period
 sample the t-stat is computed on.
 
 Failure modes:

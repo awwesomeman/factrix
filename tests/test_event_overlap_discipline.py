@@ -87,9 +87,7 @@ class TestSampleEventsNonOverlapping:
 
     def test_keeps_first_then_every_gap_of_at_least_h(self):
         events = self._events({"A": [0, 1, 2, 5, 6, 12]})
-        kept = _sample_events_non_overlapping(
-            events, 5, calendar_dates=self._calendar()
-        )
+        kept = _sample_events_non_overlapping(events, 5, grid_dates=self._calendar())
         got = [(d - datetime(2020, 1, 1)).days for d in kept["date"].to_list()]
         assert got == [0, 5, 12]
 
@@ -97,9 +95,7 @@ class TestSampleEventsNonOverlapping:
         # B's events are unrelated to A's: one asset's burst must not consume
         # another asset's slot.
         events = self._events({"A": [0, 1, 10], "B": [0, 1, 10]})
-        kept = _sample_events_non_overlapping(
-            events, 5, calendar_dates=self._calendar()
-        )
+        kept = _sample_events_non_overlapping(events, 5, grid_dates=self._calendar())
         assert kept.group_by("asset_id").len().sort("asset_id")["len"].to_list() == [
             2,
             2,
@@ -107,18 +103,14 @@ class TestSampleEventsNonOverlapping:
 
     def test_horizon_one_is_a_no_op(self):
         events = self._events({"A": [0, 1, 2]})
-        kept = _sample_events_non_overlapping(
-            events, 1, calendar_dates=self._calendar()
-        )
+        kept = _sample_events_non_overlapping(events, 1, grid_dates=self._calendar())
         assert kept.height == events.height
 
     def test_gap_is_measured_on_the_full_calendar_not_the_event_index(self):
         # Three events 20 calendar steps apart are all independent even though
         # they are adjacent *rows* of the event frame.
         events = self._events({"A": [0, 20, 40]})
-        kept = _sample_events_non_overlapping(
-            events, 5, calendar_dates=self._calendar()
-        )
+        kept = _sample_events_non_overlapping(events, 5, grid_dates=self._calendar())
         assert kept.height == 3
 
 

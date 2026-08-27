@@ -214,7 +214,7 @@ def _spaced_events(
     sampled = _sample_events_non_overlapping(
         events,
         overlap_periods,
-        calendar_dates=data["date"] if "date" in data.columns else None,
+        grid_dates=data["date"] if "date" in data.columns else None,
     )
     _warn_event_window_overlap(
         metric_name,

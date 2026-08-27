@@ -21,8 +21,8 @@ data-generating process:
   Fama-MacBeth (FM), both with Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) standard errors and a
   Hansen-Hodrick lag floor for overlapping forward returns.
 - **Event factors** — Cumulative Average Abnormal Return (CAAR) on
-  the event-date series with calendar-aware non-overlap inference, plus
-  overlap and clustering diagnostics for crowded event calendars.
+  the event-date series with grid-aware non-overlap inference, plus
+  overlap and clustering diagnostics for crowded event schedules.
 - **Common factors** — a factor whose realisation is shared across
   the cross-section in a given period (Fama-French market / size /
   value, or a macro variable). factrix tests these as a panel
@@ -312,7 +312,7 @@ alpha-quality with a frequently-changing API.
 
 **Where factrix wins**
 
-- factrix integrates event-date CAAR with calendar-aware non-overlap
+- factrix integrates event-date CAAR with grid-aware non-overlap
   inference plus overlap and clustering diagnostics; eventstudy treats
   events in isolation.
 - Event inference lives in the same `EvaluationResult` shape as CS and
