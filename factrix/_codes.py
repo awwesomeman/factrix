@@ -239,6 +239,9 @@ class WarningCode(StrEnum):
     # bare DataFrame — there is no MetricResult to hang ``warning_codes`` on —
     # so these travel in the text of a ``UserWarning``. They exist because a
     # sample-regime-driven switch of estimator must never be silent.
+    # ``NON_FINITE_INPUT_DROPPED`` is also raised at one evaluation-side
+    # producer boundary (``compute_caar``), where ``caar`` attaches it to
+    # ``warning_codes`` like any metric code.
     #
     # The per-date MAD collapsed to zero (>50% ties at the median) and the
     # non-robust per-date sample standard deviation stood in as the scale.
@@ -255,10 +258,11 @@ class WarningCode(StrEnum):
     # no robust per-date scale exists; the date is left unscaled (z-score null,
     # clip skipped) rather than fabricating one.
     INSUFFICIENT_SCALE_ASSETS = "insufficient_scale_assets"
-    # NaN / +-Inf inputs were blanked to null. A non-finite tick is a data
-    # error, not an extreme value: clipping it into a winsorization band
-    # manufactures a plausible finite number that survives every downstream
-    # drop_nulls().drop_nans().
+    # NaN / +-Inf inputs were excluded at the producer boundary: the
+    # preprocess normalizers blank them to null, ``compute_caar`` drops the
+    # affected event rows. A non-finite tick is a data error, not an extreme
+    # value: clipping it into a winsorization band manufactures a plausible
+    # finite number that survives every downstream drop_nulls().drop_nans().
     NON_FINITE_INPUT_DROPPED = "non_finite_input_dropped"
 
     # Fired by ``orthogonalize_factor`` when a per-date cross-section clears the

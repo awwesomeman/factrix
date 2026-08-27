@@ -625,8 +625,8 @@ nominal 5%; sample sizes count periods on the evaluation grid after the
 |---|---|---|---|
 | Overlapping `forward_periods` panel, per-period series not persistent (the everyday case) | No warning | `NEWEY_WEST` 5–9% on real overlapping IC (h = 5, n = 240 / 480: 5.2% / 8.8%); `NON_OVERLAPPING` calibrated. | Keep the default member. |
 | Persistent per-period series (lag-1 φ ≥ 0.3 on the *tested* series) | `serial_correlation_detected` | No path is calibrated — NW 13–17%, stationary bootstrap 12–19%, plain *t* 32–34% at φ = 0.6 (table above). | Do **not** switch member; it moves the number without fixing it. Read the *t* against a raised hurdle (*t* > 3) or lengthen the sample. A coarser `overlap_periods` stride under `NON_OVERLAPPING` also helps mechanically — the strided sample sits at φ^h, and AR(0.6) strided at h = 21 measures 4.5%. |
-| Short strided series (fewer than ~120 periods after the stride) | `unreliable_se_short_periods`, or nothing on a moderately short series | The *t* / NW branch runs 7–9%. The bootstrap p is *worse* here — 13.6% at n = 12, 9.8% at 30, 7.4% at 60, reaching 5.2% only by 120 — and the strided series is short exactly when the horizon is long. | Stay on the analytic *t* / NW. Do not reach for the bootstrap to rescue a short sample; shorten the stride or lengthen the history instead. |
-| Long strided series (≥ ~120 periods) whose distribution is in doubt (heavy tails, skew) | No warning | At n ≥ 120 the bootstrap is at its nominal size (5.2%) while the analytic branch still carries its 7–9% baseline. | `STATIONARY_BOOTSTRAP` is the better-calibrated read on `ic`; the spread metrics keep `NON_OVERLAPPING` / `NEWEY_WEST` (their allowlist). This is a documented option, not a default — see §1. |
+| Short strided series (fewer than ~120 periods after the stride) | `unreliable_se_short_periods`, or nothing on a moderately short series | The *t* / NW branch runs 7–9%. A block-bootstrap p is *worse* here — the spread metrics' former bootstrap branch (`_block_bootstrap_diff_p`, kernel-isolated on iid input) measured 13.6% at n = 12, 9.8% at 30, 7.4% at 60, reaching 5.2% only by 120 — and the strided series is short exactly when the horizon is long. | Stay on the analytic *t* / NW. Do not reach for the bootstrap to rescue a short sample; shorten the stride or lengthen the history instead. |
+| Long strided series (≥ ~120 periods) whose distribution is in doubt (heavy tails, skew) | No warning | On iid input `STATIONARY_BOOTSTRAP` sits at the same 7–9% baseline as NW (φ = 0 row above) — it buys no *size*. Its case is distributional: it is the only member that does not assume asymptotic normality of the mean (§1). | Read `STATIONARY_BOOTSTRAP` on `ic` alongside the analytic p when tails or skew are the doubt; the spread metrics keep `NON_OVERLAPPING` / `NEWEY_WEST` (their allowlist). A documented option, not a default. |
 | Heavy-tailed *and* short | `unreliable_se_short_periods` | The *t* is size-robust to tails — 3–4% on t(3) input, i.e. conservative — while the small-n bootstrap is not (6–14%). | Keep the *t*. Tails are not a reason to bootstrap a short series. |
 | Thin cross-section (few names per leg) | `few_assets` | Each leg mean rests on a handful of names: a noisier estimate, not a differently-distributed one. The automatic bootstrap switch this once triggered rejected 8–20% against the *t*'s 7–9% and keyed on the wrong axis; it was removed. | Keep the requested member; read `n_assets` and treat the spread as fragile. |
 | Joint test on K ≥ 3 short slices | `slice_period_joint_test` warning | 8–9% for K = 5 on 50–90-period slices, converging by T ≈ 150; the bootstrap path inherits it (12%). K = 2 is calibrated throughout. | Read the pairwise contrasts on the same slices (5–6%) rather than the joint p, or lengthen the slices. |
@@ -638,9 +638,10 @@ a short sample is not fixed by changing the inference member — the
 analytic and bootstrap paths inherit the same small-sample distortion —
 so the honest response is a raised hurdle or more periods. A
 *distribution* problem on a long series is the one case where the
-bootstrap earns its cost, and it is offered there rather than routed to
-automatically because a default that silently moves a number is the line
-every other deviation in this library has stayed behind.
+bootstrap earns its cost — as a second read, not a better-sized one — and
+it is offered there rather than routed to automatically because a default
+that silently moves a number is the line every other deviation in this
+library has stayed behind.
 
 ---
 

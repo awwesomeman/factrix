@@ -184,7 +184,9 @@ Descriptive; no test.
   returns are negatively correlated and the test is conservative, which
   `ESTIMATION_WINDOW_CONTAMINATED` records; measured 4.7 / 2.3 / 5.0% size at
   h = 1 / 5 / 21 on 20 assets, 0.0% on one asset at h = 21),
-  `warning_codes` (conditional, e.g. `FEW_EVENTS`).
+  `warning_codes` (conditional, e.g. `FEW_EVENTS`; `SPARSE_MAGNITUDE_WEIGHTED`
+  when the sparse factor is mixed-sign and not a clean ±1 ternary;
+  `NON_FINITE_INPUT_DROPPED` when `compute_caar` dropped event rows).
 
 #### `bmp_z`
 
@@ -444,6 +446,8 @@ frequency on the same panels is 5.0% / 5.0% / 4.0% at a nominal 5%.
 - *descriptive*: `n_valid_periods`, `n_groups`, `tie_ratio`, `tie_policy`.
 
 ### `quantile` (`factrix.metrics.quantile`)
+- `warning_codes` (conditional): `HIGH_TIE_RATIO` under `tie_policy="ordinal"`
+  when the median per-period `tie_ratio` exceeds `TIE_RATIO_WARN_THRESHOLD`.
 
 #### `quantile_spread`
 
@@ -472,6 +476,10 @@ frequency on the same panels is 5.0% / 5.0% / 4.0% at a nominal 5%.
   (`"no_signal_zero_variance_factor"`) when the factor has observations
   but no cross-sectional variation. This is a valid `p_value = 1.0`
   result, not a short-circuit `reason`.
+- `warning_codes` (conditional): `HIGH_TIE_RATIO` under `tie_policy="ordinal"`
+  when the median per-period `tie_ratio` exceeds `TIE_RATIO_WARN_THRESHOLD`;
+  `THIN_QUANTILE_GROUPS` when the median cross-section leaves fewer than
+  `MIN_GROUP_ASSETS` names per bucket.
 
 #### `quantile_spread_vw`
 
@@ -492,6 +500,8 @@ no-signal `signal_status` (`"no_signal_zero_variance_factor"`, a valid
 `p_value = 1.0` result) when the factor has no cross-sectional variation.
 
 ### `k_spread` (`factrix.metrics.k_spread`)
+- `warning_codes` (conditional): as `quantile_spread` — `HIGH_TIE_RATIO`,
+  `THIN_QUANTILE_GROUPS`.
 
 #### `k_spread`
 
@@ -518,6 +528,8 @@ Fixed-K (top-K − bottom-K) long-short spread; the small-N sibling of
   (`"no_signal_zero_variance_factor"`) when the factor has observations
   but no cross-sectional variation. This is a valid `p_value = 1.0`
   result, not a short-circuit `reason`.
+- `warning_codes` (conditional): `HIGH_TIE_RATIO` under `tie_policy="ordinal"`
+  when the median per-period `tie_ratio` exceeds `TIE_RATIO_WARN_THRESHOLD`.
 
 #### Shared small-N note
 
@@ -863,6 +875,8 @@ Two complementary methods:
 All four are descriptive — `MetricResult.stat = None` and no
 `p_value` is emitted. They feed cost/benefit arithmetic, not
 inference.
+- `warning_codes` (conditional): `THIN_QUANTILE_PERIODS` when the historical
+  buckets average fewer than 5 periods each.
 
 #### `rank_turnover`
 
