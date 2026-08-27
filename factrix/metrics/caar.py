@@ -183,26 +183,26 @@ def caar(
 
         Null / NaN ``caar`` rows are dropped **before** the spacing pass.
         Order matters: the greedy walk keeps the first event of every
-        admissible calendar gap, so a null-caar date filtered afterwards
+        admissible grid gap, so a null-caar date filtered afterwards
         would still have consumed its slot and blocked the next usable
         event — silently shrinking the subsample and shifting which dates
         it contains. Dropping first lets a usable neighbour take the slot.
 
-        The subsample is drawn **calendar-aware**: the CAAR series is
+        The subsample is drawn **grid-aware**: the CAAR series is
         event-period-indexed (``compute_caar`` keeps only ``factor != 0``
-        rows), so its dates are calendar-irregular. Sampling every
+        rows), so its dates are irregular on the period grid. Sampling every
         ``overlap_periods``-th *row* (index distance) would mis-handle both
         regimes — sparse events get further thinned (power loss), clustered
         events inside one forward-return window are admitted as independent
         (iid violated, $t$ inflated). Instead a greedy pass over
-        ``date_ordinal`` (each event's position on the full calendar) keeps
-        an event only when its calendar gap to the previously kept event is
+        ``date_ordinal`` (each event's position on the full panel grid) keeps
+        an event only when its grid gap to the previously kept event is
         ``>= overlap_periods``, so consecutive kept observations no longer
         share overlapping forward-return windows. The alternative —
-        reindexing to a dense calendar with zero-fill before fixed-stride
+        reindexing to a dense grid with zero-fill before fixed-stride
         sampling — was rejected: the zero padding would dominate the
         subsample and distort the iid mean estimator this path is built
-        around; the greedy calendar walk keeps the event-only mean intact.
+        around; the greedy grid walk keeps the event-only mean intact.
 
         ``caar`` is an **equal-weight calendar-time portfolio** test: the
         inference unit is the event *period*. Same-period events are collapsed
@@ -326,9 +326,9 @@ def caar(
 
     mean_caar_full = float(vals.mean())  # type: ignore[arg-type]
     # Normal input arrives from compute_caar carrying date_ordinal (the
-    # full-calendar position). A hand-built caar_df that bypasses
+    # full-grid position). A hand-built caar_df that bypasses
     # compute_caar lacks it; fall back to the dense rank of the event periods
-    # themselves — event-index spacing is less calendar-aware, but never raises.
+    # themselves — event-index spacing is less grid-aware, but never raises.
     if "date_ordinal" not in caar_df.columns:
         caar_df = caar_df.with_columns(
             (pl.col("date").rank(method="dense") - 1).alias("date_ordinal")
@@ -588,7 +588,7 @@ def bmp_z(
         **Time-axis overlap.** Events are first strided per asset so no two
         kept events on one name sit inside one forward-return window — the
         [Brown-Warner (1985)][brown-warner-1985] non-overlap sampling
-        convention, applied on the event axis rather than the calendar
+        convention, applied on the event axis rather than the period
         (:func:`~factrix.metrics._helpers._sample_events_non_overlapping`), and
         the same treatment ``caar`` applies to its event-period series. It is
         the complement of the K-P adjustment above, not a substitute: K-P
@@ -786,7 +786,7 @@ def bmp_z(
     # one asset less than overlap_periods apart share future bars, so pooling
     # them into the cross-sectional z counts one draw twice.
     valid = _sample_events_non_overlapping(
-        valid, overlap_periods, calendar_dates=sorted_df["date"]
+        valid, overlap_periods, grid_dates=sorted_df["date"]
     )
     n_valid = len(valid)
 

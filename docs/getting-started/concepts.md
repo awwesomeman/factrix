@@ -41,7 +41,7 @@ Every metric declares a `MetricSpec` as its single source of truth (SSOT). The s
 - **`batchable`**: Whether the metric can process multiple factors in a single operation.
 
 ### `requires` (Dependency Injection)
-Metrics do not always compute directly from raw panels. For example, the Information Coefficient (`ic`) statistic does not consume the raw asset returns directly; it requires the daily time-series of ICs. 
+Metrics do not always compute directly from raw panels. For example, the Information Coefficient (`ic`) statistic does not consume the raw asset returns directly; it requires the per-period time-series of ICs. 
 The `ic` spec declares `requires={"ic_df": compute_ic}`. The DAG executor detects this, schedules `compute_ic` to run first, and injects its output into the `ic` metric.
 
 ### `batchable` (Shared Computations)

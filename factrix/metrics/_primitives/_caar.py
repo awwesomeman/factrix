@@ -62,10 +62,10 @@ def compute_caar(
             transparency (a date built on 1 event vs 500 is otherwise
             indistinguishable), not used to weight or drop dates.
         date_ordinal: 0-based position of the date on the *full* input
-            calendar (dense rank over every date in ``data``, including
+            grid (dense rank over every date in ``data``, including
             non-event periods). Consumers that sub-sample for non-overlap
             independence measure the gap between kept event periods in
-            these calendar steps rather than in event-index steps —
+            these grid steps rather than in event-index steps —
             the rank is computed before the ``factor != 0`` filter, so a
             gap of ``k`` means ``k`` underlying periods elapsed, not
             ``k`` events. On an event-only series the two diverge under

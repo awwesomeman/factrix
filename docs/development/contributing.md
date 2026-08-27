@@ -65,14 +65,15 @@ Python is pinned to **3.12+** (defined by `requires-python` in
 Use `--extra` to add or drop modules per development needs:
 
 ```bash
-uv sync                              # core only (polars, numpy, pandera)
+uv sync                              # core only (polars, numpy, scipy)
 uv sync --extra dev                  # +pytest, commitizen, etc. (required to write code)
+uv sync --extra pandas               # +pandas / pyarrow (factrix.adapt on pandas input)
 uv sync --extra jupyter              # +jupyter / jupyterlab / ipywidgets (notebooks)
 uv sync --extra docs                 # +mkdocs-material, mkdocstrings, mike (build the site)
 uv sync --extra dev --extra docs     # local CI / release checks
 ```
 
-The declared extras are `jupyter`, `dev`, `docs`, and `all` (where
+The declared extras are `pandas`, `jupyter`, `dev`, `docs`, and `all` (where
 `all == factrix[jupyter]`).
 
 !!! note "`dev` and `docs` are separate from `all`"

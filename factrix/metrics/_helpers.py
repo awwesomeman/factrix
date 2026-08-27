@@ -1310,7 +1310,7 @@ def _sample_events_non_overlapping(
     events: pl.DataFrame,
     overlap_periods: int,
     *,
-    calendar_dates: pl.Series | None = None,
+    grid_dates: pl.Series | None = None,
     asset_col: str = "asset_id",
 ) -> pl.DataFrame:
     """Stride an event *row* frame so no asset keeps two overlapping windows.
@@ -1329,7 +1329,7 @@ def _sample_events_non_overlapping(
     collapse) have nothing to work with — time is the only clustering axis —
     so this pass is the whole discipline.
 
-    Ordinals come from ``calendar_dates`` (the full panel's date column) when
+    Ordinals come from ``grid_dates`` (the full panel's date column) when
     supplied, so the gap is measured on the underlying period grid rather than
     on the sparse event dates; without it the event dates themselves are the
     grid. ``overlap_periods <= 1`` and an empty frame are no-ops.
@@ -1339,7 +1339,7 @@ def _sample_events_non_overlapping(
             values), with ``date`` and — for a panel — ``asset_col``. A frame
             without ``date`` carries no gap to measure and passes through.
         overlap_periods: Minimum gap in periods required between kept events.
-        calendar_dates: Full-panel ``date`` column defining the period grid.
+        grid_dates: Full-panel ``date`` column defining the period grid.
         asset_col: Asset identifier; a frame without it is treated as one asset.
 
     Returns:
@@ -1347,11 +1347,11 @@ def _sample_events_non_overlapping(
     """
     if overlap_periods <= 1 or events.height == 0 or "date" not in events.columns:
         return events
-    dates = events["date"] if calendar_dates is None else calendar_dates
-    calendar = pl.DataFrame({"date": dates.unique().sort()}).with_columns(
-        pl.int_range(pl.len()).alias("_calendar_ordinal")
+    dates = events["date"] if grid_dates is None else grid_dates
+    grid = pl.DataFrame({"date": dates.unique().sort()}).with_columns(
+        pl.int_range(pl.len()).alias("_grid_ordinal")
     )
-    joined = events.join(calendar, on="date", how="left")
+    joined = events.join(grid, on="date", how="left")
     if asset_col not in joined.columns:
         parts = [joined.sort("date")]
     else:
@@ -1361,11 +1361,11 @@ def _sample_events_non_overlapping(
         ]
     kept = pl.concat(
         [
-            _sample_event_spaced(part, overlap_periods, ordinal_col="_calendar_ordinal")
+            _sample_event_spaced(part, overlap_periods, ordinal_col="_grid_ordinal")
             for part in parts
         ]
     )
-    return kept.drop("_calendar_ordinal")
+    return kept.drop("_grid_ordinal")
 
 
 def _warn_event_window_overlap(

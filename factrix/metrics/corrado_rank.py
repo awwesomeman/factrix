@@ -270,7 +270,7 @@ def corrado_rank(
     # ``(t, t+h]`` windows overlap. On a single-asset panel that is the only
     # clustering axis there is, so without this pass the rank test over-rejects.
     events = _sample_events_non_overlapping(
-        events, overlap_periods, calendar_dates=data["date"]
+        events, overlap_periods, grid_dates=data["date"]
     )
     n_events_sampled = len(events)
 
