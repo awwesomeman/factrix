@@ -31,6 +31,8 @@ An evaluation cell is defined by three orthogonal axes that specify the dataset 
 
 Each metric spec is registered to run on a specific `(FactorScope, FactorDensity, DataStructure)` cell (or wildcard subset thereof).
 
+**Period grid, not calendar** — factrix never reads the calendar. `date` is an ordering key; every horizon, window, lag, stride and sample floor (`forward_periods`, estimation windows, Bartlett lags, block lengths, `min_periods`) is a count of periods on the panel's own distinct-date grid, never calendar time. No annualisation, no trading-day constant, no date arithmetic. Say "periods", never days / trading days / month-ends, when describing any contract.
+
 ---
 
 ## Canonical panel schema

@@ -235,16 +235,18 @@ calls for a transformed signal.
 
 ## 5. Frequency alignment is the caller's job
 
-factrix is calendar-agnostic — it counts periods on the panel's own date grid, not calendar time.
+factrix never reads the calendar — it counts periods on the panel's own
+date grid, not calendar time (the principle is stated once in
+[Period grid, not calendar](../development/architecture.md#period-grid-not-calendar)).
 Three responsibilities sit upstream of `compute_forward_return`:
 
 - **Same date axis for factor and price source.** If the factor is
   monthly and the price source is daily, downsample (or upsample) one
   side before joining. A frequency mismatch will not raise; it will
   silently mean the wrong thing.
-- **Same `forward_periods` interpretation.** Five rows on a daily panel
-  is one week of trading days; five rows on a monthly panel is five
-  months. Pick the horizon against your panel's actual cadence.
+- **Same `forward_periods` interpretation.** Five periods on a daily
+  panel is five days; five periods on a monthly panel is five months.
+  Pick the horizon against your panel's actual cadence.
 - **Slice / regime labels aligned by date.** If you attach a
   `regime_id` or `universe` column for downstream slicing, align it on
   the same date axis the panel uses; mismatched labels propagate

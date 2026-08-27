@@ -2,11 +2,13 @@
 title: Quickstart
 ---
 
-!!! warning "`forward_periods` counts rows, not calendar time"
-    factrix is frequency-agnostic — it only shifts row indices.
-    `forward_periods=5` on a daily panel means 5 trading days; on a
-    weekly panel, 5 weeks. The caller is responsible for ensuring the
-    panel is sorted per asset and has regular time spacing.
+!!! warning "`forward_periods` counts periods, not calendar time"
+    factrix never reads the calendar: every horizon, window and lag is a
+    count of periods on the panel's own date grid. `forward_periods=5` is
+    five periods of whatever one row represents — five days on a daily
+    panel, five weeks on a weekly one. Aligning the factor and price sources
+    onto one grid is the caller's job. See
+    [Period grid, not calendar](../development/architecture.md#period-grid-not-calendar).
 
 ## 30-second smoke test
 
