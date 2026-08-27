@@ -385,12 +385,23 @@ class TestNonStrict:
 
     @staticmethod
     def _panel() -> pl.DataFrame:
-        # ic() floor at the default horizon is 50; "bear" sits below it.
+        # ic() floor at the panel's stamped overlap is 50; "bear" sits below
+        # it. Four slices leave a three-pair tested family, so the step-down
+        # correction has a real family to step through.
         return build_disjoint_period_panel(
             seed=5,
-            spans={"bull": (60, 0.1), "bear": (30, 0.1), "flat": (60, 0.1)},
+            spans={
+                "bull": (60, 0.1),
+                "bear": (30, 0.1),
+                "flat": (60, 0.02),
+                "calm": (60, 0.0),
+            },
             label_col="regime",
         )
+
+    @staticmethod
+    def _touches_bear() -> pl.Expr:
+        return (pl.col("slice_a") == "bear") | (pl.col("slice_b") == "bear")
 
     def test_strict_default_still_raises(self) -> None:
         with pytest.raises(ValueError, match="sample floor"):
@@ -410,31 +421,52 @@ class TestNonStrict:
             strict=False,
         )
         assert out.columns == _PAIRWISE_COLS
-        assert out.height == 3
+        assert out.height == 6
         assert (out["min_periods"] == 50).all()
-        touches_bear = (pl.col("slice_a") == "bear") | (pl.col("slice_b") == "bear")
-        thin = out.filter(touches_bear)
-        assert thin.height == 2
-        assert thin["reason"].to_list() == ["insufficient_periods"] * 2
+        thin = out.filter(self._touches_bear())
+        assert thin.height == 3
+        assert thin["reason"].to_list() == ["insufficient_periods"] * 3
         assert np.isnan(thin["stat"].to_numpy()).all()
         assert np.isnan(thin["p_raw"].to_numpy()).all()
         assert np.isnan(thin["p_adj"].to_numpy()).all()
-        tested = out.filter(~touches_bear)
-        assert tested.height == 1
-        assert tested["reason"][0] is None
-        assert np.isfinite(tested["p_adj"][0])
-        # A single tested pair is its own family: no multiplicity inflation.
-        assert tested["p_adj"][0] == pytest.approx(tested["p_raw"][0])
+        tested = out.filter(~self._touches_bear())
+        assert tested.height == 3
+        assert tested["reason"].to_list() == [None] * 3
+        assert np.isfinite(tested["p_adj"].to_numpy()).all()
+        # Three tested pairs are one family: every adjusted p is its raw p
+        # stepped up (Holm / Romano-Wolf), never below it.
+        assert (tested["p_adj"] >= tested["p_raw"] - 1e-12).all()
 
-    def test_tested_family_matches_strict_run_on_valid_slices(self) -> None:
+    @pytest.mark.parametrize("method", ["bootstrap", "analytic"])
+    def test_tested_family_matches_strict_run_on_valid_slices(
+        self, method: str
+    ) -> None:
         panel = self._panel()
-        kw = dict(by="regime", factor_col="factor", method="analytic")
+        kw = dict(by="regime", factor_col="factor", method=method, rng_seed=1)
         loose = slice_period_pairwise_test(panel, ic(), strict=False, **kw)
         only_valid = slice_period_pairwise_test(
             panel.filter(pl.col("regime") != "bear"), ic(), **kw
         )
-        touches_bear = (pl.col("slice_a") == "bear") | (pl.col("slice_b") == "bear")
-        assert loose.filter(~touches_bear).equals(only_valid)
+        assert only_valid.height == 3
+        assert loose.filter(~self._touches_bear()).equals(only_valid)
+
+    def test_single_tested_pair_carries_no_multiplicity_inflation(self) -> None:
+        panel = build_disjoint_period_panel(
+            seed=5,
+            spans={"bull": (60, 0.1), "bear": (30, 0.1), "flat": (60, 0.02)},
+            label_col="regime",
+        )
+        out = slice_period_pairwise_test(
+            panel,
+            ic(),
+            by="regime",
+            factor_col="factor",
+            method="analytic",
+            strict=False,
+        )
+        tested = out.filter(~self._touches_bear())
+        assert tested.height == 1
+        assert tested["p_adj"][0] == pytest.approx(tested["p_raw"][0])
 
     def test_degenerate_pair_names_its_reason(self) -> None:
         df = build_disjoint_period_panel(
