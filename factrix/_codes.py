@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from enum import StrEnum
 
+from factrix._errors import UserInputError
+
 
 class WarningCode(StrEnum):
     """Procedure-degradation flags.
@@ -211,6 +213,17 @@ class WarningCode(StrEnum):
     # partitions (sector, size bucket — constant within an asset) keep each
     # asset's history intact and do not trigger.
     SLICE_BOUNDARY_TRUNCATION = "slice_boundary_truncation"
+    # Fired by ``slice_period_joint_test`` when K >= 3 slices are tested and
+    # the shortest one has fewer than ``_JOINT_SHORT_SLICE_PERIODS`` (150)
+    # periods. On a true null the omnibus over-rejects there — measured 8–9%
+    # at a nominal 5% for K=5 with 50–90-period slices, under both methods —
+    # because each slice's small-sample HAC variance is a noisy estimate
+    # inverted across K-1 restrictions. The test still runs; read the p as
+    # indicative and prefer the pairwise contrasts on the same slices. The
+    # row records the code, whether the caller declared it expected, and the
+    # triggering context (``k_slices``, ``n_periods_min``,
+    # ``short_slice_periods``).
+    SHORT_SLICE_JOINT_TEST = "short_slice_joint_test"
     # Fired by ``top_concentration`` under ``weight_by="abs_factor"`` when
     # the factor never changes sign across the panel. |factor| is a
     # density weight only if zero is the factor's neutral point: the HHI
@@ -288,6 +301,58 @@ class WarningCode(StrEnum):
     @property
     def description(self) -> str:
         return _WARNING_DESCRIPTIONS[self]
+
+
+def _validate_expected_warnings_arg(
+    expected_warnings: object,
+    *,
+    func_name: str = "evaluate",
+    docs_path: str = "api/evaluate#factrix.evaluate",
+) -> tuple[str, ...]:
+    """Normalize and validate an ``expected_warnings`` declaration.
+
+    One contract for every entry point that takes the declaration —
+    ``evaluate``, ``by_slice``, ``slice_period_joint_test`` — so a declared
+    code means the same thing everywhere: the record is kept and flagged
+    expected, only the ``UserWarning`` echo stops. Accepts a ``tuple`` /
+    ``list`` of :class:`WarningCode` values (the ``StrEnum`` members
+    themselves also pass). Every element must name an existing code — the
+    declaration marks records as expected, so a typo would silently mark
+    nothing.
+    """
+    if isinstance(expected_warnings, str) or not isinstance(
+        expected_warnings, (tuple, list)
+    ):
+        raise UserInputError(
+            func_name=func_name,
+            field="expected_warnings",
+            value=expected_warnings
+            if isinstance(expected_warnings, str)
+            else type(expected_warnings).__name__,
+            expected=(
+                "tuple of WarningCode values declaring by-design warning "
+                "regimes, e.g. expected_warnings=('few_assets',) — a bare "
+                "string is rejected to avoid the ('f', 'e', 'w', ...) trap"
+            ),
+            docs_path=docs_path,
+        )
+    valid = {code.value for code in WarningCode}
+    normalized: list[str] = []
+    for item in expected_warnings:
+        if not isinstance(item, str) or item not in valid:
+            raise UserInputError(
+                func_name=func_name,
+                field="expected_warnings",
+                value=item,
+                expected=(
+                    "a WarningCode value; unknown codes are rejected because "
+                    "the declaration would silently mark nothing. Valid "
+                    f"codes: {sorted(valid)}"
+                ),
+                docs_path=docs_path,
+            )
+        normalized.append(str(item))
+    return tuple(normalized)
 
 
 _WARNING_DESCRIPTIONS: dict[WarningCode, str] = {}
@@ -510,6 +575,17 @@ _WARNING_DESCRIPTIONS.update(
         "decomposed by period. Metrics that don't declare the flag and "
         "cross-sectional partitions (constant within an asset, e.g. sector) "
         "are unaffected and do not trigger.",
+        WarningCode.SHORT_SLICE_JOINT_TEST: "slice_period_joint_test ran on "
+        "K >= 3 slices with the shortest below 150 periods. On a true null "
+        "the omnibus over-rejects there (measured 8–9% at a nominal 5% for "
+        "K=5 with 50–90-period slices, under both methods) because each "
+        "slice's small-sample HAC variance is a noisy estimate inverted "
+        "across K-1 restrictions. The test still runs — read the p-value as "
+        "indicative and prefer the pairwise contrasts on the same slices. The "
+        "result row carries the code in warning_codes (and in "
+        "unexpected_warning_codes unless declared via expected_warnings) "
+        "alongside k_slices, n_periods_min and the short_slice_periods "
+        "threshold that triggered it.",
         WarningCode.ZERO_MAD_STD_FALLBACK: "A preprocess scale estimator fell "
         "back from the robust MAD to the non-robust per-date sample standard "
         "deviation because >50% of the cross-section ties at the median "

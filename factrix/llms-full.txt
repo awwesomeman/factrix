@@ -588,7 +588,7 @@ All exceptions inherit from `FactrixError`:
 
 ## WarningCode reference
 
-The canonical glosses live in `factrix._codes.WarningCode.description` and are regenerated into `docs/reference/_generated_warning_codes.md`. The 28 evaluation-side codes (the preprocess and data-shape codes are in that generated reference; of those, `non_finite_input_dropped` is also attached by `caar` when `compute_caar` drops non-finite event rows):
+The canonical glosses live in `factrix._codes.WarningCode.description` and are regenerated into `docs/reference/_generated_warning_codes.md`. The 29 evaluation-side codes (the preprocess and data-shape codes are in that generated reference; of those, `non_finite_input_dropped` is also attached by `caar` when `compute_caar` drops non-finite event rows):
 
 | WarningCode | Description |
 |---|---|
@@ -618,6 +618,7 @@ The canonical glosses live in `factrix._codes.WarningCode.description` and are r
 | `excessive_period_drops` | An upstream PANEL→SERIES primitive dropped > `DROP_RATE_WARN_THRESHOLD` of periods at its cross-sectional filter; counts in `metadata` (`n_periods_in/out`, ...). |
 | `excessive_asset_drops` | An upstream primitive dropped > `DROP_RATE_WARN_THRESHOLD` of assets (e.g. `compute_common_betas`); counts in `metadata` (`n_assets_in/out`, ...). |
 | `slice_boundary_truncation` | `by_slice` partitioned on a date-axis column while the metric declares `MetricSpec.slice_boundary_sensitive`; each slice sees truncated boundary history. Cross-sectional partitions (constant within an asset, e.g. sector) do not trigger. |
+| `short_slice_joint_test` | `slice_period_joint_test` ran on K >= 3 slices with the shortest below 150 periods; the omnibus over-rejects there (8–9% at nominal 5% for K=5 with 50–90-period slices) because each slice's noisy small-sample HAC variance is inverted across K-1 restrictions. The row records it in `warning_codes` / `unexpected_warning_codes` next to `k_slices`, `n_periods_min` and `short_slice_periods`; declare it in `expected_warnings=` to keep the record and stop the echo. Prefer the pairwise contrasts on the same slices. |
 | `one_signed_factor` | `top_concentration` with `weight_by='abs_factor'` on a factor that never changes sign; \|f\| is a density weight only around a zero neutral point, so an uncentred factor's HHI moves with an arbitrary shift — z-score it or use `alpha_contribution`. |
 | `event_clustering_adjusted` | A pooled statistic found its units correlated and deflated itself by the Kish design effect 1/sqrt(1 + (n_eff - 1) * r_hat) — the same Kolari-Pynnonen (2010) machinery bmp_z and directional_hit_rate use. event_hit_rate and event_ic key it on the within-period intraclass correlation of their own per-event score (events sharing a period share that period's shock, so they are not separate trials). It fires only when the deflation is material — r_hat > 0 and a scale below KP_MATERIAL_SCALE (0.95); above that the statistic is left alone and event_hit_rate keeps the exact binomial. The point estimate is untouched; the p-value widens. Measured on a true null: event_hit_rate 63.5% -> nominal at 20 assets sharing 40 event dates. metadata['kolari_pynnonen_r'] / ['kolari_pynnonen_scaling'] disclose the estimate and the deflator that ran. |
 

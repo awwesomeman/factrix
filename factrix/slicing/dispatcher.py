@@ -18,9 +18,11 @@ from typing import TYPE_CHECKING
 
 import polars as pl
 
-from factrix._codes import WarningCode
+from factrix._codes import WarningCode, _validate_expected_warnings_arg
 from factrix._results import Warning
 from factrix.slicing._primitive import _slice_by
+
+_DOCS_BY_SLICE = "api/by-slice"
 
 if TYPE_CHECKING:
     from factrix._results import EvaluationResult
@@ -36,6 +38,7 @@ def by_slice(
     forward_periods: int | None = None,
     overlap_periods: int | None = None,
     strict: bool = True,
+    expected_warnings: tuple[str, ...] = (),
 ) -> dict[str, EvaluationResult]:
     """Partition ``data`` by ``by`` and run :func:`factrix.evaluate` per slice.
 
@@ -90,6 +93,13 @@ def by_slice(
         strict: Forwarded to ``evaluate``. ``True`` (default) raises if
             the metric is inapplicable to a slice; ``False`` surfaces a
             NaN result with a warning.
+        expected_warnings: :class:`~factrix.WarningCode` values declaring
+            warning regimes that are the study's **design** — the same
+            contract as :func:`factrix.evaluate`, and forwarded to it for
+            every slice. Also covers this function's own
+            ``slice_boundary_truncation`` record: declared codes are kept on
+            every slice's ``warnings`` with ``expected=True`` and only the
+            ``UserWarning`` echo stops. Unknown codes are rejected.
 
     Returns:
         ``dict[str, EvaluationResult]`` — the same shape as
@@ -139,9 +149,14 @@ def by_slice(
     """
     import factrix  # local import: evaluate lives at top level (import cycle)
 
+    expected = _validate_expected_warnings_arg(
+        expected_warnings, func_name="by_slice", docs_path=_DOCS_BY_SLICE
+    )
     sliced = _slice_by(data, by)
     label = _metric_label(metric)
-    truncation = _warn_date_axis_truncation(data, metric, by)
+    truncation = _warn_date_axis_truncation(
+        data, metric, by, expected_warnings=expected
+    )
 
     results: dict[str, EvaluationResult] = {}
     for key, sub_df in sliced.items():
@@ -152,6 +167,7 @@ def by_slice(
             forward_periods=forward_periods,
             overlap_periods=overlap_periods,
             strict=strict,
+            expected_warnings=expected,
         )
         result = bundle[factor_col]
         if truncation is not None:
@@ -180,7 +196,11 @@ def _metric_label(metric: MetricBase) -> str:
 
 
 def _warn_date_axis_truncation(
-    data: pl.DataFrame, metric: MetricBase, by: str
+    data: pl.DataFrame,
+    metric: MetricBase,
+    by: str,
+    *,
+    expected_warnings: tuple[str, ...] = (),
 ) -> Warning | None:
     """Warn when a cross-date metric is sliced on a date axis.
 
@@ -197,6 +217,10 @@ def _warn_date_axis_truncation(
     alone was unreadable programmatically: the condition is a property of the
     ``(metric, by)`` pair, so it applies to every slice, and a caller scanning
     ``result.warnings`` must see it there like any other bundle warning.
+
+    ``expected_warnings`` is the caller's study-level declaration, the same
+    contract as :func:`factrix.evaluate`: a declared code keeps its record —
+    flagged ``expected=True`` — and only the ``UserWarning`` echo stops.
     """
     try:
         spec = type(metric).spec()
@@ -222,9 +246,12 @@ def _warn_date_axis_truncation(
         f"sectional partition (constant within an asset, e.g. sector) this "
         f"warning does not apply."
     )
-    warnings.warn(message, UserWarning, stacklevel=3)
+    expected = WarningCode.SLICE_BOUNDARY_TRUNCATION.value in expected_warnings
+    if not expected:
+        warnings.warn(message, UserWarning, stacklevel=3)
     return Warning(
         code=WarningCode.SLICE_BOUNDARY_TRUNCATION,
         source=name,
         message=message,
+        expected=expected,
     )

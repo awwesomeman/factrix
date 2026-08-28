@@ -125,6 +125,35 @@ and NaN in `stat` / `p_*`:
 `reason` is null on a tested row, so `reason.is_null()` is the filter to
 apply before folding rows from many runs into one family.
 
+### Warning contract (`slice_period_joint_test`)
+
+The slicing functions follow the same *marked, never dropped* contract as
+`evaluate(..., expected_warnings=)`. The omnibus has one advisory —
+`short_slice_joint_test`, fired when `K >= 3` and the shortest slice has
+fewer than 150 periods, the regime where the joint Wald over-rejects
+(8–9% at a nominal 5% for `K=5` with 50–90-period slices; see the
+function's `Warns:` block for the measured grid). It is delivered on the
+row, not only on stderr:
+
+| Column | Meaning |
+|---|---|
+| `warning_codes` | every `WarningCode` the test raised (`list[str]`, empty when clean) |
+| `unexpected_warning_codes` | the subset not declared via `expected_warnings` — the alert view |
+| `short_slice_periods` | the calibration threshold (150) the code is gated on |
+
+`k_slices` and `n_periods_min` already carry the values it was read
+against, so a stacked frame from a batch of regime tests answers which
+cells tripped it, whether the caller had declared it, and why. Declaring
+the code — `slice_period_joint_test(..., expected_warnings=("short_slice_joint_test",))`
+— keeps it in `warning_codes`, drops it from `unexpected_warning_codes`
+and stops the per-call `UserWarning` echo, so a sweep over candidates and
+rebalance frequencies prints nothing for an accepted limitation while the
+audit record survives. Undeclared codes keep the echo. Unknown codes are
+rejected. `by_slice` takes the same argument and forwards it to every
+per-slice `evaluate`, applying it to its own `slice_boundary_truncation`
+record as well; `slice_period_pairwise_test` and the cross-sectional slice
+tests raise no advisory today and carry no such columns.
+
 ## Estimator dispatch
 
 | Estimator | Inference path | `stat` column carries |

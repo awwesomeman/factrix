@@ -24,6 +24,9 @@ _JOINT_COLS = [
     "df_denom",
     "multiplicity",
     "min_periods",
+    "short_slice_periods",
+    "warning_codes",
+    "unexpected_warning_codes",
     "reason",
 ]
 
@@ -451,3 +454,97 @@ class TestNonStrict:
         strict = slice_period_joint_test(df, ic(), **kw)
         loose = slice_period_joint_test(df, ic(), strict=False, **kw)
         assert strict.equals(loose)
+
+
+class TestShortSliceWarningContract:
+    """#879 — the short-slice advisory is a structured, declarable record.
+
+    The row carries the code in ``warning_codes`` whether or not the caller
+    declared it; ``expected_warnings`` only keeps it out of
+    ``unexpected_warning_codes`` and stops the stderr echo — the same
+    marked-never-dropped contract as ``evaluate``. The triggering context
+    (``k_slices``, ``n_periods_min``, ``short_slice_periods``) sits beside it.
+    """
+
+    @staticmethod
+    def _null_panel(seed: int, k: int, t: int):
+        return build_disjoint_period_panel(
+            seed=seed, spans={f"s{i}": (t, 0.1) for i in range(k)}, label_col="regime"
+        )
+
+    @staticmethod
+    def _run(panel, **kwargs):
+        return slice_period_joint_test(
+            panel, ic(), by="regime", factor_col="factor", method="analytic", **kwargs
+        )
+
+    def test_undeclared_regime_is_recorded_and_echoed(self):
+        with pytest.warns(UserWarning, match="short_slice_joint_test"):
+            out = self._run(self._null_panel(0, 3, 60))
+        row = out.row(0, named=True)
+        assert row["warning_codes"] == ["short_slice_joint_test"]
+        assert row["unexpected_warning_codes"] == ["short_slice_joint_test"]
+        assert row["k_slices"] == 3
+        assert row["n_periods_min"] == 60
+        assert row["short_slice_periods"] == 150
+        assert row["reason"] is None
+
+    def test_declared_regime_keeps_the_record_and_stops_the_echo(self):
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            out = self._run(
+                self._null_panel(0, 3, 60),
+                expected_warnings=("short_slice_joint_test",),
+            )
+        row = out.row(0, named=True)
+        assert row["warning_codes"] == ["short_slice_joint_test"]
+        assert row["unexpected_warning_codes"] == []
+        assert math.isfinite(row["p_value"])
+
+    def test_batch_of_candidates_prints_nothing_when_declared(self):
+        """The reporter's case: one call per candidate, the same accepted
+        limitation every time, zero stderr noise, every row still auditable."""
+        import warnings
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            rows = [
+                self._run(
+                    self._null_panel(seed, 3, 60),
+                    expected_warnings=("short_slice_joint_test",),
+                )
+                for seed in range(5)
+            ]
+        assert not [w for w in caught if issubclass(w.category, UserWarning)]
+        stacked = pl.concat(rows)
+        assert stacked["warning_codes"].to_list() == [["short_slice_joint_test"]] * 5
+        assert stacked["unexpected_warning_codes"].to_list() == [[]] * 5
+
+    @pytest.mark.parametrize(("k", "t"), [(2, 60), (3, 150)])
+    def test_outside_the_regime_the_lists_are_empty(self, k, t):
+        row = self._run(self._null_panel(0, k, t)).row(0, named=True)
+        assert row["warning_codes"] == []
+        assert row["unexpected_warning_codes"] == []
+        assert row["short_slice_periods"] == 150
+
+    def test_unavailable_row_raises_nothing(self):
+        df = build_disjoint_period_panel(
+            seed=11,
+            spans={"a": (30, 0.1), "b": (80, 0.1), "c": (80, 0.1)},
+            label_col="regime",
+        )
+        row = self._run(df, strict=False).row(0, named=True)
+        assert row["reason"] == "insufficient_periods"
+        assert row["warning_codes"] == []
+        assert row["unexpected_warning_codes"] == []
+
+    def test_unknown_code_is_rejected_under_this_functions_name(self):
+        with pytest.raises(UserInputError, match="slice_period_joint_test"):
+            self._run(self._null_panel(0, 3, 60), expected_warnings=("nope",))
+        with pytest.raises(UserInputError, match="expected_warnings"):
+            self._run(
+                self._null_panel(0, 3, 60),
+                expected_warnings="short_slice_joint_test",  # type: ignore[arg-type]
+            )
