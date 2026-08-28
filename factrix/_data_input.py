@@ -82,6 +82,12 @@ _PANEL_KEY_COLUMNS: tuple[str, ...] = ("date", "asset_id")
 _FORWARD_PERIODS_COL: str = "_forward_periods"
 _OVERLAP_PERIODS_COL: str = "_overlap_periods"
 
+# The one list of the reserved stamp columns. Every consumer reads it from
+# here — ``evaluate`` rejects them as factor columns and strips them before
+# dispatch, ``inspect`` excludes them from the candidate factor columns — so
+# the rejected set and the stripped set can never drift apart.
+_STAMP_COLUMNS: tuple[str, ...] = (_FORWARD_PERIODS_COL, _OVERLAP_PERIODS_COL)
+
 
 def _stamp_horizons(
     data: pl.DataFrame, *, forward_periods: int, overlap_periods: int

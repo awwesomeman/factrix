@@ -70,8 +70,7 @@ from factrix._compare import compare
 from factrix._dag import CycleError, DagExecutor, _Node
 from factrix._data_input import (
     _BASELINE_COLUMNS,
-    _FORWARD_PERIODS_COL,
-    _OVERLAP_PERIODS_COL,
+    _STAMP_COLUMNS,
     DataInput,
     _coerce_data,
     _read_forward_periods_stamp,
@@ -228,7 +227,8 @@ def evaluate(
     Raises:
         UserInputError: ``metrics`` not a ``dict[str, Metric]`` of
             instances; ``factor_cols`` empty / single ``str`` / contains
-            duplicates / references a column not on ``data``; ``data``
+            duplicates / names a reserved stamp column / references a column
+            not on ``data``; ``data``
             missing a baseline column; a metric ``requires`` a producer
             absent from the registry; under ``strict=True``, a metric
             inapplicable to the data; ``data`` carries no horizon stamp and
@@ -256,6 +256,7 @@ def evaluate(
     _validate_metrics_arg(metrics)
     expected = _validate_expected_warnings_arg(expected_warnings)
     cols = _validate_factor_cols_arg(factor_cols)
+    _validate_factor_cols_not_stamps(cols)
     data = _coerce_data(data)
     _validate_baseline_columns(data)
     _validate_factor_cols_on_data(data, cols)
@@ -268,9 +269,7 @@ def evaluate(
     # overlap defaults to the horizon unless declared via overlap_periods=.
     fp = _resolve_forward_periods(data, forward_periods)
     op = _resolve_overlap_periods(data, overlap_periods, horizon=fp)
-    data = data.drop(
-        [c for c in (_FORWARD_PERIODS_COL, _OVERLAP_PERIODS_COL) if c in data.columns]
-    )
+    data = data.drop([c for c in _STAMP_COLUMNS if c in data.columns])
 
     from factrix.metrics._base import MetricBase
 
@@ -1066,6 +1065,31 @@ def _validate_factor_cols_arg(factor_cols: object) -> list[str]:
                 docs_path=_DOCS_FACTOR_COLS,
             )
     return list(factor_cols)
+
+
+def _validate_factor_cols_not_stamps(cols: list[str]) -> None:
+    """Reject the reserved stamp columns as factor columns.
+
+    Runs before the strip below, so a stamp name fails on the factrix
+    UserInputError surface instead of vanishing between validation and
+    dispatch and surfacing as a polars ColumnNotFoundError.
+    """
+    stamps = [c for c in cols if c in _STAMP_COLUMNS]
+    if not stamps:
+        return
+    raise UserInputError(
+        func_name="evaluate",
+        field="factor_cols",
+        value=stamps,
+        expected=(
+            f"factor_cols to exclude the reserved stamp columns "
+            f"{list(_STAMP_COLUMNS)!r}. They are evaluate-internal stamps "
+            "left by compute_forward_return (the return horizon and the "
+            "evaluation-grid overlap), stripped before dispatch, and cannot "
+            "be factor columns."
+        ),
+        docs_path=_DOCS_FACTOR_COLS,
+    )
 
 
 def _validate_factor_cols_on_data(data: _pl.DataFrame, cols: list[str]) -> None:
