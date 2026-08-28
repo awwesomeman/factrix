@@ -114,7 +114,26 @@ on the `(20, 20, 40)`-spaced grid in
 `tests/stats/test_uneven_grid_overlap_size.py` — but the Amihud-Hurvich
 path of `predictive_beta` and the $K$-restriction Wald paths have not been
 re-measured there, and the $T/h - 1$ cap is less conservative on a
-sub-sampled panel by construction.
+sub-sampled panel by construction. Such a grid is disclosed at source:
+`compute_forward_return(..., dates=)` fires
+[`uneven_evaluation_grid`](warning-codes.md) when adjacent kept rows are not
+a constant number of periods apart. The paths that read a constant spacing
+into the grid they are handed are
+
+- the regression HAC tests — `predictive_beta`, `spanning_alpha`, and the
+  $K$-restriction Wald / slice period joint tests;
+- the ADF and autocorrelation persistence screens;
+- event-study estimation windows and offsets;
+- adjacent-period metrics — turnover, rank autocorrelation, rolling windows.
+
+The remedy is the caller's: pass `dates=` at a constant stride on the panel's
+period grid if those paths must be calibrated; factrix does not resample.
+Switching `inference=` is not that remedy — on an uneven grid
+`overlap_periods` is the *maximum* overlap, so `NonOverlapping` strides at
+that maximum and discards more of the series than it would on a
+constant-stride grid, while `NeweyWest`'s $1.3\sqrt{T}$ base bandwidth is
+insensitive to the unevenness and keeps the full series; that is sample
+efficiency, not calibration.
 
 #### Three departures from the textbook HAR form
 

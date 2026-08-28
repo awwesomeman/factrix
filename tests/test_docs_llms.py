@@ -58,6 +58,7 @@ _PREPROCESS_CODES: frozenset[str] = frozenset(
         WarningCode.INSUFFICIENT_REGRESSION_DF.value,
         WarningCode.RANK_DEFICIENT_DESIGN.value,
         WarningCode.RAGGED_PERIOD_GRID.value,
+        WarningCode.UNEVEN_EVALUATION_GRID.value,
     }
 )
 
