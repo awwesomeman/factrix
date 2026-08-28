@@ -191,6 +191,13 @@ class MetricBase(metaclass=MetricMeta):
     # can read ``self.overlap_periods`` — every metric that sub-samples carries it
     # as a dataclass field; metrics without it never resolve a stride-scaled floor.
     overlap_periods: int
+    # Rebalance stride the turnover metrics pair at, in evaluation-grid
+    # observations. Declared here for the same reason as ``overlap_periods``:
+    # a floor resolver typed ``Callable[[MetricBase], SampleThreshold]`` reads
+    # it off the instance. Unlike the horizon it is a user knob — ``None``
+    # means "fall back to the injected overlap" — and only the metrics that
+    # pair consecutive rebalances carry it as a field.
+    rebalance_lag: int | None
     _impl: ClassVar[Callable]
     _first_param_name: ClassVar[str | None]
     _param_names: ClassVar[tuple[str, ...]]

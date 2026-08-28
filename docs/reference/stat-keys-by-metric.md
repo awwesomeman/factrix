@@ -882,26 +882,39 @@ inference.
 
 - *descriptive*: `mean_rank_autocorrelation`,
   `std_rank_autocorrelation`, `n_pairs`, `overlap_periods`,
-  `quantile`, `n_cross_section_mean`.
+  `rebalance_lag`, `quantile`, `n_cross_section_mean`.
 
 #### `notional_turnover`
 
 - *descriptive*: `n_rebalances`, `n_groups`, `overlap_periods`,
-  `mean_tail_size`.
+  `rebalance_lag`, `mean_tail_size`.
+
+Both turnover metrics report two strides. `overlap_periods` is the panel's
+evaluation-grid overlap stamp — an inference quantity, injected, never a user
+knob. `rebalance_lag` is the stride the metric actually paired consecutive
+observations at, counted in evaluation-grid observations; it equals
+`overlap_periods` unless the caller passed `rebalance_lag=`.
 
 #### `breakeven_cost`
 
 Scalar-input metric (consumes pre-aggregated scalars rather than a
 date-keyed DataFrame).
 
-- *descriptive*: `gross_spread`, `turnover`, `overlap_periods`.
+- *descriptive*: `gross_spread`, `turnover`, `holding_periods`.
 
 #### `net_spread`
 
 Scalar-input metric.
 
 - *descriptive*: `gross_spread`, `cost_drag`, `estimated_cost_bps`,
-  `turnover`, `overlap_periods`.
+  `turnover`, `holding_periods`.
+
+`holding_periods` is the cost-amortisation interval: the number of
+**underlying return periods** between rebalances, the same unit
+`compute_forward_return` normalises `gross_spread` to. It is neither the
+evaluation-grid `overlap_periods` nor the turnover metrics' `rebalance_lag`.
+Both helpers also record `n_groups` and `pairing_checked` when handed the
+producing `MetricResult`s rather than bare floats.
 
 ## Short-circuit envelope
 

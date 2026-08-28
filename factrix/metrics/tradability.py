@@ -75,20 +75,45 @@ __all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
 ]
 
 
-def _rank_turnover_min_dates(overlap_periods: int) -> int:
+def _resolve_rebalance_lag(rebalance_lag: int | None, overlap_periods: int) -> int:
+    """Stride the turnover metrics pair consecutive rebalances at.
+
+    WHY: ``overlap_periods`` is the panel's *inference* quantity — how many
+    adjacent evaluation observations share future periods — and ``evaluate``
+    injects it from the panel's stamp. It stopped being the rebalance schedule
+    once ``compute_forward_return(..., dates=)`` could put the evaluation grid
+    on a different spacing from the return horizon: the schedule a portfolio
+    trades on is a fact about the strategy, not about the return windows.
+    ``rebalance_lag`` states that fact in evaluation-grid observations;
+    ``None`` keeps the injected overlap, which on the full grid is the
+    horizon-aligned stride these metrics have always used.
+    """
+    return overlap_periods if rebalance_lag is None else rebalance_lag
+
+
+def _validate_rebalance_lag(rebalance_lag: int | None) -> None:
+    """``rebalance_lag`` is optional, but a supplied value is a positive count."""
+    if rebalance_lag is not None and rebalance_lag < 1:
+        raise ValueError(f"rebalance_lag must be ≥ 1, got {rebalance_lag!r}")
+
+
+def _rank_turnover_min_dates(rebalance_lag: int) -> int:
     """Raw-date floor for ``rank_turnover``: the non-overlap pair stride ``h`` needs
     >= 3 sampled dates (>= 2 non-overlapping pairs so ``std(rho)`` is defined),
     i.e. >= ``2*h + 1`` raw dates (Hansen & Hodrick 1980).
     """
-    return 2 * overlap_periods + 1
+    return 2 * rebalance_lag + 1
 
 
 def _rank_turnover_sample_threshold(self: MetricBase) -> SampleThreshold:
-    """Dynamic periods floor for ``rank_turnover``, scaling with ``overlap_periods``.
-    Delegates to the same ``_rank_turnover_min_dates`` the in-body short-circuit
-    reads, so the pre-flight and run-time floors agree.
+    """Dynamic periods floor for ``rank_turnover``, scaling with the *resolved*
+    rebalance lag. Reads the same ``_resolve_rebalance_lag`` /
+    ``_rank_turnover_min_dates`` pair the in-body short-circuit reads, so a
+    configured ``rebalance_lag`` moves the pre-flight floor and the run-time
+    floor together instead of leaving pre-flight on the injected overlap.
     """
-    return SampleThreshold(min_periods=_rank_turnover_min_dates(self.overlap_periods))
+    lag = _resolve_rebalance_lag(self.rebalance_lag, self.overlap_periods)
+    return SampleThreshold(min_periods=_rank_turnover_min_dates(lag))
 
 
 @metric(
@@ -101,20 +126,27 @@ def rank_turnover(
     data: pl.DataFrame,
     factor_col: str = "factor",
     overlap_periods: int = 1,
+    rebalance_lag: int | None = None,
     quantile: float | None = None,
 ) -> MetricResult:
     r"""Factor rank-stability via non-overlapping rank autocorrelation.
 
-    The periods floor is dynamic — the minimum date count is ``2*overlap_periods + 1`` — so it is declared as a resolver (a callable sample_threshold) rather than a constant, letting inspect_data pre-flight it.
+    The periods floor is dynamic — the minimum date count is ``2*rebalance_lag + 1`` — so it is declared as a resolver (a callable sample_threshold) rather than a constant, letting inspect_data pre-flight it.
 
     $\text{rank_turnover} = 1 - \mathrm{mean}(\bar\rho)$ where $\bar\rho$ is the mean rank autocorrelation
 
     **What this measures.** Sensitivity of the *full* cross-section rank
-    vector to reshuffling between ``t`` and ``t + overlap_periods``. Mid-rank
-    churn (names moving between e.g. Q4 ↔ Q5 in a 10-group split) counts
-    even though those names carry zero weight in a Q1/Qn long-short
-    portfolio. So this is a **rank-stability diagnostic**, *not* a notional
-    trading-fraction.
+    vector to reshuffling between ``t`` and ``t + lag``, where ``lag`` is the
+    resolved rebalance lag below. Mid-rank churn (names moving between e.g.
+    Q4 ↔ Q5 in a 10-group split) counts even though those names carry zero
+    weight in a Q1/Qn long-short portfolio. So this is a **rank-stability
+    diagnostic**, *not* a notional trading-fraction.
+
+    At ``rebalance_lag=None`` (the default) the metric measures
+    **horizon-aligned rank stability** — the stride is the panel's overlap,
+    which on the full grid is the return horizon. At ``rebalance_lag=1`` it
+    measures **adjacent-rebalance turnover**: how much the ranking moves from
+    one evaluation observation to the next.
 
     **When to use this vs ``notional_turnover``.** Feed a strategy-cost
     formula (breakeven_cost / net_spread) with ``notional_turnover``, not
@@ -123,17 +155,29 @@ def rank_turnover(
     does not provide. Keep this metric for ranking-stability comparisons
     across factors.
 
-    Rank autocorrelation is measured between dates ``t`` and ``t +
-    overlap_periods``, sub-sampled at stride ``overlap_periods`` (phase-0)
-    so each transition is a non-overlapping snapshot. This aligns the stability
-    window with the forward-return horizon used elsewhere in the profile.
+    Rank autocorrelation is measured between dates ``t`` and ``t + lag``,
+    sub-sampled at stride ``lag`` (phase-0) so each transition is a
+    non-overlapping snapshot.
 
     Args:
         data: Panel with ``date, asset_id, factor``.
         factor_col: Name of the factor column. Defaults to ``"factor"``.
-        overlap_periods: Sampling stride in periods — should match the
-            forward-return horizon the factor is being evaluated against.
-            ``1`` reproduces the lag-1 behaviour.
+        overlap_periods: The panel's evaluation-grid overlap. Injected by
+            ``evaluate`` from the ``compute_forward_return`` stamp, or read
+            from the stamp on a standalone call — not a user knob. Used only
+            as the fallback stride when ``rebalance_lag`` is not given.
+        rebalance_lag: Rebalance stride, counted in **evaluation-grid
+            observations** (periods of the panel handed to the metric). Must
+            be a positive ``int``. ``None`` (default) falls back to
+            ``overlap_periods``, reproducing the historical behaviour: on the
+            full grid that stamp equals the return horizon, i.e. the standard
+            holding-period-aligned turnover convention (Alphalens'
+            ``factor_rank_autocorrelation(period=holding)``). On a coarser
+            evaluation grid the stamp is the *derived* overlap, which equals
+            the horizon in evaluation observations only when that grid is
+            evenly spaced — the conservative max-count derivation inflates it
+            otherwise. Pass ``rebalance_lag=1`` when the evaluation grid *is*
+            the rebalance schedule.
         quantile: Optional tail filter in ``(0, 0.5)``. When set, restrict
             the Spearman ρ at each pair to assets whose rank at *either*
             endpoint lies in the top-q or bottom-q of that date's cross-
@@ -149,7 +193,8 @@ def rank_turnover(
     Returns:
         MetricResult with ``value = 1 − mean(ρ)`` and metadata
         carrying ``mean_rank_autocorrelation``, ``std_rank_autocorrelation``,
-        ``n_periods``, ``overlap_periods``, ``quantile``, and
+        ``n_periods``, ``overlap_periods`` (the panel's stamp, unchanged),
+        ``rebalance_lag`` (the stride actually paired at), ``quantile``, and
         ``n_cross_section_mean`` (mean assets-per-transition post-filter).
 
         The value lies in ``[0, 2]``, not ``[0, 1]``: ρ ranges over
@@ -191,7 +236,7 @@ def rank_turnover(
         >>> import factrix as fx
         >>> from factrix.metrics.tradability import rank_turnover
         >>> panel = fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0)
-        >>> result = rank_turnover(panel, overlap_periods=5)
+        >>> result = rank_turnover(panel, rebalance_lag=1)
         >>> result.name == ""
         True
     """
@@ -199,11 +244,13 @@ def rank_turnover(
         raise ValueError(f"quantile must be in (0, 0.5), got {quantile!r}")
     if overlap_periods < 1:
         raise ValueError(f"overlap_periods must be ≥ 1, got {overlap_periods!r}")
+    _validate_rebalance_lag(rebalance_lag)
+    lag = _resolve_rebalance_lag(rebalance_lag, overlap_periods)
 
     all_dates = data["date"].unique().sort()
     # Need ≥ 2 non-overlapping pairs so std(ρ) is defined; that requires
     # ≥ 3 sampled dates (Hansen & Hodrick 1980), i.e. ≥ 2·h + 1 raw dates.
-    min_required = _rank_turnover_min_dates(overlap_periods)
+    min_required = _rank_turnover_min_dates(lag)
     if len(all_dates) < min_required:
         return _short_circuit_output(
             "rank_turnover",
@@ -212,6 +259,7 @@ def rank_turnover(
             n_obs_axis="periods",
             min_required=min_required,
             overlap_periods=overlap_periods,
+            rebalance_lag=lag,
         )
 
     # WHY: polars ``rank()`` sorts NaN *last*, i.e. treats it as larger than
@@ -221,9 +269,7 @@ def rank_turnover(
     # outside the metric's own [0, 1] range — on a panel with 20% NaN factor
     # cells. Every other ranking site in the library filters first; this was
     # the last one that did not.
-    sampled_df = _sample_non_overlapping(data, overlap_periods).filter(
-        _finite_expr(factor_col)
-    )
+    sampled_df = _sample_non_overlapping(data, lag).filter(_finite_expr(factor_col))
 
     ranked = sampled_df.select(
         "date",
@@ -267,6 +313,7 @@ def rank_turnover(
             n_obs_axis="periods",
             min_required=2,
             overlap_periods=overlap_periods,
+            rebalance_lag=lag,
             quantile=quantile,
         )
 
@@ -286,6 +333,7 @@ def rank_turnover(
             "std_rank_autocorrelation": std_rc,
             "n_periods": rc_per_date.height,
             "overlap_periods": overlap_periods,
+            "rebalance_lag": lag,
             "quantile": quantile,
             "n_cross_section_mean": n_cs_mean,
         },
@@ -318,6 +366,7 @@ def notional_turnover(
     factor_col: str = "factor",
     *,
     n_groups: int = DEFAULT_N_GROUPS,
+    rebalance_lag: int | None = None,
     overlap_periods: int = DEFAULT_FORWARD_PERIODS,
 ) -> MetricResult:
     """Portfolio notional turnover via top/bottom quantile membership churn.
@@ -350,32 +399,48 @@ def notional_turnover(
             :data:`~factrix._types.DEFAULT_N_GROUPS` = 5 = quintiles, the
             same constant ``quantile_spread`` defaults to). Must be ≥ 3 so
             top and bottom are distinct buckets.
-        overlap_periods: Rebalance stride (default
-            :data:`~factrix._types.DEFAULT_FORWARD_PERIODS`). When ``> 1``,
-            sub-samples at stride ``h`` before pairing consecutive dates —
-            matches a holding-period-aligned rebalance schedule.
+        rebalance_lag: Rebalance stride, counted in **evaluation-grid
+            observations** (periods of the panel handed to the metric). Must
+            be a positive ``int``. When ``> 1``, sub-samples at that stride
+            before pairing consecutive dates. ``None`` (default) falls back to
+            ``overlap_periods``: on the full grid that stamp equals the return
+            horizon, giving the holding-period-aligned membership churn this
+            metric has always reported; on a coarser evaluation grid it is the
+            *derived* overlap, which matches the horizon in evaluation
+            observations only when that grid is evenly spaced. Pass
+            ``rebalance_lag=1`` when the evaluation grid *is* the rebalance
+            schedule — then the value is adjacent-rebalance membership churn.
+        overlap_periods: The panel's evaluation-grid overlap (default
+            :data:`~factrix._types.DEFAULT_FORWARD_PERIODS`). Injected by
+            ``evaluate`` from the ``compute_forward_return`` stamp, not a user
+            knob; used only as the fallback stride when ``rebalance_lag`` is
+            not given.
 
     Warning:
-        ``n_groups`` and ``overlap_periods`` must match the ``quantile_spread``
-        run whose spread is paired with this turnover. The cost algebra in
-        ``breakeven_cost`` / ``net_spread`` is a statement about *one*
-        portfolio, so a τ measured on decile membership churn does not price a
-        quintile spread, and a τ per bar does not price a 5-period holding.
-        The two used to ship incompatible defaults (10 / 1 here against 5 / 5
-        there); on a 60-name, 400-period panel at ``gross_spread = 0.001``, the
-        matched pair gave breakeven 15.7 bps and net −9.14 bps while each
-        function at its own default gave 2.8 bps and −98.02 bps — breakeven
-        understated 5.6x, drag overstated 10.7x. They now share one constant,
-        and the consumers cross-check the pairing when handed ``MetricResult``s
-        instead of bare floats.
+        ``n_groups`` must match the ``quantile_spread`` run whose spread is
+        paired with this turnover, and both must describe the same rebalance
+        schedule. The cost algebra in ``breakeven_cost`` / ``net_spread`` is a
+        statement about *one* portfolio, so a τ measured on decile membership
+        churn does not price a quintile spread, and a τ per period does not
+        price a multi-period holding. The two used to ship incompatible
+        defaults (10 / 1 here against 5 / 5 there); on a 60-name, 400-period
+        panel at ``gross_spread = 0.001``, the matched pair gave breakeven
+        15.7 bps and net −9.14 bps while each function at its own default gave
+        2.8 bps and −98.02 bps — breakeven understated 5.6x, drag overstated
+        10.7x. They now share one constant, and the consumers cross-check
+        ``n_groups`` when handed ``MetricResult``s instead of bare floats.
+        The cost amortisation itself is a separate declaration: pass
+        ``holding_periods`` — the rebalance interval in *underlying return
+        periods* — to ``breakeven_cost`` / ``net_spread``.
 
     Returns:
         MetricResult with ``value`` = mean per-rebalance turnover ∈ [0, 1].
         ``0`` = identical tail sets every rebalance; ``1`` = full rotation.
-        Metadata: ``n_rebalances``, ``n_groups``, ``overlap_periods``,
-        ``mean_tail_size`` (per-date average of ``(|Q_top| + |Q_bot|)/2``;
-        ≠ ``n_assets / n_groups`` signals unbalanced buckets from ties or
-        a short universe), ``method``.
+        Metadata: ``n_rebalances``, ``n_groups``, ``overlap_periods`` (the
+        panel's stamp, unchanged), ``rebalance_lag`` (the stride actually
+        sampled at), ``mean_tail_size`` (per-date average of
+        ``(|Q_top| + |Q_bot|)/2``; ≠ ``n_assets / n_groups`` signals
+        unbalanced buckets from ties or a short universe), ``method``.
 
     Notes:
         Per rebalance date ``t``::
@@ -403,19 +468,21 @@ def notional_turnover(
         >>> import factrix as fx
         >>> from factrix.metrics.tradability import notional_turnover
         >>> panel = fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0)
-        >>> result = notional_turnover(panel, n_groups=10, overlap_periods=5)
+        >>> result = notional_turnover(panel, n_groups=10, rebalance_lag=1)
         >>> result.name == ""
         True
     """
     if overlap_periods < 1:
         raise ValueError(f"overlap_periods must be ≥ 1, got {overlap_periods!r}")
+    _validate_rebalance_lag(rebalance_lag)
     if n_groups < 3:
         raise ValueError(
             f"n_groups must be ≥ 3 (need distinct top/bottom buckets), got {n_groups!r}"
         )
 
-    if overlap_periods > 1:
-        data = _sample_non_overlapping(data, overlap_periods)
+    lag = _resolve_rebalance_lag(rebalance_lag, overlap_periods)
+    if lag > 1:
+        data = _sample_non_overlapping(data, lag)
 
     dates = data["date"].unique().sort()
     sc = _enforce_min_floor(
@@ -424,6 +491,7 @@ def notional_turnover(
         len(dates),
         "insufficient_dates",
         overlap_periods=overlap_periods,
+        rebalance_lag=lag,
     )
     if sc is not None:
         return sc
@@ -492,6 +560,7 @@ def notional_turnover(
             min_required=n_groups,
             warning_codes=(WarningCode.THIN_QUANTILE_GROUPS.value,),
             overlap_periods=overlap_periods,
+            rebalance_lag=lag,
             n_groups=n_groups,
         )
 
@@ -512,6 +581,7 @@ def notional_turnover(
             "n_rebalances": int(per_date.height),
             "n_groups": n_groups,
             "overlap_periods": overlap_periods,
+            "rebalance_lag": lag,
             "mean_tail_size": mean_tail_size,
             "method": (
                 f"one-sided overlap on top/bottom {tail_pct:.0%} "
@@ -524,21 +594,20 @@ def notional_turnover(
 def _unpack_cost_inputs(
     gross_spread: float | MetricResult,
     turnover: float | MetricResult,
-    overlap_periods: int,
+    holding_periods: int,
 ) -> tuple[float, float, dict[str, object]]:
     """Resolve the two cost inputs and cross-check that they describe one book.
 
     ``breakeven_cost`` / ``net_spread`` take a spread and a turnover and solve
     a single portfolio's cost algebra. That algebra is only meaningful when the
-    two were computed on the *same* bucketing and the *same* rebalance stride —
-    a tau measured on decile membership churn does not price a quintile spread.
-    Bare floats carry no provenance, so nothing could be checked; when the
-    caller passes the producing ``MetricResult``s instead, the pairing is
-    verified here and recorded in the consumer's metadata.
+    two were computed on the *same* bucketing — a tau measured on decile
+    membership churn does not price a quintile spread. Bare floats carry no
+    provenance, so nothing could be checked; when the caller passes the
+    producing ``MetricResult``s instead, the bucketing is verified here and
+    recorded in the consumer's metadata.
 
     Raises:
-        UserInputError: the two results disagree on ``n_groups``, or either
-            disagrees with the ``overlap_periods`` this call was given.
+        UserInputError: the two results disagree on ``n_groups``.
     """
     checked: dict[str, object] = {}
     spread_meta = (
@@ -575,19 +644,19 @@ def _unpack_cost_inputs(
             spread_groups if spread_groups is not None else turnover_groups
         )
 
-    for label, meta in (("gross_spread", spread_meta), ("turnover", turnover_meta)):
-        upstream_h = meta.get("overlap_periods")
-        if upstream_h is not None and upstream_h != overlap_periods:
-            _mismatch(
-                "overlap_periods",
-                upstream_h if label == "gross_spread" else None,
-                upstream_h if label == "turnover" else None,
-                f"the {label} to have been computed at the same rebalance "
-                f"stride as this call's overlap_periods={overlap_periods}; got "
-                f"{upstream_h} upstream",
-            )
+    # WHY: there used to be a second check here, rejecting a call whose
+    # ``overlap_periods`` disagreed with the upstream ``overlap_periods`` in
+    # either producer's metadata. It no longer has a well-defined referent.
+    # The spread's ``overlap_periods`` is the panel's evaluation-grid overlap
+    # (an inference quantity), the turnover's ``rebalance_lag`` counts
+    # evaluation-grid observations, and this call's ``holding_periods`` counts
+    # underlying return periods between rebalances. Once the three units came
+    # apart, equality between any two of them stopped being evidence of a
+    # mis-paired book — the check would have rejected the *correct* call on
+    # every coarser evaluation grid. The bucketing check above is the pairing
+    # constraint that survives, so ``holding_periods`` is only recorded.
     if spread_meta or turnover_meta:
-        checked["overlap_periods"] = overlap_periods
+        checked["holding_periods"] = holding_periods
         checked["pairing_checked"] = True
 
     spread_value = (
@@ -611,13 +680,13 @@ def breakeven_cost(
     gross_spread: float | MetricResult,
     turnover: float | MetricResult,
     *,
-    overlap_periods: int = DEFAULT_FORWARD_PERIODS,
+    holding_periods: int = DEFAULT_FORWARD_PERIODS,
 ) -> MetricResult:
     """Breakeven single-leg trading cost in bps.
 
     No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because this is a scalar diagnostic function rather than a panel-based metric.
 
-    ``Breakeven = Gross_Spread × overlap_periods / (4 × Turnover)``
+    ``Breakeven = Gross_Spread × holding_periods / (4 × Turnover)``
 
     If the actual **one-way** trading cost is below this, the factor's
     alpha survives.
@@ -628,42 +697,62 @@ def breakeven_cost(
     (which is rank-stability, not position-change).
 
     Time-scale alignment: ``gross_spread`` from ``quantile_spread`` is
-    per-period (forward_return is divided by ``overlap_periods`` upstream), but ``turnover``
-    is per-rebalance (one rotation every ``overlap_periods`` periods). Multiplying spread
-    by ``overlap_periods`` puts both sides on the per-rebalance scale
-    before solving net=0 — without it, breakeven is understated by N×.
+    per **underlying return period** — ``compute_forward_return`` divides the
+    holding return by ``forward_periods`` — while ``turnover`` is
+    per-rebalance (one rotation every ``holding_periods`` underlying periods).
+    Multiplying the spread by ``holding_periods`` puts both sides on the
+    per-rebalance scale before solving net = 0; without it, breakeven is
+    understated by that factor.
 
     Args:
-        gross_spread: Per-period mean long-short spread. This is the
-            metric's *data* argument, so it is passed positionally and does
-            not appear on the generated ``__init__`` — the call shape is
-            ``breakeven_cost(gross_spread, turnover=..., overlap_periods=...)``
-            and a second positional argument raises ``TypeError``.
+        gross_spread: Mean long-short spread per underlying return period.
+            This is the metric's *data* argument, so it is passed positionally
+            and does not appear on the generated ``__init__`` — the call shape
+            is ``breakeven_cost(gross_spread, turnover=...,
+            holding_periods=...)`` and a second positional argument raises
+            ``TypeError``.
         turnover: Notional turnover ∈ [0, 1] from ``notional_turnover()``.
-        overlap_periods: Holding period matching the upstream
-            ``compute_forward_return`` and ``notional_turnover`` stride.
+        holding_periods: Number of **underlying return periods** between
+            rebalances — the same unit ``gross_spread`` is normalised to. Must
+            be ≥ 1. On the full grid this equals the ``forward_periods`` the
+            forward return was built at. On a coarser evaluation grid it is
+            the rebalance interval measured in underlying periods, which is
+            **not** the evaluation-grid ``overlap_periods`` and **not** the
+            turnover metrics' ``rebalance_lag``.
 
     Note:
         **Pass the ``MetricResult``s, not their ``.value``.** Both data
         arguments accept either a bare ``float`` or the producing
         ``MetricResult``. Given the results, this function verifies that the
-        spread and the turnover describe the *same* portfolio — same
-        ``n_groups``, same ``overlap_periods`` — and raises ``UserInputError``
-        when they do not, recording ``pairing_checked`` in metadata when they
-        do. Bare floats carry no provenance, so nothing can be checked: the
-        cost algebra silently prices a quintile spread with decile turnover if
-        that is what it is handed. With the pre-unification defaults that was
-        the *likely* outcome, not a corner case — breakeven came out 5.6x too
-        low and cost drag 10.7x too high.
+        spread and the turnover were bucketed the same way (same ``n_groups``)
+        and raises ``UserInputError`` when they were not, recording
+        ``pairing_checked`` in metadata when they were. Bare floats carry no
+        provenance, so nothing can be checked: the cost algebra silently
+        prices a quintile spread with decile turnover if that is what it is
+        handed. With the pre-unification defaults that was the *likely*
+        outcome, not a corner case — breakeven came out 5.6x too low and cost
+        drag 10.7x too high. ``holding_periods`` is not cross-checked against
+        the producers: it is a statement about the trading schedule, which no
+        upstream metadata records.
 
     Returns:
-        MetricResult with value = breakeven cost in bps.
+        MetricResult with value = breakeven cost in bps. Metadata carries
+        ``gross_spread``, ``turnover`` and ``holding_periods``.
 
     Notes:
-        ``breakeven_bps = (gross_spread × overlap_periods) /
-        (4 × turnover) × 1e4``. Multiplying spread by ``overlap_periods``
-        lifts the per-period spread to the per-rebalance scale matching
-        ``turnover``; ``× 1e4`` converts to bps.
+        ``breakeven_bps = (gross_spread × holding_periods) /
+        (4 × turnover) × 1e4``. Multiplying spread by ``holding_periods``
+        lifts the per-underlying-period spread to the per-rebalance scale
+        matching ``turnover``; ``× 1e4`` converts to bps.
+
+        **Example — the unit error this parameter name prevents.** A signal
+        evaluated on a coarse grid, holding 20 underlying return periods per
+        rebalance, on a panel whose derived evaluation-grid
+        ``overlap_periods`` is 2. At ``gross_spread = 0.001`` and
+        ``turnover = 0.20`` the breakeven is
+        ``0.001 × 20 / (4 × 0.20) × 1e4`` = 250 bps. Substituting the derived
+        overlap of 2 returns 25 bps — a 10x understatement of the cost the
+        alpha can bear.
 
         **Where the 4 comes from** (the mirror of ``net_spread``'s cost
         drag — the two must use the same coefficient or breakeven does not
@@ -698,15 +787,15 @@ def breakeven_cost(
     Examples:
         >>> from factrix.metrics.tradability import breakeven_cost
         >>> result = breakeven_cost(
-        ...     gross_spread=0.001, turnover=0.2, overlap_periods=5,
+        ...     gross_spread=0.001, turnover=0.2, holding_periods=5,
         ... )
         >>> result.name == ""
         True
     """
-    if overlap_periods < 1:
-        raise ValueError(f"overlap_periods must be ≥ 1, got {overlap_periods!r}")
+    if holding_periods < 1:
+        raise ValueError(f"holding_periods must be ≥ 1, got {holding_periods!r}")
     gross_spread, turnover, checked = _unpack_cost_inputs(
-        gross_spread, turnover, overlap_periods
+        gross_spread, turnover, holding_periods
     )
     if turnover < EPSILON:
         return MetricResult(
@@ -714,23 +803,23 @@ def breakeven_cost(
             metadata={
                 "gross_spread": gross_spread,
                 "turnover": turnover,
-                "overlap_periods": overlap_periods,
+                "holding_periods": holding_periods,
                 **checked,
             },
         )
 
     # WHY: ×4 = 2 legs × 2 trades (sell the leaver, buy the joiner) per unit of
-    # per-leg turnover; ×overlap_periods lifts the per-period spread to
-    # per-rebalance to align with turnover; ×10000 → bps. See Notes for the
+    # per-leg turnover; ×holding_periods lifts the per-underlying-period spread
+    # to per-rebalance to align with turnover; ×10000 → bps. See Notes for the
     # full derivation.
-    be_bps = (gross_spread * overlap_periods / (4 * turnover)) * 10000
+    be_bps = (gross_spread * holding_periods / (4 * turnover)) * 10000
 
     return MetricResult(
         value=be_bps,
         metadata={
             "gross_spread": gross_spread,
             "turnover": turnover,
-            "overlap_periods": overlap_periods,
+            "holding_periods": holding_periods,
             **checked,
         },
     )
@@ -747,13 +836,13 @@ def net_spread(
     turnover: float | MetricResult,
     estimated_cost_bps: float = 30.0,
     *,
-    overlap_periods: int = DEFAULT_FORWARD_PERIODS,
+    holding_periods: int = DEFAULT_FORWARD_PERIODS,
 ) -> MetricResult:
-    """Net spread after estimated trading costs (per-period).
+    """Net spread after estimated trading costs (per underlying return period).
 
     No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because this is a scalar diagnostic function rather than a panel-based metric.
 
-    ``Net = Gross_Spread - 4 × cost_bps × Turnover / overlap_periods``
+    ``Net = Gross_Spread - 4 × cost_bps × Turnover / holding_periods``
 
     The ``4 ×`` is ``2 legs × 2 trades``: ``turnover`` is the mean
     **per-leg** fraction replaced per rebalance, each replacement is a
@@ -763,11 +852,12 @@ def net_spread(
     useful headline number; override with a venue-specific estimate
     when available.
 
-    Time-scale alignment: ``gross_spread`` is per-period (forward_return
-    is divided by ``overlap_periods`` upstream) but ``4 × cost × turnover`` is the cost paid
-    once per N-period rebalance. Dividing by ``overlap_periods`` amortises
-    that cost back to per-period. Without it, net is over-charged by N×
-    and any factor with h ≥ 2 is artificially killed.
+    Time-scale alignment: ``gross_spread`` is per **underlying return
+    period** — ``compute_forward_return`` divides the holding return by
+    ``forward_periods`` — but ``4 × cost × turnover`` is the cost paid once
+    per rebalance. Dividing by ``holding_periods`` amortises that cost back to
+    the per-underlying-period scale. Without it, net is over-charged by that
+    factor and any multi-period holding is artificially killed.
 
     Expects ``turnover`` to be a **notional** fraction ∈ [0, 1] — the
     share of the equal-weight Q1/Q_n portfolio replaced per rebalance.
@@ -775,35 +865,54 @@ def net_spread(
     (which is rank-stability, not position-change).
 
     Args:
-        gross_spread: Per-period mean long-short spread. This is the
-            metric's *data* argument, so it is passed positionally and does
-            not appear on the generated ``__init__`` — the call shape is
-            ``net_spread(gross_spread, turnover=..., estimated_cost_bps=...,
-            overlap_periods=...)`` and a second positional argument raises
-            ``TypeError``.
+        gross_spread: Mean long-short spread per underlying return period.
+            This is the metric's *data* argument, so it is passed positionally
+            and does not appear on the generated ``__init__`` — the call shape
+            is ``net_spread(gross_spread, turnover=...,
+            estimated_cost_bps=..., holding_periods=...)`` and a second
+            positional argument raises ``TypeError``.
         turnover: Notional turnover ∈ [0, 1] from ``notional_turnover()``.
         estimated_cost_bps: Estimated **one-way** (per-trade) trading cost
             in bps — what a single buy or a single sell costs, e.g.
             half-spread + impact. Halve a round-trip quote before passing
             it here.
-        overlap_periods: Holding period matching the upstream
-            ``compute_forward_return`` and ``notional_turnover`` stride.
+        holding_periods: Number of **underlying return periods** between
+            rebalances — the same unit ``gross_spread`` is normalised to. Must
+            be ≥ 1. On the full grid this equals the ``forward_periods`` the
+            forward return was built at. On a coarser evaluation grid it is
+            the rebalance interval measured in underlying periods, which is
+            **not** the evaluation-grid ``overlap_periods`` and **not** the
+            turnover metrics' ``rebalance_lag``.
 
     Note:
         ``gross_spread`` and ``turnover`` accept the producing
         ``MetricResult``s as well as bare floats; passing the results lets this
-        function verify that the two were computed on the same bucketing and
-        the same stride. See :func:`breakeven_cost`.
+        function verify that the two were bucketed the same way.
+        ``holding_periods`` is not cross-checked against them — it describes
+        the trading schedule, which no upstream metadata records. See
+        :func:`breakeven_cost`.
 
     Returns:
-        MetricResult with value = net spread (per-period).
+        MetricResult with value = net spread per underlying return period.
+        Metadata carries ``gross_spread``, ``cost_drag``,
+        ``estimated_cost_bps``, ``turnover`` and ``holding_periods``.
 
     Notes:
         ``net = gross_spread - 4 × (cost_bps / 1e4) × turnover /
-        overlap_periods``. Cost is incurred once per ``overlap_periods``-
-        period rebalance, so dividing by ``overlap_periods`` amortises it
-        back to the per-period scale of ``gross_spread``. Without the
-        amortisation any factor with ``h >= 2`` is over-charged by ``h x``.
+        holding_periods``. Cost is incurred once per rebalance, i.e. once per
+        ``holding_periods`` underlying return periods, so dividing by
+        ``holding_periods`` amortises it back to the scale of
+        ``gross_spread``. Without the amortisation any multi-period holding is
+        over-charged by exactly that factor.
+
+        **Example — the unit error this parameter name prevents.** A signal
+        evaluated on a coarse grid, holding 20 underlying return periods per
+        rebalance, on a panel whose derived evaluation-grid
+        ``overlap_periods`` is 2. At ``gross_spread = 0.001``,
+        ``turnover = 0.20`` and a one-way cost of 30 bps the drag is
+        ``4 × 0.003 × 0.20 / 20`` = 0.00012 and the net spread 0.00088.
+        Substituting the derived overlap of 2 gives a drag of 0.00120 and a
+        net of −0.00020 — a 10x over-charge that flips the sign of the answer.
 
         **Where the 4 comes from.** Each step of the accounting, in order:
 
@@ -844,20 +953,20 @@ def net_spread(
         >>> from factrix.metrics.tradability import net_spread
         >>> result = net_spread(
         ...     gross_spread=0.001, turnover=0.2,
-        ...     estimated_cost_bps=30.0, overlap_periods=5,
+        ...     estimated_cost_bps=30.0, holding_periods=5,
         ... )
         >>> result.name == ""
         True
     """
-    if overlap_periods < 1:
-        raise ValueError(f"overlap_periods must be ≥ 1, got {overlap_periods!r}")
+    if holding_periods < 1:
+        raise ValueError(f"holding_periods must be ≥ 1, got {holding_periods!r}")
     gross_spread, turnover, checked = _unpack_cost_inputs(
-        gross_spread, turnover, overlap_periods
+        gross_spread, turnover, holding_periods
     )
     # 4 × τ × c: τ is the mean per-leg replaced fraction, each replacement is a
     # sell plus a buy (2τ traded notional per leg) and the $1/$1 long-short
     # holds two legs. See Notes for the derivation.
-    cost_drag = 4 * (estimated_cost_bps / 10000) * turnover / overlap_periods
+    cost_drag = 4 * (estimated_cost_bps / 10000) * turnover / holding_periods
     net = gross_spread - cost_drag
 
     return MetricResult(
@@ -867,7 +976,7 @@ def net_spread(
             "cost_drag": cost_drag,
             "estimated_cost_bps": estimated_cost_bps,
             "turnover": turnover,
-            "overlap_periods": overlap_periods,
+            "holding_periods": holding_periods,
             **checked,
         },
     )

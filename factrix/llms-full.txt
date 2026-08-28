@@ -182,6 +182,16 @@ Small cross-sections reduce power; they do not change the estimand. For an
   equal-weight top/bottom proxy. A long-only or custom-weight portfolio must
   compute turnover and execution costs from its actual weights downstream;
   `rank_turnover` is not a cost input.
+- Four period counts, identical on a full grid and distinct on a coarser one:
+  `forward_periods` (economic horizon, underlying period grid),
+  `overlap_periods` (inference, evaluation-grid observations, injected),
+  `rebalance_lag` (turnover comparison stride, evaluation-grid observations,
+  optional on `rank_turnover` / `notional_turnover`, defaults to the injected
+  overlap) and `holding_periods` (cost amortisation, underlying period grid,
+  required unit on `breakeven_cost` / `net_spread`). Never substitute the
+  derived `overlap_periods` for `holding_periods`: `gross_spread` is per
+  underlying return period, so that swap mis-states cost drag by the ratio of
+  the two.
 - Treat `by_slice`, `spanning_alpha`, and `pooled_beta` as follow-up robustness
   evidence, not an unregistered any-pass promotion gate.
 
