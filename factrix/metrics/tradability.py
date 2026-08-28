@@ -54,6 +54,7 @@ from factrix.metrics._helpers import (
     _median_universe_size,
     _sample_non_overlapping,
     _short_circuit_output,
+    _validate_n_groups,
 )
 
 _DOCS_TRADABILITY = "api/metrics/tradability"
@@ -397,8 +398,11 @@ def notional_turnover(
         factor_col: Name of the factor column.
         n_groups: Number of quantile groups (default
             :data:`~factrix._types.DEFAULT_N_GROUPS` = 5 = quintiles, the
-            same constant ``quantile_spread`` defaults to). Must be ≥ 3 so
-            top and bottom are distinct buckets.
+            same constant ``quantile_spread`` defaults to). Must be at least
+            :data:`~factrix._types.N_GROUPS_FLOOR` = 2 — the top-half /
+            bottom-half book a small universe evaluates with
+            ``quantile_spread(n_groups=2)``; this metric prices that same
+            book, so it accepts the same split.
         rebalance_lag: Rebalance stride, counted in **evaluation-grid
             observations** (periods of the panel handed to the metric). Must
             be a positive ``int``. When ``> 1``, sub-samples at that stride
@@ -475,10 +479,10 @@ def notional_turnover(
     if overlap_periods < 1:
         raise ValueError(f"overlap_periods must be ≥ 1, got {overlap_periods!r}")
     _validate_rebalance_lag(rebalance_lag)
-    if n_groups < 3:
-        raise ValueError(
-            f"n_groups must be ≥ 3 (need distinct top/bottom buckets), got {n_groups!r}"
-        )
+    # The shared bucketing floor, checked up front rather than left to the
+    # kernel call below so an invalid split fails before the date floor can
+    # short-circuit it into an "insufficient_dates" result.
+    _validate_n_groups(n_groups)
 
     lag = _resolve_rebalance_lag(rebalance_lag, overlap_periods)
     if lag > 1:

@@ -193,4 +193,16 @@ MIN_ORTHOGONALIZE_RESIDUAL_ASSETS: int = 10
 # ``monotonicity`` deliberately keeps its own ``n_groups=10``: a decile curve
 # is the shape it is calibrated to read, not a long-short leg.
 DEFAULT_N_GROUPS: int = 5
+# Coarsest quantile split any bucketing metric accepts. Two groups is the
+# top-half / bottom-half long-short book — the split the small-universe
+# guidance recommends and the coarsest one where "top" and "bottom" are still
+# distinct buckets. One group has no long-short leg at all: the spread is
+# identically zero, turnover has nothing to churn and a monotonicity curve is a
+# single point. Enforced once, in ``_assign_quantile_groups`` (and its batch
+# twin), so every consumer — ``quantile_spread``, ``quantile_spread_vw``,
+# ``compute_spread_series``, ``monotonicity``, ``notional_turnover`` — rejects
+# the same values with the same message instead of each carrying its own
+# bound (``notional_turnover`` used to demand three groups while
+# ``quantile_spread`` priced the two-group book it could not pair with).
+N_GROUPS_FLOOR: int = 2
 DEFAULT_FORWARD_PERIODS: int = 5

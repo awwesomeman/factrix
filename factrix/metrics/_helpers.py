@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 from factrix._metric_index import SampleThreshold
 from factrix._results import MetricResult, PValueAlternative
 from factrix._stats import _calc_t_stat, _p_value_from_t
-from factrix._types import DDOF, EPSILON, KPSource, SampleAxis
+from factrix._types import DDOF, EPSILON, N_GROUPS_FLOOR, KPSource, SampleAxis
 
 # Median-across-dates tie_ratio above this triggers a UserWarning when
 # tie_policy="ordinal". 0.3 is the empirical cutoff for "crowded" factors
@@ -1468,6 +1468,22 @@ def _lag_within_asset(
     )
 
 
+def _validate_n_groups(n_groups: int) -> None:
+    """Reject a quantile count below :data:`~factrix._types.N_GROUPS_FLOOR`.
+
+    The single bound every bucketing path shares: both group-assignment
+    kernels call it, so a consumer cannot accept a split its siblings reject.
+    ``n_groups=1`` used to sail through ``quantile_spread`` as a spread of
+    exactly zero, while ``notional_turnover`` refused the two-group book the
+    spread had just priced.
+    """
+    if n_groups < N_GROUPS_FLOOR:
+        raise ValueError(
+            f"n_groups must be >= {N_GROUPS_FLOOR} (a long-short split needs "
+            f"distinct top and bottom buckets), got {n_groups!r}"
+        )
+
+
 def _assign_quantile_groups(
     data: pl.DataFrame,
     factor_col: str = "factor",
@@ -1489,6 +1505,7 @@ def _assign_quantile_groups(
     Returns:
         DataFrame with ``_group`` column appended.
     """
+    _validate_n_groups(n_groups)
     # A float NaN is *not* null to polars: ``rank`` places it above every
     # finite value (top bucket) and ``count`` includes it. Treat NaN like a
     # missing factor (pandas ``qcut`` / alphalens drop it) so it never lands
@@ -1536,6 +1553,7 @@ def _assign_quantile_groups_batch(
     ``compute_spread_series`` and ``monotonicity``; both consume the
     ``_group__<f>`` columns directly.
     """
+    _validate_n_groups(n_groups)
     rank_exprs = [
         pl.when(_finite_expr(f))
         .then(pl.col(f))
