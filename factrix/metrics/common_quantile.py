@@ -100,9 +100,10 @@ def common_quantile_spread(
         ``MetricResult`` whose ``value`` is the top-bottom bucket
         spread; bucket detail and the Spearman monotonicity diagnostic
         live in ``metadata``. Short-circuits with a reason code when
-        input shape is insufficient (no ``date`` / factor / return
-        column, fewer than ``MIN_PORTFOLIO_PERIODS_HARD`` rows, or factor
-        variation below ``n_groups * 2`` distinct values).
+        input shape is insufficient (no factor / return column, fewer
+        than ``MIN_PORTFOLIO_PERIODS_HARD`` rows, or factor variation
+        below ``n_groups * 2`` distinct values); a missing ``date`` /
+        ``asset_id`` is a ``UserInputError`` from the panel key-column gate.
 
     Notes:
         Aggregate the panel to per-date ``(_f, _r)``, ordinal-rank into
@@ -142,11 +143,9 @@ def common_quantile_spread(
     # than the panel kernel, so it applies the shared floor explicitly: one
     # bucket has no top-minus-bottom contrast to test.
     _validate_n_groups(n_groups)
-    if "date" not in data.columns:
-        return _short_circuit_output(
-            "common_quantile_spread",
-            "no_date_column",
-        )
+    # ``date`` / ``asset_id`` are gated by the direct-call key-column check in
+    # ``MetricBase.__call__`` (and by ``evaluate``'s baseline gate), so only
+    # the configurable columns are checked here.
     for col in (factor_col, return_col):
         if col not in data.columns:
             return _short_circuit_output(

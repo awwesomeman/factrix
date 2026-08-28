@@ -30,7 +30,7 @@ def _perfect_fit_panel(n_dates: int = 60, n_assets: int = 8) -> pl.DataFrame:
             rows.append(
                 {
                     "date": date,
-                    "asset": f"A{a}",
+                    "asset_id": f"A{a}",
                     "factor": f,
                     "forward_return": 0.01 * f,
                 }
@@ -67,7 +67,7 @@ class TestPooledBetaPerfectFit:
                 rows.append(
                     {
                         "date": date,
-                        "asset": f"A{a}",
+                        "asset_id": f"A{a}",
                         "factor": f,
                         "forward_return": 0.01 * f + 0.05 * rng.standard_normal(),
                     }
@@ -89,7 +89,12 @@ class TestPredictiveBetaPerfectFit:
         x = rng.standard_normal(n)
         dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n)]
         return pl.DataFrame(
-            {"date": dates, "factor": x, "forward_return": 2.0 * x + 1.0}
+            {
+                "date": dates,
+                "asset_id": ["A"] * n,
+                "factor": x,
+                "forward_return": 2.0 * x + 1.0,
+            }
         ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
     def test_exact_linear_relation_withholds_the_test(self):
@@ -107,6 +112,7 @@ class TestPredictiveBetaPerfectFit:
         df = pl.DataFrame(
             {
                 "date": dates,
+                "asset_id": ["A"] * n,
                 "factor": x,
                 "forward_return": 2.0 * x + rng.standard_normal(n),
             }
