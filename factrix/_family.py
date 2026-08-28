@@ -15,13 +15,13 @@ concerns and are kept on separate knobs:
   into the factor name to stay unique. ``EvaluationResult.metadata`` is
   bookkeeping and never joins the identifier.
 * **Family partition** — ``expand_over`` alone, naming ``forward_periods``
-  (the lone built-in) or ``params`` keys. It no longer doubles as an
-  identity knob, so partitioning is a pure statistical declaration.
+  (the lone built-in) or ``params`` keys. It declares how to partition the
+  family and nothing else, so partitioning stays a pure statistical
+  declaration and never perturbs identity.
 
-The estimator-override hook is
-gone — callers select inference at metric-construction time (e.g.
-``ic(inference=fx.inference.NEWEY_WEST)``) and pick the result by
-passing the corresponding ``metric`` label.
+Inference is selected at metric-construction time (e.g.
+``ic(inference=fx.inference.NEWEY_WEST)``); this layer picks the matching
+result by ``metric`` label rather than overriding an estimator itself.
 """
 
 from __future__ import annotations

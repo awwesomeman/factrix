@@ -7,7 +7,7 @@ flat global ``list()`` — the contextual question "which methods does this
 metric accept?" is answered per-metric (e.g. ``ic`` accepts
 ``NON_OVERLAPPING`` / ``NEWEY_WEST``).
 
-This release scopes the namespace to the **series-mean** family
+The namespace is scoped to the **series-mean** family
 (``compute(data, *, value_col, overlap_periods)``). Slice / panel methods
 keep their multivariate compute in ``factrix.slicing`` until they move
 onto the same ``metric(inference=...)`` path; they are deliberately not

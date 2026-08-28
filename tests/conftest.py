@@ -1,7 +1,6 @@
 """Shared fixtures for factrix unit tests.
 
-Tests build synthetic panels locally and no longer depend on legacy
-profile/artifact fixtures or auto-use rule isolation.
+Tests build synthetic panels locally.
 """
 
 from datetime import datetime, timedelta

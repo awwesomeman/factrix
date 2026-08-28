@@ -8,11 +8,9 @@ primary clone, so one run covers every worktree under it.
 
 Idempotent: re-running just rewrites the same hook shims.
 
-Migration: earlier setups pointed ``core.hooksPath`` at the tracked
-``.githooks`` directory, which is gone. That setting would shadow the
-``.git/hooks`` shims pre-commit installs, so it is unset here. A
-``core.hooksPath`` pointing anywhere else is a contributor-managed hook
-surface — the script aborts rather than overwrite it.
+A set ``core.hooksPath`` would shadow the ``.git/hooks`` shims pre-commit
+installs, and it is a contributor-managed hook surface — the script aborts
+with instructions rather than overwrite it.
 
 Usage::
 
@@ -24,12 +22,11 @@ from __future__ import annotations
 import subprocess
 import sys
 
-_LEGACY_HOOKS_PATH = ".githooks"
 _HOOK_TYPES = ("pre-commit", "commit-msg", "pre-push")
 
 
-def _run_git(*args: str, check: bool = False) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(["git", *args], capture_output=True, text=True, check=check)
+def _run_git(*args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(["git", *args], capture_output=True, text=True, check=False)
 
 
 def _git_config_get(key: str) -> str | None:
@@ -61,14 +58,7 @@ def main() -> int:
 
     hooks_path = _git_config_get("core.hooksPath")
 
-    if hooks_path == _LEGACY_HOOKS_PATH:
-        _run_git("config", "--unset", "core.hooksPath", check=True)
-        print(
-            f"[setup_dev] unset core.hooksPath (was {_LEGACY_HOOKS_PATH!r}). "
-            "The tracked hook scripts moved under the pre-commit framework; "
-            "leaving the old path set would shadow the hooks installed below."
-        )
-    elif hooks_path is not None:
+    if hooks_path is not None:
         print(
             f"[setup_dev] ERROR: core.hooksPath is set to {hooks_path!r}, which "
             "shadows the hooks pre-commit installs into .git/hooks.",

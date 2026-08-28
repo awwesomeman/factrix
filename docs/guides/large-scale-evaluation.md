@@ -4,17 +4,17 @@ title: Large-scale evaluation and memory protection
 
 When evaluating hundreds or thousands of factors over large historical datasets, memory protection becomes a key design requirement.
 
-This guide explains how to structure your factor screens using a **user-side batched loop** with Polars LazyFrames. This approach replaces the retired built-in streaming/chunking APIs (`run_metrics_iter`, `run_metrics_chunked`, `evaluate_iter`, and `evaluate_chunked`).
+This guide explains how to structure your factor screens using a **user-side batched loop** with Polars LazyFrames.
 
-## Design trade-off: why built-in streaming was removed
+## Design trade-off: why factrix has no built-in batch API
 
-In earlier versions, `factrix` attempted to manage chunked evaluation and iterator streaming internally. However, this introduced several drawbacks:
+`factrix` exposes no chunked-evaluation or iterator-streaming API. Owning that internally costs more than it buys:
 
-- **Complex internal state**: Managing execution state, lazy-to-eager evaluation boundaries, and memory disposal internally added significant complexity to the DAG executor.
-- **Redundant memory pressure**: Stashing intermediate chunks in memory before returning them often defeated the purpose of streaming.
-- **Loss of control**: Callers could not easily control the file scanning, projection pushdown, or GC behavior of the under-the-hood engine.
+- **Complex internal state**: execution state, lazy-to-eager evaluation boundaries, and memory disposal all have to be tracked inside the DAG executor.
+- **Redundant memory pressure**: stashing intermediate chunks in memory before returning them defeats the purpose of streaming.
+- **Loss of control**: callers cannot easily steer the file scanning, projection pushdown, or GC behavior of an under-the-hood engine.
 
-By removing the built-in batch/streaming APIs, the library's API surface was simplified. Evaluating large-scale panels is now delegated to a user-side loop. This design lets Polars do what it does best: optimize column reads using projection pushdown, while allowing Python's garbage collector to immediately reclaim memory when a chunk's results fall out of scope.
+Delegating large-scale panels to a user-side loop keeps the API surface small and lets Polars do what it does best: optimize column reads using projection pushdown, while allowing Python's garbage collector to immediately reclaim memory when a chunk's results fall out of scope.
 
 ## The pattern: user-side batched loop
 

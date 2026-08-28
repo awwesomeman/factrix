@@ -43,8 +43,7 @@ typical usage patterns in a single fetch. Two access paths::
 
 # Underscore aliases: ``import factrix; dir(factrix)`` otherwise offers
 # ``math``, ``pl``, ``Any``, ``dataclasses``, ``MappingProxyType``,
-# ``TYPE_CHECKING`` and ``NoReturn`` alongside the real API, and
-# ``from factrix import *`` used to be the only thing ``__all__`` protected.
+# ``TYPE_CHECKING`` and ``NoReturn`` alongside the real API.
 import dataclasses as _dataclasses
 import math as _math
 from collections.abc import Iterable as _Iterable

@@ -120,14 +120,13 @@ python scripts/setup_dev.py
 ```
 
 The script runs `pre-commit install` for the `pre-commit`, `commit-msg`
-and `pre-push` stages, and unsets a leftover `core.hooksPath` from the
-pre-framework setup (it would shadow the installed hooks). Idempotent —
-re-running just rewrites the same shims; aborts (non-zero exit) if
-`core.hooksPath` points at some other path, so a contributor's
-dotfiles-managed hook surface is not silently overwritten. The
-installation is per-clone and local; it does not propagate across
-machines, so every clone / new machine must run the script once. `git
-worktree` instances share `.git/hooks` with their primary clone, so one
+and `pre-push` stages. Idempotent — re-running just rewrites the same
+shims; aborts (non-zero exit) if `core.hooksPath` is set at all, since it
+would shadow the installed hooks and a contributor's dotfiles-managed hook
+surface must not be silently overwritten. The installation is per-clone
+and local; it does not propagate across machines, so every clone / new
+machine must run the script once. `git worktree` instances share
+`.git/hooks` with their primary clone, so one
 run at the primary clone covers every worktree under it.
 
 `pre-commit` — when staged changes include `*.py` / `*.ipynb`, runs
@@ -544,9 +543,11 @@ meaning, leave it to release-train review.
 Before running a release bump (see §9), run this checklist on `main`:
 
 ```bash
-# 1. Search for known-deprecated symbol names that may have leaked back in.
-#    Extend the pattern per release with names retired since the last tag.
-git grep -nE 'q1_q5_spread'
+# 1. Search for symbols retired this release cycle that may have leaked back in.
+#    Build PATTERN from the breaking changes since the last tag (the `!`-marked
+#    commits and the CHANGELOG's breaking entries). It is rebuilt every cycle,
+#    not inherited — a pattern that survives past its removal only adds noise.
+git grep -nE "$PATTERN"
 
 # 2. Sync the release-check toolchain from locked project metadata.
 uv sync --frozen --extra dev --extra docs
@@ -866,7 +867,6 @@ The slicing subsystem is the worked example of the rule:
 | `Layer-A` / first-layer dispatcher | **slice dispatcher** — describes partitioning by label + applying a metric per slice (`by_slice`) |
 | `Layer-B` / second-layer / curated wrapper (inference path) | **slice-test function** / **inference function** — describes the cross-slice estimator + multiple-testing pipeline (`slice_pairwise_test` / `slice_joint_test`) |
 | `Layer-B` Estimator | **slice-test Estimator** — Estimators consumed by the slice-test functions (`WaldNWCluster` / `WaldTwoWayCluster` / `BlockBootstrap`) |
-| metric-specific `regime_<metric>` curated wrapper | **legacy metric-specific wrapper** (when describing removed surface area); for the current path, name `by_slice` + the inference function directly |
 | `EvaluationResult.to_frame()` renderer layer | **renderer** — result-side method; no separate tier implied |
 
 The rule is functional, not lexical — `dispatcher`, `function`, and `wrapper` are fine on their own when they describe what the function does. It is the **pairing** as a tier label (`dispatcher` vs `curated wrapper` as the two levels of the slicing system) that drifts; the same word as a behavioural noun is stable. Describe the specification by its content when a docstring needs to point at one, rather than `Layer-B (#NNN)` — the `Layer-B` tier label drifts, and an issue number does not belong in source either.
@@ -989,13 +989,13 @@ newlines as `<br>`, so source-level wrapping leaks into the rendered output.
 
 ### BC change reminders
 
-Example: `q1_q5_spread → long_short_spread` (this rename actually
-occurred in workspace history). This kind of rename is a BC change.
-When using `cz commit`, the developer must select Breaking Change and
-**explicitly write the migration path** in the prompt (old → new
-names, affected fields). The Pre-1.0 version guide above defines where that
-upgrade text lives before `v1.0.0`; from `v1.0.0` onward, carry it into the
-maintained changelog entry.
+Example: `breakeven_cost` / `net_spread` took `overlap_periods` up to
+`v0.23.0` and take `holding_periods` from the next release (#876). This
+kind of rename is a BC change. When using `cz commit`, the developer must
+select Breaking Change and **explicitly write the migration path** in the
+prompt (old → new names, affected fields). The Pre-1.0 version guide
+above defines where that upgrade text lives before `v1.0.0`; from
+`v1.0.0` onward, carry it into the maintained changelog entry.
 
 ### Workspace pins to tags, not main
 

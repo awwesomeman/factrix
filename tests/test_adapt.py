@@ -54,7 +54,7 @@ class TestCanonicalRenames:
             assert c not in out.columns, f"{c} source should have been renamed"
 
     def test_partial_ohlcv_is_allowed(self):
-        # User only needs 'high' for generate_52w_high_ratio
+        # User only needs 'high' for their own factor construction
         out = adapt(
             _raw_panel(),
             date="trade_date",
