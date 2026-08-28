@@ -39,7 +39,13 @@ class TestPredictiveBetaStatistic:
         assert result.metadata["stambaugh_adjusted"] is True
         assert result.stat > 0
         assert result.p_value < 0.01
-        assert result.n_obs == 240
+        # 240 finite pairs, 235 rows in the corrected fit: the Amihud-Hurvich
+        # design needs a lagged predictor and a horizon-summed innovation
+        # proxy, so it drops ``overlap_periods`` rows. ``n_obs`` reports the
+        # rows the headline test actually ran on; the pair count stays
+        # auditable in ``n_periods_finite``.
+        assert result.n_obs == 240 - 5
+        assert result.metadata["n_periods_finite"] == 240
         assert result.n_obs_axis == "periods"
         assert result.metadata["h0"] == "beta=0"
         assert result.metadata["newey_west_lags"] == _resolve_nw_lags(240, None, 5)
@@ -95,7 +101,10 @@ class TestPredictiveBetaStatistic:
         )
 
         result = predictive_beta(panel, overlap_periods=1)
-        assert result.n_obs == 72
+        # 72 finite pairs; the corrected fit spends the first one on the AR(1)
+        # lag, so the reported sample is 71.
+        assert result.metadata["n_periods_finite"] == 72
+        assert result.n_obs == 71
 
 
 class TestPredictiveBetaShortCircuits:
@@ -209,7 +218,10 @@ class TestPredictiveBetaNonFinite:
         result = predictive_beta(poisoned)
         assert np.isfinite(result.value)
         assert np.isfinite(result.stat)
-        assert result.n_obs == data.height - 1
+        # One poisoned cell leaves 119 finite pairs; the corrected fit at the
+        # default ``overlap_periods=5`` runs on 114 of them.
+        assert result.metadata["n_periods_finite"] == data.height - 1
+        assert result.n_obs == data.height - 1 - 5
 
     def test_nan_factor_cell_is_dropped(self):
         data = self._series()
@@ -221,7 +233,8 @@ class TestPredictiveBetaNonFinite:
         )
         result = predictive_beta(poisoned)
         assert np.isfinite(result.value)
-        assert result.n_obs == data.height - 1
+        assert result.metadata["n_periods_finite"] == data.height - 1
+        assert result.n_obs == data.height - 1 - 5
 
     def test_matches_manually_pruned_input(self):
         data = self._series()
@@ -234,6 +247,35 @@ class TestPredictiveBetaNonFinite:
         pruned = data.with_row_index("_i").filter(pl.col("_i") != 7).drop("_i")
         assert predictive_beta(poisoned).value == pytest.approx(
             predictive_beta(pruned).value
+        )
+
+
+class TestPredictiveBetaReportedSample:
+    """REGRESSION (#873): the reported counts are the corrected fit's rows.
+
+    ``n_obs`` / ``n_periods`` used to report the finite-pair count while the
+    headline slope came from the Amihud-Hurvich augmented design, which spends
+    the first observation on the AR(1) lag and, at ``h > 1``, the last
+    ``h - 1`` windows on the horizon-summed innovation proxy. The two counts
+    are both auditable now: ``n_periods_finite`` is the pre-fit pair count.
+    """
+
+    @pytest.mark.parametrize("overlap_periods", [1, 2, 5, 21])
+    def test_n_obs_counts_the_rows_the_headline_test_used(
+        self, overlap_periods: int
+    ) -> None:
+        rng = np.random.default_rng(9)
+        n_finite = 200
+        result = predictive_beta(
+            _ts_panel(rng.normal(size=n_finite), rng.normal(size=n_finite)),
+            overlap_periods=overlap_periods,
+        )
+        assert result.metadata["stambaugh_adjusted"] is True
+        assert result.metadata["n_periods_finite"] == n_finite
+        assert result.n_obs == n_finite - overlap_periods
+        assert result.metadata["n_periods"] == result.n_obs
+        assert result.metadata["n_periods_effective"] == (
+            result.n_obs // overlap_periods
         )
 
 
@@ -250,19 +292,23 @@ class TestPredictiveBetaOverlapAndPersistenceScreens:
         y = rng.normal(size=n)
         with pytest.warns(UserWarning, match="effective sample"):
             result = predictive_beta(_ts_panel(x, y), overlap_periods=21)
-        assert result.metadata["n_periods"] == n
-        assert result.metadata["n_periods_effective"] == n // 21
+        # The corrected fit drops ``overlap_periods`` rows, so the effective
+        # count reads 99 // 21, not 120 // 21.
+        assert result.metadata["n_periods_finite"] == n
+        assert result.metadata["n_periods"] == n - 21
+        assert result.metadata["n_periods_effective"] == (n - 21) // 21
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value in result.warning_codes
 
     def test_same_length_at_horizon_one_stays_clean(self):
-        # h = 1 makes the effective and raw counts identical, so the gate is
-        # exactly the pre-existing one.
+        # h = 1 makes the effective and reported counts identical, so the gate
+        # is exactly the pre-existing one. Both sit one below the finite-pair
+        # count, which the AR(1) lag consumes.
         rng = np.random.default_rng(4)
         n = 120
         result = predictive_beta(
             _ts_panel(rng.normal(size=n), rng.normal(size=n)), overlap_periods=1
         )
-        assert result.metadata["n_periods_effective"] == n
+        assert result.metadata["n_periods_effective"] == n - 1
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value not in result.warning_codes
 
     def test_persistent_residuals_flag_serial_correlation(self):

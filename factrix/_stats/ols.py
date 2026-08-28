@@ -215,7 +215,18 @@ def _ols_homoskedastic(
 
 
 class AmihudHurvichFit(NamedTuple):
-    """Reduced-bias predictive-regression fit. See :func:`_amihud_hurvich_beta`."""
+    """Reduced-bias predictive-regression fit. See :func:`_amihud_hurvich_beta`.
+
+    ``alpha``, ``n_used`` and ``resid`` describe the **reported structural
+    model** ``y = alpha + beta·x + e`` on the rows the augmented design kept,
+    so a caller can report diagnostics for the fit it actually publishes
+    rather than for the OLS regression that preceded it. ``alpha`` is *not*
+    the augmented regression's intercept: that one absorbs the innovation
+    proxy and is not the intercept implied by ``beta``.
+
+    A not-computable fit fills every float with NaN, ``n_used`` with ``0``
+    and ``resid`` with an empty array.
+    """
 
     beta: float
     t_stat: float
@@ -225,6 +236,9 @@ class AmihudHurvichFit(NamedTuple):
     phi: float
     phi_corrected: float
     innovation_corr: float
+    alpha: float
+    n_used: int
+    resid: np.ndarray
 
 
 def _amihud_hurvich_beta(
@@ -359,14 +373,21 @@ def _amihud_hurvich_beta(
         overlap_periods: Overlap horizon ``h`` of ``y``.
 
     Returns:
-        :class:`AmihudHurvichFit`. Every field is NaN when the sample is too
-        short (``n < 5``) or the predictor is degenerate.
+        :class:`AmihudHurvichFit`. ``n_used`` is the row count the augmented
+        design ran on — ``n - h``, the first observation going to the AR(1)
+        lag and the last ``h - 1`` windows to the horizon-summed proxy — and
+        ``alpha`` / ``resid`` are the intercept and residual of the reported
+        structural model ``y = alpha + beta·x + e`` on exactly those rows.
+        Every field is NaN (``n_used = 0``, ``resid`` empty) when the sample
+        is too short (``n < 5``) or the predictor is degenerate.
     """
     y = _require_finite(y, "_amihud_hurvich_beta")
     x = _require_finite(x, "_amihud_hurvich_beta")
     n = len(y)
     nan = float("nan")
-    not_computable = AmihudHurvichFit(nan, nan, nan, nan, nan, nan, nan, nan)
+    not_computable = AmihudHurvichFit(
+        nan, nan, nan, nan, nan, nan, nan, nan, nan, 0, np.empty(0)
+    )
     if n < 5 or len(x) != n:
         return not_computable
 
@@ -437,16 +458,26 @@ def _amihud_hurvich_beta(
 
     se = float(np.sqrt(se_aug**2 + (gamma * se_phi * loading) ** 2))
     beta = float(beta_vec[1])
+    # The intercept the REPORTED model implies, on the rows this design used.
+    # It is not ``beta_vec[0]``: the augmented intercept is fitted alongside
+    # the innovation proxy and absorbs its (non-zero) mean, so it does not
+    # close the structural equation ``y = alpha + beta x + e``. The two differ
+    # by the constant ``gamma * mean(proxy)`` only.
+    alpha = float(np.mean(y[:m]) - beta * np.mean(x[:m]))
     # rho is the correlation between the PREDICTIVE residual and the AR
     # innovation - the Stambaugh channel itself. It must be measured off the
     # structural residual ``y - alpha - beta x``, NOT the augmented fit's
     # residual: the latter has the proxy projected out of it by construction,
     # so it is orthogonal to ``innovation`` and would report rho = 0 always.
-    resid_e = y[:m] - beta_vec[0] - beta_vec[1] * x[:m]
+    # The same series is handed back on the fit so callers can screen the
+    # residuals of the model they report; a constant shift leaves rho alone.
+    resid_e = y[:m] - alpha - beta * x[:m]
     corr_matrix = np.corrcoef(resid_e, innovation[:m])
     rho = float(corr_matrix[0, 1]) if np.isfinite(corr_matrix[0, 1]) else nan
     if se < EPSILON:
-        return AmihudHurvichFit(beta, nan, nan, se, gamma, phi, phi_c, rho)
+        return AmihudHurvichFit(
+            beta, nan, nan, se, gamma, phi, phi_c, rho, alpha, m, resid_e
+        )
 
     t_stat = beta / se
     # h = 1: the textbook residual df of the augmented regression. h > 1: the
@@ -456,4 +487,6 @@ def _amihud_hurvich_beta(
     # multivariate paths on the narrow rule does not apply to it.
     dof = float(max(m - 3, 1)) if h == 1 else _har_dof(m, lags, h)
     p_value = float(2 * sp_stats.t.sf(abs(t_stat), df=dof))
-    return AmihudHurvichFit(beta, t_stat, p_value, se, gamma, phi, phi_c, rho)
+    return AmihudHurvichFit(
+        beta, t_stat, p_value, se, gamma, phi, phi_c, rho, alpha, m, resid_e
+    )
