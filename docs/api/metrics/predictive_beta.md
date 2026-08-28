@@ -35,7 +35,7 @@ title: factrix.metrics.predictive_beta
     ---
 
     The slope test uses Newey-West HAC covariance. The lag defaults to
-    the Newey-West automatic bandwidth, floored at `forward_periods - 1`
+    the Newey-West automatic bandwidth, floored at `overlap_periods - 1`
     so overlapping forward-return windows do not understate standard
     errors.
 
@@ -72,7 +72,7 @@ title: factrix.metrics.predictive_beta
     have a lag-1 autocorrelation above `PERSISTENT_SERIES_AUTOCORR` (0.3) —
     the same rule `fm_beta` and the series-mean inference members
     apply. `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` reads
-    `n_periods_effective = n_periods // forward_periods`, not the raw row
+    `n_periods_effective = n_periods // overlap_periods`, not the raw row
     count: `n` overlapping rows carry about `n / h` independent observations
     while the HAC lag floor rises with `h`. At `T = 120`, `h = 21` the
     regression runs on 98 rows with a Bartlett lag of 20 and rejects 17.5% of
@@ -144,8 +144,8 @@ windows share observations.
         forward_periods=5,
     )
 
-    full = predictive_beta(panel, forward_periods=5)
-    hit = directional_hit_rate(panel, forward_periods=5)
+    full = predictive_beta(panel, overlap_periods=5)
+    hit = directional_hit_rate(panel, overlap_periods=5)
 
     dates = panel.select("date").unique().sort("date")["date"].to_list()
     window_periods = 60
@@ -156,7 +156,7 @@ windows share observations.
         window = panel.filter(
             pl.col("date").is_between(window_dates[0], window_dates[-1])
         )
-        result = predictive_beta(window, forward_periods=5)
+        result = predictive_beta(window, overlap_periods=5)
         rows.append(
             {
                 "date": window_dates[-1],
