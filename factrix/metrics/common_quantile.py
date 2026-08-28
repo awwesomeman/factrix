@@ -44,6 +44,7 @@ from factrix.metrics._helpers import (
     _degenerate_test_fields,
     _enforce_min_floor,
     _short_circuit_output,
+    _validate_n_groups,
 )
 
 __all__ = [
@@ -87,7 +88,9 @@ def common_quantile_spread(
         factor_col: Column carrying the factor.
         return_col: Column carrying the forward return.
         n_groups: Number of quantile buckets ``K`` to cut the factor
-            history into.
+            history into. At least :data:`~factrix._types.MIN_N_GROUPS` = 2
+            (the top-minus-bottom contrast needs two buckets); the Spearman
+            shape check is reported as NaN below ``K = 3``.
         overlap_periods: Overlap horizon of the forward return; floors
             the Newey-West (NW) bandwidth.
         nw_lags: Override for the NW lag count. ``None`` resolves to
@@ -135,6 +138,10 @@ def common_quantile_spread(
         >>> result.name == ""
         True
     """
+    # This metric buckets the factor *history* with its own ordinal cut rather
+    # than the panel kernel, so it applies the shared floor explicitly: one
+    # bucket has no top-minus-bottom contrast to test.
+    _validate_n_groups(n_groups)
     if "date" not in data.columns:
         return _short_circuit_output(
             "common_quantile_spread",
