@@ -21,7 +21,7 @@ together with the `ruff==` pin in `pyproject.toml` (a test enforces it).
 For release checks, sync the docs toolchain too:
 
 ```bash
-uv sync --frozen --extra dev --extra docs
+uv sync --frozen --all-extras
 ```
 
 ## Development Cycle

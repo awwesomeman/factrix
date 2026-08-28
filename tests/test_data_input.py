@@ -38,8 +38,23 @@ def test_coerce_lazyframe_collects(data_pl: pl.DataFrame) -> None:
     assert out.equals(data_pl)
 
 
-def test_coerce_pandas_dataframe_is_rejected_with_guidance() -> None:
+def _pandas():
+    """``pandas`` or skip — and skip on a *dangling* pandas too.
+
+    ``pytest.importorskip`` is satisfied by a bare namespace package: after
+    ``uv sync`` drops the ``pandas`` extra, a leftover ``site-packages/pandas/``
+    directory (stale ``__pycache__`` under ``pandas/tests``) still imports, with
+    no ``DataFrame`` on it. That is "pandas absent", not a failure of the
+    rejection path this file tests.
+    """
     pd = pytest.importorskip("pandas")
+    if not hasattr(pd, "DataFrame"):
+        pytest.skip("pandas is a leftover namespace package, not an install")
+    return pd
+
+
+def test_coerce_pandas_dataframe_is_rejected_with_guidance() -> None:
+    pd = _pandas()
     pdf = pd.DataFrame({"a": [1, 2]})
     with pytest.raises(TypeError, match=r"factrix\.adapt|pl\.from_pandas"):
         _coerce_data(pdf)
@@ -63,7 +78,8 @@ def test_evaluate_accepts_lazyframe_end_to_end(data_pl: pl.DataFrame) -> None:
 
 
 def test_evaluate_rejects_pandas_with_guidance(data_pl: pl.DataFrame) -> None:
-    pytest.importorskip("pandas")
+    _pandas()
+    pytest.importorskip("pyarrow")  # ``DataFrame.to_pandas`` needs it
     pdf = data_pl.to_pandas()
     from factrix.metrics import ic
 
