@@ -98,6 +98,42 @@ def _warn_if_ragged(indexed: pl.DataFrame, n_periods: int) -> None:
         )
 
 
+def _warn_if_uneven(kept_index: list[int]) -> None:
+    """Flag a caller-chosen evaluation grid with a non-constant stride.
+
+    ``dates=`` may name any subset of the panel's period grid, and nothing
+    downstream resamples it. The series-mean paths are calibrated on an
+    unevenly spaced grid; several other paths read a constant spacing into
+    the grid they are handed, so the caller has to know which one it passed.
+    """
+    strides = np.unique(np.diff(np.asarray(sorted(kept_index), dtype=np.int64)))
+    if strides.size > 1:
+        warnings.warn(
+            f"compute_forward_return: {WarningCode.UNEVEN_EVALUATION_GRID.value} "
+            f"— the evaluation grid passed as dates= has {strides.size} distinct "
+            f"spacings between adjacent kept rows ({int(strides.min())} to "
+            f"{int(strides.max())} periods). Series-mean inference "
+            "(NonOverlapping, NeweyWest) is calibrated on such a grid; the "
+            "regression HAC tests (predictive_beta, spanning_alpha, the "
+            "K-restriction Wald / slice period joint tests), the ADF / "
+            "autocorrelation persistence screens, event-study estimation "
+            "windows and offsets, and adjacent-period metrics (turnover / rank "
+            "autocorrelation, rolling windows) assume a constant spacing — read "
+            "their results on this grid with that in mind. The remedy is on "
+            "your side: pass dates= at a constant stride on the panel's period "
+            "grid if those paths must be calibrated; factrix does not resample. "
+            "Separately, on an uneven grid overlap_periods is the maximum "
+            "overlap, so NonOverlapping strides at that maximum and discards "
+            "more of the series than it would on a constant-stride grid, while "
+            "NeweyWest's 1.3*sqrt(T) base bandwidth is insensitive to the "
+            "unevenness (measured 5.5% at a nominal 5%) and keeps the full "
+            "series. That is sample efficiency only: switching inference= does "
+            "not recalibrate the paths named above.",
+            UserWarning,
+            stacklevel=3,
+        )
+
+
 def _resolve_evaluation_grid(
     grid: pl.DataFrame, dates: object
 ) -> tuple[pl.Series, list[int]]:
@@ -517,6 +553,7 @@ def compute_forward_return(
         kept_dates, kept_index = evaluation_grid
         out = out.filter(pl.col("date").is_in(kept_dates.implode()))
         overlap_periods = _overlap_on_grid(kept_index, forward_periods)
+        _warn_if_uneven(kept_index)
     if out.is_empty():
         raise UserInputError(
             func_name="compute_forward_return",

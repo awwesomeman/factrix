@@ -298,6 +298,13 @@ class WarningCode(StrEnum):
     # spans a different number of real periods for different assets.
     RAGGED_PERIOD_GRID = "ragged_period_grid"
 
+    # Fired by ``compute_forward_return`` when the caller-chosen evaluation
+    # grid passed as ``dates=`` is not a constant number of periods wide
+    # between adjacent kept rows. The series-mean paths are calibrated there;
+    # the regression HAC, persistence-screen, event-study and adjacent-period
+    # paths read a constant spacing into the grid they are handed.
+    UNEVEN_EVALUATION_GRID = "uneven_evaluation_grid"
+
     @property
     def description(self) -> str:
         return _WARNING_DESCRIPTIONS[self]
@@ -629,6 +636,19 @@ _WARNING_DESCRIPTIONS.update(
         "period index, so an h-period-ahead return then spans a different "
         "number of panel periods for different assets. Reindex the panel onto "
         "a common grid if the horizons must be comparable across names.",
+        WarningCode.UNEVEN_EVALUATION_GRID: "compute_forward_return(dates=) "
+        "kept an evaluation grid whose adjacent kept rows are not a constant "
+        "number of periods apart. Series-mean inference (NonOverlapping, "
+        "NeweyWest) is calibrated on such a grid; the paths that assume a "
+        "constant spacing are the regression HAC tests (predictive_beta, "
+        "spanning_alpha, the K-restriction Wald / slice period joint tests), "
+        "the ADF / autocorrelation persistence screens, event-study "
+        "estimation windows and offsets, and adjacent-period metrics "
+        "(turnover / rank autocorrelation, rolling windows) — read their "
+        "results on such a grid with that in mind. The remedy is on the "
+        "caller's side: pass dates= at a constant stride on the panel's "
+        "period grid if those paths must be calibrated; factrix does not "
+        "resample.",
     }
 )
 

@@ -14,6 +14,7 @@ import warnings
 import factrix as fx
 import polars as pl
 import pytest
+from factrix._codes import WarningCode
 from factrix._data_input import _FORWARD_PERIODS_COL, _OVERLAP_PERIODS_COL
 from factrix._errors import UserInputError
 from factrix.metrics import ic, notional_turnover, quantile_spread, rank_turnover
@@ -62,9 +63,11 @@ class TestOverlapDerivation:
         # one extra date 5 periods after a kept one: that row overlaps two
         # later rows, so the max rule says 3 where a median would say 2.
         index = [*range(0, 1400, 30), 1385]
-        panel = compute_forward_return(
-            raw, forward_periods=H, dates=grid.gather(sorted(index))
-        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")  # uneven_evaluation_grid is expected
+            panel = compute_forward_return(
+                raw, forward_periods=H, dates=grid.gather(sorted(index))
+            )
         assert _stamps(panel) == (H, 3)
         assert _overlap_on_grid(index, H) == 3
 
@@ -114,6 +117,41 @@ class TestOverlapDerivation:
         )
         got = sampled.drop(_FORWARD_PERIODS_COL, _OVERLAP_PERIODS_COL)
         assert got.sort("date", "asset_id").equals(expected.sort("date", "asset_id"))
+
+
+class TestUnevenEvaluationGridWarning:
+    """An uneven ``dates=`` grid is disclosed, a constant-stride one is not."""
+
+    @staticmethod
+    def _uneven_index(n: int = 1400) -> list[int]:
+        """Period indices spaced (20, 20, 40) in a repeating cycle."""
+        index, i = [0], 0
+        for step in (20, 20, 40) * (n // 80 + 1):
+            i += step
+            if i >= n:
+                break
+            index.append(i)
+        return index
+
+    def test_uneven_grid_warns(self, raw, grid):
+        dates = grid.gather(self._uneven_index())
+        with pytest.warns(UserWarning, match="uneven_evaluation_grid"):
+            compute_forward_return(raw, forward_periods=H, dates=dates)
+
+    def test_constant_stride_grid_does_not_warn(self, raw, grid):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            compute_forward_return(raw, forward_periods=H, dates=grid.gather_every(20))
+        assert not [w for w in caught if "uneven_evaluation_grid" in str(w.message)]
+
+    def test_full_grid_does_not_warn(self, raw):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            compute_forward_return(raw, forward_periods=H)
+        assert not [w for w in caught if "uneven_evaluation_grid" in str(w.message)]
+
+    def test_uneven_grid_code_is_documented(self):
+        assert WarningCode.UNEVEN_EVALUATION_GRID.description
 
 
 class TestEvaluationGridValidation:

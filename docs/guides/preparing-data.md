@@ -302,6 +302,11 @@ vendor feed and an internal signal), the joins are the caller's, and
   filtering the panel afterwards, so the horizon stays what it is and the
   overlap inference consumes is derived on the full grid
   ([Evaluating on a coarser grid](../api/preprocess.md#evaluating-on-a-coarser-grid)).
+  A grid whose adjacent kept rows are not a constant number of periods
+  apart raises `uneven_evaluation_grid`, which names the paths calibrated
+  on a constant spacing; pass `dates=` at a constant stride if those paths
+  matter, since factrix does not resample
+  ([HAC SE under overlapping returns](../reference/statistical-methods.md#1-hac-se-under-overlapping-returns)).
 
 ## 6. Missing data
 
