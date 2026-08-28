@@ -1,19 +1,38 @@
-"""Drift guard: ``MetricResult.metadata`` keys ⊆ docs reference page.
+"""Drift guard: ``MetricResult.metadata`` keys ↔ docs reference page.
 
-AST-scans every public ``factrix/metrics/*.py`` for literal string keys
-that flow into ``MetricResult.metadata`` and asserts each appears as a
-backtick token in ``docs/reference/stat-keys-by-metric.md``.
+Code → doc: AST-scans every public ``factrix/metrics/*.py`` for literal
+string keys that flow into ``MetricResult.metadata`` and asserts each
+appears as a backtick token in ``docs/reference/stat-keys-by-metric.md``.
+
+Doc → code: every key the page's per-metric bullets name must still
+appear in the metric's own module or in the shared internal modules that
+build its metadata. Keys are assembled from f-strings and ``**kwargs``
+splats as well as dict literals, so the reverse direction reads source
+text rather than the AST — it catches a key deleted from the code and
+left behind in the page, not a key that moved between metrics.
 """
 
 from __future__ import annotations
 
 import ast
 import pathlib
+import re
 
 import pytest
+from factrix._metric_index import public_specs
 
 METRICS_DIR = pathlib.Path("factrix/metrics")
 DOCS_PAGE = pathlib.Path("docs/reference/stat-keys-by-metric.md")
+
+# Per-metric subsection heading, e.g. ``#### `ic_ir` ``.
+_SECTION_HEADING = re.compile(r"^`([a-z0-9_]+)`")
+# The role bullets that enumerate metadata keys (``*short-circuit*`` names
+# ``reason`` values, not keys, and is excluded).
+_KEY_BULLET = re.compile(
+    r"^- \*(?:primary|secondary-test|descriptive)\*[^\n]*(?:\n(?!- |#|$)[^\n]*)*",
+    re.M,
+)
+_BACKTICK_TOKEN = re.compile(r"`([a-z][a-z0-9_]*)`")
 
 _COMMON_KEYS: frozenset[str] = frozenset(
     {"p_value", "stat_type", "h0", "method", "reason"}
@@ -139,4 +158,50 @@ def test_metadata_keys_documented(path: pathlib.Path, docs_text: str) -> None:
     assert not missing, (
         f"{path.name}: metadata keys emitted but not referenced in "
         f"{DOCS_PAGE}: {missing}"
+    )
+
+
+def _shared_source() -> str:
+    """Source text of the internal modules that assemble metric metadata."""
+    return "\n".join(
+        p.read_text(encoding="utf-8")
+        for p in sorted(pathlib.Path("factrix").rglob("*.py"))
+        if p.stem.startswith("_")
+        or p.parent.name in {"_primitives", "inference", "_stats"}
+    )
+
+
+def _documented_keys(section: str) -> set[str]:
+    """Backtick tokens named on the role bullets of one metric subsection."""
+    keys: set[str] = set()
+    for bullet in _KEY_BULLET.finditer(section):
+        keys |= set(_BACKTICK_TOKEN.findall(bullet.group(0)))
+    return keys
+
+
+def test_documented_keys_still_exist_in_code(docs_text: str) -> None:
+    """Every key the page names must still appear in the metric's sources."""
+    name_to_stem = {spec.name: stem for stem, spec in public_specs()}
+    shared = _shared_source()
+
+    sections = re.split(r"^#### ", docs_text, flags=re.M)[1:]
+    stale: list[str] = []
+    for section in sections:
+        heading = _SECTION_HEADING.match(section.split("\n", 1)[0])
+        if heading is None:
+            continue
+        name = heading.group(1)
+        stem = name_to_stem.get(name)
+        if stem is None:
+            stale.append(f"{name}: documented but not a registered metric")
+            continue
+        sources = (METRICS_DIR / f"{stem}.py").read_text(encoding="utf-8") + shared
+        stale += [
+            f"{name}: `{key}` is documented but no longer in factrix sources"
+            for key in sorted(_documented_keys(section))
+            if not re.search(rf"\b{key}\b", sources)
+        ]
+    assert not stale, (
+        f"{DOCS_PAGE} names metadata keys the code no longer carries:\n  "
+        + "\n  ".join(stale)
     )

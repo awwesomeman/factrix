@@ -33,6 +33,7 @@ import pathlib
 import re
 
 import factrix
+from factrix._codes import WarningCode
 
 from tests._doc_validation import (
     import_resolves,
@@ -43,6 +44,22 @@ from tests._doc_validation import (
 
 LLMS_FULL = pathlib.Path("factrix/llms-full.txt")
 LLMS_INDEX = pathlib.Path("factrix/llms.txt")
+
+# Preprocess / data-shape codes. They are raised outside the evaluation
+# path (``factrix.preprocess`` normalizers, ``orthogonalize_factor``,
+# ``compute_forward_return``), so the curated llms-full.txt table points
+# at the generated reference for them instead of restating their glosses.
+_PREPROCESS_CODES: frozenset[str] = frozenset(
+    {
+        WarningCode.ZERO_MAD_STD_FALLBACK.value,
+        WarningCode.SPARSE_WINSORIZE_SKIPPED.value,
+        WarningCode.INSUFFICIENT_SCALE_ASSETS.value,
+        WarningCode.NON_FINITE_INPUT_DROPPED.value,
+        WarningCode.INSUFFICIENT_REGRESSION_DF.value,
+        WarningCode.RANK_DEFICIENT_DESIGN.value,
+        WarningCode.RAGGED_PERIOD_GRID.value,
+    }
+)
 
 
 def test_every_referenced_symbol_resolves() -> None:
@@ -81,6 +98,42 @@ def test_every_public_symbol_mentioned_in_llms_full() -> None:
         "Public symbols in factrix.__all__ never mentioned in llms-full.txt:\n  "
         + "\n  ".join(missing)
         + "\nAdd at least one mention so LLM agents do not miss them."
+    )
+
+
+def test_warning_code_table_covers_every_evaluation_side_code() -> None:
+    """The curated ``WarningCode`` table must cover every evaluation-side code.
+
+    The table is hand-written (the generated
+    ``docs/reference/_generated_warning_codes.md`` carries the full enum
+    with its canonical glosses), and its intro states a count. Both the
+    count and the membership are pinned here: a new evaluation-side code
+    has to land in the table, and a new preprocess / data-shape code has
+    to be declared in :data:`_PREPROCESS_CODES`.
+    """
+    text = LLMS_FULL.read_text(encoding="utf-8")
+    section = text.split("## WarningCode reference", 1)[1]
+    listed = re.findall(r"^\| `([a-z0-9_]+)` \|", section, flags=re.M)
+
+    all_codes = {code.value for code in WarningCode}
+    unknown = sorted(set(listed) - all_codes)
+    assert not unknown, (
+        "llms-full.txt WarningCode table lists codes that are not in "
+        "WarningCode:\n  " + "\n  ".join(unknown)
+    )
+    missing = sorted(all_codes - set(listed) - _PREPROCESS_CODES)
+    assert not missing, (
+        "Evaluation-side WarningCode values missing from the llms-full.txt "
+        "table:\n  " + "\n  ".join(missing)
+    )
+    claimed = re.search(r"The (\d+) evaluation-side codes", section)
+    assert claimed is not None, (
+        "llms-full.txt no longer states the evaluation-side code count; "
+        "restore it or drop this assertion."
+    )
+    assert int(claimed.group(1)) == len(listed), (
+        f"llms-full.txt claims {claimed.group(1)} evaluation-side codes but "
+        f"its table has {len(listed)} rows."
     )
 
 

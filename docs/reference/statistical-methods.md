@@ -128,6 +128,10 @@ statements live in `factrix._stats.hac`'s docstring Notes.
 | SE scale | none (textbook is $\sqrt{\text{LRV}/T}$); Stata's `newey` scales by $T/(T-k)$ with $k$ = **regressor count**, never the bandwidth | $T/(T - L - 1)$ | Self-derived white-noise demeaning-bias correction: in-sample demeaning biases each $\hat\gamma_j$ by ≈$-\gamma_0/T$, giving $\mathbb{E}[\widehat{\text{LRV}}] \approx \gamma_0(1 - (L+1)/T)$, which this undoes exactly. | $h{=}5$: 8.2–9.6% → 6.2–6.7%. Partly double-counts with the fixed-$b$ reference (whose KV limit already embeds demeaning), so $h{=}1$ iid cells come out slightly *under*-sized (4.3–4.7% at $T \le 120$). |
 | Effective df | LLSW's `harreg.ado` uses $\lceil 1.5T/S \rceil$ | $\min(1.5T/L - 1,\; T/h - 1)$ | The $-1$ is a sub-one-df small-sample conservatism. The $T/h - 1$ cap is self-derived: an $h$-period overlapping series carries at most $T/h$ independent observations however the kernel is tuned. | Cap: $T{=}60$, $h{=}21$ size 12.2% → 4.3%. Cost: passing `forward_periods` on a series with *less* dependence than $h$ implies makes the test markedly conservative — measured 0.2% ($T{=}60$), 2.1% ($T{=}120$), 3.5% ($T{=}240$) on iid input at $h{=}21$. |
 
+Producing module: the three cells above are re-measured at reduced
+replication by `tests/stats/test_hac_overlap_size.py`; the full sweep
+behind the exact percentages is not committed.
+
 Two choices factrix deliberately did not adopt:
 
 - The data-adaptive plug-in of [Newey-West 1994][newey-west-1994] is
@@ -473,6 +477,11 @@ sizes are at a nominal 5% on a true null.
 | `predictive_beta` — single-restriction slope, $h > 1$ | `_resolve_har_lags` | $t_\nu$ via `_har_dof` | **7.5–14.5%** — known-oversized, see below |
 | `spanning_alpha`, `pooled_beta`, `common_quantile_spread`, `common_asymmetry`, `_ols.py`, the slice tests — $K$-restriction Wald / multivariate | `_resolve_nw_lags`: $\max(\text{auto\_bartlett}(T), h-1)$ | $t_{T-k}$ / $F_{r,\,T-k}$ | 5.4–7.1% on iid residuals ($n = 60 \to 240$), 11.5–18.5% on AR(0.6); **8–9%** for the $K = 5$ slice joint test on 50–90-period slices |
 
+Producing modules: `tests/stats/test_hac_overlap_size.py` for the scalar
+series-mean rows, `tests/test_stambaugh_bias.py` for the `predictive_beta`
+rows, and `tests/test_slice_period_joint_test.py` for the slice-test band
+in the last row.
+
 Two of these rows are **known-oversized regimes rather than calibrated
 ones**, and are disclosed rather than corrected:
 
@@ -521,7 +530,8 @@ Hotelling-style `F` on the HAC effective df, and a Satterthwaite ν on
 that df were each measured; none calibrates the iid short-slice case
 (prewhitening is the right tool for *autocorrelated* input — see the HAC
 size sweep tracker). The function warns in this regime and the
-characterisation test pins the measured band; pairwise contrasts on the
+characterisation test in `tests/test_slice_period_joint_test.py` pins the
+measured band; pairwise contrasts on the
 same slices (5–6%) are the better-calibrated read.
 ### Persistent per-period series: no HAC or bootstrap path is calibrated
 
@@ -586,6 +596,9 @@ rather than corrected. Against the plain Bartlett estimate (nominal 5%):
 | IC fixture, φ = 0.6 | 240 | 14.4% | 8.0% |
 | IC fixture, φ = 0.85 | 240 | 32.8% | 15.6% |
 | real overlapping IC, h=5 | 240 / 480 | 5.2% / 8.8% | 5.2% / 8.4% |
+
+The prewhitened-versus-plain bands above are pinned as characterisation
+bands in `tests/stats/test_prewhitening.py`.
 
 Two independent implementations agree on every row above. Read the IC
 fixture against its *own* φ = 0 baseline of 9.2% (a property of the
