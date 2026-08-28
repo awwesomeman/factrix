@@ -26,7 +26,7 @@ Time-series length `n_periods` and asset count `n_assets` are gated **independen
     the failure mode. A metric that sub-samples to non-overlapping dates is
     gated on `MIN_SERIES_PERIODS_HARD` (= 10) applied to the **post-stride**
     count — the sample the t-test actually runs on — plus a scaled floor of
-    `10 x forward_periods` on the raw dates so the stride has something to
+    `10 x overlap_periods` on the raw dates so the stride has something to
     consume. The two constants are deliberately different: they guard different
     estimators on the same axis, and neither may be read as the other (see the
     naming grammar in `factrix/_types.py`).

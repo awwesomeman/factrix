@@ -8,7 +8,7 @@ Current-state snapshot of the public API surface and internal layout.
 
 ## Positioning
 
-**factrix is a Factor FactorDensity Validator, not a backtest engine.**
+**factrix is a factor-signal validator, not a backtest engine.**
 
 The library produces a single canonical p-value (`MetricResult.p_value`) and
 its explicit tested tail (`MetricResult.alternative`) per
@@ -102,7 +102,8 @@ Plus introspection / error / enum re-exports:
 
 ## DataStructure — the derived fourth axis
 
-The three user-facing axes (`FactorScope`, `FactorDensity`, `Metric`) are the SSOT;
+The user-facing axes `FactorScope` and `FactorDensity`, together with the metric
+selection itself, are the SSOT;
 see [Concepts § Three orthogonal design axes](../getting-started/concepts.md#three-orthogonal-design-axes)
 for their values and orthogonality.
 
@@ -168,6 +169,7 @@ class EvaluationResult:
     factor: str
     cell: tuple[FactorScope, FactorDensity, DataStructure]
     forward_periods: int
+    overlap_periods: int
     n_periods: int
     n_pairs: int
     n_assets: int
@@ -289,7 +291,7 @@ Four layers, one grammar:
 
 Silent-drop diagnostics emit a fixed per-axis metadata schema
 (`factrix/metrics/_helpers.py`): `n_<axis>_in`, `n_<axis>_out`,
-`dropped_<axis>`, `drop_rate`, `drop_rate_threshold` — the count keys carry the
+`dropped_<axis>`, `drop_rate`, `drop_reason` — the count keys carry the
 axis token, the rate keys are axis-neutral.
 
 **Effective-sample single source.** The count a metric *gates* on
@@ -494,9 +496,8 @@ catches it.
 
 ### Adoption
 
-The contract is opt-in for new user-facing raises. Each v1 function
-sub-issue (#147 / #160 / #161 / #162) declares conformance in its
-own acceptance criteria; retrofit of pre-contract raise sites is
+The contract is opt-in for new user-facing raises. Each v1 entry point
+declares conformance in its own acceptance criteria; retrofit of pre-contract raise sites is
 tracked separately so the helper itself can land without forcing a
 sweep.
 
@@ -541,7 +542,8 @@ to keep the regime unambiguous.
 
 ### Inference selection (`inference=`)
 
-Only the series-mean family (`ic`, `quantile_spread`, `k_spread`) takes a
+Only the series-mean family (`ic`, `quantile_spread`, `quantile_spread_vw`,
+`k_spread`) takes a
 selectable `inference=`; every other metric carries a fixed estimator by
 its statistical shape, so the absence of the knob is by design. The
 `factrix.inference` module docstring is the SSOT for the full rule — the
@@ -567,7 +569,7 @@ Failure modes:
 ### `individual_continuous(FM)` — cross-section first
 
 ```
-per-period OLS R = α + β·FactorDensity across n_assets   (cross-section step)
+per-period OLS R = α + β·F across n_assets              (cross-section step)
                                               →  n_periods-length λ time series
                                               →  NW HAC t-test on mean(λ)   (time-series step)
 ```
@@ -706,7 +708,7 @@ Failure modes:
   dropped by the event-axis non-overlap sampling pass and
   `WarningCode.EVENT_WINDOW_OVERLAP` fires once per metric. The gap that
   matters is one horizon, not two: windows `(t, t+h]` and `(t', t'+h]`
-  share bars exactly when `t' - t < h`.
+  share periods exactly when `t' - t < h`.
 
 ---
 
@@ -821,7 +823,7 @@ quant research, but it deliberately does not introduce a `MetricSpec` field or a
 ### When to add a mainstream metric
 
 Add a mainstream metric when introducing the headline mean-significance test for
-a legal cell on the axis (`FactorScope × FactorDensity × Metric × DataStructure`)
+a legal cell on the axis (`FactorScope × FactorDensity × metric × DataStructure`)
 that does not have one yet. Nothing enforces one-per-cell; keeping each cell to a
 single agreed default test is a convention that gives callers an obvious first
 choice, not an invariant the code checks.
@@ -879,7 +881,7 @@ factrix/
 ├── _types.py                # shared constants: EPSILON, DDOF, MIN_IC_ASSETS_HARD/WARN,
 │                            #   MIN_SERIES_PERIODS_HARD, MIN_EVENTS_HARD/WARN,
 │                            #   MIN_OOS_PERIODS_HARD, MIN_PORTFOLIO_PERIODS_HARD/WARN, ...
-├── _stats/                  # numerics: hac, bootstrap, unit_root, wald, gmm, ols, diagnostics, constants
+├── _stats/                  # numerics: core, hac, bootstrap, unit_root, wald, ols, diagnostics, slice_policy, constants
 ├── inference/               # curated metric-internal inference members (series-mean dataclasses)
 ├── stats/                   # public statistical helper surface (block_bootstrap, driscoll_kraay, ...)
 ├── metrics/                 # @metric callables (ic, fm_beta, common_beta, caar, ...) + _registry

@@ -5,8 +5,8 @@ title: Quickstart
 !!! warning "`forward_periods` counts periods, not calendar time"
     factrix never reads the calendar: every horizon, window and lag is a
     count of periods on the panel's own date grid. `forward_periods=5` is
-    five periods of whatever one row represents — five days on a daily
-    panel, five weeks on a weekly one. Aligning the factor and price sources
+    five periods of whatever one period represents on your grid; factrix
+    never infers that from the dates. Aligning the factor and price sources
     onto one grid is the caller's job. See
     [Period grid, not calendar](../development/architecture.md#period-grid-not-calendar).
 
@@ -135,9 +135,9 @@ Calling `.to_dict()` on the returned `EvaluationResult` returns a flat, JSON-fri
 The most common warnings include:
 
 - `UNRELIABLE_SE_SHORT_PERIODS` — the effective (post-stride) sample is under `MIN_PERIODS_WARN` (= 30); the SE is unstable. (Falling below the metric's *hard* floor raises `InsufficientSampleError` under `strict=True`. The floor is per metric and per axis, checked on the effective sample — read `exc.axis` before assuming it is the time axis.)
-- `PERSISTENT_REGRESSOR` — factor augmented Dickey-Fuller (ADF) $p$-value exceeds the configured threshold (default 0.10).
+- `PERSISTENT_REGRESSOR` — the predictive regressor sits in a regime the corrected test is less well sized in: an augmented Dickey-Fuller (ADF) $p$-value above the configured threshold (default 0.10), a strong measured Stambaugh channel, or a bias-corrected AR(1) coefficient at or above one. Raised by `predictive_beta` / `trend` / `fm_beta`, not by `ic`.
 - `EVENT_WINDOW_OVERLAP` — event windows overlap on the same asset.
-- `SERIAL_CORRELATION_DETECTED` — Ljung-Box $p$-value < 0.05 on residuals.
+- `SERIAL_CORRELATION_DETECTED` — the tested per-period series has lag-1 autocorrelation above `PERSISTENT_SERIES_AUTOCORR`; no HAC or bootstrap path is calibrated there, so read the p-value against a raised hurdle.
 
 For the full enum and the trigger conditions for each `WarningCode`, see [Reference § Warning codes](../reference/warning-codes.md).
 

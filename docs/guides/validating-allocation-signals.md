@@ -44,7 +44,7 @@ their sample requirements are met. Read the supplementary metrics by role:
 !!! warning "Lower the bucket counts before you run them"
 
     The bucketing defaults are calibrated for a ~2000-name equity universe:
-    `monotonicity(n_groups=10)`, `notional_turnover(n_groups=10)`,
+    `monotonicity(n_groups=10)`, `notional_turnover(n_groups=5)`,
     `quantile_spread(n_groups=5)`, `k_spread(k=5)`. A metric whose bucket count
     exceeds the cross-section cannot fill its legs on any date, so it refuses on
     the **assets** axis (`InsufficientSampleError` under `strict=True`;
