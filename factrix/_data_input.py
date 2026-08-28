@@ -48,6 +48,19 @@ the validation and dispatch contract is identical.
 _BASELINE_COLUMNS: tuple[str, ...] = ("date", "asset_id", "forward_return")
 _OPTIONAL_COLUMNS: tuple[str, ...] = ("price", "market_cap")
 
+# The key columns a *direct* call to a raw-panel metric must carry.
+# ``evaluate`` validates the full baseline once and projects a view per
+# factor; a standalone call skips that gate, so this is the floor it is
+# checked against before any polars expression runs — the same
+# UserInputError surface, not a ColumnNotFoundError from inside a quantile
+# join. ``forward_return`` is deliberately not here: a panel metric that never
+# reads returns (``rank_turnover``, ``notional_turnover``) is valid on
+# ``(date, asset_id, factor)``, and the metrics that do read it name the
+# missing column themselves. Consumers of an upstream producer's output
+# (``requires``) are not gated: their input is a derived frame whose schema
+# the producer owns, not the panel's.
+_PANEL_KEY_COLUMNS: tuple[str, ...] = ("date", "asset_id")
+
 # Reserved columns carrying the two horizon-like facts about a panel:
 #
 # * ``_forward_periods`` — the economic return horizon, the ``forward_periods``
@@ -231,6 +244,32 @@ def _resolve_overlap_periods(
 
 
 _DOCS_DATA_SCHEMA = "api/data-schema"
+
+
+def _validate_panel_key_columns(data: object, *, func_name: str) -> None:
+    """Reject a direct raw-panel metric call whose frame lacks the key columns.
+
+    Only a ``pl.DataFrame`` is inspected. Mirrors ``evaluate``'s baseline gate
+    in error type, field and docs pointer so the two entry points fail the
+    same way on the same mistake.
+    """
+    if not isinstance(data, pl.DataFrame):
+        return
+    missing = [c for c in _PANEL_KEY_COLUMNS if c not in data.columns]
+    if not missing:
+        return
+    raise UserInputError(
+        func_name=func_name,
+        field="data",
+        value=list(data.columns),
+        expected=(
+            f"a panel must carry the key columns {list(_PANEL_KEY_COLUMNS)!r}; "
+            f"missing {missing!r}. Rename the source columns "
+            f"(factrix.adapt(data, date=..., asset_id=..., price=...)) or pass "
+            f"the panel through factrix.evaluate, which validates the full schema"
+        ),
+        docs_path=_DOCS_DATA_SCHEMA,
+    )
 
 
 def _normalize_panel(data: pl.DataFrame) -> pl.DataFrame:
