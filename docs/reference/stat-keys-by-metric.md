@@ -913,7 +913,11 @@ inference.
 #### `notional_turnover`
 
 - *descriptive*: `n_rebalances`, `n_groups`, `overlap_periods`,
-  `rebalance_lag`, `mean_tail_size`.
+  `rebalance_lag`, `mean_top_turnover`, `mean_bottom_turnover`
+  (each leg's mean replaced fraction; `value` is their mean —
+  `mean_top_turnover` is the matched proxy for an equal-weight top-quantile
+  long-only book), `mean_tail_size`, `mean_top_tail_size`,
+  `mean_bottom_tail_size`.
 
 Both turnover metrics report two strides. `overlap_periods` is the panel's
 evaluation-grid overlap stamp — an inference quantity, injected, never a user

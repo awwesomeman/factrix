@@ -140,6 +140,7 @@ is no deprecation shim, so a call using either older name raises `TypeError`.
 | Goal                                                                            | Function             |
 |---------------------------------------------------------------------------------|----------------------|
 | Per-rebalance Q1/Qn membership churn — feeds the cost formulas (default $\tau$) | `notional_turnover`  |
+| Top-leg-only churn — matched proxy for an equal-weight top-quantile long-only book (not a cost model) | `notional_turnover` → `metadata["mean_top_turnover"]` |
 | Rank-stability diagnostic across the full cross-section (or tail-union)         | `rank_turnover`           |
 | Breakeven trading cost in bps, given a gross spread and $\tau$                  | `breakeven_cost`     |
 | Net per-period spread after a venue-specific cost estimate                      | `net_spread`         |

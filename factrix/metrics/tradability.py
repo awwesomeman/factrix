@@ -442,9 +442,22 @@ def notional_turnover(
         ``0`` = identical tail sets every rebalance; ``1`` = full rotation.
         Metadata: ``n_rebalances``, ``n_groups``, ``overlap_periods`` (the
         panel's stamp, unchanged), ``rebalance_lag`` (the stride actually
-        sampled at), ``mean_tail_size`` (per-date average of
-        ``(|Q_top| + |Q_bot|)/2``; ≠ ``n_assets / n_groups`` signals
-        unbalanced buckets from ties or a short universe), ``method``.
+        sampled at), ``mean_top_turnover`` / ``mean_bottom_turnover`` (each
+        leg's mean replaced fraction — ``value`` is their mean),
+        ``mean_tail_size`` (per-date average of ``(|Q_top| + |Q_bot|)/2``;
+        ≠ ``n_assets / n_groups`` signals unbalanced buckets from ties or a
+        short universe) with its per-leg split ``mean_top_tail_size`` /
+        ``mean_bottom_tail_size``, ``method``.
+
+        **Long-only reading.** ``mean_top_turnover`` is the membership churn
+        of the equal-weight top-quantile book on its own — the matched
+        turnover proxy for a long-only allocation that holds the top bucket
+        against a benchmark, which pays nothing for bottom-leg churn. It is
+        a pre-strategy feasibility diagnostic, not a cost model: weights,
+        benchmark-relative trades, slippage and capacity stay downstream.
+        Feed ``value`` (the two-leg mean) to ``breakeven_cost`` /
+        ``net_spread`` — their ``4 × τ`` accounting is the long-short
+        book's — and do not mix the two readings.
 
     Notes:
         Per rebalance date ``t``::
@@ -537,13 +550,15 @@ def notional_turnover(
             (pl.col("is_bot") & pl.col("was_bot")).sum().alias("n_bot_kept"),
         )
         .filter((pl.col("n_top") > 0) & (pl.col("n_bot") > 0))
+        # Each leg's replaced fraction is kept on its own: the long-short
+        # ``value`` is their mean, but a long-only top-quantile book pays only
+        # the top leg's churn, and the two can differ materially.
         .with_columns(
-            (
-                (1 - pl.col("n_top_kept") / pl.col("n_top"))
-                + (1 - pl.col("n_bot_kept") / pl.col("n_bot"))
-            )
-            .truediv(2)
-            .alias("turnover")
+            (1 - pl.col("n_top_kept") / pl.col("n_top")).alias("top_turnover"),
+            (1 - pl.col("n_bot_kept") / pl.col("n_bot")).alias("bot_turnover"),
+        )
+        .with_columns(
+            ((pl.col("top_turnover") + pl.col("bot_turnover")) / 2).alias("turnover")
         )
         .sort("date")
     )
@@ -570,11 +585,13 @@ def notional_turnover(
 
     turnover_arr = per_date["turnover"].to_numpy()
     mean_turnover = float(np.mean(turnover_arr))
+    mean_top_turnover = float(per_date["top_turnover"].mean())  # type: ignore[arg-type]
+    mean_bottom_turnover = float(per_date["bot_turnover"].mean())  # type: ignore[arg-type]
     tail_pct = 1.0 / n_groups
 
-    mean_tail_size = float(
-        per_date.select(((pl.col("n_top") + pl.col("n_bot")) / 2).mean()).item()
-    )
+    mean_top_tail_size = float(per_date["n_top"].mean())  # type: ignore[arg-type]
+    mean_bottom_tail_size = float(per_date["n_bot"].mean())  # type: ignore[arg-type]
+    mean_tail_size = (mean_top_tail_size + mean_bottom_tail_size) / 2
     return MetricResult(
         value=mean_turnover,
         # Rebalances — one per adjacent-period transition, not (date, asset)
@@ -586,7 +603,11 @@ def notional_turnover(
             "n_groups": n_groups,
             "overlap_periods": overlap_periods,
             "rebalance_lag": lag,
+            "mean_top_turnover": mean_top_turnover,
+            "mean_bottom_turnover": mean_bottom_turnover,
             "mean_tail_size": mean_tail_size,
+            "mean_top_tail_size": mean_top_tail_size,
+            "mean_bottom_tail_size": mean_bottom_tail_size,
             "method": (
                 f"one-sided overlap on top/bottom {tail_pct:.0%} "
                 f"quantile, top/bot averaged"
