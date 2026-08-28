@@ -7,9 +7,10 @@ methods.
 
 from __future__ import annotations
 
+import contextlib
 import html
 import math
-from collections.abc import Hashable, Mapping
+from collections.abc import Hashable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal, get_args
 
@@ -259,10 +260,11 @@ class EvaluationResult:
                 f"no metric {label!r} on this result; available: {available}"
             ) from None
 
-    def to_frame(self) -> pl.DataFrame:
+    def to_frame(self, *, metadata: Sequence[str] = ()) -> pl.DataFrame:
         r"""One row per produced metric, prefixed with bundle identity.
 
-        Schema (column order is stable):
+        Schema (column order is stable; ``metadata=`` columns, if any, follow
+        ``warning_codes`` in the order requested):
 
         | column | dtype | source |
         |---|---|---|
@@ -292,8 +294,33 @@ class EvaluationResult:
         (results whose :attr:`params` keys differ need
         ``pl.concat(..., how="diagonal")``, as in :func:`factrix.compare`).
 
+        **Exporting estimator metadata.** The fixed schema is the stable
+        cross-metric contract; estimator-specific definitions (a spread's
+        ``n_groups``, a turnover's ``rebalance_lag`` / ``mean_tail_size``)
+        live in ``MetricResult.metadata`` and do not leak into it by default.
+        ``metadata=`` names the keys to carry along, one column per key, so a
+        CSV written from the stacked frame can be audited without the
+        ``MetricResult`` objects:
+
+        - the column is named after the key and keeps the row's
+          ``factor`` / ``metric_name`` pairing — stacking many results keeps
+          every metadata cell next to the metric it came from;
+        - a metric that does not carry the key gets ``null`` (a spread row
+          has no ``rebalance_lag``);
+        - only **scalar** values are exported — ``bool`` / ``int`` /
+          ``float`` / ``str`` (``NaN`` / ``Inf`` become ``null`` like
+          ``value``; numpy scalars are unwrapped). A list, dict, tuple or
+          other nested value raises ``ValueError`` naming the metric and
+          key — those are what :meth:`to_dict` is for;
+        - a key colliding with a fixed column, a :attr:`params` key or a
+          repeated key raises ``ValueError``, so metadata never shadows
+          identity or the fixed schema;
+        - dtypes are inferred per column from the values present.
+
         Raises:
-            ValueError: a :attr:`params` key collides with a fixed column name.
+            ValueError: a :attr:`params` key collides with a fixed column
+                name; a ``metadata`` key collides, repeats, or names a
+                non-scalar value on some metric.
         """
         collisions = sorted(set(self.params) & set(_TO_FRAME_SCHEMA))
         if collisions:
@@ -302,6 +329,7 @@ class EvaluationResult:
                 f"with fixed column name(s); rename the params key(s). Reserved: "
                 f"{sorted(_TO_FRAME_SCHEMA)}"
             )
+        meta_keys = _validate_metadata_keys(metadata, params=self.params)
         by_metric: dict[str, list[str]] = {}
         for w in self.warnings:
             if w.source is None:
@@ -315,6 +343,7 @@ class EvaluationResult:
                 "overlap_periods": self.overlap_periods,
                 "n_assets": self.n_assets,
                 **_output_row(key, out, by_metric),
+                **_metadata_columns(key, out, meta_keys),
             }
             for key, out in self.metrics.items()
         ]
@@ -325,6 +354,8 @@ class EvaluationResult:
             **dict.fromkeys(self.params),
             "overlap_periods": pl.Int64,
             **{k: v for k, v in _TO_FRAME_SCHEMA.items() if k != "factor"},
+            # Metadata values are estimator-specific scalars — inferred too.
+            **dict.fromkeys(meta_keys),
         }
         return pl.DataFrame(rows, schema=schema)
 
@@ -512,6 +543,74 @@ def _output_row(
         "reason": out.reason,
         "warning_codes": list(codes),
     }
+
+
+# Columns ``to_frame`` always emits ahead of the fixed schema; a metadata key
+# may not shadow any of them.
+_TO_FRAME_IDENTITY: tuple[str, ...] = ("forward_periods", "overlap_periods")
+
+
+def _validate_metadata_keys(
+    metadata: object, *, params: Mapping[str, Hashable]
+) -> tuple[str, ...]:
+    """Normalise ``to_frame(metadata=)``: a sequence of distinct, non-reserved keys."""
+    if isinstance(metadata, str) or not isinstance(metadata, Sequence):
+        raise ValueError(
+            "EvaluationResult.to_frame(): metadata= takes a sequence of metadata "
+            f"key names, e.g. metadata=('n_groups', 'rebalance_lag'); got "
+            f"{metadata!r}"
+        )
+    keys = tuple(metadata)
+    bad = [k for k in keys if not isinstance(k, str)]
+    if bad:
+        raise ValueError(
+            f"EvaluationResult.to_frame(): metadata keys must be strings; got {bad!r}"
+        )
+    repeated = sorted({k for k in keys if keys.count(k) > 1})
+    if repeated:
+        raise ValueError(
+            f"EvaluationResult.to_frame(): metadata key(s) {repeated} repeated"
+        )
+    reserved = set(_TO_FRAME_SCHEMA) | set(_TO_FRAME_IDENTITY) | set(params)
+    collisions = sorted(set(keys) & reserved)
+    if collisions:
+        raise ValueError(
+            f"EvaluationResult.to_frame(): metadata key(s) {collisions} collide "
+            f"with a fixed column or a params key; the fixed schema and the "
+            f"hypothesis identity are never shadowed by metadata. Reserved: "
+            f"{sorted(reserved)}"
+        )
+    return keys
+
+
+def _metadata_columns(
+    key: str, out: MetricResult, meta_keys: Sequence[str]
+) -> dict[str, Any]:
+    """One scalar cell per requested metadata key; ``None`` where absent."""
+    label = out.name or key
+    return {k: _scalar_metadata(label, k, out.metadata.get(k)) for k in meta_keys}
+
+
+def _scalar_metadata(label: str, key: str, value: object) -> Any:
+    """Coerce a metadata value to a frame cell or refuse a nested one."""
+    if value is None:
+        return None
+    # numpy scalars (np.float64 is a float subclass, np.int64 is not) unwrap
+    # via ``item()``; strings expose no such method.
+    if not isinstance(value, (bool, int, float, str)) and hasattr(value, "item"):
+        # A multi-element array also has ``item()`` and refuses; it then falls
+        # through to the nested-value error below.
+        with contextlib.suppress(TypeError, ValueError):
+            value = value.item()
+    if isinstance(value, bool | int | str):
+        return value
+    if isinstance(value, float):
+        return _float_or_none(value)
+    raise ValueError(
+        f"EvaluationResult.to_frame(): metadata[{key!r}] on metric {label!r} is "
+        f"a {type(value).__name__}, not a scalar; metadata= exports bool / int / "
+        f"float / str cells only. Use to_dict() for nested values."
+    )
 
 
 def _float_or_none(x: object) -> float | None:

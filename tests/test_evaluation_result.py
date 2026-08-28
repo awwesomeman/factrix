@@ -352,3 +352,97 @@ class TestReprHtmlValueTolerance:
     def test_nan_value_renders_null(self):
         g = MappingProxyType({"ic": MetricResult(value=float("nan"), name="ic")})
         assert "null" in _sample_result(g)._repr_html_()
+
+
+class TestToFrameMetadataExport:
+    """#883 — ``to_frame(metadata=)`` carries named estimator scalars along.
+
+    The fixed schema stays the default; a requested key becomes one column
+    named after it, ``null`` on metrics that do not carry it, and nested
+    values / reserved names are refused rather than silently flattened.
+    """
+
+    @staticmethod
+    def _result():
+        spread = MetricResult(
+            value=0.001,
+            n_obs=80,
+            name="quantile_spread",
+            metadata={"n_groups": 2, "mean_tail_size": 3.0, "legs": [0.1, -0.2]},
+        )
+        turnover = MetricResult(
+            value=0.25,
+            n_obs=79,
+            name="notional_turnover",
+            metadata={"n_groups": 2, "rebalance_lag": 1, "mean_tail_size": 3.0},
+        )
+        return _sample_result(
+            MappingProxyType({"spread": spread, "turnover": turnover})
+        )
+
+    def test_default_schema_is_unchanged(self):
+        frame = self._result().to_frame()
+        assert "n_groups" not in frame.columns
+        assert frame.columns[-1] == "warning_codes"
+
+    def test_requested_keys_become_trailing_columns_with_nulls_where_absent(self):
+        frame = self._result().to_frame(
+            metadata=("n_groups", "rebalance_lag", "mean_tail_size")
+        )
+        assert frame.columns[-3:] == ["n_groups", "rebalance_lag", "mean_tail_size"]
+        rows = {r["metric_name"]: r for r in frame.to_dicts()}
+        assert rows["quantile_spread"]["n_groups"] == 2
+        assert rows["notional_turnover"]["n_groups"] == 2
+        assert rows["quantile_spread"]["rebalance_lag"] is None
+        assert rows["notional_turnover"]["rebalance_lag"] == 1
+        assert rows["notional_turnover"]["mean_tail_size"] == pytest.approx(3.0)
+        # Still pairs with the identity block, so stacked frames stay auditable.
+        assert set(frame["factor"].to_list()) == {"mom_12_1"}
+
+    def test_nested_values_are_refused_not_flattened(self):
+        with pytest.raises(ValueError, match=r"metadata\['legs'\].*quantile_spread"):
+            self._result().to_frame(metadata=("legs",))
+
+    def test_reserved_and_repeated_keys_are_refused(self):
+        with pytest.raises(ValueError, match="collide"):
+            self._result().to_frame(metadata=("value",))
+        with pytest.raises(ValueError, match="collide"):
+            self._result().to_frame(metadata=("forward_periods",))
+        with pytest.raises(ValueError, match="repeated"):
+            self._result().to_frame(metadata=("n_groups", "n_groups"))
+        with pytest.raises(ValueError, match="sequence"):
+            self._result().to_frame(metadata="n_groups")  # type: ignore[arg-type]
+
+    def test_params_keys_are_reserved_too(self):
+        res = dataclasses.replace(self._result(), params={"n_groups": 2})
+        with pytest.raises(ValueError, match="collide"):
+            res.to_frame(metadata=("n_groups",))
+
+    def test_end_to_end_tradability_audit(self):
+        """The reporter's case: spread and turnover n_groups checkable from CSV."""
+        import factrix as fx
+        from factrix.metrics import notional_turnover, quantile_spread
+        from factrix.preprocess import compute_forward_return
+
+        raw = fx.datasets.make_cs_panel(n_assets=6, n_dates=120, seed=0)
+        panel = compute_forward_return(raw, forward_periods=5)
+        out = fx.evaluate(
+            panel,
+            metrics={
+                "spread": quantile_spread(n_groups=2),
+                "turnover": notional_turnover(n_groups=2, rebalance_lag=1),
+            },
+            factor_cols=["factor"],
+        )["factor"]
+        frame = out.to_frame(metadata=("n_groups", "rebalance_lag", "mean_tail_size"))
+        # ``metric_name`` is the caller's label inside ``evaluate``.
+        rows = {r["metric_name"]: r for r in frame.to_dicts()}
+        assert rows["spread"]["n_groups"] == 2
+        assert rows["turnover"]["n_groups"] == 2
+        assert rows["turnover"]["rebalance_lag"] == 1
+        assert rows["spread"]["rebalance_lag"] is None
+        assert rows["turnover"]["mean_tail_size"] == pytest.approx(3.0)
+        # The exported cells are scalars, so the frame is CSV-safe once the
+        # (pre-existing) list-typed ``warning_codes`` column is set aside.
+        text = frame.drop("warning_codes").write_csv()
+        assert "turnover" in text and "n_groups" in text.splitlines()[0]
