@@ -106,7 +106,13 @@ def _resolve_har_lags(
       consistency floor still discards most of the overlap covariance it is
       there to capture. At ``L = 3(h - 1)`` the mean weight across the MA
       band is about 0.83 instead of about 0.5, and the measured size at
-      ``T=240, h=21`` falls from 18.0% to 6.0%.
+      ``T=240, h=21`` falls from 10.1% to 6.0% (40000 replications, seed
+      20260828; ``tests/stats/test_overlap_floor_size.py`` re-runs the
+      contrast at a reduced replication count). That comparison moves the
+      floor alone and holds the other two departures below at what factrix
+      does today; the "before" column of the table in
+      :func:`_newey_west_t_test`'s Notes is the wider contrast that swaps
+      all three at once.
 
     The ``ceil(T / 3)`` cap keeps the kernel estimable; it binds only in the
     thin regime that :func:`_hac_bandwidth_ill_conditioned` flags. An explicit
