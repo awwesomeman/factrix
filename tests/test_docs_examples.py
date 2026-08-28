@@ -88,8 +88,12 @@ def _isolated_metric_registry() -> Iterator[None]:
         dag._registry_callable_table.cache_clear()
 
 
-def _compile(fence: PythonFence, index: int) -> object | None:
-    """Compile one fence; return the code object, or ``None`` on ``SyntaxError``."""
+def _compile(fence: PythonFence, index: int) -> object:
+    """Compile one fence to a code object.
+
+    Raises ``SyntaxError`` like :func:`compile` does; both call sites catch it
+    and report the offending block.
+    """
     return compile(
         textwrap.dedent(fence.body),
         f"<docs block {index} @ line {fence.line}>",
