@@ -2,9 +2,9 @@
 title: Contributing to factrix
 ---
 
-This document describes the factrix development workflow. factrix is
-currently a private single-author repo, so this guide covers
-**development modes and pitfalls** rather than OSS contributor
+This document describes the factrix development workflow. factrix is a
+public repository with a single maintainer, so this guide covers the
+**development workflow and its pitfalls** rather than OSS contributor
 conventions (licensing / DCO / CLA).
 
 ---
@@ -23,8 +23,8 @@ uv run pytest        # confirm baseline is green
 factrix is developed and tested as a standalone package. A consuming
 project (a research workspace, a notebook, a pipeline) depends on it the
 way it depends on any other library — an exact PyPI version or a git tag —
-and is never edited from inside that project; see section 7 for the
-pinning policy.
+and is never edited from inside that project; see
+[Versioning and release](#7-versioning-and-release-semver--release) for the pinning policy.
 
 ---
 
@@ -46,7 +46,7 @@ uv sync --extra dev                  # +pytest, commitizen, etc. (required to wr
 uv sync --extra pandas               # +pandas / pyarrow (factrix.adapt on pandas input)
 uv sync --extra jupyter              # +jupyter / jupyterlab / ipywidgets (notebooks)
 uv sync --extra docs                 # +mkdocs-material, mkdocstrings, mike (build the site)
-uv sync --extra dev --extra docs     # local CI / release checks
+uv sync --frozen --all-extras        # local CI / release checks (see the release-train drift audit)
 ```
 
 The declared extras are `pandas`, `jupyter`, `dev`, `docs`, and `all` (where
@@ -131,7 +131,7 @@ trailers, which GitHub would surface on the repo's contributor graph.
 checks that the `## vX.Y.Z` section in `CHANGELOG.md` has ≥ 25 non-blank
 lines. Below threshold → blocks the push, forcing you to add WHY narrative
 (BREAKING migration, behavioural direction, motivation) before pushing. Pre-1.0
-release commits skip this gate; see the Pre-1.0 version guide in section 7. It
+release commits skip this gate; see the [Pre-1.0 version guide](#pre-10-version-guide). It
 also runs `mkdocs build --strict` when the push touches docs-relevant paths and
 `uv run mypy factrix` when it touches `factrix/**/*.py`. To bypass:
 `git push --no-verify`.
@@ -154,7 +154,7 @@ in `pyproject.toml` — that pin is the source of truth, so bump it to
 match in the same commit. `tests/test_precommit_ruff_pin.py` fails when
 the two diverge.
 
-Rationale: see section 7 for release-note and pre-1.0 policy.
+Rationale: see [Versioning and release](#7-versioning-and-release-semver--release) for release-note and pre-1.0 policy.
 
 ---
 
@@ -183,9 +183,9 @@ gh pr merge --squash
 ```
 
 !!! warning "Do not run `cz bump` after merge"
-    Versions and tags follow the release-train cadence (see §7) — a single
+    Versions and tags follow the [release-train cadence](#release-cadence--release-train) — a single
     release fires after several PRs accumulate. Follow the Pre-1.0 version guide
-    in section 7 for pre-1.0 PR narrative and changelog behavior.
+    in the [Pre-1.0 version guide](#pre-10-version-guide) for pre-1.0 PR narrative and changelog behavior.
 
 ### Branch naming
 
@@ -314,8 +314,8 @@ which folder they happen to live in. Four shapes carry the whole site:
   semantics. (`evaluate`, `bhy`, `EvaluationResult`, every `metrics/<x>.md`.)
 - **question-centric** — answers a "how do I do X?" task with a short
   walk-through. Lives under `User guide` > `How-to`. Title is the
-  question, body is the recipe. (`Information coefficient vs
-  Fama-MacBeth`, `Panel vs timeseries`, `Cross-function reference`.)
+  question, body is the recipe. (`Choosing a metric`,
+  `Panel vs timeseries`, `Preparing data`.)
 - **lookup** — pure table or reverse-index, scanned not read. Lives
   under `User guide` > `Reference tables`. Ordered by quant scan
   frequency, not alphabetically. (`Metrics applicability`, `Stat keys`,
@@ -331,8 +331,8 @@ which folder they happen to live in. Four shapes carry the whole site:
 The on-disk path under `docs/` is **never** changed to match a nav
 move. mike publishes versioned URLs from the file path, and external
 links (issue references, downstream notebooks, search indexes) pin to
-that URL — relocating `docs/api/decision-tree.md` to
-`docs/guides/decision-tree.md` would 404 every link captured before the
+that URL — relocating `docs/api/metrics/ic.md` to
+`docs/guides/ic.md` would 404 every link captured before the
 move. Nav is the editorial layer; folders are the URL contract. When
 re-classifying a page, change only the `mkdocs.yml` entry; leave the
 file where it is.
@@ -344,8 +344,8 @@ first word, proper nouns, and code identifiers used as proper nouns
 take a capital. Tab labels (`Get started`, `User guide`, `API
 reference`, `Release notes`) follow the same rule.
 
-- **Acronyms in nav labels are spelled out** (`Information coefficient
-  vs Fama-MacBeth`, `Batch screening with Benjamini-Hochberg-Yekutieli`)
+- **Acronyms in nav labels are spelled out** (`Timeseries-mode
+  conventions`, `Validating allocation signals`)
   with no parenthetical short form. The short form is redundant for
   domain readers and mis-leading for newcomers; first-use expansion is
   the page's first paragraph or the `Glossary` entry, not the sidebar.
@@ -420,7 +420,7 @@ Deliberately not automated, because machine-judgement cost > miss cost:
   parses fine.
 - **Editorial choices in `factrix/llms-full.txt`** — depth of context,
   ordering, and what to omit are agent-UX decisions, not symbol
-  coverage (which §5.1 already enforces).
+  coverage (which [Automated drift checks](#51-automated-drift-checks) already enforces).
 
 Rule of thumb: if the drift can be detected by a string match or a
 function call, automate it; if catching it requires reading prose for
@@ -428,7 +428,7 @@ meaning, leave it to release-train review.
 
 ### 5.3 Release-train drift audit
 
-Before running a release bump (see §7), run this checklist on `main`:
+Before running a release bump (see [Versioning and release](#7-versioning-and-release-semver--release)), run this checklist on `main`:
 
 ```bash
 # 1. Search for symbols retired this release cycle that may have leaked back in.
@@ -449,7 +449,7 @@ uv run ruff check .
 uv run ruff format --check .
 uv run mypy factrix
 
-# 4. Full test suite — covers every check listed in §5.1.
+# 4. Full test suite — covers every automated drift check.
 uv run pytest -q
 
 # 5. Doctests — mirrors the CI doctest job.
@@ -466,7 +466,7 @@ uv run pytest tests/test_docs_llms.py tests/test_docs_pages.py -q
 uv build --python 3.12
 
 # 9. Review release-note policy before changelog edits:
-#    - section 7 in this file
+#    - the versioning and release section of this file
 #    - the top of CHANGELOG.md
 ```
 
@@ -492,7 +492,7 @@ Exceptions where a file-form plan still earns its keep:
 - Multi-thousand-line specs with heavy LaTeX / diagrams that strain GitHub markdown
 - Plans that go through ≥3 numbered revisions where commit history of the file itself is the record
 
-In those cases, file under `docs/plans/active/<short-slug>.md` and open a tracking issue that links to it. Once shipped or superseded, the same PR that lands the work moves the file to `docs/plans/archive/`.
+In those cases, file under `docs/plans/active/<short-slug>.md` and open a tracking issue that links to it. Once shipped or superseded, the same PR that lands the work deletes the file and records the outcome on the tracking issue; the archive stays frozen.
 
 ---
 
@@ -534,7 +534,7 @@ a matching test in the same PR. Review should block the PR if tests are missing.
 
 The project's style policy is split between two complementary but distinct conventions; conflating them invites drift.
 
-- **Code formatting and structure** (line length, naming, imports, indentation, formatter tool) follows PEP 8 and the Black / ruff defaults configured in `pyproject.toml [tool.ruff]`. The selector set (`E/W/F/I/B/UP/SIM/RUF`) and 88-character line length there are the source of truth.
+- **Code formatting and structure** (line length, naming, imports, indentation, formatter tool) follows PEP 8 and the Black / ruff defaults configured in `pyproject.toml [tool.ruff]`. The selector set (`E/W/F/I/B/UP/SIM/RUF/D`, with `D` scoped to the Google convention via `[tool.ruff.lint.pydocstyle]` and six codes ignored) and 88-character line length there are the source of truth.
 - **Docstring format** follows the griffe / mkdocstrings interpretation of Google section convention, because the mkdocstrings python handler is configured for `docstring_style: google` (see `mkdocs.yml`). Recognised section headers — the complete set this project commits to — are colon-terminated and ordered per the "Section order" subsection below. Dataclasses use `Attributes:` in place of `Args:`. `References:` is a project-local extension — griffe handles it via fallthrough rather than as a strict Google section, so it is listed here so future contributors do not "fix" it away.
 - **Structured sections vs admonitions.** Two visually similar groups are not interchangeable: structured sections expect `Type: description` entries (`Args:`, `Returns:`, `Yields:`, `Raises:`, `Warns:`, `Attributes:`); admonitions accept free-form prose under a heading (`Note:`, `Warning:`, `Tip:`, `Important:`, `Caution:`). `Warns:` lists `WarningClass: msg` entries (paired with `warnings.warn` call sites); `Warning:` is a free-form caveat block. Same distinction applies in principle to `Notes:` vs `Note:`, though `Notes:` is the project default for multi-paragraph commentary. Use the plural / structured form when the content is a typed list; use the singular / admonition form for prose caveats.
 - **The Google Python Style Guide as a whole is not adopted.** Its 80-character line limit, single-quote string preference, and yapf formatter conflict with the ruff configuration above and do not apply. Only the docstring section convention is taken from Google.
@@ -844,7 +844,7 @@ PRs and releases are decoupled:
 git checkout main && git pull
 
 # 2. Verify CI is green and local release checks pass
-#    See the release-train drift audit in section 5.3.
+#    See the release-train drift audit above.
 
 # 3. Auto-bump and tag
 # cz derives the level from commits since the last tag (feat=MINOR, fix=PATCH),
@@ -877,8 +877,8 @@ newlines as `<br>`, so source-level wrapping leaks into the rendered output.
 
 ### BC change reminders
 
-Example: `breakeven_cost` / `net_spread` took `overlap_periods` up to
-`v0.23.0` and take `holding_periods` from the next release (#876). This
+Example: `breakeven_cost` / `net_spread` were renamed from
+`overlap_periods` to `holding_periods`. This
 kind of rename is a BC change. When using `cz commit`, the developer must
 select Breaking Change and **explicitly write the migration path** in the
 prompt (old → new names, affected fields). The Pre-1.0 version guide
@@ -929,7 +929,7 @@ template / discussion board. Decision-record channels:
 
 - **Small changes**: PR description spells out the why and any BC
 - **Large changes / architectural decisions**: open a GitHub design issue
-  (see section 5.5). Use a file-form plan only for the exceptions listed there,
+  (see [Design proposals](#55-design-proposals--use-issues-not-files)). Use a file-form plan only for the exceptions listed there,
   and link it from the issue / PR.
 - **Invariant-level rule changes**: update the `Invariants` section in
   `docs/development/architecture.md`

@@ -5,7 +5,7 @@
 
 - Release **vX.Y.Z** — <one-line theme>
 - Pre-1.0: CHANGELOG remains a policy note + GitHub-release index; PR body carries the WHY / migration narrative.
-- v1.0.0+: CHANGELOG `[Unreleased]` section moved under `## vX.Y.Z (YYYY-MM-DD)` and polished per `release-management/SKILL.md` §3.
+- v1.0.0+: CHANGELOG `[Unreleased]` section moved under `## vX.Y.Z (YYYY-MM-DD)` and polished per the release checklist below.
 
 ## Release checklist
 

@@ -8,7 +8,8 @@ runs them**, not by what they touch.
 | Path | Who runs | Purpose |
 |------|----------|---------|
 | [`mkdocs_hooks/`](mkdocs_hooks/) | mkdocs (`hooks:` in `mkdocs.yml`) | Build-time content generation for the docs site. Triggered automatically before every `mkdocs build` / `mkdocs serve`. Each script also has a `__main__` guard so it can be run directly for debugging (`uv run python scripts/mkdocs_hooks/<name>.py`), but that path is not part of the normal workflow. |
-| `scripts/` (root) | humans (CLI), one-off | Manual utilities — release helpers, ad-hoc data fixes, anything outside the mkdocs lifecycle. Empty at present; reserved for future additions. |
+| `scripts/` (root) | humans (CLI), one-off | Manual utilities outside the mkdocs lifecycle. Currently `setup_dev.py` — one-time installation of the pre-commit hooks. |
+| [`hooks/`](hooks/) | the pre-commit framework | Repo-local hook scripts wired as `entry:` in `.pre-commit-config.yaml` — `commit-msg` and `pre-push`. Not invoked by hand. |
 
 ## Adding a new script
 

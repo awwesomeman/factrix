@@ -121,8 +121,8 @@ gaps = raw.sort(["asset_id", "date"]).with_columns(
 # — single unique gap per asset is the goal.
 ```
 
-If the panel is sparse by design (event series, irregular trading
-days), see step 7 on sparse signals.
+If the panel is sparse by design (event series, an irregular period
+grid), see step 7 on sparse signals.
 
 ## 3. Attach forward return
 
@@ -148,19 +148,18 @@ forward_return[t] = (price[t + 1 + forward_periods] / price[t + 1] - 1) / forwar
 Three things to know about this formula:
 
 - **Entry at `t + 1`, not `t`** — the function assumes you trade on
-  the bar *after* the signal is observed, preserving a strict
+  the period *after* the signal is observed, preserving a strict
   signal-then-trade causal boundary.
 - **Exit at `t + 1 + forward_periods`** — the holding horizon spans
-  `forward_periods` rows of the asset's own date series.
+  `forward_periods` periods of the panel's distinct-date grid.
 - **Divided by `forward_periods`** — returns are normalized to a per-period basis,
   so `forward_periods=5` and `forward_periods=20` are directly
   comparable. This differs from the cumulative-return convention used
   by qlib (`Ref($close, -N)/$close - 1`) and alphalens.
 
-The horizon counts **rows of the asset's own date series**, not
-calendar days. `forward_periods=5` on a daily panel is a
-five-trading-day lookahead; on a monthly panel it is five months.
-Frequency is the user's responsibility — see step 5.
+The horizon counts **periods on the panel's distinct-date grid** — never
+row offsets within an asset, and never calendar time. Aligning the panel
+onto the intended cadence is the caller's responsibility — see step 5.
 
 The `forward_periods` you pass here must match the
 `forward_periods` you later pass to `evaluate`. Bind the custom factor
@@ -266,9 +265,9 @@ Three responsibilities sit upstream of `compute_forward_return`:
   monthly and the price source is daily, downsample (or upsample) one
   side before joining. A frequency mismatch will not raise; it will
   silently mean the wrong thing.
-- **Same `forward_periods` interpretation.** Five periods on a daily
-  panel is five days; five periods on a monthly panel is five months.
-  Pick the horizon against your panel's actual cadence.
+- **Same `forward_periods` interpretation.** The horizon is a count of
+  periods on the joined grid, so both sources must already agree on what
+  one period is. Pick the horizon against your panel's actual cadence.
 - **Slice / regime labels aligned by date.** If you attach a
   `regime_id` or `universe` column for downstream slicing, align it on
   the same date axis the panel uses; mismatched labels propagate
@@ -310,7 +309,7 @@ vendor feed and an internal signal), the joins are the caller's, and
 |---|---|---|
 | NaN in `factor` | Rewritten to `null` at ingestion, so it is a missing value like any other: it depresses `n_obs` and may trip sample-size guards, and never enters a rank. | Drop or impute before optional factor preprocessing or `compute_forward_return`. |
 | NaN / inf in `price` | Rewritten to `null` at ingestion *before* the return is formed, so a `+inf` price is a gap rather than a fabricated `-100 %` return; rows whose `forward_return` cannot be formed are dropped. Tail rows where `i + 1 + forward_periods` runs off the asset's grid are dropped by the same rule. | If the gap is real (suspended trading, a closed market), the drop is correct: the asset has no observation to pair at that period and leaves that period's cross-section. Do not forward-fill a price to close the gap — a filled entry price enters at the previous period's price and a filled exit price shortens the true holding period (see [§5](#cross-source-alignment-where-the-boundary-sits)). Only a genuine feed error should be repaired, from the source. |
-| `forward_periods <= 0`, non-`int`, or `bool` | Raises [`UserInputError`](../api/errors.md); the horizon must be a positive integer row count. | Pass an explicit row horizon such as `1`, `5`, or `20`. |
+| `forward_periods <= 0`, non-`int`, or `bool` | Raises [`UserInputError`](../api/errors.md); the horizon must be a positive integer count of periods. | Pass an explicit period horizon such as `1`, `5`, or `20`. |
 | Horizon too long / no finite returns after filtering | Raises [`UserInputError`](../api/errors.md) instead of returning an empty panel. | Shorten the horizon, extend the panel, or clean price values before calling. |
 | Single-asset panel (`n_assets == 1`) | `DataStructure` auto-switches to `TIMESERIES`. Dense PANEL metrics (`individual_continuous` and `common_continuous`) raise [`IncompatibleAxisError`](../api/errors.md). | Use `predictive_beta` for dense predictive-regression slope inference, `directional_hit_rate` for sign prediction, or a sparse metric whose cell allows `TIMESERIES`. |
 | Effective sample below a metric's own hard floor | Under `strict=True`, raises [`InsufficientSampleError`](../api/errors.md) carrying `.axis` / `.actual` / `.required`; metrics never silently produce a result on under-sampled data. The floor is **per metric and per axis** — there is no single global `T` rule — and it is checked on the *effective* sample (post-stride periods, surviving cross-section), not the raw row count. | Read `.axis` first. `periods` → extend the window. `assets` → widen the universe or lower the metric's bucket count (`monotonicity(n_groups=3)`, `k_spread(k=2)`). Or pass `strict=False` for NaN placeholders. |

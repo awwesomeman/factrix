@@ -41,7 +41,7 @@ Every `evaluate()` call expects a polars DataFrame with at least these columns:
 
 | Column          | Required at | Description |
 |-----------------|-------------|-------------|
-| `date`          | input       | Date/time key (sorted, regular spacing per asset) |
+| `date`          | input       | Date/time key (ordering key only; the grid need not be evenly spaced) |
 | `asset_id`      | input       | Unique asset identifier |
 | `<factor_col>`  | input       | The factor column name under test |
 | `forward_return`| evaluate    | Forward-return horizon (attached via `compute_forward_return`) |
@@ -588,7 +588,7 @@ All exceptions inherit from `FactrixError`:
 
 ## WarningCode reference
 
-The canonical glosses live in `factrix._codes.WarningCode.description` and are regenerated into `docs/reference/_generated_warning_codes.md`. The 29 evaluation-side codes (the preprocess and data-shape codes are in that generated reference; of those, `non_finite_input_dropped` is also attached by `caar` when `compute_caar` drops non-finite event rows):
+The canonical glosses live in `factrix._codes.WarningCode.description` and are regenerated into `docs/reference/_generated_warning_codes.md`. The 32 evaluation-side codes (the preprocess and data-shape codes are in that generated reference; of those, `non_finite_input_dropped` is also attached by `caar` when `compute_caar` drops non-finite event rows):
 
 | WarningCode | Description |
 |---|---|
@@ -617,6 +617,9 @@ The canonical glosses live in `factrix._codes.WarningCode.description` and are r
 | `single_asset_event_data` | Single-asset event data (TIMESERIES + SPARSE, n_assets=1); asset-cross-section metrics (e.g. `clustering_hhi`) stay unusable. |
 | `excessive_period_drops` | An upstream PANEL→SERIES primitive dropped > `DROP_RATE_WARN_THRESHOLD` of periods at its cross-sectional filter; counts in `metadata` (`n_periods_in/out`, ...). |
 | `excessive_asset_drops` | An upstream primitive dropped > `DROP_RATE_WARN_THRESHOLD` of assets (e.g. `compute_common_betas`); counts in `metadata` (`n_assets_in/out`, ...). |
+| `few_ordering_pairs` | directional_pair_accuracy with MIN_PAIR_ACCURACY_PAIRS_HARD ≤ n_pairs < MIN_PAIR_ACCURACY_PAIRS_WARN (10..29); the descriptive ordering accuracy is returned but n counts pooled non-overlapping within-period asset pairs after factor/return ties are removed. Below the HARD floor the metric short-circuits to NaN. |
+| `hac_bandwidth_ill_conditioned` | The resolved Bartlett bandwidth L exceeds n_periods / 5, so the HAC long-run variance is estimated from too few lag products to be stable. Usually a long overlap_periods against a short sample. The t-test still runs with the effective-df correction, but treat the p-value as indicative only and lengthen the sample or shorten the horizon. In this regime the effective-df cap at n_periods / overlap_periods binds hard, so if the series carries less dependence than overlap_periods implies the test is conservative rather than oversized (measured 0.2-3.5% against a nominal 5% on an iid series at h=21). |
+| `estimation_window_contaminated` | A mean-adjusted event test (caar / bmp_z / corrado_rank / event_hit_rate / event_ic / event_skewness) found that, averaged over the tested events, more than ESTIMATION_WINDOW_EVENT_SHARE_WARN (25%) of each event's estimation-window periods lie inside another event's forward-return window on the same asset (metadata['estimation_window_event_share']). The window then estimates the neighbours' realised event returns rather than the asset's unconditional mean, the per-event abnormal returns are negatively correlated through the shared periods, and the cross-event variance overstates the variance of their mean: the test is conservative, not liberal (measured on an iid null at h = 21: bmp_z 0.3% size at nominal 5%). A dense trigger or a long horizon is the cause. A supplied market-adjusted 'abnormal_return' does not remove it (measured 0.3% -> 0.3%) and removes the effect itself when every name fires on the same periods, so the statistic is returned unchanged: read the p-value as an upper bound, or shorten the horizon / thin the trigger. |
 | `slice_boundary_truncation` | `by_slice` partitioned on a date-axis column while the metric declares `MetricSpec.slice_boundary_sensitive`; each slice sees truncated boundary history. Cross-sectional partitions (constant within an asset, e.g. sector) do not trigger. |
 | `short_slice_joint_test` | `slice_period_joint_test` ran on K >= 3 slices with the shortest below 150 periods; the omnibus over-rejects there (8–9% at nominal 5% for K=5 with 50–90-period slices) because each slice's noisy small-sample HAC variance is inverted across K-1 restrictions. The row records it in `warning_codes` / `unexpected_warning_codes` next to `k_slices`, `n_periods_min` and `short_slice_periods`; declare it in `expected_warnings=` to keep the record and stop the echo. Prefer the pairwise contrasts on the same slices. |
 | `one_signed_factor` | `top_concentration` with `weight_by='abs_factor'` on a factor that never changes sign; \|f\| is a density weight only around a zero neutral point, so an uncentred factor's HHI moves with an arbitrary shift — z-score it or use `alpha_contribution`. |

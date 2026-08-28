@@ -548,7 +548,7 @@ Calendar-time portfolio approach to event studies — recasts event-indexed
 inference by forming each calendar period's portfolio of all firms with a
 recent event and analysing portfolio returns. Historical background for
 factrix's event-period CAAR aggregation: factrix collapses same-period events to
-one event-period mean, then uses calendar-aware non-overlap sampling rather
+one event-period mean, then uses non-overlap sampling on the event axis rather
 than dense zero-fill HAC.
 
 ### Mandelker (1974)
@@ -575,7 +575,7 @@ susceptible to the bad-model problem and that monthly portfolio formation
 automatically absorbs cross-correlations of event-firm abnormal returns.
 Factrix cites this as background for same-period event aggregation and for
 reading clustered event calendars cautiously; the implemented CAAR t-test
-uses calendar-aware non-overlap sampling, not a dense HAC path.
+uses non-overlap sampling on the event axis, not a dense HAC path.
 
 ---
 

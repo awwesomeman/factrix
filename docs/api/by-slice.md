@@ -18,7 +18,7 @@ market-cap tier, ADV bucket all share the same dispatcher.
 
 ## Argument contract
 
-`by_slice(data, metric, *, by, factor_col, forward_periods=None, strict=True)`:
+`by_slice(data, metric, *, by, factor_col, forward_periods=None, overlap_periods=None, strict=True, expected_warnings=())`:
 
 - `data` — a raw long-format panel, the **same input contract as
   `evaluate`** (`date, asset_id, <factor_col>, forward_return`), with the

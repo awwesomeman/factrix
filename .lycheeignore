@@ -1,4 +1,4 @@
-# URLs ignored by the lychee link checker (CI job in docs-deploy-dev.yml).
+# URLs ignored by the lychee link checker (CI jobs in link-check.yml).
 #
 # Add a line per pattern that the checker should skip — one URL or regex
 # per line. Common reasons: placeholder URLs in docs templates, rate-
@@ -35,10 +35,10 @@
 # checked).
 ^https://github\.com/[^/]+/[^/]+/edit/
 
-# GitHub returns 404 for the private repository's stargazers page when
-# lychee checks it without a browser login. Keep the README badge target
-# useful for authorized readers while excluding this permission-dependent
-# false positive only.
+# GitHub serves 404 on the stargazers page to unauthenticated non-browser
+# clients, so the checker sees a false positive even though the repository
+# is public and the page resolves for a reader. Keep the README badge
+# target useful while excluding this one client-dependent false positive.
 ^https://github\.com/awwesomeman/factrix/stargazers$
 
 # Academic publishers (Oxford Academic, Wiley Online Library, Taylor &
@@ -58,7 +58,7 @@
 
 # Site-internal root-relative paths (e.g. `/factrix/api/evaluate/`).
 # The main source of these was `site/404.html` (theme sitemap), which
-# is now excluded via `--exclude-path ./site/404.html` in the workflow.
+# is now excluded via `--exclude-path site/404.html` in the workflow.
 # This pattern remains as a safety net for any other page that may emit
 # root-relative hrefs — lychee errors on them at URL-build time (before
 # filtering), so `--exclude-path` is the primary fix; this entry only

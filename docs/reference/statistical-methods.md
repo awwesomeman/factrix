@@ -12,7 +12,7 @@ title: Statistical methods
 
 Cross-cutting statistical disciplines that govern multiple metrics in
 factrix. This page sits **above** the per-metric API pages: it
-describes the four discipline lines that recur across cells, explains
+describes the five discipline lines that recur across cells, explains
 the variant of each that factrix implements, and points at the
 [bibliography](bibliography.md) anchor for the source treatment.
 
@@ -39,12 +39,12 @@ The five sections are the only first-class disciplines in factrix:
     [Period grid, not calendar](../development/architecture.md#period-grid-not-calendar)). `date` is only an ordering
     key, and every window, lag, horizon and stride (`forward_periods`,
     `estimation_window`, `window`, Bartlett lags, block lengths) is a count
-    of **panel rows**, i.e. of whatever period one row represents. There is
-    no annualisation factor, no trading-day constant and no date
-    arithmetic anywhere in the library, so `forward_periods=5` is five days
-    on a daily panel and five months on a monthly one. Where a docstring
-    says "one period" it means one row; "within-period" means "among the rows
-    sharing one timestamp", whatever that timestamp's granularity. The
+    of **periods on the panel's own distinct-date grid**, i.e. of whatever
+    interval one period represents. There is no annualisation factor, no
+    trading-day constant and no date arithmetic anywhere in the library, and
+    the grid may be unevenly spaced. Where a docstring says "one period" it
+    means one distinct date; "within-period" means "among the rows sharing
+    one timestamp", whatever that timestamp's granularity. The
     caller owns frequency consistency between the factor, the return and
     the price column — see
     [Preparing data](../guides/preparing-data.md).
@@ -64,15 +64,15 @@ as the default for the mainstream metrics, NW HAC as an explicit
 sibling.
 When NW HAC is selected, factrix uses the
 [Newey-West 1987][newey-west-1987] Bartlett kernel with a
-deterministic bandwidth, applied by `ic` (with `NeweyWest` inference), `fm_beta`,
-`pooled_beta`, `common_quantile_spread`, and `common_asymmetry`.
+deterministic bandwidth. The full path-to-family map is the table in
+[section 6](#hac-families).
 
 There are **two** bandwidth rules, because the scalar mean $t$-test and
 the $K$-restriction Wald tests degrade in opposite directions under a
 wide kernel (see [section 6](#hac-families) for the full path table).
 
-- **Scalar series-mean HAR $t$-test** (`ic` with `NeweyWest` inference,
-  `caar`, `quantile_spread` under `NeweyWest`, `fm_beta` stage 2) —
+- **Scalar series-mean HAR $t$-test** (`ic` / `quantile_spread` /
+  `quantile_spread_vw` / `k_spread` under `NeweyWest`, `fm_beta` stage 2) —
   `_resolve_har_lags`:
   $$
   L = \min\!\left(\max\!\left(1.3\sqrt{T},\; 3(h - 1)\right),\; \lceil T/3 \rceil\right)
@@ -175,7 +175,7 @@ the advantage of exact rather than asymptotic-Gaussian inference at
 the cost of a factor of `h` in effective sample size; users with long
 panels often prefer NW.
 
-When the non-overlapping effective sample (`n / forward_periods`) is
+When the non-overlapping effective sample (`n / overlap_periods`) is
 thin, `ic` surfaces `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` on the
 returned result — the post-stride series is too short for a reliable
 `t`. Switching to `ic(inference=fx.inference.NEWEY_WEST)` keeps every
@@ -192,8 +192,8 @@ approximation assumption all three analytic methods still make:
 
 | Procedure | Mechanism | Strengths | Weaknesses | Where factrix uses it |
 |---|---|---|---|---|
-| **Newey-West (1987)** | Bartlett-kernel HAC on the full overlapping series, bandwidth `L = max(bandwidth_base, h−1)`. | Simple, deterministic, asymptotically valid for arbitrary autocorrelation up to `L`. | Asymptotic Gaussian — finite-sample size distortion when `h/T` is non-trivial; bandwidth rule is conservative. | `ic` (with `NeweyWest` inference), `fm_beta` stage 2, `pooled_beta`, `common_quantile_spread`, `common_asymmetry`. |
-| **Hansen-Hodrick (HH) (1980)** | A generalized method of moments (GMM)-style HAC estimator with a rectangular kernel truncated at `h−1`; the canonical reference for overlap-aware long-horizon SEs. | Targets the MA(`h−1`) residual structure overlap induces. | Rectangular kernel can yield a non-PSD covariance matrix in finite samples; still asymptotic. | Exposed as `factrix.inference.HANSEN_HODRICK` (rectangular-kernel SE → t-statistic → two-sided p-value); also borrows the `h−1` lag idea as a floor on the NW bandwidth above. |
+| **Newey-West (1987)** | Bartlett-kernel HAC on the full overlapping series, bandwidth `L = max(bandwidth_base, h−1)`. | Simple, deterministic, asymptotically valid for arbitrary autocorrelation up to `L`. | Asymptotic Gaussian — finite-sample size distortion when `h/T` is non-trivial; bandwidth rule is conservative. | `ic` / `quantile_spread` / `quantile_spread_vw` / `k_spread` (with `NeweyWest` inference), `fm_beta` stage 2, `pooled_beta`, `common_quantile_spread`, `common_asymmetry`. |
+| **Hansen-Hodrick (HH) (1980)** | A generalized method of moments (GMM)-style HAC estimator with a rectangular kernel truncated at `h−1`; the canonical reference for overlap-aware long-horizon SEs. | Targets the MA(`h−1`) residual structure overlap induces. | Rectangular kernel can yield a non-PSD covariance matrix in finite samples; still asymptotic. | Exposed as `factrix.inference.HANSEN_HODRICK` (rectangular-kernel SE → t-statistic → two-sided p-value), but deliberately in **no** metric's `applicable_inference` allowlist — passing it to a metric raises `IncompatibleInferenceError`. Also borrows the `h−1` lag idea as a floor on the NW bandwidth above. |
 | **Hodrick (1992) "1B"** | Reverse-regression: regress one-period return on the predictor sum `X_t = Σ x_{t-j}` over the last `h` periods. | Size-correct in finite samples even at large `h/T`; no bandwidth choice. | Coefficient interpretation differs — `β` is the response to a cumulative-predictor stimulus (MA on the RHS) rather than a long-horizon forecast slope (MA on the LHS in the standard form); not a drop-in replacement for the canonical `β`. | **Not implemented**. Cited as the right tool when overlap is severe; the `Individual × Continuous` cell side-steps the issue with non-overlapping resampling instead. |
 | **Stationary bootstrap (Politis-Romano 1994)** | Block-resamples the series (geometric block length, Politis-White 2004 automatic selection), centred under `H0`, studentizes both the observed and the resampled root by a batch-means SE at the same block length, and reports the empirical two-sided p from the resampled `t` ratios. | No normality or asymptotic-variance assumption at all — valid when the IC/return distribution is heavy-tailed or skewed enough that NW's / HH's Gaussian p-value is itself suspect. | Heavier to compute (resampling, not closed-form); the reported `stat` is the observed mean rather than the root the p is computed from. On a zero-dispersion sample there is no block SE to divide by, and the kernel falls back to the raw-mean root — reported as `metadata["studentized"] = False` and `degenerate_variance`. | Exposed as `factrix.inference.STATIONARY_BOOTSTRAP` on `ic` only — `quantile_spread` / `k_spread` dispatch on a hard `isinstance(NeweyWest)` check that would need to go polymorphic first. |
 
@@ -376,7 +376,7 @@ assumption about the cross-event distribution:
 Default for `caar`. Per event period, take the cross-sectional mean of
 $\text{return} \times \text{factor}$ across event rows; the resulting
 CAAR series is greedily subsampled by `date_ordinal` so consecutive
-kept event periods are at least `forward_periods` calendar periods apart,
+kept event periods are at least `overlap_periods` periods apart,
 then tested with a standard $t$ on the sampled mean. `n_obs` is the
 non-overlap event-period count, not the raw event count or full calendar
 length. Specification follows [Brown-Warner 1985][brown-warner-1985].
@@ -429,9 +429,10 @@ series, whose scale matches the numerator by construction.
 
 ## 6. Known simplifications (deliberately retained)
 
-One estimator takes a documented shortcut over the textbook form. It is
-intentional and has been reviewed; this section records the trade-off so the
-choice is not re-litigated.
+This section records the estimator simplifications kept deliberately, and the
+calibration measurements that map each test to the HAC family and reference
+distribution it actually uses. Each is intentional and has been reviewed; the
+record exists so the choices are not re-litigated.
 
 ### Within-period clustering: ANOVA ICC(1) and the design-effect deflator
 
@@ -466,7 +467,7 @@ sizes are at a nominal 5% on a true null.
 
 | Path | Bandwidth | Reference distribution | Measured size |
 |---|---|---|---|
-| `ic` (`NEWEY_WEST`), `caar`, `quantile_spread` (`NeweyWest`), `fm_beta` stage 2 — scalar series mean | `_resolve_har_lags`: $\min(\max(1.3\sqrt T, 3(h{-}1)), \lceil T/3\rceil)$, SE scaled by $T/(T{-}L{-}1)$ | $t_\nu$, $\nu = \min(1.5T/L - 1,\ T/h - 1)$ | 3.9–7.3% over $T \in \{60,120,240,500\} \times h \in \{1,5,21\}$; 5.4–8.1% on AR(0.6) input at $h=1$; 0.2–3.5% (conservative) when `forward_periods` is passed on a series that is not actually overlapping |
+| `ic` / `quantile_spread` / `quantile_spread_vw` / `k_spread` (`NEWEY_WEST`), `fm_beta` stage 2 — scalar series mean | `_resolve_har_lags`: $\min(\max(1.3\sqrt T, 3(h{-}1)), \lceil T/3\rceil)$, SE scaled by $T/(T{-}L{-}1)$ | $t_\nu$, $\nu = \min(1.5T/L - 1,\ T/h - 1)$ | 3.9–7.3% over $T \in \{60,120,240,500\} \times h \in \{1,5,21\}$; 5.4–8.1% on AR(0.6) input at $h=1$; 0.2–3.5% (conservative) when `forward_periods` is passed on a series that is not actually overlapping |
 | `ic` / `caar` / `quantile_spread` under `NON_OVERLAPPING` — strided mean | none (stride $h$, no kernel) | $t_{n_{\text{strided}}-1}$ | 4.5–5.4% in every overlapping cell measured; 32% on AR(0.6) input at $h=1$, which striding cannot touch |
 | `predictive_beta` — single-restriction slope, $h = 1$ | none: Amihud-Hurvich's homoskedastic $s^2(X'X)^{-1}$ | $t_{m-3}$ | 4.3–5.5% at $\rho = 0$; 6.2–8.3% in the strongest Stambaugh cells |
 | `predictive_beta` — single-restriction slope, $h > 1$ | `_resolve_har_lags` | $t_\nu$ via `_har_dof` | **7.5–14.5%** — known-oversized, see below |

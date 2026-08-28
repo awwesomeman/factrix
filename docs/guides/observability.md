@@ -76,7 +76,7 @@ For interactive analysis in Jupyter notebooks, `factrix` implements native HTML 
 Calling `fx.inspect_data(data)` returns a `DataInspection` object. In a notebook, it displays:
 * **Detected Properties**: Axis classifications (`scope`, `density`, `structure`) alongside sample numerics (`n_assets`, `n_periods`, `n_pairs`, `sparse_ratio`).
 * **Axis Reasoning**: Text rationales explaining *why* a particular classification was selected.
-* **Metrics Verdict Table**: A detailed list of all registered public metrics, showing their eligibility (`usable` vs `unusable`), cell-match requirements, blockers, and warnings.
+* **Metrics Verdict Table**: A detailed list of all registered public metrics, showing their eligibility (`usable` / `degraded` / `unusable`), cell-match requirements, blockers, and warnings.
 * **Data-Level Warnings**: Diagnostic warnings (e.g., NW HAC SE unreliable due to short periods).
 
 ### `EvaluationResult`

@@ -131,7 +131,7 @@ search (not in factrix's bibliography catalog).
 
 - BHY is a frequentist recipe with a deterministic threshold given
   `(p, m)`. It composes cleanly with downstream business logic that
-  needs a yes/no answer — the user reports `bhy_passed` to a
+  needs a yes/no answer — the user reports `BhyResult.survivors` to a
   governance step without negotiating priors.
 - Bayesian methods integrate dependence structure more naturally and
   can yield posterior probabilities of being a true factor. The cost
@@ -179,14 +179,14 @@ SE.
 - `pooled_beta` is exposed as an explicit comparison metric so a user
   can see whether FM and pooled disagree on sign or magnitude. The
   comparison stays in the result payload — divergence
-  is information for the user to interpret, not a `diagnose()`-level
+  is information for the user to interpret, not a library-level
   signal that triggers automatic action.
 
 ---
 
 ## 7. Per-metric registered procedures rather than a unified test
 
-factrix dispatches each `Scope × FactorSignal × Metric` cell to a
+factrix dispatches each `FactorScope × FactorDensity × Metric` cell to a
 **registered procedure** that runs a fixed pipeline (sample guards →
 cross-section step → significance test → diagnostics). It does not
 combine the per-cell mainstream-metric scalars into a single procedure-level F-test

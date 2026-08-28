@@ -94,7 +94,7 @@ The event-study path therefore exposes these related counts:
 | `n_events` | `compute_caar(...).select("date", "n_events")` | Raw event rows collapsed into each event period |
 | `total_events` | `caar(...).metadata["total_events"]` | Sum of raw non-zero event rows behind the study |
 | `n_event_periods` | `caar(...).metadata["n_event_periods"]` | Distinct event periods in the CAAR series |
-| `n_event_periods_sampled` | `caar(...).metadata["n_event_periods_sampled"]` | Event dates kept by the calendar-aware non-overlap sampler used for the t-test |
+| `n_event_periods_sampled` | `caar(...).metadata["n_event_periods_sampled"]` | Event dates kept by the non-overlap sampler used for the t-test |
 
 `MetricResult.n_obs` equals `n_event_periods_sampled`, because that is the
 sample entering the headline `p_value`. A large gap between `total_events` and

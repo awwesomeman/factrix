@@ -21,7 +21,7 @@ structure-aware per-panel applicability, use
 
 ## Sample dimensions
 
-factrix expresses sample-size gates on four sample axes (see
+factrix expresses sample-size gates on five sample axes (see
 [Concepts](../getting-started/concepts.md) for cell taxonomy and
 [Architecture](../development/architecture.md#sample-guards) for the naming
 grammar):
@@ -30,14 +30,17 @@ grammar):
   the pairwise-complete per-period asset count for IC / FM primitives.
 - `periods` / `T` — period count (`date` unique count), reported in runtime
   metadata as `n_periods`.
-- `pairs` / `n_pairs` — complete `(date, asset)` observations, or
-  metric-specific comparable pairs such as directional trials.
+- `pairs` / `n_pairs` — pooled complete `(date, asset)` observations
+  (`pooled_beta`, `directional_hit_rate`).
+- `asset_pairs` — within-period unordered asset couples
+  (`directional_pair_accuracy`). Deliberately a separate token from
+  `pairs`; the two must not be conflated.
 - `events` / `K` — non-zero event count for `Sparse` factors
   (`filter(factor != 0).height`) or event-period count where the metric collapses
   same-period events.
 
 Derived effective counts such as `T/h` are not independent axes. They are
-period-axis counts after a horizon / non-overlap stride (`forward_periods = h`)
+period-axis counts after a horizon / non-overlap stride (`overlap_periods = h`)
 has reduced the usable date sample.
 
 `DataStructure` is derived from `n_assets` at evaluate-time: `PANEL` for
@@ -169,7 +172,7 @@ below.
 | `MIN_ASSETS_WARN` | 30 | `n_assets` | warn | `factrix/_stats/constants.py` | PANEL `common_continuous`; tags `WarningCode.FEW_ASSETS` (severity from `n_assets`) |
 | `MIN_FM_ASSETS_HARD` | 3 | per-period `n_assets` | hard | `factrix/metrics/_primitives/_fm_betas.py` | `compute_fm_betas` (drops periods with pairwise-complete `n_assets < 3`) -> consumed by `fm_beta`, `fm_beta_sign_consistency` |
 | `MIN_FM_ASSETS_WARN` | 10 | per-period `n_assets` | warn | `factrix/metrics/_primitives/_fm_betas.py` | `fm_beta`, `fm_beta_sign_consistency`, `inspect_data`; tags `WarningCode.FEW_ASSETS` when retained FM periods have `n_assets < 10` |
-| `MIN_FM_PERIODS_HARD` | 4 | `T` (λ series) | hard | `factrix/metrics/fm_beta.py` | `fm_beta`, `fm_beta_sign_consistency` |
+| `MIN_FM_PERIODS_HARD` | 4 | `T` (λ series) | hard | `factrix/metrics/fm_beta.py` | `fm_beta` |
 | `MIN_FM_PERIODS_WARN` | 30 | `T` (λ series) | warn | `factrix/metrics/fm_beta.py` | `fm_beta` (Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) over-rejects below); ties to `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` |
 | `MIN_COMMON_BETA_PERIODS_HARD` | 20 | `T` per asset | hard | `factrix/metrics/_primitives/_common_betas.py` | `compute_common_betas` (drops assets with `T < 20`); upstream of `common_beta`, `common_beta_profile`, `common_beta_r_squared`, `common_beta_sign_consistency` |
 
@@ -190,7 +193,7 @@ Naming caveats:
   weak), so the `_HARD` convention (which means "raise") would mislead;
   severity scales with `n_assets` rather than splitting into tiers.
 For non-overlapping metrics (`ic`, `caar`, …) the effective floor is
-`_scaled_min_periods(base, forward_periods)` (in
+`_scaled_min_periods(base, overlap_periods)` (in
 `factrix.metrics._helpers`), which scales the base constant by the
 forward-return horizon `h`.
 
@@ -208,10 +211,8 @@ Inferential metrics enforce two separate floors:
   `MetricResult.metadata["warning_codes"]` so `EvaluationResult.warnings`
   can propagate it. `n ≥ WARN` is silent.
 
-**Descriptive metrics** (`clustering_hhi`, `corrado_rank`,
-`event_around_return`, `event_hit_rate`,
-`event_ic`, `profit_factor`, `event_skewness`, `mfe_mae`,
-`quantile_spread`, `common_quantile_spread`, `common_asymmetry`, `bmp_z`)
+**Descriptive metrics** (`clustering_hhi`, `event_around_return`, `profit_factor`, `mfe_mae`,
+`quantile_spread`, `common_quantile_spread`, `common_asymmetry`)
 enforce **`_HARD` only** — they have no formal H₀ under which power
 can be characterised, so the literature `_WARN` tier is undefined
 for them. They accept smaller-`n` inputs than the inferential
@@ -245,7 +246,8 @@ A few specific caveats worth flagging:
   constants is deliberate — both test an event-period series, so the two
   stay directly comparable on the same sample.
 - **`MIN_PORTFOLIO_PERIODS_HARD = 3` / `MIN_PORTFOLIO_PERIODS_WARN = 20`**
-  in `top_concentration` and `common_quantile_spread`. Below 3 there is
+  in `top_concentration` (the WARN tier is `top_concentration`-only;
+  `common_quantile_spread` gates on HARD alone). Below 3 there is
   no spread / concentration t to compute; in `[3, 20)` the metric
   returns the stat with `WarningCode.BORDERLINE_PORTFOLIO_PERIODS`. At
   the bottom of that range the `top_concentration` test is extremely
@@ -354,10 +356,9 @@ Conventions:
   In practice this means contaminated estimation windows for clustered
   events; use `clustering_hhi` to gauge severity and consider
   pre-filtering the panel for tightly clustered names.
-- **Forward-return horizon**: the event window is `forward_periods`
-  bars; the estimation window is the **pre-event** sample, so
-  `EventConfig.forward_periods` does not affect estimation-window
-  length.
+- **Forward-return horizon**: the event window is `overlap_periods`
+  periods; the estimation window is the **pre-event** sample, so the
+  horizon does not affect estimation-window length.
 
 ### Confounded-event handling
 
@@ -367,7 +368,7 @@ the inner event. The chosen mitigation depends on the metric:
 
 | Metric | Behaviour under within-asset overlap |
 |---|---|
-| [`caar`][factrix.metrics.caar.caar] | Per-event-period CS-mean is computed first, then a calendar-aware non-overlap subsample keeps event periods at least `forward_periods` calendar periods apart before the t-test. This avoids overlap-induced dependence while preserving the event-only mean; dense zero-fill and NW HAC are not used on this path. Within-asset clustering can still make event rows dependent, so read the vanilla t-test cautiously when event calendars are crowded. |
+| [`caar`][factrix.metrics.caar.caar] | Per-event-period CS-mean is computed first, then a non-overlap subsample keeps event periods at least `overlap_periods` periods apart before the t-test. This avoids overlap-induced dependence while preserving the event-only mean; dense zero-fill and NW HAC are not used on this path. Within-asset clustering can still make event rows dependent, so read the vanilla t-test cautiously when event calendars are crowded. |
 | [`bmp_z`][factrix.metrics.caar.bmp_z] | The Kolari-Pynnönen adjustment (on by default; `kolari_pynnonen_adjust=False` for unadjusted BMP) corrects the BMP statistic for cross-sectional dependence on the same event period — measured 19.7% → 4.7% size at 4 events per period over 30 periods, 38.7% → 3.7% at 10, identity at 1 (h = 1, 20 assets, 300 draws). It does **not** correct same-asset event clustering, and it cannot manufacture independent periods: with 4 events per period the adjusted test's residual tracks the number of distinct event periods (4 / 8 / 15 / 30: 14.3% / 10.0% / 7.3% / 4.7%; at 10 per period 8 / 15 / 30: 9.0% / 8.7% / 3.7%), clearing by ~30 periods, so when events share periods `FEW_EVENTS` fires on `n_event_periods < MIN_EVENTS_WARN`, not on the event count. |
 | [`event_hit_rate`][factrix.metrics.event_quality.event_hit_rate], [`event_ic`][factrix.metrics.event_quality.event_ic] | Each event row is counted independently; same-asset overlapping events double-contribute to the binomial / Spearman statistic. The null implicitly assumes independence — under heavy clustering the variance is understated. |
 | [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | Same: each `(asset, event_date)` row is independent in the binomial null at every offset. Adjacent-offset hit rates are also serially correlated within the same event (k=6 and k=12 share the t+1 entry price), which the binomial null does not adjust for. |

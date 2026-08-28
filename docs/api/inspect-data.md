@@ -27,7 +27,7 @@ The tiers above read each metric's **default-configuration** `sample_threshold`
 (as do `list_metrics` / `metrics_summary`). The floor a run gates on can differ:
 the configuration changes it (`ic(inference=NEWEY_WEST)` needs 20 periods, the
 default non-overlapping t-test 50), and stride-scaled floors follow the panel's
-`forward_periods` (`positive_rate()` needs 10 periods at `forward_periods=1`, 50
+`overlap_periods` (`positive_rate()` needs 10 periods at `overlap_periods=1`, 50
 at 5). `sample_requirements` resolves the floor for an instance at a horizon —
 the same resolution `evaluate` and the `slice_period_*` tests apply — so a
 coverage audit (regime slices, IS/OOS splits) can be planned against the

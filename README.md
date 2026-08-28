@@ -12,10 +12,10 @@
         <img src="https://github.com/awwesomeman/factrix/actions/workflows/test.yml/badge.svg?branch=main" />
     </a>
     <a href="https://github.com/awwesomeman/factrix/actions/workflows/docs-deploy-release.yml" title="docs workflow">
-        <img src="https://github.com/awwesomeman/factrix/actions/workflows/docs-deploy-release.yml/badge.svg?branch=main" />
+        <img src="https://github.com/awwesomeman/factrix/actions/workflows/docs-deploy-release.yml/badge.svg" />
     </a>
     <a href="https://www.python.org/downloads/" title="Python versions">
-        <img src="https://img.shields.io/badge/python-3.12+-blue.svg?logo=python&logoColor=white" />
+        <img src="https://img.shields.io/pypi/pyversions/factrix.svg?logo=python&logoColor=white" />
     </a>
     <a href="https://pola.rs/" title="Polars-native">
         <img src="https://img.shields.io/badge/polars-native-CD792C?logo=polars&logoColor=white" />
@@ -126,7 +126,7 @@ More scenarios, runnable end to end:
 ## Documentation
 
 - [**Get Started**](https://awwesomeman.github.io/factrix/latest/) — install, quickstart, where factrix fits
-- [**User Guide**](https://awwesomeman.github.io/factrix/latest/guides/) — concepts (three-axis design, architecture), how-to (PANEL vs TIMESERIES, BHY screening, slice analysis), examples
+- [**User Guide**](https://awwesomeman.github.io/factrix/latest/guides/) — concepts and conventions, how-to (preparing data, choosing a metric, panel vs timeseries, reading results, slice analysis), examples
 - [**API Reference**](https://awwesomeman.github.io/factrix/latest/api/) — entry points, results, lookup tables, per-metric pages
 - [**Development**](https://awwesomeman.github.io/factrix/latest/development/contributing/) — contributing, design notes
 - [**Release Notes**](https://awwesomeman.github.io/factrix/latest/development/changelog/) — changelog

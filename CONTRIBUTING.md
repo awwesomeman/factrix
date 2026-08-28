@@ -18,7 +18,8 @@ Hooks are declared in `.pre-commit-config.yaml`. Refresh their pinned
 versions with `uv run pre-commit autoupdate`; the ruff `rev` must be bumped
 together with the `ruff==` pin in `pyproject.toml` (a test enforces it).
 
-For release checks, sync the docs toolchain too:
+For release checks, sync every declared extra — the suite exercises the
+optional pandas / pyarrow path, and a partial sync leaves it broken:
 
 ```bash
 uv sync --frozen --all-extras

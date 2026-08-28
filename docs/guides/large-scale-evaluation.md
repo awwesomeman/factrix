@@ -36,12 +36,20 @@ lazy_panel = pl.scan_parquet(panel_path)
 
 # 2. Separate the fixed baseline columns from candidate factor columns.
 # If the parquet was written from a `compute_forward_return()` panel, it
-# also carries "price" and the reserved "_forward_periods" stamp column —
-# both must be excluded here too, or they get swept into factor_cols and
-# `evaluate()` raises `ColumnNotFoundError` (it strips "_forward_periods"
-# internally before dispatch, but does not filter the caller's factor_cols).
+# also carries "price" and two reserved stamp columns — "_forward_periods"
+# (the return horizon) and "_overlap_periods" (the evaluation-grid overlap).
+# All of them must be excluded here, or they get swept into factor_cols and
+# `evaluate()` fails: it strips the stamps internally before dispatch, but
+# does not filter the caller's factor_cols.
 schema_cols = lazy_panel.collect_schema().names()
-reserved_cols = {"date", "asset_id", "price", "forward_return", "_forward_periods"}
+reserved_cols = {
+    "date",
+    "asset_id",
+    "price",
+    "forward_return",
+    "_forward_periods",
+    "_overlap_periods",
+}
 baseline_cols = [c for c in schema_cols if c in reserved_cols]
 factor_cols = [c for c in schema_cols if c not in reserved_cols]
 

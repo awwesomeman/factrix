@@ -14,9 +14,9 @@ factrix is the first Polars-native Python toolkit that picks the right statistic
 
 factrix exposes a small set of functions organised by category:
 
-- **Compute** — `evaluate`
-- **Screening (false discovery rate (FDR))** — `bhy`, `partial_conjunction`, `bhy_hierarchical`
-- **Inference (no FDR)** — `slice_pairwise_test`, `slice_joint_test`
+- **Compute** — `evaluate`, `evaluate_horizons`
+- **Screening (false discovery rate (FDR))** — `bhy`, `partial_conjunction`, `bhy_hierarchical`, `bhy_across_metrics`, `partial_conjunction_across_metrics`
+- **Inference (no FDR)** — `slice_pairwise_test`, `slice_joint_test` (cross-sectional slices), `slice_period_pairwise_test`, `slice_period_joint_test` (date-disjoint slices)
 - **Descriptive view** — `by_slice`, `compare`
 - **Introspection** — `list_metrics`, `inspect_data`
 

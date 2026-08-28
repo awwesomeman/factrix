@@ -28,7 +28,8 @@ An `EvaluationResult` represents the outcome of evaluating a single factor colum
 |---|---|---|
 | `factor` | `str` | The name of the factor column. |
 | `cell` | `tuple[FactorScope, FactorDensity, DataStructure]` | The resolved analysis cell (scope, density, and structure). |
-| `forward_periods` | `int` | The forward periods horizon. |
+| `forward_periods` | `int` | The economic return horizon, in periods. Joins the hypothesis identity. |
+| `overlap_periods` | `int` | The evaluation-grid overlap the inference consumes. Equals `forward_periods` on the full grid; on a panel built with `compute_forward_return(..., dates=)` it is the overlap derived from the grid spacing. Bookkeeping — it does not join the hypothesis identity. |
 | `params` | `Mapping[str, Hashable]` | Sweep knobs that define *which* hypothesis this is (e.g. `{"timeframe": "1h"}`). Joins the hypothesis identifier. |
 | `metadata` | `Mapping[str, Any]` | Bookkeeping labels (e.g. `{"run_id": ...}`) that never join the identifier or partition a family. |
 
