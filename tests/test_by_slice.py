@@ -223,3 +223,73 @@ class TestMetricLabel:
             ]
         )
         assert set(stacked["metric_name"]) == {"ic", "positive_rate"}
+
+
+class TestExpectedWarningsContract:
+    """``by_slice`` takes the same ``expected_warnings`` declaration as
+    ``evaluate`` (#879): its own truncation record is kept and flagged
+    expected, the echo stops, and the declaration reaches every slice."""
+
+    @staticmethod
+    def _year_panel():
+        return _sector_panel(n_dates=600).with_columns(
+            pl.col("date").dt.year().cast(pl.Utf8).alias("year")
+        )
+
+    def test_declared_truncation_is_kept_flagged_and_silent(self):
+        import warnings
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            out = by_slice(
+                self._year_panel(),
+                positive_rate(),
+                by="year",
+                factor_col="factor",
+                strict=False,
+                expected_warnings=(WarningCode.SLICE_BOUNDARY_TRUNCATION.value,),
+            )
+        assert not [
+            w
+            for w in caught
+            if WarningCode.SLICE_BOUNDARY_TRUNCATION.value in str(w.message)
+        ]
+        for res in out.values():
+            record = [
+                w
+                for w in res.warnings
+                if w.code is WarningCode.SLICE_BOUNDARY_TRUNCATION
+            ]
+            assert len(record) == 1 and record[0].expected is True
+            assert all(
+                w.code is not WarningCode.SLICE_BOUNDARY_TRUNCATION
+                for w in res.unexpected_warnings
+            )
+
+    def test_undeclared_truncation_stays_unexpected(self):
+        with pytest.warns(
+            UserWarning, match=WarningCode.SLICE_BOUNDARY_TRUNCATION.value
+        ):
+            out = by_slice(
+                self._year_panel(),
+                positive_rate(),
+                by="year",
+                factor_col="factor",
+                strict=False,
+            )
+        for res in out.values():
+            assert WarningCode.SLICE_BOUNDARY_TRUNCATION in [
+                w.code for w in res.unexpected_warnings
+            ]
+
+    def test_unknown_code_is_rejected_under_by_slice(self):
+        from factrix._errors import UserInputError
+
+        with pytest.raises(UserInputError, match="by_slice"):
+            by_slice(
+                _sector_panel(),
+                ic(),
+                by="sector",
+                factor_col="factor",
+                expected_warnings=("nope",),
+            )

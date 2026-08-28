@@ -68,7 +68,7 @@ import numpy as np
 import polars as pl
 from scipy import stats as sp_stats
 
-from factrix._codes import WarningCode
+from factrix._codes import WarningCode, _validate_expected_warnings_arg
 from factrix._data_input import _resolve_overlap_periods
 from factrix._errors import UserInputError
 from factrix._stats.bootstrap import (
@@ -666,6 +666,7 @@ def slice_period_joint_test(
     overlap_periods: int | None = None,
     rng_seed: int | None = None,
     strict: bool = True,
+    expected_warnings: tuple[str, ...] = (),
 ) -> pl.DataFrame:
     """Omnibus block-diagonal Wald χ² that all K disjoint-slice means are equal.
 
@@ -709,16 +710,32 @@ def slice_period_joint_test(
             restriction spans every slice, so one thin slice makes the whole
             test unavailable. The ``strict=False`` counterpart of
             :func:`factrix.evaluate`'s ``metric_unavailable`` short-circuit.
+        expected_warnings: :class:`~factrix.WarningCode` values declaring
+            warning regimes that are the study's **design** — the same
+            contract as :func:`factrix.evaluate`. A batch of regime tests on
+            short samples trips ``short_slice_joint_test`` on every cell by
+            construction; declaring it keeps the record (the code stays in
+            ``warning_codes``, leaves ``unexpected_warning_codes``) and stops
+            the per-call ``UserWarning`` echo. Unknown codes are rejected.
 
     Returns:
         Single-row ``pl.DataFrame`` with columns ``(k_slices, n_periods_min,
         stat, p_value, stat_type, reference_dist, df_num, df_denom,
-        multiplicity, min_periods, reason)``. ``stat`` is the joint Wald
+        multiplicity, min_periods, short_slice_periods, warning_codes,
+        unexpected_warning_codes, reason)``. ``stat`` is the joint Wald
         statistic; ``n_periods_min`` the shortest slice's date count and
         ``min_periods`` the floor it was gated on (resolved at the panel's
         stamped or declared ``overlap_periods``); ``reason`` is null when the test ran
         and ``"insufficient_periods"`` on a ``strict=False`` unavailable
-        row. The mechanism
+        row. ``warning_codes`` lists every :class:`~factrix.WarningCode`
+        the test raised (today only ``short_slice_joint_test``) and
+        ``unexpected_warning_codes`` the subset not declared via
+        ``expected_warnings`` — the audit pair of
+        :attr:`~factrix.EvaluationResult.warnings` /
+        :attr:`~factrix.EvaluationResult.unexpected_warnings`;
+        ``short_slice_periods`` is the calibration threshold the short-slice
+        code is gated on, next to the ``k_slices`` / ``n_periods_min`` it was
+        read against. The mechanism
         columns
         disclose the reference: ``stat_type="wald"``, ``df_num=K-1``
         (restriction rank); ``reference_dist`` is ``"f"`` for
@@ -743,8 +760,11 @@ def slice_period_joint_test(
 
     Warns:
         UserWarning: ``K >= 3`` and the shortest slice has fewer than 150
-            periods. Measured size on a true null (iid per-period IC, nominal
-            5%, 500 seeds per cell), rows ``K``, columns ``T``::
+            periods — :class:`~factrix.WarningCode.SHORT_SLICE_JOINT_TEST`,
+            recorded in the row's ``warning_codes`` and echoed unless declared
+            in ``expected_warnings``. Measured size on a true null (iid
+            per-period IC, nominal 5%, 500 seeds per cell), rows ``K``,
+            columns ``T``::
 
                 K / T     50     90    150    250
                 2        .046   .058   .052   .046
@@ -765,6 +785,9 @@ def slice_period_joint_test(
     """
     _validate_metric_instance(metric, "slice_period_joint_test")
     _validate_method(method, "slice_period_joint_test")
+    expected = _validate_expected_warnings_arg(
+        expected_warnings, func_name="slice_period_joint_test", docs_path=_DOCS_SLICE
+    )
     op = _resolve_overlap_periods(
         data, overlap_periods, horizon=None, func_name="slice_period_joint_test"
     )
@@ -782,9 +805,17 @@ def slice_period_joint_test(
     shortest = min(len(series) for series in series_list)
     reference_dist = "bootstrap_null" if method == "bootstrap" else "f"
 
+    # The audit pair every entry point that takes ``expected_warnings`` shares:
+    # a fired code always lands in ``warning_codes``; declaring it only keeps
+    # it out of ``unexpected_warning_codes`` and silences the stderr echo. An
+    # unavailable (``strict=False``) row carries empty lists — the test did
+    # not run, so it raised nothing.
+    warning_codes: list[str] = []
+
     def _row(
         stat: float, p: float, df_denom: float | None, reason: str | None
     ) -> pl.DataFrame:
+        unexpected = [c for c in warning_codes if c not in expected]
         return pl.DataFrame(
             {
                 "k_slices": [k],
@@ -797,12 +828,18 @@ def slice_period_joint_test(
                 "df_denom": [df_denom],
                 "multiplicity": [None],
                 "min_periods": [built.min_periods],
+                "short_slice_periods": [_JOINT_SHORT_SLICE_PERIODS],
+                "warning_codes": [list(warning_codes)],
+                "unexpected_warning_codes": [unexpected],
                 "reason": [reason],
             },
             schema_overrides={
                 "df_denom": pl.Float64,
                 "multiplicity": pl.String,
                 "min_periods": pl.Int64,
+                "short_slice_periods": pl.Int64,
+                "warning_codes": pl.List(pl.String),
+                "unexpected_warning_codes": pl.List(pl.String),
                 "reason": pl.String,
             },
         )
@@ -810,18 +847,23 @@ def slice_period_joint_test(
     if built.thin:
         return _row(float("nan"), float("nan"), None, _REASON_INSUFFICIENT_PERIODS)
     if k >= 3 and shortest < _JOINT_SHORT_SLICE_PERIODS:
-        warnings.warn(
-            f"slice_period_joint_test: {len(series_list)} slices with the shortest at "
-            f"{shortest} periods (< {_JOINT_SHORT_SLICE_PERIODS}). On a true "
-            f"null the joint test over-rejects here — measured 8–9% at a "
-            f"nominal 5% for K=5 with 50–90-period slices, under both "
-            f"methods — because each slice's HAC variance is a noisy "
-            f"small-sample estimate inverted across K-1 restrictions. Read "
-            f"the p-value as indicative; pairwise contrasts on the same "
-            f"slices are better calibrated.",
-            UserWarning,
-            stacklevel=2,
-        )
+        code = WarningCode.SHORT_SLICE_JOINT_TEST
+        warning_codes.append(code.value)
+        if code.value not in expected:
+            warnings.warn(
+                f"slice_period_joint_test: {len(series_list)} slices with the "
+                f"shortest at {shortest} periods "
+                f"(< {_JOINT_SHORT_SLICE_PERIODS}). On a true null the joint "
+                f"test over-rejects here — measured 8–9% at a nominal 5% for "
+                f"K=5 with 50–90-period slices, under both methods — because "
+                f"each slice's HAC variance is a noisy small-sample estimate "
+                f"inverted across K-1 restrictions. Read the p-value as "
+                f"indicative; pairwise contrasts on the same slices are "
+                f"better calibrated ({code.value}; declare it in "
+                f"expected_warnings= to keep the record and stop this echo).",
+                UserWarning,
+                stacklevel=2,
+            )
     restriction = _equality_restriction(k)
 
     if method == "bootstrap":

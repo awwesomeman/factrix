@@ -65,7 +65,7 @@ from factrix._axis import (  # DataStructure used by the structure pre-flight; r
     InputShape,
     Tier,
 )
-from factrix._codes import WarningCode
+from factrix._codes import WarningCode, _validate_expected_warnings_arg
 from factrix._compare import compare
 from factrix._dag import CycleError, DagExecutor, _Node
 from factrix._data_input import (
@@ -557,50 +557,6 @@ def _is_metrics_overview(metrics: object) -> bool:
             for v in metrics.values()
         )
     )
-
-
-def _validate_expected_warnings_arg(expected_warnings: object) -> tuple[str, ...]:
-    """Normalize and validate the study-level expected-warnings declaration.
-
-    Accepts a ``tuple`` / ``list`` of :class:`WarningCode` values (the
-    ``StrEnum`` members themselves also pass). Every element must name an
-    existing code — the declaration marks records as expected, so a typo
-    would silently mark nothing.
-    """
-    docs = "api/evaluate#factrix.evaluate"
-    if isinstance(expected_warnings, str) or not isinstance(
-        expected_warnings, (tuple, list)
-    ):
-        raise UserInputError(
-            func_name="evaluate",
-            field="expected_warnings",
-            value=expected_warnings
-            if isinstance(expected_warnings, str)
-            else type(expected_warnings).__name__,
-            expected=(
-                "tuple of WarningCode values declaring by-design warning "
-                "regimes, e.g. expected_warnings=('few_assets',) — a bare "
-                "string is rejected to avoid the ('f', 'e', 'w', ...) trap"
-            ),
-            docs_path=docs,
-        )
-    valid = {code.value for code in WarningCode}
-    normalized: list[str] = []
-    for item in expected_warnings:
-        if not isinstance(item, str) or item not in valid:
-            raise UserInputError(
-                func_name="evaluate",
-                field="expected_warnings",
-                value=item,
-                expected=(
-                    "a WarningCode value; unknown codes are rejected because "
-                    "the declaration would silently mark nothing. Valid "
-                    f"codes: {sorted(valid)}"
-                ),
-                docs_path=docs,
-            )
-        normalized.append(str(item))
-    return tuple(normalized)
 
 
 def _validate_metrics_arg(metrics: object) -> None:

@@ -137,6 +137,31 @@ print(pairs)  # slice_a, slice_b, n_periods_a, n_periods_b, mean_diff, stat,
 #              df_num, df_denom, multiplicity)
 ```
 
+## Declaring an accepted short-regime limitation
+
+A regime study on short samples trips the omnibus's short-slice advisory
+(`short_slice_joint_test`) on every cell by construction. Declare it once,
+the way you declare `few_assets` on a single-asset study in `evaluate`,
+and read the audit columns off the stacked rows instead of stderr:
+
+```python
+rows = pl.concat(
+    fx.slice_period_joint_test(
+        panel, m, by="regime", factor_col="factor",
+        expected_warnings=("short_slice_joint_test",),
+    )
+    for m in (ic(), positive_rate())
+)
+rows.select("k_slices", "n_periods_min", "short_slice_periods",
+            "warning_codes", "unexpected_warning_codes", "p_value")
+```
+
+`warning_codes` keeps the record on every row; `unexpected_warning_codes`
+is empty for a declared code and non-empty for anything you did not
+declare. `by_slice(..., expected_warnings=)` uses the same declaration for
+its per-slice `evaluate` calls and its own `slice_boundary_truncation`
+record. See the [warning contract](../api/slice-test.md#warning-contract-slice_period_joint_test).
+
 ## Related
 
 - [`by_slice`](../api/by-slice.md) — dispatcher surface and universe-overlap recipes.
