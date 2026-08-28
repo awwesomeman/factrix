@@ -573,3 +573,46 @@ class TestEntryConsistency:
         assert not math.isnan(direct.value)
         assert direct.value == via.value
         assert direct.warning_codes == via.warning_codes == ()
+
+
+class TestReservedStampFactorCols:
+    """A reserved stamp column name must fail on the factrix UserInputError
+    surface, not leak the polars ColumnNotFoundError raised after the strip."""
+
+    @pytest.mark.parametrize("stamp", ["_forward_periods", "_overlap_periods"])
+    def test_stamp_column_as_factor_col_raises_user_input_error(self, stamp):
+        panel = _panel()
+        assert stamp in panel.columns
+        with pytest.raises(UserInputError) as exc:
+            fx.evaluate(panel, metrics={"ic": ic()}, factor_cols=["factor", stamp])
+        msg = str(exc.value)
+        assert stamp in msg
+        assert "stamp" in msg
+
+    @pytest.mark.parametrize("stamp", ["_forward_periods", "_overlap_periods"])
+    def test_by_slice_rejects_stamp_column(self, stamp):
+        panel = _panel().with_columns(
+            pl.when(pl.col("asset_id").rank("dense") % 2 == 0)
+            .then(pl.lit("a"))
+            .otherwise(pl.lit("b"))
+            .alias("sector")
+        )
+        with pytest.raises(UserInputError):
+            fx.by_slice(panel, ic(), by="sector", factor_col=stamp)
+
+    @pytest.mark.parametrize("stamp", ["_forward_periods", "_overlap_periods"])
+    def test_evaluate_horizons_rejects_stamp_column(self, stamp):
+        with pytest.raises(UserInputError):
+            fx.evaluate_horizons(
+                fx.datasets.make_cs_panel(n_assets=20, n_dates=120),
+                metrics={"ic": ic()},
+                factor_cols=[stamp],
+                forward_periods=[5],
+            )
+
+    def test_unknown_column_still_raises_user_input_error(self):
+        with pytest.raises(UserInputError) as exc:
+            fx.evaluate(
+                _panel(), metrics={"ic": ic()}, factor_cols=["definitely_not_a_column"]
+            )
+        assert "to exist on data" in str(exc.value)

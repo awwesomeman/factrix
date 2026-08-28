@@ -41,7 +41,7 @@ import polars as pl
 
 from factrix._axis import DataStructure, FactorDensity, FactorScope, InputShape, Tier
 from factrix._codes import WarningCode, cross_section_tier
-from factrix._data_input import _FORWARD_PERIODS_COL, _OVERLAP_PERIODS_COL, _coerce_data
+from factrix._data_input import _STAMP_COLUMNS, _coerce_data
 from factrix._metric_index import MetricSpec, public_specs
 from factrix._results import Warning
 from factrix._types import MIN_IC_ASSETS_HARD, MIN_IC_ASSETS_WARN
@@ -71,8 +71,7 @@ _INSPECT_RESERVED: frozenset[str] = frozenset(
         "forward_return",
         "price",
         "market_cap",
-        _FORWARD_PERIODS_COL,
-        _OVERLAP_PERIODS_COL,
+        *_STAMP_COLUMNS,
     }
 )
 
