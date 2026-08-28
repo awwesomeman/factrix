@@ -67,8 +67,8 @@ Min sample*. `MIN_*` constants resolve to values in the
 
 | Metric | Sample axis | Min sample |
 |---|---|---|
-| [`pooled_beta`][factrix.metrics.fm_beta.pooled_beta] | `n_assets × T` | `n_assets >= 10`, effective clusters `G >= 3` |
-| [`fm_beta_sign_consistency`][factrix.metrics.fm_beta.fm_beta_sign_consistency] | `T` (β series) | `T ≥ MIN_FM_PERIODS_HARD` |
+| [`pooled_beta`][factrix.metrics.fm_beta.pooled_beta] | `n_assets × T` | `n_assets >= 10`, effective clusters `G >= 3`; warn if `T < MIN_FM_PERIODS_WARN` |
+| [`fm_beta_sign_consistency`][factrix.metrics.fm_beta.fm_beta_sign_consistency] | `T` (β series) | `T ≥ 1` finite β period (descriptive; no λ-series floor) |
 
 ### Quantile / Monotonicity / Concentration — Cell: Individual × Continuous
 
@@ -95,15 +95,15 @@ Min sample*. `MIN_*` constants resolve to values in the
 | Metric | Sample axis | Min sample |
 |---|---|---|
 | [`bmp_z`][factrix.metrics.caar.bmp_z] | `K`; `D` (event periods) when events cluster | `K ≥ MIN_EVENTS_HARD`; `estimation_window` periods per asset; warns on `D < MIN_EVENTS_WARN` when `D < K` |
-| [`event_hit_rate`][factrix.metrics.event_quality.event_hit_rate] | `K` | `K ≥ MIN_EVENTS_HARD` |
-| [`event_ic`][factrix.metrics.event_quality.event_ic] | `K` | `K ≥ MIN_EVENTS_HARD` |
+| [`event_hit_rate`][factrix.metrics.event_quality.event_hit_rate] | `K` | `K ≥ MIN_EVENTS_HARD`; warn if `K < MIN_EVENTS_WARN` |
+| [`event_ic`][factrix.metrics.event_quality.event_ic] | `K` | `K ≥ MIN_EVENTS_HARD`; warn if `K < MIN_EVENTS_WARN` |
 | [`profit_factor`][factrix.metrics.event_quality.profit_factor] | `K` | `K ≥ MIN_EVENTS_HARD` |
-| [`event_skewness`][factrix.metrics.event_quality.event_skewness] | `K` | `K ≥ MIN_EVENTS_HARD` |
+| [`event_skewness`][factrix.metrics.event_quality.event_skewness] | `K` | `K ≥ MIN_EVENTS_HARD`; warn if `K < MIN_EVENTS_WARN` |
 | [`signal_density`][factrix.metrics.event_quality.signal_density] | `K` | `K ≥ 2` |
 | [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | per-offset `K` | `K ≥ MIN_EVENTS_HARD` |
 | [`mfe_mae`][factrix.metrics.mfe_mae.mfe_mae] | `K` | `K ≥ MIN_EVENTS_HARD`; `price` column required |
 | [`clustering_hhi`][factrix.metrics.clustering_hhi.clustering_hhi] | `K`, `n_assets` | `n_assets >= 2`; `K >= MIN_EVENTS_HARD` |
-| [`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank] | `D` (event periods) | `K ≥ MIN_EVENTS_HARD` **and** `D ≥ MIN_EVENTS_HARD` |
+| [`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank] | `D` (event periods) | `K ≥ MIN_EVENTS_HARD` **and** `D ≥ MIN_EVENTS_HARD`; warn if `D < MIN_EVENTS_WARN` |
 
 ### TS-β family — Cell: Common × Continuous
 
@@ -125,8 +125,8 @@ Min sample*. `MIN_*` constants resolve to values in the
 
 | Metric | Sample axis | Min sample |
 |---|---|---|
-| [`spanning_alpha`][factrix.metrics.spanning.spanning_alpha] | `T` | aligned spread series |
-| [`greedy_forward_selection`][factrix.metrics.spanning.greedy_forward_selection] | `T` | as `spanning_alpha` |
+| [`spanning_alpha`][factrix.metrics.spanning.spanning_alpha] | `T` | aligned spread series; `T ≥ 10` |
+| [`greedy_forward_selection`][factrix.metrics.spanning.greedy_forward_selection] | `T` | aligned spread series (each candidate fit as `spanning_alpha`) |
 
 ### IC-series diagnostics — Cell: Individual × Continuous
 
@@ -162,7 +162,7 @@ below.
 | `MIN_PAIR_ACCURACY_PAIRS_HARD` | 10 | comparable asset pairs | hard | `factrix/_types.py` | `directional_pair_accuracy` |
 | `MIN_PAIR_ACCURACY_PAIRS_WARN` | 30 | comparable asset pairs | warn | `factrix/_types.py` | `directional_pair_accuracy`; tags `WarningCode.FEW_ORDERING_PAIRS` |
 | `MIN_EVENTS_HARD` | 4 | `K` (event count) | hard | `factrix/_types.py` | `caar`, `bmp_z`, `event_hit_rate`, `event_ic`, `profit_factor`, `event_skewness`, `event_around_return`, `mfe_mae`, `clustering_hhi`, `corrado_rank` |
-| `MIN_EVENTS_WARN` | 30 | `K` | warn | `factrix/_types.py` | `caar` only (Brown-Warner literature floor; descriptive event-quality metrics use HARD only) |
+| `MIN_EVENTS_WARN` | 30 | `K` | warn | `factrix/_types.py` | `caar`, `bmp_z`, `event_hit_rate`, `event_ic`, `event_skewness`, `corrado_rank` (Brown-Warner literature floor); tags `WarningCode.FEW_EVENTS`. The purely descriptive event metrics (`profit_factor`, `mfe_mae`, `clustering_hhi`, `event_around_return`) use HARD only |
 | `MIN_OOS_PERIODS_HARD` | 5 | `T` (per split) | hard | `factrix/_types.py` | `oos_decay` (effective floor `T ≥ 2 × MIN_OOS_PERIODS_HARD = 10`) |
 | `MIN_PORTFOLIO_PERIODS_HARD` | 3 | `T/h` | hard | `factrix/_types.py` | `quantile_spread`, `quantile_spread_vw`, `top_concentration`, `common_quantile_spread`, `common_asymmetry` |
 | `MIN_PORTFOLIO_PERIODS_WARN` | 20 | `T/h` | warn | `factrix/_types.py` | `top_concentration` only (`quantile_spread` and the `ts_*` siblings are descriptive at the WARN tier and gate on HARD only) |

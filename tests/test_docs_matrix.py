@@ -57,6 +57,36 @@ def test_generated_matrix_exists_and_nonempty() -> None:
     )
 
 
+def test_generated_matrix_matches_renderer() -> None:
+    """Generated matrix file must match what the renderer produces.
+
+    Same byte-compare as ``test_generated_name_index_matches_renderer``:
+    the row-count check above cannot see a stale grouping (a metric that
+    moved cell or aggregation without a rebuild).
+    """
+    if not GENERATED_MATRIX.exists():
+        pytest.skip(
+            f"{GENERATED_MATRIX} not found — run "
+            "'python scripts/mkdocs_hooks/gen_metric_matrix.py' or 'mkdocs build' first."
+        )
+    from factrix._metric_index import public_specs
+    from scripts.mkdocs_hooks.gen_metric_matrix import (
+        _TABLE_HEADER,
+        _group_specs,
+        _render_row,
+    )
+
+    expected = _TABLE_HEADER + "".join(
+        _render_row(row) for row in _group_specs(public_specs())
+    )
+    actual = GENERATED_MATRIX.read_text(encoding="utf-8")
+    assert actual == expected, (
+        f"{GENERATED_MATRIX} is stale — re-run "
+        "'python scripts/mkdocs_hooks/gen_metric_matrix.py' "
+        "(or 'mkdocs build') to regenerate."
+    )
+
+
 def test_metric_output_name_matches_spec_name() -> None:
     """Every ``MetricResult(name=...)`` literal must match its spec's ``name``.
 
