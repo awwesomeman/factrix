@@ -597,18 +597,20 @@ class TestReservedStampFactorCols:
             .otherwise(pl.lit("b"))
             .alias("sector")
         )
-        with pytest.raises(UserInputError):
+        with pytest.raises(UserInputError) as exc:
             fx.by_slice(panel, ic(), by="sector", factor_col=stamp)
+        assert "stamp" in str(exc.value)
 
     @pytest.mark.parametrize("stamp", ["_forward_periods", "_overlap_periods"])
     def test_evaluate_horizons_rejects_stamp_column(self, stamp):
-        with pytest.raises(UserInputError):
+        with pytest.raises(UserInputError) as exc:
             fx.evaluate_horizons(
                 fx.datasets.make_cs_panel(n_assets=20, n_dates=120),
                 metrics={"ic": ic()},
                 factor_cols=[stamp],
                 forward_periods=[5],
             )
+        assert "stamp" in str(exc.value)
 
     def test_unknown_column_still_raises_user_input_error(self):
         with pytest.raises(UserInputError) as exc:
