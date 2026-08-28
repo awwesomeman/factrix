@@ -116,8 +116,13 @@ def _run_page(text: str) -> tuple[list[_BlockFailure], int, int]:
     return failures, n_run, n_illustrative
 
 
+# README.md is the one authored page outside docs/ with a python fence; the
+# quickstart it carries is the first snippet any user runs.
+_PAGES = [pathlib.Path("README.md"), *docs_page_paths()]
+
+
 @pytest.mark.usefixtures("_isolated_metric_registry")
-@pytest.mark.parametrize("path", docs_page_paths(), ids=lambda p: p.as_posix())
+@pytest.mark.parametrize("path", _PAGES, ids=lambda p: p.as_posix())
 def test_page_examples_execute(path: pathlib.Path) -> None:
     text = path.read_text(encoding="utf-8")
     if not python_fences(text):
