@@ -119,7 +119,7 @@ and dispersion fields by group. Missing labels should be named explicitly
 rather than silently dropped. For guidance on matching metrics to allocation
 signals, see [Validating allocation signals](../../guides/validating-allocation-signals.md#match-the-metric-to-the-signal).
 
-```python
+```python title="Illustrative"
 import polars as pl
 from factrix.metrics.common_beta import compute_common_betas
 

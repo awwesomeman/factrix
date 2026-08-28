@@ -33,7 +33,7 @@ accepted by any entry point.
 If your panel is already long but uses source-specific names, adapt the
 column names first:
 
-```python
+```python title="Illustrative"
 from factrix.adapt import adapt
 
 raw = adapt(
@@ -347,7 +347,7 @@ event_panel = panel.with_columns(
 If a regime label defines the event-of-interest, use the same contract on
 the panel carrying that label:
 
-```python
+```python title="Illustrative"
 regime_event_panel = regime_panel.with_columns(
     pl.when(pl.col("macro_regime") == "stress")
     .then(1.0)

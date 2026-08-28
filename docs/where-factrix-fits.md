@@ -373,7 +373,7 @@ Stage 1 → factrix: zipline Pipeline outputs a pandas MultiIndex
 `(date, asset)`, which converts to the polars panel factrix
 expects in two lines.
 
-```python
+```python title="Illustrative"
 import polars as pl
 import factrix as fx
 from factrix.preprocess import compute_forward_return
@@ -391,7 +391,7 @@ ic_p = results["factor"].metrics["ic"].p_value
 factrix → Stage 2: surviving factors after BHY feed a portfolio
 optimiser.
 
-```python
+```python title="Illustrative"
 import factrix as fx
 from factrix.metrics import ic
 

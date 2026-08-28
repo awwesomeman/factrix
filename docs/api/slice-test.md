@@ -187,7 +187,7 @@ The functions accept a **single** `by` column. For cross-axis slice
 analysis (regime × universe), compose a composite label upstream
 with `pl.concat_str(...)`:
 
-```python
+```python title="Illustrative"
 ic_df = ic_df.with_columns(
     pl.concat_str(["regime", "universe"], separator="_").alias("regime_x_universe")
 )

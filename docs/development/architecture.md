@@ -163,7 +163,7 @@ explicit-call escape hatch for frequent event studies, not a discovery default:
 
 `factrix/_results.py`:
 
-```python
+```python title="Illustrative"
 @dataclass(frozen=True, slots=True)
 class EvaluationResult:
     factor: str

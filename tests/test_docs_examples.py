@@ -1,24 +1,31 @@
-"""Executes the ``python`` fenced examples on every ``docs/**/*.md`` page.
+"""Executes the ``python`` fenced examples on every authored markdown page.
 
 ``test_docs_pages.py`` checks that the names a page mentions resolve; this
 test checks that the code a page shows actually *runs* against the current
-API. The gap between the two is where the #845 rename leaked: a page can
-reference only live symbols and still call them with a keyword that no
-longer exists, and nothing short of executing the block catches that.
+API. The gap between the two is where a rename leaks: a page can reference
+only live symbols and still call them with a keyword that no longer exists,
+and nothing short of executing the block catches that.
 
 Execution contract (matches the "Runnable" / "Illustrative" split in
 ``docs/development/contributing.md``):
 
 * Every ``python`` fence on a page runs, in order, in one shared namespace —
-  later blocks may build on earlier ones, as the prose reads.
-* A block that raises ``NameError`` is **illustrative** by construction — it
-  leans on an unbound placeholder such as ``panel_large`` or ``your_df`` to
-  communicate intent — and is skipped. Nothing else is: a ``TypeError`` from
-  a stale keyword, an ``AttributeError`` from a removed helper, a
-  ``KeyError`` from a renamed metadata key, or a polars column error from an
-  outdated schema all fail the page.
+  later blocks may build on earlier ones, as the prose reads. Any exception
+  fails the page, ``NameError`` included.
+* A block that is *declared* illustrative — ``` ```python title="Illustrative"
+  ``` — is compiled but not executed. Declaring it is the only way out: an
+  undeclared block that leans on an unbound placeholder fails like any other
+  drift, so the decision is written down on the page rather than inferred
+  from the exception type at runtime.
 * Blocks must be side-effect free (no file I/O, no plotting); stdout and
   warnings are swallowed so a noisy example is not a failing one.
+
+Coverage is auditable from the test output: ``test_illustrative_block_compiles``
+is parametrized one case per declared-illustrative block, so the default ``-v``
+run prints the full inventory of what was *not* executed, page and line
+included. Those blocks are not unchecked — ``test_docs_pages.py`` resolves the
+``factrix.*`` symbols they name, which is what the two tests being
+complementary buys.
 
 ``docs/plans/**`` is excluded (fossilised planning artifacts, also excluded
 from the published site). ``docs/examples/*.md`` are generated from the
@@ -38,7 +45,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from tests._doc_validation import docs_page_paths, python_fences
+from tests._doc_validation import PythonFence, docs_page_paths, python_fences
 
 
 @dataclass(frozen=True)
@@ -81,17 +88,30 @@ def _isolated_metric_registry() -> Iterator[None]:
         dag._registry_callable_table.cache_clear()
 
 
-def _run_page(text: str) -> tuple[list[_BlockFailure], int, int]:
-    """Run a page's fences in order; return (failures, n_run, n_illustrative)."""
+def _compile(fence: PythonFence, index: int) -> object:
+    """Compile one fence to a code object.
+
+    Raises ``SyntaxError`` like :func:`compile` does; both call sites catch it
+    and report the offending block.
+    """
+    return compile(
+        textwrap.dedent(fence.body),
+        f"<docs block {index} @ line {fence.line}>",
+        "exec",
+    )
+
+
+def _run_page(text: str) -> list[_BlockFailure]:
+    """Run a page's executable fences in order, in one shared namespace."""
     namespace: dict[str, object] = {"__name__": "__docs_example__"}
     failures: list[_BlockFailure] = []
-    n_run = n_illustrative = 0
-    for index, (line, source) in enumerate(python_fences(text), start=1):
-        code_text = textwrap.dedent(source)
+    for index, fence in enumerate(python_fences(text), start=1):
+        if fence.illustrative:
+            continue
         try:
-            code = compile(code_text, f"<docs block {index} @ line {line}>", "exec")
+            code = _compile(fence, index)
         except SyntaxError as exc:
-            failures.append(_BlockFailure(index, line, f"SyntaxError: {exc.msg}"))
+            failures.append(_BlockFailure(index, fence.line, f"SyntaxError: {exc.msg}"))
             continue
         sink = io.StringIO()
         try:
@@ -102,35 +122,71 @@ def _run_page(text: str) -> tuple[list[_BlockFailure], int, int]:
             ):
                 warnings.simplefilter("ignore")
                 exec(code, namespace)
-        except NameError:
-            # Unbound placeholder → illustrative fragment; see module docstring.
-            n_illustrative += 1
-            continue
-        except Exception as exc:  # any other error is drift, not illustration
+        except Exception as exc:  # any error is drift, not illustration
             first_line = str(exc).splitlines()[0] if str(exc) else ""
             failures.append(
-                _BlockFailure(index, line, f"{type(exc).__name__}: {first_line}")
+                _BlockFailure(index, fence.line, f"{type(exc).__name__}: {first_line}")
             )
-            continue
-        n_run += 1
-    return failures, n_run, n_illustrative
+    return failures
 
 
 # README.md is the one authored page outside docs/ with a python fence; the
-# quickstart it carries is the first snippet any user runs.
+# quickstart it carries is the first snippet any user runs, and it lives under
+# the same rule as the docs pages — including the marker, which GitHub's
+# renderer ignores as trailing info-string text.
 _PAGES = [pathlib.Path("README.md"), *docs_page_paths()]
+
+# One case per declared-illustrative block, so the inventory of what is *not*
+# executed is printed by every ``-v`` run instead of being invisible.
+_ILLUSTRATIVE_BLOCKS = [
+    (path, index, fence)
+    for path in _PAGES
+    for index, fence in enumerate(
+        python_fences(path.read_text(encoding="utf-8")), start=1
+    )
+    if fence.illustrative
+]
 
 
 @pytest.mark.usefixtures("_isolated_metric_registry")
 @pytest.mark.parametrize("path", _PAGES, ids=lambda p: p.as_posix())
 def test_page_examples_execute(path: pathlib.Path) -> None:
     text = path.read_text(encoding="utf-8")
-    if not python_fences(text):
+    fences = python_fences(text)
+    if not fences:
         pytest.skip("no python fences on this page")
-    failures, _n_run, _n_illustrative = _run_page(text)
+    if all(fence.illustrative for fence in fences):
+        pytest.skip("every python fence on this page is declared illustrative")
+    failures = _run_page(text)
     assert not failures, (
         f"python examples in {path.as_posix()} no longer run against the "
-        "current API (blocks that only reference unbound placeholder names "
-        "are skipped as illustrative; everything else must execute):\n  "
+        "current API (a block that cannot run as written must declare itself "
+        'with ```python title="Illustrative"`):\n  '
         + "\n  ".join(f"block {f.index} (line {f.line}): {f.error}" for f in failures)
     )
+
+
+@pytest.mark.parametrize(
+    ("path", "index", "fence"),
+    _ILLUSTRATIVE_BLOCKS,
+    ids=[
+        f"{path.as_posix()}:block {index} @ line {fence.line}"
+        for path, index, fence in _ILLUSTRATIVE_BLOCKS
+    ],
+)
+def test_illustrative_block_compiles(
+    path: pathlib.Path, index: int, fence: PythonFence
+) -> None:
+    """A declared-illustrative block is not executed, but must still parse.
+
+    The test ids are the audit trail: they name every block the executing
+    test skipped, so removing a block from the run is a visible diff on this
+    file's output rather than a silent gap.
+    """
+    try:
+        _compile(fence, index)
+    except SyntaxError as exc:
+        pytest.fail(
+            f"illustrative block {index} (line {fence.line}) in "
+            f"{path.as_posix()} does not parse: {exc.msg}"
+        )

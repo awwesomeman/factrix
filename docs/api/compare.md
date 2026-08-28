@@ -8,7 +8,7 @@ Leaderboard renderer that stacks N evaluation results side by side as a
 [polars `DataFrame`](https://docs.pola.rs/api/python/stable/reference/dataframe/index.html).
 Pure projection — no metric is recomputed.
 
-```python
+```python title="Illustrative"
 import factrix as fx
 from factrix.metrics import ic, quantile_spread
 
@@ -60,7 +60,7 @@ The returned `pl.DataFrame` contains the following columns:
 `rank` is created after sorting, so it is not a valid `sort_by` key. To sort
 by significance, use the p-value column and set `descending=False`:
 
-```python
+```python title="Illustrative"
 df = fx.compare(results, metrics=["ic"], sort_by="ic_p_value", descending=False)
 ```
 

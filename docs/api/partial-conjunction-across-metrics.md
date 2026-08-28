@@ -13,7 +13,7 @@ signal on at least two of IC, beta, and spread." Metric labels are the fixed
 condition axis: each factor identity receives one k-of-m partial-conjunction
 p-value, followed by BHY across identities.
 
-```python
+```python title="Illustrative"
 screen = fx.multi_factor.partial_conjunction_across_metrics(
     results,
     metrics=["ic", "beta", "spread"],
