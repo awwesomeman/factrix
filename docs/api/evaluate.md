@@ -36,6 +36,28 @@ rather than silently overriding the data. Both surface on the result —
 [Evaluating on a coarser grid](preprocess.md#evaluating-on-a-coarser-grid)
 for why the two are kept apart.
 
+### Two more period counts the tradability metrics declare
+
+On a full evaluation grid all four counts below are the same number, which is
+why one name used to carry all of them. They separate as soon as the
+evaluation grid is coarser than the return horizon.
+
+| Quantity | Question | Unit | Declared on |
+|---|---|---|---|
+| `forward_periods` | Economic horizon: over how many periods was the return measured? | Underlying period grid | `compute_forward_return`; stamped |
+| `overlap_periods` | Inference: how many adjacent evaluation observations share future periods? | Evaluation-grid observations | Derived and stamped; injected, never a metric knob |
+| `rebalance_lag` | Turnover: how far apart are the rankings / memberships compared? | Evaluation-grid observations | `rank_turnover()`, `notional_turnover()` |
+| `holding_periods` | Cost amortisation: how many return periods pass between paying trading cost? | Underlying period grid | `breakeven_cost()`, `net_spread()` |
+
+`rebalance_lag` defaults to the injected `overlap_periods` — horizon-aligned
+turnover, the historical behaviour. Pass `rebalance_lag=1` when the evaluation
+grid *is* the rebalance schedule. `holding_periods` has no default tie to the
+stamp: `gross_spread` is per underlying return period (`compute_forward_return`
+divides by `forward_periods`), so the cost must be amortised over underlying
+periods too. Substituting the derived evaluation-grid overlap there is a unit
+error, not a conservative choice — see the
+[tradability migration note](metrics/tradability.md#migration--the-holding_periods-rename).
+
 ## Use cases
 
 <div class="grid cards" markdown>

@@ -107,7 +107,12 @@ The built-in tradability helpers describe one specific proxy:
 | `net_spread` | Matching gross spread after that cost assumption |
 | `rank_turnover` | Rank stability only; not a position-turnover or cost input |
 
-Use the same `n_groups` and `forward_periods` for the spread and turnover.
+Use the same `n_groups` for the spread and the turnover. On an evaluation grid
+built with `compute_forward_return(..., dates=)`, pass `rebalance_lag=1` to the
+turnover metrics when that grid *is* the rebalance schedule, and give
+`breakeven_cost` / `net_spread` a `holding_periods` in **underlying return
+periods** — never the derived evaluation-grid `overlap_periods`.
+
 These helpers do not price a long-only or custom-weight allocation. Compute
 turnover, slippage, market impact, borrow, and capacity from the actual target
 weights downstream. See [Tradability](../api/metrics/tradability.md) for units

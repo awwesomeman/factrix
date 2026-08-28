@@ -255,28 +255,28 @@ class TestBreakevenCost:
         # rebalance): gross=0.10/period, turnover=0.5/rebalance, fp=1.
         # Traded notional per rebalance = 4*0.5 = 2 (2 legs x sell+buy), so
         # the breakeven one-way cost is 0.10*1/(4*0.5)*10000 = 500 bps.
-        result = breakeven_cost(0.10, turnover=0.5, overlap_periods=1)
+        result = breakeven_cost(0.10, turnover=0.5, holding_periods=1)
         assert result.value == pytest.approx(500.0)
-        assert result.metadata["overlap_periods"] == 1
+        assert result.metadata["holding_periods"] == 1
 
     def test_zero_turnover(self):
-        result = breakeven_cost(0.10, turnover=0.0, overlap_periods=1)
+        result = breakeven_cost(0.10, turnover=0.0, holding_periods=1)
         assert result.value == float("inf")
 
     def test_forward_periods_scales_breakeven(self):
         """gross is per-period, turnover per-rebalance: breakeven scales by N.
 
-        Halving the per-period spread but holding for overlap_periods=2 should give the
-        same breakeven as the overlap_periods=1 baseline — the trader earns the spread
+        Halving the per-period spread but holding for holding_periods=2 should give the
+        same breakeven as the holding_periods=1 baseline — the trader earns the spread
         twice before paying the once-per-rebalance cost.
         """
-        baseline = breakeven_cost(0.10, turnover=0.5, overlap_periods=1).value
-        scaled = breakeven_cost(0.05, turnover=0.5, overlap_periods=2).value
+        baseline = breakeven_cost(0.10, turnover=0.5, holding_periods=1).value
+        scaled = breakeven_cost(0.05, turnover=0.5, holding_periods=2).value
         assert scaled == pytest.approx(baseline)
 
     def test_forward_periods_validation(self):
-        with pytest.raises(ValueError, match="overlap_periods"):
-            breakeven_cost(0.10, turnover=0.5, overlap_periods=0)
+        with pytest.raises(ValueError, match="holding_periods"):
+            breakeven_cost(0.10, turnover=0.5, holding_periods=0)
 
 
 class TestNetSpread:
@@ -284,14 +284,14 @@ class TestNetSpread:
         # Notional turnover=0.5 (per leg); cost=30bps one-way; fp=1.
         # net = 0.10 - 4*(30/10000)*0.5/1 = 0.10 - 0.006 = 0.094
         result = net_spread(
-            0.10, turnover=0.5, estimated_cost_bps=30, overlap_periods=1
+            0.10, turnover=0.5, estimated_cost_bps=30, holding_periods=1
         )
         assert result.value == pytest.approx(0.094)
-        assert result.metadata["overlap_periods"] == 1
+        assert result.metadata["holding_periods"] == 1
 
     def test_cost_exceeds_alpha(self):
         result = net_spread(
-            0.001, turnover=0.5, estimated_cost_bps=100, overlap_periods=1
+            0.001, turnover=0.5, estimated_cost_bps=100, holding_periods=1
         )
         assert result.value < 0
 
@@ -301,18 +301,18 @@ class TestNetSpread:
         than absolute values) pins the scaling invariant under any rescaling
         of inputs — which is the whole point of the fix."""
         baseline = net_spread(
-            0.10, turnover=0.5, estimated_cost_bps=30, overlap_periods=1
+            0.10, turnover=0.5, estimated_cost_bps=30, holding_periods=1
         )
         scaled = net_spread(
-            0.10, turnover=0.5, estimated_cost_bps=30, overlap_periods=5
+            0.10, turnover=0.5, estimated_cost_bps=30, holding_periods=5
         )
         assert scaled.metadata["cost_drag"] == pytest.approx(
             baseline.metadata["cost_drag"] / 5
         )
 
     def test_forward_periods_validation(self):
-        with pytest.raises(ValueError, match="overlap_periods"):
-            net_spread(0.10, turnover=0.5, overlap_periods=0)
+        with pytest.raises(ValueError, match="holding_periods"):
+            net_spread(0.10, turnover=0.5, holding_periods=0)
 
 
 class TestRankTurnoverIgnoresNonFiniteFactors:
@@ -383,11 +383,12 @@ class TestCostInputPairing:
         spread = quantile_spread(panel)["factor"]
         turnover = notional_turnover(panel)
         assert spread.metadata["n_groups"] == turnover.metadata["n_groups"]
-        assert turnover.metadata["overlap_periods"] == DEFAULT_FORWARD_PERIODS
-        # The pairing check passes silently and is recorded.
+        assert turnover.metadata["rebalance_lag"] == DEFAULT_FORWARD_PERIODS
+        # The bucketing check passes silently and is recorded.
         out = breakeven_cost(spread, turnover=turnover)
         assert out.metadata["pairing_checked"] is True
         assert out.metadata["n_groups"] == DEFAULT_N_GROUPS
+        assert out.metadata["holding_periods"] == DEFAULT_FORWARD_PERIODS
 
     def test_mismatched_bucketing_is_rejected(self):
         from factrix.metrics.quantile import quantile_spread
@@ -400,14 +401,21 @@ class TestCostInputPairing:
         with pytest.raises(UserInputError, match="n_groups"):
             net_spread(spread, turnover=turnover)
 
-    def test_mismatched_stride_is_rejected(self):
+    def test_stride_is_no_longer_cross_checked(self):
+        """The upstream stride and ``holding_periods`` measure different things.
+
+        A turnover striding the evaluation grid and a cost amortised over
+        underlying return periods are both correct and need not agree, so the
+        old equality check is gone; ``holding_periods`` is recorded instead.
+        """
         panel = self._panel()
-        turnover = notional_turnover(panel, overlap_periods=1)
-        with pytest.raises(UserInputError, match="overlap_periods"):
-            breakeven_cost(0.001, turnover=turnover, overlap_periods=5)
+        turnover = notional_turnover(panel, rebalance_lag=1)
+        out = breakeven_cost(0.001, turnover=turnover, holding_periods=5)
+        assert out.metadata["holding_periods"] == 5
+        assert out.metadata["pairing_checked"] is True
 
     def test_bare_floats_still_work_unchecked(self):
-        out = breakeven_cost(0.001, turnover=0.2, overlap_periods=5)
+        out = breakeven_cost(0.001, turnover=0.2, holding_periods=5)
         # gross * h / (4 * tau) * 1e4 = 0.001 * 5 / 0.8 * 1e4
         assert out.value == pytest.approx(62.5)
         assert "pairing_checked" not in out.metadata
@@ -422,6 +430,194 @@ class TestCostInputPairing:
             breakeven_cost(
                 spread.value,
                 turnover=turnover.value,
-                overlap_periods=DEFAULT_FORWARD_PERIODS,
+                holding_periods=DEFAULT_FORWARD_PERIODS,
             ).value
         )
+
+
+class TestRebalanceLagIsDistinctFromReturnOverlap:
+    """#872 — the turnover metrics pair at a rebalance lag, not the overlap.
+
+    ``overlap_periods`` is injected from the panel's stamp and answers an
+    inference question (how many adjacent evaluation observations share future
+    periods). ``rebalance_lag`` is the schedule the portfolio actually trades
+    on, counted in evaluation-grid observations.
+    """
+
+    @staticmethod
+    def _coarse_grid_panel():
+        """400-period panel evaluated on every 4th date at a 5-period horizon.
+
+        ``compute_forward_return`` derives ``overlap_periods = 2`` there: the
+        return is still measured over 5 periods of the underlying grid, but at
+        most one other evaluation date falls inside that window.
+        """
+        import factrix as fx
+
+        raw = fx.datasets.make_cs_panel(n_assets=30, n_dates=400, seed=0)
+        every_fourth = raw["date"].unique().sort()[::4]
+        return fx.preprocess.compute_forward_return(
+            raw, forward_periods=5, dates=list(every_fourth)
+        )
+
+    def test_evaluate_honours_rebalance_lag_without_falsifying_the_stamp(self):
+        import factrix as fx
+        from factrix.metrics import ic
+
+        panel = self._coarse_grid_panel()
+        n_dates = panel["date"].n_unique()
+        out = fx.evaluate(
+            panel,
+            metrics={
+                "rt": rank_turnover(rebalance_lag=1),
+                "nt": notional_turnover(rebalance_lag=1),
+                "ic": ic(),
+            },
+            factor_cols=["factor"],
+        )["factor"]
+
+        for label in ("rt", "nt"):
+            res = out.metrics[label]
+            # The panel's stamp is reported unchanged...
+            assert res.metadata["overlap_periods"] == 2
+            # ...and the lag the metric actually paired at sits beside it.
+            assert res.metadata["rebalance_lag"] == 1
+            # Adjacent transitions: every evaluation date but the first.
+            assert res.n_obs == n_dates - 1
+            assert res.n_obs_axis == "periods"
+
+        # An overlap-sensitive metric in the same call still gets the stamp.
+        assert out.metrics["ic"].metadata["overlap_periods"] == 2
+
+    def test_default_reproduces_the_stride_at_the_stamped_overlap(self):
+        import factrix as fx
+
+        panel = self._coarse_grid_panel()
+        default = fx.evaluate(
+            panel,
+            metrics={"rt": rank_turnover(), "nt": notional_turnover()},
+            factor_cols=["factor"],
+        )["factor"]
+        explicit = fx.evaluate(
+            panel,
+            metrics={
+                "rt": rank_turnover(rebalance_lag=2),
+                "nt": notional_turnover(rebalance_lag=2),
+            },
+            factor_cols=["factor"],
+        )["factor"]
+
+        for label in ("rt", "nt"):
+            assert default.metrics[label].metadata["rebalance_lag"] == 2
+            assert default.metrics[label].value == pytest.approx(
+                explicit.metrics[label].value
+            )
+            assert default.metrics[label].n_obs == explicit.metrics[label].n_obs
+
+    def test_standalone_call_honours_the_lag(self):
+        """Nine dates, ranking reversed on odd dates.
+
+        At lag 1 every transition is a full reversal (ρ = −1 → turnover 2); at
+        lag 2 only same-phase dates are compared (ρ = +1 → turnover 0).
+        """
+
+        def factor(t, a):
+            base = ord(a) - ord("A") + 1
+            return base if t % 2 == 0 else (4 - base)
+
+        df = _panel(9, ["A", "B", "C"], factor)
+        adjacent = rank_turnover(df, rebalance_lag=1)
+        strided = rank_turnover(df, overlap_periods=2)
+
+        assert adjacent.value == pytest.approx(2.0, abs=0.01)
+        assert adjacent.metadata["rebalance_lag"] == 1
+        assert adjacent.n_obs == 8
+        assert strided.value == pytest.approx(0.0, abs=0.01)
+        assert strided.metadata["rebalance_lag"] == 2
+
+    def test_lag_overrides_the_injected_overlap_in_a_standalone_call(self):
+        df = _panel(9, ["A", "B", "C"], lambda t, a: ord(a) + 0.1 * t)
+        out = rank_turnover(df, overlap_periods=4, rebalance_lag=1)
+        assert out.metadata["overlap_periods"] == 4
+        assert out.metadata["rebalance_lag"] == 1
+        assert out.n_obs == 8
+
+    def test_notional_turnover_lag_overrides_the_injected_overlap(self):
+        assets = [chr(ord("A") + i) for i in range(10)]
+        df = _panel(9, assets, lambda t, a: ord(a) + 0.1 * t)
+        out = notional_turnover(df, n_groups=5, overlap_periods=4, rebalance_lag=1)
+        assert out.metadata["overlap_periods"] == 4
+        assert out.metadata["rebalance_lag"] == 1
+        assert out.metadata["n_rebalances"] == 8
+
+    def test_sample_floor_follows_the_lag_not_the_overlap(self):
+        """Pre-flight and run-time must agree on the floor the lag implies."""
+        import factrix as fx
+
+        assert (
+            fx.sample_requirements(
+                rank_turnover(rebalance_lag=1), overlap_periods=5
+            ).min_periods
+            == 3
+        )
+        assert (
+            fx.sample_requirements(rank_turnover(), overlap_periods=5).min_periods == 11
+        )
+        assert (
+            fx.sample_requirements(
+                rank_turnover(rebalance_lag=4), overlap_periods=1
+            ).min_periods
+            == 9
+        )
+
+    def test_rebalance_lag_validation(self):
+        df = _panel(5, ["A", "B", "C"], lambda t, a: ord(a))
+        with pytest.raises(ValueError, match="rebalance_lag"):
+            rank_turnover(df, rebalance_lag=0)
+        with pytest.raises(ValueError, match="rebalance_lag"):
+            notional_turnover(df, rebalance_lag=0)
+
+
+class TestHoldingPeriodsAmortisesCost:
+    """#874 — cost is amortised over underlying return periods, not overlap."""
+
+    def test_net_spread_amortises_over_underlying_periods(self):
+        # 20 underlying return periods between rebalances; one-way cost 30 bps.
+        out = net_spread(
+            0.001, turnover=0.20, estimated_cost_bps=30, holding_periods=20
+        )
+        assert out.metadata["cost_drag"] == pytest.approx(4 * 0.003 * 0.20 / 20)
+        assert out.metadata["cost_drag"] == pytest.approx(0.00012)
+        assert out.value == pytest.approx(0.00088)
+        assert out.metadata["holding_periods"] == 20
+
+    def test_breakeven_cost_over_underlying_periods(self):
+        out = breakeven_cost(0.001, turnover=0.20, holding_periods=20)
+        assert out.value == pytest.approx(250.0)
+        assert out.metadata["holding_periods"] == 20
+
+    def test_derived_overlap_would_be_a_ten_x_unit_error(self):
+        """The quantity the old name invited: the evaluation-grid overlap."""
+        wrong = net_spread(
+            0.001, turnover=0.20, estimated_cost_bps=30, holding_periods=2
+        )
+        assert wrong.metadata["cost_drag"] == pytest.approx(0.00120)
+        assert wrong.value == pytest.approx(-0.00020)
+
+    def test_spread_carrying_an_overlap_stamp_is_accepted(self):
+        """A ``MetricResult`` whose metadata says ``overlap_periods=2`` no
+        longer collides with a ``holding_periods=20`` amortisation."""
+        from factrix._results import MetricResult
+
+        spread = MetricResult(
+            value=0.001, metadata={"n_groups": DEFAULT_N_GROUPS, "overlap_periods": 2}
+        )
+        out = net_spread(
+            spread, turnover=0.20, estimated_cost_bps=30, holding_periods=20
+        )
+        assert out.value == pytest.approx(0.00088)
+        assert out.metadata["holding_periods"] == 20
+        assert out.metadata["pairing_checked"] is True
+        assert breakeven_cost(
+            spread, turnover=0.20, holding_periods=20
+        ).value == pytest.approx(250.0)

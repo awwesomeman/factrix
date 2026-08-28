@@ -82,7 +82,7 @@ Min sample*. `MIN_*` constants resolve to values in the
 
 | Metric | Sample axis | Min sample |
 |---|---|---|
-| [`rank_turnover`][factrix.metrics.tradability.rank_turnover] | `T` | `T >= 2*forward_periods + 1` |
+| [`rank_turnover`][factrix.metrics.tradability.rank_turnover] | `T` | `T >= 2*rebalance_lag + 1` |
 | [`notional_turnover`][factrix.metrics.tradability.notional_turnover] | `T` | `T >= 2` |
 | [`breakeven_cost`][factrix.metrics.tradability.breakeven_cost] | scalar | `notional_turnover > 0` |
 | [`net_spread`][factrix.metrics.tradability.net_spread] | scalar | spread + cost provided |

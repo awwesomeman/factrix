@@ -262,7 +262,7 @@ Read the diagnostics table before treating a low p-value as comparable across fa
 
 ## 8. Translate gross spread into net feasibility
 
-The `spread` metric is a gross per-period Q1/Q5 spread, and the `turnover` metric below is notional Q1/Q5 membership churn per rebalance because it came from `notional_turnover(n_groups=5)`. That pair can feed the scalar cost helpers. Keep this arithmetic outside `evaluate()`: it is a pre-strategy feasibility read, not an execution simulation.
+The `spread` metric is a gross per-period Q1/Q5 spread, and the `turnover` metric below is notional Q1/Q5 membership churn per rebalance because it came from `notional_turnover(n_groups=5)`. That pair can feed the scalar cost helpers. `holding_periods` is the rebalance interval in underlying return periods — the unit `gross_spread` is normalised to — which on this full evaluation grid is the horizon the return was built at. Keep this arithmetic outside `evaluate()`: it is a pre-strategy feasibility read, not an execution simulation.
 
 ```python
 cost_rows = []
@@ -277,13 +277,13 @@ for res in results.values():
             "breakeven_cost_bps": breakeven_cost(
                 gross_spread,
                 turnover=turnover,
-                forward_periods=res.forward_periods,
+                holding_periods=res.forward_periods,
             ).value,
             "net_spread_30bps": net_spread(
                 gross_spread,
                 turnover=turnover,
                 estimated_cost_bps=30.0,
-                forward_periods=res.forward_periods,
+                holding_periods=res.forward_periods,
             ).value,
         }
     )
