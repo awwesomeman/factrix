@@ -23,7 +23,7 @@ df = fx.compare(list(results.values()), metrics=["ic", "spread"], sort_by="ic")
 
 ## Input parameters
 
-```python
+```text
 compare(
     results: list[EvaluationResult],
     *,

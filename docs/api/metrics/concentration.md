@@ -60,13 +60,13 @@ title: factrix.metrics.concentration
     panel = compute_forward_return(raw, forward_periods=5)
 
     # FactorDensity-level concentration (no return dependence)
-    sig = top_concentration(panel, forward_periods=5, q_top=0.2,
+    sig = top_concentration(panel, overlap_periods=5, q_top=0.2,
                             weight_by="abs_factor")
     print(sig.value, sig.metadata["ratio_eff_to_total"], sig.stat)
     # 78.4  0.78  -2.40   (approximate; ratio > 0.5 -> diversified)
 
     # Realised-return concentration (risk framing)
-    risk = top_concentration(panel, forward_periods=5, q_top=0.2,
+    risk = top_concentration(panel, overlap_periods=5, q_top=0.2,
                              weight_by="alpha_contribution")
     print(risk.value, risk.metadata["ratio_eff_to_total"], risk.stat)
     # 41.2  0.41  3.10   (approximate; ratio < 0.5 -> outlier-driven)

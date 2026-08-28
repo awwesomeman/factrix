@@ -61,7 +61,8 @@ title: factrix.metrics.monotonicity
     )
     panel = compute_forward_return(raw, forward_periods=5)
 
-    out = monotonicity(panel, forward_periods=5, n_groups=10, seed=0)
+    # monotonicity returns dict[str, MetricResult], keyed by factor column
+    out = monotonicity(panel, overlap_periods=5, n_groups=10, seed=0)["factor"]
     print(out.value, out.p_value,
           out.metadata["mr_adjacent_diffs"],
           out.metadata["mean_abs_spearman"])

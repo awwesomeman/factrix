@@ -83,8 +83,16 @@ per-date boolean column, then reduce that `Series`, since `.all()` is a
 `Series` method and a `DataFrame` has none:
 
 ```python
+common_raw = pl.DataFrame({
+    "date":     [date(2024, 1, 1), date(2024, 1, 1),
+                 date(2024, 1, 2), date(2024, 1, 2)],
+    "asset_id": ["AAPL", "MSFT", "AAPL", "MSFT"],
+    "price":    [185.0, 372.0, 186.5, 374.5],
+    "vix":      [13.2, 13.2, 14.1, 14.1],
+})
+
 (
-    raw.group_by("date")
+    common_raw.group_by("date")
     .agg((pl.col("vix").n_unique() == 1).alias("is_common"))["is_common"]
     .all()
 )  # True when the factor is market-wide
@@ -119,8 +127,15 @@ days), see step 7 on sparse signals.
 ## 3. Attach forward return
 
 ```python
+import factrix as fx
 from factrix.preprocess import compute_forward_return
 
+# From here on the examples need a panel long and wide enough to evaluate;
+# your own step-1 output takes the generator's place. Its signal column is
+# named `factor`, so rename it to the `momentum` this page uses.
+raw = fx.datasets.make_cs_panel(n_assets=60, n_dates=260, seed=0).rename(
+    {"factor": "momentum"}
+)
 panel = compute_forward_return(raw, forward_periods=5)
 ```
 
@@ -190,16 +205,16 @@ panel = compute_forward_return(raw, forward_periods=5)
 results = fx.evaluate(
     panel,
     metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)},
-    factor_cols=["factor_zscore"],
+    factor_cols=["momentum_zscore"],
     forward_periods=5,
 )
 ```
 
 `mad_winsorize` clips the selected factor in place within each date.
-`cross_sectional_zscore` appends `factor_zscore`; it does not overwrite the
-original column. For multiple candidate factors, run the helper per column and
-rename `factor_zscore` to a factor-specific name before processing the next
-one.
+`cross_sectional_zscore` appends `<factor_col>_zscore` — `momentum_zscore`
+here; it does not overwrite the original column. For multiple candidate
+factors, run the helper once per column: each output carries its source
+column's name, so nothing has to be renamed between passes.
 
 If the factor should be neutralized against known exposures, first standardize
 it, then pass a `(date, asset_id, factor)` frame plus the base exposure columns
@@ -210,10 +225,17 @@ evaluate.
 import polars as pl
 from factrix.preprocess import orthogonalize_factor
 
+# The exposures are yours; these two deterministic stand-ins keep the
+# example self-contained on the synthetic panel.
+raw = raw.with_columns(
+    pl.col("price").log().alias("size"),
+    (pl.col("price") / pl.col("price").mean().over("asset_id")).alias("value"),
+)
+
 factor_df = raw.select(
     "date",
     "asset_id",
-    pl.col("factor_zscore").alias("factor"),
+    pl.col("momentum_zscore").alias("factor"),
 )
 base = raw.select("date", "asset_id", "size", "value")
 ortho = orthogonalize_factor(factor_df, base, base_cols=["size", "value"])
@@ -316,21 +338,22 @@ upstream into an explicit event column, for example:
 
 ```python
 event_panel = panel.with_columns(
-    pl.when(pl.col("factor").abs() > 2.0)
-    .then(pl.col("factor"))
+    pl.when(pl.col("momentum_zscore").abs() > 2.0)
+    .then(pl.col("momentum_zscore"))
     .otherwise(0.0)
-    .alias("factor")
+    .alias("momentum_event")
 )
 ```
 
-If a regime label defines the event-of-interest, use the same contract:
+If a regime label defines the event-of-interest, use the same contract on
+the panel carrying that label:
 
 ```python
-regime_event_panel = panel.with_columns(
+regime_event_panel = regime_panel.with_columns(
     pl.when(pl.col("macro_regime") == "stress")
     .then(1.0)
     .otherwise(0.0)
-    .alias("factor")
+    .alias("regime_event")
 )
 ```
 

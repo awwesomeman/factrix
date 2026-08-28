@@ -30,8 +30,8 @@ title: factrix.metrics.oos_decay
     `(date, value)` series, typically information coefficient (IC)
     from `compute_ic`, spread from `compute_spread_series`, or any
     other factor-mimicking-portfolio return series. Reports
-    $|\mathrm{mean}_{\text{OOS}}| / |\mathrm{mean}_{\text{IS}}|$ across
-    multiple `(IS_fraction, OOS_fraction)` splits.
+    $|\mathrm{mean}_{\text{OOS}}| / |\mathrm{mean}_{\text{IS}}|$ on a
+    single `is_ratio` split.
 
 -   __Sign-flip veto__
 
@@ -44,14 +44,14 @@ title: factrix.metrics.oos_decay
     decay around 32 %; factrix's default `survival_threshold = 0.5`
     sits inside that window.
 
--   __Median across splits, not mean__
+-   __Sweep the split fraction caller-side__
 
     ---
 
-    Headline is `median_f s_f` over the default splits
-    `[(0.6, 0.4), (0.7, 0.3), (0.8, 0.2)]`. A single regime change
-    landing inside one split distorts the mean disproportionately;
-    the median absorbs it.
+    One call is one `is_ratio`. To read survival across several
+    fractions, call `oos_decay` per fraction and aggregate yourself —
+    the median absorbs a regime change that lands inside one split,
+    where the mean would not.
 
 </div>
 
@@ -59,8 +59,7 @@ title: factrix.metrics.oos_decay
 
 | Goal                                                                          | Function                |
 |-------------------------------------------------------------------------------|-------------------------|
-| Multi-split OOS survival + sign-flip gate on a `(date, value)` series         | `oos_decay` |
-| Typed accessor for an individual split's `(is_ratio, mean_is, mean_oos, ...)` | `SplitDetail`           |
+| Single-split OOS survival + sign-flip gate on a `(date, value)` series        | `oos_decay` |
 
 ## Worked example — IC series fed into oos_decay
 
@@ -82,12 +81,17 @@ title: factrix.metrics.oos_decay
     ic_df = compute_ic(panel)["factor"]
     out   = oos_decay(ic_df, value_col="ic")
     print(out.value, out.metadata["status"], out.metadata["sign_flipped"])
-    # 0.94   PASS   False   (approximate)
-    for split in out.metadata["per_split"]:
-        print(split)
-    # {"is_ratio": 0.6, "mean_is": 0.080, "mean_oos": 0.077,
-    #  "survival_ratio": 0.96, "sign_flipped": False}
-    # ...
+    # 0.93   PASS   False   (approximate)
+    print(out.metadata["is_ratio"],
+          out.metadata["mean_is"], out.metadata["mean_oos"])
+    # 0.7   0.0771   0.0719   (approximate)
+
+    # One call is one split; sweep the fraction caller-side when you want
+    # a fraction-robust read.
+    import statistics
+    sweep = {f: oos_decay(ic_df, value_col="ic", is_ratio=f)
+             for f in (0.6, 0.7, 0.8)}
+    print(statistics.median(r.value for r in sweep.values()))
     ```
 
 ## See also

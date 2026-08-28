@@ -72,7 +72,7 @@ title: factrix.metrics.common_quantile
     panel  = raw.drop("factor").join(common, on="date")
     panel  = compute_forward_return(panel, forward_periods=5)
 
-    out = common_quantile_spread(panel, n_groups=5, forward_periods=5)
+    out = common_quantile_spread(panel, n_groups=5, overlap_periods=5)
     print(out.value, out.stat, out.p_value)
     # 0.0018  3.20  0.0014   (approximate)
     print(out.metadata["spearman_rho"], out.metadata["spearman_p"])

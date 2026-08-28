@@ -44,7 +44,7 @@ title: factrix.metrics.spanning
     spanning test in its single-candidate form (the single-asset case of
     the GRS 1989 $F$). Standard tool for "does this factor add anything
     beyond the existing model?" (Barillas-Shanken 2017). Pass
-    `forward_periods=h` when the spreads are built on $h$-period
+    `overlap_periods=h` when the spreads are built on $h$-period
     overlapping returns, so the Bartlett bandwidth is floored at $h-1$.
 
 -   __Base factors are required__
@@ -114,7 +114,7 @@ title: factrix.metrics.spanning
         ]
     }
     spreads = {
-        name: compute_spread_series(p, forward_periods=5, n_groups=5)["factor"]
+        name: compute_spread_series(p, overlap_periods=5, n_groups=5)["factor"]
         for name, p in panels.items()
     }
 

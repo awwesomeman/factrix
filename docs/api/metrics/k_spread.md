@@ -68,7 +68,7 @@ title: factrix.metrics.k_spread
     raw   = fx.datasets.make_cs_panel(n_assets=20, n_dates=180, seed=2024)
     panel = compute_forward_return(raw, forward_periods=5)
 
-    out = k_spread(panel, forward_periods=5, k=3)
+    out = k_spread(panel, overlap_periods=5, k=3)
     print(out.value, out.metadata["method"], out.metadata["cross_sectional_dispersion"])
     # 0.0018  non-overlapping t-test  0.041   (approximate)
     ```

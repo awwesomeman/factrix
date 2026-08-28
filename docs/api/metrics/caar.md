@@ -48,7 +48,7 @@ title: factrix.metrics.caar
 
     ---
 
-    Test $H_0: \mathbb{E}[\mathrm{CAAR}] = 0$ on the every-`forward_periods`
+    Test $H_0: \mathbb{E}[\mathrm{CAAR}] = 0$ on the every-`overlap_periods`
     subsample of the per-event-period CAAR series to avoid the
     autocorrelation induced by overlapping forward returns. Default
     parametric test for the event-sparse cell.
@@ -137,12 +137,12 @@ calling `compute_caar`, `event_hit_rate`, or `profit_factor`.
     # │ ...        ┆ ...       │
     # └────────────┴───────────┘
 
-    out = caar(caar_df, forward_periods=5)
+    out = caar(caar_df, overlap_periods=5)
     print(out.value, out.stat, out.p_value)
     # 0.0039  6.42  1.4e-09   (approximate)
 
     # Variance-robust alternative when same-period clustering is high:
-    z_bmp = bmp_z(panel, estimation_window=60, forward_periods=5,
+    z_bmp = bmp_z(panel, estimation_window=60, overlap_periods=5,
                      kolari_pynnonen_adjust=True)
     ```
 

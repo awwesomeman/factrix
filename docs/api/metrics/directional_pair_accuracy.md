@@ -66,7 +66,7 @@ title: factrix.metrics.directional_pair_accuracy
     raw = fx.datasets.make_cs_panel(n_assets=12, n_dates=160, seed=2024)
     panel = compute_forward_return(raw, forward_periods=5)
 
-    out = directional_pair_accuracy(panel, forward_periods=5)
+    out = directional_pair_accuracy(panel, overlap_periods=5)
     print(out.value, out.p_value, out.metadata["n_pairs"])
     # 0.56  None  198   (approximate)
     ```

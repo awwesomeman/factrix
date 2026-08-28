@@ -44,7 +44,7 @@ title: factrix.metrics.directional_hit_rate
     The test is one-sided: a large positive $S_n$ signals genuine
     directional skill, so a sign-inverted predictor scores poorly (flip
     its sign before testing). Observations are sub-sampled at stride
-    `forward_periods` so overlapping forward-return windows do not
+    `overlap_periods` so overlapping forward-return windows do not
     inflate the statistic; degenerate samples (one-signed predictions or
     realisations) short-circuit to `NaN`. `inspect_data()` also blocks
     obviously one-sided factor signs up front, so bulk discovery does not
@@ -74,7 +74,7 @@ title: factrix.metrics.directional_hit_rate
     )
     panel = compute_forward_return(raw, forward_periods=5)
 
-    out = directional_hit_rate(panel, forward_periods=5)
+    out = directional_hit_rate(panel, overlap_periods=5)
     print(out.value, out.stat, out.p_value, out.metadata["method"])
     # 0.57  2.74  0.0031  Pesaran-Timmermann (1992)   (approximate)
     ```

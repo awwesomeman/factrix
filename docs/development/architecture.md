@@ -453,7 +453,7 @@ Every user-facing raise that takes a named input must carry:
 
 `UserInputError` is keyword-only and renders its own message:
 
-```python
+```text
 UserInputError(
     *,
     func_name: str,

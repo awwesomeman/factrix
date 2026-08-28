@@ -27,7 +27,7 @@ title: factrix.metrics.ic
 
     ---
 
-    Test $H_0: \mathbb{E}[\mathrm{IC}] = 0$ on the every-`forward_periods`
+    Test $H_0: \mathbb{E}[\mathrm{IC}] = 0$ on the every-`overlap_periods`
     subsample to avoid the autocorrelation induced by overlapping forward
     returns. Default for the IC cell.
 
@@ -84,7 +84,7 @@ output without the evaluation framing.
     # │ ...        ┆ ...       ┆ ...       │
     # └────────────┴───────────┴───────────┘
 
-    out = ic(ic_df, forward_periods=5, inference=fx.inference.NEWEY_WEST)
+    out = ic(ic_df, overlap_periods=5, inference=fx.inference.NEWEY_WEST)
     print(out.value, out.stat, out.p_value)
     # 0.0722  14.60  2.13e-40
     ```

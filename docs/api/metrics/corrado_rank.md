@@ -66,7 +66,7 @@ title: factrix.metrics.corrado_rank
     # 0.041  5.18  2.2e-07   (approximate)
 
     # Compare to parametric CAAR — divergence flags outlier-driven CAAR:
-    caar_out = caar(compute_caar(panel), forward_periods=5)
+    caar_out = caar(compute_caar(panel), overlap_periods=5)
     print(caar_out.stat, rank_out.stat)
     # 6.42   5.18
     ```

@@ -161,7 +161,7 @@ print(corr_table.head(5))
 spreads = {
     name: compute_spread_series(
         candidates[name],
-        forward_periods=5,
+        overlap_periods=5,
         n_groups=5,
         factor_cols=[name],
     )[name]

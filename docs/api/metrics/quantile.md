@@ -73,37 +73,45 @@ title: factrix.metrics.quantile
 
     ```python
     import factrix as fx
+    import polars as pl
     from factrix.metrics.quantile import (
         compute_spread_series, quantile_spread, quantile_spread_vw,
     )
     from factrix.preprocess import compute_forward_return
 
     raw   = fx.datasets.make_cs_panel(
-        n_assets=200, n_dates=500, ic_target=0.08,
-        with_market_cap=True, seed=2024,
+        n_assets=200, n_dates=500, ic_target=0.08, seed=2024,
+    )
+    # The generator emits the canonical four columns only; value-weighting
+    # needs a `market_cap`, so attach a deterministic per-asset size ladder.
+    raw   = raw.with_columns(
+        (1e9 * (1 + pl.col("asset_id").str.slice(1).cast(pl.Int64)))
+        .alias("market_cap")
     )
     panel = compute_forward_return(raw, forward_periods=5)
 
     # compute_spread_series returns dict[str, DataFrame] keyed by factor column
-    spread_series = compute_spread_series(panel, forward_periods=5, n_groups=5)
+    spread_series = compute_spread_series(panel, overlap_periods=5, n_groups=5)
     spread_df = spread_series["factor"]
     print(spread_df.head())
-    # ┌────────────┬──────────┬───────────────┬─────────────────┬──────────────────┐
-    # │ date       ┆ spread   ┆ top_return    ┆ bottom_return   ┆ universe_return  │
-    # ├────────────┼──────────┼───────────────┼─────────────────┼──────────────────┤
-    # │ 2024-01-01 ┆  0.0042  ┆  0.0061       ┆  0.0019         ┆  0.0040          │
-    # │  ...       ┆  ...     ┆  ...          ┆  ...            ┆  ...             │
-    # └────────────┴──────────┴───────────────┴─────────────────┴──────────────────┘
+    # ┌────────────┬───────────────┬─────────────────┬──────────────────┬──────────┐
+    # │ date       ┆ top_return    ┆ bottom_return   ┆ universe_return  ┆ spread   │
+    # ├────────────┼───────────────┼─────────────────┼──────────────────┼──────────┤
+    # │ 2020-01-02 ┆ -0.000843     ┆ -0.000621       ┆ -0.000129        ┆ -0.000222│
+    # │  ...       ┆  ...          ┆  ...            ┆  ...             ┆  ...     │
+    # └────────────┴───────────────┴─────────────────┴──────────────────┴──────────┘
 
-    ew = quantile_spread(panel, forward_periods=5, n_groups=5,
-                         _precomputed_series=spread_series)
+    # quantile_spread returns dict[str, MetricResult], keyed the same way
+    ew = quantile_spread(panel, overlap_periods=5, n_groups=5,
+                         _precomputed_series=spread_series)["factor"]
     print(ew.value, ew.stat, ew.metadata["long_alpha"], ew.metadata["short_alpha"])
-    # 0.0041  4.92  0.0019  0.0022   (approximate)
+    # 0.0019  9.68  0.0010  0.0009   (approximate)
 
-    vw = quantile_spread_vw(panel, forward_periods=5, n_groups=5,
+    vw = quantile_spread_vw(panel, overlap_periods=5, n_groups=5,
                             weight_col="market_cap")
     print(vw.value, vw.stat)
-    # 0.0017  2.10   (approximate — VW < EW signals small-cap concentration)
+    # 0.0020  8.85   (approximate — a VW spread well below EW would signal
+    #                 that the EW result rests on small-cap names)
     ```
 
 ## See also

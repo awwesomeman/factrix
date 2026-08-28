@@ -53,7 +53,11 @@ import factrix as fx
 import polars as pl
 from factrix.metrics import ic
 
-raw = fx.datasets.make_cs_panel(n_assets=80, n_dates=240)
+# The generator emits its factor column as `factor`; name it as the
+# study names it so the identity on each result reads back.
+raw = fx.datasets.make_cs_panel(n_assets=80, n_dates=240).rename(
+    {"factor": "mom_12_1"}
+)
 
 results = fx.evaluate_horizons(
     raw,  # no forward_return attached
@@ -81,7 +85,11 @@ choice visible; it is informational, not an error.
 import factrix as fx
 from factrix.metrics import ic
 
-raw = fx.datasets.make_cs_panel(n_assets=80, n_dates=240)
+# The generator emits its factor column as `factor`; name it as the
+# study names it so the identity on each result reads back.
+raw = fx.datasets.make_cs_panel(n_assets=80, n_dates=240).rename(
+    {"factor": "mom_12_1"}
+)
 
 results = fx.evaluate_horizons(
     raw,  # no forward_return attached

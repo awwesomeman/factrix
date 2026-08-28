@@ -74,7 +74,7 @@ title: factrix.metrics.common_asymmetry
     panel  = raw.drop("factor").join(common, on="date")
     panel  = compute_forward_return(panel, forward_periods=5)
 
-    out = common_asymmetry(panel, forward_periods=5)
+    out = common_asymmetry(panel, overlap_periods=5)
     print(out.value, out.stat, out.p_value)
     # 0.00021  1.83  0.067   (approximate; method A magnitude)
     print(out.metadata["beta_long"], out.metadata["beta_short"],

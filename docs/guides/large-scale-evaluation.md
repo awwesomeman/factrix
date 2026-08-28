@@ -24,7 +24,7 @@ The most memory-efficient way to screen a wide panel (e.g. 500 candidate factor 
 3. In each iteration, select only the baseline columns plus the current chunk's factor columns, collect the subset, and evaluate.
 4. Let the collected Polars DataFrame and its evaluation results fall out of scope (or serialize them directly to disk).
 
-Here is the complete executable pattern:
+Here is the complete pattern; `panel_path` is your own wide panel on disk:
 
 ```python
 import polars as pl
@@ -32,7 +32,7 @@ import factrix as fx
 from factrix.metrics import ic
 
 # 1. Scan metadata only — nothing is read from disk yet
-lazy_panel = pl.scan_parquet("large_panel.parquet")
+lazy_panel = pl.scan_parquet(panel_path)
 
 # 2. Separate the fixed baseline columns from candidate factor columns.
 # If the parquet was written from a `compute_forward_return()` panel, it

@@ -68,7 +68,7 @@ factrix does not normalize factor values implicitly. For dense stock-selection w
 ```python
 raw = fprep.mad_winsorize(raw, factor_col="value_raw", n_mad=3.0)
 raw = fprep.cross_sectional_zscore(raw, factor_col="value_raw").rename(
-    {"factor_zscore": "value_raw_z"}
+    {"value_raw_zscore": "value_raw_z"}
 )
 ```
 
@@ -310,7 +310,7 @@ per_sector = fx.by_slice(
 )
 
 for sector, res in per_sector.items():
-    out = res.metrics["metric"]
+    out = res.metrics["ic"]
     print(sector, out.value, out.p_value, out.metadata.get("tie_ratio"))
 ```
 

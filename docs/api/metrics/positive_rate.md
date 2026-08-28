@@ -41,7 +41,7 @@ title: factrix.metrics.positive_rate
 
     ---
 
-    The series is sub-sampled at stride `forward_periods` before the
+    The series is sub-sampled at stride `overlap_periods` before the
     test so the MA dependence induced by overlapping forward returns
     does not leak in; same convention as `quantile_spread` and the
     other non-overlap inference paths.
@@ -73,7 +73,7 @@ title: factrix.metrics.positive_rate
     # The series diagnostic consumes (date, value); the value column on
     # the compute_ic output is named ``ic``.
     ic_df = compute_ic(panel)["factor"]
-    out   = positive_rate(ic_df, value_col="ic", forward_periods=5)
+    out   = positive_rate(ic_df, value_col="ic", overlap_periods=5)
     print(out.value, out.stat, out.p_value, out.metadata["method"])
     # 0.62  19  0.011   exact-binomial   (approximate)
     ```
