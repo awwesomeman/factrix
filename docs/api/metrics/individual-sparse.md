@@ -79,7 +79,7 @@ the only clustering axis a single-asset study has). Here the Kolari-Pynnönen
 adjustment has nothing to work with: the dependence is between an event's
 forward-return window and the next event's, not across the cross-section.
 Every event significance test in this cell therefore strides its own event
-axis first, keeping an event only when it sits at least `forward_periods`
+axis first, keeping an event only when it sits at least `overlap_periods`
 periods after the last kept one on that asset, and reports what it removed
 as `EVENT_WINDOW_OVERLAP` with `metadata["n_events_overlapping"]`. Read
 that code as "your trigger fires in bursts and the test paid for it in

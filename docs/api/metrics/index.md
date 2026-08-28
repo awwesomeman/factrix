@@ -110,14 +110,17 @@ any `blockers` / `warnings`, accounting for the actual panel shape
 
 Only metrics whose signature exposes `inference=` accept a selectable
 inference method. Today that surface is limited to the series-mean family:
-`ic`, `quantile_spread`, and `k_spread`. Each of those metrics validates the
+`ic`, `quantile_spread`, `quantile_spread_vw`, and `k_spread`. Each of those metrics validates the
 passed method against its own allowlist and raises
 `IncompatibleInferenceError` for anything outside it, instead of running an
 unvetted test or falling back silently.
 
 `factrix.inference.HANSEN_HODRICK` is available as a standalone series-mean
-inference member, but it is not currently in any metric's allowlist. The
-metric-supported choices are `NON_OVERLAPPING` and `NEWEY_WEST`.
+inference member, but it is deliberately in no metric's allowlist. The
+metric-supported choices are `NON_OVERLAPPING` and `NEWEY_WEST` on every
+`inference=`-bearing metric, plus `STATIONARY_BOOTSTRAP` on `ic` only —
+`quantile_spread`, `quantile_spread_vw` and `k_spread` hard-branch on
+`isinstance(NeweyWest)` and would need a polymorphic dispatch first.
 
 ## Cell vs. DataStructure
 

@@ -158,7 +158,7 @@ def caar(
         overlap_periods: Sampling interval for non-overlapping dates.
             Maps to ``config.overlap_periods`` — the return horizon used
             in ``compute_forward_return``. Distinct from
-            ``EventConfig.event_window_post`` which controls MFE/MAE.
+            the post-event window that controls MFE/MAE.
 
     Returns:
         MetricResult with value=mean CAAR **on the non-overlap subsample**,
