@@ -745,14 +745,35 @@ own bias: at `T = 60, phi = 0.95, rho = -0.9` the corrected test rejects
 90.7%). At `rho = 0`, where OLS is unbiased, the gap is small (63.2%
 against 70.5% at `T = 60`).
 
+Every key names the fit it belongs to. `alpha`, `residual_lag1_autocorr`,
+`n_obs`, `n_periods` and `n_periods_effective` describe the **corrected**
+fit — the model `value` came from, on the rows it was estimated on.
+`beta_ols_uncorrected` and `r_squared_ols_uncorrected` are the
+pre-correction OLS reference on the full finite-pair sample
+(`n_periods_finite`). There is deliberately no corrected `r_squared`: the
+Amihud-Hurvich slope does not minimise the sum of squares, so `1 - SSR/SST`
+off its residual can go negative and has no standing in this literature,
+which reports `R²` for the OLS regression.
+
 - *primary*: `p_value` — two-sided bias-corrected slope test.
-- *descriptive*: `n_periods`, `n_periods_effective`
-  (`n_periods // overlap_periods` — the non-overlapping observations the
-  short-sample gate reads), `residual_lag1_autocorr`, `newey_west_lags`,
+- *primary sample*: `n_obs` — the rows the headline test ran on, which is
+  `n_periods_finite - overlap_periods` whenever the correction applies. The
+  augmented design spends the first observation on the AR(1) lag and, at
+  `overlap_periods > 1`, the last `overlap_periods - 1` windows on the
+  horizon-summed innovation proxy. When the sample is too short for that
+  design and `value` falls back to the plain OLS slope, `n_obs` is the
+  finite-pair count again — the reported model is then the OLS one.
+- *descriptive*: `n_periods` (= `n_obs`), `n_periods_finite` (the finite
+  `(factor, return)` pairs available before the augmented design trimmed its
+  rows), `n_periods_effective` (`n_periods // overlap_periods` — the
+  non-overlapping observations the short-sample gate reads),
+  `residual_lag1_autocorr` (lag-1 autocorrelation of the reported model's
+  residuals, strided at `overlap_periods`), `newey_west_lags`,
   `overlap_periods`, `har_lags` (the HAR bandwidth the corrected slope test
   uses; `newey_west_lags` stays the narrow rule the reported uncorrected OLS
-  slope is fitted with), `alpha`, `r_squared`, `factor_std`, `adf_stat`, `adf_p`,
-  `adf_threshold`, `unit_root_suspected`.
+  slope is fitted with), `alpha` (the intercept the corrected slope implies
+  on the `n_obs` rows), `r_squared_ols_uncorrected`, `factor_std`,
+  `adf_stat`, `adf_p`, `adf_threshold`, `unit_root_suspected`.
 - *descriptive* (Stambaugh correction): `stambaugh_adjusted` (False only
   when the sample is too short for the augmented design, in which case
   `value` falls back to the plain OLS slope), `beta_ols_uncorrected`,
@@ -777,13 +798,18 @@ against 70.5% at `T = 60`).
   oversized in this regime", not "beta may carry Stambaugh bias" — the bias
   is corrected. It is about the *regressor*: the `h > 1` over-rejection
   above fires no code of its own.
-- *warning*: `WarningCode.SERIAL_CORRELATION_DETECTED` when the regression
-  residuals' lag-1 autocorrelation exceeds `PERSISTENT_SERIES_AUTOCORR`.
+- *warning*: `WarningCode.SERIAL_CORRELATION_DETECTED` when the **reported**
+  model's residuals — `y - alpha - value * factor` over the `n_obs` rows,
+  strided at `overlap_periods` — have a lag-1 autocorrelation above
+  `PERSISTENT_SERIES_AUTOCORR`. Reading the uncorrected OLS residuals here
+  flipped the verdict on draws where the two slopes are far apart.
 - *warning*: `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` when
   `n_periods_effective` is below `MIN_PERIODS_WARN`.
 - *short-circuit*: `reason` `insufficient_predictive_periods`,
   `degenerate_factor_variance`, `no_factor_column`, or
-  `no_return_column`.
+  `no_return_column`. The `insufficient_predictive_periods` floor is a
+  pre-flight gate on `n_periods_finite`, before the augmented design trims
+  its rows.
 
 ### `common_beta` (`factrix.metrics.common_beta`)
 

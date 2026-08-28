@@ -57,17 +57,20 @@ title: factrix.metrics.predictive_beta
     of draws while the test rejects 13% (`h = 1`) / 35% (`h = 21`) at a
     nominal 5%; at `T = 2500` the ADF test can reject the unit root, the flag
     goes silent (~0% of draws) and the test still rejects 9% / 14%. A silent
-    flag is not evidence of an unbiased slope, and factrix applies no
-    Stambaugh correction.
+    flag is not evidence of an unbiased slope. The Stambaugh bias itself is
+    corrected unconditionally, so the flag is about the *regressor*, not
+    about whether `value` still carries the bias.
 
 -   __Overlap and residual persistence__
 
     ---
 
     Two further screens read the sample the standard error actually has.
-    `WarningCode.SERIAL_CORRELATION_DETECTED` fires when the regression
-    residuals' lag-1 autocorrelation exceeds `PERSISTENT_SERIES_AUTOCORR`
-    (0.3) — the same rule `fm_beta` and the series-mean inference members
+    `WarningCode.SERIAL_CORRELATION_DETECTED` fires when the **reported**
+    model's residuals — `y - alpha - value * factor` over the `n_obs` rows,
+    so the bias-corrected fit's residuals whenever the correction applies —
+    have a lag-1 autocorrelation above `PERSISTENT_SERIES_AUTOCORR` (0.3) —
+    the same rule `fm_beta` and the series-mean inference members
     apply. `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` reads
     `n_periods_effective = n_periods // forward_periods`, not the raw row
     count: `n` overlapping rows carry about `n / h` independent observations
@@ -162,7 +165,7 @@ windows share observations.
                 "beta": result.value,
                 "t_stat": result.stat,
                 "n_periods": result.metadata["n_periods"],
-                "r_squared": result.metadata["r_squared"],
+                "r_squared_ols": result.metadata["r_squared_ols_uncorrected"],
             }
         )
 
