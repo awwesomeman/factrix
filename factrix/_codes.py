@@ -1,6 +1,6 @@
 """Enum codes for structured warnings.
 
-``WarningCode`` follows the ``*Code`` suffix invariant (§7.5).
+``WarningCode`` follows the ``*Code`` suffix invariant.
 """
 
 from __future__ import annotations
