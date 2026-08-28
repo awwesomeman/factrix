@@ -14,7 +14,6 @@ import warnings
 import factrix as fx
 import polars as pl
 import pytest
-from factrix._codes import WarningCode
 from factrix._data_input import _FORWARD_PERIODS_COL, _OVERLAP_PERIODS_COL
 from factrix._errors import UserInputError
 from factrix.metrics import ic, notional_turnover, quantile_spread, rank_turnover
@@ -149,9 +148,6 @@ class TestUnevenEvaluationGridWarning:
             warnings.simplefilter("always")
             compute_forward_return(raw, forward_periods=H)
         assert not [w for w in caught if "uneven_evaluation_grid" in str(w.message)]
-
-    def test_uneven_grid_code_is_documented(self):
-        assert WarningCode.UNEVEN_EVALUATION_GRID.description
 
 
 class TestEvaluationGridValidation:

@@ -120,15 +120,9 @@ def _warn_if_uneven(kept_index: list[int]) -> None:
             "windows and offsets, and adjacent-period metrics (turnover / rank "
             "autocorrelation, rolling windows) assume a constant spacing — read "
             "their results on this grid with that in mind. The remedy is on "
-            "your side: pass dates= at a constant stride on the panel's period "
-            "grid if those paths must be calibrated; factrix does not resample. "
-            "Separately, on an uneven grid overlap_periods is the maximum "
-            "overlap, so NonOverlapping strides at that maximum and discards "
-            "more of the series than it would on a constant-stride grid, while "
-            "NeweyWest's 1.3*sqrt(T) base bandwidth is insensitive to the "
-            "unevenness (measured 5.5% at a nominal 5%) and keeps the full "
-            "series. That is sample efficiency only: switching inference= does "
-            "not recalibrate the paths named above.",
+            "the caller's side: pass dates= at a constant stride on the panel's "
+            "period grid if those paths must be calibrated; factrix does not "
+            "resample.",
             UserWarning,
             stacklevel=3,
         )
