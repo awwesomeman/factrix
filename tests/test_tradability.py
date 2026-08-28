@@ -245,7 +245,7 @@ class TestNotionalTurnover:
         df = _panel(3, self.TEN_ASSETS, lambda t, a: ord(a))
         with pytest.raises(ValueError, match="overlap_periods"):
             notional_turnover(df, overlap_periods=0)
-        # The floor is the shared MIN_N_GROUPS = 2, not a private 3: the
+        # The floor is the shared N_GROUPS_FLOOR = 2, not a private 3: the
         # two-group top-half / bottom-half book is the one
         # ``quantile_spread(n_groups=2)`` prices (#878).
         with pytest.raises(ValueError, match="n_groups"):
