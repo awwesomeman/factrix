@@ -17,6 +17,7 @@ import importlib
 import pathlib
 import re
 from collections.abc import Iterable
+from typing import NamedTuple
 
 import factrix
 
@@ -63,11 +64,21 @@ DOCS_EXCLUDED_PREFIXES = (DOCS_ROOT / "plans",)
 
 # A ```python fence, possibly indented inside an admonition or tab (up to 8
 # spaces); the closing fence must sit at the same indentation. The info string
-# after ``python`` is ignored so ``python title="..."`` still matches.
+# is captured so ``python title="..."`` both matches and stays inspectable.
 PYTHON_FENCE_RE = re.compile(
-    r"^(?P<indent> {0,8})```python[^\n]*\n(?P<body>.*?)^(?P=indent)```",
+    r"^(?P<indent> {0,8})```python(?P<info>[^\n]*)\n(?P<body>.*?)^(?P=indent)```",
     re.MULTILINE | re.DOTALL,
 )
+
+# The marker that declares a fence illustrative — a hand-authored sketch that
+# leans on unbound placeholder names and is therefore not executed by
+# ``test_docs_examples.py``. ``pymdownx.superfences`` renders ``title=`` as a
+# caption bar above the block, so the one token that opts the block out of
+# execution also tells the reader the code is a sketch. It has to be ``title=``
+# specifically: superfences accepts no bare words (```` ```python illustrative
+# ````) and no unknown keys (```` ```python exec="false" ````) — either one
+# makes the fence fall back to inline code instead of a highlighted block.
+ILLUSTRATIVE_MARKER = 'title="Illustrative"'
 
 
 def docs_page_paths() -> list[pathlib.Path]:
@@ -79,14 +90,27 @@ def docs_page_paths() -> list[pathlib.Path]:
     )
 
 
-def python_fences(text: str) -> list[tuple[int, str]]:
-    """``(start_line, body)`` for each ```python fence in ``text``, in order.
+class PythonFence(NamedTuple):
+    """One ```python fence on a page.
 
-    The body keeps its original indentation (dedent before compiling);
-    ``start_line`` is the 1-based line of the opening fence, for messages.
+    ``line`` is the 1-based line of the opening fence, for messages; ``body``
+    keeps its original indentation (dedent before compiling); ``illustrative``
+    is True when the info string carries :data:`ILLUSTRATIVE_MARKER`.
     """
+
+    line: int
+    body: str
+    illustrative: bool
+
+
+def python_fences(text: str) -> list[PythonFence]:
+    """Every ```python fence in ``text``, in page order."""
     return [
-        (text.count("\n", 0, m.start()) + 1, m.group("body"))
+        PythonFence(
+            line=text.count("\n", 0, m.start()) + 1,
+            body=m.group("body"),
+            illustrative=ILLUSTRATIVE_MARKER in m.group("info"),
+        )
         for m in PYTHON_FENCE_RE.finditer(text)
     ]
 

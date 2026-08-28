@@ -94,7 +94,7 @@ from factrix.metrics import ic, fm_beta, quantile_spread
 run on a given panel — and which are degraded or blocked by sample
 floors — inspect a real panel with `inspect_data`:
 
-```python
+```python title="Illustrative"
 info = fx.inspect_data(panel)
 [m.name for m in info.usable]     # production-safe metrics for this panel
 [m.name for m in info.degraded]   # run, but inference degraded

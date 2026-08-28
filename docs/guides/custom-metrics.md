@@ -30,10 +30,10 @@ Here is how to implement a custom Information Coefficient (IC) metric that accep
 ```python
 import polars as pl
 import factrix as fx
-from factrix._axis import Aggregation
+from factrix._axis import Aggregation, InputShape
 from factrix._metric_index import cell, SampleThreshold
 from factrix import MetricResult
-from factrix.metrics import metric
+from factrix.metrics import compute_ic, metric
 
 # 1. Define the metric cell and thresholds
 _CUSTOM_CELL = cell(
@@ -46,6 +46,8 @@ _CUSTOM_CELL = cell(
 @metric(
     cell=_CUSTOM_CELL,
     aggregation=Aggregation.CS_THEN_TS,
+    input_shape=InputShape.SERIES,
+    requires={"ic_df": compute_ic},
     sample_threshold=SampleThreshold(min_periods=10),
 )
 def custom_trimmed_ic(
@@ -74,6 +76,9 @@ def custom_trimmed_ic(
 Now you can evaluate your custom metric:
 
 ```python
+raw = fx.datasets.make_cs_panel(n_assets=15, n_dates=80)
+data = fx.preprocess.compute_forward_return(raw, forward_periods=5)
+
 results = fx.evaluate(
     data,
     metrics={"trimmed_ic": custom_trimmed_ic(trim_ratio=0.1)},
@@ -95,7 +100,7 @@ If you prefer a manual, lower-level approach where you retain full control over 
 A registered callable carries no configuration object, so it always runs on
 its signature defaults — pass the function itself, not a call of it:
 
-```python
+```python title="Illustrative"
 results = fx.evaluate(
     data,
     metrics={"my_custom_stat": my_custom_stat},   # the function, uncalled

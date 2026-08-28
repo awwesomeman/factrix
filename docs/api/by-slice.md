@@ -61,7 +61,7 @@ readable programmatically like any other bundle warning. If you want the
 full-sample metric decomposed by period instead, compute it once on the
 whole panel and group the per-date output yourself.
 
-```python
+```python title="Illustrative"
 result = by_slice(panel, positive_rate(), by="year", factor_col="factor")
 [w.code.value for w in result["2024"].warnings]
 # ['slice_boundary_truncation']
@@ -81,7 +81,7 @@ frame identifies the metric and two `by_slice` runs stack unambiguously.
 The standard `EvaluationResult.to_frame` stacking idiom builds a
 comparison table — tag each row with its slice key:
 
-```python
+```python title="Illustrative"
 result = by_slice(panel, ic(), by="sector", factor_col="factor")
 
 pl.concat([
@@ -137,7 +137,7 @@ slice, then `pl.concat`.
 `market` is "TWSE" / "OTC"; you want three slices: 上市, 上櫃, 全市場
 (every row also belongs to 全市場).
 
-```python
+```python title="Illustrative"
 import polars as pl
 
 mapping = {"TWSE": "上市", "OTC": "上櫃"}
@@ -153,7 +153,7 @@ by_slice(expanded, ic(), by="uni", factor_col="factor")
 Each index membership is a separate boolean column; the same row may
 have several `True` values.
 
-```python
+```python title="Illustrative"
 expanded = pl.concat([
     panel.filter(pl.col("in_sp500")).with_columns(pl.lit("SP500").alias("uni")),
     panel.filter(pl.col("in_nasdaq100")).with_columns(pl.lit("N100").alias("uni")),
@@ -165,7 +165,7 @@ by_slice(expanded, ic(), by="uni", factor_col="factor")
 
 Nested by market-cap rank; each tier contains every smaller tier.
 
-```python
+```python title="Illustrative"
 tiers = [(10, "Top10"), (50, "Top50"), (200, "LargeCap")]
 expanded = pl.concat([
     *[
@@ -182,7 +182,7 @@ by_slice(expanded, ic(), by="tier", factor_col="factor")
 
 Adjacent deciles overlap to smooth boundary noise:
 
-```python
+```python title="Illustrative"
 windows = [(0, 30), (10, 40), (20, 50), (30, 60),
            (40, 70), (50, 80), (60, 90), (70, 100)]
 expanded = pl.concat([
@@ -198,7 +198,7 @@ by_slice(expanded, ic(), by="adv_win", factor_col="factor")
 Not an overlap problem — `by` only takes a single column. Compose a
 composite column with `pl.concat_str`:
 
-```python
+```python title="Illustrative"
 panel = panel.with_columns(
     pl.concat_str(["market", "sector"], separator="-").alias("uni_sec")
 )
@@ -217,7 +217,7 @@ Cases 1–4 share one idiom — per-target-slice `filter` +
 `with_columns(by=...)`, then `pl.concat`. Overlapping rows are
 duplicated naturally by the concat.
 
-```python
+```python title="Illustrative"
 expanded = pl.concat([
     panel.filter(expr).with_columns(pl.lit(name).alias("group"))
     for name, expr in user_definitions.items()

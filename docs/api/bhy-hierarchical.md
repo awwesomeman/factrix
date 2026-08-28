@@ -21,7 +21,7 @@ correlated members (0.03–0.04 vs nominal 0.10 at `size = 4`, `rho ≥ 0.5`).
 The selective level costs power only on large groups with dense signal;
 for those, flat [`bhy`](bhy.md) is both higher-power and theorem-backed.
 
-```python
+```python title="Illustrative"
 import dataclasses
 
 import factrix as fx

@@ -11,7 +11,7 @@ $m$ conditions" claim. Replaces the notebook idiom
 with the partial conjunction test of
 [Benjamini & Heller (2008)](https://onlinelibrary.wiley.com/doi/10.1111/j.1541-0420.2008.00984.x).
 
-```python
+```python title="Illustrative"
 import dataclasses
 
 import factrix as fx
@@ -75,7 +75,7 @@ hypothesis per factor.
 | **Strict** (`n_conditions=int`) | Paper-grade; you know the design (e.g. exactly 2 universes, exactly 4 horizons) | Identity with any condition count other than `n_conditions` raises. Data gaps surface fail-loud. |
 | **Lenient** (`n_conditions=None`) | EDA / prototyping; condition count varies by identity | `m` inferred per identity from the data; only requires `m >= min_pass`. |
 
-```python
+```python title="Illustrative"
 # Strict: 2 universes required for every factor; missing one raises.
 fx.multi_factor.partial_conjunction(
     results, min_pass=2, n_conditions=2, expand_over=("universe_id",)

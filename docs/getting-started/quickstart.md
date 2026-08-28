@@ -50,7 +50,7 @@ rarely do, so `adapt` is the **first** step of the pipeline — it renames
 your columns to the canonical names (and optionally cleans non-finite
 values), *before* `compute_forward_return`:
 
-```python
+```python title="Illustrative"
 import factrix as fx
 from factrix.adapt import adapt
 from factrix.preprocess import compute_forward_return

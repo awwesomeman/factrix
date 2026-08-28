@@ -68,7 +68,7 @@ Every data-consuming entry point annotates its first argument as `DataInput` —
 
 Panels often arrive with the signal column named something other than `"factor"` (e.g. `"alpha"`, `"score"`, `"momentum_12_1"`). Pass a list of column names in `factor_cols=` to `fx.evaluate` to evaluate them:
 
-```python
+```python title="Illustrative"
 from factrix.metrics import ic
 
 results = fx.evaluate(

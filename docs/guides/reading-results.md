@@ -12,6 +12,12 @@ Each entry point in `factrix` returns a frozen result dataclass. This page walks
 ## `EvaluationResult` — single-factor `evaluate()` result
 
 ```python
+import factrix as fx
+from factrix.metrics import ic
+
+raw = fx.datasets.make_cs_panel(n_assets=15, n_dates=80)
+data = fx.preprocess.compute_forward_return(raw, forward_periods=5)
+
 results = fx.evaluate(
     data,
     metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)},

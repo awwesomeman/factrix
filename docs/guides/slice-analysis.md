@@ -53,7 +53,7 @@ A single dispatcher carrying a single built-in cross-slice test would silently o
 
 The label is just a column on `df`. The constructions below use regime labels as the running example; the same pattern works for any partition (universe id, sector code, ADV bucket index):
 
-```python
+```python title="Illustrative"
 import polars as pl
 
 # 1. External classifier (NBER recession, factor return sign, ...)
@@ -68,7 +68,7 @@ vol_labels = vix.with_columns(
 
 Join the labels onto the metric's per-date input upstream:
 
-```python
+```python title="Illustrative"
 ic_df = compute_ic(panel)["factor"].join(vol_labels, on="date", how="inner")
 ```
 
@@ -107,7 +107,7 @@ regimes are **date-disjoint** (a given date is either high- or low-vol,
 never both), so the inference path here is the `slice_period_*` pair, not
 the cross-sectional one.
 
-```python
+```python title="Illustrative"
 import polars as pl
 from factrix import by_slice, slice_period_pairwise_test
 from factrix.metrics import ic
@@ -144,7 +144,7 @@ A regime study on short samples trips the omnibus's short-slice advisory
 the way you declare `few_assets` on a single-asset study in `evaluate`,
 and read the audit columns off the stacked rows instead of stderr:
 
-```python
+```python title="Illustrative"
 rows = pl.concat(
     fx.slice_period_joint_test(
         panel, m, by="regime", factor_col="factor",

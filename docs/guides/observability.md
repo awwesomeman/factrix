@@ -48,6 +48,12 @@ Every `EvaluationResult` exposes the topological execution plan via the `plan` p
 ### Example Plan Output
 
 ```python
+import factrix as fx
+from factrix.metrics import ic, ic_ir
+
+raw = fx.datasets.make_cs_panel(n_assets=15, n_dates=80)
+data = fx.preprocess.compute_forward_return(raw, forward_periods=5)
+
 results = fx.evaluate(
     data,
     metrics={"ic": ic(), "ic_ir": ic_ir()},

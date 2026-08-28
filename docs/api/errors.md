@@ -6,7 +6,7 @@ How to read factrix errors and which exception class to catch.
 
 ## TL;DR
 
-```python
+```python title="Illustrative"
 import factrix as fx
 from factrix.metrics import ic
 
@@ -112,7 +112,7 @@ For type / shape mismatches, the second line reads `Expected: <shape>` instead o
 
 The structured attributes are the contract — read them, do not parse the rendered message:
 
-```python
+```python title="Illustrative"
 import factrix as fx
 
 bad: dict[str, object] = {}

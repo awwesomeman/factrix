@@ -13,7 +13,7 @@ factor × metric cell. Unlike [`bhy`](bhy.md), which deliberately runs one
 screen per metric label, this function flattens all declared labels into one
 Benjamini-Hochberg-Yekutieli family.
 
-```python
+```python title="Illustrative"
 screen = fx.multi_factor.bhy_across_metrics(
     results,
     metrics=["ic", "spread"],

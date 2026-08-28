@@ -126,7 +126,7 @@ returned `EvaluationResult` with `dataclasses.replace`, same pattern as
 [`bhy_hierarchical`](bhy-hierarchical.md) and
 [`partial_conjunction`](partial-conjunction.md):
 
-```python
+```python title="Illustrative"
 import dataclasses
 
 import factrix as fx

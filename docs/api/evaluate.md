@@ -166,7 +166,7 @@ failed = status.filter(~pl.col("is_applicable"))
 
 Metric behaviors are defined by instantiating metric classes directly. The DAG executor handles dispatch automatically depending on the cell registered by the metric.
 
-```python
+```python title="Illustrative"
 import factrix as fx
 from factrix.metrics import ic, caar, common_beta
 

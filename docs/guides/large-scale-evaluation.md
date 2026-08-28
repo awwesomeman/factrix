@@ -26,7 +26,7 @@ The most memory-efficient way to screen a wide panel (e.g. 500 candidate factor 
 
 Here is the complete pattern; `panel_path` is your own wide panel on disk:
 
-```python
+```python title="Illustrative"
 import polars as pl
 import factrix as fx
 from factrix.metrics import ic
