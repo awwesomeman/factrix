@@ -551,8 +551,12 @@ Before running a release bump (see §9), run this checklist on `main`:
 #    not inherited — a pattern that survives past its removal only adds noise.
 git grep -nE "$PATTERN"
 
-# 2. Sync the release-check toolchain from locked project metadata.
-uv sync --frozen --extra dev --extra docs
+# 2. Sync the release-check toolchain from locked project metadata. All
+#    extras, not just dev + docs: the full suite expects the optional
+#    ``pandas`` / ``pyarrow`` path installed (CI runs the no-pandas floor
+#    separately), and dropping the extra leaves a dangling
+#    ``site-packages/pandas/`` that imports without ``DataFrame``.
+uv sync --frozen --all-extras
 
 # 3. Lint, formatting, and typing — mirrors the CI lint job.
 uv run ruff check .
