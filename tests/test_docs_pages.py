@@ -16,25 +16,15 @@ import pathlib
 import pytest
 
 from tests._doc_validation import (
+    docs_page_paths,
     import_resolves,
     imports,
     referenced_chains,
     resolves,
 )
 
-DOCS_ROOT = pathlib.Path("docs")
-EXCLUDED_PREFIXES = (DOCS_ROOT / "plans",)
 
-
-def _page_paths() -> list[pathlib.Path]:
-    return sorted(
-        p
-        for p in DOCS_ROOT.rglob("*.md")
-        if not any(p.is_relative_to(prefix) for prefix in EXCLUDED_PREFIXES)
-    )
-
-
-@pytest.mark.parametrize("path", _page_paths(), ids=lambda p: str(p))
+@pytest.mark.parametrize("path", docs_page_paths(), ids=lambda p: str(p))
 def test_page_references_resolve(path: pathlib.Path) -> None:
     text = path.read_text(encoding="utf-8")
     failures = sorted(
@@ -46,7 +36,7 @@ def test_page_references_resolve(path: pathlib.Path) -> None:
     )
 
 
-@pytest.mark.parametrize("path", _page_paths(), ids=lambda p: str(p))
+@pytest.mark.parametrize("path", docs_page_paths(), ids=lambda p: str(p))
 def test_page_imports_resolve(path: pathlib.Path) -> None:
     text = path.read_text(encoding="utf-8")
     failures = [

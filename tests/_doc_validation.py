@@ -56,6 +56,40 @@ CITATION_RE = re.compile(r"\[[^\]]{1,200}\]\[([a-z][a-z0-9-]*-\d{4}[a-z]?)\]")
 # Explicit anchor definition, e.g. ``[](){ #politis-romano-1992 }``.
 ANCHOR_RE = re.compile(r"\[\]\(\)\{ #([a-z0-9-]+) \}")
 
+DOCS_ROOT = pathlib.Path("docs")
+# ``docs/plans/**`` holds fossilised planning artifacts — excluded from the
+# published site via ``mkdocs.yml`` ``exclude_docs`` and from every walker here.
+DOCS_EXCLUDED_PREFIXES = (DOCS_ROOT / "plans",)
+
+# A ```python fence, possibly indented inside an admonition or tab (up to 8
+# spaces); the closing fence must sit at the same indentation. The info string
+# after ``python`` is ignored so ``python title="..."`` still matches.
+PYTHON_FENCE_RE = re.compile(
+    r"^(?P<indent> {0,8})```python[^\n]*\n(?P<body>.*?)^(?P=indent)```",
+    re.MULTILINE | re.DOTALL,
+)
+
+
+def docs_page_paths() -> list[pathlib.Path]:
+    """Every authored ``docs/**/*.md`` page, sorted, minus the plans archive."""
+    return sorted(
+        p
+        for p in DOCS_ROOT.rglob("*.md")
+        if not any(p.is_relative_to(prefix) for prefix in DOCS_EXCLUDED_PREFIXES)
+    )
+
+
+def python_fences(text: str) -> list[tuple[int, str]]:
+    """``(start_line, body)`` for each ```python fence in ``text``, in order.
+
+    The body keeps its original indentation (dedent before compiling);
+    ``start_line`` is the 1-based line of the opening fence, for messages.
+    """
+    return [
+        (text.count("\n", 0, m.start()) + 1, m.group("body"))
+        for m in PYTHON_FENCE_RE.finditer(text)
+    ]
+
 
 def citations(text: str) -> set[str]:
     """Return the bibliography anchor slugs cited in ``text``."""

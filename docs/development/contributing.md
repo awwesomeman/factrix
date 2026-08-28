@@ -514,6 +514,8 @@ Enforced by tests and CI — a regression fails the PR build.
 | Generated docs freshness (metric matrix, name index, warning-code table) | `tests/test_docs_matrix.py`, plus the `git diff --exit-code` step in `.github/workflows/docs-deploy-dev.yml` |
 | Public-surface mention coverage in `factrix/llms-full.txt` | `tests/test_docs_llms.py` |
 | Public-surface mention coverage across all docs pages | `tests/test_docs_pages.py` |
+| Hand-authored `python` fences on every docs page execute against the current API | `tests/test_docs_examples.py` |
+| Every public metric module has a docs page whose `members:` mirrors its `__all__` | `tests/test_metric_api_members_match_all.py` (module list derived from `factrix/metrics/`) |
 | README quickstart end-to-end | `tests/test_readme_quickstart.py` |
 | mkdocs nav / link integrity | `uv run mkdocs build --strict` (run in `.github/workflows/docs-deploy-dev.yml`) |
 | Type-checking gate (`mypy factrix`) | `uv run mypy factrix` (lint job in `.github/workflows/test.yml`) |
@@ -751,6 +753,8 @@ Code blocks under `docs/api/**/*.md` carry two distinct intents; verify which la
 
 - **Runnable** — `pycon` blocks injected from docstring `Examples:` via mkdocstrings autodoc. Self-contained imports, no unbound names, no fragile output; the rendered page exposes a copy button that strips `>>>` and expected-output lines, so blocks must remain paste-ready Python.
 - **Illustrative** — hand-authored `python` fenced blocks that use unbound names (e.g. `panel_large`, `regime_labels`) to communicate semantic intent, plus ASCII / DataFrame layouts that document output schema. Deliberately not runnable; visual lookup value beats setup faithfulness. Do not "fix" these into runnable form — confirm the intent first.
+
+`tests/test_docs_examples.py` executes every hand-authored `python` fence on every docs page, in page order, sharing one namespace per page. The two layers are told apart mechanically: a block that raises `NameError` is illustrative (it leans on an unbound placeholder) and is skipped; **any other exception fails the page** — a `TypeError` from a stale keyword, an `AttributeError` from a removed helper, a `KeyError` from a renamed metadata key, a polars column error from an outdated schema. So a self-contained example must stay self-contained and current, and an illustrative block must reference its placeholder *before* anything that could fail for a different reason. Blocks must be side-effect free (no file I/O, no plotting). `docs/examples/*.md` are rendered from `examples/*.ipynb` — fix the notebook and re-render.
 
 ### Metric docstring style
 

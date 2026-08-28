@@ -20,29 +20,18 @@ from pathlib import Path
 
 import pytest
 
-METRIC_MODULES = [
-    "caar",
-    "clustering_hhi",
-    "concentration",
-    "corrado_rank",
-    "event_horizon",
-    "event_quality",
-    "fm_beta",
-    "positive_rate",
-    "ic",
-    "mfe_mae",
-    "monotonicity",
-    "oos_decay",
-    "quantile",
-    "spanning",
-    "tradability",
-    "trend",
-    "directional_hit_rate",
-    "directional_pair_accuracy",
-    "common_asymmetry",
-    "common_beta",
-    "common_quantile",
-]
+_REPO = Path(__file__).parent.parent
+
+# Derived from the package, not hand-listed: a hand-written list silently
+# stops guarding any module added after it was written (``k_spread`` and
+# ``predictive_beta`` went unchecked that way). Every public metric module
+# must have a docs page, so a missing page fails loudly below.
+METRIC_MODULES = sorted(
+    p.stem
+    for p in (_REPO / "factrix" / "metrics").glob("*.py")
+    if not p.stem.startswith("_")
+)
+assert METRIC_MODULES, "no public metric modules found under factrix/metrics/"
 
 _MEMBERS_BLOCK = re.compile(r"members:\n((?: +- \w+\n)+)")
 
