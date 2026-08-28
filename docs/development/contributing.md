@@ -9,11 +9,9 @@ conventions (licensing / DCO / CLA).
 
 ---
 
-## 1. Two development modes
+## 1. Development setup
 
-### Mode A — Standalone development (recommended for most cases)
-
-Clone the factrix repo directly, isolated venv, fastest cycle:
+Clone the factrix repo directly into its own venv:
 
 ```bash
 git clone https://github.com/awwesomeman/factrix.git
@@ -22,33 +20,11 @@ uv sync --extra dev
 uv run pytest        # confirm baseline is green
 ```
 
-**When to use**: new feature / large refactor / SemVer bump / release.
-Isolated environment, no risk of accidentally touching downstream
-research, shortest test cycle.
-
-### Mode B — In-workspace development (via submodule)
-
-Edit from the downstream workspace (`factor-analysis`) under
-`external/factrix/`—you can change factrix and observe the effect in
-a real research notebook simultaneously:
-
-```bash
-cd ~/Desktop/dst/code/factor-analysis
-cd external/factrix
-# edit factrix source
-uv run pytest
-# back to workspace and run the notebook for end-to-end verification
-cd ../..
-uv run jupyter notebook
-```
-
-**When to use**:
-- Debugging a "bug that only appears in the research environment"—real
-  data context required to reproduce
-- Changing an API for a known downstream need, with immediate verification
-- Small tweaks (< 10 lines) that don't justify Mode A's setup overhead
-
-**Caution**: Mode B has three critical pitfalls; see §4 below.
+factrix is developed and tested as a standalone package. A consuming
+project (a research workspace, a notebook, a pipeline) depends on it the
+way it depends on any other library — an exact PyPI version or a git tag —
+and is never edited from inside that project; see section 7 for the
+pinning policy.
 
 ---
 
@@ -108,6 +84,17 @@ from the repo lockfile before testing; if a local environment was
 manually altered and timezone tests fail with missing timezone data,
 resync the environment instead of patching tests.
 
+### Editable install and Jupyter
+
+`uv sync` installs factrix in editable mode, so source changes reach
+`import factrix` immediately — with the usual Jupyter exceptions:
+
+- Function body changes → caught by `%autoreload 2`
+- `__init__.py` imports / dataclass definitions / module-level
+  constants → **restart the kernel**
+
+When in doubt, restart the kernel.
+
 ### Git hooks
 
 Hooks are managed by the [pre-commit](https://pre-commit.com/) framework;
@@ -144,7 +131,7 @@ trailers, which GitHub would surface on the repo's contributor graph.
 checks that the `## vX.Y.Z` section in `CHANGELOG.md` has ≥ 25 non-blank
 lines. Below threshold → blocks the push, forcing you to add WHY narrative
 (BREAKING migration, behavioural direction, motivation) before pushing. Pre-1.0
-release commits skip this gate; see the Pre-1.0 version guide in section 9. It
+release commits skip this gate; see the Pre-1.0 version guide in section 7. It
 also runs `mkdocs build --strict` when the push touches docs-relevant paths and
 `uv run mypy factrix` when it touches `factrix/**/*.py`. To bypass:
 `git push --no-verify`.
@@ -167,7 +154,7 @@ in `pyproject.toml` — that pin is the source of truth, so bump it to
 match in the same commit. `tests/test_precommit_ruff_pin.py` fails when
 the two diverge.
 
-Rationale: see section 9 for release-note and pre-1.0 policy.
+Rationale: see section 7 for release-note and pre-1.0 policy.
 
 ---
 
@@ -196,9 +183,9 @@ gh pr merge --squash
 ```
 
 !!! warning "Do not run `cz bump` after merge"
-    Versions and tags follow the release-train cadence (see §9) — a single
+    Versions and tags follow the release-train cadence (see §7) — a single
     release fires after several PRs accumulate. Follow the Pre-1.0 version guide
-    in section 9 for pre-1.0 PR narrative and changelog behavior.
+    in section 7 for pre-1.0 PR narrative and changelog behavior.
 
 ### Branch naming
 
@@ -226,108 +213,7 @@ length and other rules automatically.
 
 ---
 
-## 4. Three critical pitfalls of Mode B
-
-### G1. Submodule = detached HEAD (the biggest trap)
-
-When entering `external/factrix/` from the workspace, the submodule
-defaults to **detached HEAD**. Commits made on a detached HEAD
-**belong to no branch**—the next `git submodule update --remote`
-silently overwrites them and the commits vanish (reflog does not
-record them).
-
-```bash
-# Way to lose commits (incorrect)
-cd external/factrix
-# ...edit...
-git commit -am "feat: xxx"              # detached — commit has no home
-git submodule update --remote           # GONE
-
-# Correct: branch first
-cd external/factrix
-git checkout -b feat/xxx                # create branch
-# ...edit...
-git commit -am "feat: xxx"
-git push origin feat/xxx
-gh pr create                            # open PR in the factrix repo
-```
-
-### G2. Editable install has Jupyter caveats
-
-Workspace `uv sync` installs factrix in editable mode, so source
-changes in the submodule reflect in `import factrix` immediately—but
-Jupyter kernels have exceptions:
-
-- Function body changes → caught by `%autoreload 2`
-- `__init__.py` imports / dataclass definitions / module-level
-  constants → must **restart the kernel**
-
-When in doubt, restart the kernel—the safest option.
-
-### G3. Workspace does not auto-track factrix updates
-
-After a PR merges into factrix main, the workspace's submodule pointer
-**does not auto-bump**. This is a feature, not a bug—each workspace
-commit binds an explicit factrix SHA, keeping research results
-reproducible.
-
-Manual bump:
-
-```bash
-cd external/factrix && git fetch && git checkout main && git pull
-cd ../.. && git add external/factrix
-git commit -m "chore: bump factrix to <short-sha>: <why>"
-```
-
----
-
-## 5. Submodule sync reference
-
-Command index for Mode B and consumer-workspace daily ops. The cheat
-sheet covers 90% of cases; read the mental model and scenarios below
-only when the cheat sheet is unclear.
-
-### 5.1 Cheat sheet
-
-| Goal | Command |
-|------|---------|
-| See the workspace-pinned SHA | `git submodule status` |
-| See the submodule's actual HEAD | `cd external/factrix && git rev-parse --short HEAD` |
-| Pull factrix main latest into actual | `git submodule update --remote` |
-| Switch to a specific tag | `cd external/factrix && git fetch --tags && git checkout vX.Y.Z` |
-| Freeze actual into the pin | `git add external/factrix && git commit -m "chore: bump..."` |
-| Discard actual changes, reset to pin | `git submodule update` |
-| Initialise submodule on fresh clone | `git submodule update --init --recursive` |
-
-### 5.2 Mental model
-
-The workspace has a `pin` (the SHA recorded in the workspace commit);
-the submodule has its own `actual HEAD` (the SHA actually checked out).
-The two can differ—`git status` will show the submodule as `modified`.
-**Python editable install reads the actual HEAD**, so the imported
-version follows actual, not pin.
-
-### 5.3 Common scenarios
-
-- **Editing factrix and syncing back to workspace**: follow §3 + §4
-  (dev workflow), then freeze with cheat sheet row 5
-- **Someone else pushed factrix; I need to catch up**: cheat sheet rows
-  3 + 5
-- **Pinning to a tag (recommended, see §9)**: cheat sheet rows 4 + 5
-- **Submodule looks broken after switching branches**: reset via cheat
-  sheet row 6
-
-### 5.4 When confused, do two things first
-
-1. `git submodule status` — see the pin
-2. `cd external/factrix && git rev-parse --short HEAD` — see the actual
-
-If both SHAs match, you're clean; if not, decide whether to bump the
-pin (row 5) or reset actual (row 6).
-
----
-
-## 6. Docs sync boundary (Source of Truth)
+## 4. Docs sync boundary (Source of Truth)
 
 After editing `factrix/`, the table below tells you which `docs/`
 files auto-update and which need manual maintenance.
@@ -495,7 +381,7 @@ clicking through to discover affordance.
 
 ---
 
-## 7. Drift management
+## 5. Drift management
 
 Documentation, generated reference material, and example notebooks drift
 away from the code they describe. The project's working policy:
@@ -505,7 +391,7 @@ The framing below is heuristic — when a new "should I add a test for
 this drift?" question arises, judge it by whether the cost of
 automating exceeds the cost of missing.
 
-### 7.1 Automated drift checks
+### 5.1 Automated drift checks
 
 Enforced by tests and CI — a regression fails the PR build.
 
@@ -520,7 +406,7 @@ Enforced by tests and CI — a regression fails the PR build.
 | mkdocs nav / link integrity | `uv run mkdocs build --strict` (run in `.github/workflows/docs-deploy-dev.yml`) |
 | Type-checking gate (`mypy factrix`) | `uv run mypy factrix` (lint job in `.github/workflows/test.yml`) |
 
-### 7.2 Drift left to human review
+### 5.2 Drift left to human review
 
 Deliberately not automated, because machine-judgement cost > miss cost:
 
@@ -534,15 +420,15 @@ Deliberately not automated, because machine-judgement cost > miss cost:
   parses fine.
 - **Editorial choices in `factrix/llms-full.txt`** — depth of context,
   ordering, and what to omit are agent-UX decisions, not symbol
-  coverage (which §7.1 already enforces).
+  coverage (which §5.1 already enforces).
 
 Rule of thumb: if the drift can be detected by a string match or a
 function call, automate it; if catching it requires reading prose for
 meaning, leave it to release-train review.
 
-### 7.3 Release-train drift audit
+### 5.3 Release-train drift audit
 
-Before running a release bump (see §9), run this checklist on `main`:
+Before running a release bump (see §7), run this checklist on `main`:
 
 ```bash
 # 1. Search for symbols retired this release cycle that may have leaked back in.
@@ -563,7 +449,7 @@ uv run ruff check .
 uv run ruff format --check .
 uv run mypy factrix
 
-# 4. Full test suite — covers every check listed in §7.1.
+# 4. Full test suite — covers every check listed in §5.1.
 uv run pytest -q
 
 # 5. Doctests — mirrors the CI doctest job.
@@ -580,14 +466,14 @@ uv run pytest tests/test_docs_llms.py tests/test_docs_pages.py -q
 uv build --python 3.12
 
 # 9. Review release-note policy before changelog edits:
-#    - section 9 in this file
+#    - section 7 in this file
 #    - the top of CHANGELOG.md
 ```
 
 A failure on any step is a release blocker — fix on `main` (or revert
 the offending PR) before bumping.
 
-### 7.4 Type-checking conventions
+### 5.4 Type-checking conventions
 
 `uv run mypy factrix` is enforced in CI. Three recurring patterns:
 
@@ -597,7 +483,7 @@ the offending PR) before bumping.
 
 For hand-written nested dicts (e.g. per-regime / per-horizon stats), prefer a `TypedDict` over scattered suppressions — those errors point at a typing gap, not a Polars one.
 
-### 7.5 Design proposals — use issues, not files
+### 5.5 Design proposals — use issues, not files
 
 New design proposals go in a **GitHub issue** (label: `design`), not a markdown file under `docs/plans/`. Issues give threaded discussion, edit history, cross-links to PRs / commits, and zero file-maintenance overhead. The `docs/plans/archive/` directory is the frozen legacy plan corpus — read-only history; never add to it.
 
@@ -610,7 +496,7 @@ In those cases, file under `docs/plans/active/<short-slug>.md` and open a tracki
 
 ---
 
-## 8. Testing rules
+## 6. Testing rules
 
 ### Synthetic fixtures only
 
@@ -899,7 +785,7 @@ exception.
 
 ---
 
-## 9. Versioning and release (SemVer & Release)
+## 7. Versioning and release (SemVer & Release)
 
 factrix is currently in **pre-1.0** (v0.x.x). The operational policy for API
 stability, docs wording, and release notes lives in the Pre-1.0 version guide
@@ -914,8 +800,8 @@ but releases (bump + tag) are scheduled independently.**
 Until `v1.0.0`, treat published docs as a current-state manual, not a
 version-by-version history.
 
-- Public API may break in MINOR bumps. Downstream workspaces should pin by tag
-  or SHA, not SemVer ranges.
+- Public API may break in MINOR bumps. Consumers should pin an exact
+  version or tag, not a SemVer range.
 - PR descriptions carry the reviewable WHY / migration narrative. Do not add
   detailed per-release entries to `CHANGELOG.md` during the pre-1.0 line.
 - `CHANGELOG.md` remains a policy note plus historical GitHub-release index.
@@ -947,7 +833,7 @@ PRs and releases are decoupled:
   any of the following holds:
   - ≥ 3 user-facing `feat:` / `fix:` accumulated
   - ≥ 2 weeks since the last tag
-  - An urgent downstream-workspace bug fix (a one-off PATCH may ship
+  - An urgent downstream bug fix (a one-off PATCH may ship
     immediately)
   - A named version is needed for a person / demo
 
@@ -958,7 +844,7 @@ PRs and releases are decoupled:
 git checkout main && git pull
 
 # 2. Verify CI is green and local release checks pass
-#    See the release-train drift audit in section 7.3.
+#    See the release-train drift audit in section 5.3.
 
 # 3. Auto-bump and tag
 # cz derives the level from commits since the last tag (feat=MINOR, fix=PATCH),
@@ -975,12 +861,6 @@ git tag -d v<X.Y.Z> && git tag v<X.Y.Z>
 # 5. Push the release commit and annotated tag
 git push origin main --follow-tags
 
-# 6. Bump the workspace submodule
-cd ~/Desktop/dst/code/factor-analysis
-cd external/factrix && git fetch && git checkout v<X.Y.Z>
-cd ../.. && git add external/factrix
-git commit -m "chore: bump factrix to v<X.Y.Z>"
-git push
 ```
 
 ### CHANGELOG entry convention
@@ -1005,19 +885,9 @@ prompt (old → new names, affected fields). The Pre-1.0 version guide
 above defines where that upgrade text lives before `v1.0.0`; from
 `v1.0.0` onward, carry it into the maintained changelog entry.
 
-### Workspace pins to tags, not main
-
-Downstream research workspaces should generally **pin to a tag** (not
-main HEAD), so each workspace commit corresponds to a clear factrix
-version and remains reproducible.
-
-Main HEAD is used only temporarily during Mode B development (debug
-flow); once finished, merge back into factrix main, tag, and let the
-workspace bump to the tag.
-
 ---
 
-## 10. Architecture / design decisions
+## 8. Architecture / design decisions
 
 Before a new feature or large change, read:
 
@@ -1028,9 +898,8 @@ Before a new feature or large change, read:
 
 `docs/development/architecture.md` describes the **current state**, not
 the design history. For "why is it designed this way" process records,
-see the `awwesomeman/factor-analysis` workspace under
-`docs/spike_*.md` / `docs/refactor_*.md` (pre-extraction history is
-preserved there).
+see the closed `design`-labelled GitHub issues and the linked PRs; the
+frozen pre-issue plan corpus lives under `docs/plans/archive/`.
 
 ### Metric naming conventions
 
@@ -1053,21 +922,21 @@ are fine as-is.
 
 ---
 
-## 11. Asking questions / decision communication
+## 9. Asking questions / decision communication
 
 Self-use repo for the author + AI agents, so there is no issue
 template / discussion board. Decision-record channels:
 
 - **Small changes**: PR description spells out the why and any BC
 - **Large changes / architectural decisions**: open a GitHub design issue
-  (see section 7.5). Use a file-form plan only for the exceptions listed there,
+  (see section 5.5). Use a file-form plan only for the exceptions listed there,
   and link it from the issue / PR.
 - **Invariant-level rule changes**: update the `Invariants` section in
   `docs/development/architecture.md`
 
 ---
 
-## 12. Style — single language
+## 10. Style — single language
 
 All issue / PR titles + bodies, commit messages, CHANGELOG entries,
 and any content under `factrix/` and `docs/` (excluding `docs/plans/`)
@@ -1084,7 +953,7 @@ README, and CHANGELOG.
 
 ---
 
-## 13. Licensing and contribution terms
+## 11. Licensing and contribution terms
 
 This project is released under the [Apache License 2.0](https://github.com/awwesomeman/factrix/blob/main/LICENSE).
 
