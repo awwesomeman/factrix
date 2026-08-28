@@ -32,6 +32,42 @@ The leading `factor` / `forward_periods` / `params` block is the **hypothesis id
 - `reason` (`str` | `null`): Short-circuit reason when `is_applicable` is `false`.
 - `warning_codes` (`list[str]`): Warnings attached to the metric — the bundle-level `Warning` records sourced on it, unioned (de-duplicated, first-seen order) with the producer's own `MetricResult.warning_codes`.
 
+#### Exporting estimator metadata (`metadata=`)
+
+The fixed schema is the cross-metric contract; estimator-specific definitions (a spread's `n_groups`, a turnover's `rebalance_lag` or `mean_tail_size`) stay in `MetricResult.metadata` and are **not** expanded by default. `to_frame(metadata=(...))` names the keys to carry along — one trailing column per key, in the order requested — so a CSV written from the stacked frame can be audited without the `MetricResult` objects:
+
+- the column keeps the row's `factor` / `metric_name` pairing, so stacking many results keeps every cell next to the metric it came from;
+- a metric that does not carry the key gets `null`;
+- only scalar values export (`bool` / `int` / `float` / `str`; `NaN` / `Inf` become `null` like `value`, numpy scalars are unwrapped). A list, dict or other nested value raises `ValueError` naming the metric and key — that is what `to_dict()` is for;
+- a key that collides with a fixed column, a `params` key, or repeats raises `ValueError`, so metadata never shadows the identity block or the fixed schema;
+- dtypes are inferred per column.
+
+!!! example "Tradability audit — is the turnover pricing the same book as the spread?"
+
+    ```python
+    import factrix as fx
+    from factrix.metrics import notional_turnover, quantile_spread
+    from factrix.preprocess import compute_forward_return
+
+    raw = fx.datasets.make_cs_panel(n_assets=6, n_dates=120, seed=0)
+    panel = compute_forward_return(raw, forward_periods=5)
+    result = fx.evaluate(
+        panel,
+        metrics={
+            "spread": quantile_spread(n_groups=2),
+            "turnover": notional_turnover(n_groups=2, rebalance_lag=1),
+        },
+        factor_cols=["factor"],
+    )["factor"]
+
+    audit = result.to_frame(metadata=("n_groups", "rebalance_lag", "mean_tail_size"))
+    print(audit.select("metric_name", "value", "n_groups", "rebalance_lag", "mean_tail_size"))
+    # spread    ...  2  null  3.0
+    # turnover  ...  2  1     3.0
+    ```
+
+    Both rows show `n_groups = 2`, so the spread and the turnover describe the same top-half / bottom-half book; the spread row's `rebalance_lag` is `null` because a spread carries no such key.
+
 ### `to_dict()`
 Converts the result into a JSON-friendly nested dictionary. It normalizes floats (e.g., `NaN` and `Inf` to `None`) so that it can be serialized directly using standard `json.dumps` without raising errors.
 
