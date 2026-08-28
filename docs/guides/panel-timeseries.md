@@ -47,9 +47,10 @@ Time-series length `n_periods` and asset count `n_assets` are gated **independen
 `FEW_ASSETS` never changes the estimator. Spread metrics, IC, Fama–MacBeth
 and common-beta paths all retain their documented estimator and use the
 warning to flag thin ranks, low residual degrees of freedom, or unstable
-cross-asset aggregation (an earlier automatic switch of the spread metrics to
-a block bootstrap in the thin regime was removed after it measured worse). Read the metric metadata and method, not the warning
-code alone, to identify the inference path.
+cross-asset aggregation — see the [shared small-N note](../reference/stat-keys-by-metric.md#shared-small-n-note)
+for the measured sizes behind that choice on the spread metrics. Read the
+metric metadata and method, not the warning code alone, to identify the
+inference path.
 
 ### Behaviour matrix by density and `n_assets`
 

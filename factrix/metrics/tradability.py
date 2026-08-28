@@ -931,11 +931,11 @@ def net_spread(
 
         The alternative convention quotes ``estimated_cost_bps`` as a
         **round-trip** cost (one buy *and* its later sell priced together),
-        under which the coefficient is ``2 τ c`` — the pre-0.20 factrix
-        behaviour. factrix picks the one-way convention because the
-        estimates practitioners have to hand (half-spread, per-order
-        impact, per-share commission, and the default ``30`` bps here) are
-        one-way quantities; charging them ``2 τ`` under-states the drag by
+        under which the coefficient is ``2 τ c``. factrix picks the one-way
+        convention because the estimates practitioners have to hand
+        (half-spread, per-order impact, per-share commission, and the
+        default ``30`` bps here) are one-way quantities; charging them
+        ``2 τ`` under-states the drag by
         exactly half. ``breakeven_cost`` inverts the *same* coefficient, so
         the two remain consistent: the breakeven bps it returns is the
         one-way cost at which this function's ``net`` reaches zero.

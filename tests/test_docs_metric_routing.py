@@ -1,4 +1,9 @@
-"""Regression checks for issue #726 routing guidance."""
+"""Docs regression checks for metric routing guidance.
+
+Pins two published contracts against prose drift: that the sparse-event
+docs still state the single-asset and event-magnitude rules, and that the
+metrics index still lists what stays out of ``evaluate()``.
+"""
 
 from __future__ import annotations
 

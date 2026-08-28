@@ -444,8 +444,7 @@ between/total ratio $\operatorname{Var}(\bar x_d) / (\operatorname{Var}(\bar x_d
 \hat\sigma^2_w)$; because $\mathbb{E}[\operatorname{Var}(\bar x_d)] = \sigma^2_b +
 \sigma^2_w / n$, that ratio converges to $1/(n+1)$ under **independence** and
 the deflator fired at full strength on unclustered data (empirical size
-$\approx 1\%$ at nominal 5%). This was previously described here as a
-conservative simplification; it was a mis-sized test and has been replaced.
+$\approx 1\%$ at nominal 5%).
 
 The deflator itself is the Kish design effect $1/\sqrt{1 + (n_0 - 1)\hat r}$,
 i.e. [Kolari-Pynnönen 2010][kolari-pynnonen-2010] **without** the $(1 - \bar r)$

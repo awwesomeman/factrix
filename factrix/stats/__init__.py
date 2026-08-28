@@ -4,8 +4,6 @@ The slice-test selection classes carry pure identity semantics
 (``name`` / ``description``, no ``compute``); their numerics live in
 the slice-test dispatch path and the ``factrix._stats`` kernels.
 Series-mean HAC inference lives in ``factrix.inference``.
-``InferenceResult`` — harmonized return shape (canonical home is
-``factrix.inference``; re-exported here).
 ``WaldNWCluster`` / ``WaldTwoWayCluster`` — cluster-robust Wald χ²
 selection-only instances for slice contrasts.
 ``DriscollKraay`` — [Driscoll-Kraay (1998)][driscoll-kraay-1998]
@@ -20,7 +18,6 @@ family-wise error-rate adjustments across a declared search family.
 
 from __future__ import annotations
 
-from factrix.inference._base import InferenceResult
 from factrix.stats.block_bootstrap import BlockBootstrap
 from factrix.stats.bootstrap import (
     bootstrap_mean_ci,
@@ -38,7 +35,6 @@ from factrix.stats.wald_cluster import WaldNWCluster, WaldTwoWayCluster
 __all__ = [
     "BlockBootstrap",
     "DriscollKraay",
-    "InferenceResult",
     "WaldNWCluster",
     "WaldTwoWayCluster",
     "bhy_adjust",

@@ -40,9 +40,13 @@ MAD_CONSISTENCY_CONSTANT: float = 1.4826
 
 # Two-tier per-date asset-count guard for ``compute_ic`` (cross-sectional
 # axis). ``MIN_IC_ASSETS_HARD`` is the true computability floor: Spearman IC is
-# undefined below two pairwise-complete names. ``MIN_IC_ASSETS_WARN`` preserves
-# the legacy reliability floor; dates in ``[HARD, WARN)`` are retained but
-# surfaced as thin cross-sections by IC consumers and ``inspect_data``.
+# undefined below two pairwise-complete names. ``MIN_IC_ASSETS_WARN`` is its
+# warn-tier counterpart and guards reliability rather than computability: a
+# per-period rank correlation over a single-digit cross-section is dominated by
+# tie-breaking and sampling noise, so the number is well-defined but carries
+# almost no signal. The exact value is a judgement floor, not a simulated one.
+# Dates in ``[HARD, WARN)`` are retained but surfaced as thin cross-sections by
+# IC consumers and ``inspect_data``.
 MIN_IC_ASSETS_HARD: int = 2
 MIN_IC_ASSETS_WARN: int = 10
 

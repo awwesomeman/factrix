@@ -6,8 +6,9 @@ Canonical names used throughout factrix:
     - ``price``: price column (close, adj close, VWAP, etc.)
 
 Optional OHLCV canonicals (renamed when a source column is provided):
-    ``open``, ``high``, ``low``, ``volume`` — required by some factor
-    generators (``factors.technical``, ``factors.liquidity``).
+    ``open``, ``high``, ``low``, ``volume`` — nothing in factrix reads
+    these; ``adapt`` canonicalises them so your own factor construction
+    can rely on stable names.
 
 Other columns (market_cap, industry, etc.) pass through unchanged;
 factrix does not prescribe names for those.
@@ -19,7 +20,7 @@ Usage::
     # Minimal: just price panel
     raw = adapt(data, date="date", asset_id="ticker", price="close_adj")
 
-    # Full OHLCV — unlocks technical / liquidity factor generators
+    # Full OHLCV — canonical open/high/low/volume for your own factors
     raw = adapt(
         data,
         date="date", asset_id="ticker", price="close_adj",
@@ -82,17 +83,23 @@ def adapt(
     Args:
         data: Input frame — ``pl.DataFrame``, ``pl.LazyFrame``, or
             ``pd.DataFrame``.
-        date: User's date column name.
-        asset_id: User's asset identifier column name.
-        price: User's price column name.
-        open: User's open column name. If set, renamed to ``open``.
-            Required by ``factors.technical.generate_overnight_return``.
-        high: User's high column name. Renamed to ``high``. Required
-            by ``generate_52w_high_ratio`` / ``generate_intraday_range``.
-        low: User's low column name. Renamed to ``low``. Required by
-            ``generate_intraday_range``.
-        volume: User's volume column name. Renamed to ``volume``.
-            Required by ``generate_amihud`` / ``generate_volume_price_trend``.
+        date: User's date column name. Renamed to ``date`` — the panel's
+            ordering and alignment key; every factrix horizon, window and
+            lag counts periods on its distinct-date grid.
+        asset_id: User's asset identifier column name. Renamed to
+            ``asset_id`` — the cross-sectional key every metric groups by.
+        price: User's price column name. Renamed to ``price`` — the level
+            series ``compute_forward_return`` differences into
+            ``forward_return``, and the volatility source the event-study
+            metrics (``caar``, ``event_horizon``) prefer when present.
+        open: User's opening-price column name. Renamed to ``open``.
+            Not read by factrix; passed through for downstream use.
+        high: User's period-high price column name. Renamed to ``high``.
+            Not read by factrix; passed through for downstream use.
+        low: User's period-low price column name. Renamed to ``low``.
+            Not read by factrix; passed through for downstream use.
+        volume: User's traded-volume column name. Renamed to ``volume``.
+            Not read by factrix; passed through for downstream use.
         fill_forward: If True, map every non-finite value (NaN and
             ±inf) to null, then forward-fill all numeric columns per
             asset. Useful for raw OHLCV data that may contain sporadic
@@ -141,8 +148,8 @@ def adapt(
         data = data.rename(mapping)
 
     # Promote pl.Date → pl.Datetime("ms") losslessly so downstream joins
-    # (regime_labels / spanning_base_spreads / user panels) can share a
-    # common datetime dtype without the user writing an explicit cast.
+    # against other user panels share a common datetime dtype without the
+    # user writing an explicit cast.
     # Other Datetime variants (any time_unit, any TZ) pass through — the
     # library is TZ-agnostic and trusts the caller's precision choice.
     if schema.get(date) == pl.Date:

@@ -35,22 +35,23 @@ def register(cls: type[MetricBase]) -> None:
         setattr(_metrics_pkg, name, cls)
 
     # Proactively clear caches in discovery index and DAG modules
-    try:
-        import factrix._metric_index as _index
+    import factrix._metric_index as _index
 
-        if hasattr(_index._all_specs, "cache_clear"):
-            _index._all_specs.cache_clear()
-        if hasattr(_index.public_specs, "cache_clear"):
-            _index.public_specs.cache_clear()
-        if hasattr(_index._first_party_spec_by_name, "cache_clear"):
-            _index._first_party_spec_by_name.cache_clear()
-    except (ImportError, AttributeError):
-        pass
+    _index._all_specs.cache_clear()
+    _index.public_specs.cache_clear()
+    _index._first_party_spec_by_name.cache_clear()
 
+    # WHY the guard here but not above: ``factrix._dag`` imports
+    # ``factrix.metrics._helpers`` near the top of its module body, which pulls
+    # in every metric module, whose ``@metric`` decorators call this function —
+    # all while ``_dag`` is still executing and ``_registry_callable_table``
+    # (defined much further down) does not exist yet. AttributeError on that
+    # partially-initialised module is expected and safe to swallow: a module
+    # that has not finished importing has no populated cache to clear.
+    # ``factrix._metric_index`` has no such cycle, so it is called directly.
     try:
         import factrix._dag as _dag
 
-        if hasattr(_dag._registry_callable_table, "cache_clear"):
-            _dag._registry_callable_table.cache_clear()
+        _dag._registry_callable_table.cache_clear()
     except (ImportError, AttributeError):
         pass
