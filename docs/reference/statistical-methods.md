@@ -128,9 +128,11 @@ statements live in `factrix._stats.hac`'s docstring Notes.
 | SE scale | none (textbook is $\sqrt{\text{LRV}/T}$); Stata's `newey` scales by $T/(T-k)$ with $k$ = **regressor count**, never the bandwidth | $T/(T - L - 1)$ | Self-derived white-noise demeaning-bias correction: in-sample demeaning biases each $\hat\gamma_j$ by ≈$-\gamma_0/T$, giving $\mathbb{E}[\widehat{\text{LRV}}] \approx \gamma_0(1 - (L+1)/T)$, which this undoes exactly. | $h{=}5$: 8.2–9.6% → 6.2–6.7%. Partly double-counts with the fixed-$b$ reference (whose KV limit already embeds demeaning), so $h{=}1$ iid cells come out slightly *under*-sized (4.3–4.7% at $T \le 120$). |
 | Effective df | LLSW's `harreg.ado` uses $\lceil 1.5T/S \rceil$ | $\min(1.5T/L - 1,\; T/h - 1)$ | The $-1$ is a sub-one-df small-sample conservatism. The $T/h - 1$ cap is self-derived: an $h$-period overlapping series carries at most $T/h$ independent observations however the kernel is tuned. | Cap: $T{=}60$, $h{=}21$ size 12.2% → 4.3%. Cost: passing `forward_periods` on a series with *less* dependence than $h$ implies makes the test markedly conservative — measured 0.2% ($T{=}60$), 2.1% ($T{=}120$), 3.5% ($T{=}240$) on iid input at $h{=}21$. |
 
-Producing module: the three cells above are re-measured at reduced
-replication by `tests/stats/test_hac_overlap_size.py`; the full sweep
-behind the exact percentages is not committed.
+Producing module: `tests/stats/test_hac_overlap_size.py` re-measures the
+three pieces only as one contrast — the current recipe against the
+pre-fix recipe that swapped all three at once. The per-piece cells above
+are not re-measured by any committed module except where a cell names
+one.
 
 Two choices factrix deliberately did not adopt:
 
