@@ -97,6 +97,8 @@ Error cases (both raise [`UserInputError`][factrix.UserInputError]):
 
 Per-cell extensions activate additional standalone metrics when present and short-circuit (`NaN` with `reason`) when absent — they never gate the core procedure.
 
+A **direct** call to a raw-panel metric validates the key columns `date` + `asset_id` before running and raises the same `UserInputError` as `evaluate` when one is missing; see [Standalone metrics](../guides/standalone-metrics.md#1-direct-standalone-calls).
+
 | Column | Activates | Cell |
 |---|---|---|
 | `market_cap` | `quantile_spread_vw` value-weighting | Individual × Continuous |

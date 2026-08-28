@@ -147,11 +147,9 @@ def common_asymmetry(
         >>> result.name == ""
         True
     """
-    if "date" not in data.columns:
-        return _short_circuit_output(
-            "common_asymmetry",
-            "no_date_column",
-        )
+    # ``date`` / ``asset_id`` are gated by the direct-call key-column check in
+    # ``MetricBase.__call__`` (and by ``evaluate``'s baseline gate), so only
+    # the configurable columns are checked here.
     for col in (factor_col, return_col):
         if col not in data.columns:
             return _short_circuit_output(

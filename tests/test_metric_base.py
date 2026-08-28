@@ -116,7 +116,9 @@ def test_metric_dual_interface():
             val = df_input["value"][0]
             return f"val={val * multiplier}{suffix}"
 
-        df = pl.DataFrame({"value": [10]})
+        # A raw-panel metric's direct call checks the panel key columns, so
+        # even a toy frame carries them.
+        df = pl.DataFrame({"date": [1], "asset_id": ["A"], "value": [10]})
 
         # 1. Instantiation + call style
         pipeline_inst = dummy_pipeline(shift=5)
@@ -240,7 +242,7 @@ def test_metric_parameter_ordering_and_reflection():
 
         # Test instantiation & execution (ordering is checked and bound properly)
         inst = ordered_metric(b=42, a=5)
-        data = pl.DataFrame({"value": [1]})
+        data = pl.DataFrame({"date": [1], "asset_id": ["A"], "value": [1]})
         res = inst(data)
         assert res == "a=5, b=42"
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 import polars as pl
+import pytest
 from factrix.metrics import common_asymmetry
 
 
@@ -129,12 +130,16 @@ class TestRatioDiagnostic:
 
 
 class TestMissingColumns:
-    def test_missing_date_short_circuits(self):
+    def test_missing_date_is_a_user_input_error(self):
+        """A raw-panel direct call fails the key-column gate the way
+        ``evaluate`` does (#882), not as a per-metric short-circuit."""
+        from factrix._errors import UserInputError
+
         df = pl.DataFrame(
             {"asset_id": [0, 0], "factor": [1.0, -1.0], "forward_return": [0.1, 0.2]}
         )
-        out = common_asymmetry(df)
-        assert out.metadata["reason"] == "no_date_column"
+        with pytest.raises(UserInputError, match=r"'date'"):
+            common_asymmetry(df)
 
 
 class TestNonFiniteInput:

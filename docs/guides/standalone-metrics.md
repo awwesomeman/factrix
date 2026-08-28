@@ -28,6 +28,18 @@ You can call any metric callable directly. If the first argument is a Polars
 DataFrame, Series, or scalar input expected by the helper, the metric runs
 immediately and returns its results.
 
+A direct call to a metric that consumes the **raw panel** checks the key
+columns `date` and `asset_id` before any computation and raises the same
+`factrix.UserInputError` (field `data`, pointing at the
+[data schema](../api/data-schema.md)) that `evaluate` raises, instead of a
+polars `ColumnNotFoundError` from inside the estimator. Consumers of a
+producer's derived frame (`ic` on `compute_ic` output, `common_beta` on
+per-asset betas, the `(date, value)` series tools) are not gated — that
+schema is the producer's contract. `evaluate` additionally requires
+`forward_return`, because it dispatches return-consuming metrics; a direct
+call to a metric that reads returns names that column itself when it is
+missing.
+
 ### Panel-input metrics
 
 Metrics such as `quantile_spread` or `monotonicity` operate on a long-format panel containing `(date, asset_id, <factor_col>, forward_return)`.

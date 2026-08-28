@@ -204,7 +204,7 @@ class TestPredictiveBetaNonFinite:
         x = rng.standard_normal(n)
         y = 0.7 * x + rng.normal(0, 0.2, n)
         return pl.DataFrame(
-            {"date": dates, "factor": x, "forward_return": y}
+            {"date": dates, "asset_id": ["A"] * n, "factor": x, "forward_return": y}
         ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
     def test_nan_return_cell_is_dropped(self):

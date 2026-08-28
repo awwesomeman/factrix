@@ -12,7 +12,7 @@ from factrix._axis import (
     OutputShape,
     SpecRole,
 )
-from factrix._data_input import _OVERLAP_PERIODS_COL
+from factrix._data_input import _OVERLAP_PERIODS_COL, _validate_panel_key_columns
 from factrix._metric_index import Cell, MetricSpec, SampleThreshold
 
 # Parameters that ``evaluate`` injects at dispatch rather than the user
@@ -315,6 +315,15 @@ class MetricBase(metaclass=MetricMeta):
         **kwargs: Any,
     ) -> Any:
         """Evaluate the metric on a single input (one factor's view / upstream)."""
+        if args and self.input_shape is InputShape.PANEL and not self.requires:
+            # Standalone call on the raw panel: ``evaluate`` validated the
+            # schema once and projected a view; a direct call skips that gate,
+            # so the panel's key columns are checked here, before any polars
+            # expression can turn a mis-named ``asset_id`` into a
+            # ColumnNotFoundError from deep inside a quantile join. A
+            # ``requires`` consumer takes a producer's derived frame instead —
+            # its schema is the producer's contract, not the panel's.
+            _validate_panel_key_columns(args[0], func_name=self.__class__.__name__)
         if overlap_periods is None and args:
             # Standalone call: the horizon is a property of the data, so read
             # the stamp rather than letting the signature default diverge from
