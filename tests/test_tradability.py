@@ -624,3 +624,61 @@ class TestHoldingPeriodsAmortisesCost:
         assert breakeven_cost(
             spread, turnover=0.20, holding_periods=20
         ).value == pytest.approx(250.0)
+
+
+class TestLegLevelNotionalTurnover:
+    """#884 — each leg's churn is kept beside the long-short mean.
+
+    ``value`` stays the top/bottom average (the ``4 × τ`` accounting in the
+    cost helpers is the long-short book's); ``mean_top_turnover`` is the
+    matched proxy for an equal-weight top-quantile long-only book, which pays
+    nothing for bottom-leg churn.
+    """
+
+    TEN: ClassVar[list[str]] = [chr(ord("A") + i) for i in range(10)]
+
+    def test_asymmetric_churn_keeps_both_legs_and_their_mean(self):
+        """Top pair rotates fully every date, bottom pair never moves.
+
+        n_groups=5 on ten names: bottom = {A, B}, top = the two largest.
+        Alternate the top slot between {I, J} and {G, H} while A and B stay
+        the two smallest, so top churn is 1, bottom churn 0 and the
+        long-short mean 0.5.
+        """
+
+        def factor(t, a):
+            base = ord(a) - ord("A")
+            if a in ("G", "H", "I", "J"):
+                # Even dates: I, J on top; odd dates: G, H on top.
+                return 20 + base if (t % 2 == 0) == (a in ("I", "J")) else base
+            return base
+
+        df = _panel(6, self.TEN, factor)
+        out = notional_turnover(df, n_groups=5, overlap_periods=1)
+        assert out.metadata["mean_top_turnover"] == pytest.approx(1.0)
+        assert out.metadata["mean_bottom_turnover"] == pytest.approx(0.0)
+        assert out.value == pytest.approx(0.5)
+        assert out.value == pytest.approx(
+            (out.metadata["mean_top_turnover"] + out.metadata["mean_bottom_turnover"])
+            / 2
+        )
+        assert out.metadata["mean_top_tail_size"] == pytest.approx(2.0)
+        assert out.metadata["mean_bottom_tail_size"] == pytest.approx(2.0)
+        assert out.metadata["mean_tail_size"] == pytest.approx(2.0)
+
+    def test_full_rotation_and_static_book_bound_the_legs(self):
+        def reversed_every_date(t, a):
+            base = ord(a) - ord("A")
+            return base if t % 2 == 0 else (9 - base)
+
+        rotated = notional_turnover(
+            _panel(5, self.TEN, reversed_every_date), n_groups=5, overlap_periods=1
+        )
+        assert rotated.metadata["mean_top_turnover"] == pytest.approx(1.0)
+        assert rotated.metadata["mean_bottom_turnover"] == pytest.approx(1.0)
+
+        static = notional_turnover(
+            _panel(5, self.TEN, lambda t, a: ord(a)), n_groups=5, overlap_periods=1
+        )
+        assert static.metadata["mean_top_turnover"] == pytest.approx(0.0)
+        assert static.metadata["mean_bottom_turnover"] == pytest.approx(0.0)
