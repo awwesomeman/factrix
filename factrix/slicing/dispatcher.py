@@ -69,7 +69,7 @@ def by_slice(
             contain ``by`` as a column; compose it upstream if needed
             (``data.with_columns(...)`` or a join).
         metric: A metric **instance** from :mod:`factrix.metrics` (e.g.
-            ``ic()``, ``caar(forward_periods=5)``), consistent with
+            ``ic()``, ``caar()``), consistent with
             :func:`factrix.evaluate`. The bare class (``ic``) is rejected.
         by: Column name in ``data`` whose distinct values define the
             slices. For cross-product slicing (e.g. market × sector)

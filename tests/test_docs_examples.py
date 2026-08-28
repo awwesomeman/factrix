@@ -33,6 +33,7 @@ import io
 import pathlib
 import textwrap
 import warnings
+from collections.abc import Iterator
 from dataclasses import dataclass
 
 import pytest
@@ -45,6 +46,39 @@ class _BlockFailure:
     index: int
     line: int
     error: str
+
+
+@pytest.fixture
+def _isolated_metric_registry() -> Iterator[None]:
+    """Undo any metric registration a page performs.
+
+    ``docs/guides/custom-metrics.md`` runs ``@metric`` / ``register()`` for
+    real, which writes into the process-global registry, attaches the class to
+    the ``factrix.metrics`` namespace and invalidates the discovery caches.
+    Left in place, a phantom ``__docs_example__`` metric leaks into every later
+    test in the session — 94 downstream failures on the first run, plus a
+    bogus row in the tracked ``docs/reference/_generated_metric_*.md`` files
+    whenever something regenerates them. Snapshot before, restore after, and
+    clear the same caches ``register()`` clears so the index rebuilds clean.
+    """
+    import factrix._dag as dag
+    import factrix._metric_index as index
+    import factrix.metrics as metrics_pkg
+    from factrix.metrics._registry import REGISTRY
+
+    registry_before = dict(REGISTRY)
+    namespace_before = set(vars(metrics_pkg))
+    try:
+        yield
+    finally:
+        for name in [n for n in REGISTRY if n not in registry_before]:
+            del REGISTRY[name]
+        for name in set(vars(metrics_pkg)) - namespace_before:
+            delattr(metrics_pkg, name)
+        index._all_specs.cache_clear()
+        index.public_specs.cache_clear()
+        index._first_party_spec_by_name.cache_clear()
+        dag._registry_callable_table.cache_clear()
 
 
 def _run_page(text: str) -> tuple[list[_BlockFailure], int, int]:
@@ -82,6 +116,7 @@ def _run_page(text: str) -> tuple[list[_BlockFailure], int, int]:
     return failures, n_run, n_illustrative
 
 
+@pytest.mark.usefixtures("_isolated_metric_registry")
 @pytest.mark.parametrize("path", docs_page_paths(), ids=lambda p: p.as_posix())
 def test_page_examples_execute(path: pathlib.Path) -> None:
     text = path.read_text(encoding="utf-8")
