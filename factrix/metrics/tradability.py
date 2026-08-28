@@ -399,7 +399,7 @@ def notional_turnover(
         n_groups: Number of quantile groups (default
             :data:`~factrix._types.DEFAULT_N_GROUPS` = 5 = quintiles, the
             same constant ``quantile_spread`` defaults to). Must be at least
-            :data:`~factrix._types.MIN_N_GROUPS` = 2 — the top-half /
+            :data:`~factrix._types.N_GROUPS_FLOOR` = 2 — the top-half /
             bottom-half book a small universe evaluates with
             ``quantile_spread(n_groups=2)``; this metric prices that same
             book, so it accepts the same split.

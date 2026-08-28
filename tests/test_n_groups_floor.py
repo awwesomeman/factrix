@@ -5,7 +5,7 @@
 bottom-half book, so the matched spread / turnover pair a six-name
 allocation study needs could not be built. Meanwhile ``n_groups=1`` sailed
 through every spread metric as a spread of exactly zero. The bound now
-lives once, in :data:`factrix._types.MIN_N_GROUPS`, and is enforced by the
+lives once, in :data:`factrix._types.N_GROUPS_FLOOR`, and is enforced by the
 shared group-assignment kernels, so these tests pin the *set* of consumers
 rather than one function each.
 """
@@ -18,7 +18,7 @@ import factrix as fx
 import polars as pl
 import pytest
 from factrix._errors import UserInputError
-from factrix._types import DEFAULT_FORWARD_PERIODS, MIN_N_GROUPS
+from factrix._types import DEFAULT_FORWARD_PERIODS, N_GROUPS_FLOOR
 from factrix.metrics import (
     breakeven_cost,
     common_quantile_spread,
@@ -80,13 +80,13 @@ def test_every_bucketing_metric_rejects_the_same_floor(label, run, n_groups):
 
 @pytest.mark.parametrize(("label", "run"), _CONSUMERS, ids=[c[0] for c in _CONSUMERS])
 def test_every_bucketing_metric_accepts_the_two_group_book(label, run):
-    out = run(_panel(), MIN_N_GROUPS)
+    out = run(_panel(), N_GROUPS_FLOOR)
     # A spread series is a frame; everything else is a MetricResult that ran.
     if isinstance(out, pl.DataFrame):
         assert out.height > 0
     else:
         assert out.metadata.get("reason") is None
-        assert out.metadata["n_groups"] == MIN_N_GROUPS
+        assert out.metadata["n_groups"] == N_GROUPS_FLOOR
 
 
 class TestTwoGroupNotionalTurnover:

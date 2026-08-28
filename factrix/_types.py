@@ -204,5 +204,5 @@ DEFAULT_N_GROUPS: int = 5
 # the same values with the same message instead of each carrying its own
 # bound (``notional_turnover`` used to demand three groups while
 # ``quantile_spread`` priced the two-group book it could not pair with).
-MIN_N_GROUPS: int = 2
+N_GROUPS_FLOOR: int = 2
 DEFAULT_FORWARD_PERIODS: int = 5

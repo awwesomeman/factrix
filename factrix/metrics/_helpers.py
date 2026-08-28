@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 from factrix._metric_index import SampleThreshold
 from factrix._results import MetricResult, PValueAlternative
 from factrix._stats import _calc_t_stat, _p_value_from_t
-from factrix._types import DDOF, EPSILON, MIN_N_GROUPS, KPSource, SampleAxis
+from factrix._types import DDOF, EPSILON, N_GROUPS_FLOOR, KPSource, SampleAxis
 
 # Median-across-dates tie_ratio above this triggers a UserWarning when
 # tie_policy="ordinal". 0.3 is the empirical cutoff for "crowded" factors
@@ -1469,7 +1469,7 @@ def _lag_within_asset(
 
 
 def _validate_n_groups(n_groups: int) -> None:
-    """Reject a quantile count below :data:`~factrix._types.MIN_N_GROUPS`.
+    """Reject a quantile count below :data:`~factrix._types.N_GROUPS_FLOOR`.
 
     The single bound every bucketing path shares: both group-assignment
     kernels call it, so a consumer cannot accept a split its siblings reject.
@@ -1477,9 +1477,9 @@ def _validate_n_groups(n_groups: int) -> None:
     exactly zero, while ``notional_turnover`` refused the two-group book the
     spread had just priced.
     """
-    if n_groups < MIN_N_GROUPS:
+    if n_groups < N_GROUPS_FLOOR:
         raise ValueError(
-            f"n_groups must be >= {MIN_N_GROUPS} (a long-short split needs "
+            f"n_groups must be >= {N_GROUPS_FLOOR} (a long-short split needs "
             f"distinct top and bottom buckets), got {n_groups!r}"
         )
 

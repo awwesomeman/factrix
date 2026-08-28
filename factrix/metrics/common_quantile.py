@@ -88,7 +88,7 @@ def common_quantile_spread(
         factor_col: Column carrying the factor.
         return_col: Column carrying the forward return.
         n_groups: Number of quantile buckets ``K`` to cut the factor
-            history into. At least :data:`~factrix._types.MIN_N_GROUPS` = 2
+            history into. At least :data:`~factrix._types.N_GROUPS_FLOOR` = 2
             (the top-minus-bottom contrast needs two buckets); the Spearman
             shape check is reported as NaN below ``K = 3``.
         overlap_periods: Overlap horizon of the forward return; floors
