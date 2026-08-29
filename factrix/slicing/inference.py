@@ -39,7 +39,7 @@ from itertools import combinations
 import numpy as np
 import polars as pl
 
-from factrix._data_input import _read_overlap_periods_stamp
+from factrix._data_input import _resolve_overlap_periods
 from factrix._errors import UserInputError
 from factrix._stats.wald import _wald_nw_cluster_means
 from factrix.metrics._base import MetricBase
@@ -216,6 +216,7 @@ def slice_pairwise_test(
     *,
     by: str,
     factor_col: str,
+    overlap_periods: int | None = None,
 ) -> pl.DataFrame:
     """Cross-slice pairwise Wald contrasts on a per-date metric panel.
 
@@ -235,6 +236,14 @@ def slice_pairwise_test(
             The bare class is rejected.
         by: Column whose values define the slice partition.
         factor_col: The single factor column to score per slice.
+        overlap_periods: The evaluation-grid overlap the joint HAC bandwidth
+            resolves at (this test has no sample floor to gate).
+            Normally omitted — :func:`factrix.preprocess.compute_forward_return`
+            stamps it on the panel and it is read from there. Declare it for a
+            self-attached ``forward_return`` panel that carries no stamp; the
+            contract is :func:`factrix.evaluate`'s — a value disagreeing with
+            the stamp is rejected, and an unstamped panel with no declaration
+            is an error rather than a silent default.
 
     Returns:
         Long-form ``pl.DataFrame`` with columns ``(slice_a, slice_b,
@@ -252,8 +261,10 @@ def slice_pairwise_test(
         asymptotic χ²; ``multiplicity="holm"``.
 
     Raises:
-        UserInputError: ``metric`` is not a metric instance, or
-            ``factor_col`` is absent.
+        UserInputError: ``metric`` is not a metric instance,
+            ``factor_col`` is absent, or ``overlap_periods`` is not a
+            positive ``int`` / disagrees with the panel's stamp / is missing
+            on an unstamped panel.
         ValueError: Fewer than two slice values, or fewer than two dates
             aligned across all slices (e.g. a date-disjoint partition).
         TypeError: Metric is not slice-test-eligible (no
@@ -284,12 +295,15 @@ def slice_pairwise_test(
         ['slice_a', 'slice_b', 'n_obs', 'mean_diff', 'stat', 'p_raw', 'p_adj', 'stat_type', 'reference_dist', 'df_num', 'df_denom', 'multiplicity']
     """
     _validate_metric_instance(metric, "slice_pairwise_test")
+    op = _resolve_overlap_periods(
+        data, overlap_periods, horizon=None, func_name="slice_pairwise_test"
+    )
 
     labels, panel, n_obs = _build_per_date_panel(
         data, metric, by, factor_col=factor_col, func_name="slice_pairwise_test"
     )
     k = panel.shape[1]
-    lags = _hac_lags(_read_overlap_periods_stamp(data), n_obs)
+    lags = _hac_lags(op, n_obs)
     pairs = list(combinations(range(k), 2))
     col_means = panel.mean(axis=0)
 
@@ -338,6 +352,7 @@ def slice_joint_test(
     *,
     by: str,
     factor_col: str,
+    overlap_periods: int | None = None,
 ) -> pl.DataFrame:
     """Omnibus Wald χ² that all K slice means are equal.
 
@@ -353,6 +368,14 @@ def slice_joint_test(
             ``per_date_series``. The bare class is rejected.
         by: Column whose values define the slice partition.
         factor_col: The single factor column to score per slice.
+        overlap_periods: The evaluation-grid overlap the joint HAC bandwidth
+            resolves at (this test has no sample floor to gate). Normally
+            omitted — :func:`factrix.preprocess.compute_forward_return`
+            stamps it on the panel and it is read from there. Declare it for a
+            self-attached ``forward_return`` panel that carries no stamp; the
+            contract is :func:`factrix.evaluate`'s — a value disagreeing with
+            the stamp is rejected, and an unstamped panel with no declaration
+            is an error rather than a silent default.
 
     Returns:
         Single-row ``pl.DataFrame`` with columns ``(n_obs, k_slices, stat,
@@ -367,8 +390,10 @@ def slice_joint_test(
         no family-internal correction to apply.
 
     Raises:
-        UserInputError: ``metric`` is not a metric instance, or
-            ``factor_col`` is absent.
+        UserInputError: ``metric`` is not a metric instance,
+            ``factor_col`` is absent, or ``overlap_periods`` is not a
+            positive ``int`` / disagrees with the panel's stamp / is missing
+            on an unstamped panel.
         ValueError: Fewer than two slice values, or fewer than two
             dates aligned across all slices.
         TypeError: Metric is not slice-test-eligible.
@@ -397,12 +422,15 @@ def slice_joint_test(
         1
     """
     _validate_metric_instance(metric, "slice_joint_test")
+    op = _resolve_overlap_periods(
+        data, overlap_periods, horizon=None, func_name="slice_joint_test"
+    )
 
     _, panel, n_obs = _build_per_date_panel(
         data, metric, by, factor_col=factor_col, func_name="slice_joint_test"
     )
     k = panel.shape[1]
-    lags = _hac_lags(_read_overlap_periods_stamp(data), n_obs)
+    lags = _hac_lags(op, n_obs)
 
     # K-1 contrasts against slice 0: rows are [1, -1, 0, …], [1, 0, -1, …], …
     restriction = np.zeros((k - 1, k))

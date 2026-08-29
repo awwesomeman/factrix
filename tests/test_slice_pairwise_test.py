@@ -36,7 +36,9 @@ def test_two_slice_returns_one_row() -> None:
     df = build_labelled_raw_panel(
         n_dates=120, seed=1, signal={"a": 0.1, "b": 0.1}, label_col="universe"
     )
-    out = slice_pairwise_test(df, ic(), by="universe", factor_col="factor")
+    out = slice_pairwise_test(
+        df, ic(), by="universe", factor_col="factor", overlap_periods=1
+    )
     assert out.height == 1
     assert out.columns == _PAIRWISE_COLS
     assert out["n_obs"][0] == 120
@@ -54,7 +56,9 @@ def test_three_slice_returns_three_rows() -> None:
         signal={"a": 0.1, "b": 0.1, "c": 0.1},
         label_col="universe",
     )
-    out = slice_pairwise_test(df, ic(), by="universe", factor_col="factor")
+    out = slice_pairwise_test(
+        df, ic(), by="universe", factor_col="factor", overlap_periods=1
+    )
     assert out.height == 3
     pairs = set(zip(out["slice_a"].to_list(), out["slice_b"].to_list(), strict=False))
     assert pairs == {("a", "b"), ("a", "c"), ("b", "c")}
@@ -67,7 +71,9 @@ def test_holm_adjustment_dominates_raw() -> None:
         signal={"a": 0.1, "b": 0.2, "c": -0.1},
         label_col="universe",
     )
-    out = slice_pairwise_test(df, ic(), by="universe", factor_col="factor")
+    out = slice_pairwise_test(
+        df, ic(), by="universe", factor_col="factor", overlap_periods=1
+    )
     for raw, adj in zip(out["p_raw"].to_list(), out["p_adj"].to_list(), strict=False):
         assert adj >= raw - 1e-12
 
@@ -76,7 +82,9 @@ def test_detects_signal_difference() -> None:
     df = build_labelled_raw_panel(
         n_dates=240, seed=5, signal={"hot": 0.4, "cold": -0.1}, label_col="universe"
     )
-    out = slice_pairwise_test(df, ic(), by="universe", factor_col="factor")
+    out = slice_pairwise_test(
+        df, ic(), by="universe", factor_col="factor", overlap_periods=1
+    )
     assert out["p_raw"][0] < 0.01
 
 
@@ -84,7 +92,9 @@ def test_mean_diff_sign_matches_direction() -> None:
     df = build_labelled_raw_panel(
         n_dates=240, seed=15, signal={"hot": 0.4, "cold": -0.1}, label_col="universe"
     )
-    out = slice_pairwise_test(df, ic(), by="universe", factor_col="factor")
+    out = slice_pairwise_test(
+        df, ic(), by="universe", factor_col="factor", overlap_periods=1
+    )
     row = out.row(0, named=True)
     # mean_diff = μ_a − μ_b; positive iff slice_a is the higher-IC universe.
     assert (row["mean_diff"] > 0) == (row["slice_a"] == "hot")
@@ -94,7 +104,9 @@ def test_fama_macbeth_metric_accepted() -> None:
     df = build_labelled_raw_panel(
         n_dates=60, seed=6, signal={"x": 0.1, "y": 0.1}, label_col="regime"
     )
-    out = slice_pairwise_test(df, fm_beta(), by="regime", factor_col="factor")
+    out = slice_pairwise_test(
+        df, fm_beta(), by="regime", factor_col="factor", overlap_periods=1
+    )
     assert out.height == 1
     assert out.columns == _PAIRWISE_COLS
 
@@ -124,7 +136,9 @@ def test_rejects_bare_class() -> None:
         n_dates=20, seed=7, signal={"a": 0.0, "b": 0.0}, label_col="universe"
     )
     with pytest.raises(UserInputError, match="instance"):
-        slice_pairwise_test(df, ic, by="universe", factor_col="factor")  # type: ignore[arg-type]
+        slice_pairwise_test(
+            df, ic, by="universe", factor_col="factor", overlap_periods=1
+        )  # type: ignore[arg-type]
 
 
 def test_rejects_non_metric() -> None:
@@ -135,7 +149,9 @@ def test_rejects_non_metric() -> None:
         n_dates=20, seed=8, signal={"a": 0.0, "b": 0.0}, label_col="universe"
     )
     with pytest.raises(UserInputError, match="metric instance"):
-        slice_pairwise_test(df, fake_metric, by="universe", factor_col="factor")  # type: ignore[arg-type]
+        slice_pairwise_test(
+            df, fake_metric, by="universe", factor_col="factor", overlap_periods=1
+        )  # type: ignore[arg-type]
 
 
 def test_rejects_non_eligible_metric() -> None:
@@ -143,7 +159,9 @@ def test_rejects_non_eligible_metric() -> None:
         n_dates=20, seed=9, signal={"a": 0.0, "b": 0.0}, label_col="universe"
     )
     with pytest.raises(TypeError, match="slice-test-eligible"):
-        slice_pairwise_test(df, monotonicity(), by="universe", factor_col="factor")
+        slice_pairwise_test(
+            df, monotonicity(), by="universe", factor_col="factor", overlap_periods=1
+        )
 
 
 def test_rejects_missing_factor_col() -> None:
@@ -151,7 +169,9 @@ def test_rejects_missing_factor_col() -> None:
         n_dates=20, seed=10, signal={"a": 0.0, "b": 0.0}, label_col="universe"
     )
     with pytest.raises(UserInputError, match="factor_col"):
-        slice_pairwise_test(df, ic(), by="universe", factor_col="absent")
+        slice_pairwise_test(
+            df, ic(), by="universe", factor_col="absent", overlap_periods=1
+        )
 
 
 def test_raises_when_single_slice() -> None:
@@ -159,7 +179,9 @@ def test_raises_when_single_slice() -> None:
         n_dates=60, seed=11, signal={"only": 0.0}, label_col="universe"
     )
     with pytest.raises(ValueError, match="≥2 slice values"):
-        slice_pairwise_test(df, ic(), by="universe", factor_col="factor")
+        slice_pairwise_test(
+            df, ic(), by="universe", factor_col="factor", overlap_periods=1
+        )
 
 
 def test_raises_when_dates_dont_align() -> None:
@@ -173,7 +195,11 @@ def test_raises_when_dates_dont_align() -> None:
     # at the slice_period_* path, not at a small-sample cause.
     with pytest.raises(ValueError, match="date-disjoint partition") as exc:
         slice_pairwise_test(
-            pl.concat([df_a, df_b]), ic(), by="regime", factor_col="factor"
+            pl.concat([df_a, df_b]),
+            ic(),
+            by="regime",
+            factor_col="factor",
+            overlap_periods=1,
         )
     assert "slice_period_pairwise_test" in str(exc.value)
 
@@ -190,7 +216,9 @@ def test_aligned_slices_but_metric_dropped_reports_small_sample() -> None:
         n_assets=1,
     )
     with pytest.raises(ValueError, match="too few assets") as exc:
-        slice_pairwise_test(df, ic(), by="universe", factor_col="factor")
+        slice_pairwise_test(
+            df, ic(), by="universe", factor_col="factor", overlap_periods=1
+        )
     msg = str(exc.value)
     assert "date-aligned" in msg
     assert "date-disjoint" not in msg
@@ -229,3 +257,80 @@ def test_overlap_bandwidth_inflates_variance() -> None:
     assert long["p_adj"][0] > short["p_adj"][0]
     # mean_diff is bandwidth-invariant — only the variance estimate changes.
     np.testing.assert_allclose(long["mean_diff"][0], short["mean_diff"][0])
+
+
+class TestOverlapPeriodsResolution:
+    """``overlap_periods`` resolves the HAC bandwidth the way the
+    ``slice_period_*`` pair resolves it: the panel's stamp is the truth, a
+    disagreeing declaration is rejected, and an unstamped panel must declare
+    it rather than fall back to a silent default."""
+
+    @staticmethod
+    def _panel(overlap_periods: int | None) -> pl.DataFrame:
+        df = build_autocorrelated_ic_panel(
+            n_dates=120,
+            seed=42,
+            signal={"a": 0.1, "b": 0.0},
+            label_col="universe",
+            n_assets=120,
+            phi=0.95,
+            noise=0.1,
+        )
+        if overlap_periods is None:
+            return df
+        return _stamp_horizons(
+            df, forward_periods=overlap_periods, overlap_periods=overlap_periods
+        )
+
+    def test_stamped_panel_reads_the_stamp(self) -> None:
+        """Omitting the parameter and declaring the stamped value agree."""
+        stamped = self._panel(12)
+        omitted = slice_pairwise_test(stamped, ic(), by="universe", factor_col="factor")
+        declared = slice_pairwise_test(
+            stamped, ic(), by="universe", factor_col="factor", overlap_periods=12
+        )
+        assert omitted.equals(declared)
+
+    def test_declared_overlap_disagreeing_with_the_stamp_raises(self) -> None:
+        with pytest.raises(UserInputError, match="stamped evaluation-grid overlap"):
+            slice_pairwise_test(
+                self._panel(12),
+                ic(),
+                by="universe",
+                factor_col="factor",
+                overlap_periods=5,
+            )
+
+    def test_unstamped_panel_requires_a_declared_overlap(self) -> None:
+        with pytest.raises(UserInputError, match="overlap_periods"):
+            slice_pairwise_test(
+                self._panel(None), ic(), by="universe", factor_col="factor"
+            )
+
+    def test_declaration_on_an_unstamped_panel_drives_the_bandwidth(self) -> None:
+        """A declared overlap widens the kernel exactly as the same stamp
+        does — and on an autocorrelated series a wider kernel inflates the
+        SE, so the Wald statistic shrinks."""
+        unstamped = self._panel(None)
+        short = slice_pairwise_test(
+            unstamped, ic(), by="universe", factor_col="factor", overlap_periods=1
+        )
+        long = slice_pairwise_test(
+            unstamped, ic(), by="universe", factor_col="factor", overlap_periods=12
+        )
+        assert long["stat"][0] < short["stat"][0]
+        assert long["p_adj"][0] > short["p_adj"][0]
+        stamped_long = slice_pairwise_test(
+            self._panel(12), ic(), by="universe", factor_col="factor"
+        )
+        assert long.equals(stamped_long)
+
+    def test_rejects_a_non_positive_overlap(self) -> None:
+        with pytest.raises(UserInputError, match="overlap_periods"):
+            slice_pairwise_test(
+                self._panel(None),
+                ic(),
+                by="universe",
+                factor_col="factor",
+                overlap_periods=0,
+            )
