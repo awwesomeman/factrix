@@ -27,6 +27,53 @@ The research question determines the first-pass metric. In particular,
 `directional_hit_rate` tests absolute sign prediction; it does not replace rank
 IC when the allocation rule ranks assets against one another.
 
+## Separate promotion evidence from diagnostics
+
+One entry point for the whole path: the research question, the evidence that
+can promote a candidate, the diagnostics and robustness checks that cannot,
+and what stays outside factrix. Every cell links to the page that owns the
+contract; none of the derivations are restated here.
+
+| Research question / stage | Primary evidence | Supplementary or robustness evidence | Do not infer |
+|---|---|---|---|
+| Cross-sectional asset ranking | [`ic`](../api/metrics/ic.md) or [`fm_beta`](../api/metrics/fm_beta.md) over a [declared hypothesis family](#declare-selection-families), read against the [persistent-series caveat](../reference/statistical-methods.md#persistent-per-period-series-no-hac-or-bootstrap-path-is-calibrated) | [`k_spread`](../api/metrics/k_spread.md), [`monotonicity`](../api/metrics/monotonicity.md), [`directional_pair_accuracy`](../api/metrics/directional_pair_accuracy.md), [`ic_ir`](../api/metrics/ic.md) stability | That one diagnostic passing promotes the candidate |
+| Single-asset time-series predictability | [`predictive_beta`](../api/metrics/predictive_beta.md) | [Persistence](../reference/statistical-methods.md#4-persistence-diagnostics-under-near-unit-root-predictors) and sample diagnostics, `PERSISTENT_REGRESSOR` in [warning codes](../reference/warning-codes.md) | That the slope is cross-sectional ranking evidence |
+| Regime robustness | [`by_slice`](../api/by-slice.md), [`slice_period_pairwise_test`](../api/slice-test.md) contrasts, effect sizes | [`slice_period_joint_test`](../api/slice-test.md) where it is calibrated — `K = 2`, or `K >= 3` on longer slices | That a declared `short_slice_joint_test` corrected the p-value, or that a short-slice joint p is an admission gate |
+| Candidate redundancy | Correlation and fixed-base [`spanning_alpha`](../api/metrics/spanning.md) | Economic reading of the residual alpha | That `greedy_forward_selection` t-stats are post-selection inference |
+| Broad adaptive search / winner selection | Held-out evaluation, or an external search-wide procedure | [BHY](../api/multi-factor.md) over the separately declared marginal family | That BHY has controlled the whole research search |
+
+The boundaries the table compresses, each owned by the page it links to:
+
+- `expected_warnings` affects presentation and the audit fields only — it marks
+  matching records as expected and quiets their echo, and it does not change
+  the estimator, the p-value, or the sample requirement
+  ([warning contract](../api/slice-test.md#warning-contract-slice_period_joint_test)).
+- A regime joint test on short slices with `K >= 3` carries a
+  [disclosed over-rejection](../reference/statistical-methods.md#joint-period-test-on-short-slices-known-over-rejection),
+  and declaring `short_slice_joint_test` as expected does not calibrate that
+  p-value, so it stays robustness evidence rather than an admission gate.
+- `spanning_alpha` is a fixed-base incremental-information / redundancy
+  diagnostic, and `greedy_forward_selection`'s t-stats are
+  selection-conditioned rather than
+  [post-selection inference](../api/metrics/spanning.md).
+- BHY controls the FDR of the declared hypothesis family, not the winner of an
+  adaptive search across many candidates; for that use held-out evaluation or
+  an external search-wide procedure — Hansen SPA / White Reality Check, which
+  [factrix does not implement](../reference/statistical-methods.md#2-multiple-testing-under-dependence).
+- An uneven evaluation grid is disclosed by `uneven_evaluation_grid`
+  ([warning codes](../reference/warning-codes.md)); the series-mean paths are
+  calibrated there and the regression HAC, persistence, event-window and
+  adjacent-period paths are not — read the
+  [scope of that disclosure](../reference/statistical-methods.md#1-hac-se-under-overlapping-returns)
+  instead of generalizing it.
+
+The metric follows the research question rather than a global ranking of
+metrics: `predictive_beta` is the primary evidence for single-asset
+time-series predictability and is not cross-sectional ranking evidence, just as
+rank IC says nothing about one asset's own series. Regime, redundancy and
+search-wide questions come after a primary screen, and everything past a
+promoted candidate — weights, execution, capacity — is downstream of factrix.
+
 ## Small-universe workflow
 
 A small cross-section reduces power; it does not change the estimand. IC and FM
