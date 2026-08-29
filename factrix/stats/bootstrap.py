@@ -35,6 +35,8 @@ from typing import Literal, NamedTuple
 
 import numpy as np
 
+from factrix._stats.bootstrap import BOOTSTRAP_RESAMPLES_FLOOR
+
 
 def _resolve_auto_block_length(values: np.ndarray) -> float:
     """Politis-White (2004) block length, shared with ``BlockBootstrap``.
@@ -178,13 +180,10 @@ class BootstrapCI(NamedTuple):
     estimate: float
 
 
-#: Below this many resamples a bootstrap quantile is dominated by resampling
-#: noise: at B=200 the 2.5% tail is the 5th order statistic. Politis-White
-#: (2004) recommend >= 999 for two-sided 5% work; this is the refusal floor,
-#: not the recommendation. Deliberately not named ``MIN_*``: that prefix is
-#: reserved (FX003) for sample-size floors on a data axis, and a resample
-#: count is an algorithm knob, not an axis.
-_BOOTSTRAP_RESAMPLES_FLOOR: int = 200
+#: Shared refusal floor for bootstrap *inference* entry points, defined once in
+#: :mod:`factrix._stats.bootstrap` and enforced identically by
+#: ``bootstrap_mean_ci`` and ``monotonicity``'s MR test.
+_BOOTSTRAP_RESAMPLES_FLOOR = BOOTSTRAP_RESAMPLES_FLOOR
 
 
 def bootstrap_mean_ci(

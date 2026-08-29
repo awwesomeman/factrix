@@ -44,6 +44,34 @@ from factrix._types import EPSILON
 
 Scheme = Literal["fixed", "stationary"]
 
+#: Below this many resamples a bootstrap quantile or empirical p is dominated
+#: by resampling noise: at B=200 the 2.5% tail is the 5th order statistic.
+#: Politis-White (2004) recommend >= 999 for two-sided 5% work; this is the
+#: refusal floor every bootstrap *inference* entry point shares, not the
+#: recommendation. It does not gate ``stationary_bootstrap_resamples``, which
+#: draws resamples without claiming an inference on them.
+#: Deliberately not named ``MIN_*``: that prefix is reserved (FX003) for
+#: sample-size floors on a data axis, and a resample count is an algorithm
+#: knob, not an axis.
+BOOTSTRAP_RESAMPLES_FLOOR: int = 200
+
+
+def bootstrap_p_mc_se(p_value: float, n_bootstrap: int) -> float:
+    """Monte-Carlo standard error of a bootstrap empirical p-value.
+
+    ``sqrt(p * (1 - p) / B)`` — the binomial SE of the resampling draw
+    itself, *not* a statistical SE of the estimate. It says how much the
+    reported p would move on a re-run with a different seed, which is the
+    quantity a reader needs when a p sits near a decision threshold: at
+    ``B = 1000`` and ``p = 0.05`` it is ~0.7pp, so 0.043 and 0.058 are one
+    draw apart. Shrinks as ``1 / sqrt(B)``; raise ``n_bootstrap`` to shrink
+    it, since no amount of data does.
+    """
+    if n_bootstrap < 1:
+        return float("nan")
+    p = min(max(float(p_value), 0.0), 1.0)
+    return float(np.sqrt(p * (1.0 - p) / n_bootstrap))
+
 
 def _flat_top_kernel(t: float) -> float:
     """Politis-Romano trapezoidal flat-top kernel.
