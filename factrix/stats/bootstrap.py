@@ -180,12 +180,6 @@ class BootstrapCI(NamedTuple):
     estimate: float
 
 
-#: Shared refusal floor for bootstrap *inference* entry points, defined once in
-#: :mod:`factrix._stats.bootstrap` and enforced identically by
-#: ``bootstrap_mean_ci`` and ``monotonicity``'s MR test.
-_BOOTSTRAP_RESAMPLES_FLOOR = BOOTSTRAP_RESAMPLES_FLOOR
-
-
 def bootstrap_mean_ci(
     values: np.ndarray,
     *,
@@ -239,7 +233,7 @@ def bootstrap_mean_ci(
         values: 1-D array of the original series, at least 2 finite
             observations.
         n_bootstrap: Resample count. Must be at least
-            200 resamples; below that the interval
+            ``BOOTSTRAP_RESAMPLES_FLOOR`` (200); below that the interval
             endpoints are resampling noise. At ``B=1`` the old
             implementation returned a zero-width interval that did not
             even contain its own point estimate.
@@ -318,13 +312,13 @@ def bootstrap_mean_ci(
             expected="at least 2 observations to resample",
             docs_path="api/stats#factrix.stats.bootstrap_mean_ci",
         )
-    if n_bootstrap < _BOOTSTRAP_RESAMPLES_FLOOR:
+    if n_bootstrap < BOOTSTRAP_RESAMPLES_FLOOR:
         raise UserInputError(
             func_name="bootstrap_mean_ci",
             field="n_bootstrap",
             value=n_bootstrap,
             expected=(
-                f"at least {_BOOTSTRAP_RESAMPLES_FLOOR} resamples — below that "
+                f"at least {BOOTSTRAP_RESAMPLES_FLOOR} resamples — below that "
                 f"the interval endpoints are resampling noise"
             ),
             docs_path="api/stats#factrix.stats.bootstrap_mean_ci",

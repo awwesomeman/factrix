@@ -63,19 +63,25 @@ class TestBlockBootstrap:
         assert est.rng_seed == 42
 
     def test_description_reflects_config(self):
-        est = BlockBootstrap(block_length=10, scheme="fixed", n_resamples=199)
+        est = BlockBootstrap(block_length=10, scheme="fixed", n_resamples=299)
         d = est.description
         assert "fixed" in d
         assert "L=10" in d
-        assert "B=199" in d
+        assert "B=299" in d
 
     def test_rejects_bad_block_length(self):
         with pytest.raises(ValueError, match="block_length must be"):
             BlockBootstrap(block_length=0)
 
-    def test_rejects_bad_n_resamples(self):
-        with pytest.raises(ValueError, match="n_resamples must be >= 1"):
-            BlockBootstrap(n_resamples=0)
+    def test_n_resamples_below_the_shared_inference_floor_is_rejected(self):
+        """BlockBootstrap reports a Davison-Hinkley empirical p from a
+        user-settable resample count, so it shares the refusal floor with
+        ``bootstrap_mean_ci`` and ``monotonicity``."""
+        from factrix._stats.bootstrap import BOOTSTRAP_RESAMPLES_FLOOR
+
+        for bad in (0, 1, BOOTSTRAP_RESAMPLES_FLOOR - 1):
+            with pytest.raises(ValueError, match="n_resamples must be >= 200"):
+                BlockBootstrap(n_resamples=bad)
 
     def test_rejects_bad_scheme(self):
         with pytest.raises(ValueError, match="scheme must be"):
