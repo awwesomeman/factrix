@@ -424,7 +424,7 @@ class TestHighTieRatio:
 
     @pytest.mark.parametrize(
         "label, metric",
-        [("ks", k_spread(k=5)), ("mono", monotonicity(n_groups=3, n_bootstrap=50))],
+        [("ks", k_spread(k=5)), ("mono", monotonicity(n_groups=3, n_bootstrap=200))],
     )
     def test_declared_is_quiet_but_recorded_on_the_other_bucket_metrics(
         self, label, metric
@@ -434,7 +434,7 @@ class TestHighTieRatio:
         )
 
     @pytest.mark.parametrize(
-        "metric", [k_spread(k=5), monotonicity(n_groups=3, n_bootstrap=50)]
+        "metric", [k_spread(k=5), monotonicity(n_groups=3, n_bootstrap=200)]
     )
     def test_undeclared_other_bucket_metrics_still_echo(self, metric):
         _assert_undeclared_still_echoes(

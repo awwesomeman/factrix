@@ -32,6 +32,10 @@ from factrix._errors import UserInputError
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_t
+from factrix._stats.bootstrap import (
+    BOOTSTRAP_RESAMPLES_FLOOR,
+    bootstrap_p_mc_se,
+)
 from factrix._types import (
     DDOF,
     MIN_MONOTONICITY_PERIODS_HARD,
@@ -146,6 +150,7 @@ def _mr_test(
         "mr_adjacent_diffs": [float(v) for v in delta_bar],
         "n_bootstrap": n_bootstrap,
         "bootstrap_seed": seed,
+        "p_value_mc_se": bootstrap_p_mc_se(p_value, n_bootstrap),
     }
     return j_stat, p_value, metadata
 
@@ -191,10 +196,21 @@ def monotonicity(
             (default) or ``"decreasing"`` in bucket index. Declare it from the
             factor's hypothesis; running both and reporting the smaller p is a
             two-sided search charged at a one-sided level.
-        n_bootstrap: Bootstrap resamples for the MR null distribution.
+        n_bootstrap: Bootstrap resamples for the MR null distribution. Must
+            be at least ``BOOTSTRAP_RESAMPLES_FLOOR`` (200) — the same floor
+            ``factrix.stats.bootstrap_mean_ci`` enforces, since both report an
+            inference drawn from the resamples rather than the resamples
+            themselves. Below it the empirical p is dominated by resampling
+            noise: the Monte-Carlo SE of the reported p is
+            ``sqrt(p(1-p)/n_bootstrap)``, reported as
+            ``metadata["p_value_mc_se"]``. At the default 1000 resamples a p
+            near 0.05 carries ~0.7pp of MC SE, so 0.043 and 0.058 are one
+            draw apart; raise ``n_bootstrap`` to shrink it, since no amount
+            of data does.
         seed: Bootstrap seed. ``None`` resolves one and reports it in
             ``metadata["bootstrap_seed"]``, so a run stays reproducible after
-            the fact.
+            the fact. An unseeded re-run redraws the null, moving the p by
+            roughly ``metadata["p_value_mc_se"]``.
 
     Returns:
         MetricResult with ``value`` = ``stat`` = the MR statistic and
@@ -255,12 +271,16 @@ def monotonicity(
             expected="'increasing' (default) or 'decreasing'",
             docs_path="api/metrics/monotonicity",
         )
-    if n_bootstrap < 1:
+    if n_bootstrap < BOOTSTRAP_RESAMPLES_FLOOR:
         raise UserInputError(
             func_name="monotonicity",
             field="n_bootstrap",
             value=n_bootstrap,
-            expected="a positive integer number of bootstrap resamples",
+            expected=(
+                f"at least {BOOTSTRAP_RESAMPLES_FLOOR} bootstrap resamples — "
+                f"below that the MR empirical p is dominated by resampling "
+                f"noise (the same floor bootstrap_mean_ci enforces)"
+            ),
             docs_path="api/metrics/monotonicity",
         )
     cols = list(factor_cols)

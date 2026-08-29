@@ -324,7 +324,7 @@ class TestPattonTimmermannMRTest:
                 panel,
                 overlap_periods=1,
                 n_groups=n_groups,
-                n_bootstrap=99,
+                n_bootstrap=200,
                 seed=rep,
             )["factor"]
             rejections += result.p_value < 0.05
@@ -338,7 +338,7 @@ class TestPattonTimmermannMRTest:
 
         panel = self._null_panel(n_dates=60, n_assets=20, seed=3)
         result = monotonicity(
-            panel, overlap_periods=1, n_groups=4, n_bootstrap=100, seed=2
+            panel, overlap_periods=1, n_groups=4, n_bootstrap=200, seed=2
         )["factor"]
         diffs = np.asarray(result.metadata["mr_adjacent_diffs"])
         assert len(diffs) == 3  # n_groups - 1 adjacent steps
@@ -347,7 +347,7 @@ class TestPattonTimmermannMRTest:
 
     def test_bootstrap_is_reproducible_and_reports_its_seed(self):
         panel = self._null_panel(n_dates=60, n_assets=20, seed=4)
-        kwargs = {"overlap_periods": 1, "n_groups": 4, "n_bootstrap": 100}
+        kwargs = {"overlap_periods": 1, "n_groups": 4, "n_bootstrap": 200}
         a = monotonicity(panel, seed=7, **kwargs)["factor"]
         b = monotonicity(panel, seed=7, **kwargs)["factor"]
         assert a.p_value == b.p_value
@@ -408,7 +408,7 @@ class TestTieRatioCountsFiniteValuesOnly:
                 )
         panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = monotonicity(
-            panel, overlap_periods=1, n_groups=3, n_bootstrap=50, seed=0
+            panel, overlap_periods=1, n_groups=3, n_bootstrap=200, seed=0
         )["factor"]
         assert result.metadata["tie_ratio"] == pytest.approx(0.0)
 
@@ -432,7 +432,7 @@ class TestTieRatioCountsFiniteValuesOnly:
                 )
         panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = monotonicity(
-            panel, overlap_periods=1, n_groups=3, n_bootstrap=50, seed=0
+            panel, overlap_periods=1, n_groups=3, n_bootstrap=200, seed=0
         )["factor"]
         assert result.metadata["tie_ratio"] == pytest.approx(0.0)
 
@@ -457,7 +457,7 @@ class TestTieRatioCountsFiniteValuesOnly:
         panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         with pytest.warns(UserWarning, match="tie_ratio"):
             result = monotonicity(
-                panel, overlap_periods=1, n_groups=3, n_bootstrap=50, seed=0
+                panel, overlap_periods=1, n_groups=3, n_bootstrap=200, seed=0
             )["factor"]
         assert result.metadata["tie_ratio"] == pytest.approx(0.8)
 
@@ -475,11 +475,46 @@ class TestMRArgumentValidation:
         from factrix.metrics.monotonicity import monotonicity
 
         with pytest.raises(UserInputError, match="direction"):
-            monotonicity(self._panel(), n_bootstrap=50, seed=0, direction="decrease")
+            monotonicity(self._panel(), n_bootstrap=200, seed=0, direction="decrease")
 
-    def test_non_positive_n_bootstrap_is_rejected(self):
+    def test_n_bootstrap_below_the_shared_inference_floor_is_rejected(self):
+        """The MR empirical p shares ``bootstrap_mean_ci``'s refusal floor.
+
+        Both report an inference drawn from the resamples, so both refuse a
+        resample count at which the reported number is resampling noise.
+        ``stationary_bootstrap_resamples`` is deliberately *not* gated — it
+        returns draws and claims no inference on them.
+        """
         from factrix._errors import UserInputError
+        from factrix._stats.bootstrap import BOOTSTRAP_RESAMPLES_FLOOR
         from factrix.metrics.monotonicity import monotonicity
 
-        with pytest.raises(UserInputError, match="n_bootstrap"):
-            monotonicity(self._panel(), n_bootstrap=0, seed=0)
+        for bad in (0, 1, BOOTSTRAP_RESAMPLES_FLOOR - 1):
+            with pytest.raises(UserInputError, match="at least 200"):
+                monotonicity(self._panel(), n_bootstrap=bad, seed=0)
+
+    def test_p_value_mc_se_is_reported_and_shrinks_with_resamples(self):
+        """The reported p carries its own Monte-Carlo SE.
+
+        ``sqrt(p(1-p)/B)`` says how far the p would move on a re-run with a
+        different seed — the quantity a reader needs near a threshold. It is
+        a property of the draw, not of the data, so it shrinks only in ``B``.
+        """
+        from factrix._stats.bootstrap import bootstrap_p_mc_se
+        from factrix.metrics.monotonicity import monotonicity
+
+        # Hardcoded so a wrong-but-self-consistent formula (say /(B+1)) fails
+        # here rather than being re-derived from the value under test. This is
+        # the ~0.7pp the monotonicity docstring quotes.
+        assert bootstrap_p_mc_se(0.05, 1000) == pytest.approx(0.006892, abs=1e-6)
+        assert bootstrap_p_mc_se(0.5, 400) == pytest.approx(0.025, abs=1e-9)
+
+        panel = self._panel()
+        small = monotonicity(panel, n_bootstrap=200, seed=0)["factor"]
+        large = monotonicity(panel, n_bootstrap=2000, seed=0)["factor"]
+
+        for res, b in ((small, 200), (large, 2000)):
+            assert res.metadata["p_value_mc_se"] == pytest.approx(
+                bootstrap_p_mc_se(res.p_value, b)
+            )
+        assert large.metadata["p_value_mc_se"] < small.metadata["p_value_mc_se"]

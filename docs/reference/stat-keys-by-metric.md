@@ -438,7 +438,10 @@ frequency on the same panels is 5.0% / 5.0% / 4.0% at a nominal 5%.
 - *MR detail*: `mr_min_diff`, `mr_adjacent_diffs` (every `Δ̄_i`, so the
   binding step is visible), `mr_direction`, `n_bootstrap`,
   `bootstrap_seed` (resolved and reported when not supplied, so an
-  unseeded run is still reproducible after the fact).
+  unseeded run is still reproducible after the fact), `p_value_mc_se`
+  (Monte-Carlo SE of the empirical p, `sqrt(p(1-p)/n_bootstrap)` — how far
+  the p would move on a re-run with a different seed, ~0.7pp at the default
+  `n_bootstrap=1000` and p near 0.05; `n_bootstrap` is floored at 200).
 - *descriptive Spearman shape*: `mean_abs_spearman` (magnitude, ≥ 0),
   `mean_signed` (direction consistency), `signed_spearman_t`,
   `signed_spearman_p_value`. A high magnitude with a near-zero signed mean

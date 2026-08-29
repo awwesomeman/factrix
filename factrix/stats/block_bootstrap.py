@@ -17,6 +17,8 @@ from __future__ import annotations
 
 from typing import Literal
 
+from factrix._stats.bootstrap import BOOTSTRAP_RESAMPLES_FLOOR
+
 
 class BlockBootstrap:
     """Block-bootstrap empirical p-value Estimator for paired-diff slice tests.
@@ -79,8 +81,13 @@ class BlockBootstrap:
             raise ValueError(
                 f"block_length must be 'auto' or int >= 1; got {block_length!r}."
             )
-        if n_resamples < 1:
-            raise ValueError(f"n_resamples must be >= 1; got {n_resamples!r}.")
+        if n_resamples < BOOTSTRAP_RESAMPLES_FLOOR:
+            raise ValueError(
+                f"n_resamples must be >= {BOOTSTRAP_RESAMPLES_FLOOR}; got "
+                f"{n_resamples!r}. Below that the Davison-Hinkley empirical p "
+                f"this estimator reports is dominated by resampling noise — the "
+                f"same floor bootstrap_mean_ci and monotonicity enforce."
+            )
         if scheme not in ("fixed", "stationary"):
             raise ValueError(f"scheme must be 'fixed' or 'stationary'; got {scheme!r}.")
         self.block_length = block_length

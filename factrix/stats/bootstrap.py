@@ -35,6 +35,8 @@ from typing import Literal, NamedTuple
 
 import numpy as np
 
+from factrix._stats.bootstrap import BOOTSTRAP_RESAMPLES_FLOOR
+
 
 def _resolve_auto_block_length(values: np.ndarray) -> float:
     """Politis-White (2004) block length, shared with ``BlockBootstrap``.
@@ -178,15 +180,6 @@ class BootstrapCI(NamedTuple):
     estimate: float
 
 
-#: Below this many resamples a bootstrap quantile is dominated by resampling
-#: noise: at B=200 the 2.5% tail is the 5th order statistic. Politis-White
-#: (2004) recommend >= 999 for two-sided 5% work; this is the refusal floor,
-#: not the recommendation. Deliberately not named ``MIN_*``: that prefix is
-#: reserved (FX003) for sample-size floors on a data axis, and a resample
-#: count is an algorithm knob, not an axis.
-_BOOTSTRAP_RESAMPLES_FLOOR: int = 200
-
-
 def bootstrap_mean_ci(
     values: np.ndarray,
     *,
@@ -240,7 +233,7 @@ def bootstrap_mean_ci(
         values: 1-D array of the original series, at least 2 finite
             observations.
         n_bootstrap: Resample count. Must be at least
-            200 resamples; below that the interval
+            ``BOOTSTRAP_RESAMPLES_FLOOR`` (200); below that the interval
             endpoints are resampling noise. At ``B=1`` the old
             implementation returned a zero-width interval that did not
             even contain its own point estimate.
@@ -319,13 +312,13 @@ def bootstrap_mean_ci(
             expected="at least 2 observations to resample",
             docs_path="api/stats#factrix.stats.bootstrap_mean_ci",
         )
-    if n_bootstrap < _BOOTSTRAP_RESAMPLES_FLOOR:
+    if n_bootstrap < BOOTSTRAP_RESAMPLES_FLOOR:
         raise UserInputError(
             func_name="bootstrap_mean_ci",
             field="n_bootstrap",
             value=n_bootstrap,
             expected=(
-                f"at least {_BOOTSTRAP_RESAMPLES_FLOOR} resamples — below that "
+                f"at least {BOOTSTRAP_RESAMPLES_FLOOR} resamples — below that "
                 f"the interval endpoints are resampling noise"
             ),
             docs_path="api/stats#factrix.stats.bootstrap_mean_ci",

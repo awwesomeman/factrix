@@ -44,6 +44,48 @@ from factrix._types import EPSILON
 
 Scheme = Literal["fixed", "stationary"]
 
+#: Below this many resamples a bootstrap quantile or empirical p is dominated
+#: by resampling noise: at B=200 the 2.5% tail is the 5th order statistic.
+#: Politis-White (2004) recommend >= 999 for two-sided 5% work; this is the
+#: refusal floor shared by every entry point that exposes a user-settable
+#: resample count *and* reports an inference drawn from it: ``bootstrap_mean_ci``,
+#: ``monotonicity``'s MR test, and ``BlockBootstrap``. Not the recommendation.
+#: Two neighbours are deliberately outside it: ``stationary_bootstrap_resamples``
+#: and ``_block_bootstrap_diff_p`` return draws / a raw p to internal callers
+#: without owning a user-facing knob, and the slice paths fix their own count at
+#: 999, already above the floor.
+#: The 200 is argued above from the quantile side (interval endpoints). On the
+#: empirical-p side it is looser than it looks: at ``p = 0.05`` the Monte-Carlo
+#: SE is ``sqrt(.05*.95/200)`` = 1.5pp, so a p printed as 0.05 carries a ~95%
+#: resampling range of roughly [0.02, 0.08] and straddles the conventional
+#: threshold in both directions. The floor refuses the indefensible, it does not
+#: certify 200; ``bootstrap_p_mc_se`` is reported so the cost is visible, and
+#: Politis-White's >= 999 remains the recommendation for two-sided 5% work.
+#: Deliberately not named ``MIN_*``: that prefix is reserved (FX003) for
+#: sample-size floors on a data axis, and a resample count is an algorithm
+#: knob, not an axis.
+BOOTSTRAP_RESAMPLES_FLOOR: int = 200
+
+
+def bootstrap_p_mc_se(p_value: float, n_bootstrap: int) -> float:
+    """Monte-Carlo standard error of a bootstrap empirical p-value.
+
+    ``sqrt(p * (1 - p) / B)`` — the binomial SE of the resampling draw
+    itself, *not* a statistical SE of the estimate. It says how much the
+    reported p would move on a re-run with a different seed, which is the
+    quantity a reader needs when a p sits near a decision threshold: at
+    ``B = 1000`` and ``p = 0.05`` it is ~0.7pp, so 0.043 and 0.058 are one
+    draw apart. Shrinks as ``1 / sqrt(B)``; raise ``n_bootstrap`` to shrink
+    it, since no amount of data does.
+
+    Callers are the gated inference entry points, so ``n_bootstrap`` is always
+    at or above ``BOOTSTRAP_RESAMPLES_FLOOR`` and ``p_value`` is a
+    Davison-Hinkley smoothed p confined to ``[1/(B+1), 1]``. No clamping or
+    zero-guard is needed at that contract, and none is done.
+    """
+    p = float(p_value)
+    return float(np.sqrt(p * (1.0 - p) / n_bootstrap))
+
 
 def _flat_top_kernel(t: float) -> float:
     """Politis-Romano trapezoidal flat-top kernel.
