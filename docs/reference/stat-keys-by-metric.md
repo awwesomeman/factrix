@@ -42,7 +42,7 @@ contrasts, not a sidecar to a primary value.
 |---|---|---|---|
 | [`directional_pair_accuracy`][factrix.metrics.directional_pair_accuracy.directional_pair_accuracy] | none; descriptive | n/a | pooled pairwise ordering accuracy |
 | [`common_beta_profile`][factrix.metrics.common_beta.common_beta_profile] | none; descriptive | n/a | positive-minus-negative beta mean spread |
-| [`ic`][factrix.metrics.ic.ic] | `t` on per-period information coefficient (IC) series (non-overlapping default, Newey-West HAC if configured) | `p_value` | mean(IC) |
+| [`ic`][factrix.metrics.ic.ic] | test on per-period information coefficient (IC) series (non-overlapping `t` default; Newey-West HAC `t` or stationary-bootstrap empirical `p` if configured) | `p_value` | mean(IC) |
 | [`ic_ir`][factrix.metrics.ic.ic_ir] | none — descriptive | — | mean(IC) / std(IC) |
 | [`fm_beta`][factrix.metrics.fm_beta.fm_beta] | NW HAC `t` on per-period λ | `p_value` | mean(β) |
 | [`pooled_beta`][factrix.metrics.fm_beta.pooled_beta] | clustered ordinary least squares (OLS) `t` (or `None` if G < 3) | `p_value` | pooled β |
@@ -86,8 +86,8 @@ contrasts, not a sidecar to a primary value.
 
 #### `ic`
 
-- *primary*: `p_value` — `t`-test on the per-period IC series (non-overlapping stride with stride `overlap_periods` by default, or Newey-West HAC if configured).
-- *descriptive*: `n_periods` (the sample the `value` / `stat` / `p_value` describe — the strided subsample under `NonOverlapping`, the full series under `NeweyWest` / `StationaryBootstrap`; equals `n_obs`), `n_periods_full` and `mean_ic_full` (the full per-period series, for reference), `overlap_periods`, `tie_ratio` (median across periods), `min_assets_per_period` / `warn_assets_per_period` when the upstream IC series carries per-period asset counts, `stat_type` (`"t"`), `h0` (`"mu=0"`), `method`.
+- *primary*: `p_value` — test on the per-period IC series, from the configured `inference`: a `t`-test on a non-overlapping stride of `overlap_periods` (default), a Newey-West HAC `t`-test, or a stationary-bootstrap empirical `p`.
+- *descriptive*: `n_periods` (the sample the `value` / `stat` / `p_value` describe — the strided subsample under `NonOverlapping`, the full series under `NeweyWest` / `StationaryBootstrap`; equals `n_obs`), `n_periods_full` and `mean_ic_full` (the full per-period series, for reference), `overlap_periods`, `tie_ratio` (median across periods), `min_assets_per_period` / `warn_assets_per_period` when the upstream IC series carries per-period asset counts, `stat_type` (the test actually run: `"t"` under `NonOverlapping` / `NeweyWest`, `"bootstrap-mean"` under `StationaryBootstrap`), `h0` (`"mu=0"`), `method`.
 - *descriptive* (conditional, `NeweyWest`): `nw_lags` (resolved Bartlett bandwidth) and `hac_dof` (the effective degrees of freedom the `t` is read against; `None` when the sample is too short to run the kernel).
 - *warning*: `WarningCode.FEW_ASSETS` when retained per-period IC cross-sections are below `MIN_IC_ASSETS_WARN`; `WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED` under `NeweyWest` when the resolved bandwidth exceeds `n_periods / 5`.
 - *short-circuit*: `reason` `insufficient_ic_periods` (too few periods) carries `min_required`; `insufficient_ic_assets` (every cross-section below `MIN_IC_ASSETS_HARD`, so no per-period IC survived — common on one-valid-pair panels) carries `min_assets_required`.
