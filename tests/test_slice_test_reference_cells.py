@@ -41,7 +41,9 @@ def test_pairwise_universe_cross_sectional() -> None:
                 )
     panel = pl.DataFrame(rows)
 
-    out = slice_pairwise_test(panel, ic(), by="universe", factor_col="factor")
+    out = slice_pairwise_test(
+        panel, ic(), by="universe", factor_col="factor", overlap_periods=1
+    )
     assert out.height == 1
     assert out["p_adj"][0] < 0.05
 
@@ -73,7 +75,9 @@ def test_joint_sector_wald_nw_cluster() -> None:
                 )
     panel = pl.DataFrame(rows)
 
-    out = slice_joint_test(panel, ic(), by="sector", factor_col="factor")
+    out = slice_joint_test(
+        panel, ic(), by="sector", factor_col="factor", overlap_periods=1
+    )
     assert out.height == 1
     assert out["df_num"][0] == 2
     assert out["p_value"][0] < 0.05

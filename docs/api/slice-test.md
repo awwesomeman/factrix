@@ -37,6 +37,18 @@ result. They do **not** participate in Benjamini-Hochberg-Yekutieli (BHY) family
 p is a within-slice-family closure, not a cell-level discovery
 commitment.
 
+## Evaluation-grid overlap (`overlap_periods`)
+
+The joint NW HAC bandwidth is floored at the evaluation-grid overlap —
+overlapping forward returns make each per-date series autocorrelated, and a
+kernel that does not cover the overlap under-estimates the variance. There
+is no sample floor to gate here, so the overlap drives the bandwidth alone.
+Resolution follows `evaluate`'s contract, the same one the `slice_period_*`
+pair applies: the stamp left by `compute_forward_return` is the truth, a
+declared `overlap_periods=` disagreeing with it is rejected, and an
+unstamped (self-attached `forward_return`) panel must declare it rather than
+fall back to a silent default.
+
 ## Metric capability requirement
 
 The metric callable's module must declare `per_date_series` (a
