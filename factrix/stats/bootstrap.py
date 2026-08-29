@@ -100,6 +100,30 @@ def stationary_bootstrap_resamples(
         ``(n_bootstrap, T)`` array for vector input or
         ``(n_bootstrap, T, m)`` for matrix input.
 
+    Notes:
+        **This function returns resamples, not inference.** Forming a
+        percentile interval or an empirical p directly from the returned
+        array gives a *first-order accurate* interval
+        ([DiCiccio-Efron (1996)][diciccio-efron-1996]) — it forgoes the
+        studentization :func:`bootstrap_mean_ci` applies by default, and
+        under dependence it compounds the block bootstrap's finite-sample
+        long-run-variance shortfall. The measured cost is the
+        ``percentile`` column of the AR(1) coverage table in
+        :func:`bootstrap_mean_ci`: at ``phi=0.8, T=100`` percentile covers
+        0.792 against studentized 0.890 (nominal 0.95).
+
+        This is the *default* path for a paired custom statistic, not an
+        edge case. Joint resampling of aligned columns is only available
+        here (2-D input), and :func:`bootstrap_mean_ci` takes 1-D input
+        and requires ``method="percentile"`` for any custom
+        ``statistic`` — the studentized root needs a block SE of the
+        statistic on every resample, which this module has only for the
+        mean. So a paired, non-mean statistic reaches percentile accuracy
+        from either entry point. Prefer :func:`bootstrap_mean_ci` whenever
+        the statistic is a mean of a 1-D series; when it is not, read the
+        resulting interval as first-order accurate and size the sample
+        accordingly.
+
     References:
         - [Politis & Romano (1994)][politis-romano-1994]. "The Stationary
           Bootstrap." Journal of the American Statistical Association,
