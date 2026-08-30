@@ -650,6 +650,9 @@ hypothesis test.
   not what the `t` is read against.
 - Sample size: `MetricResult.n_obs` (length of the aligned
   candidate-series).
+- *warning codes* (conditional): `serial_correlation_detected` (candidate
+  spread persistent once strided at `overlap_periods`),
+  `unreliable_se_short_periods` (fewer than 10 periods after that stride).
 - *descriptive*: `n_base_factors`, `base_factors` (list of base-factor
   names), `betas` (per-base OLS slope dict), `r_squared`.
 - *descriptive* (conditional, short-circuit): `reason`.

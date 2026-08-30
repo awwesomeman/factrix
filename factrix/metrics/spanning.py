@@ -37,11 +37,14 @@ from factrix._axis import (
     FactorScope,
     InputShape,
 )
+from factrix._codes import WarningCode
 from factrix._errors import UserInputError
 from factrix._metric_index import SampleThreshold, cell
 from factrix._ols import ols_alpha as _ols_alpha
 from factrix._results import MetricResult
 from factrix._stats import _p_value_from_t
+from factrix._types import MIN_SERIES_PERIODS_HARD
+from factrix.inference.series_mean import _persistent_array_beyond_horizon
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _degenerate_test_fields,
@@ -251,6 +254,15 @@ def spanning_alpha(
         :attr:`~factrix.WarningCode.METRIC_UNAVAILABLE` rather than silently
         returning the raw spread mean.
 
+        Two regimes the HAC reference does not fix are flagged on the
+        **candidate** spread — the regressand, whose long-run variance the
+        alpha standard error estimates:
+        :attr:`~factrix.WarningCode.SERIAL_CORRELATION_DETECTED` when it stays
+        autocorrelated after the ``overlap_periods`` stride, and
+        :attr:`~factrix.WarningCode.UNRELIABLE_SE_SHORT_PERIODS` when that
+        strided sample falls below ten periods. See ``statistical-methods``
+        section 6 for the measured size and firing rates.
+
     Notes:
         The [Huberman-Kandel (1987)][huberman-kandel-1987] mean-variance
         spanning test in its single-candidate form — the single-asset case of
@@ -393,6 +405,19 @@ def spanning_alpha(
     # ``alpha`` and its t are NaN: withhold the test rather than report the
     # zeros that would read as "adds exactly nothing".
     warning_codes: list[str] = []
+    # The scalar HAR recipe absorbs the MA(h-1) overlap of the regressand, but
+    # not persistence that survives the stride: on a candidate spread built
+    # from an AR(0.9) process the alpha t rejects 12.7-30.3% of true nulls at
+    # a nominal 5%. Screened on the regressand -- the series whose long-run
+    # variance the standard error is estimating -- and flagged, not tuned.
+    if _persistent_array_beyond_horizon(candidate_arr, overlap_periods):
+        warning_codes.append(WarningCode.SERIAL_CORRELATION_DETECTED.value)
+    # Effective sample, not raw periods: h-period overlapping spreads leave
+    # about T/h independent observations while the bandwidth grows with h. It
+    # is also where the persistence screen withholds itself, so the two codes
+    # partition the regime rather than overlap.
+    if n_obs // max(overlap_periods or 1, 1) < MIN_SERIES_PERIODS_HARD:
+        warning_codes.append(WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value)
     stat, p_out, alternative = _degenerate_test_fields(
         ols.alpha_t, p, "two-sided", metadata, warning_codes
     )

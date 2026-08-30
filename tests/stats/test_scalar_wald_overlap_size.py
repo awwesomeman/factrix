@@ -31,6 +31,7 @@ import polars as pl
 from factrix._stats import _ols_nw_multivariate, _resolve_nw_lags, _wald_p_linear
 from factrix.metrics.common_asymmetry import common_asymmetry
 from factrix.metrics.common_quantile import common_quantile_spread
+from factrix.metrics.spanning import spanning_alpha
 
 T = 120
 H = 5
@@ -156,3 +157,52 @@ class TestShortEffectiveSampleIsFlagged:
             common_asymmetry(frame, overlap_periods=H),
         ):
             assert "serial_correlation_detected" in out.warning_codes
+
+
+def _ar1(n: int, phi: float, rng: np.random.Generator) -> np.ndarray:
+    noise = rng.standard_normal(n)
+    out = np.empty(n)
+    out[0] = noise[0]
+    for i in range(1, n):
+        out[i] = phi * out[i - 1] + np.sqrt(1 - phi**2) * noise[i]
+    return out
+
+
+def _spread_pair(n: int, h: int, phi: float) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """Independent candidate / base spreads: AR(phi) innovations summed over h."""
+    candidate = np.convolve(
+        _ar1(n + h, phi, np.random.default_rng(SEED)), np.ones(h), mode="valid"
+    )[:n]
+    base = np.convolve(
+        _ar1(n + h, phi, np.random.default_rng(SEED + 1)), np.ones(h), mode="valid"
+    )[:n]
+    dates = [date(2020, 1, 1) + timedelta(days=i) for i in range(n)]
+    return (
+        pl.DataFrame({"date": dates, "spread": candidate}),
+        pl.DataFrame({"date": dates, "spread": base}),
+    )
+
+
+class TestSpanningRegressandIsScreened:
+    """``spanning_alpha`` runs the same two screens on the series it regresses.
+
+    The candidate spread is the regressand, so its long-run variance is what
+    the alpha standard error estimates; the metric measures 12.7-30.3% on a
+    persistent one and 9.7-11.7% at ``h = 21``, and both regimes carry a code.
+    """
+
+    def test_persistent_candidate_spread_is_flagged(self):
+        candidate, base = _spread_pair(240, 1, 0.95)
+        out = spanning_alpha(candidate, base_spreads={"base": base})
+        assert "serial_correlation_detected" in out.warning_codes
+
+    def test_non_persistent_candidate_spread_is_clean(self):
+        candidate, base = _spread_pair(240, 1, 0.0)
+        out = spanning_alpha(candidate, base_spreads={"base": base})
+        assert out.warning_codes == ()
+
+    def test_long_horizon_flags_the_effective_period_shortage(self):
+        # 120 periods at h = 21 leave 5 independent observations.
+        candidate, base = _spread_pair(T, 21, 0.0)
+        out = spanning_alpha(candidate, base_spreads={"base": base}, overlap_periods=21)
+        assert "unreliable_se_short_periods" in out.warning_codes

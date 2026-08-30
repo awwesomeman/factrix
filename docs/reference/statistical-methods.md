@@ -760,7 +760,26 @@ for $\phi = 0$, and 50.0 → 29.3, 50.3 → 30.3, 60.0 → 21.7% at $\phi = 0.9$
 That null is deliberately harsh — a spread series that *is* an overlapping
 sum of a near-unit-root process — and the $\phi = 0.9$ column is the
 persistent regime no path here is calibrated for, not a claim about the
-metric on ordinary input.
+metric on ordinary input. `spanning_alpha` runs the same two screens as the
+two `common_*` metrics, on the **regressand**: the candidate spread is the
+series whose long-run variance the alpha standard error estimates. Post-fix
+size and the share of draws carrying a code, on the same null and grid:
+
+| $\phi$ | | $T=60$, $h=1$ | $h=5$ | $h=21$ | $T=120$, $h=1$ | $h=5$ | $h=21$ | $T=240$, $h=1$ | $h=5$ | $h=21$ |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0.0 | size | 6.0 | 9.3 | 11.7 | 5.7 | 7.7 | 11.7 | 5.7 | 8.0 | 9.7 |
+| 0.0 | flagged | 1.3 | 8.3 | 100 | 0.0 | 4.0 | 100 | 0.0 | 0.7 | 6.0 |
+| 0.9 | size | 29.3 | 30.3 | 21.7 | 19.0 | 21.3 | 15.3 | 18.0 | 17.0 | 12.7 |
+| 0.9 | flagged | 100 | 77.7 | 100 | 100 | 92.0 | 100 | 100 | 100 | 27.3 |
+
+Every $\phi = 0.9$ cell is flagged on at least 27% of draws and most on
+100%, against 0–8.3% of the calibrated $\phi = 0$ cells at $h \le 5$. One
+cell is genuinely uncovered and disclosed rather than gated: $\phi = 0$,
+$T = 240$, $h = 21$ measures 9.7% with 11 independent observations — above
+the shortage floor, and with no persistence left after the stride. That is
+the residual overlapping-regression HAC excess `predictive_beta` carries at
+$h > 1$ for the same reason, and it fires no code of its own on either
+path.
 
 **What moving only the overlap floor would have done.** The narrow rule's
 $h - 1$ floor is the [Hansen-Hodrick (1980)][hansen-hodrick-1980]
@@ -791,9 +810,12 @@ library.
   $h = 5$ draws, against 0–8% of the $\phi = 0$ draws.
 - *Too few independent periods.* At $h = 21$ the strided sample falls below
   `MIN_SERIES_PERIODS_HARD` (10) for $T \le 240$, so the persistence screen
-  withholds itself; both metrics emit `unreliable_se_short_periods` on the
+  withholds itself; the metrics emit `unreliable_se_short_periods` on the
   effective count $T / h$ instead, exactly as `predictive_beta` does. The
   two codes partition the regime rather than overlap.
+
+All three metrics run both screens — the two `common_*` on the per-period
+factor, `spanning_alpha` on the candidate spread it regresses.
 
 Neither number was tuned to reach a target. `tests/stats/test_scalar_wald_overlap_size.py`
 re-runs the contrast on a cheaper null at a cut replication count.
