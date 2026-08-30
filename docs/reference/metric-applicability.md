@@ -79,7 +79,7 @@ Min sample*. `MIN_*` constants resolve to values in the
 | [`k_spread`][factrix.metrics.k_spread.k_spread] | `T/h` | `T/h >= MIN_PORTFOLIO_PERIODS_HARD`; per-period `n_assets >= 2 * k` |
 | [`directional_pair_accuracy`][factrix.metrics.directional_pair_accuracy.directional_pair_accuracy] | comparable within-period asset pairs | non-overlapping pairs `>= MIN_PAIR_ACCURACY_PAIRS_HARD`; warn if below `MIN_PAIR_ACCURACY_PAIRS_WARN` |
 | [`monotonicity`][factrix.metrics.monotonicity.monotonicity] | `T/h` | per-period `n_assets >= n_groups`; series `>= MIN_MONOTONICITY_PERIODS_HARD` |
-| [`top_concentration`][factrix.metrics.concentration.top_concentration] | `T/h` | `T/h ≥ MIN_PORTFOLIO_PERIODS_HARD`; warn if `T/h < MIN_PORTFOLIO_PERIODS_WARN` |
+| [`top_concentration`][factrix.metrics.concentration.top_concentration] | `T/h` | `T/h ≥ MIN_PORTFOLIO_PERIODS_HARD`; warn if `T/h < MIN_PORTFOLIO_PERIODS_WARN` (descriptive — no `p_value`) |
 
 ### Tradability — Cell: Individual × Continuous
 
@@ -248,13 +248,16 @@ A few specific caveats worth flagging:
 - **`MIN_PORTFOLIO_PERIODS_HARD = 3` / `MIN_PORTFOLIO_PERIODS_WARN = 20`**
   in `top_concentration` (the WARN tier is `top_concentration`-only;
   `common_quantile_spread` gates on HARD alone). Below 3 there is
-  no spread / concentration t to compute; in `[3, 20)` the metric
-  returns the stat with `WarningCode.BORDERLINE_PORTFOLIO_PERIODS`. At
-  the bottom of that range the `top_concentration` test is extremely
-  conservative — at exactly 3 periods it rejected 0 of 250 null draws at
-  a nominal 5% — so read `value` descriptively there; the other floors
-  measure 3–9% at their HARD floor on a null, consistent with their WARN
-  disclosures.
+  no spread / concentration mean to compute; in `[3, 20)` the metric
+  returns the value with `WarningCode.BORDERLINE_PORTFOLIO_PERIODS`.
+  `top_concentration` is descriptive at *every* sample size — it
+  publishes no `p_value` — so that code flags the precision of the mean
+  over few periods, not a conservative test. The withdrawn one-sided `t`
+  against `ratio ≥ 0.5` never rejected at any `n`: the null
+  diversification ratio is ~0.91 on a Gaussian factor with `abs_factor`
+  weights, measured 0 of 300 draws at a nominal 5% at both 10 and 48
+  tested periods. The other floors measure 3–9% at their HARD floor on a
+  null, consistent with their WARN disclosures.
   **`MIN_OOS_PERIODS_HARD = 5`** in `oos_decay` remains
   single-tier — the metric is now descriptive-only (no `p_value` in
   metadata), so a literature power floor is moot. Treat its output as

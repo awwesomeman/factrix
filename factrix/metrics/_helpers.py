@@ -566,6 +566,7 @@ def _enforce_scaled_floor(
     warning_codes: tuple[str, ...] = (),
     *,
     axis: SampleAxis = "periods",
+    descriptive: bool = False,
     **extra: object,
 ) -> MetricResult | None:
     """Short-circuit when the *raw* (pre-sampling) date count is below the
@@ -593,7 +594,11 @@ def _enforce_scaled_floor(
             n_obs=n_raw,
             n_obs_axis=axis,
             min_required=floor,
-            descriptive=False,  # every stride-sampling metric runs a hypothesis test
+            # Stride-sampling metrics run a hypothesis test unless they are
+            # descriptive by contract (``top_concentration``), which pass
+            # ``descriptive=True`` so callers cannot mis-route the placeholder
+            # p into BHY or gate logic.
+            descriptive=descriptive,
             alternative=alternative,
             warning_codes=warning_codes,
             overlap_periods=overlap_periods,

@@ -73,7 +73,7 @@ contrasts, not a sidecar to a primary value.
 | [`quantile_spread`][factrix.metrics.quantile.quantile_spread] | non-overlapping `t` on top-bottom spread (NW HAC under `NEWEY_WEST`, empirical p under `STATIONARY_BOOTSTRAP`) | `p_value` | mean(spread) |
 | [`k_spread`][factrix.metrics.k_spread.k_spread] | non-overlapping `t` on top-K−bottom-K spread (NW HAC under `NEWEY_WEST`, empirical p under `STATIONARY_BOOTSTRAP`) | `p_value` | mean(spread) |
 | [`quantile_spread_vw`][factrix.metrics.quantile.quantile_spread_vw] | non-overlap `t` (default), NW HAC `t`, or bootstrap empirical p on vw spread | `p_value` | mean(vw spread) |
-| [`top_concentration`][factrix.metrics.concentration.top_concentration] | one-sided `t` on diversity ratio | `p_value` | mean(eff_n) = mean(1/HHI) |
+| [`top_concentration`][factrix.metrics.concentration.top_concentration] | descriptive — no test | — | mean(eff_n) = mean(1/HHI) |
 | [`clustering_hhi`][factrix.metrics.clustering_hhi.clustering_hhi] | none — descriptive | — | event-period Herfindahl-Hirschman index (HHI) |
 | [`mfe_mae`][factrix.metrics.mfe_mae.mfe_mae] | none — descriptive | — | MFE_p50 / \|MAE_p75\| |
 | [`oos_decay`][factrix.metrics.oos_decay.oos_decay] | none — descriptive | — | survival = \|mean_oos\| / \|mean_is\| |
@@ -581,12 +581,16 @@ size-robust to heavy tails; the small-`n` bootstrap is not).
 
 #### `top_concentration`
 
-`H₀: ratio ≥ 0.5` (one-sided). Tests whether the top-bucket
-diversity ratio (effective-n / n_top, derived from HHI) falls
-*below* the 0.5 threshold — i.e. concentration risk.
+**Descriptive; no hypothesis test.** `p_value`, `stat` and
+`alternative` are `None`. The earlier one-sided `t` against
+`H₀: ratio ≥ 0.5` is withdrawn: 0.5 sits far inside the null rather than
+near it — the null diversification ratio is ~0.91 on a Gaussian factor
+with `abs_factor` weights, and the measured rejection rate is 0 of 300
+draws at a nominal 5% at both 10 and 48 tested periods, so the p could
+not reject at any sample size. See
+[§6 of the statistical-methods reference](statistical-methods.md#6-known-simplifications-deliberately-retained).
 
-- *primary*: `p_value` — one-sided `t`.
-- *descriptive*: `mean_n_top`, `ratio_eff_to_total`, `tie_ratio`,
+- *descriptive*: `method`, `mean_n_top`, `ratio_eff_to_total`, `tie_ratio`,
   `weight_by`, `q_top` (requested top fraction; per period the bucket is
   the `max(1, floor(n · q_top))` highest finite factor values),
   `n_top_members_selected` / `n_top_members_dropped` ((date, asset)

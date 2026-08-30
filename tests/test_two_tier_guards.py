@@ -160,7 +160,10 @@ class TestTopConcentrationTwoTier:
         df = _concentration_panel(n)
         with pytest.warns(UserWarning, match="MIN_PORTFOLIO_PERIODS_WARN"):
             out = top_concentration(df, overlap_periods=1, q_top=0.2)
-        assert out.stat is not None
+        # top_concentration is descriptive at every sample size: the WARN tier
+        # flags the precision of the mean, not a conservative test.
+        assert not math.isnan(out.value)
+        assert out.stat is None and out.p_value is None
         assert WarningCode.BORDERLINE_PORTFOLIO_PERIODS.value in out.warning_codes
 
     def test_at_or_above_warn_is_silent(self) -> None:
@@ -168,7 +171,8 @@ class TestTopConcentrationTwoTier:
         with warnings.catch_warnings():
             warnings.simplefilter("error", UserWarning)
             out = top_concentration(df, overlap_periods=1, q_top=0.2)
-        assert out.stat is not None
+        assert not math.isnan(out.value)
+        assert out.stat is None and out.p_value is None
         assert out.warning_codes == ()
 
 
