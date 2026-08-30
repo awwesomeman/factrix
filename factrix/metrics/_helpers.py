@@ -107,7 +107,7 @@ def _check_applicable_inference(
     listing the allowed methods.
 
     Membership is by **exact type**, not by value: ``StationaryBootstrap``
-    carries resampling knobs (``n_resamples`` / ``seed``), so a configured
+    carries resampling knobs (``n_resamples`` / ``rng``), so a configured
     instance is a different value from the allowlisted default one while
     being the same vetted method. Comparing by value would allowlist the
     method and then reject every configuration of it. Exact type (not

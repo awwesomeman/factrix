@@ -16,7 +16,7 @@ series too short or non-normal for a HAC t-test to be trusted. The
 lag / bandwidth / block length is derived from the compute-time sample,
 so the dataclasses take no *statistical* constructor knobs;
 ``StationaryBootstrap`` carries the two resampling knobs (``n_resamples``
-/ ``seed``) that only the caller can decide.
+/ ``rng``) that only the caller can decide.
 
 Each member also declares, through the ``consumes_full_series``
 ``ClassVar``, whether it needs every period of the series or takes a

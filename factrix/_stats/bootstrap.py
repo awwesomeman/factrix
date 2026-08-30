@@ -86,7 +86,7 @@ def _check_n_resamples(n_resamples: int, *, func_name: str, docs_path: str) -> N
         )
 
 
-#: Type of every ``seed`` knob in factrix. ``int`` reproduces a run exactly;
+#: Type of every ``rng`` knob in factrix. ``int`` reproduces a run exactly;
 #: ``None`` lets the entry point draw one from system entropy and report it
 #: back; a ``numpy.random.Generator`` hands the entry point a stream the
 #: caller owns and advances (the direction numpy, scipy's ``rng=`` and arch
