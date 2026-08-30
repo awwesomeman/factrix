@@ -13,12 +13,11 @@ Matrix-row: by_slice | (*, *, *, *) | dispatcher | none (no cross-slice test) | 
 from __future__ import annotations
 
 import dataclasses
-import warnings
 from typing import TYPE_CHECKING
 
 import polars as pl
 
-from factrix._codes import WarningCode, _validate_expected_warnings_arg
+from factrix._codes import WarningCode, _emit_warning, _validate_expected_warnings_arg
 from factrix._results import Warning
 from factrix.slicing._primitive import _slice_by
 
@@ -236,19 +235,23 @@ def _warn_date_axis_truncation(
         return None  # by is constant within each asset → cross-sectional
     name = spec.name
     message = (
-        f"by_slice: {name!r} depends on intact date ordering, "
+        f"{name!r} depends on intact date ordering, "
         f"but {by!r} is a date-axis partition (its value varies within an "
         f"asset over time). Each slice is evaluated on its own rows only, so "
         f"rolling windows / per-asset time-series regressions / event windows "
         f"see truncated history at slice boundaries — the per-slice value "
-        f"differs from the full-sample value decomposed by period "
-        f"({WarningCode.SLICE_BOUNDARY_TRUNCATION.value}). For a cross-"
+        f"differs from the full-sample value decomposed by period. For a cross-"
         f"sectional partition (constant within an asset, e.g. sector) this "
         f"warning does not apply."
     )
     expected = WarningCode.SLICE_BOUNDARY_TRUNCATION.value in expected_warnings
-    if not expected:
-        warnings.warn(message, UserWarning, stacklevel=3)
+    _emit_warning(
+        WarningCode.SLICE_BOUNDARY_TRUNCATION,
+        message,
+        label="by_slice",
+        expected_warnings=expected_warnings,
+        stacklevel=3,
+    )
     return Warning(
         code=WarningCode.SLICE_BOUNDARY_TRUNCATION,
         source=name,

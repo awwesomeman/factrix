@@ -289,11 +289,12 @@ def common_beta(
     warn_code = _warn_below_floor(
         common_beta,
         n,
-        f"common_beta: n_assets={n} below MIN_ASSETS_WARN={MIN_ASSETS_WARN}; "
+        f"n_assets={n} below MIN_ASSETS_WARN={MIN_ASSETS_WARN}; "
         f"the cross-asset t-test on the mean per-asset beta runs on df={n - 1}, "
         f"so its critical value is well above the asymptotic one. mean(beta) is "
         f"returned but read borderline p-values cautiously.",
         WarningCode.FEW_ASSETS,
+        label="common_beta",
         axis="assets",
         expected_warnings=expected_warnings,
     )

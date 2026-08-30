@@ -13,13 +13,12 @@ This module is independently usable for any analysis that requires
 from __future__ import annotations
 
 import logging
-import warnings
 from dataclasses import dataclass, field
 
 import numpy as np
 import polars as pl
 
-from factrix._codes import WarningCode
+from factrix._codes import WarningCode, _emit_warning
 from factrix._types import EPSILON, MIN_ORTHOGONALIZE_RESIDUAL_ASSETS
 
 logger = logging.getLogger(__name__)
@@ -449,10 +448,8 @@ def orthogonalize_factor(
 
     warning_codes: list[str] = []
     if n_dates_insufficient_df:
-        warning_codes.append(WarningCode.INSUFFICIENT_REGRESSION_DF.value)
-        warnings.warn(
-            f"orthogonalize_factor: "
-            f"{WarningCode.INSUFFICIENT_REGRESSION_DF.value} — "
+        _emit_warning(
+            WarningCode.INSUFFICIENT_REGRESSION_DF,
             f"{n_dates_insufficient_df}/{n_dates} dates left fewer than "
             f"{min_residual_df} residual degrees of freedom for {n_base} base "
             "factors + intercept and were skipped (original values kept). Raw "
@@ -460,20 +457,21 @@ def orthogonalize_factor(
             "reports noise as explanatory power while stripping most of the "
             "factor's variance. Reduce base_cols, or lower min_residual_df if "
             "the thin fit is wanted anyway.",
-            UserWarning,
+            label="orthogonalize_factor",
+            warning_codes=warning_codes,
             stacklevel=2,
         )
     if n_dates_rank_deficient:
-        warning_codes.append(WarningCode.RANK_DEFICIENT_DESIGN.value)
-        warnings.warn(
-            f"orthogonalize_factor: {WarningCode.RANK_DEFICIENT_DESIGN.value} "
-            f"— {n_dates_rank_deficient}/{n_dates} dates had a rank-deficient "
+        _emit_warning(
+            WarningCode.RANK_DEFICIENT_DESIGN,
+            f"{n_dates_rank_deficient}/{n_dates} dates had a rank-deficient "
             "design matrix. The residual is still exact (the projection is "
             "unique) but the betas are not identified there, so those dates "
             "are excluded from mean_betas. The usual cause is a full industry "
             "dummy set alongside the always-prepended intercept — drop one "
             "category as the reference level.",
-            UserWarning,
+            label="orthogonalize_factor",
+            warning_codes=warning_codes,
             stacklevel=2,
         )
 

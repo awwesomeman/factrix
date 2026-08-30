@@ -10,7 +10,6 @@ naive binomial p-value over same-date pairs.
 from __future__ import annotations
 
 import math
-import warnings
 
 import numpy as np
 import polars as pl
@@ -22,7 +21,7 @@ from factrix._axis import (
     FactorScope,
     InputShape,
 )
-from factrix._codes import WarningCode
+from factrix._codes import WarningCode, _emit_warning
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._types import (
@@ -172,18 +171,18 @@ def directional_pair_accuracy(
 
     warning_codes: list[str] = []
     if n_usable_pairs < MIN_PAIR_ACCURACY_PAIRS_WARN:
-        code = WarningCode.FEW_ORDERING_PAIRS.value
-        warning_codes.append(code)
-        if code not in expected_warnings:
-            warnings.warn(
-                f"directional_pair_accuracy: n_pairs={n_usable_pairs} below "
-                f"MIN_PAIR_ACCURACY_PAIRS_WARN={MIN_PAIR_ACCURACY_PAIRS_WARN}; "
-                f"the descriptive ordering accuracy is returned, but the "
-                f"comparable-pair sample is thin. Read it as a fragile "
-                f"small-N diagnostic.",
-                UserWarning,
-                stacklevel=3,
-            )
+        _emit_warning(
+            WarningCode.FEW_ORDERING_PAIRS,
+            f"n_pairs={n_usable_pairs} below "
+            f"MIN_PAIR_ACCURACY_PAIRS_WARN={MIN_PAIR_ACCURACY_PAIRS_WARN}; "
+            f"the descriptive ordering accuracy is returned, but the "
+            f"comparable-pair sample is thin. Read it as a fragile "
+            f"small-N diagnostic.",
+            label="directional_pair_accuracy",
+            expected_warnings=expected_warnings,
+            warning_codes=warning_codes,
+            stacklevel=3,
+        )
     pooled_accuracy = n_correct_pairs / n_usable_pairs
     mean_per_date_accuracy = float(np.mean(per_date_accuracy))
     min_pairs = min(pairs_per_period) if pairs_per_period else 0

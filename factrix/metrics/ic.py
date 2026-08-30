@@ -14,7 +14,6 @@ Notes:
 from __future__ import annotations
 
 import math
-import warnings as _warnings
 from typing import cast
 
 import polars as pl
@@ -26,7 +25,7 @@ from factrix._axis import (
     FactorScope,
     InputShape,
 )
-from factrix._codes import WarningCode
+from factrix._codes import WarningCode, _emit_warning
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats.constants import MIN_PERIODS_HARD, MIN_PERIODS_WARN
@@ -51,6 +50,7 @@ from factrix.metrics._helpers import (
     _DROP_STATS_COL,
     TIE_RATIO_WARN_THRESHOLD,
     _degenerate_test_fields,
+    _emit_inference_warnings,
     _enforce_min_floor,
     _read_drop_stats,
     _short_circuit_output,
@@ -129,21 +129,21 @@ def _warn_if_high_ic_tie_ratio(
     """
     med = _median_tie_ratio(ic_df)
     if not math.isnan(med) and med > TIE_RATIO_WARN_THRESHOLD:
-        code = WarningCode.HIGH_TIE_RATIO.value
-        if code not in expected_warnings:
-            _warnings.warn(
-                f"{metric_name}: median tie_ratio={med:.3f} exceeds "
-                f"{TIE_RATIO_WARN_THRESHOLD:.2f}. The estimator is already the "
-                f"tie-corrected Spearman (Pearson on mid-ranks, identical to "
-                f"scipy.stats.spearmanr), so this is not a bias — but heavy "
-                f"ties shrink the attainable range of rho below ±1, so do not "
-                f"compare this IC magnitude against a factor with a different "
-                f"tie density. A continuous transform of the factor restores "
-                f"the full range.",
-                UserWarning,
-                stacklevel=2,
-            )
-        warning_codes.append(code)
+        _emit_warning(
+            WarningCode.HIGH_TIE_RATIO,
+            f"median tie_ratio={med:.3f} exceeds "
+            f"{TIE_RATIO_WARN_THRESHOLD:.2f}. The estimator is already the "
+            f"tie-corrected Spearman (Pearson on mid-ranks, identical to "
+            f"scipy.stats.spearmanr), so this is not a bias — but heavy "
+            f"ties shrink the attainable range of rho below ±1, so do not "
+            f"compare this IC magnitude against a factor with a different "
+            f"tie density. A continuous transform of the factor restores "
+            f"the full range.",
+            label=metric_name,
+            expected_warnings=expected_warnings,
+            warning_codes=warning_codes,
+            stacklevel=2,
+        )
     return med
 
 
@@ -178,16 +178,16 @@ def _warn_if_few_ic_assets(
     metadata["warn_assets_per_period"] = MIN_IC_ASSETS_WARN
     if min_assets_per_period >= MIN_IC_ASSETS_WARN:
         return
-    code = WarningCode.FEW_ASSETS.value
-    if code not in expected_warnings:
-        _warnings.warn(
-            f"{metric_name}: min_assets_per_period={min_assets_per_period} below "
-            f"MIN_IC_ASSETS_WARN={MIN_IC_ASSETS_WARN}; per-period IC is computable "
-            "but the cross-section is thin. value is returned but read it cautiously.",
-            UserWarning,
-            stacklevel=2,
-        )
-    warning_codes.append(code)
+    _emit_warning(
+        WarningCode.FEW_ASSETS,
+        f"min_assets_per_period={min_assets_per_period} below "
+        f"MIN_IC_ASSETS_WARN={MIN_IC_ASSETS_WARN}; per-period IC is computable "
+        "but the cross-section is thin. value is returned but read it cautiously.",
+        label=metric_name,
+        expected_warnings=expected_warnings,
+        warning_codes=warning_codes,
+        stacklevel=2,
+    )
 
 
 def _ic_sample_threshold(self: MetricBase) -> SampleThreshold:
@@ -400,9 +400,13 @@ def ic(
     # Surface the inference method's own soft-floor signals (e.g. a thin
     # post-stride sample tripping UNRELIABLE_SE_SHORT_PERIODS); de-dup so a
     # code already raised by the drop-stats pass is not repeated.
-    for code in result.warnings:
-        if code.value not in warning_codes:
-            warning_codes.append(code.value)
+    _emit_inference_warnings(
+        result,
+        label="ic",
+        warning_codes=warning_codes,
+        expected_warnings=expected_warnings,
+        stacklevel=2,
+    )
     # The chosen inference could not form a statistic: a strided subsample or
     # full series with no dispersion, or a HAC SE that collapsed to zero.
     # ``mean_ic`` still describes the sample; the test is withheld.
@@ -503,10 +507,12 @@ def ic_ir(
     warn_code = _warn_below_floor(
         ic_ir,
         n,
-        f"ic_ir: n_periods={n} below MIN_PERIODS_WARN={MIN_PERIODS_WARN}; "
+        f"n_periods={n} below MIN_PERIODS_WARN={MIN_PERIODS_WARN}; "
         f"the IC information ratio on a short series is unstable. value is "
         f"returned but read it cautiously.",
         WarningCode.UNRELIABLE_SE_SHORT_PERIODS,
+        label="ic_ir",
+        expected_warnings=expected_warnings,
     )
     if warn_code is not None:
         warning_codes.append(warn_code)

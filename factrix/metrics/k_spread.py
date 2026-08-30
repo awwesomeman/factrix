@@ -456,6 +456,8 @@ def k_spread(
             full_spread=full_series,
             overlap_periods=overlap_periods,
             n_assets=median_xs,
+            metric_name="k_spread",
+            expected_warnings=expected_warnings,
         )
     )
     # Sample the headline stat/p actually ran on: full overlapping series under

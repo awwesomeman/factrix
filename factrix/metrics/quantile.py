@@ -436,6 +436,8 @@ def _quantile_spread_from_series(
             full_spread=clean_full_series,
             overlap_periods=overlap_periods,
             n_assets=n_assets,
+            metric_name="quantile_spread",
+            expected_warnings=expected_warnings,
         )
     )
     # Sample the headline stat/p actually ran on: the full overlapping series on
@@ -748,7 +750,12 @@ def quantile_spread_vw(
     # off the same threshold: this metric exists as a capacity / robustness
     # cross-check, so it must not be the one that reports clean on a panel
     # whose legs hold a single name each.
-    _warn_thin_quantile_groups(sampled, n_groups, expected_warnings=expected_warnings)
+    _warn_thin_quantile_groups(
+        sampled,
+        n_groups,
+        metric_name="quantile_spread_vw",
+        expected_warnings=expected_warnings,
+    )
 
     vw_series = _vw_spread_series(
         sampled,
@@ -847,6 +854,8 @@ def quantile_spread_vw(
             full_spread=full_series,
             overlap_periods=overlap_periods,
             n_assets=n_assets,
+            metric_name="quantile_spread_vw",
+            expected_warnings=expected_warnings,
         )
     )
     n_tested = int(

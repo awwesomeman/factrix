@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import warnings
-
 import polars as pl
 
 from factrix._axis import (
@@ -12,7 +10,7 @@ from factrix._axis import (
     OutputShape,
     SpecRole,
 )
-from factrix._codes import WarningCode
+from factrix._codes import WarningCode, _emit_warning
 from factrix._metric_index import cell
 from factrix._types import DEFAULT_FORWARD_PERIODS
 from factrix.metrics._decorators import metric
@@ -101,17 +99,16 @@ def compute_caar(
         ``_signed_car`` NaN.
     """
     sparse_magnitude_weighted = _is_sparse_magnitude_weighted(data, factor_col)
-    if (
-        sparse_magnitude_weighted
-        and WarningCode.SPARSE_MAGNITUDE_WEIGHTED.value not in expected_warnings
-    ):
-        warnings.warn(
-            "compute_caar: factor column is mixed-sign and not a clean ±1 "
+    if sparse_magnitude_weighted:
+        _emit_warning(
+            WarningCode.SPARSE_MAGNITUDE_WEIGHTED,
+            "factor column is mixed-sign and not a clean ±1 "
             "ternary. The result is the Sefcik-Thompson (1986) "
             "magnitude-weighted CAAR, not the textbook MacKinlay (1997) "
             "signed CAAR; apply .sign() to the column before calling for "
             "sign-flip semantics.",
-            UserWarning,
+            label="compute_caar",
+            expected_warnings=expected_warnings,
             stacklevel=2,
         )
     # The expected return is estimated on the FULL panel (non-event rows are
@@ -145,16 +142,15 @@ def compute_caar(
     n_dropped = events.filter(~raw_finite).height
     n_dropped_no_window = events.filter(raw_finite & ~ar_finite).height
     events = events.filter(raw_finite & ar_finite)
-    if (
-        n_dropped > 0
-        and WarningCode.NON_FINITE_INPUT_DROPPED.value not in expected_warnings
-    ):
-        warnings.warn(
-            f"compute_caar: dropped {n_dropped} of {n_events_in} event rows with "
+    if n_dropped > 0:
+        _emit_warning(
+            WarningCode.NON_FINITE_INPUT_DROPPED,
+            f"dropped {n_dropped} of {n_events_in} event rows with "
             f"a non-finite '{return_col}' or '{factor_col}' before aggregating. "
             f"Each per-period caar is the mean over the surviving finite events; "
             f"the count is reported as the 'n_events_dropped_non_finite' column.",
-            UserWarning,
+            label="compute_caar",
+            expected_warnings=expected_warnings,
             stacklevel=2,
         )
 
@@ -183,7 +179,7 @@ def compute_caar(
             ).alias("estimation_window_event_share"),
             # Raggedness is a property of the panel, which only this node sees;
             # `caar` reads the note off the frame and records the code there.
-            pl.lit(_ragged_event_grid_message("caar", data), dtype=pl.String).alias(
+            pl.lit(_ragged_event_grid_message(data), dtype=pl.String).alias(
                 "ragged_period_grid_note"
             ),
         )

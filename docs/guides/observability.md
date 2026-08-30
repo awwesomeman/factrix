@@ -73,7 +73,70 @@ This output lets you verify that shared upstream producers (like `compute_ic`) a
 
 ---
 
-## 3. Rich Notebook Formatting (`_repr_html_`)
+## 4. Warnings: one channel, one shape
+
+A `WarningCode` reaches you twice, and both halves come from the same call.
+
+* **The record** — the code lands on `MetricResult.warning_codes` and, at
+  result assembly, on `EvaluationResult.warnings` as a `Warning`
+  (`code` / `source` / `message` / `expected`). `result.unexpected_warnings`
+  is the alert view. The record is kept whatever you declare.
+* **The echo** — a `UserWarning` on stderr, so the advisory shows up in a
+  notebook or a script run without anyone inspecting the result object.
+
+The two used to disagree: several codes were recorded and never echoed, so a
+thin sample was visible only to a reader who went looking. Every code now goes
+through one emitter, so if it is on the result it was on stderr — unless you
+declared it.
+
+### Message anatomy
+
+Every echo has the same three parts:
+
+```text
+<label>: <message> (<code>; declare it in expected_warnings=)
+```
+
+* `<label>` — the metric or function that raised it (`ic`, `bmp_z`,
+  `compute_forward_return`). This is what you act on.
+* `<message>` — the body, carrying the numbers that tripped the threshold.
+* `<code>` — the [`WarningCode`](../reference/warning-codes.md) value, and the
+  one declaration that silences it.
+
+For example, an 8-asset panel over 90 periods run through
+`quantile_spread(n_groups=3)` prints three of them:
+
+```text
+compute_spread_series: Median 2 assets per group (n_assets=8, n_groups=3). ... (thin_quantile_groups; declare it in expected_warnings=)
+quantile_spread: the inference member tested 17 periods, below the WARN floor of 30; ... (unreliable_se_short_periods; declare it in expected_warnings=)
+quantile_spread: the median cross-section holds 8 assets, below MIN_ASSETS_WARN=30; ... (few_assets; declare it in expected_warnings=)
+```
+
+### Declaring a regime
+
+`evaluate(..., expected_warnings=("few_assets",))` — and the same keyword on
+every metric — marks a code as the study's design. Marked, never dropped: the
+`Warning` record stays on the result with `expected=True`, and only the echo
+stops.
+
+```python
+from factrix.metrics import quantile_spread
+
+results = fx.evaluate(
+    data,
+    metrics={"quantile_spread": quantile_spread(n_groups=3)},
+    factor_cols=["factor"],
+    expected_warnings=("few_assets", "unreliable_se_short_periods"),
+)
+```
+
+Codes attached alongside a NaN short-circuit (`metric_unavailable`,
+`upstream_unavailable`) are records only: the metric did not run, the reason
+is in `MetricResult.metadata["reason"]`, and the result's repr carries it.
+
+---
+
+## 5. Rich Notebook Formatting (`_repr_html_`)
 
 For interactive analysis in Jupyter notebooks, `factrix` implements native HTML representations (`_repr_html_`) on key return types. When you print these objects as the final statement in a cell, they render as formatted tables.
 

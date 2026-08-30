@@ -176,6 +176,7 @@ def mfe_mae(
         _record_ragged_event_grid(
             mfe_mae_df["ragged_period_grid_note"][0] or None,
             warning_codes,
+            label="mfe_mae",
             expected_warnings=expected_warnings,
         )
 

@@ -272,13 +272,14 @@ def directional_hit_rate(
     warn_code = _warn_below_floor(
         directional_hit_rate,
         n,
-        f"directional_hit_rate: n_pairs={n} below "
+        f"n_pairs={n} below "
         f"MIN_DIRECTIONAL_PAIRS_WARN={MIN_DIRECTIONAL_PAIRS_WARN}; the "
         f"Pesaran-Timmermann hit rate is returned but n counts pooled "
         f"non-overlapping (date, asset) directional trials, and the normal "
         f"approximation to S_n is power-thin below ~30 pooled pairs. Read "
         f"borderline p-values cautiously.",
         WarningCode.FEW_DIRECTIONAL_PAIRS,
+        label="directional_hit_rate",
         axis="pairs",
         expected_warnings=expected_warnings,
     )

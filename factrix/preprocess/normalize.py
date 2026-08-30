@@ -8,12 +8,11 @@ All functions expect canonical column names (date, asset_id).
 
 from __future__ import annotations
 
-import warnings
 from typing import Any, Literal, cast
 
 import polars as pl
 
-from factrix._codes import WarningCode
+from factrix._codes import WarningCode, _emit_warning
 from factrix._errors import UserInputError
 from factrix._types import (
     EPSILON,
@@ -217,34 +216,34 @@ def _warn_scale_regimes(
     n_sparse = int(stats["_sparse_zero"].sum()) if sparse_skipped else 0
     n_std_non_sparse = n_std - n_sparse
     if n_sparse:
-        warnings.warn(
-            f"{func_name}: {WarningCode.SPARSE_WINSORIZE_SKIPPED.value} — "
+        _emit_warning(
+            WarningCode.SPARSE_WINSORIZE_SKIPPED,
             f"{n_sparse}/{n_dates} dates carry a sparse {{0, R}} factor whose "
             "median and MAD are both 0. The standard-deviation fallback there "
             "is driven by the triggers themselves and shrinks with the trigger "
             "rate, so clipping would destroy event magnitudes; those dates are "
             "left unwinsorized.",
-            UserWarning,
+            label=func_name,
             stacklevel=3,
         )
     if n_std_non_sparse > 0:
-        warnings.warn(
-            f"{func_name}: {WarningCode.ZERO_MAD_STD_FALLBACK.value} — "
+        _emit_warning(
+            WarningCode.ZERO_MAD_STD_FALLBACK,
             f"{n_std_non_sparse}/{n_dates} dates had a zero MAD (>50% ties at "
             "the median) and fell back to the non-robust per-date standard "
             "deviation (ddof=1). Robust and non-robust dates are mixed in one "
             "output column.",
-            UserWarning,
+            label=func_name,
             stacklevel=3,
         )
     n_thin = counts.get("insufficient_assets", 0)
     if n_thin:
-        warnings.warn(
-            f"{func_name}: {WarningCode.INSUFFICIENT_SCALE_ASSETS.value} — "
+        _emit_warning(
+            WarningCode.INSUFFICIENT_SCALE_ASSETS,
             f"{n_thin}/{n_dates} dates carry fewer than {MIN_SCALE_ASSETS_HARD} "
             "finite factor values; no robust scale exists there, so those dates "
             "are left unscaled (z-score null, clip skipped).",
-            UserWarning,
+            label=func_name,
             stacklevel=3,
         )
 
@@ -257,13 +256,13 @@ def _warn_non_finite(data: pl.DataFrame, factor_col: str, func_name: str) -> Non
         ).item()
     )
     if n_bad:
-        warnings.warn(
-            f"{func_name}: {WarningCode.NON_FINITE_INPUT_DROPPED.value} — "
+        _emit_warning(
+            WarningCode.NON_FINITE_INPUT_DROPPED,
             f"{n_bad} row(s) carry NaN / +-Inf in {factor_col!r} and come back "
             "null. A non-finite tick is a data error, not an extreme value: "
             "clipping it into the band would manufacture a plausible-looking "
             "number that survives every downstream drop_nulls().drop_nans().",
-            UserWarning,
+            label=func_name,
             stacklevel=3,
         )
 

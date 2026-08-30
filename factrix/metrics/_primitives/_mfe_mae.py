@@ -275,7 +275,7 @@ def compute_mfe_mae(
         # ``mfe_mae`` reads the note off the frame and records the code there.
         # Empty rather than null on a dense panel, so a caller's ``drop_nulls``
         # over the per-event table does not empty it.
-        pl.lit(
-            _ragged_event_grid_message("mfe_mae", data) or "", dtype=pl.String
-        ).alias("ragged_period_grid_note"),
+        pl.lit(_ragged_event_grid_message(data) or "", dtype=pl.String).alias(
+            "ragged_period_grid_note"
+        ),
     )

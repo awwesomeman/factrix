@@ -17,8 +17,6 @@ Notes:
 
 from __future__ import annotations
 
-import warnings
-
 import numpy as np
 import polars as pl
 from scipy import stats as sp_stats
@@ -29,7 +27,7 @@ from factrix._axis import (
     FactorDensity,
     FactorScope,
 )
-from factrix._codes import WarningCode
+from factrix._codes import WarningCode, _emit_warning
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import (
@@ -226,15 +224,14 @@ def common_quantile_spread(
 
     per_bucket_periods = n_periods // n_groups
     thin_bucket_periods = per_bucket_periods < _MIN_BUCKET_PERIODS_WARN
-    if (
-        thin_bucket_periods
-        and WarningCode.THIN_QUANTILE_PERIODS.value not in expected_warnings
-    ):
-        warnings.warn(
-            f"common_quantile_spread: avg {per_bucket_periods} periods per "
+    if thin_bucket_periods:
+        _emit_warning(
+            WarningCode.THIN_QUANTILE_PERIODS,
+            f"avg {per_bucket_periods} periods per "
             f"bucket (T={n_periods}, n_groups={n_groups}). Each bucket mean "
             f"sits on a thin sample; consider reducing n_groups.",
-            UserWarning,
+            label="common_quantile_spread",
+            expected_warnings=expected_warnings,
             stacklevel=2,
         )
 

@@ -23,14 +23,13 @@ factors".
 from __future__ import annotations
 
 import math
-import warnings
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, get_args
 
 import numpy as np
 import polars as pl
 
-from factrix._codes import WarningCode, cross_section_tier
+from factrix._codes import WarningCode, _emit_warning, cross_section_tier
 from factrix._errors import IncompatibleInferenceError
 
 if TYPE_CHECKING:
@@ -148,6 +147,85 @@ def _surface_inference_run_metadata(
             metadata[key] = result.metadata[key]
 
 
+#: One-line echo body per :class:`WarningCode` an inference member can raise on
+#: the series it tested. The member records the code on its
+#: :class:`~factrix.inference.InferenceResult`; this names, in one line, what
+#: the reader is being told. ``{n}`` is the sample the member actually tested.
+#: Anything unmapped falls back to the code's own ``description``.
+_INFERENCE_CODE_MESSAGE: dict[WarningCode, str] = {
+    WarningCode.UNRELIABLE_SE_SHORT_PERIODS: (
+        "the inference member tested {n} periods, below the WARN floor of "
+        "{warn}; the HAC standard error on a series this short is biased. The "
+        "statistic is returned but read p-values cautiously."
+    ),
+    WarningCode.SERIAL_CORRELATION_DETECTED: (
+        "the tested per-period series is persistent beyond the overlap "
+        "horizon (lag-1 autocorrelation above {autocorr} on the strided "
+        "series, {n} periods). No HAC or bootstrap path is calibrated there — "
+        "read the p-value against a raised hurdle or lengthen the sample."
+    ),
+    WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED: (
+        "the resolved Bartlett bandwidth exceeds n_periods / 5 on the {n} "
+        "tested periods, so the long-run variance rests on too few lag "
+        "products to be stable. Read the p-value as indicative only."
+    ),
+    WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE: (
+        "the rectangular-kernel HAC variance-of-mean came out negative on the "
+        "{n} tested periods and was clamped to 0, so there is no SE to divide "
+        "by and the test is withheld."
+    ),
+    WarningCode.DEGENERATE_VARIANCE: (
+        "the {n} tested periods admit no test statistic (zero dispersion, or "
+        "an SE that collapsed to zero). The value is returned; stat and "
+        "p_value are withheld."
+    ),
+}
+
+
+def _emit_inference_warnings(
+    res: InferenceResult,
+    *,
+    label: str,
+    warning_codes: list[str],
+    expected_warnings: tuple[str, ...] = (),
+    stacklevel: int = 4,
+) -> None:
+    """Record **and echo** the codes an inference member raised on its series.
+
+    The member returns them as a ``frozenset[WarningCode]`` on its
+    :class:`~factrix.inference.InferenceResult`; before this existed every
+    consumer folded them into ``warning_codes`` and nothing ever reached
+    stderr, so a short or degenerate sample was visible only to a reader who
+    went looking at the result object. Routing them through
+    :func:`~factrix._codes._emit_warning` puts them on the one channel every
+    other advisory uses, under the same frame, and keeps the structured record
+    unchanged.
+    """
+    from factrix._stats.constants import (
+        MIN_PERIODS_WARN,
+        PERSISTENT_SERIES_AUTOCORR,
+    )
+
+    n = res.n_obs if res.n_obs is not None else 0
+    for code in sorted(res.warnings, key=lambda c: c.value):
+        template = _INFERENCE_CODE_MESSAGE.get(code)
+        message = (
+            template.format(
+                n=n, warn=MIN_PERIODS_WARN, autocorr=PERSISTENT_SERIES_AUTOCORR
+            )
+            if template is not None
+            else code.description
+        )
+        _emit_warning(
+            code,
+            message,
+            label=label,
+            expected_warnings=expected_warnings,
+            warning_codes=warning_codes,
+            stacklevel=stacklevel,
+        )
+
+
 def _spread_significance_with_inference(
     inference: NonOverlapping | NeweyWest | StationaryBootstrap,
     *,
@@ -155,6 +233,8 @@ def _spread_significance_with_inference(
     full_spread: pl.DataFrame | None,
     overlap_periods: int,
     n_assets: int,
+    metric_name: str,
+    expected_warnings: tuple[str, ...] = (),
 ) -> tuple[float, float, float, str, str, dict[str, object], tuple[str, ...]]:
     """Single headline-significance chokepoint shared by every spread metric.
 
@@ -207,6 +287,7 @@ def _spread_significance_with_inference(
     missing one where the member needed it degrades to the strided
     non-overlap path defensively and is flagged ``inference_overridden``.
     """
+    from factrix._stats.constants import MIN_ASSETS_WARN
     from factrix.inference import NON_OVERLAPPING
 
     use_full = inference.consumes_full_series and full_spread is not None
@@ -241,10 +322,27 @@ def _spread_significance_with_inference(
     # full overlapping series on one path, the strided series on the other.
     extra["n_periods_tested"] = n_tested
 
-    codes = tuple(code.value for code in res.warnings)
+    code_list: list[str] = []
+    _emit_inference_warnings(
+        res,
+        label=metric_name,
+        warning_codes=code_list,
+        expected_warnings=expected_warnings,
+    )
     tier: WarningCode | None = cross_section_tier(n_assets)
-    if tier is not None and tier.value not in codes:
-        codes = (*codes, tier.value)
+    if tier is not None:
+        _emit_warning(
+            tier,
+            f"the median cross-section holds {n_assets} assets, below "
+            f"MIN_ASSETS_WARN={MIN_ASSETS_WARN}; each bucket mean rests on a "
+            f"handful of names, so the spread is a noisier estimate (not a "
+            f"differently distributed one).",
+            label=metric_name,
+            expected_warnings=expected_warnings,
+            warning_codes=code_list,
+            stacklevel=3,
+        )
+    codes = tuple(code_list)
     # ``method`` / ``stat_type`` describe the member that actually ran, not
     # the one that was asked for: an ``inference_overridden`` degradation runs
     # the non-overlap t and must say so, and a member whose ``stat`` is not a
@@ -653,6 +751,7 @@ def _warn_below_floor(
     message: str,
     code: WarningCode,
     *,
+    label: str,
     axis: str = "periods",
     expected_warnings: tuple[str, ...] = (),
 ) -> str | None:
@@ -662,8 +761,8 @@ def _warn_below_floor(
     ``min`` floor (a result is still returned) but sits below ``warn``, so the
     metric runs with a documented bias. Reads ``warn_<axis>`` via an
     ``Any``-typed ``metric`` (no per-call ``# type: ignore[attr-defined]``);
-    when the floor is breached it emits ``message`` as a ``UserWarning`` and
-    returns ``code.value`` for the caller to fold into the result's
+    when the floor is breached it emits ``message`` through
+    :func:`~factrix._codes._emit_warning` under ``label`` and returns ``code.value`` for the caller to fold into the result's
     ``warning_codes``. Returns ``None`` when the warn floor is clear or ungated.
 
     Like :func:`_enforce_min_floor`, reads the default-config ``sample_threshold``
@@ -676,9 +775,13 @@ def _warn_below_floor(
     """
     warn = getattr(metric.sample_threshold, f"warn_{axis}")
     if warn is not None and n < warn:
-        if code.value not in expected_warnings:
-            warnings.warn(message, UserWarning, stacklevel=3)
-        return code.value
+        return _emit_warning(
+            code,
+            message,
+            label=label,
+            expected_warnings=expected_warnings,
+            stacklevel=3,
+        )
     return None
 
 
@@ -689,6 +792,7 @@ def _warn_below_scaled_floor(
     message: str,
     code: WarningCode,
     *,
+    label: str,
     expected_warnings: tuple[str, ...] = (),
 ) -> str | None:
     """Warn-tier twin of :func:`_enforce_scaled_floor`.
@@ -707,9 +811,13 @@ def _warn_below_scaled_floor(
     """
     warn = _scaled_min_periods(base_warn, overlap_periods)
     if n_raw < warn:
-        if code.value not in expected_warnings:
-            warnings.warn(message, UserWarning, stacklevel=3)
-        return code.value
+        return _emit_warning(
+            code,
+            message,
+            label=label,
+            expected_warnings=expected_warnings,
+            stacklevel=3,
+        )
     return None
 
 
@@ -910,20 +1018,19 @@ def _deflate_for_within_date_clustering(
     metadata["kolari_pynnonen_applied"] = True
     metadata["kolari_pynnonen_scaling"] = scale
     metadata["stat_uncorrected"] = stat
-    code = WarningCode.EVENT_CLUSTERING_ADJUSTED.value
-    if code not in expected_warnings:
-        warnings.warn(
-            f"{metric_name}: events share periods (mean {n_eff:.1f} per event "
-            f"period, within-period correlation of the per-event score "
-            f"r={r_hat:.3f}), so they are not independent draws. The statistic "
-            f"is deflated by the Kish design effect ({scale:.3f}) before the "
-            f"p-value; the point estimate is unchanged. Uncorrected statistic "
-            f"in metadata['stat_uncorrected'].",
-            UserWarning,
-            stacklevel=3,
-        )
-    if code not in warning_codes:
-        warning_codes.append(code)
+    _emit_warning(
+        WarningCode.EVENT_CLUSTERING_ADJUSTED,
+        f"events share periods (mean {n_eff:.1f} per event "
+        f"period, within-period correlation of the per-event score "
+        f"r={r_hat:.3f}), so they are not independent draws. The statistic "
+        f"is deflated by the Kish design effect ({scale:.3f}) before the "
+        f"p-value; the point estimate is unchanged. Uncorrected statistic "
+        f"in metadata['stat_uncorrected'].",
+        label=metric_name,
+        expected_warnings=expected_warnings,
+        warning_codes=warning_codes,
+        stacklevel=3,
+    )
     return stat * scale
 
 
@@ -1000,13 +1107,15 @@ def _densify_on_period_grid(
     return dense, True
 
 
-def _ragged_event_grid_message(metric_name: str, frame: pl.DataFrame) -> str | None:
+def _ragged_event_grid_message(frame: pl.DataFrame) -> str | None:
     """The ``RAGGED_PERIOD_GRID`` echo text for a ragged panel, else ``None``.
 
     Single owner of the wording, split out from the recorder because the
     ``caar`` pipeline sees the panel in ``compute_caar`` and the warning codes
     one node later in :func:`~factrix.metrics.caar.caar`; the message rides
-    between them as a broadcast column.
+    between them as a broadcast column. Returns the message **body** only —
+    the metric label and the code token are added by
+    :func:`~factrix._codes._emit_warning` at the recording end.
     """
     if "asset_id" not in frame.columns or "date" not in frame.columns:
         return None
@@ -1016,7 +1125,7 @@ def _ragged_event_grid_message(metric_name: str, frame: pl.DataFrame) -> str | N
     if not n_ragged:
         return None
     return (
-        f"{metric_name}: {WarningCode.RAGGED_PERIOD_GRID.value} — {n_ragged} of "
+        f"{n_ragged} of "
         f"{per_asset.height} assets are missing periods that others have "
         f"(panel grid: {n_periods} periods). Estimation windows, lags and "
         "event offsets are counted on the panel's period grid, so those "
@@ -1032,6 +1141,7 @@ def _record_ragged_event_grid(
     message: str | None,
     warning_codes: list[str],
     *,
+    label: str,
     expected_warnings: tuple[str, ...] = (),
 ) -> None:
     """Record ``RAGGED_PERIOD_GRID`` on ``warning_codes`` and echo ``message``.
@@ -1043,11 +1153,14 @@ def _record_ragged_event_grid(
     """
     if message is None:
         return
-    code = WarningCode.RAGGED_PERIOD_GRID.value
-    if code not in expected_warnings:
-        warnings.warn(message, UserWarning, stacklevel=3)
-    if code not in warning_codes:
-        warning_codes.append(code)
+    _emit_warning(
+        WarningCode.RAGGED_PERIOD_GRID,
+        message,
+        label=label,
+        expected_warnings=expected_warnings,
+        warning_codes=warning_codes,
+        stacklevel=3,
+    )
 
 
 def _warn_ragged_event_grid(
@@ -1065,8 +1178,9 @@ def _warn_ragged_event_grid(
     smaller sample than a caller comparing names would assume.
     """
     _record_ragged_event_grid(
-        _ragged_event_grid_message(metric_name, frame),
+        _ragged_event_grid_message(frame),
         warning_codes,
+        label=metric_name,
         expected_warnings=expected_warnings,
     )
 
@@ -1364,24 +1478,23 @@ def _warn_estimation_window_contamination(
     share = metadata.get("estimation_window_event_share")
     if share is None or share <= ESTIMATION_WINDOW_EVENT_SHARE_WARN:
         return
-    code = WarningCode.ESTIMATION_WINDOW_CONTAMINATED.value
-    if code not in expected_warnings:
-        warnings.warn(
-            f"{metric_name}: on average {share:.0%} of each tested event's "
-            f"estimation-window periods lie inside another event's "
-            f"forward-return window on the same asset (advisory floor "
-            f"{ESTIMATION_WINDOW_EVENT_SHARE_WARN:.0%}). The mean-adjusted "
-            f"abnormal return then subtracts neighbouring events' realised "
-            f"returns rather than the unconditional mean, the per-event "
-            f"abnormal returns are negatively correlated, and the test is "
-            f"conservative. Supply an 'abnormal_return' column "
-            f"(compute_abnormal_return) when the event universe is a small "
-            f"share of the panel, or read the p-value as an upper bound.",
-            UserWarning,
-            stacklevel=3,
-        )
-    if code not in warning_codes:
-        warning_codes.append(code)
+    _emit_warning(
+        WarningCode.ESTIMATION_WINDOW_CONTAMINATED,
+        f"on average {share:.0%} of each tested event's "
+        f"estimation-window periods lie inside another event's "
+        f"forward-return window on the same asset (advisory floor "
+        f"{ESTIMATION_WINDOW_EVENT_SHARE_WARN:.0%}). The mean-adjusted "
+        f"abnormal return then subtracts neighbouring events' realised "
+        f"returns rather than the unconditional mean, the per-event "
+        f"abnormal returns are negatively correlated, and the test is "
+        f"conservative. Supply an 'abnormal_return' column "
+        f"(compute_abnormal_return) when the event universe is a small "
+        f"share of the panel, or read the p-value as an upper bound.",
+        label=metric_name,
+        expected_warnings=expected_warnings,
+        warning_codes=warning_codes,
+        stacklevel=3,
+    )
 
 
 def _stride_dates(
@@ -1614,20 +1727,19 @@ def _warn_event_window_overlap(
     metadata["n_events_sampled"] = n_sampled
     if dropped <= 0:
         return
-    code = WarningCode.EVENT_WINDOW_OVERLAP.value
-    if code not in expected_warnings:
-        warnings.warn(
-            f"{metric_name}: {dropped} of {n_events} events sat within "
-            f"overlap_periods={overlap_periods} of the previously kept event on "
-            f"the same asset, so their forward-return windows overlapped. The "
-            f"test runs on the {n_sampled} non-overlapping events that survive "
-            f"the spacing pass; overlapping events are not independent draws "
-            f"and pooling them inflates the statistic.",
-            UserWarning,
-            stacklevel=3,
-        )
-    if code not in warning_codes:
-        warning_codes.append(code)
+    _emit_warning(
+        WarningCode.EVENT_WINDOW_OVERLAP,
+        f"{dropped} of {n_events} events sat within "
+        f"overlap_periods={overlap_periods} of the previously kept event on "
+        f"the same asset, so their forward-return windows overlapped. The "
+        f"test runs on the {n_sampled} non-overlapping events that survive "
+        f"the spacing pass; overlapping events are not independent draws "
+        f"and pooling them inflates the statistic.",
+        label=metric_name,
+        expected_warnings=expected_warnings,
+        warning_codes=warning_codes,
+        stacklevel=3,
+    )
 
 
 def _event_sample_threshold(self: MetricBase) -> SampleThreshold:
@@ -2000,16 +2112,17 @@ def _warn_high_tie_ratio(
         return False
     if tie_policy != "ordinal":
         return False
-    if WarningCode.HIGH_TIE_RATIO.value not in expected_warnings:
-        warnings.warn(
-            f"{metric_name}: median tie_ratio={ratio:.3f} exceeds "
-            f"{TIE_RATIO_WARN_THRESHOLD:.2f}. Ordinal tie-breaking on a "
-            f"low-cardinality factor injects sorting-artifact noise. "
-            f"Consider tie_policy='average' on the Config, or a coarser "
-            f"n_groups.",
-            UserWarning,
-            stacklevel=3,
-        )
+    _emit_warning(
+        WarningCode.HIGH_TIE_RATIO,
+        f"median tie_ratio={ratio:.3f} exceeds "
+        f"{TIE_RATIO_WARN_THRESHOLD:.2f}. Ordinal tie-breaking on a "
+        f"low-cardinality factor injects sorting-artifact noise. "
+        f"Consider tie_policy='average' on the Config, or a coarser "
+        f"n_groups.",
+        label=metric_name,
+        expected_warnings=expected_warnings,
+        stacklevel=3,
+    )
     return True
 
 
@@ -2145,18 +2258,16 @@ def _warn_if_high_drop_rate(
     drop_rate = float(stats["drop_rate"])
     if drop_rate <= DROP_RATE_WARN_THRESHOLD:
         return None
-    code = _DROP_CODE_BY_AXIS[axis].value
-    if code in expected_warnings:
-        return code
-    warnings.warn(
-        f"{metric_name}: {drop_rate:.0%} of {axis} dropped "
+    return _emit_warning(
+        _DROP_CODE_BY_AXIS[axis],
+        f"{drop_rate:.0%} of {axis} dropped "
         f"({stats[f'dropped_{axis}']}/{stats[f'n_{axis}_in']}) — "
         f"{stats['drop_reason']}. The metric was computed on the surviving "
         f"{stats[f'n_{axis}_out']} {axis}; read it against that shortened sample.",
-        UserWarning,
+        label=metric_name,
+        expected_warnings=expected_warnings,
         stacklevel=3,
     )
-    return code
 
 
 def _surface_drop_stats(
@@ -2322,6 +2433,7 @@ def _warn_thin_quantile_groups(
     sampled: pl.DataFrame,
     n_groups: int,
     *,
+    metric_name: str,
     stacklevel: int = 3,
     expected_warnings: tuple[str, ...] = (),
 ) -> bool:
@@ -2355,14 +2467,15 @@ def _warn_thin_quantile_groups(
             "This is already the coarsest long-short split; treat the "
             "spread as a fragile small-cross-section diagnostic."
         )
-    if WarningCode.THIN_QUANTILE_GROUPS.value not in expected_warnings:
-        warnings.warn(
-            f"Median {per_group} assets per group (n_assets={median_n}, "
-            f"n_groups={n_groups}). Spread may be dominated by "
-            f"individual assets. {guidance}",
-            UserWarning,
-            stacklevel=stacklevel,
-        )
+    _emit_warning(
+        WarningCode.THIN_QUANTILE_GROUPS,
+        f"Median {per_group} assets per group (n_assets={median_n}, "
+        f"n_groups={n_groups}). Bucket statistics may be dominated by "
+        f"individual assets. {guidance}",
+        label=metric_name,
+        expected_warnings=expected_warnings,
+        stacklevel=stacklevel,
+    )
     return True
 
 

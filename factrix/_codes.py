@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import warnings as _warnings
 from enum import StrEnum
 
 from factrix._errors import UserInputError
@@ -318,6 +319,62 @@ class WarningCode(StrEnum):
     @property
     def description(self) -> str:
         return _WARNING_DESCRIPTIONS[self]
+
+
+#: Trailing half of every warning frame: the code token plus the one action
+#: that silences it. Kept as a constant so the docs and the tests that lock
+#: the anatomy read the same string the emitter writes.
+_DECLARE_HINT = "declare it in expected_warnings="
+
+
+def _format_warning(code: WarningCode, message: str, *, label: str) -> str:
+    """Frame one warning body as ``<label>: <message> (<code>; declare ...)``.
+
+    ``label`` is the metric / function the reader has to act on, ``message``
+    the body with its numbers, and the parenthetical names the
+    :class:`WarningCode` to put in ``expected_warnings=``. Every warning the
+    library echoes for a code has this anatomy, so a reader never has to guess
+    which declaration would silence what they are looking at.
+    """
+    return f"{label}: {message} ({code.value}; {_DECLARE_HINT})"
+
+
+def _emit_warning(
+    code: WarningCode,
+    message: str,
+    *,
+    label: str,
+    expected_warnings: tuple[str, ...] = (),
+    warning_codes: list[str] | None = None,
+    stacklevel: int = 3,
+) -> str:
+    """Single emit chokepoint for every :class:`WarningCode` advisory.
+
+    Records then echoes, in that order — marked, never dropped:
+
+    * ``warning_codes``, when given, gains ``code.value`` (once) whatever the
+      caller declared. The structured record is the audit trail and a
+      declaration never removes it.
+    * The ``UserWarning`` echo, framed by :func:`_format_warning`, fires only
+      when the code is absent from ``expected_warnings``.
+
+    Returns ``code.value`` so a caller that keeps its own list can append the
+    return value instead of passing ``warning_codes``.
+
+    This is the only place in the library that calls ``warnings.warn`` for a
+    ``WarningCode``; ``tests/test_warning_formatter.py`` locks that with an AST
+    guard. ``stacklevel`` is counted from the caller of this function.
+    """
+    value = code.value
+    if warning_codes is not None and value not in warning_codes:
+        warning_codes.append(value)
+    if value not in expected_warnings:
+        _warnings.warn(
+            _format_warning(code, message, label=label),
+            UserWarning,
+            stacklevel=stacklevel + 1,
+        )
+    return value
 
 
 def _validate_expected_warnings_arg(
