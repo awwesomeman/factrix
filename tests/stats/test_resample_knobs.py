@@ -42,7 +42,7 @@ def _mono_panel():
     import factrix as fx
 
     return fx.preprocess.compute_forward_return(
-        fx.datasets.make_cs_panel(n_assets=40, n_dates=120, seed=3),
+        fx.datasets.make_cs_panel(n_assets=40, n_dates=120, rng=3),
         forward_periods=1,
     )
 
@@ -87,7 +87,7 @@ def test_resample_count_is_spelled_n_resamples_and_defaults_to_999(
     sig = inspect.signature(func)  # type: ignore[arg-type]
     assert param in sig.parameters, f"{func} does not expose {param}"
     assert sig.parameters[param].default == 999
-    assert sig.parameters["seed"].default is None
+    assert sig.parameters["rng"].default is None
 
 
 @pytest.mark.parametrize("bad", [0, 1, BOOTSTRAP_RESAMPLES_FLOOR - 1])
@@ -102,7 +102,7 @@ class TestFloorIsEnforcedAtEveryInferenceEntryPoint:
 
     def test_monotonicity(self, bad: int) -> None:
         with pytest.raises(UserInputError, match="at least 199 resamples"):
-            monotonicity(_mono_panel(), n_resamples=bad, seed=0)
+            monotonicity(_mono_panel(), n_resamples=bad, rng=0)
 
     def test_bootstrap_mean_ci(self, bad: int) -> None:
         with pytest.raises(UserInputError, match="at least 199 resamples"):
@@ -132,14 +132,14 @@ class TestFloorIsEnforcedAtEveryInferenceEntryPoint:
 def test_resample_draws_are_deliberately_not_floored() -> None:
     """``stationary_bootstrap_resamples`` returns draws, not an inference,
     so it stays outside the floor — only a non-positive count is refused."""
-    out = stationary_bootstrap_resamples(np.arange(30.0), 5, seed=0)
+    out = stationary_bootstrap_resamples(np.arange(30.0), 5, rng=0)
     assert out.shape == (5, 30)
 
 
 class TestIcSurfacesTheBootstrapKnobs:
     def test_configured_member_is_reproducible_and_reports_its_knobs(self) -> None:
         df = _ic_series()
-        member = StationaryBootstrap(n_resamples=399, seed=7)
+        member = StationaryBootstrap(n_resamples=399, rng=7)
         a = ic(df, overlap_periods=1, inference=member)
         b = ic(df, overlap_periods=1, inference=member)
         assert a.p_value == b.p_value
@@ -165,7 +165,7 @@ class TestIcSurfacesTheBootstrapKnobs:
             ic(
                 _ic_series(),
                 overlap_periods=1,
-                inference=StationaryBootstrap(n_resamples=199, seed=1),
+                inference=StationaryBootstrap(n_resamples=199, rng=1),
             ).value
         )
 
@@ -173,14 +173,14 @@ class TestIcSurfacesTheBootstrapKnobs:
 class TestSlicePeriodTestsAreReproducible:
     def test_pairwise(self) -> None:
         panel = _regime_panel()
-        kw = dict(by="regime", factor_col="factor", n_resamples=199, seed=3)
+        kw = dict(by="regime", factor_col="factor", n_resamples=199, rng=3)
         a = slice_period_pairwise_test(panel, ic(), **kw)
         b = slice_period_pairwise_test(panel, ic(), **kw)
         assert a["p_raw"].to_list() == b["p_raw"].to_list()
 
     def test_joint(self) -> None:
         panel = _regime_panel()
-        kw = dict(by="regime", factor_col="factor", n_resamples=199, seed=3)
+        kw = dict(by="regime", factor_col="factor", n_resamples=199, rng=3)
         a = slice_period_joint_test(panel, ic(), **kw)
         b = slice_period_joint_test(panel, ic(), **kw)
         assert a["p_value"].to_list() == b["p_value"].to_list()
@@ -189,7 +189,7 @@ class TestSlicePeriodTestsAreReproducible:
         """``p_raw`` is a Davison-Hinkley p, so ``p*(B+1)`` is an integer."""
         panel = _regime_panel()
         out = slice_period_pairwise_test(
-            panel, ic(), by="regime", factor_col="factor", n_resamples=199, seed=3
+            panel, ic(), by="regime", factor_col="factor", n_resamples=199, rng=3
         )
         for p in out["p_raw"].to_list():
             assert p is not None

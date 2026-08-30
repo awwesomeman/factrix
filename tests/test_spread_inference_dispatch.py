@@ -85,7 +85,7 @@ INFERENCES = {"NON_OVERLAPPING": NON_OVERLAPPING, "NEWEY_WEST": NEWEY_WEST}
 @pytest.fixture(scope="module")
 def panel():
     """Fixed panel the golden numbers were recorded on."""
-    raw = fx.datasets.make_cs_panel(n_assets=N_ASSETS, n_dates=N_DATES, seed=SEED)
+    raw = fx.datasets.make_cs_panel(n_assets=N_ASSETS, n_dates=N_DATES, rng=SEED)
     return compute_forward_return(raw, forward_periods=OVERLAP_PERIODS)
 
 
@@ -154,7 +154,7 @@ def test_stat_type_names_the_member_that_ran(
     inference = {
         "NON_OVERLAPPING": NON_OVERLAPPING,
         "NEWEY_WEST": NEWEY_WEST,
-        "STATIONARY_BOOTSTRAP": StationaryBootstrap(n_resamples=199, seed=3),
+        "STATIONARY_BOOTSTRAP": StationaryBootstrap(n_resamples=199, rng=3),
     }[inference_name]
     result = _run(metric_name, panel, inference)
     assert result.metadata["stat_type"] == expected_stat_type
@@ -165,7 +165,7 @@ def test_stat_type_names_the_member_that_ran(
 )
 def test_stationary_bootstrap_metadata_keys(panel, metric_name):
     """The bootstrap path surfaces the same three knobs ``ic`` surfaces."""
-    result = _run(metric_name, panel, StationaryBootstrap(n_resamples=199, seed=7))
+    result = _run(metric_name, panel, StationaryBootstrap(n_resamples=199, rng=7))
     assert result.metadata["method"] == STATIONARY_BOOTSTRAP.summary
     for key in ("n_resamples", "seed", "p_value_mc_se"):
         assert key in result.metadata
@@ -178,7 +178,7 @@ def test_stationary_bootstrap_metadata_keys(panel, metric_name):
 )
 def test_stationary_bootstrap_reproducible(panel, metric_name):
     """Same seed, same empirical p — twice."""
-    inference = StationaryBootstrap(n_resamples=199, seed=11)
+    inference = StationaryBootstrap(n_resamples=199, rng=11)
     first = _run(metric_name, panel, inference)
     second = _run(metric_name, panel, inference)
     assert first.p_value == second.p_value

@@ -62,7 +62,7 @@ def _isolate_registries():
 @pytest.fixture
 def panel():
     return fx.preprocess.compute_forward_return(
-        fx.datasets.make_cs_panel(n_assets=30, n_dates=80, seed=0),
+        fx.datasets.make_cs_panel(n_assets=30, n_dates=80, rng=0),
         forward_periods=2,
     )
 

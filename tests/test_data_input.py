@@ -18,7 +18,7 @@ from factrix.preprocess import compute_forward_return
 
 @pytest.fixture(scope="module")
 def data_pl() -> pl.DataFrame:
-    raw = fx.datasets.make_cs_panel(n_assets=50, n_dates=120, seed=7)
+    raw = fx.datasets.make_cs_panel(n_assets=50, n_dates=120, rng=7)
     return compute_forward_return(raw, forward_periods=5)
 
 

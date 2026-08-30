@@ -61,7 +61,7 @@ from factrix.preprocess import compute_forward_return
 from factrix.metrics import ic
 
 # 1. Generate synthetic panel data and compute forward returns
-raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
+raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, rng=2024)
 data = compute_forward_return(raw, forward_periods=5)
 
 # 2. Run pre-flight check
@@ -90,7 +90,7 @@ from factrix.metrics import ic
 import polars as pl
 
 # 1. Prepare multi-factor dataset
-raw = fx.datasets.make_cs_panel(n_assets=50, n_dates=200, seed=2024)
+raw = fx.datasets.make_cs_panel(n_assets=50, n_dates=200, rng=2024)
 data = compute_forward_return(raw, forward_periods=5)
 
 # Add multiple candidate columns
@@ -140,7 +140,7 @@ from factrix.preprocess import compute_forward_return
 from factrix.metrics import predictive_beta
 
 # 1. Generate single-asset timeseries data (make_cs_panel requires n_assets>=2; filter after)
-raw = fx.datasets.make_cs_panel(n_assets=2, n_dates=300, seed=2024)
+raw = fx.datasets.make_cs_panel(n_assets=2, n_dates=300, rng=2024)
 raw = raw.filter(pl.col("asset_id") == raw["asset_id"].item(0))
 data = compute_forward_return(raw, forward_periods=5)
 

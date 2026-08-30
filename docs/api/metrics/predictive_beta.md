@@ -99,7 +99,7 @@ title: factrix.metrics.predictive_beta
     from factrix.metrics import predictive_beta
     from factrix.preprocess import compute_forward_return
 
-    raw = fx.datasets.make_cs_panel(n_assets=4, n_dates=180, seed=0)
+    raw = fx.datasets.make_cs_panel(n_assets=4, n_dates=180, rng=0)
     asset = raw["asset_id"].unique().sort()[0]
     panel = compute_forward_return(
         raw.filter(pl.col("asset_id") == asset),
@@ -137,7 +137,7 @@ windows share observations.
     from factrix.metrics import directional_hit_rate, predictive_beta
     from factrix.preprocess import compute_forward_return
 
-    raw = fx.datasets.make_cs_panel(n_assets=4, n_dates=180, seed=0)
+    raw = fx.datasets.make_cs_panel(n_assets=4, n_dates=180, rng=0)
     asset = raw["asset_id"].unique().sort()[0]
     panel = compute_forward_return(
         raw.filter(pl.col("asset_id") == asset),

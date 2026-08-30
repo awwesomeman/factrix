@@ -146,7 +146,7 @@ class TestPredictiveBetaShortCircuits:
 
 class TestPredictiveBetaDispatch:
     def _single_asset_forward_panel(self) -> pl.DataFrame:
-        raw = fx.datasets.make_cs_panel(n_assets=4, n_dates=160, seed=10)
+        raw = fx.datasets.make_cs_panel(n_assets=4, n_dates=160, rng=10)
         first = raw["asset_id"].unique().sort()[0]
         return fx.preprocess.compute_forward_return(
             raw.filter(pl.col("asset_id") == first),
@@ -169,7 +169,7 @@ class TestPredictiveBetaDispatch:
 
     def test_panel_data_rejects_predictive_beta_by_structure(self) -> None:
         panel = fx.preprocess.compute_forward_return(
-            fx.datasets.make_cs_panel(n_assets=20, n_dates=80, seed=11),
+            fx.datasets.make_cs_panel(n_assets=20, n_dates=80, rng=11),
             forward_periods=5,
         )
         with pytest.raises(fx.IncompatibleAxisError, match="TIMESERIES"):

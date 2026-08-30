@@ -18,7 +18,7 @@ from factrix.preprocess import compute_forward_return
 from factrix.metrics import ic
 
 # 1. Generate synthetic panel data and compute forward returns
-raw   = fx.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
+raw   = fx.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, rng=2024)
 data  = compute_forward_return(raw, forward_periods=5)
 
 # 2. Run single-factor evaluation using the ic metric with Newey-West

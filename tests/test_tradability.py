@@ -457,7 +457,7 @@ class TestRebalanceLagIsDistinctFromReturnOverlap:
         """
         import factrix as fx
 
-        raw = fx.datasets.make_cs_panel(n_assets=30, n_dates=400, seed=0)
+        raw = fx.datasets.make_cs_panel(n_assets=30, n_dates=400, rng=0)
         every_fourth = raw["date"].unique().sort()[::4]
         return fx.preprocess.compute_forward_return(
             raw, forward_periods=5, dates=list(every_fourth)

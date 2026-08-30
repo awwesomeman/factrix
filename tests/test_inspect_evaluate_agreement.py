@@ -58,7 +58,7 @@ def _panel(n_assets: int, n_periods: int, forward_periods: int) -> pl.DataFrame:
     gate.
     """
     raw = fx.datasets.make_cs_panel(
-        n_assets=n_assets, n_dates=n_periods, seed=17
+        n_assets=n_assets, n_dates=n_periods, rng=17
     ).with_columns(pl.lit(1.0e9).alias("market_cap"))
     return compute_forward_return(raw, forward_periods=forward_periods)
 

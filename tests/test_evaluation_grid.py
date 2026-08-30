@@ -28,7 +28,7 @@ H = 60
 
 @pytest.fixture(scope="module")
 def raw() -> pl.DataFrame:
-    return fx.datasets.make_cs_panel(n_assets=30, n_dates=1500, seed=11)
+    return fx.datasets.make_cs_panel(n_assets=30, n_dates=1500, rng=11)
 
 
 @pytest.fixture(scope="module")

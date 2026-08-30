@@ -41,7 +41,7 @@ raw = fx.datasets.make_cs_panel(
     n_assets=240,
     n_dates=504,
     ic_target=0.04,
-    seed=2024,
+    rng=2024,
 )
 
 asset_num = pl.col("asset_id").str.extract(r"(\d+)$").cast(pl.Int64)

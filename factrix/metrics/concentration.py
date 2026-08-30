@@ -169,7 +169,7 @@ def top_concentration(
         >>> from factrix.preprocess import compute_forward_return
         >>> from factrix.metrics.concentration import top_concentration
         >>> panel = compute_forward_return(
-        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, rng=0),
         ...     forward_periods=5,
         ... )
         >>> result = top_concentration(panel, overlap_periods=5, q_top=0.2)

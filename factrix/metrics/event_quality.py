@@ -365,7 +365,7 @@ def event_hit_rate(
         >>> from factrix.preprocess import compute_forward_return
         >>> from factrix.metrics.event_quality import event_hit_rate
         >>> panel = compute_forward_return(
-        ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0),
+        ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, rng=0),
         ...     forward_periods=5,
         ... )
         >>> result = event_hit_rate(panel)
@@ -530,7 +530,7 @@ def event_ic(
         >>> from factrix.preprocess import compute_forward_return
         >>> from factrix.metrics.event_quality import event_ic
         >>> panel = compute_forward_return(
-        ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0),
+        ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, rng=0),
         ...     forward_periods=5,
         ... )
         >>> result = event_ic(panel)
@@ -701,7 +701,7 @@ def profit_factor(
         >>> from factrix.preprocess import compute_forward_return
         >>> from factrix.metrics.event_quality import profit_factor
         >>> panel = compute_forward_return(
-        ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0),
+        ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, rng=0),
         ...     forward_periods=5,
         ... )
         >>> result = profit_factor(panel)
@@ -817,7 +817,7 @@ def event_skewness(
         >>> from factrix.preprocess import compute_forward_return
         >>> from factrix.metrics.event_quality import event_skewness
         >>> panel = compute_forward_return(
-        ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0),
+        ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, rng=0),
         ...     forward_periods=5,
         ... )
         >>> result = event_skewness(panel)
@@ -937,7 +937,7 @@ def signal_density(
     Examples:
         >>> import factrix as fx
         >>> from factrix.metrics.event_quality import signal_density
-        >>> panel = fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0)
+        >>> panel = fx.datasets.make_event_panel(n_assets=50, n_dates=400, rng=0)
         >>> result = signal_density(panel)
         >>> result.name == ""
         True

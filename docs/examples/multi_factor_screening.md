@@ -58,7 +58,7 @@ raw = fx.datasets.make_cs_panel(
     n_assets=100,
     n_dates=500,
     ic_target=0.08,
-    seed=2024,
+    rng=2024,
 )
 panel = compute_forward_return(raw, forward_periods=5)
 
@@ -74,7 +74,7 @@ def variant_panel(
 
 candidates = {
     f"variant_{i}": variant_panel(
-        panel, name=f"variant_{i}", scale=0.5 + 0.3 * i, seed=100 + i
+        panel, name=f"variant_{i}", scale=0.5 + 0.3 * i, rng=100 + i
     )
     for i in range(5)
 }

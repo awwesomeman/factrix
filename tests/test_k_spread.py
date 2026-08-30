@@ -243,7 +243,7 @@ class TestInference:
     def _ample_panel():
         import factrix as fx
 
-        raw = fx.datasets.make_cs_panel(n_assets=60, n_dates=400, seed=3)
+        raw = fx.datasets.make_cs_panel(n_assets=60, n_dates=400, rng=3)
         return fx.preprocess.compute_forward_return(raw, forward_periods=5)
 
     def test_explicit_non_overlapping_is_bit_for_bit_default(self):
@@ -276,7 +276,7 @@ class TestInference:
         import factrix as fx
         from factrix._codes import WarningCode
 
-        raw = fx.datasets.make_cs_panel(n_assets=15, n_dates=400, seed=4)
+        raw = fx.datasets.make_cs_panel(n_assets=15, n_dates=400, rng=4)
         panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
         nw = k_spread(panel, overlap_periods=5, k=3, inference=fx.inference.NEWEY_WEST)
         assert nw.metadata["method"] == "Newey-West HAC t-test"

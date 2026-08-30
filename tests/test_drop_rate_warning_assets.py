@@ -44,7 +44,7 @@ def _sparse_factor_panel(
     ``min_assets`` floors while the drop rate (``1 - survivors/n_assets``) sits
     well above ``DROP_RATE_WARN_THRESHOLD``.
     """
-    raw = fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=n_dates, seed=seed)
+    raw = fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=n_dates, rng=seed)
     panel = fx.preprocess.compute_forward_return(raw, forward_periods=1)
     keep = panel["asset_id"].unique().sort().gather(range(survivors))
     return panel.with_columns(
@@ -63,7 +63,7 @@ def _dense_common_panel_with_asset_drops(
     This keeps the ``COMMON × DENSE × PANEL`` cell valid for ``evaluate()``
     while still exercising the assets-axis drop warning in ``compute_common_betas``.
     """
-    raw = fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=n_dates, seed=seed)
+    raw = fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=n_dates, rng=seed)
     panel = fx.preprocess.compute_forward_return(raw, forward_periods=1)
     common_factor = panel.group_by("date").agg(pl.col("factor").first())
     keep = panel["asset_id"].unique().sort().gather(range(survivors))
@@ -82,7 +82,7 @@ def _dense_common_panel_with_asset_drops(
 def _full_panel(
     *, n_assets: int = 40, n_dates: int = 50, seed: int = 0
 ) -> pl.DataFrame:
-    raw = fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=n_dates, seed=seed)
+    raw = fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=n_dates, rng=seed)
     return fx.preprocess.compute_forward_return(raw, forward_periods=1)
 
 

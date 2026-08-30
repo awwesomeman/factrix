@@ -93,13 +93,13 @@ def _check_n_resamples(n_resamples: int, *, func_name: str, docs_path: str) -> N
 #: have converged on), which is what nested or large-scale simulation needs.
 #: Lives here rather than in ``factrix._types`` because that module is the
 #: numpy-free home of numerical constants and ``Literal`` option aliases.
-Seed = int | np.random.Generator | None
+Rng = int | np.random.Generator | None
 
 
 def _resolve_rng(
-    seed: Seed, *, func_name: str, docs_path: str
+    rng: Rng, *, func_name: str, docs_path: str
 ) -> tuple[np.random.Generator, int | None]:
-    """Resolve a ``seed`` knob into ``(generator, reported_seed)``.
+    """Resolve an ``rng`` knob into ``(generator, reported_seed)``.
 
     The single place factrix builds a ``Generator``, so the three-way
     contract cannot drift between entry points:
@@ -122,16 +122,16 @@ def _resolve_rng(
     """
     from factrix._errors import UserInputError
 
-    if isinstance(seed, np.random.Generator):
-        return seed, None
-    if seed is None:
+    if isinstance(rng, np.random.Generator):
+        return rng, None
+    if rng is None:
         resolved = secrets.randbits(32)
         return np.random.default_rng(resolved), resolved
-    if isinstance(seed, bool) or not isinstance(seed, Integral):
+    if isinstance(rng, bool) or not isinstance(rng, Integral):
         raise UserInputError(
             func_name=func_name,
-            field="seed",
-            value=seed,
+            field="rng",
+            value=rng,
             expected=(
                 "an int (reproduces the run), None (one is drawn and "
                 "reported back), or a numpy.random.Generator (a stream the "
@@ -139,7 +139,7 @@ def _resolve_rng(
             ),
             docs_path=docs_path,
         )
-    resolved = int(seed)
+    resolved = int(rng)
     return np.random.default_rng(resolved), resolved
 
 
@@ -422,7 +422,7 @@ def _block_bootstrap_diff_p(
     block_length: int | Literal["auto"] = "auto",
     n_resamples: int = 999,
     overlap_periods: int | None = None,
-    seed: Seed = None,
+    rng: Rng = None,
 ) -> tuple[float, dict[str, float | int | str | None]]:
     r"""Two-sided empirical p for ``H₀: E[diff] = 0`` on a paired series.
 
@@ -486,7 +486,7 @@ def _block_bootstrap_diff_p(
             to rediscover it from a short noisy sample and systematically
             under-shoots (measured mean L of 7.95 against a needed 21 at
             T=60, h=21). Mirrors the HAC paths' bandwidth floor.
-        seed: ``None`` draws from system entropy and the resolved int is
+        rng: ``None`` draws from system entropy and the resolved int is
             returned in the metadata dict so the caller can record it; an
             ``int`` is reported unchanged; a ``numpy.random.Generator`` is
             used as-is and advanced, and the metadata reports ``None``
@@ -498,7 +498,7 @@ def _block_bootstrap_diff_p(
         whether the root was studentized, the Monte-Carlo SE of the
         reported p (``p_value_mc_se``), and the resolved seed (so the run
         is reproducible from the logged metadata even when the caller
-        passed ``seed=None``) — ``None`` when the caller supplied a
+        passed ``rng=None``) — ``None`` when the caller supplied a
         ``Generator``.
 
         A series too short to test (``n < 2``) returns ``p = nan`` with
@@ -517,7 +517,7 @@ def _block_bootstrap_diff_p(
     # Resolve up front so the degenerate path reports the same resolved seed
     # the testable path would, and a bogus seed is refused either way.
     rng, seed_used = _resolve_rng(
-        seed, func_name="StationaryBootstrap", docs_path="reference/statistical-methods"
+        rng, func_name="StationaryBootstrap", docs_path="reference/statistical-methods"
     )
     if n < 2:
         return float("nan"), {

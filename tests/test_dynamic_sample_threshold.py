@@ -67,11 +67,11 @@ class TestInspectDataPreflight:
         # overlap_periods=5 default needs MIN_SERIES_PERIODS_HARD*5 = 50 input periods;
         # 30 dates is short, so inspect_data now flags ic unusable — the floor
         # that used to be invisible at pre-flight.
-        short = fx.datasets.make_cs_panel(n_assets=40, n_dates=30, seed=0)
+        short = fx.datasets.make_cs_panel(n_assets=40, n_dates=30, rng=0)
         assert _by_name(inspect_data(short), "ic").usable is False
 
     def test_dynamic_floor_passes_long_panel(self):
-        long_panel = fx.datasets.make_cs_panel(n_assets=40, n_dates=120, seed=0)
+        long_panel = fx.datasets.make_cs_panel(n_assets=40, n_dates=120, rng=0)
         assert _by_name(inspect_data(long_panel), "ic").usable is True
 
 
@@ -84,7 +84,7 @@ def _cs_panel(n_dates: int, *, n_assets: int = 60, market_cap: bool = False):
     from factrix.preprocess import compute_forward_return
 
     panel = compute_forward_return(
-        fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=n_dates, seed=0),
+        fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=n_dates, rng=0),
         forward_periods=5,
     )
     if market_cap:

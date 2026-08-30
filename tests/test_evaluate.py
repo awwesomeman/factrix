@@ -492,7 +492,7 @@ class TestStrictCellSoftening:
         assert "sparse_ratio=0.40" in warn.message
 
     def test_sparse_factor_does_not_run_dense_ic_metric(self):
-        raw = fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0)
+        raw = fx.datasets.make_event_panel(n_assets=50, n_dates=400, rng=0)
         panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
         er = fx.evaluate(
             panel,

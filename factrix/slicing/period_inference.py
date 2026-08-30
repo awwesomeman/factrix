@@ -72,7 +72,7 @@ from factrix._codes import WarningCode, _validate_expected_warnings_arg
 from factrix._data_input import _resolve_overlap_periods
 from factrix._errors import UserInputError
 from factrix._stats.bootstrap import (
-    Seed,
+    Rng,
     _check_n_resamples,
     _empirical_p,
     _politis_white_block_length,
@@ -281,7 +281,7 @@ def slice_period_pairwise_test(
     method: Method = "bootstrap",
     overlap_periods: int | None = None,
     n_resamples: int = 999,
-    seed: Seed = None,
+    rng: Rng = None,
     strict: bool = True,
 ) -> pl.DataFrame:
     """Pairwise cross-slice contrasts for a **date-disjoint** partition.
@@ -325,7 +325,7 @@ def slice_period_pairwise_test(
             inference drawn from resamples enforces. The default 999 is
             [Politis-White (2004)][politis-white-2004]'s recommendation for
             two-sided 5% work.
-        seed: Reproducibility seed for the ``"bootstrap"`` path
+        rng: Reproducibility seed for the ``"bootstrap"`` path
             (ignored by ``"analytic"``). ``None`` draws from system
             entropy and the resolved int is reported in the ``seed``
             column; an ``int`` is reported unchanged; a
@@ -410,7 +410,7 @@ def slice_period_pairwise_test(
     # reproducible. The analytic path draws nothing and reports null, but the
     # seed is still validated so a bogus type is refused on both paths.
     rng, seed_used = _resolve_rng(
-        seed, func_name="slice_period_pairwise_test", docs_path=_DOCS_SLICE
+        rng, func_name="slice_period_pairwise_test", docs_path=_DOCS_SLICE
     )
     seed_reported = seed_used if method == "bootstrap" else None
     tested = [i for i, lbl in enumerate(labels) if lbl not in built.thin]
@@ -694,7 +694,7 @@ def slice_period_joint_test(
     method: Method = "bootstrap",
     overlap_periods: int | None = None,
     n_resamples: int = 999,
-    seed: Seed = None,
+    rng: Rng = None,
     strict: bool = True,
     expected_warnings: tuple[str, ...] = (),
 ) -> pl.DataFrame:
@@ -737,7 +737,7 @@ def slice_period_joint_test(
             inference drawn from resamples enforces. The default 999 is
             [Politis-White (2004)][politis-white-2004]'s recommendation for
             two-sided 5% work.
-        seed: Reproducibility seed for the ``"bootstrap"`` path
+        rng: Reproducibility seed for the ``"bootstrap"`` path
             (ignored by ``"analytic"``). ``None`` draws from system
             entropy and the resolved int is reported in the ``seed``
             column; an ``int`` is reported unchanged; a
@@ -836,7 +836,7 @@ def slice_period_joint_test(
     # Resolved before the unavailable-row short-circuits so every row carries
     # the same column, and so a bogus seed is refused on both methods.
     rng, seed_used = _resolve_rng(
-        seed, func_name="slice_period_joint_test", docs_path=_DOCS_SLICE
+        rng, func_name="slice_period_joint_test", docs_path=_DOCS_SLICE
     )
     seed_reported = seed_used if method == "bootstrap" else None
     op = _resolve_overlap_periods(

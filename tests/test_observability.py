@@ -10,7 +10,7 @@ def test_dag_logger_plan_and_execution(caplog):
     # Set the level of the factrix.dag logger to DEBUG
     logging.getLogger("factrix.dag").setLevel(logging.DEBUG)
 
-    raw = fx.datasets.make_cs_panel(n_assets=15, n_dates=80, seed=0)
+    raw = fx.datasets.make_cs_panel(n_assets=15, n_dates=80, rng=0)
     data = fx.preprocess.compute_forward_return(raw, forward_periods=5)
 
     with caplog.at_level(logging.DEBUG, logger="factrix.dag"):
@@ -38,7 +38,7 @@ def test_metric_logger_short_circuit(caplog):
     logging.getLogger("factrix.metric.ic").setLevel(logging.INFO)
 
     # Create too thin dataset to force short-circuit (less than MIN_SERIES_PERIODS_HARD * 5).
-    raw = fx.datasets.make_cs_panel(n_assets=15, n_dates=10, seed=0)
+    raw = fx.datasets.make_cs_panel(n_assets=15, n_dates=10, rng=0)
     data = fx.preprocess.compute_forward_return(raw, forward_periods=5)
 
     with caplog.at_level(logging.INFO, logger="factrix.metric.ic"):

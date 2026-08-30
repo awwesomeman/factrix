@@ -49,7 +49,7 @@ import factrix as fx
 from factrix.metrics import quantile_spread, monotonicity
 
 # Generate synthetic data
-raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=200, seed=42)
+raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=200, rng=42)
 panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
 
 # Call metrics directly. `compute_forward_return` stamps the panel's overlap
@@ -102,7 +102,7 @@ directly.
 import factrix as fx
 from factrix.metrics import ic, quantile_spread, monotonicity
 
-raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=200, seed=42)
+raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=200, rng=42)
 panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
 
 results = fx.evaluate(
@@ -138,7 +138,7 @@ To find only the metrics that are statistically applicable to a specific panel's
 ```python
 import factrix as fx
 
-raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=200, seed=42)
+raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=200, rng=42)
 panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
 
 inspection = fx.inspect_data(panel)

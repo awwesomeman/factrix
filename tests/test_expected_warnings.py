@@ -25,12 +25,12 @@ from factrix.metrics import ic, ic_ir, quantile_spread
 
 
 def _thin_panel(n_assets: int = 6, n_dates: int = 220) -> pl.DataFrame:
-    raw = fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=n_dates, seed=11)
+    raw = fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=n_dates, rng=11)
     return fx.preprocess.compute_forward_return(raw, forward_periods=5)
 
 
 def _wide_panel(n_assets: int = 60, n_dates: int = 220) -> pl.DataFrame:
-    raw = fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=n_dates, seed=11)
+    raw = fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=n_dates, rng=11)
     return fx.preprocess.compute_forward_return(raw, forward_periods=5)
 
 
@@ -214,7 +214,7 @@ class TestDeclarationSurface:
         assert few and all(w.expected for w in few)
 
     def test_evaluate_horizons_forwards_declaration(self):
-        raw = fx.datasets.make_cs_panel(n_assets=6, n_dates=260, seed=11)
+        raw = fx.datasets.make_cs_panel(n_assets=6, n_dates=260, rng=11)
         results = fx.evaluate_horizons(
             raw,
             metrics={"ic": ic()},

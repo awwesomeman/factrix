@@ -37,7 +37,7 @@ def _sector_panel(
     """Raw cross-sectional panel with an asset-level ``sector`` column
     (cross-sectional axis: constant within each asset) and a date-derived
     ``year`` column (date axis: varies within an asset over time)."""
-    raw = fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=n_dates, seed=seed)
+    raw = fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=n_dates, rng=seed)
     panel = compute_forward_return(raw, forward_periods=5)
     assets = panel["asset_id"].unique().sort().to_list()
     sector = {a: ("tech" if i % 2 else "fin") for i, a in enumerate(assets)}

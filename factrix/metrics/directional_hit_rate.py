@@ -163,7 +163,7 @@ def directional_hit_rate(
         >>> from factrix.preprocess import compute_forward_return
         >>> from factrix.metrics.directional_hit_rate import directional_hit_rate
         >>> panel = compute_forward_return(
-        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, rng=0),
         ...     forward_periods=5,
         ... )
         >>> result = directional_hit_rate(panel, overlap_periods=5)

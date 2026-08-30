@@ -335,7 +335,7 @@ class TestIC:
         import factrix as fx
         from factrix._codes import WarningCode
 
-        raw = fx.datasets.make_cs_panel(n_assets=8, n_dates=120, seed=0)
+        raw = fx.datasets.make_cs_panel(n_assets=8, n_dates=120, rng=0)
         panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
         with pytest.warns(UserWarning, match="MIN_IC_ASSETS_WARN"):
             result = ic(compute_ic(panel)["factor"], overlap_periods=5)
@@ -545,7 +545,7 @@ class TestICDispatch:
         from factrix.preprocess import compute_forward_return
 
         panel = compute_forward_return(
-            fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+            fx.datasets.make_cs_panel(n_assets=80, n_dates=180, rng=0),
             forward_periods=5,
         )
         return compute_ic(panel)["factor"]
@@ -681,7 +681,7 @@ class TestPersistentIcSeriesWarning:
         from factrix.preprocess import compute_forward_return
 
         panel = compute_forward_return(
-            fx.datasets.make_cs_panel(n_assets=40, n_dates=300, seed=0),
+            fx.datasets.make_cs_panel(n_assets=40, n_dates=300, rng=0),
             forward_periods=5,
         )
         result = ic(compute_ic(panel)["factor"], overlap_periods=5)
@@ -705,7 +705,7 @@ class TestEffectiveSampleFloor:
         from factrix.preprocess import compute_forward_return
 
         return compute_forward_return(
-            fx.datasets.make_cs_panel(n_assets=20, n_dates=n_dates, seed=1),
+            fx.datasets.make_cs_panel(n_assets=20, n_dates=n_dates, rng=1),
             forward_periods=forward_periods,
         )
 

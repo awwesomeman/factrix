@@ -236,7 +236,7 @@ def rank_turnover(
     Examples:
         >>> import factrix as fx
         >>> from factrix.metrics.tradability import rank_turnover
-        >>> panel = fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0)
+        >>> panel = fx.datasets.make_cs_panel(n_assets=80, n_dates=180, rng=0)
         >>> result = rank_turnover(panel, rebalance_lag=1)
         >>> result.name == ""
         True
@@ -484,7 +484,7 @@ def notional_turnover(
     Examples:
         >>> import factrix as fx
         >>> from factrix.metrics.tradability import notional_turnover
-        >>> panel = fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0)
+        >>> panel = fx.datasets.make_cs_panel(n_assets=80, n_dates=180, rng=0)
         >>> result = notional_turnover(panel, n_groups=10, rebalance_lag=1)
         >>> result.name == ""
         True

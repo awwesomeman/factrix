@@ -345,7 +345,7 @@ class TestQuantileSpreadInference:
     def _ample_panel():
         import factrix as fx
 
-        raw = fx.datasets.make_cs_panel(n_assets=80, n_dates=400, seed=5)
+        raw = fx.datasets.make_cs_panel(n_assets=80, n_dates=400, rng=5)
         return fx.preprocess.compute_forward_return(raw, forward_periods=5)
 
     def test_explicit_non_overlapping_is_bit_for_bit_default(self):
@@ -381,7 +381,7 @@ class TestQuantileSpreadInference:
         import factrix as fx
         from factrix._codes import WarningCode
 
-        raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=400, seed=6)
+        raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=400, rng=6)
         panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
         nw = quantile_spread(
             panel, overlap_periods=5, n_groups=5, inference=fx.inference.NEWEY_WEST
@@ -425,7 +425,7 @@ class TestThinQuantileGroups:
         import factrix as fx
 
         # 8 assets, n_groups=5 → ~1 asset per bucket → thin.
-        raw = fx.datasets.make_cs_panel(n_assets=8, n_dates=200, seed=0)
+        raw = fx.datasets.make_cs_panel(n_assets=8, n_dates=200, rng=0)
         return fx.preprocess.compute_forward_return(raw, forward_periods=5)
 
     def test_structured_code_present_on_thin_groups(self):
@@ -444,7 +444,7 @@ class TestThinQuantileGroups:
         import factrix as fx
         from factrix._codes import WarningCode
 
-        raw = fx.datasets.make_cs_panel(n_assets=80, n_dates=200, seed=1)
+        raw = fx.datasets.make_cs_panel(n_assets=80, n_dates=200, rng=1)
         panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
         res = quantile_spread(panel, overlap_periods=5, n_groups=5)["factor"]
         assert WarningCode.THIN_QUANTILE_GROUPS.value not in res.warning_codes
@@ -736,7 +736,7 @@ class TestSmallCrossSectionSize:
                         n_dates=157,
                         ic_target=0.0,
                         signal_horizon=5,
-                        seed=seed,
+                        rng=seed,
                     ),
                     forward_periods=5,
                 )
@@ -756,7 +756,7 @@ class TestQuantileSpreadVwThroughEvaluate:
         import factrix as fx
 
         panel = fx.preprocess.compute_forward_return(
-            fx.datasets.make_cs_panel(n_assets=40, n_dates=120, seed=0),
+            fx.datasets.make_cs_panel(n_assets=40, n_dates=120, rng=0),
             forward_periods=2,
         )
         if with_weights:

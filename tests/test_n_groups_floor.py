@@ -33,7 +33,7 @@ from factrix.preprocess import compute_forward_return
 
 
 def _panel(n_assets: int = 8, n_dates: int = 60) -> pl.DataFrame:
-    raw = fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=n_dates, seed=0)
+    raw = fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=n_dates, rng=0)
     return compute_forward_return(raw, forward_periods=DEFAULT_FORWARD_PERIODS)
 
 

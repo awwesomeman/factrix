@@ -14,9 +14,7 @@ from factrix.preprocess import compute_forward_return
 
 
 def test_readme_quickstart_runs_end_to_end() -> None:
-    raw = fx.datasets.make_cs_panel(
-        n_assets=100, n_dates=500, ic_target=0.08, seed=2024
-    )
+    raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, rng=2024)
     panel = compute_forward_return(raw, forward_periods=5)
 
     from factrix.metrics import ic
@@ -35,7 +33,7 @@ def test_readme_multi_factor_bhy_screening() -> None:
     from factrix.metrics import ic
 
     raw_mf = fx.datasets.make_multi_factor_panel(
-        n_factors=3, n_assets=100, n_dates=500, seed=2024
+        n_factors=3, n_assets=100, n_dates=500, rng=2024
     )
     data_mf = compute_forward_return(raw_mf, forward_periods=5)
 
@@ -57,7 +55,7 @@ def test_readme_multi_horizon_sweep_is_warning_free() -> None:
     from factrix.metrics import ic
 
     raw_mf = fx.datasets.make_multi_factor_panel(
-        n_factors=3, n_assets=100, n_dates=500, seed=2024
+        n_factors=3, n_assets=100, n_dates=500, rng=2024
     )
     factor_cols = ["factor_0000", "factor_0001", "factor_0002"]
     horizons = [1, 5, 10]

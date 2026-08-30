@@ -223,7 +223,7 @@ def common_beta(
         >>> from factrix.preprocess import compute_forward_return
         >>> from factrix.metrics.common_beta import compute_common_betas, common_beta
         >>> panel = compute_forward_return(
-        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, rng=0),
         ...     forward_periods=5,
         ... )
         >>> common_betas_df = compute_common_betas(panel)["factor"]
@@ -477,7 +477,7 @@ def common_beta_r_squared(
         >>> from factrix.preprocess import compute_forward_return
         >>> from factrix.metrics.common_beta import compute_common_betas, common_beta_r_squared
         >>> panel = compute_forward_return(
-        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, rng=0),
         ...     forward_periods=5,
         ... )
         >>> common_betas_df = compute_common_betas(panel)["factor"]
@@ -602,7 +602,7 @@ def compute_rolling_common_beta(
         >>> from factrix.preprocess import compute_forward_return
         >>> from factrix.metrics.common_beta import compute_rolling_common_beta
         >>> panel = compute_forward_return(
-        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, rng=0),
         ...     forward_periods=5,
         ... )
         >>> rolling = compute_rolling_common_beta(panel, window=60)
@@ -738,7 +738,7 @@ def common_beta_sign_consistency(
         ...     common_beta_sign_consistency,
         ... )
         >>> panel = compute_forward_return(
-        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, rng=0),
         ...     forward_periods=5,
         ... )
         >>> common_betas_df = compute_common_betas(panel)["factor"]

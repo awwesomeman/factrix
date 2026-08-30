@@ -82,7 +82,7 @@ def _ic_p(seed) -> tuple[float, object]:
     result = ic(
         _ic_series(),
         overlap_periods=1,
-        inference=StationaryBootstrap(n_resamples=_B, seed=seed),
+        inference=StationaryBootstrap(n_resamples=_B, rng=seed),
     )
     return result.p_value, result.metadata["seed"]
 
@@ -110,19 +110,19 @@ class TestStationaryBootstrapSeed:
     def test_bogus_type_rejected(self) -> None:
         with pytest.raises(UserInputError) as excinfo:
             _ic_p("11")
-        assert excinfo.value.field == "seed"
+        assert excinfo.value.field == "rng"
 
     def test_degenerate_path_reports_the_resolved_seed(self) -> None:
         """A series too short to test still reports a usable seed, not -1."""
         from factrix._stats.bootstrap import _block_bootstrap_diff_p
 
-        _, metadata = _block_bootstrap_diff_p(np.array([1.0]), n_resamples=_B, seed=3)
+        _, metadata = _block_bootstrap_diff_p(np.array([1.0]), n_resamples=_B, rng=3)
         assert metadata["seed"] == 3
         _, metadata = _block_bootstrap_diff_p(np.array([1.0]), n_resamples=_B)
         assert isinstance(metadata["seed"], int)
         assert metadata["seed"] >= 0
         _, metadata = _block_bootstrap_diff_p(
-            np.array([1.0]), n_resamples=_B, seed=np.random.default_rng(3)
+            np.array([1.0]), n_resamples=_B, rng=np.random.default_rng(3)
         )
         assert metadata["seed"] is None
 
@@ -134,7 +134,7 @@ class TestStationaryBootstrapSeed:
 
 def _mono(seed) -> tuple[float, object]:
     result = monotonicity(
-        _monotonicity_panel(), overlap_periods=1, n_groups=5, n_resamples=_B, seed=seed
+        _monotonicity_panel(), overlap_periods=1, n_groups=5, n_resamples=_B, rng=seed
     )["factor"]
     return result.p_value, result.metadata["seed"]
 
@@ -162,7 +162,7 @@ class TestMonotonicitySeed:
     def test_bogus_type_rejected(self) -> None:
         with pytest.raises(UserInputError) as excinfo:
             _mono(1.5)
-        assert excinfo.value.field == "seed"
+        assert excinfo.value.field == "rng"
 
 
 # ---------------------------------------------------------------------------
@@ -178,7 +178,7 @@ def _pairwise(seed, method: str = "bootstrap"):
         factor_col="factor",
         method=method,
         n_resamples=_B,
-        seed=seed,
+        rng=seed,
     )
     return list(out["p_raw"]), out["seed"][0]
 
@@ -191,7 +191,7 @@ def _joint(seed, method: str = "bootstrap"):
         factor_col="factor",
         method=method,
         n_resamples=_B,
-        seed=seed,
+        rng=seed,
     )
     return out["p_value"][0], out["seed"][0]
 
@@ -223,7 +223,7 @@ class TestSlicePeriodSeed:
     def test_bogus_type_rejected(self, run) -> None:
         with pytest.raises(UserInputError) as excinfo:
             run(object())
-        assert excinfo.value.field == "seed"
+        assert excinfo.value.field == "rng"
 
 
 # ---------------------------------------------------------------------------
@@ -238,24 +238,24 @@ class TestStatsBootstrapSeed:
 
     def test_same_int_reproduces(self) -> None:
         values = self._values()
-        first = stationary_bootstrap_resamples(values, _B, seed=11)
-        second = stationary_bootstrap_resamples(values, _B, seed=11)
+        first = stationary_bootstrap_resamples(values, _B, rng=11)
+        second = stationary_bootstrap_resamples(values, _B, rng=11)
         assert np.array_equal(first, second)
 
     def test_one_generator_advances(self) -> None:
         values = self._values()
         gen = np.random.default_rng(11)
-        first = stationary_bootstrap_resamples(values, _B, seed=gen)
-        second = stationary_bootstrap_resamples(values, _B, seed=gen)
+        first = stationary_bootstrap_resamples(values, _B, rng=gen)
+        second = stationary_bootstrap_resamples(values, _B, rng=gen)
         assert not np.array_equal(first, second)
 
     def test_equal_generators_agree(self) -> None:
         values = self._values()
         first = stationary_bootstrap_resamples(
-            values, _B, seed=np.random.default_rng(11)
+            values, _B, rng=np.random.default_rng(11)
         )
         second = stationary_bootstrap_resamples(
-            values, _B, seed=np.random.default_rng(11)
+            values, _B, rng=np.random.default_rng(11)
         )
         assert np.array_equal(first, second)
 
@@ -264,16 +264,14 @@ class TestStatsBootstrapSeed:
 
     def test_bogus_type_rejected(self) -> None:
         with pytest.raises(UserInputError) as excinfo:
-            stationary_bootstrap_resamples(self._values(), _B, seed="11")
-        assert excinfo.value.field == "seed"
+            stationary_bootstrap_resamples(self._values(), _B, rng="11")
+        assert excinfo.value.field == "rng"
 
     def test_bootstrap_mean_ci_takes_a_generator(self) -> None:
         values = self._values()
-        first = bootstrap_mean_ci(
-            values, n_resamples=_B, seed=np.random.default_rng(11)
-        )
+        first = bootstrap_mean_ci(values, n_resamples=_B, rng=np.random.default_rng(11))
         second = bootstrap_mean_ci(
-            values, n_resamples=_B, seed=np.random.default_rng(11)
+            values, n_resamples=_B, rng=np.random.default_rng(11)
         )
         assert first == second
         assert all(math.isfinite(v) for v in first)
@@ -286,21 +284,21 @@ class TestStatsBootstrapSeed:
 
 class TestDatasetsSeed:
     def test_same_int_reproduces(self) -> None:
-        assert make_cs_panel(seed=11).equals(make_cs_panel(seed=11))
+        assert make_cs_panel(rng=11).equals(make_cs_panel(rng=11))
 
     def test_one_generator_advances(self) -> None:
         gen = np.random.default_rng(11)
-        assert not make_cs_panel(seed=gen).equals(make_cs_panel(seed=gen))
+        assert not make_cs_panel(rng=gen).equals(make_cs_panel(rng=gen))
 
     def test_equal_generators_agree(self) -> None:
-        assert make_cs_panel(seed=np.random.default_rng(11)).equals(
-            make_cs_panel(seed=np.random.default_rng(11))
+        assert make_cs_panel(rng=np.random.default_rng(11)).equals(
+            make_cs_panel(rng=np.random.default_rng(11))
         )
 
     def test_none_still_draws(self) -> None:
-        assert make_cs_panel(seed=None).height > 0
+        assert make_cs_panel(rng=None).height > 0
 
     def test_bogus_type_rejected(self) -> None:
         with pytest.raises(UserInputError) as excinfo:
-            make_cs_panel(seed="11")
-        assert excinfo.value.field == "seed"
+            make_cs_panel(rng="11")
+        assert excinfo.value.field == "rng"

@@ -305,7 +305,7 @@ def ic(
         >>> from factrix.preprocess import compute_forward_return
         >>> from factrix.metrics.ic import compute_ic, ic
         >>> panel = compute_forward_return(
-        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, rng=0),
         ...     forward_periods=5,
         ... )
         >>> ic_df = compute_ic(panel)["factor"]
@@ -466,7 +466,7 @@ def ic_ir(
         >>> from factrix.preprocess import compute_forward_return
         >>> from factrix.metrics.ic import compute_ic, ic_ir
         >>> panel = compute_forward_return(
-        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, rng=0),
         ...     forward_periods=5,
         ... )
         >>> ic_df = compute_ic(panel)["factor"]

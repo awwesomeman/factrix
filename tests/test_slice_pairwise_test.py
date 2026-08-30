@@ -118,7 +118,7 @@ def test_caar_metric_accepted_for_event_slices() -> None:
         n_dates=160,
         event_rate=0.20,
         post_event_drift_bps=30.0,
-        seed=6,
+        rng=6,
     )
     panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
     assets = panel["asset_id"].unique().sort().to_list()

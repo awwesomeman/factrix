@@ -446,7 +446,7 @@ class TestDeclaredEventFloorsVisible:
 
 class TestEventAxisPreflight:
     def _event_panel(self):
-        return fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0)
+        return fx.datasets.make_event_panel(n_assets=50, n_dates=400, rng=0)
 
     def test_n_events_counts_nonzero_factor_rows(self):
         import polars as pl
@@ -496,7 +496,7 @@ class TestContinuousMagnitudePreflight:
     block it on a discrete +/-k signal, matching its run-time short-circuit."""
 
     def _ternary_event_panel(self):
-        raw = fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0)
+        raw = fx.datasets.make_event_panel(n_assets=50, n_dates=400, rng=0)
         return fx.preprocess.compute_forward_return(raw, forward_periods=5)
 
     def _continuous_magnitude_panel(self):
@@ -601,7 +601,7 @@ class TestDataLevelWarnings:
         # usable, but the cross-sectional clustering_hhi stays blocked. The
         # data-level warning names it so its absence from `usable` is explained.
         info = inspect_data(
-            fx.datasets.make_event_panel(n_assets=1, n_dates=400, seed=0)
+            fx.datasets.make_event_panel(n_assets=1, n_dates=400, rng=0)
         )
         warn = [w for w in info.warnings if w.code.value == "single_asset_event_data"]
         assert len(warn) == 1
@@ -614,7 +614,7 @@ class TestDataLevelWarnings:
 
     def test_multi_asset_event_panel_no_single_asset_warning(self):
         info = inspect_data(
-            fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0)
+            fx.datasets.make_event_panel(n_assets=50, n_dates=400, rng=0)
         )
         codes = [w.code.value for w in info.warnings]
         assert "single_asset_event_data" not in codes
@@ -633,7 +633,7 @@ class TestEventAxisSingleAsset:
 
     @staticmethod
     def _panel() -> pl.DataFrame:
-        return fx.datasets.make_event_panel(n_assets=1, n_dates=400, seed=0)
+        return fx.datasets.make_event_panel(n_assets=1, n_dates=400, rng=0)
 
     def test_event_axis_metrics_usable_on_single_asset(self):
         info = inspect_data(self._panel())
@@ -847,8 +847,8 @@ class TestCrossFactorConsistency:
 
     def test_multi_factor_consistent_no_warning(self):
         # Two factor columns, both individual dense
-        raw = fx.datasets.make_cs_panel(n_assets=10, n_dates=30, seed=1)
-        raw2 = fx.datasets.make_cs_panel(n_assets=10, n_dates=30, seed=2)
+        raw = fx.datasets.make_cs_panel(n_assets=10, n_dates=30, rng=1)
+        raw2 = fx.datasets.make_cs_panel(n_assets=10, n_dates=30, rng=2)
         # Merge them
         data = raw.join(
             raw2.select("date", "asset_id", pl.col("factor").alias("factor2")),
@@ -862,7 +862,7 @@ class TestCrossFactorConsistency:
 
     def test_multi_factor_inconsistent_warnings(self):
         # factor: individual dense
-        raw = fx.datasets.make_cs_panel(n_assets=10, n_dates=30, seed=1)
+        raw = fx.datasets.make_cs_panel(n_assets=10, n_dates=30, rng=1)
 
         # factor2: common dense (scope mismatch)
         one_per_date = raw.group_by("date").agg(pl.col("factor").first())
@@ -909,7 +909,7 @@ class TestCrossFactorConsistency:
         assert "asset-specific and common macro factors" in scope_warning.message
 
     def test_factor_cols_restricts_scope(self):
-        raw = fx.datasets.make_cs_panel(n_assets=10, n_dates=30, seed=1)
+        raw = fx.datasets.make_cs_panel(n_assets=10, n_dates=30, rng=1)
         # factor2: common dense
         one_per_date = raw.group_by("date").agg(pl.col("factor").first())
         common = (
@@ -918,7 +918,7 @@ class TestCrossFactorConsistency:
             .select("date", "asset_id", pl.col("factor").alias("factor2"))
         )
         # factor3: individual dense (consistent with factor)
-        raw3 = fx.datasets.make_cs_panel(n_assets=10, n_dates=30, seed=3)
+        raw3 = fx.datasets.make_cs_panel(n_assets=10, n_dates=30, rng=3)
 
         data = raw.join(common, on=["date", "asset_id"]).join(
             raw3.select("date", "asset_id", pl.col("factor").alias("factor3")),
@@ -933,7 +933,7 @@ class TestCrossFactorConsistency:
         assert mismatch_codes == set()
 
     def test_auto_detect_excludes_reserved_columns(self):
-        raw = fx.datasets.make_cs_panel(n_assets=10, n_dates=30, seed=1)
+        raw = fx.datasets.make_cs_panel(n_assets=10, n_dates=30, rng=1)
         data = raw.with_columns(pl.lit(1.0).alias("forward_return")).with_columns(
             pl.col("factor").alias("factor2")
         )

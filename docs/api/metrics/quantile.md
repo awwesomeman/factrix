@@ -80,7 +80,7 @@ title: factrix.metrics.quantile
     from factrix.preprocess import compute_forward_return
 
     raw   = fx.datasets.make_cs_panel(
-        n_assets=200, n_dates=500, ic_target=0.08, seed=2024,
+        n_assets=200, n_dates=500, ic_target=0.08, rng=2024,
     )
     # The generator emits the canonical four columns only; value-weighting
     # needs a `market_cap`, so attach a deterministic per-asset size ladder.
@@ -120,7 +120,7 @@ title: factrix.metrics.quantile
     from factrix.inference import StationaryBootstrap
 
     boot = quantile_spread(panel, overlap_periods=5, n_groups=5,
-                           inference=StationaryBootstrap(seed=0))["factor"]
+                           inference=StationaryBootstrap(rng=0))["factor"]
     print(boot.value, boot.p_value, boot.n_obs)
     # 0.001903  0.001  494
     print(boot.metadata["n_resamples"], boot.metadata["seed"],

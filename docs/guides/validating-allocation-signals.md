@@ -111,7 +111,7 @@ from factrix.metrics import directional_hit_rate, directional_pair_accuracy, ic
 from factrix.metrics import ic_ir, k_spread
 from factrix.preprocess import compute_forward_return
 
-raw = fx.datasets.make_cs_panel(n_assets=12, n_dates=252, seed=2024)
+raw = fx.datasets.make_cs_panel(n_assets=12, n_dates=252, rng=2024)
 panel = compute_forward_return(raw, forward_periods=5)
 
 inspection = fx.inspect_data(panel, factor_cols=["factor"])
