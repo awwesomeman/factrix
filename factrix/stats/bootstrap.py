@@ -35,7 +35,7 @@ from typing import Literal, NamedTuple
 
 import numpy as np
 
-from factrix._stats.bootstrap import _check_n_resamples
+from factrix._stats.bootstrap import Seed, _check_n_resamples, _resolve_rng
 
 
 def _resolve_auto_block_length(values: np.ndarray) -> float:
@@ -63,7 +63,7 @@ def stationary_bootstrap_resamples(
     n_resamples: int = 999,
     *,
     block_length: float | None = None,
-    seed: int | None = None,
+    seed: Seed = None,
 ) -> np.ndarray:
     """Draw ``n_resamples`` stationary-bootstrap resamples of ``values``.
 
@@ -92,8 +92,11 @@ def stationary_bootstrap_resamples(
             same bound and raises ``UserInputError`` outside it, rather
             than being silently passed through: at ``L >= T`` a circular
             resample degenerates to a rotation of the input.
-        seed: Seed for ``np.random.default_rng`` to make the resample
-            reproducible.
+        seed: An ``int`` makes the resample reproducible, ``None`` draws
+            one from system entropy, and a ``numpy.random.Generator`` is
+            used as-is and advanced by the call, so consecutive calls on
+            one generator draw different resamples. The resolved seed is
+            not reported: this function returns draws, not an inference.
 
     Returns:
         ``(n_resamples, T)`` array for vector input or
@@ -158,7 +161,11 @@ def stationary_bootstrap_resamples(
     if block_length < 1.0:
         raise ValueError(f"block_length must be >= 1.0, got {block_length!r}")
 
-    rng = np.random.default_rng(seed)
+    rng, _ = _resolve_rng(
+        seed,
+        func_name="stationary_bootstrap_resamples",
+        docs_path="api/stats#factrix.stats.stationary_bootstrap_resamples",
+    )
     idx = _stationary_block_indices(n, n_resamples, float(block_length), rng)
     return values[idx]
 
@@ -183,7 +190,7 @@ def bootstrap_mean_ci(
     n_resamples: int = 999,
     ci: float = 0.95,
     block_length: float | None = None,
-    seed: int | None = None,
+    seed: Seed = None,
     statistic: Callable[[np.ndarray], float] | None = None,
     method: Literal["studentized", "percentile"] = "studentized",
 ) -> BootstrapCI:
@@ -240,7 +247,10 @@ def bootstrap_mean_ci(
             against ``[1, ceil(min(3*sqrt(T), T/3))]``; a length at or
             past ``T`` used to collapse every resample to a rotation of
             the input and return a zero-width interval.
-        seed: Reproducibility seed.
+        seed: An ``int`` reproduces the interval, ``None`` draws one from
+            system entropy, and a ``numpy.random.Generator`` is used as-is
+            and advanced by the call. Not reported back: this function
+            returns an interval, not a metadata-carrying result.
         statistic: Scalar function applied to each resample. Defaults
             to ``np.mean``.
         method: ``"studentized"`` (default) or ``"percentile"``. The

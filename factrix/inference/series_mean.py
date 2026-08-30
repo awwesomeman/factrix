@@ -36,6 +36,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
 from factrix._codes import WarningCode
+from factrix._stats.bootstrap import Seed
 from factrix._stats.constants import (
     MIN_PERIODS_HARD,
     MIN_PERIODS_WARN,
@@ -361,13 +362,24 @@ class StationaryBootstrap:
             The default 999 is [Politis-White (2004)][politis-white-2004]'s
             recommendation for two-sided 5% work; the Monte-Carlo cost of a
             lower ``B`` is reported as ``metadata["p_value_mc_se"]``.
-        seed: Reproducibility seed. ``None`` draws from system entropy and
-            reports the resolved seed in ``metadata["seed"]``, so a run
-            stays reproducible after the fact.
+        seed: An ``int``, ``None``, or a ``numpy.random.Generator``.
+            ``None`` draws from system entropy and reports the resolved
+            seed in ``metadata["seed"]``, so a run stays reproducible after
+            the fact.
+
+            A ``Generator`` is a stream the caller owns: the member is
+            frozen, but each ``compute`` call *advances* that stream, so
+            two calls on one instance draw different resamples and give
+            different p-values. That is the ``Generator`` semantics numpy
+            and scipy share, and it is the point of the type — a nested or
+            large-scale simulation runs off one stream. ``metadata["seed"]``
+            is then ``None``: only the caller can reproduce the draw. Pass
+            an ``int`` (or ``None``) whenever a single run must be
+            reproducible from its own metadata.
     """
 
     n_resamples: int = 999
-    seed: int | None = None
+    seed: Seed = None
 
     test: ClassVar[str] = "bootstrap-mean"
     se: ClassVar[str | None] = "bootstrap"

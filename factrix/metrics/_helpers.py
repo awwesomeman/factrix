@@ -131,7 +131,8 @@ def _surface_inference_run_metadata(
     them. Surfacing them keeps a reported empirical p reproducible from the
     result alone and puts its Monte-Carlo error next to it. Shared by ``ic``
     and the spread chokepoint so both report the same three keys under the
-    same names.
+    same names. ``seed`` is ``None`` when the caller supplied a
+    ``numpy.random.Generator`` — that stream is the caller's to reproduce.
     """
     for key in ("n_resamples", "seed", "p_value_mc_se"):
         if key in result.metadata:

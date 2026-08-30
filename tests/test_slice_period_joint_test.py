@@ -24,6 +24,7 @@ _JOINT_COLS = [
     "df_denom",
     "multiplicity",
     "min_periods",
+    "seed",
     "short_slice_periods",
     "warning_codes",
     "unexpected_warning_codes",

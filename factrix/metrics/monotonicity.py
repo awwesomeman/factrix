@@ -32,7 +32,12 @@ from factrix._errors import UserInputError
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_t
-from factrix._stats.bootstrap import _check_n_resamples, _empirical_p
+from factrix._stats.bootstrap import (
+    Seed,
+    _check_n_resamples,
+    _empirical_p,
+    _resolve_rng,
+)
 from factrix._types import (
     DDOF,
     MIN_MONOTONICITY_PERIODS_HARD,
@@ -104,7 +109,7 @@ def _mr_test(
     *,
     direction: MRDirection,
     n_resamples: int,
-    seed: int | None,
+    seed: Seed,
 ) -> tuple[float, float, dict[str, object]]:
     """Patton-Timmermann (2010) MR test on a ``(n_periods, n_groups)`` block.
 
@@ -132,11 +137,12 @@ def _mr_test(
     delta_bar = diffs.mean(axis=0)
     j_stat = float(delta_bar.min())
 
-    if seed is None:
-        # Mirror ``StationaryBootstrap``: resolve a seed and report it, so a run
-        # is reproducible after the fact without a mandatory knob.
-        seed = int(np.random.default_rng().integers(0, 2**31 - 1))
-    resamples = stationary_bootstrap_resamples(diffs, n_resamples, seed=seed)
+    # Mirror ``StationaryBootstrap``: resolve the seed and report it, so a run
+    # is reproducible after the fact without a mandatory knob.
+    rng, seed_used = _resolve_rng(
+        seed, func_name="monotonicity", docs_path="api/metrics/monotonicity"
+    )
+    resamples = stationary_bootstrap_resamples(diffs, n_resamples, seed=rng)
     # (B, T, K-1) -> (B, K-1) bootstrap means, recentred under H0.
     j_star = (resamples.mean(axis=1) - delta_bar).min(axis=1)
     p_value, p_mc_se = _empirical_p(
@@ -148,7 +154,7 @@ def _mr_test(
         "mr_min_diff": j_stat,
         "mr_adjacent_diffs": [float(v) for v in delta_bar],
         "n_resamples": n_resamples,
-        "seed": seed,
+        "seed": seed_used,
         "p_value_mc_se": p_mc_se,
     }
     return j_stat, p_value, metadata
@@ -171,7 +177,7 @@ def monotonicity(
     tie_policy: str = "ordinal",
     direction: MRDirection = "increasing",
     n_resamples: int = 999,
-    seed: int | None = None,
+    seed: Seed = None,
     expected_warnings: tuple[str, ...] = (),
 ) -> dict[str, MetricResult]:
     """Quantile return monotonicity — Patton-Timmermann (2010) MR test.
@@ -205,10 +211,13 @@ def monotonicity(
             near 0.05 carries ~0.7pp of MC SE, so 0.043 and 0.058 are one
             draw apart; raise ``n_resamples`` to shrink it, since no amount
             of data does.
-        seed: Bootstrap seed. ``None`` resolves one and reports it in
-            ``metadata["seed"]``, so a run stays reproducible after
-            the fact. An unseeded re-run redraws the null, moving the p by
-            roughly ``metadata["p_value_mc_se"]``.
+        seed: Bootstrap seed — an ``int``, ``None``, or a
+            ``numpy.random.Generator``. ``None`` resolves one and reports it
+            in ``metadata["seed"]``, so a run stays reproducible after the
+            fact; a ``Generator`` is used as-is and advanced, and
+            ``metadata["seed"]`` is ``None`` because only its owner can
+            reproduce the draw. An unseeded re-run redraws the null, moving
+            the p by roughly ``metadata["p_value_mc_se"]``.
 
     Returns:
         MetricResult with ``value`` = ``stat`` = the MR statistic and
