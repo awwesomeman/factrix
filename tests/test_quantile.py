@@ -370,7 +370,7 @@ class TestQuantileSpreadInference:
             panel, overlap_periods=5, n_groups=5, inference=fx.inference.NEWEY_WEST
         )["factor"]
         assert nw.metadata["method"] == "Newey-West HAC t-test"
-        assert "nw_lags" in nw.metadata
+        assert "newey_west_lags" in nw.metadata
         # HAC keeps every date, so the reported sample IS the full one: n_obs /
         # n_periods must describe the series the test actually ran on, while
         # n_periods_strided keeps the (shorter) non-overlap count for reference.

@@ -34,10 +34,11 @@ from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import (
     _ols_nw_multivariate,
-    _resolve_nw_lags,
+    _resolve_scalar_wald_hac,
     _wald_p_linear,
 )
-from factrix._types import MIN_PORTFOLIO_PERIODS_HARD
+from factrix._types import MIN_PORTFOLIO_PERIODS_HARD, MIN_SERIES_PERIODS_HARD
+from factrix.inference.series_mean import _persistent_array_beyond_horizon
 from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
@@ -108,10 +109,13 @@ def common_quantile_spread(
             history into. At least :data:`~factrix._types.N_GROUPS_FLOOR` = 2
             (the top-minus-bottom contrast needs two buckets); the Spearman
             shape check is reported as NaN below ``K = 3``.
-        overlap_periods: Overlap horizon of the forward return; floors
-            the Newey-West (NW) bandwidth.
-        newey_west_lags: Override for the NW lag count. ``None`` resolves to
-            the standard rule given ``overlap_periods`` and ``T``.
+        overlap_periods: Overlap horizon of the forward return; floors the
+            Bartlett bandwidth at ``3 * (overlap_periods - 1)`` and caps the
+            reference degrees of freedom at ``T / overlap_periods - 1``.
+        newey_west_lags: Override for the Bartlett lag count. ``None``
+            resolves to the standard rule given ``overlap_periods`` and
+            ``T``; the finite-sample scale and reference df follow the
+            resolved bandwidth either way.
 
     Returns:
         ``MetricResult`` whose ``value`` is the top-bottom bucket
@@ -127,7 +131,13 @@ def common_quantile_spread(
         ``K = n_groups`` buckets by historical ``_f`` quantile, run
         ``r_t = sum_k beta_k * I(bucket_t = k) + eps`` with NW heteroskedasticity-and-autocorrelation-consistent (HAC)
         covariance, and form the spread ``value = beta_{K-1} - beta_0``
-        with Wald p-value on ``H0: beta_{K-1} = beta_0``. A
+        with Wald p-value on ``H0: beta_{K-1} = beta_0``. That is a
+        **single** restriction, so the bandwidth, the ``T / (T - L - 1)``
+        variance scale and the fixed-``b`` effective degrees of freedom come
+        from :func:`~factrix._stats.hac._resolve_scalar_wald_hac` — the same
+        recipe the scalar series-mean HAR t-test uses, and the one this
+        metric's size table is measured on (``statistical-methods``
+        section 6). A
         ``Spearman(0..K-1, beta)`` rank-monotonicity diagnostic across
         buckets is reported alongside.
 
@@ -141,8 +151,10 @@ def common_quantile_spread(
         the Wald test.
         [Newey-West 1994][newey-west-1994]: automatic Bartlett bandwidth
         used by the default lag resolver.
-        [Hansen-Hodrick 1980][hansen-hodrick-1980]: ``overlap_periods - 1``
-        floor for overlapping returns.
+        [Hansen-Hodrick 1980][hansen-hodrick-1980]: the MA(h-1) structure
+        the overlap floor covers.
+        [LLSW 2018][llsw-2018]: the HAR bandwidth and effective-df recipe the
+        single-restriction contrast reads.
 
     Examples:
         >>> import factrix as fx
@@ -234,16 +246,21 @@ def common_quantile_spread(
     X = np.zeros((n_periods, n_groups))
     X[np.arange(n_periods), bucket_idx] = 1.0
 
-    lags = _resolve_nw_lags(n_periods, newey_west_lags, overlap_periods)
+    # Single restriction (top bucket minus bottom), so this takes the scalar
+    # HAR recipe -- bandwidth, T/(T-L-1) variance scale and fixed-b effective
+    # df together. The narrow K-restriction rule left this metric 9.7-21%
+    # oversized at h=5; see ``_resolve_scalar_wald_hac`` for the table.
+    lags, hac_scale, hac_dof = _resolve_scalar_wald_hac(
+        n_periods, newey_west_lags, overlap_periods
+    )
     beta, V_hac, _ = _ols_nw_multivariate(r, X, lags=lags)
+    V_hac = V_hac * hac_scale
 
     R = np.zeros((1, n_groups))
     R[0, n_groups - 1] = 1.0
     R[0, 0] = -1.0
     spread_value = float(beta[n_groups - 1] - beta[0])
-    # Finite-sample F_{r, T-k} reference (k = n_groups regressors), matching the
-    # cluster-Wald paths; the asymptotic χ² over-rejects on short T.
-    _, p_spread = _wald_p_linear(beta, V_hac, R, q=0.0, df_denom=n_periods - n_groups)
+    _, p_spread = _wald_p_linear(beta, V_hac, R, q=0.0, df_denom=hac_dof)
 
     # A collapsed contrast variance (identical bucket means every period, or
     # a singular HAC covariance) admits no t and no Wald p: NaN here, and the
@@ -267,13 +284,25 @@ def common_quantile_spread(
     else:
         rho, rho_p = float("nan"), float("nan")
 
+    # The scalar HAR recipe absorbs the MA(h-1) overlap, but not a common
+    # factor that stays persistent once the overlap is strided away: measured
+    # 13.0% / 16.3% at a nominal 5% on an AR(0.9) common factor at T=60, h=5
+    # (against 5.7-8.0% at phi=0). Flagged, not tuned.
     warning_codes: list[str] = []
     if thin_bucket_periods:
         warning_codes.append(WarningCode.THIN_QUANTILE_PERIODS.value)
+    if _persistent_array_beyond_horizon(per_date["_f"].to_numpy(), overlap_periods):
+        warning_codes.append(WarningCode.SERIAL_CORRELATION_DETECTED.value)
+    # Effective sample, not raw periods: h-period overlapping returns leave
+    # about T/h independent observations while the bandwidth grows with h. It
+    # is also exactly where the persistence screen above withholds itself, so
+    # the two codes partition the regime rather than overlap.
+    if n_periods // max(overlap_periods or 1, 1) < MIN_SERIES_PERIODS_HARD:
+        warning_codes.append(WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value)
     metadata: dict[str, object] = {
-        "stat_type": "wald (NW HAC)",
+        "stat_type": "wald (HAR HAC)",
         "h0": "beta_top = beta_bottom",
-        "method": "OLS on bucket dummies + Newey-West HAC",
+        "method": "OLS on bucket dummies + Bartlett HAC (HAR reference)",
         "spearman_rho": rho,
         "spearman_p": rho_p,
         "n_groups": n_groups,

@@ -48,7 +48,7 @@ class InferenceResult:
     ``stat`` / ``p_value`` are the test statistic and two-sided p-value;
     they feed a ``MetricResult`` directly. ``metadata`` is a flat
     ``str -> Any`` map (non-overlapping emits ``stride`` / sample counts;
-    Newey-West emits ``nw_lags``). ``warnings`` carries soft-floor /
+    Newey-West emits ``newey_west_lags``). ``warnings`` carries soft-floor /
     kernel-clamp signals.
     """
 

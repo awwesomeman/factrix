@@ -8,8 +8,9 @@ from factrix._stats import (
     _newey_west_se,
     _newey_west_t_test,
     _resolve_nw_lags,
+    _resolve_scalar_wald_hac,
 )
-from factrix._stats.constants import auto_bartlett
+from factrix._stats.constants import auto_bartlett, har_bandwidth
 
 
 class TestResolveNwLags:
@@ -43,6 +44,44 @@ class TestResolveNwLags:
     def test_short_sample_returns_zero(self):
         assert _resolve_nw_lags(n=0, lags=None, overlap_periods=5) == 0
         assert _resolve_nw_lags(n=1, lags=None, overlap_periods=5) == 0
+
+
+class TestResolveScalarWaldHac:
+    """The restriction-count split: one restriction gets the HAR recipe."""
+
+    def test_single_restriction_takes_the_wide_overlap_floor(self):
+        # h = 21 on 240 periods: the narrow rule floors at h - 1 = 20 (and the
+        # Newey-West base is smaller still); the scalar rule floors at 3(h - 1).
+        lags, _, _ = _resolve_scalar_wald_hac(n=240, lags=None, overlap_periods=21)
+        assert lags == 60
+        assert _resolve_nw_lags(n=240, lags=None, overlap_periods=21) == 20
+
+    def test_multi_restriction_rule_is_unchanged_by_the_split(self):
+        # The K >= 2 Wald consumers keep max(auto_bartlett(T), h - 1): a wide
+        # kernel on a K x K HAC matrix measured worse, not better.
+        for h in (1, 5, 21):
+            assert _resolve_nw_lags(n=240, lags=None, overlap_periods=h) == max(
+                auto_bartlett(240), h - 1
+            )
+
+    def test_base_rule_is_the_har_bandwidth_not_the_newey_west_plug_in(self):
+        lags, _, _ = _resolve_scalar_wald_hac(n=240, lags=None, overlap_periods=1)
+        assert lags == har_bandwidth(240)
+        assert lags > auto_bartlett(240)
+
+    def test_returns_the_finite_sample_scale_and_effective_dof(self):
+        n = 240
+        lags, scale, dof = _resolve_scalar_wald_hac(n, lags=None, overlap_periods=5)
+        assert scale == pytest.approx(n / (n - lags - 1))
+        assert scale > 1.0
+        # Fixed-b effective df, far below the regression's n - k.
+        assert 1.0 <= dof < n - 1
+
+    def test_degenerate_sample_is_safe(self):
+        lags, scale, dof = _resolve_scalar_wald_hac(n=1, lags=None, overlap_periods=5)
+        assert lags == 0
+        assert scale == 1.0
+        assert dof >= 1.0
 
 
 class TestNewyWestTForwardPeriods:

@@ -36,10 +36,12 @@ class TestLinearDgp:
         assert out.p_value < 0.05
         assert out.metadata["spearman_rho"] > 0.5
 
-    def test_pvalue_uses_finite_sample_f_reference(self):
-        # Single-restriction Wald p must use the finite-sample F_{1, T-k}
-        # reference (== two-sided t_{T-k} on the reported spread t-stat), not
-        # the over-rejecting asymptotic χ²_1.
+    def test_pvalue_uses_the_fixed_b_effective_dof(self):
+        # Single-restriction Wald p uses the finite-sample F_{1, nu} reference
+        # (== two-sided t_nu on the reported spread t-stat) at the HAC kernel's
+        # fixed-b effective degrees of freedom, not the regression's T - k and
+        # not the over-rejecting asymptotic chi-squared.
+        from factrix._stats import _resolve_scalar_wald_hac
         from scipy import stats as sp_stats
 
         rng = np.random.default_rng(3)
@@ -47,7 +49,9 @@ class TestLinearDgp:
         f = rng.standard_normal(T)
         r = 0.10 * f + rng.standard_normal(T) * 0.5
         out = common_quantile_spread(_series_panel(f, r), n_groups=n_groups)
-        expected = float(2 * sp_stats.t.sf(abs(out.stat), T - n_groups))
+        _, _, dof = _resolve_scalar_wald_hac(T, None, 1)
+        assert dof != T - n_groups
+        expected = float(2 * sp_stats.t.sf(abs(out.stat), dof))
         assert out.p_value == pytest.approx(expected)
 
     def test_top_bucket_mean_exceeds_bottom(self):

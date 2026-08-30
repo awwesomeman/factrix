@@ -67,9 +67,11 @@ When NW HAC is selected, factrix uses the
 deterministic bandwidth. The full path-to-family map is the table in
 [section 6](#hac-families).
 
-There are **two** bandwidth rules, because the scalar mean $t$-test and
-the $K$-restriction Wald tests degrade in opposite directions under a
-wide kernel (see [section 6](#hac-families) for the full path table).
+There are **two** bandwidth rules, and the split is by **restriction
+count**, not by whether the fit is univariate: a scalar statistic (a series
+mean, or a rank-one regression contrast) and a $K \ge 2$ Wald statistic
+degrade in opposite directions under a wide kernel (see
+[section 6](#hac-families) for the full path table).
 
 - **Scalar series-mean HAR $t$-test** (`ic` / `quantile_spread` /
   `quantile_spread_vw` / `k_spread` under `NeweyWest`, `fm_beta` stage 2) —
@@ -80,14 +82,21 @@ wide kernel (see [section 6](#hac-families) for the full path table).
   read against effective degrees of freedom
   $\nu = \max\!\left(\min\!\left(1.5T/L - 1,\; T/h - 1\right),\; 1\right)$,
   with the SE carrying a $T/(T - L - 1)$ finite-sample scale.
-- **Multivariate / $K$-restriction HAC paths** (`pooled_beta`,
-  `spanning_alpha`, `common_quantile_spread`, `common_asymmetry`, the
-  slice Wald tests, `_ols.py`) — `_resolve_nw_lags`:
+- **Single-restriction regression contrasts** (`spanning_alpha`,
+  `common_quantile_spread`, `common_asymmetry`, `_ols.py`) —
+  `_resolve_scalar_wald_hac`: the *same* recipe as the scalar series mean,
+  applied to $R\beta$ with $R$ of rank one. A rank-one contrast is a scalar
+  statistic, so it inherits that calibration; the bandwidth, the
+  $T/(T-L-1)$ variance scale and the effective $\nu$ move together.
+- **Multi-restriction / cluster-mean Wald paths** (the slice Wald tests) —
+  `_resolve_nw_lags`:
   $$
   L = \max\!\left(\text{auto\_bartlett}(T),\; h - 1\right)
   $$
   where $\text{auto\_bartlett}(T) = \max\!\left(1,\; \lfloor 4 \cdot (T/100)^{2/9} \rfloor\right)$ per Newey-West (1994),
-  read against $t_{T-k}$ / $F_{r,\,T-k}$.
+  read against $F_{r,\,T-1}$. A $K$-restriction Wald statistic inverts a
+  $K \times K$ HAC matrix and degrades under the wide kernel that helps a
+  scalar one, so this family keeps the narrow rule (section 6).
 
 with $h$ = `overlap_periods` — the overlap of adjacent observations on the
 evaluation grid, stamped by `compute_forward_return` (equal to
@@ -227,7 +236,7 @@ approximation assumption all three analytic methods still make:
 
 | Procedure | Mechanism | Strengths | Weaknesses | Where factrix uses it |
 |---|---|---|---|---|
-| **Newey-West (1987)** | Bartlett-kernel HAC on the full overlapping series, bandwidth `L = max(bandwidth_base, h−1)`. | Simple, deterministic, asymptotically valid for arbitrary autocorrelation up to `L`. | Asymptotic Gaussian — finite-sample size distortion when `h/T` is non-trivial; bandwidth rule is conservative. | `ic` / `quantile_spread` / `quantile_spread_vw` / `k_spread` (with `NeweyWest` inference), `fm_beta` stage 2, `pooled_beta`, `common_quantile_spread`, `common_asymmetry`. |
+| **Newey-West (1987)** | Bartlett-kernel HAC on the full overlapping series, bandwidth `L = max(bandwidth_base, h−1)`. | Simple, deterministic, asymptotically valid for arbitrary autocorrelation up to `L`. | Asymptotic Gaussian — finite-sample size distortion when `h/T` is non-trivial; bandwidth rule is conservative. | `ic` / `quantile_spread` / `quantile_spread_vw` / `k_spread` (with `NeweyWest` inference), `fm_beta` stage 2, `common_quantile_spread`, `common_asymmetry`, `spanning_alpha`, the slice Wald tests. |
 | **Hansen-Hodrick (HH) (1980)** | A generalized method of moments (GMM)-style HAC estimator with a rectangular kernel truncated at `h−1`; the canonical reference for overlap-aware long-horizon SEs. | Targets the MA(`h−1`) residual structure overlap induces. | Rectangular kernel can yield a non-PSD covariance matrix in finite samples; still asymptotic. | **Research-only.** Implemented as `factrix.inference.series_mean.HANSEN_HODRICK` (rectangular-kernel SE → t-statistic → two-sided p-value) and usable standalone via `HANSEN_HODRICK.compute(...)`, but deliberately in **no** metric's `applicable_inference` allowlist — passing it to a metric raises `IncompatibleInferenceError` — and for that reason not re-exported from `factrix.inference`. Also borrows the `h−1` lag idea as a floor on the NW bandwidth above. |
 | **Hodrick (1992) "1B"** | Reverse-regression: regress one-period return on the predictor sum `X_t = Σ x_{t-j}` over the last `h` periods. | Size-correct in finite samples even at large `h/T`; no bandwidth choice. | Coefficient interpretation differs — `β` is the response to a cumulative-predictor stimulus (MA on the RHS) rather than a long-horizon forecast slope (MA on the LHS in the standard form); not a drop-in replacement for the canonical `β`. | **Not implemented**. Cited as the right tool when overlap is severe; the `Individual × Continuous` cell side-steps the issue with non-overlapping resampling instead. |
 | **Stationary bootstrap (Politis-Romano 1994)** | Block-resamples the series (geometric block length, Politis-White 2004 automatic selection), centred under `H0`, studentizes both the observed and the resampled root by a batch-means SE at the same block length, and reports the empirical two-sided p from the resampled `t` ratios. | No normality or asymptotic-variance assumption at all — valid when the IC/return distribution is heavy-tailed or skewed enough that NW's / HH's Gaussian p-value is itself suspect. | Heavier to compute (resampling, not closed-form); the reported `stat` is the observed mean rather than the root the p is computed from. On a zero-dispersion sample there is no block SE to divide by, and the kernel falls back to the raw-mean root — reported as `metadata["studentized"] = False` and `degenerate_variance`. | Exposed as `factrix.inference.STATIONARY_BOOTSTRAP` on `ic`, `quantile_spread`, `quantile_spread_vw` and `k_spread` — every one of them dispatches the member polymorphically, and the spread series carries its own measured size table (§6). |
@@ -658,7 +667,9 @@ sizes are at a nominal 5% on a true null.
 | `ic` / `caar` / `quantile_spread` under `NON_OVERLAPPING` — strided mean | none (stride $h$, no kernel) | $t_{n_{\text{strided}}-1}$ | 4.5–5.4% in every overlapping cell measured; 32% on AR(0.6) input at $h=1$, which striding cannot touch |
 | `predictive_beta` — single-restriction slope, $h = 1$ | none: Amihud-Hurvich's homoskedastic $s^2(X'X)^{-1}$ | $t_{m-3}$ | 4.3–5.5% at $\rho = 0$; 6.2–8.3% in the strongest Stambaugh cells |
 | `predictive_beta` — single-restriction slope, $h > 1$ | `_resolve_har_lags` | $t_\nu$ via `_har_dof` | **7.5–14.5%** — known-oversized, see below |
-| `spanning_alpha`, `pooled_beta`, `common_quantile_spread`, `common_asymmetry`, `_ols.py`, the slice tests — $K$-restriction Wald / multivariate | `_resolve_nw_lags`: $\max(\text{auto\_bartlett}(T), h-1)$ | $t_{T-k}$ / $F_{r,\,T-k}$ | 5.4–7.1% on iid residuals ($n = 60 \to 240$), 11.5–18.5% on AR(0.6); **8–9%** for the $K = 5$ slice joint test on 50–90-period slices |
+| `spanning_alpha`, `common_quantile_spread`, `common_asymmetry`, `_ols.py` — single-restriction regression contrast | `_resolve_scalar_wald_hac`: the scalar HAR recipe (bandwidth, $T/(T{-}L{-}1)$ scale, effective $\nu$) | $t_\nu$ / $F_{1,\,\nu}$ | 3.3–8.0% for the two `common_*` metrics on the non-persistent common-factor null across $T \in \{60,120,240\} \times h \in \{1,5,21\}$; 5.7–11.7% for `spanning_alpha` on an overlapping-sum spread null; **7.3–16.3%** on a persistent ($\phi = 0.9$) common factor, flagged — see below |
+| `pooled_beta` — pooled OLS slope under a Driscoll-Kraay (1998) sandwich | `driscoll_kraay_lags`: `auto_bartlett` on the period count, applied to the cross-sectionally summed scores | $t_{T_{\text{periods}}}$ | **not measured on its own series.** A two-dimensional (period × asset) kernel, not the series-mean HAC — it shares neither bandwidth rule above, and the rows in this table do not transfer to it. Its short-period regime is gated by `unreliable_se_short_periods` and by a hard floor below which the statistic is withheld |
+| The slice Wald tests (`slice_joint_test`, `slice_pairwise_test`) — cluster-mean Wald | `_resolve_nw_lags`: $\max(\text{auto\_bartlett}(T), h-1)$ | $F_{r,\,T-1}$ | **8–9%** for the $K = 5$ joint test on 50–90-period slices, 5–6% for the pairwise contrasts |
 
 Producing modules: `tests/stats/test_hac_overlap_size.py` for the scalar
 series-mean rows, `tests/test_stambaugh_bias.py` for the `predictive_beta`
@@ -668,18 +679,33 @@ in the last row.
 Two of these rows are **known-oversized regimes rather than calibrated
 ones**, and are disclosed rather than corrected:
 
-- The $K > 1$ Wald and slice tests keep the narrow bandwidth deliberately.
-  A wide bandwidth on a $K \times K$ HAC matrix read against $\chi^2$ /
+- The slice Wald tests keep the narrow bandwidth deliberately. A wide
+  bandwidth on a $K \times K$ HAC matrix read against $\chi^2$ /
   $F$ critical values is exactly the case fixed-$b$ theory says needs
   Kiefer-Vogelsang / LLSW $F$-type critical values — moving them to the HAR
   rule measured *worse* (the $K = 5$ slice test goes from 8–9% to 21% at 50
-  periods per slice). The narrow rule is the lesser evil until fixed-$b$
-  Wald critical values are implemented.
+  periods per slice; re-checked on a second null at 300 replications, seed
+  `20260830 + rep`, where the wide floor takes it from 22.3% to 47.0% at 50
+  periods per slice and $h = 5$). The narrow rule is the lesser evil until
+  fixed-$b$ Wald critical values are implemented. The *single*-restriction
+  contrasts are a different statistic and moved the other way — see
+  "Single-restriction Wald contrasts" below.
 - `predictive_beta` at $h > 1$ is the single-restriction case, so it does
   use the HAR rule; that took it from 10–19% to 7.5–14.5%, not to 5%. The
   excess is present at $\rho = 0$ for every $\phi$ and plain OLS-NW carries
   it too, so it is the overlapping-regression HAC problem rather than
-  anything about the Stambaugh correction.
+  anything about the Stambaugh correction. Re-measured on the
+  independent-regressor null used for the split above (iid $h$-period
+  overlapping returns, an AR($\phi$) regressor drawn independently of them;
+  300 replications, seed `20260830 + rep`): 9.7 / 6.3 / 5.3% at
+  $\phi = 0$ and 15.0 / 15.7 / 12.0% at $\phi = 0.9$ for $h = 5$ and
+  $T \in \{60, 120, 240\}$ — the same band, and unchanged by the split,
+  because this path already resolved its headline bandwidth through
+  `_resolve_har_lags`. Its uncorrected-OLS reference slope, which does read
+  `_resolve_nw_lags`, measures 4.0–16.0% at $\phi = 0$ and 7.7–36.7% at
+  $\phi = 0.9$ and gets *worse* under a wide floor with no matching
+  reference (9.0 → 17.3% at $T = 60$, $h = 5$); it stays on the narrow rule,
+  reported as the pre-correction reference it is.
 
 The residual anti-conservatism on **persistent** input is a property of the
 Bartlett kernel rather than of any one metric, so every row above inherits
@@ -697,6 +723,103 @@ or Andrews-Monahan prewhitening) would change every HAC $p$-value in the
 library and is a project rather than a patch. Read HAC $p$-values near the
 threshold as optimistic when the input is persistent — the `persistence`
 diagnostic in section 4 flags exactly that case.
+
+### Single-restriction Wald contrasts: the restriction-count split
+
+[](){ #single-restriction-wald }
+
+`common_asymmetry`, `common_quantile_spread` and `spanning_alpha` all test
+**one** linear restriction on an ordinary least squares (OLS) fit —
+$\beta_{\text{long}} + \beta_{\text{short}} = 0$, $\beta_{\text{top}} =
+\beta_{\text{bottom}}$, $\alpha = 0$. They used to share the narrow
+`_resolve_nw_lags` rule with the $K$-restriction slice tests on the grounds
+that both are *multivariate fits*. The grouping was wrong: what degrades
+under a wide kernel is the $K \times K$ matrix inversion, and a rank-one
+contrast has none. Measured on the common-factor null below, the narrow rule
+left both `common_*` metrics 10–34% oversized at $h > 1$ and **not**
+shrinking with $T$.
+
+The null: one AR($\phi$) factor broadcast to 50 assets from a random stream
+independent of the prices, `ic_target=0`, so every rejection is a false one.
+300 replications per cell, seed `20260830 + rep`; Monte-Carlo standard error
+about 1.3pp. Rejection rate at a nominal 5%, narrow rule → shipped rule:
+
+| metric | $\phi$ | $T=60$, $h=1$ | $h=5$ | $h=21$ | $T=120$, $h=1$ | $h=5$ | $h=21$ | $T=240$, $h=1$ | $h=5$ | $h=21$ |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `common_asymmetry` | 0.0 | 8.0 → 5.7 | 15.3 → 8.0 | 34.0 → 5.7 | 3.3 → 3.3 | 10.7 → 3.3 | 23.7 → 7.7 | 4.0 → 5.0 | 10.0 → 5.7 | 16.0 → 7.7 |
+| `common_asymmetry` | 0.9 | 10.3 → 9.0 | 19.3 → 13.0 | 41.0 → 7.3 | 5.0 → 4.3 | 12.7 → 6.7 | 28.3 → 8.7 | 4.0 → 4.3 | 9.7 → 6.0 | 17.3 → 8.3 |
+| `common_quantile_spread` | 0.0 | 7.7 → 5.0 | 9.7 → 5.7 | 16.3 → 0.0 | 7.7 → 6.7 | 7.7 → 5.0 | 10.3 → 2.7 | 7.3 → 3.7 | 6.3 → 4.0 | 7.7 → 2.0 |
+| `common_quantile_spread` | 0.9 | 13.0 → 14.3 | 21.0 → 16.3 | 42.3 → 9.3 | 9.7 → 7.3 | 18.7 → 14.7 | 30.7 → 11.0 | 7.0 → 5.7 | 12.0 → 7.7 | 13.0 → 8.0 |
+
+Every $\phi = 0$ cell now sits at or below 8.0%, and the $h = 21$ column —
+the worst regime under the old rule — is the one the change helps most.
+
+`spanning_alpha`, on a null of two independent AR($\phi$) series summed over
+$h$ periods (same replication count and seed stream), moves the same way:
+9.0 → 6.0, 18.7 → 9.3 and 46.0 → 11.7% at $T = 60$ and $h \in \{1, 5, 21\}$
+for $\phi = 0$, and 50.0 → 29.3, 50.3 → 30.3, 60.0 → 21.7% at $\phi = 0.9$.
+That null is deliberately harsh — a spread series that *is* an overlapping
+sum of a near-unit-root process — and the $\phi = 0.9$ column is the
+persistent regime no path here is calibrated for, not a claim about the
+metric on ordinary input. `spanning_alpha` runs the same two screens as the
+two `common_*` metrics, on the **regressand**: the candidate spread is the
+series whose long-run variance the alpha standard error estimates. Post-fix
+size and the share of draws carrying a code, on the same null and grid:
+
+| $\phi$ | | $T=60$, $h=1$ | $h=5$ | $h=21$ | $T=120$, $h=1$ | $h=5$ | $h=21$ | $T=240$, $h=1$ | $h=5$ | $h=21$ |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0.0 | size | 6.0 | 9.3 | 11.7 | 5.7 | 7.7 | 11.7 | 5.7 | 8.0 | 9.7 |
+| 0.0 | flagged | 1.3 | 8.3 | 100 | 0.0 | 4.0 | 100 | 0.0 | 0.7 | 6.0 |
+| 0.9 | size | 29.3 | 30.3 | 21.7 | 19.0 | 21.3 | 15.3 | 18.0 | 17.0 | 12.7 |
+| 0.9 | flagged | 100 | 77.7 | 100 | 100 | 92.0 | 100 | 100 | 100 | 27.3 |
+
+Every $\phi = 0.9$ cell is flagged on at least 27% of draws and most on
+100%, against 0–8.3% of the calibrated $\phi = 0$ cells at $h \le 5$. One
+cell is genuinely uncovered and disclosed rather than gated: $\phi = 0$,
+$T = 240$, $h = 21$ measures 9.7% with 11 independent observations — above
+the shortage floor, and with no persistence left after the stride. That is
+the residual overlapping-regression HAC excess `predictive_beta` carries at
+$h > 1$ for the same reason, and it fires no code of its own on either
+path.
+
+**What moving only the overlap floor would have done.** The narrow rule's
+$h - 1$ floor is the [Hansen-Hodrick (1980)][hansen-hodrick-1980]
+consistency floor, and widening it alone to $3(h-1)$ — the change the
+scalar series-mean path made — measures *worse* here, not better:
+`common_quantile_spread` at $\phi = 0$ goes 9.7 → 16.0% ($T=60$, $h=5$) and
+16.3 → 35.7% ($T=60$, $h=21$); `common_asymmetry` at $\phi = 0.9$ goes
+41.0 → 55.7% ($T=60$, $h=21$). A wide Bartlett kernel read against $T-k$
+degrees of freedom is exactly the fixed-$b$ case: the bandwidth and the
+reference distribution have to move together, which is why
+`_resolve_scalar_wald_hac` returns the scale and the effective $\nu$
+alongside the lag count rather than a lag count alone.
+
+**The cost.** The fixed-$b$ reference is a genuinely higher hurdle, at
+$h = 1$ as much as at $h > 1$: on a $T = 800$ split-slope alternative that
+the narrow rule rejected at $p \approx 0.045$, the shipped rule reports
+$p \approx 0.080$. That is the LLSW size-power trade the scalar series-mean
+path already pays, now paid consistently by every scalar statistic in the
+library.
+
+**What it does not fix, and what is flagged instead.** Two regimes survive:
+
+- *A factor persistent beyond the overlap horizon* ($\phi = 0.9$ column
+  above, 13.0–16.3% at $T = 60$). Both metrics now run the same lag-1 screen
+  on the strided per-period factor that the series-mean members run on their
+  tested series, and emit `serial_correlation_detected`. On the null above
+  it fires on 100% of the $\phi = 0.9$, $h = 1$ draws and 51–93% of the
+  $h = 5$ draws, against 0–8% of the $\phi = 0$ draws.
+- *Too few independent periods.* At $h = 21$ the strided sample falls below
+  `MIN_SERIES_PERIODS_HARD` (10) for $T \le 240$, so the persistence screen
+  withholds itself; the metrics emit `unreliable_se_short_periods` on the
+  effective count $T / h$ instead, exactly as `predictive_beta` does. The
+  two codes partition the regime rather than overlap.
+
+All three metrics run both screens — the two `common_*` on the per-period
+factor, `spanning_alpha` on the candidate spread it regresses.
+
+Neither number was tuned to reach a target. `tests/stats/test_scalar_wald_overlap_size.py`
+re-runs the contrast on a cheaper null at a cut replication count.
 
 ### Shanken EIV correction on `fm_beta`: measured size
 
@@ -1154,6 +1277,8 @@ nominal 5%; sample sizes count periods on the evaluation grid after the
 | Long strided series (≥ ~120 periods) whose distribution is in doubt (heavy tails, skew) | No warning | On iid input `STATIONARY_BOOTSTRAP` sits at the same 7–9% baseline as NW (φ = 0 row above) — it buys no *size*. On the spread series it measures 4.8–9.0% across the grid above, with its worst cell at the long horizon (9.0% at T = 120, h = 21) where NW is conservative instead (2.4%). Its case is distributional: it is the only member that does not assume asymptotic normality of the mean (§1). | Read `STATIONARY_BOOTSTRAP` alongside the analytic p — on `ic` and on all three spread metrics, which admit it on the strength of the table above — when tails or skew are the doubt. A documented option, not a default. |
 | Heavy-tailed *and* short | `unreliable_se_short_periods` | The *t* is size-robust to tails — 3–4% on t(3) input, i.e. conservative — while the small-n bootstrap is not (6–14%). | Keep the *t*. Tails are not a reason to bootstrap a short series. |
 | Thin cross-section (few names per leg) | `few_assets` | Each leg mean rests on a handful of names: a noisier estimate, not a differently-distributed one. The automatic bootstrap switch this once triggered rejected 8–20% against the *t*'s 7–9% and keyed on the wrong axis; it was removed. | Keep the requested member; read `n_assets` and treat the spread as fragile. |
+| Overlapping panel scored by `common_asymmetry` / `common_quantile_spread`, per-period factor persistent once strided | `serial_correlation_detected` | The single-restriction HAR reference takes both metrics to 3.3–8.0% on a non-persistent common factor across `T × h`, but a φ = 0.9 common factor leaves them at 13.0% / 16.3% at `T = 60, h = 5`, clearing by `T = 240` (6.0% / 7.7%). The screen fires on 51–100% of those draws and on 0–8% of the calibrated ones. | Read the p against a raised hurdle or lengthen the sample. Changing `newey_west_lags` does not fix it — the bandwidth is not what is wrong. |
+| `common_asymmetry` / `common_quantile_spread` with fewer than 10 periods after the `overlap_periods` stride | `unreliable_se_short_periods` | The effective sample, not the raw period count, is what the HAC standard error rests on: at `T = 120, h = 21` five independent observations carry a bandwidth-40 kernel. The persistence screen withholds itself there for the same reason. | Shorten the horizon or lengthen the history; the p carries little information at that effective count. |
 | Joint test on K ≥ 3 short slices | `slice_period_joint_test` warning | 8–9% for K = 5 on 50–90-period slices, converging by T ≈ 150; the bootstrap path inherits it (12%). K = 2 is calibrated throughout. | Read the pairwise contrasts on the same slices (5–6%) rather than the joint p, or lengthen the slices. |
 | Few event periods after the stride | `few_events` | Power-thin, not size-inflated for `caar` / `corrado_rank`; `bmp_z` is ~10% at 8 effective periods, ~7% at 15, clearing by ~30. | Read borderline p-values cautiously; extend the event history rather than switching estimator — all three count the same event periods. |
 | 3–19 portfolio periods in `top_concentration` | `borderline_portfolio_periods` | `top_concentration` publishes no p at any sample size — the withdrawn one-sided `t` against `ratio ≥ 0.5` never rejected, because the null diversification ratio is ~0.91 (0 of 300 draws at both 10 and 48 tested periods). The code is about the precision of the mean, not a test. | Read `value` and `ratio_eff_to_total` as a noisy mean over few periods; lengthen the history before comparing panels. |

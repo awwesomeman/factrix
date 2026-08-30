@@ -266,7 +266,7 @@ class TestInference:
         panel = self._ample_panel()
         nw = k_spread(panel, overlap_periods=5, k=5, inference=fx.inference.NEWEY_WEST)
         assert nw.metadata["method"] == "Newey-West HAC t-test"
-        assert "nw_lags" in nw.metadata
+        assert "newey_west_lags" in nw.metadata
         # HAC keeps every date; the full series is longer than the strided one,
         # and n_obs / n_periods must describe the sample the test ran on.
         assert nw.metadata["n_periods_full"] > nw.metadata["n_periods_strided"]

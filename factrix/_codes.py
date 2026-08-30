@@ -401,7 +401,7 @@ _WARNING_DESCRIPTIONS.update(
         "the series carries less dependence than overlap_periods implies the "
         "test is conservative rather than oversized (measured 0.2-3.5% against "
         "a nominal 5% on an iid series at h=21).",
-        WarningCode.PERSISTENT_REGRESSOR: "The predictive regressor is in a regime the corrected test is less well sized in: ADF p exceeds the configured threshold (unit-root suspect), or the measured Stambaugh channel |rho_hat * phi_corrected| exceeds 0.7, or the bias-corrected AR(1) coefficient came out at or above one. The Stambaugh (1999) bias itself is CORRECTED via the Amihud-Hurvich (2004) augmented regression, so this is not 'beta may be biased' - at overlap_periods=1 it is 'the strongest Stambaugh cells leave the corrected test at 6-8% against a nominal 5%, where the calibrated cells sit at 4-6%'. Note this code is about the regressor, NOT about overlap: at overlap_periods>1 the test is 7.5-14.5% oversized for every phi INCLUDING rho=0, which is the overlapping-regression HAC problem and fires no code of its own. Read the p against a raised hurdle.",
+        WarningCode.PERSISTENT_REGRESSOR: "The predictive regressor is in a regime the corrected test is less well sized in: ADF p exceeds the configured threshold (unit-root suspect), or the measured Stambaugh channel |rho_hat * phi_corrected| exceeds 0.7, or the bias-corrected AR(1) coefficient came out at or above one. The Stambaugh (1999) bias itself is CORRECTED via the Amihud-Hurvich (2004) augmented regression, so this is not 'beta may be biased' - at overlap_periods=1 it is 'the strongest Stambaugh cells leave the corrected test at 6-8% against a nominal 5%, where the calibrated cells sit at 4-6%'. Note this code is about the regressor, NOT about overlap: at overlap_periods>1 the test is 7.5-14.5% oversized for every phi INCLUDING rho=0, which is the overlapping-regression HAC problem and fires no code of its own (re-measured on an independent-regressor null, 300 replications, seed 20260830+rep: 9.7-5.3% at phi=0 and 15.0-12.0% at phi=0.9 for h=5, T=60 to 240 - the same band, and unaffected by the single-restriction bandwidth split, since this path already resolved its headline bandwidth through the HAR rule). Read the p against a raised hurdle.",
         WarningCode.SERIAL_CORRELATION_DETECTED: "The tested per-period series is "
         "persistent beyond the overlap horizon: lag-1 autocorrelation above "
         "PERSISTENT_SERIES_AUTOCORR (0.3) on the series strided at "
@@ -417,7 +417,11 @@ _WARNING_DESCRIPTIONS.update(
         "6.7-15.3% (bootstrap) and 26.7-34.7% (plain t) at a nominal 5% on an "
         "AR(0.6) per-period series, worse above — so read the p-value against "
         "a raised hurdle (Harvey-Liu-Zhu 2016: t > 3) or lengthen the sample; "
-        "switching inference member does not fix it.",
+        "switching inference member does not fix it. The single-restriction "
+        "regression contrasts (common_asymmetry, common_quantile_spread) run "
+        "the same screen on their per-period FACTOR: their HAC reference is "
+        "calibrated on a non-persistent common factor (3.3-8.0% across T x h) "
+        "and measures 13.0-16.3% on an AR(0.9) one at T=60, h=5.",
         WarningCode.FEW_ASSETS: "Cross-section asset count is below the "
         "relevant WARN floor (panel-wide MIN_ASSETS_WARN=30, per-period "
         "MIN_IC_ASSETS_WARN=10, or per-period MIN_FM_ASSETS_WARN=10). The "

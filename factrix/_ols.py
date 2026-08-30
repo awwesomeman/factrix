@@ -9,8 +9,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from factrix._stats.constants import auto_bartlett
-from factrix._stats.hac import _resolve_nw_lags
+from factrix._stats.hac import _resolve_scalar_wald_hac
 from factrix._stats.ols import _ols_nw_multivariate
 from factrix._types import EPSILON
 
@@ -24,6 +23,11 @@ class _OLSResult:
     betas: list[float] = field(default_factory=list)
     r_squared: float = 0.0
     df_resid: int = 0
+    #: Degrees of freedom ``alpha_t`` is to be read against. The fixed-b
+    #: effective df of the HAC kernel (``_resolve_scalar_wald_hac``), which is
+    #: well below ``df_resid`` at a research sample size; ``df_resid`` stays
+    #: the plain regression residual count for reporting.
+    alpha_dof: float = 0.0
 
 
 def ols_alpha(
@@ -44,16 +48,19 @@ def ols_alpha(
     regressed. Spreads built from ``h``-period overlapping forward returns
     carry MA(``h-1``) residual autocorrelation
     ([Hansen-Hodrick (1980)][hansen-hodrick-1980]), and a Bartlett kernel
-    must run at least ``h - 1`` lags to absorb it — the same
-    ``max(auto_bartlett(T), h - 1)`` rule (:func:`factrix._stats._resolve_nw_lags`)
-    every other HAC path in factrix applies. The default ``1`` (no floor) is
-    the non-overlapping case.
+    must run enough lags to absorb it. The alpha test is a **single
+    restriction**, so the bandwidth, the ``T / (T - L - 1)`` variance scale
+    and the fixed-``b`` effective degrees of freedom all come from
+    :func:`factrix._stats.hac._resolve_scalar_wald_hac` — the scalar HAR
+    recipe, whose ``3(h - 1)`` overlap floor is the calibrated one for a
+    scalar statistic. The default ``1`` (no floor) is the non-overlapping
+    case.
 
     **The trade, measured.** Empirical size at a nominal 5% under a true
     null (``alpha = 0``, one base factor, 4000 draws, read against
     ``t(n - k)``):
 
-    | residuals | OLS | HAC |
+    | residuals | OLS | HAC (narrow rule) |
     |---|---|---|
     | iid, n=60 | 0.047 | 0.071 |
     | iid, n=120 | 0.052 | 0.065 |
@@ -75,6 +82,17 @@ def ols_alpha(
     n=240 and converging slowly); it is merely far closer. That residual
     gap is a Bartlett small-sample property shared by every HAC path here,
     not something specific to spanning.
+
+    The HAC column above was measured while this path still used the narrow
+    ``max(auto_bartlett(T), h - 1)`` rule and the ``t_{T-k}`` reference.
+    Moving it to the scalar HAR recipe roughly halves the excess on an
+    overlapping null: on two independent AR(``phi``) series summed over
+    ``h`` periods (300 draws, seed ``20260830 + rep``) the size goes
+    9.0 -> 6.0%, 18.7 -> 9.3% and 46.0 -> 11.7% at ``n = 60`` for
+    ``h = 1, 5, 21``, and 50.0 -> 29.3%, 50.3 -> 30.3%, 60.0 -> 21.7% on
+    the ``phi = 0.9`` version of the same null. The persistent column stays
+    the uncalibrated regime ``statistical-methods`` section 6 discloses;
+    spanning has no persistence screen of its own, so read it there.
 
     An earlier version used the OLS SE on the stated assumption that
     callers pass non-overlap spreads; nothing in the ``(date, spread)``
@@ -160,9 +178,9 @@ def ols_alpha(
     # HAC covariance of the OLS coefficients; ``_ols_nw_multivariate`` returns
     # zeros when X'X is singular, which the EPSILON guard below turns into
     # the same degenerate result the OLS path produced.
-    lags = _resolve_nw_lags(n_obs, auto_bartlett(n_obs), overlap_periods)
+    lags, hac_scale, hac_dof = _resolve_scalar_wald_hac(n_obs, None, overlap_periods)
     _, v_hac, _ = _ols_nw_multivariate(candidate, X, lags=lags)
-    se_alpha = float(np.sqrt(max(v_hac[0, 0], 0.0)))
+    se_alpha = float(np.sqrt(max(v_hac[0, 0] * hac_scale, 0.0)))
 
     if se_alpha < EPSILON:
         # A collapsed HAC SE -- a perfect fit, or a design so nearly
@@ -184,4 +202,5 @@ def ols_alpha(
         betas=betas,
         r_squared=r_squared,
         df_resid=dof,
+        alpha_dof=hac_dof,
     )

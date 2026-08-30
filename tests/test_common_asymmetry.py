@@ -43,7 +43,11 @@ class TestAsymmetricDgp:
         # Edge only on the positive side: r = 0.20*max(f,0) + ε.
         # E[r|f<0] ≈ 0, E[r|f>0] > 0 → β_long + β_short > 0, reject H0.
         rng = np.random.default_rng(2)
-        T = 800
+        # The single-restriction contrasts are read against the HAC kernel's
+        # fixed-b effective df (tens, not T - k), so the hurdle is higher than
+        # a textbook OLS t's; the sample is sized for that rather than the
+        # effect inflated to clear it.
+        T = 1200
         f = rng.standard_normal(T)
         r = 0.20 * np.maximum(f, 0) + rng.standard_normal(T) * 0.4
         out = common_asymmetry(_series_panel(f, r), overlap_periods=1)

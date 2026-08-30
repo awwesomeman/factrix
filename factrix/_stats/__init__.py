@@ -14,7 +14,9 @@ private primitives those façades and the procedure layer call into.
   ``_significance_marker`` are shared with the heteroskedasticity-and-autocorrelation-consistent (HAC) t-tests in ``hac``.
 - ``hac``         — Newey-West (Bartlett) and Hansen-Hodrick
   (rectangular) HAC SE / t-test for a sample mean; shared
-  ``_resolve_nw_lags`` bandwidth picker honouring the overlap horizon.
+  ``_resolve_nw_lags`` (multi-restriction Wald) and
+  ``_resolve_scalar_wald_hac`` (single-restriction) bandwidth pickers,
+  both honouring the overlap horizon.
 - ``ols``         — ordinary least squares (OLS) slope-only (``_ols_nw_slope_t``) and full
   multivariate (``_ols_nw_multivariate``) with Newey-West HAC
   covariance.
@@ -56,6 +58,7 @@ from factrix._stats.hac import (
     _newey_west_t_test,
     _resolve_har_lags,
     _resolve_nw_lags,
+    _resolve_scalar_wald_hac,
 )
 from factrix._stats.ols import _ols_nw_multivariate, _ols_nw_slope_t
 from factrix._stats.unit_root import _ADF_CRITS_CONSTANT, _adf, _adf_pvalue_interp
@@ -84,6 +87,7 @@ __all__ = [
     "_p_value_from_z",
     "_resolve_har_lags",
     "_resolve_nw_lags",
+    "_resolve_scalar_wald_hac",
     "_significance_marker",
     "_t_stat_from_array",
     "_t_test_summary",

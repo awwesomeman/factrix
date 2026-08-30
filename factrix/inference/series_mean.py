@@ -113,6 +113,23 @@ def _persistent_beyond_horizon(
     return _persistent_sample(strided)
 
 
+def _persistent_array_beyond_horizon(
+    values: np.ndarray, overlap_periods: int | None
+) -> bool:
+    """:func:`_persistent_beyond_horizon` for a date-sorted array already in hand.
+
+    Same screen and same stride; the frame form above is for callers holding a
+    ``(date, value)`` frame. Regression paths that resolve their bandwidth
+    through ``_resolve_scalar_wald_hac`` run this on the *regressor* series —
+    a per-period common factor persistent beyond the overlap horizon leaves
+    the HAC contrast oversized in exactly the way this code reports.
+    """
+    import numpy as np
+
+    values = np.asarray(values, dtype=float)
+    return _persistent_sample(values[:: max(overlap_periods or 1, 1)])
+
+
 @dataclass(frozen=True, slots=True)
 class NonOverlapping:
     """Non-overlapping stride subsample inference: OLS t-test on every ``overlap_periods``-th observation.
@@ -252,15 +269,15 @@ class NeweyWest:
 
         vals = _clean_series(data, value_col).to_numpy()
         n = len(vals)
-        nw_lags = _resolve_har_lags(n, None, overlap_periods) if n >= 2 else 0
+        newey_west_lags = _resolve_har_lags(n, None, overlap_periods) if n >= 2 else 0
         t_stat, p_value, _ = _newey_west_t_test(
-            vals, lags=nw_lags, overlap_periods=overlap_periods
+            vals, lags=newey_west_lags, overlap_periods=overlap_periods
         )
 
         warnings: frozenset[WarningCode] = frozenset()
         # T < 5L: the kernel sum is estimated from too few lag products.
         # Structural, not just a log line (finding: method-switch-warning norm).
-        if _hac_bandwidth_ill_conditioned(n, nw_lags):
+        if _hac_bandwidth_ill_conditioned(n, newey_west_lags):
             warnings |= frozenset({WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED})
         # Persistence screen: read on the series strided at overlap_periods,
         # so the MA(h-1) overlap this member is built to absorb does not trip
@@ -281,8 +298,10 @@ class NeweyWest:
             stat=t_stat,
             p_value=p_value,
             metadata={
-                "nw_lags": nw_lags,
-                "hac_dof": _har_dof(n, nw_lags, overlap_periods) if n >= 3 else None,
+                "newey_west_lags": newey_west_lags,
+                "hac_dof": _har_dof(n, newey_west_lags, overlap_periods)
+                if n >= 3
+                else None,
             },
             warnings=warnings,
             estimate=float(vals.mean()) if n else None,

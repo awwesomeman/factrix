@@ -3,8 +3,11 @@
 Newey-West (Bartlett kernel) and Hansen-Hodrick (rectangular kernel)
 HAC SE / t-test for the mean of a (possibly overlapping) time series.
 ``_resolve_har_lags`` (scalar series-mean HAR t-test) and
-``_resolve_nw_lags`` (multivariate OLS / Wald) are the two bandwidth
-pickers, both honouring the forward-overlap horizon.
+``_resolve_nw_lags`` (multi-restriction Wald) are the two bandwidth
+pickers, both honouring the forward-overlap horizon;
+``_resolve_scalar_wald_hac`` applies the first one's full recipe —
+bandwidth, variance scale and effective degrees of freedom — to a
+single-restriction regression contrast.
 """
 
 from __future__ import annotations
@@ -57,14 +60,17 @@ def _resolve_nw_lags(
     when input series carries an MA(h-1) structure from overlapping forward
     returns. Clipped to ``n - 1`` so the kernel stays inside the sample.
 
-    This is the bandwidth for the ``_ols_nw_multivariate`` / Wald consumers
-    (``spanning_alpha``, ``common_quantile``, ``common_asymmetry``, the slice
-    tests). The scalar series-mean HAC t-test uses the wider, separately
-    size-checked :func:`_resolve_har_lags` instead — a K-restriction Wald
-    statistic inverts a K x K HAC matrix and degrades under a bandwidth that
-    helps the scalar test (measured: the K=5 slice joint test moves from 8-9%
-    to 21% at 50 periods per slice under the HAR rule), so the two families
-    deliberately do not share one rule.
+    This is the bandwidth for the **multi-restriction** Wald consumers —
+    today the slice cluster-mean tests (:func:`factrix.slice_joint_test`,
+    :func:`factrix.slice_pairwise_test`). A K-restriction Wald statistic
+    inverts a K x K HAC matrix and degrades under a bandwidth that helps a
+    scalar statistic: the K=5 slice joint test moves from 8-9% to 21% at 50
+    periods per slice under the HAR rule, so it keeps the narrow rule.
+
+    Single-restriction regression consumers (``spanning_alpha``,
+    ``common_quantile_spread``, ``common_asymmetry``) do **not** use this
+    rule; they take :func:`_resolve_scalar_wald_hac`, which is the scalar
+    HAR recipe. See that function for the measured split.
     """
     if n < 2:
         return 0
@@ -166,6 +172,65 @@ def _har_dof(n: int, lags: int, overlap_periods: int | None) -> float:
     if overlap_periods is not None and overlap_periods > 1:
         dof = min(dof, n / overlap_periods - 1.0)
     return max(dof, 1.0)
+
+
+def _resolve_scalar_wald_hac(
+    n: int,
+    lags: int | None,
+    overlap_periods: int | None,
+) -> tuple[int, float, float]:
+    """Bandwidth, variance scale and reference df for a **single-restriction** HAC test.
+
+    Returns ``(lags, variance_scale, df_denom)``: the caller runs
+    ``_ols_nw_multivariate`` at ``lags``, multiplies the HAC covariance by
+    ``variance_scale``, and reads the resulting ``t`` / Wald against
+    ``df_denom`` degrees of freedom.
+
+    This is the scalar HAR recipe of :func:`_resolve_har_lags` /
+    :func:`_har_dof` — the ``1.3*sqrt(T)`` base, the ``3(h - 1)`` overlap
+    floor, the ``ceil(T / 3)`` cap, the ``T / (T - L - 1)`` finite-sample
+    variance scale and the fixed-``b`` effective degrees of freedom —
+    applied to a regression contrast rather than to a series mean. A
+    contrast ``R beta`` with ``R`` of rank one is a scalar statistic, so it
+    inherits the calibration that recipe was measured on; only the
+    ``K >= 2`` Wald statistics of :func:`_resolve_nw_lags` degrade under it.
+
+    **The split, measured.** Empirical size at a nominal 5% on the
+    common-factor null (one AR(phi) factor broadcast to 50 assets,
+    independent of the returns; 300 replications per cell, seed
+    ``20260830 + rep``, Monte-Carlo standard error about 1.3pp), for the
+    two single-restriction consumers of this rule:
+
+    | metric | phi | T, h | narrow rule | this rule |
+    |---|---|---|---|---|
+    | `common_asymmetry` | 0.0 | 60, 5 | 15.3% | 8.0% |
+    | `common_asymmetry` | 0.0 | 60, 21 | 34.0% | 5.7% |
+    | `common_asymmetry` | 0.0 | 240, 5 | 10.0% | 5.7% |
+    | `common_quantile_spread` | 0.0 | 60, 5 | 9.7% | 5.7% |
+    | `common_quantile_spread` | 0.0 | 60, 21 | 16.3% | 0.0% |
+    | `common_quantile_spread` | 0.0 | 240, 5 | 6.3% | 4.0% |
+
+    Widening only the overlap floor to ``3(h - 1)`` while keeping the
+    Newey-West (1994) base, the ``n - 1`` clip and the ``T - k`` reference
+    — the narrow rule's other three pieces — measures *worse*, not better
+    (`common_quantile_spread` at ``phi=0, T=60, h=5``: 9.7% -> 16.0%; at
+    ``h=21``: 16.3% -> 35.7%). A wide Bartlett kernel read against ``T - k``
+    degrees of freedom is the case fixed-``b`` theory says needs the
+    Kiefer-Vogelsang / LLSW reference; the bandwidth and the reference have
+    to move together, which is why this returns all three pieces rather
+    than a lag count.
+
+    What it does not fix: a per-period factor that stays persistent *beyond*
+    the overlap horizon. At ``phi = 0.9`` the two metrics still measure
+    13.0% / 16.3% at ``T = 60, h = 5``, converging to 6.0% / 7.7% by
+    ``T = 240``. That regime is flagged
+    (:attr:`~factrix._codes.WarningCode.SERIAL_CORRELATION_DETECTED`)
+    rather than corrected — see ``statistical-methods`` section 6.
+    """
+    resolved = _resolve_har_lags(n, lags, overlap_periods)
+    remaining = n - resolved - 1
+    scale = n / remaining if remaining > 0 else 1.0
+    return resolved, scale, _har_dof(n, resolved, overlap_periods)
 
 
 #: The HAC sum needs enough lag products per autocovariance to be stable; the

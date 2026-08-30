@@ -1,11 +1,13 @@
-"""``spanning_alpha``'s HAC bandwidth honours the overlap horizon.
+"""``spanning_alpha``'s HAC reference honours the overlap horizon.
 
-The alpha t-stat used ``auto_bartlett(T)`` alone, with no ``h - 1`` floor.
-Spread series built from ``h``-period overlapping forward returns carry
-MA(``h-1``) residual autocorrelation (Hansen-Hodrick 1980), so a Bartlett
-kernel run at fewer than ``h - 1`` lags leaves that autocorrelation in the
-residual and understates the standard error. Every other HAC path in factrix
-floors at ``h - 1`` via ``_resolve_nw_lags``; this one now does too.
+The alpha t-stat is a **single restriction**, so it takes the scalar HAR
+recipe (``_resolve_scalar_wald_hac``): the ``1.3*sqrt(T)`` base, the
+``3(h - 1)`` overlap floor and the ``ceil(T / 3)`` cap for the bandwidth,
+the ``T / (T - L - 1)`` finite-sample variance scale, and the fixed-``b``
+effective degrees of freedom. Spread series built from ``h``-period
+overlapping forward returns carry MA(``h-1``) residual autocorrelation
+(Hansen-Hodrick 1980); the narrow ``max(auto_bartlett(T), h - 1)`` rule this
+path used before left it 13.7-46.0% oversized at ``h > 1``.
 
 The reference values here are computed by hand from the Newey-West (1987)
 definition, independently of the implementation.
@@ -19,7 +21,8 @@ import numpy as np
 import polars as pl
 import pytest
 from factrix._ols import ols_alpha
-from factrix._stats.constants import auto_bartlett
+from factrix._stats.constants import har_bandwidth
+from factrix._stats.hac import _resolve_scalar_wald_hac
 from factrix.metrics.spanning import spanning_alpha
 
 
@@ -40,7 +43,8 @@ def _hand_hac_alpha_t(y: np.ndarray, f: np.ndarray, lags: int) -> float:
 
     xtx_inv = np.linalg.inv(X.T @ X)
     cov = xtx_inv @ s @ xtx_inv
-    return float(beta[0] / np.sqrt(cov[0, 0]))
+    # The HAR finite-sample variance scale the resolver hands the caller.
+    return float(beta[0] / np.sqrt(cov[0, 0] * n / (n - lags - 1)))
 
 
 def _overlapping_pair(n: int = 200, h: int = 5, seed: int = 17):
@@ -60,42 +64,55 @@ class TestOlsAlphaBandwidth:
         base, candidate = _overlapping_pair()
         n = len(candidate)
         h = 5
-        expected_lags = max(auto_bartlett(n), h - 1)
+        expected_lags, _, _ = _resolve_scalar_wald_hac(n, None, h)
+        assert expected_lags == 3 * (h - 1) or expected_lags == har_bandwidth(n)
 
         out = ols_alpha(candidate, base[:, None], overlap_periods=h)
         assert out.alpha_t == pytest.approx(
             _hand_hac_alpha_t(candidate, base, expected_lags), rel=1e-10
         )
 
-    def test_default_is_the_unfloored_auto_rule(self):
+    def test_default_is_the_unfloored_har_base_rule(self):
         base, candidate = _overlapping_pair()
         n = len(candidate)
         out = ols_alpha(candidate, base[:, None])
         assert out.alpha_t == pytest.approx(
-            _hand_hac_alpha_t(candidate, base, auto_bartlett(n)), rel=1e-10
+            _hand_hac_alpha_t(candidate, base, har_bandwidth(n)), rel=1e-10
         )
 
-    def test_the_floor_binds_only_when_the_horizon_exceeds_the_auto_rule(self):
+    def test_the_floor_binds_only_when_the_horizon_exceeds_the_base_rule(self):
         base, candidate = _overlapping_pair(n=200)
-        auto = auto_bartlett(200)
-        # h - 1 below the auto rule: nothing changes.
-        below = ols_alpha(candidate, base[:, None], overlap_periods=auto)
+        base_lags = har_bandwidth(200)
+        # 3(h - 1) below the base rule: nothing changes.
+        small_h = base_lags // 3
+        below = ols_alpha(candidate, base[:, None], overlap_periods=small_h)
         assert below.alpha_t == pytest.approx(
             ols_alpha(candidate, base[:, None]).alpha_t, rel=1e-12
         )
-        # h - 1 above it: the wider kernel must move the t.
-        above = ols_alpha(candidate, base[:, None], overlap_periods=auto + 20)
+        # 3(h - 1) above it: the wider kernel must move the t.
+        big_h = base_lags
+        above = ols_alpha(candidate, base[:, None], overlap_periods=big_h)
         assert above.alpha_t != pytest.approx(below.alpha_t, rel=1e-6)
         assert above.alpha_t == pytest.approx(
-            _hand_hac_alpha_t(candidate, base, auto + 19), rel=1e-10
+            _hand_hac_alpha_t(candidate, base, 3 * (big_h - 1)), rel=1e-10
         )
 
-    def test_positive_residual_autocorrelation_widens_the_se(self):
-        # The point of the floor: absorbing the MA(h-1) must not shrink the SE.
+    def test_absorbing_the_overlap_does_not_sharpen_the_test(self):
+        # The point of the floor. The invariant is the p-value, not the SE:
+        # at L = 54 on 160 periods the Bartlett long-run variance can come out
+        # *smaller* than at L = 16, and the raw |t| with it, but the fixed-b
+        # effective df falls faster, so the test does not get sharper.
+        from scipy import stats as sp_stats
+
         base, candidate = _overlapping_pair(n=160, h=20)
-        unfloored = abs(ols_alpha(candidate, base[:, None]).alpha_t)
-        floored = abs(ols_alpha(candidate, base[:, None], overlap_periods=20).alpha_t)
-        assert floored < unfloored
+        unfloored = ols_alpha(candidate, base[:, None])
+        floored = ols_alpha(candidate, base[:, None], overlap_periods=20)
+
+        def _p(out) -> float:
+            return float(2 * sp_stats.t.sf(abs(out.alpha_t), out.alpha_dof))
+
+        assert floored.alpha_dof < unfloored.alpha_dof
+        assert _p(floored) > _p(unfloored)
 
 
 class TestSpanningAlphaThreadsTheHorizon:
@@ -116,7 +133,9 @@ class TestSpanningAlphaThreadsTheHorizon:
         )
 
         assert default.value == pytest.approx(floored.value)  # same point estimate
-        assert abs(floored.stat) < abs(default.stat)  # wider kernel, wider SE
+        # Wider kernel, fewer effective degrees of freedom: a weaker test.
+        assert floored.p_value > default.p_value
+        expected_lags, _, _ = _resolve_scalar_wald_hac(160, None, 20)
         assert floored.stat == pytest.approx(
-            _hand_hac_alpha_t(candidate, base, max(auto_bartlett(160), 19)), rel=1e-10
+            _hand_hac_alpha_t(candidate, base, expected_lags), rel=1e-10
         )
