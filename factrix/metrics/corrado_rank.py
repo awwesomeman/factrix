@@ -106,6 +106,13 @@ def corrado_rank(
         MetricResult with value=mean rank deviation, stat=z.
 
     Notes:
+        **Windows are counted in panel periods.** The estimation window behind
+        the ranked abnormal return is measured on the panel's distinct-date
+        grid, not on the asset's own rows, so it spans ``estimation_window``
+        grid periods for every name; an asset's missing periods count as
+        missing observations inside it, and a ragged panel raises
+        ``ragged_period_grid``.
+
         **The event period is the unit of inference.** Events sharing a period
         share whatever moved the market then, so they are not
         independent draws. Collapsing each period's cross-section to
@@ -224,6 +231,8 @@ def corrado_rank(
     # rank of an event depend on the asset's drift as much as on the event.
     data, ar_diagnostics = _attach_abnormal_return(
         data,
+        metric_name="corrado_rank",
+        expected_warnings=expected_warnings,
         return_col=return_col,
         estimation_window=estimation_window,
         overlap_periods=overlap_periods,

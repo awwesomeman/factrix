@@ -113,6 +113,7 @@ def _withdrawn_test_rates(
             panel,
             "factor",
             "forward_return",
+            metric_name="event_skewness",
             estimation_window=60,
             overlap_periods=OVERLAP,
         )

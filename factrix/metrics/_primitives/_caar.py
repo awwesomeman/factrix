@@ -117,6 +117,8 @@ def compute_caar(
     # filter.
     adjusted, ar_diagnostics = _attach_abnormal_return(
         data,
+        metric_name="caar",
+        expected_warnings=expected_warnings,
         return_col=return_col,
         estimation_window=estimation_window,
         overlap_periods=overlap_periods,

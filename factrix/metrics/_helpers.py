@@ -932,9 +932,110 @@ def _pick_event_return_col(data: pl.DataFrame) -> str:
     return "abnormal_return" if "abnormal_return" in data.columns else "forward_return"
 
 
+def _densify_on_period_grid(
+    frame: pl.DataFrame,
+    *,
+    grid_dates: pl.Series | None = None,
+    asset_col: str = "asset_id",
+) -> tuple[pl.DataFrame, bool]:
+    """Reindex a panel so a row step equals one step on its own period grid.
+
+    Every event-study window, lag and offset is a count of periods on the
+    panel's distinct-date grid (CLAUDE.md, "Period grid, not calendar"), but a
+    polars ``rolling_*`` window or ``shift`` counts *rows within the frame*.
+    The two agree only on a dense panel. On a ragged one — an asset missing
+    periods the other names have — a 30-period estimation window on an asset
+    with a 20-period hole reaches 50 grid periods back, and a ``k``-offset
+    return steps over the hole as though it were one period.
+
+    This helper takes the cross product of the panel's distinct dates with its
+    assets, left-joins the frame onto it and sorts by ``(asset, date)``, so an
+    absent period becomes a null row rather than no row at all. Rolling and
+    shift expressions evaluated on the result count grid periods for every
+    asset, and a period missing inside a window counts as missing — polars
+    skips nulls and honours ``min_samples`` — instead of pulling an older
+    period into the window to fill it.
+
+    The second element of the return says whether densifying added rows. An
+    already-dense panel is returned merely sorted, so the dense path stays
+    bit-identical to a plain per-asset rolling window; a caller that gets
+    ``True`` holds a frame with filler rows and must join its derived columns
+    back onto the original rows (and may fire
+    :attr:`~factrix._codes.WarningCode.RAGGED_PERIOD_GRID`).
+
+    Args:
+        frame: Panel with ``date`` and, for a panel, ``asset_col``.
+        grid_dates: Date column defining the grid; defaults to ``frame``'s own
+            distinct dates.
+        asset_col: Asset identifier; a frame without it is one series.
+
+    Returns:
+        ``(dense_frame, densified)``.
+    """
+    sort_keys = [k for k in (asset_col, "date") if k in frame.columns]
+    ordered = frame.sort(sort_keys) if sort_keys else frame
+    if "date" not in frame.columns or frame.height == 0:
+        return ordered, False
+    dates = (frame["date"] if grid_dates is None else grid_dates).unique().sort()
+    grid = pl.DataFrame({"date": dates})
+    if asset_col not in frame.columns:
+        if ordered.height == grid.height:
+            return ordered, False
+        return grid.join(ordered, on="date", how="left").sort("date"), True
+    assets = ordered[asset_col].unique().sort()
+    if ordered.height == grid.height * assets.len():
+        return ordered, False
+    dense = (
+        grid.join(pl.DataFrame({asset_col: assets}), how="cross")
+        .join(ordered, on=[asset_col, "date"], how="left")
+        .sort([asset_col, "date"])
+    )
+    return dense, True
+
+
+def _warn_ragged_event_grid(
+    metric_name: str,
+    frame: pl.DataFrame,
+    *,
+    expected_warnings: tuple[str, ...] = (),
+) -> None:
+    """Fire ``RAGGED_PERIOD_GRID`` for an event path handed a ragged panel.
+
+    The windows are correct — :func:`_densify_on_period_grid` counts them on
+    the panel grid — but an asset missing periods contributes fewer usable
+    returns inside a window of the same width, so its estimate rests on a
+    smaller sample than a caller comparing names would assume. Declarable
+    through ``expected_warnings`` like every other metric warning.
+    """
+    if WarningCode.RAGGED_PERIOD_GRID.value in expected_warnings:
+        return
+    if "asset_id" not in frame.columns or "date" not in frame.columns:
+        return
+    n_periods = int(frame["date"].n_unique())
+    per_asset = frame.group_by("asset_id").agg(pl.col("date").n_unique().alias("_n"))
+    n_ragged = int((per_asset["_n"] < n_periods).sum())
+    if not n_ragged:
+        return
+    warnings.warn(
+        f"{metric_name}: {WarningCode.RAGGED_PERIOD_GRID.value} — {n_ragged} of "
+        f"{per_asset.height} assets are missing periods that others have "
+        f"(panel grid: {n_periods} periods). Estimation windows, lags and "
+        "event offsets are counted on the panel's period grid, so those "
+        "windows still span the requested number of periods; the missing "
+        "periods count as missing observations inside them, leaving those "
+        "assets with a smaller estimation sample than the rest. Reindex the "
+        "panel onto a common grid if the estimates must be comparable across "
+        "names.",
+        UserWarning,
+        stacklevel=3,
+    )
+
+
 def _attach_abnormal_return(
     data: pl.DataFrame,
     *,
+    metric_name: str = "event metric",
+    expected_warnings: tuple[str, ...] = (),
     return_col: str = "forward_return",
     estimation_window: int = 60,
     overlap_periods: int = 5,
@@ -994,21 +1095,34 @@ def _attach_abnormal_return(
         event's forward return opens at $t + 2$, none of which the tested
         return contains.
 
+    The window and its lag are counted in **panel periods**: the estimation
+    window is evaluated on the panel's distinct-date grid
+    (:func:`_densify_on_period_grid`), so ``estimation_window`` spans that many
+    grid periods for every asset and periods an asset is missing count as
+    missing observations inside the window rather than stretching it further
+    back. A dense panel is unaffected; a ragged one raises
+    :attr:`~factrix._codes.WarningCode.RAGGED_PERIOD_GRID`.
+
     An event whose asset has too little history for the estimation window gets
     a null ``out_col`` and is dropped by the caller's finiteness filter, the
     same way ``bmp_z`` already drops events with no estimation-window
     volatility. ``min_samples`` is ``min(20, estimation_window)`` so a caller
-    that deliberately shortens the window still gets an estimate.
+    that deliberately shortens the window still gets an estimate — on a ragged
+    panel that floor now bites where the row-counted window used to reach back
+    far enough to fill itself.
 
     Args:
         data: Full panel — event *and* non-event rows. The non-event rows are
             the estimation window; passing only event rows estimates the mean
             from events alone, which is not the same quantity.
         return_col: Raw return column to adjust.
-        estimation_window: Bars (with ``price_col``) or rows (without) of
-            history behind $\hat\mu_i$.
-        overlap_periods: Overlap horizon; the lag applied to $\hat\mu_i$ on
-            the row path.
+        metric_name: Metric named in the ragged-grid warning.
+        expected_warnings: Warning codes the caller has declared; a declared
+            ``ragged_period_grid`` is not echoed.
+        estimation_window: Panel periods of history behind $\hat\mu_i$ —
+            grid periods, not rows of the asset's own frame.
+        overlap_periods: Overlap horizon; the lag, in panel periods, applied
+            to $\hat\mu_i$ on the return-column path.
         price_col: Price column; when present the mean is taken on one-bar
             returns derived from it.
         factor_col: Event column (``!= 0`` marks an event), read only for
@@ -1088,12 +1202,18 @@ def _attach_abnormal_return(
     sort_keys = [k for k in ("asset_id", "date") if k in data.columns]
     frame = data.sort(sort_keys) if sort_keys else data
     has_asset = "asset_id" in frame.columns
+    # Every window and lag below is a count of panel periods, so they are
+    # evaluated on the grid-dense frame (see _densify_on_period_grid) and the
+    # result joined back onto the real rows. On a dense panel this is a no-op.
+    dense, densified = _densify_on_period_grid(frame)
+    if densified:
+        _warn_ragged_event_grid(metric_name, frame, expected_warnings=expected_warnings)
     uses_price = price_col in frame.columns
     if uses_price:
         bar = pl.col(price_col) / pl.col(price_col).shift(1) - 1.0
         if has_asset:
             bar = bar.over("asset_id")
-        frame = frame.with_columns(bar.alias("_bar_return"))
+        dense = dense.with_columns(bar.alias("_bar_return"))
         source_col = "_bar_return"
         lag = 0
     else:
@@ -1114,9 +1234,11 @@ def _attach_abnormal_return(
         mean_expr = mean_expr.shift(lag)
     if has_asset:
         mean_expr = mean_expr.over("asset_id")
-    out = frame.with_columns((pl.col(return_col) - mean_expr).alias(out_col))
+    dense = dense.with_columns((pl.col(return_col) - mean_expr).alias(out_col))
+    # The share reads the same windows, so it too runs on the dense frame; the
+    # filler rows carry a null factor and are excluded as non-events.
     diagnostics["estimation_window_event_share"] = _estimation_window_event_share(
-        out,
+        dense,
         factor_col,
         out_col,
         estimation_window=estimation_window,
@@ -1125,7 +1247,11 @@ def _attach_abnormal_return(
         bars=uses_price,
         has_asset=has_asset,
     )
-    if uses_price:
+    if densified:
+        out = frame.join(dense.select([*sort_keys, out_col]), on=sort_keys, how="left")
+    else:
+        out = dense
+    if uses_price and "_bar_return" in out.columns:
         out = out.drop("_bar_return")
     return out, diagnostics
 
