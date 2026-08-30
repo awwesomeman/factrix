@@ -31,14 +31,14 @@ DOCS_PAGE = pathlib.Path("docs/reference/statistical-methods.md")
 
 
 def _section_6() -> str:
-    text = DOCS_PAGE.read_text()
+    text = DOCS_PAGE.read_text(encoding="utf-8")
     match = re.search(r"^## 6\..*?(?=^## 7\.)", text, re.M | re.S)
     assert match, "section 6 not found — has the page been renumbered?"
     return match.group(0)
 
 
 def _module_functions(stem: str) -> dict[str, ast.FunctionDef]:
-    tree = ast.parse((METRICS_DIR / f"{stem}.py").read_text())
+    tree = ast.parse((METRICS_DIR / f"{stem}.py").read_text(encoding="utf-8"))
     return {
         n.name: n
         for n in ast.walk(tree)
