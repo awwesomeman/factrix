@@ -1,11 +1,12 @@
 """Spread-metric inference dispatch: golden values, allowlist and bootstrap keys.
 
 The golden block pins ``value / stat / p_value / n_obs`` for the three
-spread metrics under ``NON_OVERLAPPING`` and ``NEWEY_WEST`` **exactly**
-(``==``, not ``approx``). The numbers were recorded from the pre-refactor
-hard-branching dispatch on a fixed panel; the polymorphic dispatch that
-replaced it reproduces ``stat`` / ``p_value`` / ``n_obs`` bit-for-bit,
-since it is a routing change and not a statistical one.
+spread metrics under ``NON_OVERLAPPING`` and ``NEWEY_WEST`` to within
+platform rounding (``rel=1e-12``; ``n_obs`` exact). The numbers were
+recorded from the pre-refactor hard-branching dispatch on a fixed panel;
+the polymorphic dispatch that replaced it reproduces ``stat`` / ``p_value``
+/ ``n_obs`` up to last-ULP accumulation order across the CI platform
+matrix, since it is a routing change and not a statistical one.
 
 The three ``NEWEY_WEST`` ``value`` entries moved by 1-2 units in the last
 place when re-recorded, and only those: the full-series mean is now taken
@@ -105,10 +106,20 @@ def _run(metric_name: str, panel, inference) -> MetricResult:
 
 @pytest.mark.parametrize(("metric_name", "inference_name"), sorted(GOLDEN))
 def test_golden_spread_dispatch(panel, metric_name, inference_name):
-    """Polymorphic dispatch reproduces the pre-refactor numbers bit-for-bit."""
-    expected = GOLDEN[(metric_name, inference_name)]
+    """Polymorphic dispatch reproduces the pre-refactor numbers.
+
+    Floats are compared at ``rel=1e-12``, not ``==``: the last few ULPs of
+    a mean / HAC t / p differ across platforms and numpy / polars builds
+    (accumulation order), and CI runs a macOS / Linux / Windows matrix plus
+    a declared-dependency-floor lane. A real change to the dispatch moves
+    these numbers by orders of magnitude more than that. ``n_obs`` is exact.
+    """
+    value, stat, p_value, n_obs = GOLDEN[(metric_name, inference_name)]
     result = _run(metric_name, panel, INFERENCES[inference_name])
-    assert (result.value, result.stat, result.p_value, result.n_obs) == expected
+    assert result.value == pytest.approx(value, rel=1e-12, abs=0)
+    assert result.stat == pytest.approx(stat, rel=1e-12, abs=0)
+    assert result.p_value == pytest.approx(p_value, rel=1e-12, abs=0)
+    assert result.n_obs == n_obs
 
 
 @pytest.mark.parametrize(
