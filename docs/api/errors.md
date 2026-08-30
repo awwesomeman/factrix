@@ -43,14 +43,35 @@ overlap_periods=0)` and `evaluate(..., overlap_periods=0)` both raise
 an unvetted `inference=` raises `IncompatibleInferenceError` whether the
 sample-floor pre-flight or the metric body sees it first.
 
+### Metric knobs fail at construction
+
+A metric's knobs are validated when the metric object is built, not when
+it runs. `quantile_spread(n_groups=1)` raises immediately; so does
+`quantile_spread(panel, n_groups=1)`, because the direct-call form builds
+the same object first. Both raise the same class with the same `.field`,
+and a battery configured up front fails on the bad knob rather than three
+metrics into the `evaluate`:
+
+```python title="Illustrative"
+metrics = {
+    "ic": ic(),
+    "spread": quantile_spread(n_groups=1),   # raises here, not in evaluate()
+}
+```
+
+The three rules are the metric's `Literal`-annotated knobs (closed sets),
+its `inference=` allowlist, and its declared numeric bounds — see
+[Custom metrics](../guides/custom-metrics.md) for `@metric(validate=...)`.
+The panel's `overlap_periods` is not a knob: it is injected from the data
+at dispatch and validated there.
+
 `except fx.FactrixError` does not yet block *every* library-raised
 failure. What still surfaces as a builtin:
 
 | Still builtin | Where | Why |
 |---|---|---|
 | `TypeError` | An argument of the wrong Python type (`by_slice(rows, ...)` on a non-frame, a metric class passed where an instance is required, a positional metric knob) | Wrong *type* is a `TypeError` by Python convention; wrong *value* is a `UserInputError`. |
-| `ValueError` | Numeric knob guards on some metrics (`k_spread(k=0)`, `notional_turnover(rebalance_lag=0)`, `holding_periods`, `neutral_epsilon`) | Not yet on the structured contract; they carry a plain message and no `.field`. |
-| `ValueError` | The low-level helpers in [`factrix.stats`](stats.md) (`bhy_adjust`, `romano_wolf_adjusted_p`, `stationary_bootstrap`, …) and the result exporters (`to_frame` / `to_dict` collisions) | Array-shape and finiteness guards on numeric primitives, documented per function. |
+| `ValueError` | Library invariants outside the metric-knob / `factrix.stats` / result-exporter contract: `factrix.metrics.register()` re-registering a name, the metric-index declaration checks, the numeric kernels in `factrix._stats`, and the `adapt` / `preprocess.orthogonalize` schema guards | Developer- or invariant-facing — a mis-declared metric, or a non-finite array reaching a kernel. Every metric knob, `factrix.stats` argument and `to_frame` / `to_dict` collision is a `UserInputError`. |
 
 `UserInputError` multi-inherits from `ValueError`, so
 `except ValueError` catches both it and everything in the table.

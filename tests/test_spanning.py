@@ -446,7 +446,7 @@ class TestAlignSpreadSeriesRegressions:
         # np.column_stack crashed far from the cause.
         base, cand = self._linked_pair()
         dup_base = pl.concat([base, base.head(1)])
-        with pytest.raises(ValueError, match="duplicate dates"):
+        with pytest.raises(ValueError, match="distinct periods"):
             spanning_alpha(cand, base_spreads={"base": dup_base})
 
     def test_nan_spread_dropped_not_propagated(self):

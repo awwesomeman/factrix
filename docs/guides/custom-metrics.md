@@ -86,6 +86,57 @@ results = fx.evaluate(
 )
 ```
 
+### Validating knobs
+
+Knob validation is not written into the body. `@metric` builds the metric's
+constructor, and every knob contract is enforced there — once, for both the
+config form (`custom_trimmed_ic(trim_ratio=1.5)`) and the direct-call form
+(`custom_trimmed_ic(ic_df, trim_ratio=1.5)`), which builds the same object
+before it runs.
+
+Two rules need no declaration:
+
+- a parameter annotated with a `Literal` alias is checked against that alias,
+  so the annotation *is* the runtime contract (`tie_policy: TiePolicy` rejects
+  anything outside `"ordinal"` / `"average"`);
+- a parameter named `inference` is checked against the `applicable_inference`
+  frozenset your module declares at top level.
+
+Anything a closed set cannot express — a numeric bound, a pair of knobs that
+are mutually exclusive — goes in a `validate=` hook: a module-level callable
+taking the constructed instance and raising `UserInputError`.
+
+```python title="Illustrative"
+from factrix import UserInputError
+
+
+def _validate_custom_trimmed_ic(m) -> None:
+    if not 0.0 <= m.trim_ratio < 0.5:
+        raise UserInputError(
+            func_name="custom_trimmed_ic",
+            field="trim_ratio",
+            value=m.trim_ratio,
+            expected="a fraction in [0, 0.5): each tail is trimmed once",
+            docs_path="api/metrics",
+        )
+
+
+@metric(
+    cell=_CUSTOM_CELL,
+    aggregation=Aggregation.CS_THEN_TS,
+    input_shape=InputShape.SERIES,
+    requires={"ic_df": compute_ic},
+    sample_threshold=SampleThreshold(min_periods=10),
+    validate=_validate_custom_trimmed_ic,
+)
+def custom_trimmed_ic(ic_df: pl.DataFrame, trim_ratio: float = 0.05):
+    ...
+```
+
+`overlap_periods` and `expected_warnings` are injected at dispatch rather than
+configured, so they are never validated here — the constructor rejects them
+outright.
+
 ---
 
 ## 2. Using `@metric_spec` and `register()`

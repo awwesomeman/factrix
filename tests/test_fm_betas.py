@@ -221,7 +221,9 @@ class TestComputeFMBetasBatch:
             assert batch[col].equals(single), col
 
     def test_empty_factor_list_rejected(self, tiny_panel):
-        with pytest.raises(ValueError, match="factor_cols must be non-empty"):
+        with pytest.raises(
+            ValueError, match="non-empty sequence of factor column names"
+        ):
             compute_fm_betas(tiny_panel, factor_cols=[])
 
 

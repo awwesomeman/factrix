@@ -27,6 +27,15 @@ build = pytest.importorskip("mkdocs.commands.build").build
 load_config = pytest.importorskip("mkdocs.config").load_config
 
 PACKAGE_ROOT = pathlib.Path("factrix")
+#: ``factrix.stats`` functions whose validators build their docs anchor from
+#: ``_STATS_DOCS_TEMPLATE`` (one shared validator serves several functions), so
+#: the literal path never appears in the source for the sweep below to find.
+_STATS_DOCS_FUNCTIONS = (
+    "bhy_adjust",
+    "bhy_adjusted_p",
+    "holm_adjusted_p",
+    "romano_wolf_adjusted_p",
+)
 _DYNAMIC_DOCS_FUNCTIONS = (
     "compare",
     "bhy",
@@ -53,7 +62,9 @@ def _literal_docs_paths() -> set[str]:
 
 
 DOCS_PATHS = sorted(
-    _literal_docs_paths() | {_api_docs_path(name) for name in _DYNAMIC_DOCS_FUNCTIONS}
+    _literal_docs_paths()
+    | {_api_docs_path(name) for name in _DYNAMIC_DOCS_FUNCTIONS}
+    | {f"api/stats#factrix.stats.{name}" for name in _STATS_DOCS_FUNCTIONS}
 )
 
 

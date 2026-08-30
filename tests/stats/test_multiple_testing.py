@@ -64,15 +64,15 @@ class TestBhyAdjust:
         assert list(mask) == [False, True, False, True, False]
 
     def test_fdr_bounds(self):
-        with pytest.raises(ValueError, match="fdr must be in"):
+        with pytest.raises(ValueError, match="invalid fdr"):
             bhy_adjust([0.01, 0.02], fdr=0.0)
-        with pytest.raises(ValueError, match="fdr must be in"):
+        with pytest.raises(ValueError, match="invalid fdr"):
             bhy_adjust([0.01, 0.02], fdr=1.0)
 
     def test_rejects_out_of_range_pvalues(self):
-        with pytest.raises(ValueError, match="must all lie in"):
+        with pytest.raises(ValueError, match=r"finite and inside \[0, 1\]"):
             bhy_adjust([-0.1, 0.5])
-        with pytest.raises(ValueError, match="must all lie in"):
+        with pytest.raises(ValueError, match=r"finite and inside \[0, 1\]"):
             bhy_adjust([0.5, 1.1])
 
     def test_higher_fdr_rejects_more(self):
@@ -245,10 +245,14 @@ class TestRomanoWolfAdjustedP:
     @pytest.mark.parametrize(
         ("statistics", "bootstrap", "message"),
         [
-            ([[1.0, 2.0]], np.ones((10, 2)), "statistics must be 1-D"),
-            ([1.0, np.nan], np.ones((10, 2)), "statistics must be finite"),
+            ([[1.0, 2.0]], np.ones((10, 2)), "a 1-D array of observed"),
+            ([1.0, np.nan], np.ones((10, 2)), "every observed test statistic finite"),
             ([1.0, 2.0], np.ones((10, 3)), r"shape \(B, 2\)"),
-            ([1.0, 2.0], np.array([[1.0, np.inf]]), "must be finite"),
+            (
+                [1.0, 2.0],
+                np.array([[1.0, np.inf]]),
+                "every resampled test statistic finite",
+            ),
             ([1.0, 2.0], np.empty((0, 2)), "at least 1 resample"),
         ],
     )
@@ -257,28 +261,28 @@ class TestRomanoWolfAdjustedP:
             romano_wolf_adjusted_p(statistics, bootstrap)
 
     def test_rejects_non_boolean_tail_mode(self):
-        with pytest.raises(ValueError, match="one_sided must be a bool"):
+        with pytest.raises(ValueError, match="invalid one_sided"):
             romano_wolf_adjusted_p([1.0], np.ones((10, 1)), one_sided=1)
 
 
 @pytest.mark.parametrize("adjust", [bhy_adjusted_p, holm_adjusted_p])
 class TestAdjustedPValidation:
     def test_rejects_non_vector_input(self, adjust):
-        with pytest.raises(ValueError, match="must be 1-D"):
+        with pytest.raises(ValueError, match="a 1-D array of p-values"):
             adjust([[0.01, 0.02]])
 
     @pytest.mark.parametrize("value", [np.nan, np.inf, -0.1, 1.1])
     def test_rejects_non_finite_or_out_of_range_pvalues(self, adjust, value):
-        with pytest.raises(ValueError, match=r"lie in \[0, 1\].*finite"):
+        with pytest.raises(ValueError, match=r"finite and inside \[0, 1\]"):
             adjust([0.01, value])
 
     @pytest.mark.parametrize("n_tests", [True, 2.5])
     def test_rejects_non_integer_family_size(self, adjust, n_tests):
-        with pytest.raises(ValueError, match="must be an integer"):
+        with pytest.raises(ValueError, match="invalid n_tests"):
             adjust([0.01, 0.02], n_tests=n_tests)
 
     def test_rejects_family_size_smaller_than_submission(self, adjust):
-        with pytest.raises(ValueError, match=r"n_tests .* must be >="):
+        with pytest.raises(ValueError, match=r"integer >= len\(p_values\)"):
             adjust([0.01, 0.02], n_tests=1)
 
 
@@ -321,9 +325,9 @@ class TestNTotal:
         """n_tests < len(p) is incoherent — BHY assumes submitted is a
         subset of the full family."""
         p = np.array([0.01, 0.02, 0.03, 0.04, 0.05])
-        with pytest.raises(ValueError, match=r"n_tests .* must be >="):
+        with pytest.raises(ValueError, match=r"integer >= len\(p_values\)"):
             bhy_adjust(p, n_tests=2)
-        with pytest.raises(ValueError, match=r"n_tests .* must be >="):
+        with pytest.raises(ValueError, match=r"integer >= len\(p_values\)"):
             bhy_adjusted_p(p, n_tests=2)
 
     def test_adjusted_p_monotone_in_n_tests(self):
@@ -363,9 +367,9 @@ class TestPartialConjunctionP:
             partial_conjunction_p([], min_pass=1)
 
     def test_min_pass_out_of_range_raises(self):
-        with pytest.raises(ValueError, match="1 <= min_pass <= m"):
+        with pytest.raises(ValueError, match=r"1 <= k <= m"):
             partial_conjunction_p([0.01, 0.02], min_pass=3)
-        with pytest.raises(ValueError, match="1 <= min_pass <= m"):
+        with pytest.raises(ValueError, match=r"1 <= k <= m"):
             partial_conjunction_p([0.01, 0.02], min_pass=0)
 
 
@@ -436,13 +440,13 @@ class TestNonFiniteRejectedByEveryKernel:
     @pytest.mark.parametrize("name,kernel", KERNELS, ids=[k[0] for k in KERNELS])
     @pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
     def test_non_finite_raises(self, name, kernel, bad):
-        with pytest.raises(ValueError, match="must all lie in"):
+        with pytest.raises(ValueError, match=r"finite and inside \[0, 1\]"):
             kernel(np.array([0.1, bad, 0.3]))
 
     @pytest.mark.parametrize("name,kernel", KERNELS, ids=[k[0] for k in KERNELS])
     @pytest.mark.parametrize("bad", [-0.1, 1.5])
     def test_out_of_range_raises(self, name, kernel, bad):
-        with pytest.raises(ValueError, match="must all lie in"):
+        with pytest.raises(ValueError, match=r"finite and inside \[0, 1\]"):
             kernel(np.array([0.1, bad, 0.3]))
 
     @pytest.mark.parametrize("name,kernel", KERNELS, ids=[k[0] for k in KERNELS])
@@ -467,12 +471,12 @@ class TestNonFiniteRejectedByEveryKernel:
 
         bad_stats = statistics.copy()
         bad_stats[1] = float("nan")
-        with pytest.raises(ValueError, match="statistics must be finite"):
+        with pytest.raises(ValueError, match="every observed test statistic finite"):
             romano_wolf_adjusted_p(bad_stats, bootstrap)
 
         bad_boot = bootstrap.copy()
         bad_boot[5, 1] = float("inf")
-        with pytest.raises(ValueError, match="bootstrap_statistics must be finite"):
+        with pytest.raises(ValueError, match="every resampled test statistic finite"):
             romano_wolf_adjusted_p(statistics, bad_boot)
 
 
@@ -481,13 +485,13 @@ class TestPartialConjunctionMinPassValidation:
 
     def test_rejects_a_float(self):
         """Reached ``sorted_p[min_pass - 1]`` and surfaced a raw IndexError."""
-        with pytest.raises(ValueError, match="min_pass must be an integer"):
+        with pytest.raises(ValueError, match="invalid min_pass"):
             partial_conjunction_p([0.1, 0.2, 0.3], min_pass=2.5)
 
     def test_rejects_a_bool(self):
         """``min_pass=True`` silently became k=1 - the union semantics
         ``partial_conjunction`` refuses because they inflate FDR to ~2q."""
-        with pytest.raises(ValueError, match="min_pass must be an integer"):
+        with pytest.raises(ValueError, match="invalid min_pass"):
             partial_conjunction_p([0.1, 0.2, 0.3], min_pass=True)
 
     def test_accepts_a_numpy_integer(self):

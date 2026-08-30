@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import dataclasses
 import inspect
+import types
+import typing
 from collections.abc import Callable
 from typing import Any, TypeVar
 
@@ -42,6 +44,39 @@ def _normalize_threshold(
     return declared, None
 
 
+def _resolve_hints(fn: Callable[..., Any]) -> dict[str, Any]:
+    """Resolved annotations for ``fn``, or ``{}`` when they cannot be resolved.
+
+    Metric modules use ``from __future__ import annotations``, so a signature
+    carries annotation *strings*; the closed-set rule below needs the real
+    ``Literal`` alias behind the name. A third-party metric may annotate with a
+    name that only exists under ``TYPE_CHECKING``, which no first-party metric
+    does — resolution failing there degrades to the raw annotation object
+    rather than breaking the decorator.
+    """
+    try:
+        return typing.get_type_hints(fn)
+    except Exception:
+        return {}
+
+
+def _literal_alias(annotation: Any) -> Any | None:
+    """The ``Literal`` alias behind ``annotation``, or ``None`` if there is none.
+
+    Unwraps a union (``Literal[...] | None``, ``Optional[Literal[...]]``) so an
+    optional closed-set knob is still recognised as one; the ``None`` member is
+    not a legal token, so an optional knob declares it in its own ``Literal``
+    if it wants one.
+    """
+    if typing.get_origin(annotation) is typing.Literal:
+        return annotation
+    if typing.get_origin(annotation) in (typing.Union, types.UnionType):
+        for arg in typing.get_args(annotation):
+            if typing.get_origin(arg) is typing.Literal:
+                return arg
+    return None
+
+
 def metric(
     cell: Cell,
     aggregation: Aggregation,
@@ -56,6 +91,7 @@ def metric(
     | None = None,
     requires_continuous_magnitude: bool = False,
     slice_boundary_sensitive: bool = False,
+    validate: Callable[[MetricBase], None] | None = None,
 ) -> Callable[[_F], _F]:
     """Decorator to define a Metric class from a function definition.
 
@@ -66,6 +102,16 @@ def metric(
     like the original function. It is typed as the wrapped callable (``_F``)
     so direct calls and ``requires=`` references type-check against the real
     signature; the class identity is an internal registry concern.
+
+    ``validate`` is the metric's own knob validator: a callable taking the
+    constructed instance and raising :class:`~factrix._errors.UserInputError`
+    for a knob outside its bounds. It runs from
+    :meth:`MetricBase.__post_init__`, alongside the two rules the decorator
+    derives on its own (``Literal``-annotated fields against their alias, and
+    ``inference=`` against the module's ``applicable_inference`` allowlist), so
+    every knob mistake fails at construction on both the config and the
+    direct-call path. Bounds a ``Literal`` cannot express are the only thing it
+    is for — a closed set belongs in the annotation.
     """
 
     def decorator(fn: _F) -> _F:
@@ -111,6 +157,18 @@ def metric(
             name for name, *_ in fields if name not in _INJECTED_PARAMS
         )
 
+        # Closed-set knobs, resolved once at class creation: every field
+        # annotated with a ``Literal`` alias, paired with that alias. The
+        # constructor validates against it, so the annotation *is* the runtime
+        # contract and the two cannot drift.
+        hints = _resolve_hints(fn)
+        literal_fields = tuple(
+            (name, alias)
+            for name, annotation, *_ in fields
+            if name in user_param_names
+            and (alias := _literal_alias(hints.get(name, annotation))) is not None
+        )
+
         # 2. Normalize the floor declaration into the single resolver type.
         # A ``SampleThreshold`` constant (or ``None``) becomes a resolver that
         # returns it verbatim; a callable is taken as-is. The ``SampleThreshold |
@@ -135,6 +193,8 @@ def metric(
             "_first_param_name": first_param_name,
             "_param_names": user_param_names,
             "_injected_param_names": injected_param_names,
+            "_literal_fields": literal_fields,
+            "_knob_validator": staticmethod(validate) if validate else None,
             "__module__": fn.__module__,
             "__doc__": fn.__doc__,
         }

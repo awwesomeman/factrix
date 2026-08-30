@@ -43,6 +43,7 @@ from factrix._stats import (
 )
 from factrix._stats.constants import MIN_ASSETS_WARN
 from factrix._types import DDOF, EPSILON
+from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _degenerate_test_fields,
@@ -325,6 +326,25 @@ def common_beta(
 # ---------------------------------------------------------------------------
 
 
+def _validate_common_beta_profile(m: MetricBase) -> None:
+    """``neutral_epsilon`` is an absolute-beta width, so it cannot be negative."""
+    from factrix._errors import UserInputError
+
+    value = m.neutral_epsilon  # type: ignore[attr-defined]
+    numeric = not isinstance(value, bool) and isinstance(value, int | float)
+    if not numeric or float(value) < 0.0:
+        raise UserInputError(
+            func_name="common_beta_profile",
+            field="neutral_epsilon",
+            value=value,
+            expected=(
+                "a non-negative number. It is the half-width of the |beta| "
+                "band counted as neutral, so a negative width has no meaning."
+            ),
+            docs_path="api/metrics/common_beta",
+        )
+
+
 @metric(
     cell=_COMMON_BETA_CELL,
     aggregation=Aggregation.TS_THEN_CS,
@@ -332,6 +352,7 @@ def common_beta(
     input_shape=InputShape.SERIES,
     requires={"common_betas_df": compute_common_betas},
     sample_threshold=SampleThreshold(min_assets=1),
+    validate=_validate_common_beta_profile,
 )
 def common_beta_profile(
     common_betas_df: pl.DataFrame,
@@ -356,8 +377,6 @@ def common_beta_profile(
         MetricResult with descriptive beta-profile metadata and
         ``p_value=None``.
     """
-    if neutral_epsilon < 0.0:
-        raise ValueError("neutral_epsilon must be non-negative")
     if "beta" not in common_betas_df.columns:
         return _short_circuit_output(
             "common_beta_profile",

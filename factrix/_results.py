@@ -18,6 +18,7 @@ import polars as pl
 
 from factrix._axis import DataStructure, FactorDensity, FactorScope
 from factrix._codes import WarningCode
+from factrix._errors import UserInputError
 from factrix._types import SampleAxis
 
 PValueAlternative = Literal["two-sided", "greater", "less"]
@@ -74,32 +75,56 @@ class MetricResult:
 
     def __post_init__(self) -> None:
         if (self.p_value is None) != (self.alternative is None):
-            raise ValueError(
-                "MetricResult: p_value and alternative must either both be "
-                "provided or both be None."
+            raise UserInputError(
+                func_name="MetricResult",
+                field="alternative",
+                value=self.alternative,
+                expected=(
+                    "p_value and alternative supplied together, or both None: "
+                    "a p-value without the alternative it was computed under "
+                    "is uninterpretable."
+                ),
+                docs_path="api/evaluation-results#factrix.MetricResult",
             )
         # WHY: bool is a subclass of float's numeric tower — `True` passes the
         # [0, 1] range check and then serialises as a probability of 1.0.
         if isinstance(self.p_value, bool):
-            raise ValueError(
-                "MetricResult: p_value must be a float probability, not a bool; "
-                f"got {self.p_value!r}."
+            raise UserInputError(
+                func_name="MetricResult",
+                field="p_value",
+                value=self.p_value,
+                expected=(
+                    "a float probability, not a bool. A bool passes the "
+                    "[0, 1] range check and then serialises as a probability "
+                    "of 1.0."
+                ),
+                docs_path="api/evaluation-results#factrix.MetricResult",
             )
         if self.p_value is not None and (
             not math.isfinite(self.p_value) or not 0.0 <= self.p_value <= 1.0
         ):
-            raise ValueError(
-                "MetricResult: p_value must be finite and lie in [0, 1]; "
-                f"got {self.p_value!r}."
+            raise UserInputError(
+                func_name="MetricResult",
+                field="p_value",
+                value=self.p_value,
+                expected="a finite probability inside [0, 1]",
+                docs_path="api/evaluation-results#factrix.MetricResult",
             )
         if self.alternative is not None and self.alternative not in _ALTERNATIVES:
-            raise ValueError(
-                "MetricResult: alternative must be one of "
-                f"{sorted(_ALTERNATIVES)}; got {self.alternative!r}."
+            raise UserInputError(
+                func_name="MetricResult",
+                field="alternative",
+                value=self.alternative,
+                candidates=sorted(_ALTERNATIVES),
+                docs_path="api/evaluation-results#factrix.MetricResult",
             )
         if self.n_obs is not None and self.n_obs < 0:
-            raise ValueError(
-                f"MetricResult: n_obs must be non-negative; got {self.n_obs!r}."
+            raise UserInputError(
+                func_name="MetricResult",
+                field="n_obs",
+                value=self.n_obs,
+                expected="a non-negative count",
+                docs_path="api/evaluation-results#factrix.MetricResult",
             )
         # WHY: NaN is a legitimate `stat` — an estimator that ran but could not
         # form its statistic reports NaN, the same "computed, undefined" marker
@@ -107,9 +132,16 @@ class MetricResult:
         # division by an unguarded zero standard error, which silently reads
         # out as infinite significance downstream.
         if self.stat is not None and math.isinf(self.stat):
-            raise ValueError(
-                "MetricResult: stat must be finite (NaN allowed for a statistic "
-                f"that could not be formed); got {self.stat!r}."
+            raise UserInputError(
+                func_name="MetricResult",
+                field="stat",
+                value=self.stat,
+                expected=(
+                    "a finite statistic, or NaN for one that could not be "
+                    "formed. An infinite stat always comes from a division by "
+                    "an unguarded zero standard error."
+                ),
+                docs_path="api/evaluation-results#factrix.MetricResult",
             )
 
     def __repr__(self) -> str:
@@ -310,24 +342,29 @@ class EvaluationResult:
         - only **scalar** values are exported — ``bool`` / ``int`` /
           ``float`` / ``str`` (``NaN`` / ``Inf`` become ``null`` like
           ``value``; numpy scalars are unwrapped). A list, dict, tuple or
-          other nested value raises ``ValueError`` naming the metric and
+          other nested value raises ``UserInputError`` naming the metric and
           key — those are what :meth:`to_dict` is for;
         - a key colliding with a fixed column, a :attr:`params` key or a
-          repeated key raises ``ValueError``, so metadata never shadows
+          repeated key raises ``UserInputError``, so metadata never shadows
           identity or the fixed schema;
         - dtypes are inferred per column from the values present.
 
         Raises:
-            ValueError: a :attr:`params` key collides with a fixed column
+            UserInputError: a :attr:`params` key collides with a fixed column
                 name; a ``metadata`` key collides, repeats, or names a
                 non-scalar value on some metric.
         """
         collisions = sorted(set(self.params) & set(_TO_FRAME_SCHEMA))
         if collisions:
-            raise ValueError(
-                f"EvaluationResult.to_frame(): params key(s) {collisions} collide "
-                f"with fixed column name(s); rename the params key(s). Reserved: "
-                f"{sorted(_TO_FRAME_SCHEMA)}"
+            raise UserInputError(
+                func_name="EvaluationResult.to_frame",
+                field="params",
+                value=collisions,
+                expected=(
+                    f"params key(s) that do not collide with a fixed column "
+                    f"name; rename them. Reserved: {sorted(_TO_FRAME_SCHEMA)}"
+                ),
+                docs_path="api/evaluation-results#to_frame",
             )
         meta_keys = _validate_metadata_keys(metadata, params=self.params)
         by_metric: dict[str, list[str]] = {}
@@ -555,30 +592,48 @@ def _validate_metadata_keys(
 ) -> tuple[str, ...]:
     """Normalise ``to_frame(metadata=)``: a sequence of distinct, non-reserved keys."""
     if isinstance(metadata, str) or not isinstance(metadata, Sequence):
-        raise ValueError(
-            "EvaluationResult.to_frame(): metadata= takes a sequence of metadata "
-            f"key names, e.g. metadata=('n_groups', 'rebalance_lag'); got "
-            f"{metadata!r}"
+        raise UserInputError(
+            func_name="EvaluationResult.to_frame",
+            field="metadata",
+            value=metadata,
+            expected=(
+                "a sequence of metadata key names, e.g. "
+                "metadata=('n_groups', 'rebalance_lag')"
+            ),
+            docs_path="api/evaluation-results#to_frame",
         )
     keys = tuple(metadata)
     bad = [k for k in keys if not isinstance(k, str)]
     if bad:
-        raise ValueError(
-            f"EvaluationResult.to_frame(): metadata keys must be strings; got {bad!r}"
+        raise UserInputError(
+            func_name="EvaluationResult.to_frame",
+            field="metadata",
+            value=bad,
+            expected="every metadata key a string",
+            docs_path="api/evaluation-results#to_frame",
         )
     repeated = sorted({k for k in keys if keys.count(k) > 1})
     if repeated:
-        raise ValueError(
-            f"EvaluationResult.to_frame(): metadata key(s) {repeated} repeated"
+        raise UserInputError(
+            func_name="EvaluationResult.to_frame",
+            field="metadata",
+            value=repeated,
+            expected="distinct metadata keys",
+            docs_path="api/evaluation-results#to_frame",
         )
     reserved = set(_TO_FRAME_SCHEMA) | set(_TO_FRAME_IDENTITY) | set(params)
     collisions = sorted(set(keys) & reserved)
     if collisions:
-        raise ValueError(
-            f"EvaluationResult.to_frame(): metadata key(s) {collisions} collide "
-            f"with a fixed column or a params key; the fixed schema and the "
-            f"hypothesis identity are never shadowed by metadata. Reserved: "
-            f"{sorted(reserved)}"
+        raise UserInputError(
+            func_name="EvaluationResult.to_frame",
+            field="metadata",
+            value=collisions,
+            expected=(
+                f"metadata key(s) that shadow neither a fixed column nor a "
+                f"params key: the fixed schema and the hypothesis identity are "
+                f"never shadowed. Reserved: {sorted(reserved)}"
+            ),
+            docs_path="api/evaluation-results#to_frame",
         )
     return keys
 
@@ -606,10 +661,15 @@ def _scalar_metadata(label: str, key: str, value: object) -> Any:
         return value
     if isinstance(value, float):
         return _float_or_none(value)
-    raise ValueError(
-        f"EvaluationResult.to_frame(): metadata[{key!r}] on metric {label!r} is "
-        f"a {type(value).__name__}, not a scalar; metadata= exports bool / int / "
-        f"float / str cells only. Use to_dict() for nested values."
+    raise UserInputError(
+        func_name="EvaluationResult.to_frame",
+        field=f"metadata[{key!r}]",
+        value=value,
+        expected=(
+            f"a scalar on metric {label!r}: metadata= exports bool / int / "
+            f"float / str cells only. Use to_dict() for nested values."
+        ),
+        docs_path="api/evaluation-results#to_frame",
     )
 
 

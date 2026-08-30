@@ -37,12 +37,14 @@ from factrix._stats.constants import (
 )
 from factrix._stats.ols import _amihud_hurvich_beta
 from factrix._types import DDOF, EPSILON
+from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _degenerate_test_fields,
     _enforce_min_floor,
     _finite_expr,
     _short_circuit_output,
+    _validate_adf_threshold,
     _warn_below_floor,
 )
 
@@ -59,6 +61,15 @@ __all__ = ["predictive_beta"]
 _STAMBAUGH_CHANNEL_WARN: float = 0.7
 
 
+def _validate_predictive_beta(m: MetricBase) -> None:
+    """``adf_threshold`` is a probability, or ``None`` to skip the ADF gate."""
+    _validate_adf_threshold(
+        m.adf_threshold,  # type: ignore[attr-defined]
+        func_name="predictive_beta",
+        docs_path="api/metrics/predictive_beta",
+    )
+
+
 @metric(
     cell=cell(None, FactorDensity.DENSE, structure=DataStructure.TIMESERIES),
     aggregation=Aggregation.TS_ONLY,
@@ -68,6 +79,7 @@ _STAMBAUGH_CHANNEL_WARN: float = 0.7
         min_periods=MIN_PERIODS_HARD,
         warn_periods=MIN_PERIODS_WARN,
     ),
+    validate=_validate_predictive_beta,
 )
 def predictive_beta(
     data: pl.DataFrame,
@@ -231,11 +243,6 @@ def predictive_beta(
         nominal 5%, while the raw-``n`` gate stayed silent. At ``h = 1`` the
         effective and raw counts coincide, so nothing changes there.
     """
-    if adf_threshold is not None and not (0.0 < adf_threshold < 1.0):
-        raise ValueError(
-            f"adf_threshold must be a probability in (0, 1) or None, "
-            f"got {adf_threshold!r}"
-        )
     if factor_col not in data.columns:
         return _short_circuit_output(
             "predictive_beta",

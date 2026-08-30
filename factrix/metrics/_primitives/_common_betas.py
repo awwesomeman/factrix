@@ -17,8 +17,13 @@ from factrix._axis import (
 from factrix._metric_index import cell
 from factrix._stats.ols import _ols_nw_slope_se
 from factrix._types import EPSILON
+from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _attach_drop_stats, _finite_expr
+from factrix.metrics._helpers import (
+    _attach_drop_stats,
+    _finite_expr,
+    _validate_factor_cols,
+)
 
 # Minimum complete (factor, return) observations per asset to fit a
 # time-series slope. Mirrors the historical per-asset floor.
@@ -99,6 +104,15 @@ def _ew_portfolio_slope(
     return slope, se * se, n_periods
 
 
+def _validate_compute_common_betas(m: MetricBase) -> None:
+    """Knob bounds for ``compute_common_betas``, applied at construction."""
+    _validate_factor_cols(
+        m.factor_cols,  # type: ignore[attr-defined]
+        func_name="compute_common_betas",
+        docs_path="api/metrics/common_beta",
+    )
+
+
 @metric(
     cell=cell(FactorScope.COMMON, FactorDensity.DENSE, structure=DataStructure.PANEL),
     aggregation=Aggregation.TS_THEN_CS,
@@ -106,6 +120,7 @@ def _ew_portfolio_slope(
     output_shape=OutputShape.SERIES,
     role=SpecRole.PIPELINE,
     batchable=True,
+    validate=_validate_compute_common_betas,
 )
 def compute_common_betas(
     data: pl.DataFrame,
@@ -195,8 +210,6 @@ def compute_common_betas(
         assets from any t-based aggregate while keeping their ``beta``.
     """
     cols = list(factor_cols)
-    if not cols:
-        raise ValueError("factor_cols must be non-empty")
 
     return {f: _common_betas_one(data, f, return_col, overlap_periods) for f in cols}
 

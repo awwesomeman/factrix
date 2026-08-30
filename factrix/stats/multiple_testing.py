@@ -57,6 +57,8 @@ from numbers import Integral
 import numpy as np
 import numpy.typing as npt
 
+from factrix._errors import UserInputError
+
 
 # WHY: lru_cache — multiple_testing_correct() calls bhy_adjust() and
 # bhy_adjusted_p() back-to-back with the same n; without memoization the
@@ -68,17 +70,57 @@ def _bhy_correction_factor(m: int) -> float:
     return float(np.sum(1.0 / np.arange(1, m + 1)))
 
 
+#: Docs anchor template for a public ``factrix.stats`` function. Held as a
+#: template rather than an f-string so the literal never reads as a complete
+#: ``api/`` path — the docs-path test enumerates these by function name.
+_STATS_DOCS_TEMPLATE = "api/stats#factrix.stats.{func_name}"
+
+
+#: Kernels this module exports through ``factrix.stats`` and therefore renders
+#: a symbol anchor for. ``simes_p`` / ``partial_conjunction_p`` are internal
+#: combiners the ``multi_factor`` procedures call, so they carry the page.
+_STATS_DOCUMENTED = frozenset(
+    {
+        "bhy_adjust",
+        "bhy_adjusted_p",
+        "holm_adjusted_p",
+        "romano_wolf_adjusted_p",
+    }
+)
+
+
+def _stats_docs_path(func_name: str) -> str:
+    """Docs anchor for a ``factrix.stats`` kernel."""
+    if func_name not in _STATS_DOCUMENTED:
+        return "api/stats"
+    return _STATS_DOCS_TEMPLATE.format(func_name=func_name)
+
+
 def _validate_p_values(p_values: npt.ArrayLike, *, func_name: str) -> np.ndarray:
     """Return a validated one-dimensional, finite p-value array."""
     p = np.asarray(p_values, dtype=float)
     if p.ndim != 1:
-        raise ValueError(f"{func_name}: p_values must be 1-D; got shape {p.shape}.")
+        raise UserInputError(
+            func_name=func_name,
+            field="p_values",
+            value=p.shape,
+            expected="a 1-D array of p-values",
+            docs_path=_stats_docs_path(func_name),
+        )
     if p.size and (not np.all(np.isfinite(p)) or not np.all((p >= 0) & (p <= 1))):
-        raise ValueError(f"{func_name}: p_values must all lie in [0, 1] and be finite.")
+        raise UserInputError(
+            func_name=func_name,
+            field="p_values",
+            value=p_values,
+            expected="every p-value finite and inside [0, 1]",
+            docs_path=_stats_docs_path(func_name),
+        )
     return p
 
 
-def _resolve_family_size(n_submitted: int, n_tests: int | None) -> int:
+def _resolve_family_size(
+    n_submitted: int, n_tests: int | None, *, func_name: str
+) -> int:
     """Validate ``n_tests`` and return the complete family size.
 
     ``n_tests < n_submitted`` would mean the caller is claiming the
@@ -87,12 +129,24 @@ def _resolve_family_size(n_submitted: int, n_tests: int | None) -> int:
     if n_tests is None:
         return n_submitted
     if isinstance(n_tests, bool) or not isinstance(n_tests, Integral):
-        raise ValueError(f"n_tests must be an integer; got {n_tests!r}.")
+        raise UserInputError(
+            func_name=func_name,
+            field="n_tests",
+            value=n_tests,
+            expected="an integer, or None to take the submitted set as the family",
+            docs_path=_stats_docs_path(func_name),
+        )
     if n_tests < n_submitted:
-        raise ValueError(
-            f"n_tests ({n_tests}) must be >= len(p_values) ({n_submitted}). "
-            f"Submitted p-values must be a subset of the full candidate "
-            f"family; a smaller n_tests is incoherent."
+        raise UserInputError(
+            func_name=func_name,
+            field="n_tests",
+            value=n_tests,
+            expected=(
+                f"an integer >= len(p_values) ({n_submitted}). Submitted "
+                f"p-values must be a subset of the full candidate family; a "
+                f"smaller n_tests is incoherent."
+            ),
+            docs_path=_stats_docs_path(func_name),
         )
     return int(n_tests)
 
@@ -130,8 +184,14 @@ def bhy_adjust(
     p = _validate_p_values(p_values, func_name="bhy_adjust")
     n = len(p)
     if not (0 < fdr < 1):
-        raise ValueError(f"bhy_adjust: fdr must be in (0, 1); got {fdr}.")
-    m = _resolve_family_size(n, n_tests)
+        raise UserInputError(
+            func_name="bhy_adjust",
+            field="fdr",
+            value=fdr,
+            expected="a target false-discovery rate strictly inside (0, 1)",
+            docs_path=_stats_docs_path("bhy_adjust"),
+        )
+    m = _resolve_family_size(n, n_tests, func_name="bhy_adjust")
     if n == 0:
         return np.zeros(0, dtype=bool)
 
@@ -180,7 +240,7 @@ def bhy_adjusted_p(
     """
     p = _validate_p_values(p_values, func_name="bhy_adjusted_p")
     n = len(p)
-    m = _resolve_family_size(n, n_tests)
+    m = _resolve_family_size(n, n_tests, func_name="bhy_adjusted_p")
     if n == 0:
         return np.zeros(0, dtype=float)
 
@@ -236,7 +296,7 @@ def holm_adjusted_p(
     """
     p = _validate_p_values(p_values, func_name="holm_adjusted_p")
     n = len(p)
-    m = _resolve_family_size(n, n_tests)
+    m = _resolve_family_size(n, n_tests, func_name="holm_adjusted_p")
     if n == 0:
         return np.zeros(0, dtype=float)
 
@@ -344,32 +404,59 @@ def romano_wolf_adjusted_p(
           Testing." Statistics & Probability Letters, 113, 38-40.
     """
     if not isinstance(one_sided, bool):
-        raise ValueError(f"one_sided must be a bool; got {one_sided!r}.")
+        raise UserInputError(
+            func_name="romano_wolf_adjusted_p",
+            field="one_sided",
+            value=one_sided,
+            expected="True or False",
+            docs_path=_stats_docs_path("romano_wolf_adjusted_p"),
+        )
 
     observed = np.asarray(statistics, dtype=float)
     if observed.ndim != 1:
-        raise ValueError(
-            f"romano_wolf_adjusted_p: statistics must be 1-D; "
-            f"got shape {observed.shape}."
+        raise UserInputError(
+            func_name="romano_wolf_adjusted_p",
+            field="statistics",
+            value=observed.shape,
+            expected="a 1-D array of observed test statistics",
+            docs_path=_stats_docs_path("romano_wolf_adjusted_p"),
         )
     if observed.size and not np.all(np.isfinite(observed)):
-        raise ValueError("romano_wolf_adjusted_p: statistics must be finite.")
+        raise UserInputError(
+            func_name="romano_wolf_adjusted_p",
+            field="statistics",
+            value=statistics,
+            expected="every observed test statistic finite",
+            docs_path=_stats_docs_path("romano_wolf_adjusted_p"),
+        )
 
     bootstrap = np.asarray(bootstrap_statistics, dtype=float)
     m = len(observed)
     if bootstrap.ndim != 2 or bootstrap.shape[1] != m:
-        raise ValueError(
-            f"romano_wolf_adjusted_p: bootstrap_statistics must have shape "
-            f"(B, {m}); got {bootstrap.shape}."
+        raise UserInputError(
+            func_name="romano_wolf_adjusted_p",
+            field="bootstrap_statistics",
+            value=bootstrap.shape,
+            expected=f"an array of shape (B, {m}), one column per statistic",
+            docs_path=_stats_docs_path("romano_wolf_adjusted_p"),
         )
     if bootstrap.size and not np.all(np.isfinite(bootstrap)):
-        raise ValueError("romano_wolf_adjusted_p: bootstrap_statistics must be finite.")
+        raise UserInputError(
+            func_name="romano_wolf_adjusted_p",
+            field="bootstrap_statistics",
+            value=bootstrap_statistics,
+            expected="every resampled test statistic finite",
+            docs_path=_stats_docs_path("romano_wolf_adjusted_p"),
+        )
     if m == 0:
         return np.zeros(0, dtype=float)
     if bootstrap.shape[0] < 1:
-        raise ValueError(
-            "romano_wolf_adjusted_p: bootstrap_statistics must have at "
-            "least 1 resample."
+        raise UserInputError(
+            func_name="romano_wolf_adjusted_p",
+            field="bootstrap_statistics",
+            value=bootstrap.shape,
+            expected="at least 1 resample (B >= 1)",
+            docs_path=_stats_docs_path("romano_wolf_adjusted_p"),
         )
     if bootstrap.shape[0] < _MIN_ROMANO_WOLF_RESAMPLES:
         # Warn rather than raise: a handful of hand-built resamples is the
@@ -431,7 +518,7 @@ def simes_p(p_values: npt.ArrayLike) -> float:
         The Simes combined p-value, clipped to ``[0, 1]``.
 
     Raises:
-        ValueError: ``len(p_values) == 0`` (Simes is undefined on an
+        UserInputError: ``len(p_values) == 0`` (Simes is undefined on an
             empty group).
 
     References:
@@ -447,7 +534,13 @@ def simes_p(p_values: npt.ArrayLike) -> float:
     p = _validate_p_values(p_values, func_name="simes_p")
     m = len(p)
     if m == 0:
-        raise ValueError("simes_p: p_values must be non-empty.")
+        raise UserInputError(
+            func_name="simes_p",
+            field="p_values",
+            value=p_values,
+            expected="a non-empty array of p-values",
+            docs_path=_stats_docs_path("simes_p"),
+        )
     sorted_p = np.sort(p)
     k_vec = np.arange(1, m + 1)
     return float(min(np.min((m / k_vec) * sorted_p), 1.0))
@@ -487,20 +580,33 @@ def partial_conjunction_p(
     p = _validate_p_values(p_values, func_name="partial_conjunction_p")
     m = len(p)
     if m == 0:
-        raise ValueError("partial_conjunction_p: p_values must be non-empty.")
+        raise UserInputError(
+            func_name="partial_conjunction_p",
+            field="p_values",
+            value=p_values,
+            expected="a non-empty array of p-values",
+            docs_path=_stats_docs_path("partial_conjunction_p"),
+        )
     # Type guard first, matching ``_resolve_family_size``. Without it
     # ``min_pass=2.5`` reached ``sorted_p[min_pass - 1]`` and surfaced as a
     # raw IndexError, and ``min_pass=True`` silently became ``k = 1`` - the
     # union semantics ``partial_conjunction`` refuses outright because they
     # inflate FDR to about 2q.
     if isinstance(min_pass, bool) or not isinstance(min_pass, Integral):
-        raise ValueError(
-            f"partial_conjunction_p: min_pass must be an integer; got {min_pass!r}."
+        raise UserInputError(
+            func_name="partial_conjunction_p",
+            field="min_pass",
+            value=min_pass,
+            expected="an integer",
+            docs_path=_stats_docs_path("partial_conjunction_p"),
         )
     if not 1 <= min_pass <= m:
-        raise ValueError(
-            f"partial_conjunction_p: min_pass ({min_pass}) must satisfy "
-            f"1 <= min_pass <= m ({m})."
+        raise UserInputError(
+            func_name="partial_conjunction_p",
+            field="min_pass",
+            value=min_pass,
+            expected=f"an integer k with 1 <= k <= m ({m})",
+            docs_path=_stats_docs_path("partial_conjunction_p"),
         )
     min_pass = int(min_pass)
     sorted_p = np.sort(p)

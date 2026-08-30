@@ -13,6 +13,7 @@ from factrix._axis import (
 )
 from factrix._metric_index import cell
 from factrix._types import TiePolicy
+from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _assign_quantile_groups,
@@ -20,6 +21,15 @@ from factrix.metrics._helpers import (
     _sample_non_overlapping,
     _validate_n_groups,
 )
+
+
+def _validate_compute_group_returns(m: MetricBase) -> None:
+    """Knob bounds for ``compute_group_returns``, applied at construction."""
+    _validate_n_groups(
+        m.n_groups,  # type: ignore[attr-defined]
+        func_name="compute_group_returns",
+        docs_path="api/metrics/quantile",
+    )
 
 
 @metric(
@@ -30,6 +40,7 @@ from factrix.metrics._helpers import (
     input_shape=InputShape.PANEL,
     output_shape=OutputShape.SERIES,
     role=SpecRole.PIPELINE,
+    validate=_validate_compute_group_returns,
 )
 def compute_group_returns(
     data: pl.DataFrame,
@@ -84,9 +95,6 @@ def compute_group_returns(
         >>> set(groups.columns) >= {"group", "mean_return"}
         True
     """
-    _validate_n_groups(
-        n_groups, func_name="compute_group_returns", docs_path="api/metrics/quantile"
-    )
     sampled = _sample_non_overlapping(data, overlap_periods)
     grouped = _assign_quantile_groups(
         sampled,

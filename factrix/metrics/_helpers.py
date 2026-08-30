@@ -1590,6 +1590,74 @@ def _validate_open_unit_interval(
         )
 
 
+def _validate_factor_cols(
+    factor_cols: object, *, func_name: str, docs_path: str
+) -> None:
+    """Reject an empty ``factor_cols`` on a batch-native metric.
+
+    A batch metric returns one result per requested factor, so an empty
+    request has no answer to return — it would hand back an empty mapping
+    that reads as "every factor failed". ``evaluate`` rejects the same empty
+    list at its own boundary; this is the constructor-side twin for a metric
+    configured or called directly.
+    """
+    from factrix._errors import UserInputError
+
+    if not list(factor_cols):  # type: ignore[call-overload]
+        raise UserInputError(
+            func_name=func_name,
+            field="factor_cols",
+            value=factor_cols,
+            expected="a non-empty sequence of factor column names",
+            docs_path=docs_path,
+        )
+
+
+def _validate_positive_count(
+    value: object, *, func_name: str, field: str, detail: str, docs_path: str
+) -> None:
+    """Reject a count knob below 1 (a period stride, a leg size, a lag).
+
+    The counterpart of :func:`_validate_open_unit_interval` for the integer
+    knobs: one shared shape for "this is a count of periods / names, and zero
+    or negative has no meaning". A bool is an int to Python and would
+    otherwise pass as ``True == 1``.
+    """
+    from factrix._errors import UserInputError
+
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise UserInputError(
+            func_name=func_name,
+            field=field,
+            value=value,
+            expected=f"an integer >= 1. {detail}",
+            docs_path=docs_path,
+        )
+
+
+def _validate_adf_threshold(
+    adf_threshold: object, *, func_name: str, docs_path: str
+) -> None:
+    """Reject an ``adf_threshold`` outside ``(0, 1)``; ``None`` skips the gate.
+
+    Shared by the two metrics that gate on a stationarity test: the knob is the
+    p-value the augmented Dickey-Fuller test is compared against, so it is a
+    probability, and ``None`` means "do not run the gate" rather than a bound.
+    """
+    if adf_threshold is None:
+        return
+    _validate_open_unit_interval(
+        adf_threshold,  # type: ignore[arg-type]
+        func_name=func_name,
+        field="adf_threshold",
+        detail=(
+            "It is the p-value the augmented Dickey-Fuller test is compared "
+            "against; pass None to skip the stationarity gate."
+        ),
+        docs_path=docs_path,
+    )
+
+
 def _validate_n_groups(n_groups: int, *, func_name: str, docs_path: str) -> None:
     """Reject a quantile count below :data:`~factrix._types.N_GROUPS_FLOOR`.
 

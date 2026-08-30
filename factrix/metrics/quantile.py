@@ -45,11 +45,11 @@ from factrix.inference import (
     NonOverlapping,
     StationaryBootstrap,
 )
+from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _all_dates_degenerate,
     _assign_quantile_groups,
-    _check_applicable_inference,
     _compute_tie_ratio,
     _degenerate_test_fields,
     _enforce_scaled_floor,
@@ -63,7 +63,7 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
     _spread_significance_with_inference,
     _surface_null_drop,
-    _validate_choice,
+    _validate_factor_cols,
     _validate_n_groups,
     _warn_high_tie_ratio,
     _warn_thin_quantile_groups,
@@ -156,11 +156,31 @@ def _quantile_groups_threshold(self) -> SampleThreshold:
     )
 
 
+def _validate_quantile_spread(m: MetricBase) -> None:
+    """Numeric knob bounds for ``quantile_spread``.
+
+    ``tie_policy`` and ``inference`` are covered by the constructor's own
+    ``Literal`` / allowlist rules, so only the bucketing floor and the batch
+    request are left to state here.
+    """
+    _validate_n_groups(
+        m.n_groups,  # type: ignore[attr-defined]
+        func_name="quantile_spread",
+        docs_path=_DOCS_QUANTILE,
+    )
+    _validate_factor_cols(
+        m.factor_cols,  # type: ignore[attr-defined]
+        func_name="quantile_spread",
+        docs_path=_DOCS_QUANTILE,
+    )
+
+
 @metric(
     cell=_Q_CELL,
     aggregation=Aggregation.CS_THEN_TS,
     batchable=True,
     sample_threshold=_quantile_groups_threshold,
+    validate=_validate_quantile_spread,
 )
 def quantile_spread(
     data: pl.DataFrame,
@@ -257,25 +277,15 @@ def quantile_spread(
         >>> result["factor"].name == ""
         True
     """
-    _validate_choice(
-        tie_policy,
-        TiePolicy,
-        func_name="quantile_spread",
-        field="tie_policy",
-        docs_path="api/metrics/quantile",
-    )
     cols = list(factor_cols)
-    if not cols:
-        raise ValueError("factor_cols must be non-empty")
     if _precomputed_series is not None and set(_precomputed_series) != set(cols):
+        # Dispatch internal, not a knob: ``_precomputed_series`` is hidden from
+        # the public signature and only the executor supplies it, so a mismatch
+        # is a library invariant rather than a caller mistake.
         raise ValueError(
             "_precomputed_series keys must match factor_cols "
             f"(got {sorted(_precomputed_series)} vs {sorted(cols)})"
         )
-    _check_applicable_inference(
-        inference, applicable_inference, func_name="quantile_spread"
-    )
-    _validate_n_groups(n_groups, func_name="quantile_spread", docs_path=_DOCS_QUANTILE)
 
     # Sample once across all factors; bucketing tie_ratio is computed
     # on the sampled subset (what bucketing actually sees) rather than
@@ -580,10 +590,20 @@ def _vw_spread_series(
     )
 
 
+def _validate_quantile_spread_vw(m: MetricBase) -> None:
+    """Bucketing floor for ``quantile_spread_vw`` (see its unweighted sibling)."""
+    _validate_n_groups(
+        m.n_groups,  # type: ignore[attr-defined]
+        func_name="quantile_spread_vw",
+        docs_path=_DOCS_QUANTILE,
+    )
+
+
 @metric(
     cell=_Q_CELL,
     aggregation=Aggregation.CS_THEN_TS,
     sample_threshold=_quantile_groups_threshold,
+    validate=_validate_quantile_spread_vw,
 )
 def quantile_spread_vw(
     data: pl.DataFrame,
@@ -712,21 +732,6 @@ def quantile_spread_vw(
         >>> result.name == ""
         True
     """
-    _validate_choice(
-        tie_policy,
-        TiePolicy,
-        func_name="quantile_spread_vw",
-        field="tie_policy",
-        docs_path="api/metrics/quantile",
-    )
-    _check_applicable_inference(
-        inference, applicable_inference, func_name="quantile_spread_vw"
-    )
-    _validate_n_groups(
-        n_groups, func_name="quantile_spread_vw", docs_path=_DOCS_QUANTILE
-    )
-    # Knobs first, data verdict second: a caller mistake must not be answered
-    # with a short-circuit that reads as a property of the panel.
     if weight_col not in data.columns:
         return _short_circuit_output(
             "quantile_spread_vw",

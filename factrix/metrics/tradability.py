@@ -55,6 +55,7 @@ from factrix.metrics._helpers import (
     _sample_non_overlapping,
     _short_circuit_output,
     _validate_n_groups,
+    _validate_positive_count,
 )
 
 _DOCS_TRADABILITY = "api/metrics/tradability"
@@ -92,10 +93,34 @@ def _resolve_rebalance_lag(rebalance_lag: int | None, overlap_periods: int) -> i
     return overlap_periods if rebalance_lag is None else rebalance_lag
 
 
-def _validate_rebalance_lag(rebalance_lag: int | None) -> None:
+def _validate_rebalance_lag(rebalance_lag: int | None, *, func_name: str) -> None:
     """``rebalance_lag`` is optional, but a supplied value is a positive count."""
-    if rebalance_lag is not None and rebalance_lag < 1:
-        raise ValueError(f"rebalance_lag must be ≥ 1, got {rebalance_lag!r}")
+    if rebalance_lag is None:
+        return
+    _validate_positive_count(
+        rebalance_lag,
+        func_name=func_name,
+        field="rebalance_lag",
+        detail=(
+            "It is the rebalance stride in evaluation-grid periods; pass None "
+            "to keep the panel's injected overlap."
+        ),
+        docs_path=_DOCS_TRADABILITY,
+    )
+
+
+def _validate_holding_periods(holding_periods: object, *, func_name: str) -> None:
+    """``holding_periods`` divides the per-rebalance cost into a per-period one."""
+    _validate_positive_count(
+        holding_periods,
+        func_name=func_name,
+        field="holding_periods",
+        detail=(
+            "It is the holding span in periods that the per-rebalance cost is "
+            "amortized over."
+        ),
+        docs_path=_DOCS_TRADABILITY,
+    )
 
 
 def _rank_turnover_min_dates(rebalance_lag: int) -> int:
@@ -117,11 +142,39 @@ def _rank_turnover_sample_threshold(self: MetricBase) -> SampleThreshold:
     return SampleThreshold(min_periods=_rank_turnover_min_dates(lag))
 
 
+def _validate_rank_turnover(m: MetricBase) -> None:
+    """Rebalance stride and the optional leg fraction."""
+    _validate_rebalance_lag(
+        m.rebalance_lag,
+        func_name="rank_turnover",
+    )
+    quantile = m.quantile  # type: ignore[attr-defined]
+    if quantile is None:
+        return
+    from factrix._errors import UserInputError
+
+    numeric = not isinstance(quantile, bool) and isinstance(quantile, int | float)
+    if not numeric or not 0.0 < float(quantile) < 0.5:
+        raise UserInputError(
+            func_name="rank_turnover",
+            field="quantile",
+            value=quantile,
+            expected=(
+                "a fraction strictly inside (0, 0.5), or None for the full "
+                "cross-section. It is the size of each tail the rank "
+                "autocorrelation is restricted to, so the two tails cannot "
+                "meet in the middle."
+            ),
+            docs_path=_DOCS_TRADABILITY,
+        )
+
+
 @metric(
     cell=_TR_CELL,
     aggregation=Aggregation.TS_ONLY,
     slice_boundary_sensitive=True,
     sample_threshold=_rank_turnover_sample_threshold,
+    validate=_validate_rank_turnover,
 )
 def rank_turnover(
     data: pl.DataFrame,
@@ -241,11 +294,6 @@ def rank_turnover(
         >>> result.name == ""
         True
     """
-    if quantile is not None and not 0.0 < quantile < 0.5:
-        raise ValueError(f"quantile must be in (0, 0.5), got {quantile!r}")
-    if overlap_periods < 1:
-        raise ValueError(f"overlap_periods must be ≥ 1, got {overlap_periods!r}")
-    _validate_rebalance_lag(rebalance_lag)
     lag = _resolve_rebalance_lag(rebalance_lag, overlap_periods)
 
     all_dates = data["date"].unique().sort()
@@ -357,10 +405,24 @@ def _notional_turnover_sample_threshold(self) -> SampleThreshold:
     return SampleThreshold(min_periods=2, min_assets=self.n_groups)
 
 
+def _validate_notional_turnover(m: MetricBase) -> None:
+    """Bucketing floor and rebalance stride."""
+    _validate_n_groups(
+        m.n_groups,  # type: ignore[attr-defined]
+        func_name="notional_turnover",
+        docs_path=_DOCS_TRADABILITY,
+    )
+    _validate_rebalance_lag(
+        m.rebalance_lag,
+        func_name="notional_turnover",
+    )
+
+
 @metric(
     cell=_TR_CELL,
     aggregation=Aggregation.CS_THEN_TS,
     sample_threshold=_notional_turnover_sample_threshold,
+    validate=_validate_notional_turnover,
 )
 def notional_turnover(
     data: pl.DataFrame,
@@ -489,16 +551,6 @@ def notional_turnover(
         >>> result.name == ""
         True
     """
-    if overlap_periods < 1:
-        raise ValueError(f"overlap_periods must be ≥ 1, got {overlap_periods!r}")
-    _validate_rebalance_lag(rebalance_lag)
-    # The shared bucketing floor, checked up front rather than left to the
-    # kernel call below so an invalid split fails before the date floor can
-    # short-circuit it into an "insufficient_dates" result.
-    _validate_n_groups(
-        n_groups, func_name="notional_turnover", docs_path=_DOCS_TRADABILITY
-    )
-
     lag = _resolve_rebalance_lag(rebalance_lag, overlap_periods)
     if lag > 1:
         data = _sample_non_overlapping(data, lag)
@@ -697,11 +749,20 @@ def _unpack_cost_inputs(
     return float(spread_value), float(turnover_value), checked
 
 
+def _validate_breakeven_cost(m: MetricBase) -> None:
+    """``holding_periods`` amortizes the per-rebalance cost, so it is >= 1."""
+    _validate_holding_periods(
+        m.holding_periods,  # type: ignore[attr-defined]
+        func_name="breakeven_cost",
+    )
+
+
 @metric(
     cell=_TR_CELL,
     aggregation=Aggregation.CS_THEN_TS,
     input_shape=InputShape.SCALAR,
     sample_threshold=SampleThreshold(),
+    validate=_validate_breakeven_cost,
 )
 def breakeven_cost(
     gross_spread: float | MetricResult,
@@ -819,8 +880,6 @@ def breakeven_cost(
         >>> result.name == ""
         True
     """
-    if holding_periods < 1:
-        raise ValueError(f"holding_periods must be ≥ 1, got {holding_periods!r}")
     gross_spread, turnover, checked = _unpack_cost_inputs(
         gross_spread, turnover, holding_periods
     )
@@ -852,11 +911,20 @@ def breakeven_cost(
     )
 
 
+def _validate_net_spread(m: MetricBase) -> None:
+    """``holding_periods`` amortizes the per-rebalance cost, so it is >= 1."""
+    _validate_holding_periods(
+        m.holding_periods,  # type: ignore[attr-defined]
+        func_name="net_spread",
+    )
+
+
 @metric(
     cell=_TR_CELL,
     aggregation=Aggregation.CS_THEN_TS,
     input_shape=InputShape.SCALAR,
     sample_threshold=SampleThreshold(),
+    validate=_validate_net_spread,
 )
 def net_spread(
     gross_spread: float | MetricResult,
@@ -985,8 +1053,6 @@ def net_spread(
         >>> result.name == ""
         True
     """
-    if holding_periods < 1:
-        raise ValueError(f"holding_periods must be ≥ 1, got {holding_periods!r}")
     gross_spread, turnover, checked = _unpack_cost_inputs(
         gross_spread, turnover, holding_periods
     )

@@ -31,6 +31,7 @@ from factrix._results import MetricResult
 from factrix._stats import _adf, _mann_kendall_hamed_rao
 from factrix._stats.constants import PERSISTENT_SERIES_AUTOCORR
 from factrix._stats.diagnostics import _lag1_autocorr
+from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _degenerate_test_fields,
@@ -40,6 +41,7 @@ from factrix.metrics._helpers import (
     _scaled_periods_threshold,
     _short_circuit_output,
     _surface_null_drop,
+    _validate_adf_threshold,
 )
 from factrix.metrics.ic import compute_ic
 
@@ -50,6 +52,15 @@ __all__ = [
 #: Minimum *non-overlapping* observations the trend test needs. The raw
 #: series must supply ``_MIN_TREND_PERIODS * overlap_periods`` periods.
 _MIN_TREND_PERIODS = 10
+
+
+def _validate_ic_trend(m: MetricBase) -> None:
+    """``adf_threshold`` is a probability, or ``None`` to skip the ADF gate."""
+    _validate_adf_threshold(
+        m.adf_threshold,  # type: ignore[attr-defined]
+        func_name="ic_trend",
+        docs_path="api/metrics/trend",
+    )
 
 
 @metric(
@@ -63,6 +74,7 @@ _MIN_TREND_PERIODS = 10
     # The trend test runs on the non-overlapping subsample, so the periods
     # floor scales with the stride exactly as ``positive_rate``'s does.
     sample_threshold=_scaled_periods_threshold(_MIN_TREND_PERIODS),
+    validate=_validate_ic_trend,
 )
 def ic_trend(
     series: pl.DataFrame,
@@ -248,11 +260,6 @@ def ic_trend(
         True
     """
     value_col = _resolve_series_value_col(series, value_col)
-    if adf_threshold is not None and not (0.0 < adf_threshold < 1.0):
-        raise ValueError(
-            f"adf_threshold must be a probability in (0, 1) or None, "
-            f"got {adf_threshold!r}"
-        )
 
     # Primary periods gate on the RAW date count against the stride-scaled
     # floor, matching the inspect_data pre-flight.

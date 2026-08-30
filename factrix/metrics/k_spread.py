@@ -48,10 +48,10 @@ from factrix.inference import (
     NonOverlapping,
     StationaryBootstrap,
 )
+from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _all_dates_degenerate,
-    _check_applicable_inference,
     _compute_tie_ratio,
     _degenerate_test_fields,
     _enforce_scaled_floor,
@@ -63,7 +63,7 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
     _spread_significance_with_inference,
     _surface_null_drop,
-    _validate_choice,
+    _validate_positive_count,
     _warn_high_tie_ratio,
 )
 
@@ -183,6 +183,24 @@ def _build_k_spread_series(
     return series, clean
 
 
+_DOCS_K_SPREAD = "api/metrics/k_spread"
+
+
+def _validate_k_spread(m: MetricBase) -> None:
+    """``k`` is the size of each leg, so at least one name per side.
+
+    ``tie_policy`` and ``inference`` are covered by the constructor's own
+    ``Literal`` / allowlist rules.
+    """
+    _validate_positive_count(
+        m.k,  # type: ignore[attr-defined]
+        func_name="k_spread",
+        field="k",
+        detail="k is the number of names in each leg of the spread.",
+        docs_path=_DOCS_K_SPREAD,
+    )
+
+
 @metric(
     cell=cell(
         FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
@@ -192,6 +210,7 @@ def _build_k_spread_series(
     # spread series is sub-sampled at ``overlap_periods``, so pre-flight and the
     # in-body gate share ``MIN_PORTFOLIO_PERIODS_HARD`` + ``_scaled_min_periods``.
     sample_threshold=_k_spread_threshold,
+    validate=_validate_k_spread,
 )
 def k_spread(
     data: pl.DataFrame,
@@ -315,16 +334,6 @@ def k_spread(
         >>> result.name == ""
         True
     """
-    _validate_choice(
-        tie_policy,
-        TiePolicy,
-        func_name="k_spread",
-        field="tie_policy",
-        docs_path="api/metrics/k_spread",
-    )
-    if k < 1:
-        raise ValueError(f"k must be >= 1; got {k}")
-    _check_applicable_inference(inference, applicable_inference, func_name="k_spread")
     if return_col not in data.columns:
         return _short_circuit_output(
             "k_spread",

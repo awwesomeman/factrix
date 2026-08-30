@@ -13,6 +13,7 @@ from factrix._axis import (
 )
 from factrix._metric_index import cell
 from factrix._types import EPSILON
+from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 
 DEFAULT_MIN_ESTIMATION_PERIODS: int = 20
@@ -36,6 +37,25 @@ def _empty_mfe_mae_schema(date_dtype: pl.DataType) -> dict[str, pl.DataType]:
     }
 
 
+def _validate_compute_mfe_mae(m: MetricBase) -> None:
+    """Knob bounds for ``compute_mfe_mae``, applied at construction."""
+    from factrix._errors import UserInputError
+
+    value = m.min_estimation_periods  # type: ignore[attr-defined]
+    if not isinstance(value, int) or isinstance(value, bool) or value < 2:
+        raise UserInputError(
+            func_name="compute_mfe_mae",
+            field="min_estimation_periods",
+            value=value,
+            expected=(
+                "an integer >= 2. It is the pre-event window the volatility "
+                "normalizer is estimated on, and a sample standard deviation "
+                "(ddof=1) needs at least two observations."
+            ),
+            docs_path="api/metrics/mfe_mae",
+        )
+
+
 @metric(
     cell=cell(
         None, FactorDensity.SPARSE, DataStructure.PANEL, raw="(*, SPARSE, PANEL)"
@@ -44,6 +64,7 @@ def _empty_mfe_mae_schema(date_dtype: pl.DataType) -> dict[str, pl.DataType]:
     input_shape=InputShape.PANEL,
     output_shape=OutputShape.SERIES,
     role=SpecRole.PIPELINE,
+    validate=_validate_compute_mfe_mae,
 )
 def compute_mfe_mae(
     data: pl.DataFrame,
@@ -104,12 +125,6 @@ def compute_mfe_mae(
         the excursion is attained at entry, before any path bar — and
         otherwise stay 1-based offsets into the post-event window.
     """
-    if min_estimation_periods < 2:
-        raise ValueError(
-            f"min_estimation_periods must be >= 2 (std needs ddof=1 "
-            f"and at least 2 observations), got {min_estimation_periods}"
-        )
-
     date_dtype = data.schema["date"]
     empty_schema = _empty_mfe_mae_schema(date_dtype)
 

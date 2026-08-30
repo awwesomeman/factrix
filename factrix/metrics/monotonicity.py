@@ -28,7 +28,6 @@ from factrix._axis import (
     FactorScope,
 )
 from factrix._codes import WarningCode
-from factrix._errors import UserInputError
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_t
@@ -43,6 +42,7 @@ from factrix._types import (
     MIN_MONOTONICITY_PERIODS_HARD,
     TiePolicy,
 )
+from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _assign_quantile_groups_batch,
@@ -52,7 +52,7 @@ from factrix.metrics._helpers import (
     _sample_non_overlapping,
     _scaled_periods_threshold,
     _short_circuit_output,
-    _validate_choice,
+    _validate_factor_cols,
     _validate_n_groups,
     _warn_high_tie_ratio,
 )
@@ -163,6 +163,33 @@ def _mr_test(
     return j_stat, p_value, metadata
 
 
+_DOCS_MONOTONICITY = "api/metrics/monotonicity"
+
+
+def _validate_monotonicity(m: MetricBase) -> None:
+    """Numeric knob bounds for ``monotonicity``.
+
+    ``tie_policy`` and ``direction`` are closed sets the constructor reads off
+    their ``Literal`` annotations, so only the bucketing floor, the resampling
+    count and the batch request are stated here.
+    """
+    _validate_n_groups(
+        m.n_groups,  # type: ignore[attr-defined]
+        func_name="monotonicity",
+        docs_path=_DOCS_MONOTONICITY,
+    )
+    _check_n_resamples(
+        m.n_resamples,  # type: ignore[attr-defined]
+        func_name="monotonicity",
+        docs_path=_DOCS_MONOTONICITY,
+    )
+    _validate_factor_cols(
+        m.factor_cols,  # type: ignore[attr-defined]
+        func_name="monotonicity",
+        docs_path=_DOCS_MONOTONICITY,
+    )
+
+
 @metric(
     cell=cell(
         FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
@@ -170,6 +197,7 @@ def _mr_test(
     aggregation=Aggregation.CS_THEN_TS,
     batchable=True,
     sample_threshold=_monotonicity_sample_threshold,
+    validate=_validate_monotonicity,
 )
 def monotonicity(
     data: pl.DataFrame,
@@ -273,33 +301,7 @@ def monotonicity(
         >>> result["factor"].name == ""
         True
     """
-    _validate_choice(
-        tie_policy,
-        TiePolicy,
-        func_name="monotonicity",
-        field="tie_policy",
-        docs_path="api/metrics/monotonicity",
-    )
-    if direction not in ("increasing", "decreasing"):
-        # A typo must not silently run the opposite one-sided test.
-        raise UserInputError(
-            func_name="monotonicity",
-            field="direction",
-            value=direction,
-            expected="'increasing' (default) or 'decreasing'",
-            docs_path="api/metrics/monotonicity",
-        )
-    _check_n_resamples(
-        n_resamples,
-        func_name="monotonicity",
-        docs_path="api/metrics/monotonicity",
-    )
     cols = list(factor_cols)
-    if not cols:
-        raise ValueError("factor_cols must be non-empty")
-    _validate_n_groups(
-        n_groups, func_name="monotonicity", docs_path="api/metrics/monotonicity"
-    )
 
     # Raw (pre-sampling) date count: the axis the stride-scaled periods floor is
     # calibrated against, shared across all factors.

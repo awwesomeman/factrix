@@ -211,11 +211,66 @@ class MetricBase(metaclass=MetricMeta):
     # constructor, and injected at dispatch into the metrics whose ``_impl``
     # declares them. Empty for a metric that takes no injected param.
     _injected_param_names: ClassVar[tuple[str, ...]] = ()
+    # Closed-set knobs: ``(field, Literal alias)`` for every user-configurable
+    # field annotated with a ``Literal``, resolved once by the decorator.
+    _literal_fields: ClassVar[tuple[tuple[str, Any], ...]] = ()
+    # The metric's own knob validator, declared as ``@metric(validate=...)``.
+    _knob_validator: ClassVar[Callable[[MetricBase], None] | None] = None
     _logger: ClassVar[logging.Logger]
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
         cls._logger = logging.getLogger(f"factrix.metric.{cls.__name__}")
+
+    def __post_init__(self) -> None:
+        """Validate every configured knob, once, at construction.
+
+        The single site every metric's knob contract is enforced at. Both call
+        forms reach it: ``metric(n_groups=1)`` is plain dataclass
+        instantiation, and ``metric(data, n_groups=1)`` builds the same
+        instance first (:meth:`MetricMeta.__call__`) and only then runs the
+        body. So a bad knob raises where the caller wrote it — a config object
+        cannot be built now and fail three metrics into an ``evaluate`` — and
+        raises identically whichever form was used.
+
+        Three rules, in the order a caller meets them:
+
+        1. a field annotated with a ``Literal`` alias is checked against that
+           alias, so the annotation is the runtime contract;
+        2. an ``inference=`` field is checked against the module's
+           ``applicable_inference`` allowlist;
+        3. the metric's own ``@metric(validate=...)`` hook runs, for the
+           numeric bounds the first two cannot express.
+
+        ``overlap_periods`` is deliberately absent: it is injected from the
+        panel at dispatch rather than configured, so it is validated where it
+        enters, in :meth:`__call__`.
+        """
+        from factrix.metrics._helpers import (
+            _check_applicable_inference,
+            _validate_choice,
+        )
+        from factrix.metrics._metric_capabilities import resolve_applicable_inference
+
+        func_name = type(self).__name__
+        for field, alias in self._literal_fields:
+            _validate_choice(
+                getattr(self, field),
+                alias,
+                func_name=func_name,
+                field=field,
+                docs_path=self._docs_path(),
+            )
+        applicable = resolve_applicable_inference(self)
+        if applicable is not None:
+            _check_applicable_inference(
+                self.inference,  # type: ignore[attr-defined]
+                applicable,
+                func_name=func_name,
+            )
+        validator = type(self)._knob_validator
+        if validator is not None:
+            validator(self)
 
     @classmethod
     def spec(cls) -> MetricSpec:

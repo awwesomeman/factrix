@@ -31,6 +31,7 @@ from factrix._codes import WarningCode
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._types import EPSILON, MIN_OOS_PERIODS_HARD
+from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     DEGENERATE_SIGNAL_STATUS,
@@ -38,6 +39,7 @@ from factrix.metrics._helpers import (
     _resolve_series_value_col,
     _short_circuit_output,
     _surface_null_drop,
+    _validate_open_unit_interval,
 )
 from factrix.metrics.ic import compute_ic
 
@@ -52,6 +54,20 @@ GateStatus = Literal["PASS", "VETOED"]
 _MIN_SPLIT_OBS = 2
 
 
+def _validate_oos_decay(m: MetricBase) -> None:
+    """``is_ratio`` splits the series, so it is a fraction strictly inside (0, 1)."""
+    _validate_open_unit_interval(
+        m.is_ratio,  # type: ignore[attr-defined]
+        func_name="oos_decay",
+        field="is_ratio",
+        detail=(
+            "0 leaves no in-sample window and 1 leaves no out-of-sample "
+            "window, so no survival ratio is defined."
+        ),
+        docs_path="api/metrics/oos_decay",
+    )
+
+
 @metric(
     cell=cell(
         FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
@@ -61,6 +77,7 @@ _MIN_SPLIT_OBS = 2
     input_shape=InputShape.SERIES,
     requires={"series": compute_ic},
     sample_threshold=SampleThreshold(min_periods=MIN_OOS_PERIODS_HARD * 2),
+    validate=_validate_oos_decay,
 )
 def oos_decay(
     series: pl.DataFrame,
@@ -84,7 +101,8 @@ def oos_decay(
             (default ``0.5``).
 
     Raises:
-        ValueError: ``is_ratio`` is not strictly inside ``(0, 1)``.
+        UserInputError: ``is_ratio`` is not strictly inside ``(0, 1)``.
+            Raised at construction, before any data work.
 
     Returns:
         MetricResult with:
@@ -156,13 +174,6 @@ def oos_decay(
         >>> result.name == ""
         True
     """
-    if not 0.0 < is_ratio < 1.0:
-        raise ValueError(
-            f"is_ratio must be a fraction strictly inside (0, 1), got {is_ratio!r}. "
-            "0 leaves no in-sample window and 1 leaves no out-of-sample window, "
-            "so no survival ratio is defined."
-        )
-
     value_col = _resolve_series_value_col(series, value_col)
     sorted_series = series.sort("date")
     vals = sorted_series[value_col].drop_nulls().drop_nans()

@@ -15,8 +15,22 @@ from factrix._axis import (
 )
 from factrix._metric_index import cell
 from factrix._types import MIN_IC_ASSETS_HARD
+from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _attach_drop_stats, _finite_expr
+from factrix.metrics._helpers import (
+    _attach_drop_stats,
+    _finite_expr,
+    _validate_factor_cols,
+)
+
+
+def _validate_compute_ic(m: MetricBase) -> None:
+    """Knob bounds for ``compute_ic``, applied at construction."""
+    _validate_factor_cols(
+        m.factor_cols,  # type: ignore[attr-defined]
+        func_name="compute_ic",
+        docs_path="api/metrics/ic",
+    )
 
 
 @metric(
@@ -28,6 +42,7 @@ from factrix.metrics._helpers import _attach_drop_stats, _finite_expr
     output_shape=OutputShape.SERIES,
     role=SpecRole.PIPELINE,
     batchable=True,
+    validate=_validate_compute_ic,
 )
 def compute_ic(
     data: pl.DataFrame,
@@ -65,8 +80,6 @@ def compute_ic(
         $1 - n_{\mathrm{unique}} / n$ in $[0, 1]$.
     """
     cols = list(factor_cols)
-    if not cols:
-        raise ValueError("factor_cols must be non-empty")
 
     # Spearman ρ must rank each factor and the return over the *pairwise-complete*
     # (factor, return) set per date: a missing value in either column would otherwise shift

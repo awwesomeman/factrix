@@ -1,34 +1,95 @@
-"""Closed-set and bounded metric knobs are validated before any computation.
+"""Metric knobs are validated at construction, at one site.
 
-A knob annotated with a ``Literal`` alias is a contract, not a hint: a typo
-must raise :class:`~factrix.UserInputError` naming the legal values, never
-fall through to whichever branch happens to have no ``else`` and never leak
-the underlying engine's own vocabulary. The bounded fractions (``q_top``)
-are the same contract on an interval instead of a set.
+Every knob contract — a closed set annotated with a ``Literal``, an
+``inference=`` allowlist, a numeric bound declared as ``@metric(validate=...)``
+— is enforced by :meth:`MetricBase.__post_init__`, so a bad value raises where
+the caller wrote it rather than several metrics into an ``evaluate``. Both call
+forms reach the same site: ``metric(n_groups=1)`` is plain dataclass
+instantiation and ``metric(data, n_groups=1)`` builds the instance first.
 
-The parametrisations below are the one place that enumerates the knobs, so a
-new closed-set knob that skips its validator shows up as a missing row rather
-than as a silently wrong number.
+The tables below are the one place that enumerates the knobs, so a new closed
+set or bound that skips the constructor shows up as a missing row rather than
+as a silently wrong number.
 """
 
 from __future__ import annotations
 
+import pathlib
 from datetime import datetime
 from typing import Any, get_args
 
 import polars as pl
 import pytest
 from factrix import UserInputError
-from factrix._types import ConcentrationWeight, TiePolicy
+from factrix._errors import IncompatibleInferenceError
 from factrix.datasets import make_cs_panel
+from factrix.metrics._registry import REGISTRY
 from factrix.metrics.concentration import top_concentration
 from factrix.metrics.k_spread import k_spread
-from factrix.metrics.monotonicity import MRDirection, monotonicity
+from factrix.metrics.monotonicity import monotonicity
 from factrix.metrics.quantile import quantile_spread, quantile_spread_vw
 from factrix.preprocess import compute_forward_return
 from factrix.preprocess.normalize import Center, cross_sectional_zscore
 
 BAD_TOKEN = "bogus"
+
+#: Stand-in first argument for the direct-call form. Knob validation runs in
+#: the constructor, before the body ever touches the data, so the parity checks
+#: below never need a real panel.
+_UNUSED_DATA = pl.DataFrame()
+
+
+def _metrics_with_literal_fields() -> list[tuple[str, type, str, object]]:
+    """Every registered metric x every ``Literal``-annotated knob it carries."""
+    return [
+        (f"{name}.{field}", cls, field, alias)
+        for name, cls in sorted(REGISTRY.items())
+        for field, alias in cls._literal_fields
+    ]
+
+
+LITERAL_KNOBS = _metrics_with_literal_fields()
+
+# (metric name, knob, an out-of-bounds value) — one row per bound a
+# ``@metric(validate=...)`` hook enforces. ``_HOOK_COVERAGE`` below pins the
+# table against the registry so a new hook cannot land untested.
+BOUNDED_KNOBS: list[tuple[str, dict[str, Any], str]] = [
+    ("quantile_spread", {"n_groups": 1}, "n_groups"),
+    ("quantile_spread", {"factor_cols": []}, "factor_cols"),
+    ("quantile_spread_vw", {"n_groups": 1}, "n_groups"),
+    ("monotonicity", {"n_groups": 1}, "n_groups"),
+    ("monotonicity", {"n_resamples": 0}, "n_resamples"),
+    ("monotonicity", {"factor_cols": ()}, "factor_cols"),
+    ("top_concentration", {"q_top": 1.0}, "q_top"),
+    ("k_spread", {"k": 0}, "k"),
+    ("common_quantile_spread", {"n_groups": 1}, "n_groups"),
+    ("rank_turnover", {"rebalance_lag": 0}, "rebalance_lag"),
+    ("rank_turnover", {"quantile": 0.5}, "quantile"),
+    ("notional_turnover", {"n_groups": 1}, "n_groups"),
+    ("notional_turnover", {"rebalance_lag": 0}, "rebalance_lag"),
+    # ``turnover`` is a required field on the two cost metrics, not a knob
+    # under test; it is supplied so the constructor can be reached at all.
+    ("breakeven_cost", {"turnover": 0.2, "holding_periods": 0}, "holding_periods"),
+    ("net_spread", {"turnover": 0.2, "holding_periods": 0}, "holding_periods"),
+    ("oos_decay", {"is_ratio": 1.0}, "is_ratio"),
+    ("ic_trend", {"adf_threshold": 1.5}, "adf_threshold"),
+    ("predictive_beta", {"adf_threshold": 0.0}, "adf_threshold"),
+    ("common_beta_profile", {"neutral_epsilon": -1.0}, "neutral_epsilon"),
+    (
+        "pooled_beta",
+        {"driscoll_kraay": True, "two_way_cluster_col": "asset_id"},
+        "driscoll_kraay",
+    ),
+    ("compute_spread_series", {"n_groups": 1}, "n_groups"),
+    ("compute_spread_series", {"factor_cols": []}, "factor_cols"),
+    ("compute_group_returns", {"n_groups": 1}, "n_groups"),
+    ("compute_fm_betas", {"factor_cols": []}, "factor_cols"),
+    ("compute_common_betas", {"factor_cols": []}, "factor_cols"),
+    ("compute_ic", {"factor_cols": []}, "factor_cols"),
+    ("compute_mfe_mae", {"min_estimation_periods": 1}, "min_estimation_periods"),
+]
+
+_HOOK_COVERAGE = {name for name, _, _ in BOUNDED_KNOBS}
 
 
 @pytest.fixture(scope="module")
@@ -47,48 +108,166 @@ def _call(func: Any, data: pl.DataFrame, **knob: object) -> Any:
     return func(data, **knob)
 
 
-# (label, callable, knob name, Literal alias) — one row per closed-set knob.
-CLOSED_SET_KNOBS = [
-    (
-        "top_concentration.weight_by",
-        top_concentration,
-        "weight_by",
-        ConcentrationWeight,
-    ),
-    ("quantile_spread.tie_policy", quantile_spread, "tie_policy", TiePolicy),
-    ("k_spread.tie_policy", k_spread, "tie_policy", TiePolicy),
-    ("monotonicity.tie_policy", monotonicity, "tie_policy", TiePolicy),
-    ("monotonicity.direction", monotonicity, "direction", MRDirection),
-]
+class TestClosedSetKnobsAtConstruction:
+    """A ``Literal`` annotation is the runtime contract, enforced by the
+    constructor for every registered metric that carries one."""
+
+    def test_the_sweep_is_not_empty(self) -> None:
+        assert LITERAL_KNOBS, "no metric declares a Literal-annotated knob"
+
+    @pytest.mark.parametrize(
+        ("cls", "field", "alias"),
+        [pytest.param(c, f, a, id=label) for label, c, f, a in LITERAL_KNOBS],
+    )
+    def test_bad_token_raises_at_construction(
+        self, cls: type, field: str, alias: object
+    ) -> None:
+        with pytest.raises(UserInputError) as excinfo:
+            cls(**{field: BAD_TOKEN})
+        exc = excinfo.value
+        assert exc.func_name == cls.__name__
+        assert exc.field == field
+        assert exc.value == BAD_TOKEN
+        rendered = str(exc)
+        for legal in get_args(alias):
+            assert legal in rendered
+
+    @pytest.mark.parametrize(
+        ("cls", "field", "alias"),
+        [pytest.param(c, f, a, id=label) for label, c, f, a in LITERAL_KNOBS],
+    )
+    def test_every_legal_token_constructs(
+        self, cls: type, field: str, alias: object
+    ) -> None:
+        for legal in get_args(alias):
+            cls(**{field: legal})
+
+    @pytest.mark.parametrize(
+        ("cls", "field"),
+        [pytest.param(c, f, id=label) for label, c, f, _ in LITERAL_KNOBS],
+    )
+    def test_config_and_direct_call_raise_identically(
+        self, cls: type, field: str
+    ) -> None:
+        with pytest.raises(UserInputError) as config:
+            cls(**{field: BAD_TOKEN})
+        with pytest.raises(UserInputError) as direct:
+            cls(_UNUSED_DATA, **{field: BAD_TOKEN})
+        assert type(config.value) is type(direct.value)
+        assert config.value.field == direct.value.field
+        assert str(config.value) == str(direct.value)
 
 
-@pytest.mark.parametrize(
-    ("func", "field", "alias"),
-    [pytest.param(f, k, a, id=label) for label, f, k, a in CLOSED_SET_KNOBS],
-)
-def test_bad_closed_set_value_raises(
-    panel: pl.DataFrame, func: Any, field: str, alias: object
-) -> None:
-    with pytest.raises(UserInputError) as excinfo:
-        _call(func, panel, **{field: BAD_TOKEN})
-    exc = excinfo.value
-    assert exc.field == field
-    assert exc.value == BAD_TOKEN
-    # The legal set reaches the caller, whichever branch rendered it.
-    rendered = str(exc)
-    for legal in get_args(alias):
-        assert legal in rendered
+class TestBoundedKnobsAtConstruction:
+    """Bounds a ``Literal`` cannot express, declared as ``@metric(validate=)``."""
+
+    def test_every_hook_is_covered(self) -> None:
+        """A metric declaring a validator without a row here is untested."""
+        declared = {
+            name for name, cls in REGISTRY.items() if cls._knob_validator is not None
+        }
+        assert declared == _HOOK_COVERAGE
+
+    @pytest.mark.parametrize(
+        ("name", "knobs", "field"),
+        [pytest.param(n, k, f, id=f"{n}.{f}") for n, k, f in BOUNDED_KNOBS],
+    )
+    def test_out_of_bounds_raises_at_construction(
+        self, name: str, knobs: dict[str, Any], field: str
+    ) -> None:
+        cls = REGISTRY[name]
+        with pytest.raises(UserInputError) as excinfo:
+            cls(**knobs)
+        assert excinfo.value.func_name == name
+        assert excinfo.value.field == field
+
+    @pytest.mark.parametrize(
+        ("name", "knobs", "field"),
+        [pytest.param(n, k, f, id=f"{n}.{f}") for n, k, f in BOUNDED_KNOBS],
+    )
+    def test_config_and_direct_call_raise_identically(
+        self, name: str, knobs: dict[str, Any], field: str
+    ) -> None:
+        cls = REGISTRY[name]
+        with pytest.raises(UserInputError) as config:
+            cls(**knobs)
+        with pytest.raises(UserInputError) as direct:
+            cls(_UNUSED_DATA, **knobs)
+        assert type(config.value) is type(direct.value)
+        assert config.value.field == direct.value.field
+        assert str(config.value) == str(direct.value)
 
 
-@pytest.mark.parametrize(
-    ("func", "field", "alias"),
-    [pytest.param(f, k, a, id=label) for label, f, k, a in CLOSED_SET_KNOBS],
-)
-def test_every_legal_value_is_accepted(
-    panel: pl.DataFrame, func: Any, field: str, alias: object
-) -> None:
-    for legal in get_args(alias):
-        _call(func, panel, **{field: legal})
+class TestInferenceAllowlistAtConstruction:
+    """``inference=`` is vetted against the module allowlist at construction."""
+
+    @pytest.mark.parametrize(
+        "name",
+        sorted(n for n, c in REGISTRY.items() if "inference" in c._param_names),
+    )
+    def test_unvetted_inference_raises_at_construction(self, name: str) -> None:
+        cls = REGISTRY[name]
+        with pytest.raises(IncompatibleInferenceError) as excinfo:
+            cls(inference=BAD_TOKEN)
+        assert excinfo.value.func_name == name
+
+    @pytest.mark.parametrize(
+        "name",
+        sorted(n for n, c in REGISTRY.items() if "inference" in c._param_names),
+    )
+    def test_config_and_direct_call_raise_identically(self, name: str) -> None:
+        cls = REGISTRY[name]
+        with pytest.raises(IncompatibleInferenceError) as config:
+            cls(inference=BAD_TOKEN)
+        with pytest.raises(IncompatibleInferenceError) as direct:
+            cls(_UNUSED_DATA, inference=BAD_TOKEN)
+        assert str(config.value) == str(direct.value)
+
+
+def test_no_metric_body_calls_a_knob_validator() -> None:
+    """The validators are called from the constructor hook, nowhere else.
+
+    A body-level call is the duplicate this contract replaced: it left a
+    config object constructible with a knob the metric would later refuse.
+    """
+    validators = (
+        "_validate_choice(",
+        "_validate_n_groups(",
+        "_validate_open_unit_interval(",
+        "_validate_factor_cols(",
+        "_validate_positive_count(",
+        "_validate_adf_threshold(",
+        "_check_applicable_inference(",
+    )
+    package = pathlib.Path("factrix/metrics")
+    offenders: list[str] = []
+    for source in sorted(package.rglob("*.py")):
+        if source.name in {"_helpers.py", "_base.py"}:
+            continue
+        for lineno, line in enumerate(
+            source.read_text(encoding="utf-8").splitlines(), start=1
+        ):
+            stripped = line.strip()
+            if not any(v in stripped for v in validators):
+                continue
+            # A call inside a ``_validate_<metric>`` hook is the sanctioned
+            # site; a call at any other indentation is a body-level duplicate.
+            if line.startswith("    ") and _in_validator_hook(source, lineno):
+                continue
+            offenders.append(f"{source}:{lineno}: {stripped}")
+    assert not offenders, "knob validators called outside the constructor hook:\n" + (
+        "\n".join(offenders)
+    )
+
+
+def _in_validator_hook(source: pathlib.Path, lineno: int) -> bool:
+    """True when line ``lineno`` sits inside a module-level ``_validate_*`` def."""
+    lines = source.read_text(encoding="utf-8").splitlines()
+    for i in range(lineno - 1, -1, -1):
+        line = lines[i]
+        if line.startswith("def ") or line.startswith("class "):
+            return line.startswith("def _validate_")
+    return False
 
 
 def test_quantile_spread_vw_rejects_bad_tie_policy(

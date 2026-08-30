@@ -37,6 +37,7 @@ from factrix._axis import (
     FactorScope,
     InputShape,
 )
+from factrix._errors import UserInputError
 from factrix._metric_index import SampleThreshold, cell
 from factrix._ols import ols_alpha as _ols_alpha
 from factrix._results import MetricResult
@@ -129,6 +130,8 @@ def _selection_to_result(acc: _ForwardSelection, n_obs: int) -> MetricResult:
 
 def _align_spread_series(
     series_dict: dict[str, pl.DataFrame],
+    *,
+    func_name: str,
 ) -> tuple[pl.DataFrame, dict[str, np.ndarray]]:
     """Align multiple spread series to common dates with finite spreads.
 
@@ -140,7 +143,7 @@ def _align_spread_series(
     ``common_dates[i]`` regardless of the input frames' row order.
 
     Raises:
-        ValueError: if any input series has duplicate ``date`` rows. A
+        UserInputError: if any input series has duplicate ``date`` rows. A
             duplicated date makes the date → value map ambiguous and silently
             produces arrays of unequal length (``np.column_stack`` then raises
             a shape error far from the cause).
@@ -164,10 +167,17 @@ def _align_spread_series(
     all_dates = None
     for name, data in series_dict.items():
         if data["date"].n_unique() != data.height:
-            raise ValueError(
-                f"_align_spread_series: series {name!r} has duplicate dates "
-                f"({data.height} rows, {data['date'].n_unique()} unique); "
-                f"date-keyed alignment is ambiguous. De-duplicate first."
+            raise UserInputError(
+                func_name=func_name,
+                field="series",
+                value=name,
+                expected=(
+                    f"one row per period in each spread series; {name!r} has "
+                    f"{data.height} rows for {data['date'].n_unique()} "
+                    f"distinct periods, so date-keyed alignment is ambiguous. "
+                    f"De-duplicate first."
+                ),
+                docs_path="api/metrics/spanning",
             )
         valid = (
             data.filter(pl.col("spread").is_not_null() & pl.col("spread").is_not_nan())
@@ -338,7 +348,7 @@ def spanning_alpha(
         )
 
     all_series = {"_candidate_": factor_spread, **base_spreads}
-    _common_dates, arrays = _align_spread_series(all_series)
+    _common_dates, arrays = _align_spread_series(all_series, func_name="spanning_alpha")
     if "_candidate_" not in arrays:
         return _short_circuit_output(
             "spanning_alpha",
@@ -540,7 +550,9 @@ def greedy_forward_selection(
         base_spreads = {}
 
     all_series = {**base_spreads, **factor_spreads}
-    common_dates, all_arrays = _align_spread_series(all_series)
+    common_dates, all_arrays = _align_spread_series(
+        all_series, func_name="greedy_forward_selection"
+    )
 
     if not all_arrays:
         return _selection_to_result(_ForwardSelection(), n_obs=0)
