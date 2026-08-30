@@ -60,7 +60,6 @@ Matrix-row: slice_period_pairwise_test, slice_period_joint_test | (*, *, *, *, *
 from __future__ import annotations
 
 import math
-import warnings
 from itertools import combinations
 from typing import Literal, NamedTuple
 
@@ -68,7 +67,7 @@ import numpy as np
 import polars as pl
 from scipy import stats as sp_stats
 
-from factrix._codes import WarningCode, _validate_expected_warnings_arg
+from factrix._codes import WarningCode, _emit_warning, _validate_expected_warnings_arg
 from factrix._data_input import _resolve_overlap_periods
 from factrix._errors import UserInputError
 from factrix._stats.bootstrap import (
@@ -999,23 +998,22 @@ def slice_period_joint_test(
     if built.thin:
         return _row(float("nan"), float("nan"), None, _REASON_INSUFFICIENT_PERIODS)
     if k >= 3 and shortest < _JOINT_SHORT_SLICE_PERIODS:
-        code = WarningCode.SHORT_SLICE_JOINT_TEST
-        warning_codes.append(code.value)
-        if code.value not in expected:
-            warnings.warn(
-                f"slice_period_joint_test: {len(series_list)} slices with the "
-                f"shortest at {shortest} periods "
-                f"(< {_JOINT_SHORT_SLICE_PERIODS}). On a true null the joint "
-                f"test over-rejects here — measured 8–9% at a nominal 5% for "
-                f"K=5 with 50–90-period slices, under both methods — because "
-                f"each slice's HAC variance is a noisy small-sample estimate "
-                f"inverted across K-1 restrictions. Read the p-value as "
-                f"indicative; pairwise contrasts on the same slices are "
-                f"better calibrated ({code.value}; declare it in "
-                f"expected_warnings= to keep the record and stop this echo).",
-                UserWarning,
-                stacklevel=2,
-            )
+        _emit_warning(
+            WarningCode.SHORT_SLICE_JOINT_TEST,
+            f"{len(series_list)} slices with the "
+            f"shortest at {shortest} periods "
+            f"(< {_JOINT_SHORT_SLICE_PERIODS}). On a true null the joint "
+            f"test over-rejects here — measured 8–9% at a nominal 5% for "
+            f"K=5 with 50–90-period slices, under both methods — because "
+            f"each slice's HAC variance is a noisy small-sample estimate "
+            f"inverted across K-1 restrictions. Read the p-value as "
+            f"indicative; pairwise contrasts on the same slices are "
+            f"better calibrated.",
+            label="slice_period_joint_test",
+            expected_warnings=expected,
+            warning_codes=warning_codes,
+            stacklevel=2,
+        )
     restriction = _equality_restriction(k)
 
     if method == "bootstrap":

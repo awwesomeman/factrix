@@ -39,8 +39,6 @@ References:
 
 from __future__ import annotations
 
-import warnings
-
 import numpy as np
 import polars as pl
 
@@ -49,7 +47,7 @@ from factrix._axis import (
     FactorDensity,
     InputShape,
 )
-from factrix._codes import WarningCode
+from factrix._codes import WarningCode, _emit_warning
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import (
@@ -321,7 +319,7 @@ def caar(
         n,
         MIN_EVENTS_WARN,
         overlap_periods,
-        f"caar: n_event_periods={n} below the floor of {raw_min_warn} "
+        f"n_event_periods={n} below the floor of {raw_min_warn} "
         f"(= MIN_EVENTS_WARN {MIN_EVENTS_WARN} x overlap_periods "
         f"{overlap_periods}). The t-test runs on the subsample left after "
         f"non-overlap sampling at stride h={overlap_periods}, which keeps "
@@ -331,6 +329,7 @@ def caar(
         f"across event *periods*, so this counts the number of periods with "
         f"an event, not events. t-stat returned but read p-values cautiously.",
         WarningCode.FEW_EVENTS,
+        label="caar",
         expected_warnings=expected_warnings,
     )
     if warn_code is not None:
@@ -409,6 +408,7 @@ def caar(
         _record_ragged_event_grid(
             caar_df["ragged_period_grid_note"][0],
             warning_codes,
+            label="caar",
             expected_warnings=expected_warnings,
         )
 
@@ -893,19 +893,19 @@ def bmp_z(
         "bmp_z", data, warning_codes, expected_warnings=expected_warnings
     )
     if not uses_price:
-        code = WarningCode.BMP_RETURN_VOL_FALLBACK.value
-        warning_codes.append(code)
-        if code not in expected_warnings:
-            warnings.warn(
-                f"bmp_z: no 'price' column; estimation-window volatility falls "
-                f"back to the per-asset rolling std of '{return_col}', lagged by "
-                f"overlap_periods={overlap_periods} so the window ends before "
-                f"each event's forward return. This is a coarser, "
-                f"horizon-overlapping vol proxy than a price-derived one-period "
-                f"std — supply 'price' for the clean BMP standardiser.",
-                UserWarning,
-                stacklevel=2,
-            )
+        _emit_warning(
+            WarningCode.BMP_RETURN_VOL_FALLBACK,
+            f"no 'price' column; estimation-window volatility falls "
+            f"back to the per-asset rolling std of '{return_col}', lagged by "
+            f"overlap_periods={overlap_periods} so the window ends before "
+            f"each event's forward return. This is a coarser, "
+            f"horizon-overlapping vol proxy than a price-derived one-period "
+            f"std — supply 'price' for the clean BMP standardiser.",
+            label="bmp_z",
+            expected_warnings=expected_warnings,
+            warning_codes=warning_codes,
+            stacklevel=2,
+        )
 
     if kolari_pynnonen_adjust:
         r_hat, n_eff, kp_source = _estimate_within_date_icc(
@@ -944,13 +944,14 @@ def bmp_z(
         n_valid_raw,
         MIN_EVENTS_WARN,
         overlap_periods,
-        f"bmp_z: n_events={n_valid_raw} below the floor of {raw_min_warn} "
+        f"n_events={n_valid_raw} below the floor of {raw_min_warn} "
         f"(= MIN_EVENTS_WARN {MIN_EVENTS_WARN} x overlap_periods "
         f"{overlap_periods}); {n_valid} events and {n_event_periods} event "
         f"periods survive non-overlap sampling at stride h={overlap_periods}, "
         f"which keeps up to one event in h per asset. z is returned but the "
         f"cross-sectional test is power-thin on a sample this short.",
         WarningCode.FEW_EVENTS,
+        label="bmp_z",
         expected_warnings=expected_warnings,
     )
     # (2) Events share periods, so the effective sample is closer to the
@@ -963,21 +964,21 @@ def bmp_z(
         and n_event_periods < n_valid
         and (n_event_periods < MIN_EVENTS_WARN)
     ):
-        warn_code = WarningCode.FEW_EVENTS.value
-        if warn_code not in expected_warnings:
-            warnings.warn(
-                f"bmp_z: n_event_periods={n_event_periods} below "
-                f"MIN_EVENTS_WARN={MIN_EVENTS_WARN} with n_events={n_valid}. "
-                f"Same-period events share a common shock, so the effective "
-                f"sample is closer to the number of distinct event periods than "
-                f"to the event count; the Kolari-Pynnönen adjustment removes the "
-                f"shared-shock inflation but not the small-sample residual "
-                f"(measured ~10% at 8 periods, ~14% at 4, ~7% at 15, clearing "
-                f"by ~30; nominal 5%). z is returned but read borderline p-values "
-                f"cautiously.",
-                UserWarning,
-                stacklevel=2,
-            )
+        warn_code = _emit_warning(
+            WarningCode.FEW_EVENTS,
+            f"n_event_periods={n_event_periods} below "
+            f"MIN_EVENTS_WARN={MIN_EVENTS_WARN} with n_events={n_valid}. "
+            f"Same-period events share a common shock, so the effective "
+            f"sample is closer to the number of distinct event periods than "
+            f"to the event count; the Kolari-Pynnönen adjustment removes the "
+            f"shared-shock inflation but not the small-sample residual "
+            f"(measured ~10% at 8 periods, ~14% at 4, ~7% at 15, clearing "
+            f"by ~30; nominal 5%). z is returned but read borderline p-values "
+            f"cautiously.",
+            label="bmp_z",
+            expected_warnings=expected_warnings,
+            stacklevel=2,
+        )
     if warn_code is not None:
         warning_codes.append(warn_code)
 

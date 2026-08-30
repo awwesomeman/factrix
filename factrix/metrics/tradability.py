@@ -56,6 +56,7 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
     _validate_n_groups,
     _validate_positive_count,
+    _warn_thin_quantile_groups,
 )
 
 _DOCS_TRADABILITY = "api/metrics/tradability"
@@ -574,6 +575,19 @@ def notional_turnover(
     if sc is not None:
         return sc
 
+    # Same dual-channel thin-bucket advisory ``quantile_spread`` gets, off the
+    # same threshold and on the same bucketing: turnover measured on buckets
+    # holding a couple of names each is dominated by individual assets, and
+    # this metric was the one bucketing consumer that reported clean there.
+    warning_codes: list[str] = []
+    if _warn_thin_quantile_groups(
+        data,
+        n_groups,
+        metric_name="notional_turnover",
+        expected_warnings=expected_warnings,
+    ):
+        warning_codes.append(WarningCode.THIN_QUANTILE_GROUPS.value)
+
     top_g = n_groups - 1
     bot_g = 0
     grouped = _assign_quantile_groups(data, factor_col, n_groups).select(
@@ -659,6 +673,7 @@ def notional_turnover(
         # pairs; the axis is periods.
         n_obs=int(per_date.height),
         n_obs_axis="periods",
+        warning_codes=tuple(warning_codes),
         metadata={
             "n_rebalances": int(per_date.height),
             "n_groups": n_groups,

@@ -27,7 +27,6 @@ References:
 from __future__ import annotations
 
 import math
-import warnings
 from typing import cast
 
 import numpy as np
@@ -40,7 +39,7 @@ from factrix._axis import (
     FactorScope,
     InputShape,
 )
-from factrix._codes import WarningCode
+from factrix._codes import WarningCode, _emit_warning
 from factrix._errors import UserInputError
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
@@ -121,18 +120,17 @@ def _surface_fm_asset_warning(
     metadata["warn_assets_per_period"] = MIN_FM_ASSETS_WARN
     if min_assets_per_period >= MIN_FM_ASSETS_WARN:
         return
-    code = WarningCode.FEW_ASSETS.value
-    if code not in expected_warnings:
-        warnings.warn(
-            f"{metric_name}: min_assets_per_period={min_assets_per_period} below "
-            f"MIN_FM_ASSETS_WARN={MIN_FM_ASSETS_WARN}; per-period FM beta is "
-            "computable but the cross-section is thin. value is returned but read "
-            "it cautiously.",
-            UserWarning,
-            stacklevel=2,
-        )
-    if code not in warning_codes:
-        warning_codes.append(code)
+    _emit_warning(
+        WarningCode.FEW_ASSETS,
+        f"min_assets_per_period={min_assets_per_period} below "
+        f"MIN_FM_ASSETS_WARN={MIN_FM_ASSETS_WARN}; per-period FM beta is "
+        "computable but the cross-section is thin. value is returned but read "
+        "it cautiously.",
+        label=metric_name,
+        expected_warnings=expected_warnings,
+        warning_codes=warning_codes,
+        stacklevel=2,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -310,11 +308,13 @@ def fm_beta(
     warn_code = _warn_below_floor(
         fm_beta,
         n,
-        f"fm_beta: n_periods={n} below MIN_FM_PERIODS_WARN="
+        f"n_periods={n} below MIN_FM_PERIODS_WARN="
         f"{MIN_FM_PERIODS_WARN}; NW HAC SE on a short β series is "
         f"borderline (Fama-MacBeth convention is T≥30). t-stat is "
         f"returned but read p-values cautiously.",
         WarningCode.UNRELIABLE_SE_SHORT_PERIODS,
+        label="fm_beta",
+        expected_warnings=expected_warnings,
     )
     if warn_code is not None:
         warning_codes.append(warn_code)
@@ -330,19 +330,19 @@ def fm_beta(
     actual_lags = _resolve_har_lags(n, newey_west_lags, overlap_periods)
     beta_autocorr = _lag1_autocorr(betas)
     if beta_autocorr > PERSISTENT_SERIES_AUTOCORR:
-        code = WarningCode.SERIAL_CORRELATION_DETECTED.value
-        warning_codes.append(code)
-        if code not in expected_warnings:
-            warnings.warn(
-                f"fm_beta: the per-period beta series has lag-1 autocorrelation "
-                f"{beta_autocorr:.2f} (> {PERSISTENT_SERIES_AUTOCORR}). No HAC "
-                f"path is calibrated in this regime — Newey-West rejects 13–17% "
-                f"at a nominal 5% for phi=0.6 and ~30% at 0.85 — so read the "
-                f"p-value against a raised hurdle (t > 3) or lengthen the "
-                f"sample.",
-                UserWarning,
-                stacklevel=2,
-            )
+        _emit_warning(
+            WarningCode.SERIAL_CORRELATION_DETECTED,
+            f"the per-period beta series has lag-1 autocorrelation "
+            f"{beta_autocorr:.2f} (> {PERSISTENT_SERIES_AUTOCORR}). No HAC "
+            f"path is calibrated in this regime — Newey-West rejects 13–17% "
+            f"at a nominal 5% for phi=0.6 and ~30% at 0.85 — so read the "
+            f"p-value against a raised hurdle (t > 3) or lengthen the "
+            f"sample.",
+            label="fm_beta",
+            expected_warnings=expected_warnings,
+            warning_codes=warning_codes,
+            stacklevel=2,
+        )
 
     p_final = p
     metadata: dict = {
@@ -366,20 +366,19 @@ def fm_beta(
         # rather than only a metadata string.
         if sigma2_f < EPSILON:
             metadata["shanken_correction"] = "skipped_zero_factor_variance"
-            code = WarningCode.DEGENERATE_VARIANCE.value
-            if code not in warning_codes:
-                warning_codes.append(code)
-            if code not in expected_warnings:
-                warnings.warn(
-                    f"fm_beta: factor_return_var={sigma2_f!r} is below "
-                    f"EPSILON={EPSILON}, so the Shanken (1992) EIV multiplier "
-                    f"1 + mean(β)²/σ²_f is undefined. The correction is "
-                    f"skipped and the UNCORRECTED Newey-West p-value is "
-                    f"returned — read it as un-adjusted for the estimated "
-                    f"regressor.",
-                    UserWarning,
-                    stacklevel=2,
-                )
+            _emit_warning(
+                WarningCode.DEGENERATE_VARIANCE,
+                f"factor_return_var={sigma2_f!r} is below "
+                f"EPSILON={EPSILON}, so the Shanken (1992) EIV multiplier "
+                f"1 + mean(β)²/σ²_f is undefined. The correction is "
+                f"skipped and the UNCORRECTED Newey-West p-value is "
+                f"returned — read it as un-adjusted for the estimated "
+                f"regressor.",
+                label="fm_beta",
+                expected_warnings=expected_warnings,
+                warning_codes=warning_codes,
+                stacklevel=2,
+            )
         else:
             c = 1.0 + (mean_beta**2) / sigma2_f
             sqrt_c = math.sqrt(c)
@@ -534,17 +533,17 @@ def _pooled_beta_driscoll_kraay(
 
     warning_codes: list[str] = []
     if n_periods < MIN_PERIODS_WARN:
-        code = WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value
-        warning_codes.append(code)
-        if code not in expected_warnings:
-            warnings.warn(
-                f"pooled_beta: Driscoll-Kraay SE on n_periods={n_periods} "
-                f"(< {MIN_PERIODS_WARN}); the cross-sectional HAC needs a long "
-                f"period series to be reliable. t-stat is returned but read "
-                f"p-values cautiously.",
-                UserWarning,
-                stacklevel=2,
-            )
+        _emit_warning(
+            WarningCode.UNRELIABLE_SE_SHORT_PERIODS,
+            f"Driscoll-Kraay SE on n_periods={n_periods} "
+            f"(< {MIN_PERIODS_WARN}); the cross-sectional HAC needs a long "
+            f"period series to be reliable. t-stat is returned but read "
+            f"p-values cautiously.",
+            label="pooled_beta",
+            expected_warnings=expected_warnings,
+            warning_codes=warning_codes,
+            stacklevel=2,
+        )
 
     metadata = {
         "stat_type": "t",

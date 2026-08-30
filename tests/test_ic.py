@@ -262,11 +262,15 @@ class TestComputeIC:
             pl.col("date").cast(pl.Datetime("ms"))
         )
         clean_ic = compute_ic(clean)["factor"]
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", UserWarning)
+        # Only the tie advisory is under test: on a 40-period series the HAC
+        # member legitimately raises its own bandwidth code, which now reaches
+        # stderr through the same formatter instead of only the result object.
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", UserWarning)
             ic(clean_ic, overlap_periods=1)
             ic(clean_ic, overlap_periods=1, inference=NEWEY_WEST)
             ic_ir(clean_ic)
+        assert not [w for w in caught if "tie_ratio" in str(w.message)]
 
 
 class TestComputeICBatch:

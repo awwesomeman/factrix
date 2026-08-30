@@ -399,7 +399,7 @@ def predictive_beta(
     warn_code = _warn_below_floor(
         predictive_beta,
         n_effective,
-        f"predictive_beta: n_periods={n_used} at "
+        f"n_periods={n_used} at "
         f"overlap_periods={overlap_periods} "
         f"leaves an effective sample of {n_effective} non-overlapping "
         f"observations, below MIN_PERIODS_WARN={MIN_PERIODS_WARN}; Newey-West "
@@ -407,6 +407,7 @@ def predictive_beta(
         f"nominal 5% for n=98, h=21). t-stat is returned but read p-values "
         f"cautiously.",
         WarningCode.UNRELIABLE_SE_SHORT_PERIODS,
+        label="predictive_beta",
         expected_warnings=expected_warnings,
     )
     if warn_code is not None:

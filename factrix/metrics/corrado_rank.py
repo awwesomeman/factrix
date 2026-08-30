@@ -379,7 +379,7 @@ def corrado_rank(
         n_events,
         MIN_EVENTS_WARN,
         overlap_periods,
-        f"corrado_rank: n_events={n_events} below the floor of {raw_min_warn} "
+        f"n_events={n_events} below the floor of {raw_min_warn} "
         f"(= MIN_EVENTS_WARN {MIN_EVENTS_WARN} x overlap_periods "
         f"{overlap_periods}); {n_event_periods} event periods survive "
         f"non-overlap sampling at stride h={overlap_periods}, which keeps "
@@ -389,6 +389,7 @@ def corrado_rank(
         f"not add sample. z is returned but the normal approximation is "
         f"power-thin here.",
         WarningCode.FEW_EVENTS,
+        label="corrado_rank",
         expected_warnings=expected_warnings,
     )
     if warn_code is not None:

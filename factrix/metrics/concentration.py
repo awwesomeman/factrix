@@ -15,8 +15,6 @@ Notes:
 
 from __future__ import annotations
 
-import warnings
-
 import numpy as np
 import polars as pl
 
@@ -26,7 +24,7 @@ from factrix._axis import (
     FactorDensity,
     FactorScope,
 )
-from factrix._codes import WarningCode
+from factrix._codes import WarningCode, _emit_warning
 from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._types import (
@@ -313,8 +311,6 @@ def top_concentration(
         n_pos = int((finite_f > 0).sum())
         n_neg = int((finite_f < 0).sum())
         if finite_f.len() and (n_pos == 0 or n_neg == 0):
-            code = WarningCode.ONE_SIGNED_FACTOR.value
-            warning_codes.append(code)
             one_signed_meta = {
                 "n_positive_factor_values": n_pos,
                 "n_negative_factor_values": n_neg,
@@ -324,23 +320,25 @@ def top_concentration(
             # the counts made every call a distinct warning and a by_slice
             # sweep or multi-factor evaluate emitted one per call instead of
             # one per session.
-            if code not in expected_warnings:
-                warnings.warn(
-                    "top_concentration: weight_by='abs_factor' on a factor that "
-                    "never changes sign. |factor| is a density weight only when "
-                    "zero is the neutral point, and the HHI of |f| moves with an "
-                    "arbitrary level shift. Centre the factor (cross-sectional "
-                    "z-score) or use weight_by='alpha_contribution'. Counts are "
-                    "in metadata['n_positive_factor_values'] / "
-                    "['n_negative_factor_values'].",
-                    UserWarning,
-                    stacklevel=2,
-                )
+            _emit_warning(
+                WarningCode.ONE_SIGNED_FACTOR,
+                "weight_by='abs_factor' on a factor that "
+                "never changes sign. |factor| is a density weight only when "
+                "zero is the neutral point, and the HHI of |f| moves with an "
+                "arbitrary level shift. Centre the factor (cross-sectional "
+                "z-score) or use weight_by='alpha_contribution'. Counts are "
+                "in metadata['n_positive_factor_values'] / "
+                "['n_negative_factor_values'].",
+                label="top_concentration",
+                expected_warnings=expected_warnings,
+                warning_codes=warning_codes,
+                stacklevel=2,
+            )
     warn_code = _warn_below_scaled_floor(
         n_raw_periods,
         MIN_PORTFOLIO_PERIODS_WARN,
         overlap_periods,
-        f"top_concentration: {n_raw_periods} raw dates below "
+        f"{n_raw_periods} raw dates below "
         f"MIN_PORTFOLIO_PERIODS_WARN*overlap_periods="
         f"{MIN_PORTFOLIO_PERIODS_WARN * overlap_periods}; the mean effective "
         f"number of names is averaged over few periods and moves substantially "
@@ -348,6 +346,7 @@ def top_concentration(
         f"size), so read value and ratio_eff_to_total as a noisy estimate here "
         f"and lengthen the history before comparing panels.",
         WarningCode.BORDERLINE_PORTFOLIO_PERIODS,
+        label="top_concentration",
         expected_warnings=expected_warnings,
     )
     if warn_code is not None:

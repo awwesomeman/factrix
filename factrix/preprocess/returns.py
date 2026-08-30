@@ -8,13 +8,12 @@ All functions expect canonical column names (date, asset_id, price).
 Use ``adapt()`` to rename before calling.
 """
 
-import warnings
 from collections.abc import Iterable
 
 import numpy as np
 import polars as pl
 
-from factrix._codes import WarningCode
+from factrix._codes import WarningCode, _emit_warning
 from factrix._errors import UserInputError
 
 _DOCS_FORWARD_RETURN = "api/preprocess#factrix.preprocess.compute_forward_return"
@@ -85,15 +84,15 @@ def _warn_if_ragged(indexed: pl.DataFrame, n_periods: int) -> None:
     )
     n_ragged = int((per_asset["_n_periods"] < n_periods).sum())
     if n_ragged:
-        warnings.warn(
-            f"compute_forward_return: {WarningCode.RAGGED_PERIOD_GRID.value} — "
+        _emit_warning(
+            WarningCode.RAGGED_PERIOD_GRID,
             f"{n_ragged} of {per_asset.height} assets are missing periods that "
             f"others have (panel grid: {n_periods} periods). The horizon is "
             "measured on the panel's period grid, so those assets simply have "
             "no observation to pair at the exit period rather than a stretched "
             "window; reindex onto a common grid if the horizons must be "
             "comparable across names.",
-            UserWarning,
+            label="compute_forward_return",
             stacklevel=3,
         )
 
@@ -108,9 +107,9 @@ def _warn_if_uneven(kept_index: list[int]) -> None:
     """
     strides = np.unique(np.diff(np.asarray(sorted(kept_index), dtype=np.int64)))
     if strides.size > 1:
-        warnings.warn(
-            f"compute_forward_return: {WarningCode.UNEVEN_EVALUATION_GRID.value} "
-            f"— the evaluation grid passed as dates= has {strides.size} distinct "
+        _emit_warning(
+            WarningCode.UNEVEN_EVALUATION_GRID,
+            f"the evaluation grid passed as dates= has {strides.size} distinct "
             f"spacings between adjacent kept rows ({int(strides.min())} to "
             f"{int(strides.max())} periods). Series-mean inference "
             "(NonOverlapping, NeweyWest) is calibrated on such a grid; the "
@@ -123,7 +122,7 @@ def _warn_if_uneven(kept_index: list[int]) -> None:
             "the caller's side: pass dates= at a constant stride on the panel's "
             "period grid if those paths must be calibrated; factrix does not "
             "resample.",
-            UserWarning,
+            label="compute_forward_return",
             stacklevel=3,
         )
 

@@ -249,13 +249,14 @@ def _spaced_events(
         n_raw,
         MIN_EVENTS_WARN,
         overlap_periods,
-        f"{metric_name}: n_events={n_raw} below the floor of {raw_min_warn} "
+        f"n_events={n_raw} below the floor of {raw_min_warn} "
         f"(= MIN_EVENTS_WARN {MIN_EVENTS_WARN} x overlap_periods "
         f"{overlap_periods}); {sampled.height} events survive non-overlap "
         f"sampling at stride h={overlap_periods}, which keeps up to one event "
         f"in h per asset. The statistic is returned but it pools the events "
         f"as independent draws and is thin on a sample this short.",
         WarningCode.FEW_EVENTS,
+        label=metric_name,
         expected_warnings=expected_warnings,
     )
     if warn_code is not None:

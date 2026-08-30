@@ -126,7 +126,12 @@ def compute_spread_series(
 
     sampled = _sample_non_overlapping(data, overlap_periods)
 
-    _warn_thin_quantile_groups(sampled, n_groups, expected_warnings=expected_warnings)
+    _warn_thin_quantile_groups(
+        sampled,
+        n_groups,
+        metric_name="compute_spread_series",
+        expected_warnings=expected_warnings,
+    )
 
     # Neutralise non-finite returns at the producer boundary: polars ``mean``
     # propagates float NaN, so one NaN return would turn a whole bucket mean —
