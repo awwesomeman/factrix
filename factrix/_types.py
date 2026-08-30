@@ -142,6 +142,16 @@ KPSource = Literal["icc", "no_multi_event_dates"]
 # realised contribution to the long-leg's α.
 ConcentrationWeight = Literal["abs_factor", "alpha_contribution"]
 
+# Quantile-bucketing tie-break policy — how per-period ranks resolve equal
+# factor values before they are cut into buckets. ``"ordinal"`` breaks ties by
+# row order (balanced bucket sizes, tied names split across buckets);
+# ``"average"`` gives tied names a shared average rank (same bucket, possibly
+# unbalanced sizes). Both are polars rank methods, but the closed set is
+# factrix's: the remaining polars methods (``min`` / ``max`` / ``dense`` /
+# ``random``) either distort the bucket widths or make the bucketing
+# irreproducible, so they are not part of the contract.
+TiePolicy = Literal["ordinal", "average"]
+
 # Canonical sample-dimension vocabulary — the axis a count is measured along.
 # Single source of truth for ``MetricResult.n_obs_axis`` and the ``axis`` params
 # in ``metrics._helpers`` (drop-stats / floor enforcement); mypy rejects any

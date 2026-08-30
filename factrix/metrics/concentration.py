@@ -46,6 +46,8 @@ from factrix.metrics._helpers import (
     _sample_non_overlapping,
     _scaled_periods_threshold,
     _short_circuit_output,
+    _validate_choice,
+    _validate_open_unit_interval,
     _warn_below_scaled_floor,
 )
 
@@ -86,8 +88,13 @@ def top_concentration(
         data: Panel with ``date, asset_id, factor`` (and ``forward_return``
             if ``weight_by="alpha_contribution"``).
         q_top: Fraction of top-ranked stocks to include (default 0.2 =
-            top 20%).
-        weight_by: HHI weight convention.
+            top 20%). Must lie strictly inside ``(0, 1)``; 0 leaves no top
+            bucket and 1 selects the whole cross-section, so neither
+            defines a top-bucket concentration and both raise
+            ``UserInputError``.
+        weight_by: HHI weight convention. Either ``"abs_factor"`` or
+            ``"alpha_contribution"``; anything else raises
+            ``UserInputError``.
             - ``"abs_factor"`` (default): weight by ``|factor|``. Answers
               "how concentrated is the density itself in the top bucket".
               Conservative, density-level. **Assumes a zero-centred
@@ -176,6 +183,23 @@ def top_concentration(
         >>> result.name == ""
         True
     """
+    _validate_choice(
+        weight_by,
+        ConcentrationWeight,
+        func_name="top_concentration",
+        field="weight_by",
+        docs_path="api/metrics/concentration",
+    )
+    _validate_open_unit_interval(
+        q_top,
+        func_name="top_concentration",
+        field="q_top",
+        detail=(
+            "0 leaves no top bucket and 1 selects the whole cross-section, "
+            "so no top-bucket concentration is defined."
+        ),
+        docs_path="api/metrics/concentration",
+    )
     if weight_by == "alpha_contribution" and return_col not in data.columns:
         return _short_circuit_output(
             "top_concentration",

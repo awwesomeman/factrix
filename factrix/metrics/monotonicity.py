@@ -41,6 +41,7 @@ from factrix._stats.bootstrap import (
 from factrix._types import (
     DDOF,
     MIN_MONOTONICITY_PERIODS_HARD,
+    TiePolicy,
 )
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
@@ -51,6 +52,7 @@ from factrix.metrics._helpers import (
     _sample_non_overlapping,
     _scaled_periods_threshold,
     _short_circuit_output,
+    _validate_choice,
     _warn_high_tie_ratio,
 )
 
@@ -174,7 +176,7 @@ def monotonicity(
     n_groups: int = 10,
     factor_cols: Sequence[str] = ("factor",),
     return_col: str = "forward_return",
-    tie_policy: str = "ordinal",
+    tie_policy: TiePolicy = "ordinal",
     direction: MRDirection = "increasing",
     n_resamples: int = 999,
     rng: Rng = None,
@@ -192,6 +194,7 @@ def monotonicity(
             universe). Use 5 for ``n_assets < 1000``, 3 for ``n_assets < 200``.
         tie_policy: Bucketing tie-break policy — the same knob and values as
             ``quantile_spread`` / ``k_spread``, see ``_assign_quantile_groups``.
+            Either ``"ordinal"`` or ``"average"``; anything else raises ``UserInputError``.
             Under ``"ordinal"`` the realised per-period tie ratio is reported
             in ``metadata["tie_ratio"]``; when its median exceeds
             ``TIE_RATIO_WARN_THRESHOLD`` the result carries
@@ -269,6 +272,13 @@ def monotonicity(
         >>> result["factor"].name == ""
         True
     """
+    _validate_choice(
+        tie_policy,
+        TiePolicy,
+        func_name="monotonicity",
+        field="tie_policy",
+        docs_path="api/metrics/monotonicity",
+    )
     if direction not in ("increasing", "decreasing"):
         # A typo must not silently run the opposite one-sided test.
         raise UserInputError(

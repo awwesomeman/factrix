@@ -85,6 +85,8 @@ Every `UserInputError` carries structured attributes (see [Reading a `UserInputE
 | `unknown metrics='...'` | Typo or metric not applicable to the data | `inspect_data(data).usable` enumerates the metrics applicable to the data shape. See [`list_metrics`](metrics/index.md#factrix.list_metrics) for the full catalog. |
 | `invalid expand_over=[...]` | One or more `expand_over` keys missing on some results' `params` | The message lists every `(factor, missing_key)` pair in one pass. All results in the family must carry the key in `.params`; populate it consistently, or drop the key from `expand_over`. A key found on `.metadata` instead is called out separately — bookkeeping never partitions a family. |
 | `Expected: list[EvaluationResult], got ...` | Passing the wrong artifact type to a screening function | Screening (`bhy`, `partial_conjunction`, `bhy_hierarchical`) consumes `list[EvaluationResult]`. |
+| `unknown weight_by='...'` / `unknown tie_policy='...'` | Typo in a closed-set metric knob | Every closed-set knob (`weight_by`, `tie_policy`, `direction`, `center`, `method`) is validated before any computation and the message lists its legal values. A typo raises rather than falling through to the default branch. |
+| `invalid q_top=...`, `Expected: a fraction strictly inside (0, 1)` | A fraction knob outside its bounds | `top_concentration(q_top=)` needs a genuine sub-fraction of the cross-section: 0 leaves no top bucket, 1 selects all of it. |
 
 ---
 

@@ -14,6 +14,7 @@ from factrix._axis import (
     SpecRole,
 )
 from factrix._metric_index import cell
+from factrix._types import TiePolicy
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _assign_quantile_groups_batch,
@@ -39,7 +40,7 @@ def compute_spread_series(
     n_groups: int = 5,
     factor_cols: Sequence[str] = ("factor",),
     return_col: str = "forward_return",
-    tie_policy: str = "ordinal",
+    tie_policy: TiePolicy = "ordinal",
     expected_warnings: tuple[str, ...] = (),
 ) -> dict[str, pl.DataFrame]:
     """Per-period long-short spread series (non-overlapping).

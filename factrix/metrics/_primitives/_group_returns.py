@@ -12,6 +12,7 @@ from factrix._axis import (
     SpecRole,
 )
 from factrix._metric_index import cell
+from factrix._types import TiePolicy
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _assign_quantile_groups,
@@ -35,7 +36,7 @@ def compute_group_returns(
     n_groups: int = 5,
     factor_col: str = "factor",
     return_col: str = "forward_return",
-    tie_policy: str = "ordinal",
+    tie_policy: TiePolicy = "ordinal",
 ) -> pl.DataFrame:
     """Mean forward return per quantile bucket (for monotonicity charts).
 
