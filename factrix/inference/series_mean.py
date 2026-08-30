@@ -47,6 +47,7 @@ from factrix._types import MIN_SERIES_PERIODS_HARD
 from factrix.inference._base import InferenceResult
 
 if TYPE_CHECKING:
+    import numpy as np
     import polars as pl
 
 
@@ -62,6 +63,54 @@ def _clean_series(data: pl.DataFrame, value_col: str) -> pl.Series:
     if data["date"].is_sorted():
         return data[value_col].drop_nulls().drop_nans()
     return data.sort("date").get_column(value_col).drop_nulls().drop_nans()
+
+
+def _persistent_sample(values: np.ndarray) -> bool:
+    """Whether a strided subsample is persistent enough to warrant the screen.
+
+    Two conditions, both required. The lag-1 autocorrelation must exceed
+    ``PERSISTENT_SERIES_AUTOCORR``, and the subsample must reach
+    ``MIN_SERIES_PERIODS_HARD`` — the library's floor for estimating a
+    series statistic on the periods axis, the same one ``NonOverlapping``'s
+    post-stride sample is gated on. Below it the screen is **withheld**: a
+    lag-1 autocorrelation read off three to nine observations is noise, and
+    a sample value above 0.3 is common there under independence, so the
+    code would be reporting the shortage of periods rather than any
+    persistence. Shortage of periods is what
+    ``UNRELIABLE_SE_SHORT_PERIODS`` is for.
+    """
+    if len(values) < MIN_SERIES_PERIODS_HARD:
+        return False
+    return _lag1_autocorr(values) > PERSISTENT_SERIES_AUTOCORR
+
+
+def _persistent_beyond_horizon(
+    data: pl.DataFrame, value_col: str, overlap_periods: int
+) -> bool:
+    """Whether the series stays autocorrelated once the overlap is strided away.
+
+    Overlapping ``h``-period forward returns carry an MA(h-1) structure by
+    construction: lag-1 autocorrelation near ``1 - 1/h`` with lag-``h``
+    near zero. That is exactly what every member of this family is built to
+    absorb — the ``3(h - 1)`` bandwidth floor for the HAC kernels, the
+    ``overlap_periods`` block-length floor for the bootstrap — so reading
+    lag-1 off the *full* series flags the everyday overlapping case, where
+    the paths are calibrated, and says nothing about the regime where they
+    are not.
+
+    The screen therefore reads lag-1 on the series strided at
+    ``overlap_periods`` (first of each block, the same stride
+    ``NonOverlapping`` runs its t-test on): mechanical overlap dependence is
+    gone from that subsample, so what survives is persistence *beyond* the
+    overlap horizon — the regime no path here is calibrated for. At
+    ``overlap_periods <= 1`` the stride is a no-op and this is the plain
+    lag-1 screen. Below ``MIN_SERIES_PERIODS_HARD`` strided observations the
+    screen is withheld — see ``_persistent_sample``.
+    """
+    from factrix.metrics._helpers import _stride_dates
+
+    strided = _clean_series(_stride_dates(data, overlap_periods), value_col).to_numpy()
+    return _persistent_sample(strided)
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,11 +159,14 @@ class NonOverlapping:
 
         warnings: frozenset[WarningCode] = frozenset()
         # Persistence screen on the STRIDED sample — the series the t-test
-        # runs on. Striding an AR(phi) series at h leaves autocorrelation
-        # phi^h, so a highly persistent full series can hand this test a
-        # near-iid subsample: AR(0.6) at h=21 sits at 4.5% (calibrated) and
-        # must not be flagged, while the same series at h=1 (32.9%) must be.
-        if _lag1_autocorr(sampled) > PERSISTENT_SERIES_AUTOCORR:
+        # runs on, and the same subsample the rest of the family screens
+        # (see ``_persistent_beyond_horizon``); it is already in hand here,
+        # so the array-level predicate is called directly. Striding an
+        # AR(phi) series at h leaves autocorrelation phi^h, so a highly
+        # persistent full series can hand this test a near-iid subsample:
+        # AR(0.6) at h=21 sits at 4.5% (calibrated) and must not be flagged,
+        # while the same series at h=1 (32.9%) must be.
+        if _persistent_sample(sampled):
             warnings |= frozenset({WarningCode.SERIAL_CORRELATION_DETECTED})
         # A NaN t on a subsample long enough to test means no dispersion at
         # all (every survivor identical). Flag it rather than let a NaN p read
@@ -170,7 +222,9 @@ class NeweyWest:
     because ``L = 1.3√T`` spends degrees of freedom on autocorrelation
     that is not there, and at ``h ≥ 5`` the two are level (.628 vs .636
     at ``T = 60``) or ``NonOverlapping`` wins from ``T = 240`` up.
-    Neither is calibrated above ``PERSISTENT_SERIES_AUTOCORR``.
+    Neither is calibrated when the series strided at ``overlap_periods``
+    is still above ``PERSISTENT_SERIES_AUTOCORR`` — the regime
+    ``_persistent_beyond_horizon`` screens for.
     """
 
     test: ClassVar[str] = "t"
@@ -208,9 +262,12 @@ class NeweyWest:
         # Structural, not just a log line (finding: method-switch-warning norm).
         if _hac_bandwidth_ill_conditioned(n, nw_lags):
             warnings |= frozenset({WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED})
-        # Persistence screen: above PERSISTENT_SERIES_AUTOCORR no member of
-        # this family is calibrated (see WarningCode.SERIAL_CORRELATION_DETECTED).
-        if _lag1_autocorr(vals) > PERSISTENT_SERIES_AUTOCORR:
+        # Persistence screen: read on the series strided at overlap_periods,
+        # so the MA(h-1) overlap this member is built to absorb does not trip
+        # it and only persistence beyond the overlap horizon — where no
+        # member of this family is calibrated — does (see
+        # ``_persistent_beyond_horizon``, WarningCode.SERIAL_CORRELATION_DETECTED).
+        if _persistent_beyond_horizon(data, value_col, overlap_periods):
             warnings |= frozenset({WarningCode.SERIAL_CORRELATION_DETECTED})
         # ``n < 3`` is a shortage the kernel cannot run on, flagged by
         # UNRELIABLE_SE_SHORT_PERIODS; only a NaN above that floor is a
@@ -278,9 +335,12 @@ class HansenHodrick:
         )
 
         warnings: frozenset[WarningCode] = frozenset()
-        # Persistence screen: above PERSISTENT_SERIES_AUTOCORR no member of
-        # this family is calibrated (see WarningCode.SERIAL_CORRELATION_DETECTED).
-        if _lag1_autocorr(vals) > PERSISTENT_SERIES_AUTOCORR:
+        # Persistence screen: read on the series strided at overlap_periods,
+        # so the MA(h-1) overlap this member is built to absorb does not trip
+        # it and only persistence beyond the overlap horizon — where no
+        # member of this family is calibrated — does (see
+        # ``_persistent_beyond_horizon``, WarningCode.SERIAL_CORRELATION_DETECTED).
+        if _persistent_beyond_horizon(data, value_col, overlap_periods):
             warnings |= frozenset({WarningCode.SERIAL_CORRELATION_DETECTED})
         if clamped:
             warnings |= frozenset({WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE})
@@ -418,9 +478,12 @@ class StationaryBootstrap:
         )
 
         warnings: frozenset[WarningCode] = frozenset()
-        # Persistence screen: above PERSISTENT_SERIES_AUTOCORR no member of
-        # this family is calibrated (see WarningCode.SERIAL_CORRELATION_DETECTED).
-        if _lag1_autocorr(vals) > PERSISTENT_SERIES_AUTOCORR:
+        # Persistence screen: read on the series strided at overlap_periods,
+        # so the MA(h-1) overlap this member is built to absorb does not trip
+        # it and only persistence beyond the overlap horizon — where no
+        # member of this family is calibrated — does (see
+        # ``_persistent_beyond_horizon``, WarningCode.SERIAL_CORRELATION_DETECTED).
+        if _persistent_beyond_horizon(data, value_col, overlap_periods):
             warnings |= frozenset({WarningCode.SERIAL_CORRELATION_DETECTED})
         if 0 < n < self.min_periods:
             warnings |= frozenset({WarningCode.UNRELIABLE_SE_SHORT_PERIODS})

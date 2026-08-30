@@ -157,3 +157,78 @@ class TestMakeMultiFactorEventPanelSchema:
             datasets.make_multi_factor_event_panel(
                 n_factors=2, n_assets=5, n_dates=5, signal_horizon=5
             )
+
+
+class TestCsPanelFactorPersistence:
+    """``factor_persistence`` — the per-asset AR(phi) noise leg of the factor."""
+
+    def test_zero_reproduces_the_iid_factor_panel_exactly(self):
+        """The default path must be bit-for-bit unchanged off a given rng."""
+        default = datasets.make_cs_panel(n_assets=20, n_dates=80, rng=7)
+        explicit = datasets.make_cs_panel(
+            n_assets=20, n_dates=80, rng=7, factor_persistence=0.0
+        )
+        assert default.equals(explicit)
+
+    def test_positive_phi_makes_the_factor_persistent_per_asset(self):
+        """A persistent factor, measured along the period grid one asset at a time."""
+        import numpy as np
+        from factrix._stats.diagnostics import _lag1_autocorr
+
+        def _mean_asset_autocorr(phi: float) -> float:
+            panel = datasets.make_cs_panel(
+                n_assets=20,
+                n_dates=400,
+                ic_target=0.0,
+                factor_persistence=phi,
+                rng=11,
+            ).sort(["asset_id", "date"])
+            return float(
+                np.mean(
+                    [
+                        _lag1_autocorr(g["factor"].to_numpy())
+                        for g in panel.partition_by("asset_id")
+                    ]
+                )
+            )
+
+        assert abs(_mean_asset_autocorr(0.0)) < 0.1
+        assert _mean_asset_autocorr(0.9) > 0.5
+
+    def test_persistence_does_not_move_the_realized_ic(self):
+        """The AR leg is independent of returns, so ``ic_target`` still governs.
+
+        What it does move is the *precision* of the realized mean IC: a
+        persistent factor makes the IC series persistent, so the same number
+        of periods carries fewer independent ones and the mean scatters
+        wider across seeds. Averaging over seeds is therefore required to
+        read the level — a single seed at phi = 0.9 lands 2pp low often
+        enough to be worth naming here rather than rediscovering.
+        """
+        import numpy as np
+        from factrix.metrics._primitives import compute_ic
+
+        def _mean_ics(phi: float) -> np.ndarray:
+            out = []
+            for seed in range(12):
+                raw = datasets.make_cs_panel(
+                    n_assets=50,
+                    n_dates=400,
+                    ic_target=0.08,
+                    signal_horizon=5,
+                    factor_persistence=phi,
+                    rng=100 + seed,
+                )
+                panel = compute_forward_return(raw, forward_periods=5)
+                out.append(float(compute_ic(panel)["factor"]["ic"].mean()))
+            return np.array(out)
+
+        iid, persistent = _mean_ics(0.0), _mean_ics(0.9)
+        assert abs(persistent.mean() - iid.mean()) < 0.02
+        assert persistent.std() > iid.std()
+
+    def test_rejects_non_stationary_persistence(self):
+        with pytest.raises(ValueError, match="factor_persistence"):
+            datasets.make_cs_panel(factor_persistence=1.0)
+        with pytest.raises(ValueError, match="factor_persistence"):
+            datasets.make_cs_panel(factor_persistence=-0.1)
