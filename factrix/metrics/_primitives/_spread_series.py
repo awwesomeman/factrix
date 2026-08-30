@@ -15,14 +15,30 @@ from factrix._axis import (
 )
 from factrix._metric_index import cell
 from factrix._types import TiePolicy
+from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _assign_quantile_groups_batch,
     _finite_expr,
     _sample_non_overlapping,
+    _validate_factor_cols,
     _validate_n_groups,
     _warn_thin_quantile_groups,
 )
+
+
+def _validate_compute_spread_series(m: MetricBase) -> None:
+    """Knob bounds for ``compute_spread_series``, applied at construction."""
+    _validate_n_groups(
+        m.n_groups,  # type: ignore[attr-defined]
+        func_name="compute_spread_series",
+        docs_path="api/metrics/quantile",
+    )
+    _validate_factor_cols(
+        m.factor_cols,  # type: ignore[attr-defined]
+        func_name="compute_spread_series",
+        docs_path="api/metrics/quantile",
+    )
 
 
 @metric(
@@ -34,6 +50,7 @@ from factrix.metrics._helpers import (
     output_shape=OutputShape.SERIES,
     role=SpecRole.PIPELINE,
     batchable=True,
+    validate=_validate_compute_spread_series,
 )
 def compute_spread_series(
     data: pl.DataFrame,
@@ -102,11 +119,6 @@ def compute_spread_series(
         True
     """
     cols = list(factor_cols)
-    if not cols:
-        raise ValueError("factor_cols must be non-empty")
-    _validate_n_groups(
-        n_groups, func_name="compute_spread_series", docs_path="api/metrics/quantile"
-    )
 
     sampled = _sample_non_overlapping(data, overlap_periods)
 

@@ -184,7 +184,9 @@ class TestComputeCommonBetasBatch:
             ), col
 
     def test_empty_factor_list_rejected(self):
-        with pytest.raises(ValueError, match="factor_cols must be non-empty"):
+        with pytest.raises(
+            ValueError, match="non-empty sequence of factor column names"
+        ):
             compute_common_betas(_common_factor_panel(3, 30, seed=8), factor_cols=[])
 
 

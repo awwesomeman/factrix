@@ -18,7 +18,7 @@ The leading `factor` / `forward_periods` / `params` block is the **hypothesis id
 **Schema:**
 - `factor` (`str`): The factor column name.
 - `forward_periods` (`i64`): The return horizon — the hypothesis.
-- one column per `params` key (dtype inferred): the caller-supplied hypothesis knobs. A `params` key colliding with a fixed column name above raises `ValueError`. Results whose `params` keys differ need `pl.concat(..., how="diagonal")`.
+- one column per `params` key (dtype inferred): the caller-supplied hypothesis knobs. A `params` key colliding with a fixed column name above raises `UserInputError`. Results whose `params` keys differ need `pl.concat(..., how="diagonal")`.
 - `overlap_periods` (`i64`): The evaluation-grid overlap inference consumed (equal to `forward_periods` on the full grid). Bookkeeping, not identity.
 - `n_assets` (`i64`): Total unique assets.
 - `metric_name` (`str`): The metric identifier.
@@ -38,8 +38,8 @@ The fixed schema is the cross-metric contract; estimator-specific definitions (a
 
 - the column keeps the row's `factor` / `metric_name` pairing, so stacking many results keeps every cell next to the metric it came from;
 - a metric that does not carry the key gets `null`;
-- only scalar values export (`bool` / `int` / `float` / `str`; `NaN` / `Inf` become `null` like `value`, numpy scalars are unwrapped). A list, dict or other nested value raises `ValueError` naming the metric and key — that is what `to_dict()` is for;
-- a key that collides with a fixed column, a `params` key, or repeats raises `ValueError`, so metadata never shadows the identity block or the fixed schema;
+- only scalar values export (`bool` / `int` / `float` / `str`; `NaN` / `Inf` become `null` like `value`, numpy scalars are unwrapped). A list, dict or other nested value raises `UserInputError` naming the metric and key — that is what `to_dict()` is for;
+- a key that collides with a fixed column, a `params` key, or repeats raises `UserInputError`, so metadata never shadows the identity block or the fixed schema;
 - dtypes are inferred per column.
 
 !!! example "Tradability audit — is the turnover pricing the same book as the spread?"

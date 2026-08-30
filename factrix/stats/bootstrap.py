@@ -35,6 +35,7 @@ from typing import Literal, NamedTuple
 
 import numpy as np
 
+from factrix._errors import UserInputError
 from factrix._stats.bootstrap import Rng, _check_n_resamples, _resolve_rng
 
 
@@ -140,16 +141,32 @@ def stationary_bootstrap_resamples(
 
     values = np.asarray(values, dtype=float)
     if values.ndim not in (1, 2):
-        raise ValueError(f"values must have shape (T,) or (T, m); got {values.shape}.")
+        raise UserInputError(
+            func_name="stationary_bootstrap_resamples",
+            field="values",
+            value=values.shape,
+            expected="an array of shape (T,) or (T, m)",
+            docs_path="api/stats#factrix.stats.stationary_bootstrap_resamples",
+        )
     if values.size and not np.all(np.isfinite(values)):
-        raise ValueError("values must be finite.")
+        raise UserInputError(
+            func_name="stationary_bootstrap_resamples",
+            field="values",
+            value=values.shape,
+            expected="every value finite (no NaN or +/-inf)",
+            docs_path="api/stats#factrix.stats.stationary_bootstrap_resamples",
+        )
     if (
         isinstance(n_resamples, bool)
         or not isinstance(n_resamples, Integral)
         or n_resamples < 1
     ):
-        raise ValueError(
-            f"n_resamples must be a positive integer; got {n_resamples!r}."
+        raise UserInputError(
+            func_name="stationary_bootstrap_resamples",
+            field="n_resamples",
+            value=n_resamples,
+            expected="a positive integer",
+            docs_path="api/stats#factrix.stats.stationary_bootstrap_resamples",
         )
     n_resamples = int(n_resamples)
     n = len(values)
@@ -159,7 +176,16 @@ def stationary_bootstrap_resamples(
     if block_length is None:
         block_length = _resolve_auto_block_length(values)
     if block_length < 1.0:
-        raise ValueError(f"block_length must be >= 1.0, got {block_length!r}")
+        raise UserInputError(
+            func_name="stationary_bootstrap_resamples",
+            field="block_length",
+            value=block_length,
+            expected=(
+                "a mean block length of at least 1.0 period, or None for the "
+                "Politis-White plug-in"
+            ),
+            docs_path="api/stats#factrix.stats.stationary_bootstrap_resamples",
+        )
 
     rng, _ = _resolve_rng(
         rng,
@@ -283,7 +309,6 @@ def bootstrap_mean_ci(
         - [Götze & Künsch (1996)][gotze-kunsch-1996]. Second-order
           correctness of the blockwise bootstrap for a studentized root.
     """
-    from factrix._errors import UserInputError
     from factrix._stats.bootstrap import _batch_means_se
 
     if not 0.0 < ci < 1.0:

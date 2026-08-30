@@ -38,6 +38,7 @@ from factrix._stats import (
     _wald_p_linear,
 )
 from factrix._types import MIN_PORTFOLIO_PERIODS_HARD
+from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _aggregate_to_per_date,
@@ -54,10 +55,26 @@ __all__ = [
 _MIN_BUCKET_PERIODS_WARN = 5
 
 
+def _validate_common_quantile_spread(m: MetricBase) -> None:
+    """Bucketing floor for ``common_quantile_spread``.
+
+    This metric buckets the factor *history* with its own ordinal cut rather
+    than the panel kernel, so it states the shared floor here instead of
+    inheriting it from the kernel: one bucket has no top-minus-bottom contrast
+    to test.
+    """
+    _validate_n_groups(
+        m.n_groups,  # type: ignore[attr-defined]
+        func_name="common_quantile_spread",
+        docs_path="api/metrics/common_quantile",
+    )
+
+
 @metric(
     cell=cell(FactorScope.COMMON, FactorDensity.DENSE, structure=DataStructure.PANEL),
     aggregation=Aggregation.CS_THEN_TS,
     sample_threshold=SampleThreshold(min_periods=MIN_PORTFOLIO_PERIODS_HARD),
+    validate=_validate_common_quantile_spread,
 )
 def common_quantile_spread(
     data: pl.DataFrame,
@@ -139,14 +156,6 @@ def common_quantile_spread(
         >>> result.name == ""
         True
     """
-    # This metric buckets the factor *history* with its own ordinal cut rather
-    # than the panel kernel, so it applies the shared floor explicitly: one
-    # bucket has no top-minus-bottom contrast to test.
-    _validate_n_groups(
-        n_groups,
-        func_name="common_quantile_spread",
-        docs_path="api/metrics/common_quantile",
-    )
     # ``date`` / ``asset_id`` are gated by the direct-call key-column check in
     # ``MetricBase.__call__``, which also rejects a caller-named column the
     # frame does not carry (and ``evaluate`` validates the panel schema), so

@@ -14,14 +14,28 @@ from factrix._axis import (
     SpecRole,
 )
 from factrix._metric_index import cell
+from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _attach_drop_stats, _finite_expr
+from factrix.metrics._helpers import (
+    _attach_drop_stats,
+    _finite_expr,
+    _validate_factor_cols,
+)
 
 # Minimum complete (factor, return) pairs per date to estimate a slope.
 # Two parameters (intercept + slope) leave one residual degree of freedom
 # at three observations.
 MIN_FM_ASSETS_HARD: int = 3
 MIN_FM_ASSETS_WARN: int = 10
+
+
+def _validate_compute_fm_betas(m: MetricBase) -> None:
+    """Knob bounds for ``compute_fm_betas``, applied at construction."""
+    _validate_factor_cols(
+        m.factor_cols,  # type: ignore[attr-defined]
+        func_name="compute_fm_betas",
+        docs_path="api/metrics/fm_beta",
+    )
 
 
 @metric(
@@ -33,6 +47,7 @@ MIN_FM_ASSETS_WARN: int = 10
     output_shape=OutputShape.SERIES,
     role=SpecRole.PIPELINE,
     batchable=True,
+    validate=_validate_compute_fm_betas,
 )
 def compute_fm_betas(
     data: pl.DataFrame,
@@ -85,8 +100,6 @@ def compute_fm_betas(
         pair count doubles as the effective ``n``.
     """
     cols = list(factor_cols)
-    if not cols:
-        raise ValueError("factor_cols must be non-empty")
 
     agg_exprs: list[pl.Expr] = []
     for f in cols:

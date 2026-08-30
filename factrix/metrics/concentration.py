@@ -36,6 +36,7 @@ from factrix._types import (
     MIN_PORTFOLIO_PERIODS_WARN,
     ConcentrationWeight,
 )
+from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _compute_tie_ratio,
@@ -46,7 +47,6 @@ from factrix.metrics._helpers import (
     _sample_non_overlapping,
     _scaled_periods_threshold,
     _short_circuit_output,
-    _validate_choice,
     _validate_open_unit_interval,
     _warn_below_scaled_floor,
 )
@@ -54,6 +54,27 @@ from factrix.metrics._helpers import (
 __all__ = [
     "top_concentration",
 ]
+
+
+_DOCS_CONCENTRATION = "api/metrics/concentration"
+
+
+def _validate_top_concentration(m: MetricBase) -> None:
+    """``q_top`` is a fraction of the cross-section, strictly inside (0, 1).
+
+    ``weight_by`` is a closed set the constructor reads off its ``Literal``
+    annotation.
+    """
+    _validate_open_unit_interval(
+        m.q_top,  # type: ignore[attr-defined]
+        func_name="top_concentration",
+        field="q_top",
+        detail=(
+            "0 leaves no top bucket and 1 selects the whole cross-section, "
+            "so no top-bucket concentration is defined."
+        ),
+        docs_path=_DOCS_CONCENTRATION,
+    )
 
 
 @metric(
@@ -68,6 +89,7 @@ __all__ = [
     sample_threshold=_scaled_periods_threshold(
         MIN_PORTFOLIO_PERIODS_HARD, warn=MIN_PORTFOLIO_PERIODS_WARN
     ),
+    validate=_validate_top_concentration,
 )
 def top_concentration(
     data: pl.DataFrame,
@@ -183,23 +205,6 @@ def top_concentration(
         >>> result.name == ""
         True
     """
-    _validate_choice(
-        weight_by,
-        ConcentrationWeight,
-        func_name="top_concentration",
-        field="weight_by",
-        docs_path="api/metrics/concentration",
-    )
-    _validate_open_unit_interval(
-        q_top,
-        func_name="top_concentration",
-        field="q_top",
-        detail=(
-            "0 leaves no top bucket and 1 selects the whole cross-section, "
-            "so no top-bucket concentration is defined."
-        ),
-        docs_path="api/metrics/concentration",
-    )
     if weight_by == "alpha_contribution" and return_col not in data.columns:
         return _short_circuit_output(
             "top_concentration",

@@ -51,6 +51,7 @@ from factrix._stats import (
 )
 from factrix._stats.constants import MIN_PERIODS_WARN, PERSISTENT_SERIES_AUTOCORR
 from factrix._types import EPSILON
+from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _degenerate_test_fields,
@@ -504,13 +505,6 @@ def _pooled_beta_driscoll_kraay(
     ``_MIN_DK_PERIODS_HARD`` periods (HAC undefined), mirroring the clustered
     ``G < 3`` guard.
     """
-    if two_way_cluster_col is not None:
-        raise ValueError(
-            "pooled_beta: driscoll_kraay=True is mutually exclusive with "
-            "two_way_cluster_col. Driscoll-Kraay already handles "
-            "cross-sectional dependence across the panel; pick one SE method."
-        )
-
     from factrix._stats.hac import _driscoll_kraay_cov as _dk_cov
 
     period_ids = data[cluster_col].to_numpy()
@@ -583,6 +577,31 @@ def _pooled_beta_driscoll_kraay(
     )
 
 
+def _validate_pooled_beta(m: MetricBase) -> None:
+    """``driscoll_kraay`` and ``two_way_cluster_col`` are two SE methods, not one.
+
+    Driscoll-Kraay already handles cross-sectional dependence across the whole
+    panel, so pairing it with a second cluster dimension would silently drop
+    one of the two requests. Rejected at construction rather than inside the
+    DK branch, so the conflict surfaces where the caller wrote it.
+    """
+    from factrix._errors import UserInputError
+
+    if m.driscoll_kraay and m.two_way_cluster_col is not None:  # type: ignore[attr-defined]
+        raise UserInputError(
+            func_name="pooled_beta",
+            field="driscoll_kraay",
+            value=True,
+            expected=(
+                "driscoll_kraay=True is mutually exclusive with "
+                "two_way_cluster_col. Driscoll-Kraay already handles "
+                "cross-sectional dependence across the panel; pick one SE "
+                "method."
+            ),
+            docs_path="api/metrics/fm_beta",
+        )
+
+
 @metric(
     cell=_FM_CELL,
     aggregation=Aggregation.CS_THEN_TS,
@@ -591,6 +610,7 @@ def _pooled_beta_driscoll_kraay(
         min_periods=_MIN_DK_PERIODS_HARD,
         warn_periods=MIN_PERIODS_WARN,
     ),
+    validate=_validate_pooled_beta,
 )
 def pooled_beta(
     data: pl.DataFrame,
@@ -626,7 +646,8 @@ def pooled_beta(
     the default; the chosen SE method is recorded in
     ``metadata["se_method"]`` (``"driscoll_kraay"`` vs the cluster
     ``method`` string). ``driscoll_kraay=True`` is mutually exclusive
-    with ``two_way_cluster_col`` (raises ``ValueError``).
+    with ``two_way_cluster_col`` (raises ``UserInputError`` at
+    construction).
 
     Short-circuits to ``value=NaN`` / ``stat=None`` / $p=1.0$ when
     ``n_obs < 10`` (no regression), when the effective $G < 3$ (clustered SE

@@ -49,7 +49,6 @@ from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _DROP_STATS_COL,
     TIE_RATIO_WARN_THRESHOLD,
-    _check_applicable_inference,
     _degenerate_test_fields,
     _enforce_min_floor,
     _read_drop_stats,
@@ -198,13 +197,10 @@ def _ic_sample_threshold(self: MetricBase) -> SampleThreshold:
     """
     # ``inference`` is an ``ic``-specific field; the resolver is only ever bound
     # to ``ic``, but its declared param type is the ``MetricBase`` contract.
+    # ``inference`` was vetted against ``applicable_inference`` at construction
+    # (``MetricBase.__post_init__``), so the floor can dereference it without a
+    # guard of its own: an instance carrying an unvetted method does not exist.
     inference = self.inference  # type: ignore[attr-defined]
-    # The floor dereferences ``inference`` before the body ever runs, so an
-    # unvetted value (a stray string, a non-allowlisted method) would surface
-    # here as an ``AttributeError`` from the pre-flight instead of the body's
-    # ``IncompatibleInferenceError``. Same chokepoint, same error, whichever
-    # runs first.
-    _check_applicable_inference(inference, applicable_inference, func_name="ic")
     return SampleThreshold(
         min_periods=inference.min_input_periods(self.overlap_periods)
     )
@@ -319,7 +315,6 @@ def ic(
         >>> result.name == ""
         True
     """
-    _check_applicable_inference(inference, applicable_inference, func_name="ic")
     warning_codes: list[str] = []
     median_tie = _warn_if_high_ic_tie_ratio(
         ic_df, "ic", warning_codes, expected_warnings=expected_warnings

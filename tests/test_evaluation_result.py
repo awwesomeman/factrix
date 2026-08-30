@@ -142,7 +142,7 @@ class TestEvaluationResultToFrame:
         r = dataclasses.replace(
             _sample_result(_sample_group()), params={"value": 1, "n_obs": 2}
         )
-        with pytest.raises(ValueError, match=r"collide with fixed column"):
+        with pytest.raises(ValueError, match=r"collide with a fixed column name"):
             r.to_frame()
 
     def test_n_obs_carries_per_metric_sample_size(self):
@@ -255,11 +255,11 @@ class TestMetricResultPValueContract:
             )
 
     def test_rejects_p_value_without_alternative(self):
-        with pytest.raises(ValueError, match="both be provided"):
+        with pytest.raises(ValueError, match="supplied together, or both None"):
             MetricResult(value=0.0, p_value=0.5)
 
     def test_rejects_alternative_without_p_value(self):
-        with pytest.raises(ValueError, match="both be provided"):
+        with pytest.raises(ValueError, match="supplied together, or both None"):
             MetricResult(value=0.0, alternative="greater")
 
 
@@ -302,7 +302,7 @@ class TestMetricResultFieldContract:
     """``__post_init__`` guards on fields other than ``p_value``."""
 
     def test_rejects_unknown_alternative(self):
-        with pytest.raises(ValueError, match="alternative must be one of"):
+        with pytest.raises(ValueError, match="unknown alternative"):
             MetricResult(value=0.0, p_value=0.5, alternative="bigger")  # type: ignore[arg-type]
 
     @pytest.mark.parametrize("alternative", ["two-sided", "greater", "less"])
@@ -311,7 +311,7 @@ class TestMetricResultFieldContract:
         assert out.alternative == alternative
 
     def test_rejects_negative_n_obs(self):
-        with pytest.raises(ValueError, match="n_obs must be non-negative"):
+        with pytest.raises(ValueError, match="a non-negative count"):
             MetricResult(value=0.0, n_obs=-1)
 
     def test_accepts_zero_n_obs(self):
@@ -324,7 +324,7 @@ class TestMetricResultFieldContract:
 
     @pytest.mark.parametrize("stat", [float("inf"), float("-inf")])
     def test_rejects_infinite_stat(self, stat: float):
-        with pytest.raises(ValueError, match="stat must be finite"):
+        with pytest.raises(ValueError, match="a finite statistic"):
             MetricResult(value=0.0, stat=stat)
 
     def test_allows_nan_stat(self):
@@ -400,22 +400,29 @@ class TestToFrameMetadataExport:
         assert set(frame["factor"].to_list()) == {"mom_12_1"}
 
     def test_nested_values_are_refused_not_flattened(self):
-        with pytest.raises(ValueError, match=r"metadata\['legs'\].*quantile_spread"):
+        with pytest.raises(ValueError, match=r"metadata\['legs'\]") as excinfo:
             self._result().to_frame(metadata=("legs",))
+        assert "quantile_spread" in str(excinfo.value)
 
     def test_reserved_and_repeated_keys_are_refused(self):
-        with pytest.raises(ValueError, match="collide"):
+        with pytest.raises(
+            ValueError, match="shadow neither a fixed column nor a params key"
+        ):
             self._result().to_frame(metadata=("value",))
-        with pytest.raises(ValueError, match="collide"):
+        with pytest.raises(
+            ValueError, match="shadow neither a fixed column nor a params key"
+        ):
             self._result().to_frame(metadata=("forward_periods",))
-        with pytest.raises(ValueError, match="repeated"):
+        with pytest.raises(ValueError, match="distinct metadata keys"):
             self._result().to_frame(metadata=("n_groups", "n_groups"))
         with pytest.raises(ValueError, match="sequence"):
             self._result().to_frame(metadata="n_groups")  # type: ignore[arg-type]
 
     def test_params_keys_are_reserved_too(self):
         res = dataclasses.replace(self._result(), params={"n_groups": 2})
-        with pytest.raises(ValueError, match="collide"):
+        with pytest.raises(
+            ValueError, match="shadow neither a fixed column nor a params key"
+        ):
             res.to_frame(metadata=("n_groups",))
 
     def test_end_to_end_tradability_audit(self):

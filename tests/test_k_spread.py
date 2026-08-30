@@ -129,7 +129,7 @@ class TestShortCircuits:
     def test_invalid_k_raises(self):
         factor = np.arange(8, dtype=float)
         returns = np.zeros((5, 8))
-        with pytest.raises(ValueError, match="k must be"):
+        with pytest.raises(ValueError, match="invalid k=0"):
             k_spread(_panel_from_matrix(factor, returns), overlap_periods=1, k=0)
 
     def test_constant_factor_returns_explicit_no_signal(self):
