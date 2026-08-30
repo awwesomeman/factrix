@@ -605,7 +605,7 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
     # Same structural gate evaluate goes through, so pre-flight and the run
     # agree on what the panel is: a duplicated key or a string date must not
     # pass inspection and then fail (or worse, silently mis-sort) at evaluate.
-    data = _coerce_data(data)
+    data = _coerce_data(data, func_name="inspect_data")
     if factor_cols is None:
         cols = [c for c in data.columns if c not in _INSPECT_RESERVED]
     else:

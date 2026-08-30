@@ -25,7 +25,9 @@ from factrix.stats.multiple_testing import (
     bhy_adjust,
     bhy_adjusted_p,
     holm_adjusted_p,
+    partial_conjunction_p,
     romano_wolf_adjusted_p,
+    simes_p,
 )
 from factrix.stats.wald_cluster import WaldNWCluster, WaldTwoWayCluster
 
@@ -37,6 +39,8 @@ __all__ = [
     "bhy_adjusted_p",
     "bootstrap_mean_ci",
     "holm_adjusted_p",
+    "partial_conjunction_p",
     "romano_wolf_adjusted_p",
+    "simes_p",
     "stationary_bootstrap_resamples",
 ]

@@ -489,7 +489,9 @@ see [event_skewness](#event-skewness-no-calibrated-test) in section 6.
 [](){ #caar-cross-event-t }
 
 Default for `caar`. Per event period, take the cross-sectional mean of
-$\text{return} \times \text{factor}$ across event rows; the resulting
+$\text{abnormal return} \times \text{factor}$ across event rows — the
+abnormal return, not the raw one, so the asset's own drift over the
+estimation window does not enter the signed CAR; the resulting
 CAAR series is greedily subsampled by `date_ordinal` so consecutive
 kept event periods are at least `overlap_periods` periods apart,
 then tested with a standard $t$ on the sampled mean. `n_obs` is the
@@ -516,8 +518,9 @@ when the textbook form is required.
 ### Corrado nonparametric rank
 [](){ #corrado-rank }
 
-`corrado_rank`. Replaces returns with their uniform rank within
-the (estimation ∪ event) window, averages each event period's ranks into
+`corrado_rank`. Replaces each asset's abnormal returns with their uniform
+rank over that asset's **full sample series** — not a rank within the
+(estimation ∪ event) window — averages each event period's ranks into
 one observation, then runs the $z$ on that event-period series
 ([Corrado 1989][corrado-1989]). Robust to extreme returns,
 non-normality, cross-asset heteroscedasticity, and **same-period event
@@ -669,7 +672,7 @@ sizes are at a nominal 5% on a true null.
 | `predictive_beta` — single-restriction slope, $h > 1$ | `_resolve_har_lags` | $t_\nu$ via `_har_dof` | **7.5–14.5%** — known-oversized, see below |
 | `spanning_alpha`, `common_quantile_spread`, `common_asymmetry`, `_ols.py` — single-restriction regression contrast | `_resolve_scalar_wald_hac`: the scalar HAR recipe (bandwidth, $T/(T{-}L{-}1)$ scale, effective $\nu$) | $t_\nu$ / $F_{1,\,\nu}$ | 3.3–8.0% for the two `common_*` metrics on the non-persistent common-factor null across $T \in \{60,120,240\} \times h \in \{1,5,21\}$; 5.7–11.7% for `spanning_alpha` on an overlapping-sum spread null; **7.3–16.3%** on a persistent ($\phi = 0.9$) common factor, flagged — see below |
 | `pooled_beta` — pooled OLS slope under a Driscoll-Kraay (1998) sandwich | `driscoll_kraay_lags`: `auto_bartlett` on the period count, applied to the cross-sectionally summed scores | $t_{T_{\text{periods}}}$ | **not measured on its own series.** A two-dimensional (period × asset) kernel, not the series-mean HAC — it shares neither bandwidth rule above, and the rows in this table do not transfer to it. Its short-period regime is gated by `unreliable_se_short_periods` and by a hard floor below which the statistic is withheld |
-| The slice Wald tests (`slice_joint_test`, `slice_pairwise_test`) — cluster-mean Wald | `_resolve_nw_lags`: $\max(\text{auto\_bartlett}(T), h-1)$ | $F_{r,\,T-1}$ | **8–9%** for the $K = 5$ joint test on 50–90-period slices, 5–6% for the pairwise contrasts |
+| The slice Wald tests (`slice_joint_test`, `slice_pairwise_test`) — cluster-mean Wald | `_resolve_nw_lags`: $\max(\text{auto\_bartlett}(T), h-1)$ | $F_{r,\,T-1}$ | **8–9%** for the $K = 5$ joint test on 50–90-period slices. The pairwise contrasts are calibrated at $K \le 3$ (5.8% bootstrap / 5.4% Holm at $K = 3$, $T = 60$) but not at $K = 5$, where the bootstrap path runs 7.4–8.5% against Holm's 5.7–6.7% |
 
 Producing modules: `tests/stats/test_hac_overlap_size.py` for the scalar
 series-mean rows, `tests/test_stambaugh_bias.py` for the `predictive_beta`
@@ -861,8 +864,17 @@ that df were each measured; none calibrates the iid short-slice case
 (prewhitening is the right tool for *autocorrelated* input — see the HAC
 size sweep tracker). The function warns in this regime and the
 characterisation test in `tests/test_slice_period_joint_test.py` pins the
-measured band; pairwise contrasts on the
-same slices (5–6%) are the better-calibrated read.
+measured band; the pairwise contrasts on the same
+slices are the better-calibrated read, but how much better depends on $K$.
+At $K = 3$, $T = 60$ they sit at 5.8% (bootstrap) and 5.4% (Holm). At
+$K = 5$ the bootstrap path is itself oversized — 8.1 / 8.5 / 7.4% at
+$T = 50 / 60 / 150$ — while the analytic Holm path holds at
+6.7 / 5.8 / 5.7% (1000 replications). The Romano-Wolf primitive is not the
+cause: on the same null it rejects 4.45%. The excess enters through the
+*per-pair* bootstrap p feeding it, which is already 6.0–6.2% at $K = 2$.
+**At $K = 5$, read the analytic pairwise path**; the two agree closely
+enough at $K \le 3$ that either serves.
+
 ### Persistence *beyond the overlap horizon*: no HAC or bootstrap path is calibrated
 
 Every mean test on a per-period series (`ic` under any inference member,
@@ -1226,28 +1238,31 @@ above nominal and is inside two Monte-Carlo standard errors of the iid
 column. A reduced-replication re-run guards the numbers in
 `tests/stats/test_positive_rate_size.py`.
 
-### Inference paths still without a size table
+### Coverage of the size tables
 
-Every other `p_value` factrix publishes has a measured size somewhere in
-this section. These two do not, and are listed here rather than left
-silent so the gap is a documented one. A test
+Every `p_value` factrix publishes has a measured size somewhere in this
+section. A test
 (`tests/stats/test_section6_covers_every_p_value_path.py`) enumerates the
 metrics whose `MetricResult` can carry a non-`None` `p_value` and fails if
 any is missing from this section, so a new inference path cannot be added
 without either measuring it or naming it here.
 
-**`common_asymmetry` and `common_quantile_spread` — measured, withheld at
-`overlap_periods > 1`.** A COMMON-scope null found both Wald p-values
-over-rejecting at `h > 1` in a way that does *not* shrink with `T`. The
-cause is the bandwidth `_resolve_nw_lags` gives the Wald family: its
-overlap floor is `overlap_periods - 1`, against the `3(h - 1)` the scalar
-series-mean HAR path uses (`_resolve_har_lags`), so the MA(*h*−1)
-structure an overlapping forward return carries by construction is
-absorbed at the minimum admissible bandwidth. The numbers are withheld
-until that floor is settled, because tabling them would record a defect as
-a calibration. Until then read both metrics' `p_value` at
-`overlap_periods > 1` as not calibrated — prefer `h = 1`, or read `value`
-and the bucket / slope detail in `metadata` descriptively.
+The two entries below were the last gap; both are now measured.
+
+**`common_asymmetry` and `common_quantile_spread`.** A COMMON-scope null
+found both Wald p-values over-rejecting at
+`h > 1` in a way that did *not* shrink with `T`. The cause was the
+bandwidth `_resolve_nw_lags` gave them: an overlap floor of
+`overlap_periods - 1`, against the `3(h - 1)` the scalar series-mean HAR
+path uses, so the MA(*h*−1) structure an overlapping forward return
+carries by construction was absorbed at the minimum admissible bandwidth.
+Both metrics test a *single* linear restriction and have since been moved
+off that rule onto the scalar HAR recipe; the post-fix sizes are tabled in
+[Single-restriction Wald contrasts](#single-restriction-wald) and are not
+repeated here. Read that section for what their `p_value` is worth at
+`overlap_periods > 1`: calibrated on a non-persistent common factor, still
+oversized when the common factor is itself persistent, which is what
+`serial_correlation_detected` flags.
 
 ### `common_beta`: measured size of the calendar-time cross-asset $t$
 
@@ -1343,10 +1358,10 @@ nominal 5%; sample sizes count periods on the evaluation grid after the
 | Thin cross-section (few names per leg) | `few_assets` | Each leg mean rests on a handful of names: a noisier estimate, not a differently-distributed one. The automatic bootstrap switch this once triggered rejected 8–20% against the *t*'s 7–9% and keyed on the wrong axis; it was removed. | Keep the requested member; read `n_assets` and treat the spread as fragile. |
 | Overlapping panel scored by `common_asymmetry` / `common_quantile_spread`, per-period factor persistent once strided | `serial_correlation_detected` | The single-restriction HAR reference takes both metrics to 3.3–8.0% on a non-persistent common factor across `T × h`, but a φ = 0.9 common factor leaves them at 13.0% / 16.3% at `T = 60, h = 5`, clearing by `T = 240` (6.0% / 7.7%). The screen fires on 51–100% of those draws and on 0–8% of the calibrated ones. | Read the p against a raised hurdle or lengthen the sample. Changing `newey_west_lags` does not fix it — the bandwidth is not what is wrong. |
 | `common_asymmetry` / `common_quantile_spread` with fewer than 10 periods after the `overlap_periods` stride | `unreliable_se_short_periods` | The effective sample, not the raw period count, is what the HAC standard error rests on: at `T = 120, h = 21` five independent observations carry a bandwidth-40 kernel. The persistence screen withholds itself there for the same reason. | Shorten the horizon or lengthen the history; the p carries little information at that effective count. |
-| Joint test on K ≥ 3 short slices | `slice_period_joint_test` warning | 8–9% for K = 5 on 50–90-period slices, converging by T ≈ 150; the bootstrap path inherits it (12%). K = 2 is calibrated throughout. | Read the pairwise contrasts on the same slices (5–6%) rather than the joint p, or lengthen the slices. |
+| Joint test on K ≥ 3 short slices | `slice_period_joint_test` warning | 8–9% for K = 5 on 50–90-period slices, converging by T ≈ 150; the bootstrap path inherits it (12%). K = 2 is calibrated throughout. | Read the pairwise contrasts on the same slices rather than the joint p, or lengthen the slices — at `K = 3` either pairwise path is calibrated (5.8% bootstrap / 5.4% Holm), at `K = 5` take the analytic Holm path (5.7–6.7%) over the bootstrap one (7.4–8.5%). |
 | Few event periods after the stride | `few_events` | Power-thin, not size-inflated for `caar` / `corrado_rank`; `bmp_z` is ~10% at 8 effective periods, ~7% at 15, clearing by ~30. | Read borderline p-values cautiously; extend the event history rather than switching estimator — all three count the same event periods. |
 | 3–19 portfolio periods in `top_concentration` | `borderline_portfolio_periods` | `top_concentration` publishes no p at any sample size — the withdrawn one-sided `t` against `ratio ≥ 0.5` never rejected, because the null diversification ratio is ~0.91 (0 of 300 draws at both 10 and 48 tested periods). The code is about the precision of the mean, not a test. | Read `value` and `ratio_eff_to_total` as a noisy mean over few periods; lengthen the history before comparing panels. |
-| Overlapping panel read through `common_asymmetry` / `common_quantile_spread` at `overlap_periods > 1` | No warning | Not tabled: the Wald family's HAC bandwidth floor is `overlap_periods - 1`, not the `3(h - 1)` the scalar HAR path uses, and the measured over-rejection does not shrink with `T` (section above). | Read `value` descriptively, or read the p at `h = 1` only, until the bandwidth floor is settled. |
+| Overlapping panel read through `common_asymmetry` / `common_quantile_spread` at `overlap_periods > 1` | No warning | Both metrics now take the scalar HAR recipe rather than the Wald family's `overlap_periods - 1` bandwidth floor, and their post-fix sizes are tabled in [Single-restriction Wald contrasts](#single-restriction-wald). What remains is the persistent-common-factor regime in the row above, not the horizon itself. | Read the p normally; where `serial_correlation_detected` fires, raise the hurdle or lengthen the sample. |
 
 Two rules fall out of the table. A *size* problem driven by persistence or
 a short sample is not fixed by changing the inference member — the
