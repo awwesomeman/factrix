@@ -133,14 +133,20 @@ def _check_applicable_inference(
     """Reject an ``inference=`` outside the metric's allowlist.
 
     Single chokepoint every ``inference=``-bearing metric calls before it
-    dispatches: membership is by value (the members are frozen
-    dataclasses), so it catches both a non-vetted ``Inference``
+    dispatches: it catches both a non-vetted ``Inference``
     (``HansenHodrick``) and a non-``Inference`` object (a stray string)
     without the metric body reaching an unintended ``compute`` or a silent
     non-overlap fallback. Raises :class:`IncompatibleInferenceError`
     listing the allowed methods.
+
+    Membership is by **exact type**, not by value: ``StationaryBootstrap``
+    carries resampling knobs (``n_resamples`` / ``seed``), so a configured
+    instance is a different value from the allowlisted default one while
+    being the same vetted method. Comparing by value would allowlist the
+    method and then reject every configuration of it. Exact type (not
+    ``isinstance``) so a subclass cannot ride in on a vetted base.
     """
-    if inference not in applicable:
+    if type(inference) not in {type(member) for member in applicable}:
         raise IncompatibleInferenceError(
             func_name=func_name,
             value=inference,

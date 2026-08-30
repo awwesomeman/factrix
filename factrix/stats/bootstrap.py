@@ -35,7 +35,7 @@ from typing import Literal, NamedTuple
 
 import numpy as np
 
-from factrix._stats.bootstrap import BOOTSTRAP_RESAMPLES_FLOOR
+from factrix._stats.bootstrap import _check_n_resamples
 
 
 def _resolve_auto_block_length(values: np.ndarray) -> float:
@@ -50,25 +50,22 @@ def _resolve_auto_block_length(values: np.ndarray) -> float:
     from factrix._stats.bootstrap import _politis_white_block_length
 
     if values.ndim == 1:
-        return _politis_white_block_length(values, scheme="stationary")
+        return _politis_white_block_length(values)
     if values.shape[1] == 0:
-        return _politis_white_block_length(
-            np.zeros(values.shape[0]), scheme="stationary"
-        )
+        return _politis_white_block_length(np.zeros(values.shape[0]))
     return max(
-        _politis_white_block_length(values[:, j], scheme="stationary")
-        for j in range(values.shape[1])
+        _politis_white_block_length(values[:, j]) for j in range(values.shape[1])
     )
 
 
 def stationary_bootstrap_resamples(
     values: np.ndarray,
-    n_bootstrap: int = 1000,
+    n_resamples: int = 999,
     *,
     block_length: float | None = None,
     seed: int | None = None,
 ) -> np.ndarray:
-    """Draw ``n_bootstrap`` stationary-bootstrap resamples of ``values``.
+    """Draw ``n_resamples`` stationary-bootstrap resamples of ``values``.
 
     Each resample has the same length ``T`` as the input. One-dimensional
     input returns ``(B, T)``; two-dimensional ``(T, m)`` input returns
@@ -82,7 +79,7 @@ def stationary_bootstrap_resamples(
             Matrix columns are always resampled jointly; do not call the
             function separately per column when cross-column dependence
             matters.
-        n_bootstrap: Number of resamples to draw.
+        n_resamples: Number of resamples to draw.
         block_length: Mean geometric block length. Defaults to the
             [Politis-White (2004)][politis-white-2004] automatic spectral
             plug-in (falling back to the practical ``1.75 * T^(1/3)`` rule
@@ -99,8 +96,8 @@ def stationary_bootstrap_resamples(
             reproducible.
 
     Returns:
-        ``(n_bootstrap, T)`` array for vector input or
-        ``(n_bootstrap, T, m)`` for matrix input.
+        ``(n_resamples, T)`` array for vector input or
+        ``(n_resamples, T, m)`` for matrix input.
 
     Notes:
         **This function returns resamples, not inference.** Forming a
@@ -144,17 +141,17 @@ def stationary_bootstrap_resamples(
     if values.size and not np.all(np.isfinite(values)):
         raise ValueError("values must be finite.")
     if (
-        isinstance(n_bootstrap, bool)
-        or not isinstance(n_bootstrap, Integral)
-        or n_bootstrap < 1
+        isinstance(n_resamples, bool)
+        or not isinstance(n_resamples, Integral)
+        or n_resamples < 1
     ):
         raise ValueError(
-            f"n_bootstrap must be a positive integer; got {n_bootstrap!r}."
+            f"n_resamples must be a positive integer; got {n_resamples!r}."
         )
-    n_bootstrap = int(n_bootstrap)
+    n_resamples = int(n_resamples)
     n = len(values)
     if n == 0:
-        return np.empty((n_bootstrap, *values.shape), dtype=float)
+        return np.empty((n_resamples, *values.shape), dtype=float)
 
     if block_length is None:
         block_length = _resolve_auto_block_length(values)
@@ -162,7 +159,7 @@ def stationary_bootstrap_resamples(
         raise ValueError(f"block_length must be >= 1.0, got {block_length!r}")
 
     rng = np.random.default_rng(seed)
-    idx = _stationary_block_indices(n, n_bootstrap, float(block_length), rng)
+    idx = _stationary_block_indices(n, n_resamples, float(block_length), rng)
     return values[idx]
 
 
@@ -183,7 +180,7 @@ class BootstrapCI(NamedTuple):
 def bootstrap_mean_ci(
     values: np.ndarray,
     *,
-    n_bootstrap: int = 1000,
+    n_resamples: int = 999,
     ci: float = 0.95,
     block_length: float | None = None,
     seed: int | None = None,
@@ -232,8 +229,8 @@ def bootstrap_mean_ci(
     Args:
         values: 1-D array of the original series, at least 2 finite
             observations.
-        n_bootstrap: Resample count. Must be at least
-            ``BOOTSTRAP_RESAMPLES_FLOOR`` (200); below that the interval
+        n_resamples: Resample count. Must be at least
+            ``BOOTSTRAP_RESAMPLES_FLOOR``; below that the interval
             endpoints are resampling noise. At ``B=1`` the old
             implementation returned a zero-width interval that did not
             even contain its own point estimate.
@@ -260,7 +257,7 @@ def bootstrap_mean_ci(
 
     Raises:
         UserInputError: ``ci`` outside ``(0, 1)``, an unknown ``method``,
-            non-1-D ``values``, fewer than 2 observations, ``n_bootstrap``
+            non-1-D ``values``, fewer than 2 observations, ``n_resamples``
             below the floor, or ``method="studentized"`` with a custom
             ``statistic``. One exception type across every input check —
             ``UserInputError`` is the repo's user-facing shape.
@@ -312,17 +309,11 @@ def bootstrap_mean_ci(
             expected="at least 2 observations to resample",
             docs_path="api/stats#factrix.stats.bootstrap_mean_ci",
         )
-    if n_bootstrap < BOOTSTRAP_RESAMPLES_FLOOR:
-        raise UserInputError(
-            func_name="bootstrap_mean_ci",
-            field="n_bootstrap",
-            value=n_bootstrap,
-            expected=(
-                f"at least {BOOTSTRAP_RESAMPLES_FLOOR} resamples — below that "
-                f"the interval endpoints are resampling noise"
-            ),
-            docs_path="api/stats#factrix.stats.bootstrap_mean_ci",
-        )
+    _check_n_resamples(
+        n_resamples,
+        func_name="bootstrap_mean_ci",
+        docs_path="api/stats#factrix.stats.bootstrap_mean_ci",
+    )
     if statistic is not None and method == "studentized":
         raise UserInputError(
             func_name="bootstrap_mean_ci",
@@ -340,7 +331,7 @@ def bootstrap_mean_ci(
         block_length = _resolve_auto_block_length(values)
     resamples = stationary_bootstrap_resamples(
         values,
-        n_bootstrap=n_bootstrap,
+        n_resamples=n_resamples,
         block_length=block_length,
         seed=seed,
     )

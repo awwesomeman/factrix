@@ -383,6 +383,12 @@ def ic(
         "method": inference.summary,
         "tie_ratio": median_tie,
     }
+    # Surface the resampling knobs the bootstrap path actually ran with (and
+    # only that path defines them), so a reported empirical p is reproducible
+    # from the result alone and its Monte-Carlo error is readable next to it.
+    for key in ("n_resamples", "seed", "p_value_mc_se"):
+        if key in result.metadata:
+            metadata[key] = result.metadata[key]
     _warn_if_few_ic_assets(
         ic_df, "ic", metadata, warning_codes, expected_warnings=expected_warnings
     )

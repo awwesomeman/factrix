@@ -215,15 +215,15 @@ class TestStationaryBootstrap:
         assert set(result.metadata) == {
             "block_length",
             "n_resamples",
-            "scheme",
-            "rng_seed",
+            "p_value_mc_se",
+            "seed",
             "studentized",
         }
         # overlap_periods must be part of the replay: the member floors the
         # resolved block length at the overlap horizon, so a replay without
         # it reproduces a different (shorter-block) bootstrap.
         p_replay, _ = _block_bootstrap_diff_p(
-            series, overlap_periods=5, rng_seed=result.metadata["rng_seed"]
+            series, overlap_periods=5, seed=result.metadata["seed"]
         )
         assert result.p_value == p_replay
         assert result.metadata["block_length"] >= 5
@@ -349,7 +349,7 @@ class TestStationaryBootstrapHonoursTheHorizon:
         for _ in range(n_reps):
             vals = self._overlapping_null(120, 21, rng)
             p, _ = _block_bootstrap_diff_p(
-                vals, overlap_periods=21, n_resamples=299, rng_seed=0
+                vals, overlap_periods=21, n_resamples=299, seed=0
             )
             rejects += p < 0.05
         # Was 0.277 with the horizon discarded and an unstudentized root.

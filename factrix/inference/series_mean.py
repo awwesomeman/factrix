@@ -14,7 +14,9 @@ SE via a HAC kernel. ``StationaryBootstrap`` also keeps every observation
 but replaces the analytic SE with a block-bootstrap empirical p, for
 series too short or non-normal for a HAC t-test to be trusted. The
 lag / bandwidth / block length is derived from the compute-time sample,
-so the dataclasses take no constructor knobs.
+so the dataclasses take no *statistical* constructor knobs;
+``StationaryBootstrap`` carries the two resampling knobs (``n_resamples``
+/ ``seed``) that only the caller can decide.
 
 These are metric-internal inference units: ``compute`` returns an
 ``InferenceResult`` whose ``stat`` / ``p_value`` feed a ``MetricResult``
@@ -305,8 +307,7 @@ class StationaryBootstrap:
     horizon from a short noisy sample and systematically under-shoots it
     (measured mean ``L`` of 7.95 against a needed 21 at T=60, h=21, for a
     41.7% rejection rate at a nominal 5%). The resolved seed is reported in
-    ``metadata`` so the run is reproducible after the fact even though the
-    dataclass itself carries no seed knob.
+    ``metadata`` so an unseeded run is still reproducible after the fact.
 
     Size on an overlapping MA(h-1) null at nominal 5% (300 sims per
     cell, B=499), before = no horizon floor and an unstudentized root:
@@ -334,12 +335,36 @@ class StationaryBootstrap:
     Delegates to ``factrix._stats.bootstrap._block_bootstrap_diff_p``, the
     library's single studentized block-bootstrap empirical-p kernel, so the
     convention is one implementation, not a parallel one.
+
+    Args:
+        n_resamples: ``B``, the number of bootstrap resamples the empirical
+            p is drawn from. Must be at least
+            ``BOOTSTRAP_RESAMPLES_FLOOR`` — the shared floor every factrix
+            entry point reporting an inference from resamples enforces.
+            The default 999 is [Politis-White (2004)][politis-white-2004]'s
+            recommendation for two-sided 5% work; the Monte-Carlo cost of a
+            lower ``B`` is reported as ``metadata["p_value_mc_se"]``.
+        seed: Reproducibility seed. ``None`` draws from system entropy and
+            reports the resolved seed in ``metadata["seed"]``, so a run
+            stays reproducible after the fact.
     """
+
+    n_resamples: int = 999
+    seed: int | None = None
 
     test: ClassVar[str] = "bootstrap-mean"
     se: ClassVar[str | None] = "bootstrap"
     summary: ClassVar[str] = "stationary-bootstrap empirical p-test"
     min_periods: ClassVar[int] = MIN_PERIODS_WARN
+
+    def __post_init__(self) -> None:
+        from factrix._stats.bootstrap import _check_n_resamples
+
+        _check_n_resamples(
+            self.n_resamples,
+            func_name="StationaryBootstrap",
+            docs_path="reference/statistical-methods",
+        )
 
     def min_input_periods(self, overlap_periods: int) -> int:
         """Minimum input series length (periods); no overlap-specific floor."""
@@ -353,7 +378,10 @@ class StationaryBootstrap:
         vals = _clean_series(data, value_col).to_numpy()
         n = len(vals)
         p_value, boot_metadata = _block_bootstrap_diff_p(
-            vals, overlap_periods=overlap_periods
+            vals,
+            n_resamples=self.n_resamples,
+            overlap_periods=overlap_periods,
+            seed=self.seed,
         )
 
         warnings: frozenset[WarningCode] = frozenset()

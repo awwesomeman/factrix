@@ -16,9 +16,7 @@ from factrix.stats.bootstrap import (
 class TestResolveAutoBlockLength:
     def test_vector_matches_politis_white(self):
         x = np.random.default_rng(0).standard_normal(200)
-        assert _resolve_auto_block_length(x) == _politis_white_block_length(
-            x, scheme="stationary"
-        )
+        assert _resolve_auto_block_length(x) == _politis_white_block_length(x)
 
     def test_matrix_takes_max_of_per_column_estimates(self):
         rng = np.random.default_rng(0)
@@ -30,15 +28,15 @@ class TestResolveAutoBlockLength:
         values = np.column_stack([iid, persistent])
 
         expected = max(
-            _politis_white_block_length(iid, scheme="stationary"),
-            _politis_white_block_length(persistent, scheme="stationary"),
+            _politis_white_block_length(iid),
+            _politis_white_block_length(persistent),
         )
         assert _resolve_auto_block_length(values) == expected
 
     def test_zero_column_matrix_falls_back_like_degenerate_series(self):
         assert _resolve_auto_block_length(
             np.empty((10, 0))
-        ) == _politis_white_block_length(np.zeros(10), scheme="stationary")
+        ) == _politis_white_block_length(np.zeros(10))
 
 
 class TestStationaryBootstrapResamples:
@@ -46,7 +44,7 @@ class TestStationaryBootstrapResamples:
         x = np.arange(100, dtype=float)
         resamples = stationary_bootstrap_resamples(
             x,
-            n_bootstrap=50,
+            n_resamples=50,
             seed=0,
         )
         assert resamples.shape == (50, 100)
@@ -55,7 +53,7 @@ class TestStationaryBootstrapResamples:
         x = np.arange(50, dtype=float)
         resamples = stationary_bootstrap_resamples(
             x,
-            n_bootstrap=20,
+            n_resamples=20,
             seed=0,
         )
         # Every draw must come from the original series.
@@ -63,8 +61,8 @@ class TestStationaryBootstrapResamples:
 
     def test_reproducible_with_seed(self):
         x = np.random.default_rng(0).standard_normal(200)
-        a = stationary_bootstrap_resamples(x, n_bootstrap=30, seed=42)
-        b = stationary_bootstrap_resamples(x, n_bootstrap=30, seed=42)
+        a = stationary_bootstrap_resamples(x, n_resamples=30, seed=42)
+        b = stationary_bootstrap_resamples(x, n_resamples=30, seed=42)
         np.testing.assert_array_equal(a, b)
 
     def test_matrix_columns_share_resampled_rows(self):
@@ -72,7 +70,7 @@ class TestStationaryBootstrapResamples:
         values = np.column_stack([base, 10.0 * base + 3.0])
         resamples = stationary_bootstrap_resamples(
             values,
-            n_bootstrap=20,
+            n_resamples=20,
             seed=42,
         )
         assert resamples.shape == (20, 40, 2)
@@ -83,13 +81,13 @@ class TestStationaryBootstrapResamples:
     def test_matrix_first_column_matches_vector_with_same_seed(self):
         base = np.arange(40, dtype=float)
         values = np.column_stack([base, -base])
-        vector = stationary_bootstrap_resamples(base, n_bootstrap=20, seed=42)
-        matrix = stationary_bootstrap_resamples(values, n_bootstrap=20, seed=42)
+        vector = stationary_bootstrap_resamples(base, n_resamples=20, seed=42)
+        matrix = stationary_bootstrap_resamples(values, n_resamples=20, seed=42)
         np.testing.assert_array_equal(matrix[:, :, 0], vector)
 
     def test_empty_matrix_preserves_column_axis(self):
         resamples = stationary_bootstrap_resamples(
-            np.empty((0, 3)), n_bootstrap=5, seed=0
+            np.empty((0, 3)), n_resamples=5, seed=0
         )
         assert resamples.shape == (5, 0, 3)
 
@@ -114,13 +112,13 @@ class TestStationaryBootstrapResamples:
 
         iid = stationary_bootstrap_resamples(
             x,
-            n_bootstrap=100,
+            n_resamples=100,
             block_length=1.0,
             seed=1,
         )
         block = stationary_bootstrap_resamples(
             x,
-            n_bootstrap=100,
+            n_resamples=100,
             block_length=30.0,
             seed=1,
         )
@@ -135,7 +133,7 @@ class TestStationaryBootstrapResamples:
         x = rng.standard_normal(500) + 0.2
         resamples = stationary_bootstrap_resamples(
             x,
-            n_bootstrap=1000,
+            n_resamples=1000,
             seed=0,
         )
         # Grand mean across all resamples ≈ sample mean.
@@ -145,29 +143,29 @@ class TestStationaryBootstrapResamples:
         with pytest.raises(ValueError, match="block_length"):
             stationary_bootstrap_resamples(
                 np.arange(10.0),
-                n_bootstrap=5,
+                n_resamples=5,
                 block_length=0.5,
             )
 
     def test_rejects_unsupported_shape(self):
         with pytest.raises(ValueError, match=r"shape \(T,\) or \(T, m\)"):
-            stationary_bootstrap_resamples(np.ones((2, 3, 4)), n_bootstrap=5)
+            stationary_bootstrap_resamples(np.ones((2, 3, 4)), n_resamples=5)
 
-    @pytest.mark.parametrize("n_bootstrap", [0, -1, True, 2.5])
-    def test_rejects_invalid_resample_count(self, n_bootstrap):
+    @pytest.mark.parametrize("n_resamples", [0, -1, True, 2.5])
+    def test_rejects_invalid_resample_count(self, n_resamples):
         with pytest.raises(ValueError, match="positive integer"):
-            stationary_bootstrap_resamples(np.arange(10.0), n_bootstrap=n_bootstrap)
+            stationary_bootstrap_resamples(np.arange(10.0), n_resamples=n_resamples)
 
     def test_rejects_non_finite_values(self):
         with pytest.raises(ValueError, match="finite"):
-            stationary_bootstrap_resamples(np.array([[1.0, np.nan]]), n_bootstrap=5)
+            stationary_bootstrap_resamples(np.array([[1.0, np.nan]]), n_resamples=5)
 
 
 class TestBootstrapMeanCI:
     def test_basic_ci_brackets_sample_mean(self):
         rng = np.random.default_rng(0)
         x = rng.standard_normal(300) + 0.1
-        lo, hi, point = bootstrap_mean_ci(x, n_bootstrap=500, seed=1)
+        lo, hi, point = bootstrap_mean_ci(x, n_resamples=500, seed=1)
         assert lo < point < hi
         # Narrow range — 300 iid normals give CI ≈ ±0.11.
         assert hi - lo < 0.5
@@ -177,7 +175,7 @@ class TestBootstrapMeanCI:
         x = rng.standard_normal(200)
         lo, hi, point = bootstrap_mean_ci(
             x,
-            n_bootstrap=300,
+            n_resamples=300,
             seed=2,
             statistic=np.median,
             method="percentile",
@@ -231,11 +229,11 @@ class TestBootstrapMeanCIStudentized:
 
         rng = np.random.default_rng(5)
         x = rng.standard_normal(150)
-        result = bootstrap_mean_ci(x, n_bootstrap=499, seed=9)
+        result = bootstrap_mean_ci(x, n_resamples=499, seed=9)
 
         L = _resolve_auto_block_length(x)
         resamples = stationary_bootstrap_resamples(
-            x, n_bootstrap=499, block_length=L, seed=9
+            x, n_resamples=499, block_length=L, seed=9
         )
         point = float(x.mean())
         se_obs = float(_batch_means_se(x, L)[0])
@@ -253,8 +251,8 @@ class TestBootstrapMeanCIStudentized:
         studentized = percentile = 0
         for i in range(n_sims):
             x = self._ar1(100, 0.8, rng)
-            s = bootstrap_mean_ci(x, n_bootstrap=299, seed=i)
-            p = bootstrap_mean_ci(x, n_bootstrap=299, seed=i, method="percentile")
+            s = bootstrap_mean_ci(x, n_resamples=299, seed=i)
+            p = bootstrap_mean_ci(x, n_resamples=299, seed=i, method="percentile")
             studentized += s.low <= 0 <= s.high
             percentile += p.low <= 0 <= p.high
         assert studentized >= percentile
@@ -266,7 +264,7 @@ class TestBootstrapMeanCIStudentized:
         covered = 0
         for i in range(n_sims):
             x = rng.standard_normal(200)
-            result = bootstrap_mean_ci(x, n_bootstrap=299, seed=i)
+            result = bootstrap_mean_ci(x, n_resamples=299, seed=i)
             covered += result.low <= 0 <= result.high
         assert 0.90 <= covered / n_sims <= 0.99
 
@@ -281,8 +279,8 @@ class TestBootstrapMeanCIValidation:
     def test_rejects_too_few_resamples(self):
         """B=1 returned (3.4, 3.4, 4.5) — a point estimate outside its own CI."""
         rng = np.random.default_rng(0)
-        with pytest.raises(UserInputError, match="at least 200 resamples"):
-            bootstrap_mean_ci(rng.standard_normal(50), n_bootstrap=1)
+        with pytest.raises(UserInputError, match="at least 199 resamples"):
+            bootstrap_mean_ci(rng.standard_normal(50), n_resamples=1)
 
     def test_rejects_block_length_at_or_past_the_sample(self):
         """L >= T made every resample a rotation and the CI zero-width."""
@@ -296,5 +294,5 @@ class TestBootstrapMeanCIValidation:
             bootstrap_mean_ci(rng.standard_normal(50), statistic=np.median)
 
     def test_constant_series_gives_a_degenerate_interval_not_a_crash(self):
-        result = bootstrap_mean_ci(np.full(50, 2.0), n_bootstrap=200, seed=0)
+        result = bootstrap_mean_ci(np.full(50, 2.0), n_resamples=200, seed=0)
         assert result == (2.0, 2.0, 2.0)

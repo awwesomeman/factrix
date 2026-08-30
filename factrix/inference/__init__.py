@@ -55,10 +55,12 @@ Per-metric allowlist enforcement
 The closed union is a type annotation, not a runtime gate, so every
 ``inference=``-bearing metric additionally declares a module-level
 ``applicable_inference`` frozenset and validates against it on entry (via
-``_check_applicable_inference``). A method outside the set raises
-:class:`~factrix.IncompatibleInferenceError` listing the allowed members,
-rather than running an unintended test or silently falling back to the
-default. ``quantile_spread`` / ``k_spread`` allow
+``_check_applicable_inference``). Membership is by the member's exact
+type, not its value, so a configured ``StationaryBootstrap(n_resamples=,
+seed=)`` is admitted wherever the method is. A method outside the set
+raises :class:`~factrix.IncompatibleInferenceError` listing the allowed
+members, rather than running an unintended test or silently falling back
+to the default. ``quantile_spread`` / ``k_spread`` allow
 ``{NON_OVERLAPPING, NEWEY_WEST}``; ``ic`` additionally allows
 ``STATIONARY_BOOTSTRAP`` (see below); ``resolve_applicable_inference``
 reads the set back for discovery.
