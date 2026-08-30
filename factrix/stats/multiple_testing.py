@@ -84,7 +84,9 @@ _STATS_DOCUMENTED = frozenset(
         "bhy_adjust",
         "bhy_adjusted_p",
         "holm_adjusted_p",
+        "partial_conjunction_p",
         "romano_wolf_adjusted_p",
+        "simes_p",
     }
 )
 

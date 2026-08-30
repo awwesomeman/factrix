@@ -696,6 +696,8 @@ def _unpack_cost_inputs(
     gross_spread: float | MetricResult,
     turnover: float | MetricResult,
     holding_periods: int,
+    *,
+    func_name: str,
 ) -> tuple[float, float, dict[str, object]]:
     """Resolve the two cost inputs and cross-check that they describe one book.
 
@@ -718,7 +720,7 @@ def _unpack_cost_inputs(
 
     def _mismatch(field: str, left: object, right: object, detail: str) -> None:
         raise UserInputError(
-            func_name="breakeven_cost / net_spread",
+            func_name=func_name,
             field=field,
             value={"gross_spread": left, "turnover": right},
             expected=detail,
@@ -906,7 +908,7 @@ def breakeven_cost(
         True
     """
     gross_spread, turnover, checked = _unpack_cost_inputs(
-        gross_spread, turnover, holding_periods
+        gross_spread, turnover, holding_periods, func_name="breakeven_cost"
     )
     if turnover < EPSILON:
         return MetricResult(
@@ -1082,7 +1084,7 @@ def net_spread(
         True
     """
     gross_spread, turnover, checked = _unpack_cost_inputs(
-        gross_spread, turnover, holding_periods
+        gross_spread, turnover, holding_periods, func_name="net_spread"
     )
     # 4 × τ × c: τ is the mean per-leg replaced fraction, each replacement is a
     # sell plus a buy (2τ traded notional per leg) and the $1/$1 long-short

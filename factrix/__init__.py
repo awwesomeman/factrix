@@ -57,8 +57,17 @@ import polars as _pl
 if _TYPE_CHECKING:
     from factrix.metrics._base import MetricBase
 
-from factrix import datasets, inference, multi_factor, preprocess, stats
+from factrix import (
+    datasets,
+    inference,
+    metrics,
+    multi_factor,
+    preprocess,
+    slicing,
+    stats,
+)
 from factrix._axis import (  # DataStructure used by the structure pre-flight; re-exported for namespace access, intentionally not in __all__
+    Aggregation,
     DataStructure,
     FactorDensity,
     FactorScope,
@@ -100,6 +109,7 @@ from factrix._inspect import (
 from factrix._metric_index import (
     MetricSpec,
     SampleThreshold,
+    cell,
     list_metrics,
     metric_spec,
     metrics_summary,
@@ -478,7 +488,7 @@ def evaluate_horizons(
         3
     """
     horizons = _validate_forward_periods_sweep(forward_periods)
-    raw = _coerce_data(data)
+    raw = _coerce_data(data, func_name="evaluate_horizons")
     results: list[EvaluationResult] = []
     for horizon in horizons:
         panel = preprocess.compute_forward_return(
@@ -1352,4 +1362,11 @@ __all__ = [
     "MetricSpec",
     "metric_spec",
     "spec_by_name",
+    # Custom-metric building blocks (see guides/custom-metrics.md)
+    "Aggregation",
+    "InputShape",
+    "cell",
+    # Metric and slicing namespaces
+    "metrics",
+    "slicing",
 ]

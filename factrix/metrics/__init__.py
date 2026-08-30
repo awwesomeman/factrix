@@ -108,6 +108,7 @@ from factrix.metrics.tradability import (
 from factrix.metrics.trend import ic_trend
 
 __all__ = [
+    "compute_ic",
     "fm_beta_sign_consistency",
     "bmp_z",
     "breakeven_cost",

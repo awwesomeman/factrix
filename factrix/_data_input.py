@@ -324,7 +324,9 @@ def _validate_named_columns(
             )
 
 
-def _normalize_panel(data: pl.DataFrame) -> pl.DataFrame:
+def _normalize_panel(
+    data: pl.DataFrame, *, func_name: str = "evaluate"
+) -> pl.DataFrame:
     """Enforce the panel's structural contract once, at the boundary.
 
     Three guards that were previously applied per producer — so a metric that
@@ -365,7 +367,7 @@ def _normalize_panel(data: pl.DataFrame) -> pl.DataFrame:
         dtype = data.schema["date"]
         if not isinstance(dtype, pl.Date | pl.Datetime):
             raise UserInputError(
-                func_name="factrix",
+                func_name=func_name,
                 field="date",
                 value=str(dtype),
                 expected=(
@@ -382,7 +384,7 @@ def _normalize_panel(data: pl.DataFrame) -> pl.DataFrame:
         n_duplicated = int(keys.is_duplicated().sum())
         if n_duplicated:
             raise UserInputError(
-                func_name="factrix",
+                func_name=func_name,
                 field="(date, asset_id)",
                 value=f"{n_duplicated} duplicated row(s) of {data.height}",
                 expected=(
@@ -409,7 +411,7 @@ def _is_pandas_dataframe(obj: object) -> bool:
     return type(obj).__module__.split(".", 1)[0] == "pandas"
 
 
-def _coerce_data(data: DataInput) -> pl.DataFrame:
+def _coerce_data(data: DataInput, *, func_name: str = "evaluate") -> pl.DataFrame:
     """Coerce ``DataInput`` to eager ``pl.DataFrame`` and normalise it.
 
     ``pl.LazyFrame`` is collected immediately. ``pd.DataFrame`` is
@@ -418,9 +420,9 @@ def _coerce_data(data: DataInput) -> pl.DataFrame:
     the single structural gate every public entry point shares.
     """
     if isinstance(data, pl.DataFrame):
-        return _normalize_panel(data)
+        return _normalize_panel(data, func_name=func_name)
     if isinstance(data, pl.LazyFrame):
-        return _normalize_panel(data.collect())
+        return _normalize_panel(data.collect(), func_name=func_name)
     if _is_pandas_dataframe(data):
         raise TypeError(
             "data must be pl.DataFrame or pl.LazyFrame; got pandas DataFrame. "

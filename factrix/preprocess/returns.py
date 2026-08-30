@@ -485,7 +485,7 @@ def compute_forward_return(
     # key made the "next period" the same date's twin and manufactured a 0.0
     # return; a +Inf denominator made ``finite / inf = 0`` and manufactured a
     # finite -100% return that an output-side is_finite() filter cannot catch.
-    data = _normalize_panel(data)
+    data = _normalize_panel(data, func_name="compute_forward_return")
 
     # Period index on the panel's own grid, shared by every asset. Shifting by
     # row position within an asset only equals a time horizon on a complete
