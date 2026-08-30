@@ -38,10 +38,14 @@ title: factrix.metrics.concentration
 
     ---
 
-    `value = mean(1/HHI)` (effective number of independent bets);
-    `stat` is a one-sided $t$ against $H_0: \mathbb{E}[r] \geq 0.5$
-    where $r_t = n^{\text{eff}}_t / n^{\text{top}}$. Rejecting flags
-    the long leg as concentrated relative to the bucket cardinality.
+    `value = mean(1/HHI)` (effective number of independent bets) and
+    `metadata["ratio_eff_to_total"]` is
+    $r = n^{\text{eff}} / n^{\text{top}}$. **Descriptive**: `p_value`,
+    `stat` and `alternative` are `None` — the former one-sided $t$
+    against $H_0: \mathbb{E}[r] \geq 0.5$ is withdrawn because 0.5 sits
+    far inside the null (measured null ratio ~0.91, 0 of 300 rejections
+    at a nominal 5%). Compare $r$ against a reference you choose for
+    your universe.
 
 </div>
 
@@ -62,14 +66,17 @@ title: factrix.metrics.concentration
     # FactorDensity-level concentration (no return dependence)
     sig = top_concentration(panel, overlap_periods=5, q_top=0.2,
                             weight_by="abs_factor")
-    print(sig.value, sig.metadata["ratio_eff_to_total"], sig.stat)
-    # 78.4  0.78  -2.40   (approximate; ratio > 0.5 -> diversified)
+    print(sig.value, sig.metadata["ratio_eff_to_total"])
+    # 90.1  0.90   (|factor| weights on a Gaussian factor are near-uniform)
 
     # Realised-return concentration (risk framing)
     risk = top_concentration(panel, overlap_periods=5, q_top=0.2,
                              weight_by="alpha_contribution")
-    print(risk.value, risk.metadata["ratio_eff_to_total"], risk.stat)
-    # 41.2  0.41  3.10   (approximate; ratio < 0.5 -> outlier-driven)
+    print(risk.value, risk.metadata["ratio_eff_to_total"])
+    # 58.4  0.58   (realised contributions are the outlier-driven axis)
+
+    # Both are descriptive: there is no p-value to read.
+    assert sig.p_value is None and sig.stat is None
     ```
 
 ## See also

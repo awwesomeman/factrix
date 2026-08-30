@@ -62,7 +62,7 @@ def test_computes_metric_k_of_m_then_bhy_across_factor_identities():
     assert len(out.hypotheses) == 6
 
 
-def test_insufficient_endpoint_keeps_fixed_m_and_ineligible_factor_is_audited():
+def test_insufficient_endpoint_leaves_m_and_ineligible_factor_is_audited():
     fixed_m = make_result(
         factor="fixed_m",
         p=0.001,
@@ -90,14 +90,15 @@ def test_insufficient_endpoint_keeps_fixed_m_and_ineligible_factor_is_audited():
     )
     frame = out.to_frame()
 
-    # Fixed m=3 gives 2 * p_(2) = 0.004; silently shrinking to m=2 would
-    # incorrectly produce 0.002.
-    assert out.pc_p_all[0] == pytest.approx(0.004)
+    # One placeholder policy: the insufficient endpoint is not an endpoint, so
+    # m = 2 real conditions and p_PC = (2 - 2 + 1) * p_(2) = 0.002. Keeping it
+    # at p=1.0 with m=3 would have doubled that to 0.004.
+    assert out.pc_p_all[0] == pytest.approx(0.002)
     assert np.isnan(out.pc_p_all[1])
     assert out.n_identities == 1
+    assert out.n_hypotheses_inactive == 3
     assert frame["active"].to_list() == [True, False]
-    assert frame["n_active"].to_list() == [2, 1]
-    assert frame["n_tests"].to_list() == [3, 3]
+    assert frame["n_tests"].to_list() == [2, 1]
 
 
 def test_to_frame_reports_factor_level_contract():
@@ -114,7 +115,6 @@ def test_to_frame_reports_factor_level_contract():
         "survived",
         "active",
         "n_tests",
-        "n_active",
         "n_passed_uncorr",
     ]
 

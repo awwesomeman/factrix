@@ -68,6 +68,7 @@ from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _attach_abnormal_return,
     _degenerate_test_fields,
+    _densify_on_period_grid,
     _enforce_min_floor,
     _enforce_scaled_floor,
     _estimate_within_date_icc,
@@ -75,6 +76,7 @@ from factrix.metrics._helpers import (
     _is_sparse_magnitude_weighted,
     _kp_cluster_scale,
     _kp_deflation_scale,
+    _record_ragged_event_grid,
     _sample_event_spaced,
     _sample_events_non_overlapping,
     _scaled_min_periods,
@@ -82,6 +84,7 @@ from factrix.metrics._helpers import (
     _warn_below_scaled_floor,
     _warn_estimation_window_contamination,
     _warn_event_window_overlap,
+    _warn_ragged_event_grid,
 )
 from factrix.metrics._metric_capabilities import per_date_series_rename
 from factrix.metrics._primitives import compute_caar
@@ -168,6 +171,14 @@ def caar(
         $t = \mathrm{mean}(\mathrm{CAAR}) / (\mathrm{std}(\mathrm{CAAR}) / \sqrt{n})$
         on a non-overlap subsample of the per-event-period $\mathrm{CAAR}$
         series; $H_0: \mathbb{E}[\mathrm{CAAR}] = 0$.
+
+        **Windows are counted in panel periods.** The estimation window
+        behind the abnormal return is measured on the panel's distinct-date
+        grid, not on the asset's own rows, so it spans ``estimation_window``
+        grid periods for every name; periods an asset is missing count as
+        missing observations inside it and can push the window below
+        ``min_samples``, dropping the event. A ragged panel raises
+        ``ragged_period_grid``.
 
         **One sample behind every field.** ``value``, ``stat``, ``p_value``
         and ``n_obs`` are all computed on the event-spaced subsample. Earlier
@@ -390,6 +401,15 @@ def caar(
     _warn_estimation_window_contamination(
         "caar", metadata, warning_codes, expected_warnings=expected_warnings
     )
+    # The panel itself is one DAG node upstream, so compute_caar measures the
+    # raggedness and broadcasts its message; the code is recorded here, where
+    # the metric's warning_codes live.
+    if "ragged_period_grid_note" in caar_df.columns and caar_df.height:
+        _record_ragged_event_grid(
+            caar_df["ragged_period_grid_note"][0],
+            warning_codes,
+            expected_warnings=expected_warnings,
+        )
 
     # Fewer than two spaced event periods, or an identical CAAR on all of them:
     # ``mean_caar`` still stands, the t does not exist.
@@ -461,10 +481,12 @@ def bmp_z(
         data: Full panel (including non-event rows) with ``date, asset_id,
             factor, forward_return``. Must include enough history for
             estimation window.
-        estimation_window: Number of periods before each event for
-            volatility estimation (default 60).
+        estimation_window: Number of panel periods before each event for
+            volatility estimation (default 60). Counted on the panel's own
+            date grid, so an asset missing periods estimates on a shorter
+            sample rather than a stretched window.
         overlap_periods: Return horizon for vol scaling (default 5),
-            counted in panel rows — not calendar days. When using
+            counted in panel periods. When using
             price-derived one-period vol, scales by
             ``1/sqrt(overlap_periods)`` to match per-period forward_return.
         kolari_pynnonen_adjust: On by default. Apply the
@@ -552,6 +574,14 @@ def bmp_z(
         $z = \mathrm{mean}(\mathrm{SAR}) / (\mathrm{std}(\mathrm{SAR}) / \sqrt{N})$.
         With ``kolari_pynnonen_adjust=True``, scale $z$ by
         $1 / \sqrt{1 + (N_{\mathrm{eff}} - 1)\, \hat r}$.
+
+        **Windows are counted in panel periods.** Both the estimation-window
+        mean and the volatility behind $\sigma_i$ are measured on the panel's
+        distinct-date grid rather than on the asset's own rows, so
+        ``estimation_window`` spans that many grid periods for every name and
+        an asset's missing periods count as missing observations inside the
+        window instead of stretching it further back. A ragged panel raises
+        ``ragged_period_grid``.
 
         **Scope of the $1/\sqrt{h}$ vol scale.** It converts a one-period vol
         to the horizon of a forward return realised over $h$ periods of the
@@ -699,9 +729,13 @@ def bmp_z(
         factor_col=factor_col,
     )
 
+    # The volatility window is a count of panel periods too, so it is measured
+    # on the grid-dense frame and joined back (see _densify_on_period_grid); a
+    # dense panel takes the no-op path and is bit-identical.
+    dense, densified = _densify_on_period_grid(sorted_df)
     uses_price = "price" in sorted_df.columns
     if uses_price:
-        sorted_df = sorted_df.with_columns(
+        dense = dense.with_columns(
             (pl.col("price") / pl.col("price").shift(1).over("asset_id") - 1).alias(
                 "_period_ret"
             )
@@ -716,7 +750,7 @@ def bmp_z(
         # window (t, t+h], so no extra lag is needed.
         vol_lag = 0
     else:
-        sorted_df = sorted_df.with_columns(pl.col(return_col).alias("_period_ret"))
+        dense = dense.with_columns(pl.col(return_col).alias("_period_ret"))
         vol_scale = 1.0
         # WHY: forward_return[t] realises over (t+1, t+1+h], so a rolling std
         # ending at row t would standardise the event AR with a window that
@@ -741,9 +775,17 @@ def bmp_z(
     )
     if vol_lag:
         est_vol_expr = est_vol_expr.shift(vol_lag)
-    sorted_df = sorted_df.with_columns(
+    dense = dense.with_columns(
         (est_vol_expr.over("asset_id") * vol_scale).alias("_est_vol")
     )
+    if densified:
+        sorted_df = sorted_df.join(
+            dense.select(["asset_id", "date", "_est_vol"]),
+            on=["asset_id", "date"],
+            how="left",
+        )
+    else:
+        sorted_df = dense
 
     events = sorted_df.filter(pl.col(factor_col) != 0)
     if len(events) == 0:
@@ -845,6 +887,9 @@ def bmp_z(
     )
     _warn_estimation_window_contamination(
         "bmp_z", metadata, warning_codes, expected_warnings=expected_warnings
+    )
+    _warn_ragged_event_grid(
+        "bmp_z", data, warning_codes, expected_warnings=expected_warnings
     )
     if not uses_price:
         code = WarningCode.BMP_RETURN_VOL_FALLBACK.value

@@ -301,10 +301,11 @@ class WarningCode(StrEnum):
     # space. ``mean_betas`` is suppressed rather than reported.
     RANK_DEFICIENT_DESIGN = "rank_deficient_design"
 
-    # Fired by ``compute_forward_return`` when the per-asset date grids are
-    # ragged (an asset is missing periods other assets have). The horizon is a
-    # row shift within an asset, so on a ragged grid an h-period-ahead return
-    # spans a different number of real periods for different assets.
+    # Fired by ``compute_forward_return`` and by the event family when the
+    # per-asset date grids are ragged (an asset is missing periods other assets
+    # have). Both count their steps on the panel's period grid, so the pairing
+    # and the window widths stay right; the asset with the hole simply has
+    # fewer observations to pair or to estimate on than the other names.
     RAGGED_PERIOD_GRID = "ragged_period_grid"
 
     # Fired by ``compute_forward_return`` when the caller-chosen evaluation
@@ -473,12 +474,14 @@ _WARNING_DESCRIPTIONS.update(
         "p-values cautiously. event_skewness publishes no p-value; there the "
         "code says its third moment is estimated on a thin sample.",
         WarningCode.BORDERLINE_PORTFOLIO_PERIODS: "top_concentration with MIN_PORTFOLIO_PERIODS_HARD "
-        "≤ n_periods < MIN_PORTFOLIO_PERIODS_WARN (3..19); the one-sided t-test "
-        "on the per-period diversification ratio is returned but df=n-1 inflates "
-        "t_crit, and at the bottom of the range it is extremely conservative: "
-        "at exactly 3 periods it rejected 0 of 250 null draws at a nominal 5%, "
-        "so a p-value there carries essentially no information. Treat value "
-        "as descriptive until the series is well inside the range.",
+        "≤ n_periods < MIN_PORTFOLIO_PERIODS_WARN (3..19); the mean effective "
+        "number of names is averaged over few periods and moves substantially "
+        "between draws. top_concentration is descriptive at every sample size — "
+        "it publishes no p-value (the withdrawn one-sided t against ratio ≥ 0.5 "
+        "never rejected: the null ratio is ~0.91, measured 0 of 300 draws at a "
+        "nominal 5%) — so this code is about the precision of value and "
+        "ratio_eff_to_total, not about a test. Lengthen the history before "
+        "comparing panels.",
         WarningCode.FEW_DIRECTIONAL_PAIRS: "directional_hit_rate with MIN_DIRECTIONAL_PAIRS_HARD "
         "≤ n_pairs < MIN_DIRECTIONAL_PAIRS_WARN (10..29); the Pesaran-Timmermann "
         "hit rate is returned but n counts pooled non-overlapping (date, asset) "
@@ -653,12 +656,15 @@ _WARNING_DESCRIPTIONS.update(
         "residual (a unique projection) stays correct but the betas are an "
         "arbitrary point in the solution space. mean_betas is suppressed. Drop "
         "one dummy category as the reference level.",
-        WarningCode.RAGGED_PERIOD_GRID: "compute_forward_return saw per-asset "
-        "date grids that do not agree: at least one asset is missing periods "
-        "that others have. The horizon is a shift along each asset's own "
-        "period index, so an h-period-ahead return then spans a different "
-        "number of panel periods for different assets. Reindex the panel onto "
-        "a common grid if the horizons must be comparable across names.",
+        WarningCode.RAGGED_PERIOD_GRID: "compute_forward_return or an event "
+        "metric saw per-asset date grids that do not agree: at least one asset "
+        "is missing periods that others have. Horizons, estimation windows, "
+        "lags and event offsets are all counted on the panel's period grid, so "
+        "they still span the requested number of periods; the asset with the "
+        "hole has no observation to pair at the exit period, and fewer "
+        "observations inside an estimation window, than the other names. "
+        "Reindex the panel onto a common grid if the estimates must be "
+        "comparable across names.",
         WarningCode.UNEVEN_EVALUATION_GRID: "compute_forward_return(dates=) "
         "kept an evaluation grid whose adjacent kept rows are not a constant "
         "number of periods apart. Series-mean inference (NonOverlapping, "

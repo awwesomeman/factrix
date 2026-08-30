@@ -1144,6 +1144,118 @@ are reported, and the choice is the routing question the next section
 answers. A reduced-replication re-run of two cells guards the numbers in
 `tests/stats/test_spread_bootstrap_size.py`.
 
+### `monotonicity`: measured size of the Patton-Timmermann MR bootstrap
+
+True-null rejection rates at a nominal 5% for the MR statistic's
+stationary-bootstrap p. Null: `make_cs_panel(n_assets=50, ic_target=0.0,
+factor_persistence=φ)` → `compute_forward_return(forward_periods=h)`,
+`overlap_periods=h`, `n_groups=5`, `n_resamples=499`. `T` counts periods
+on the evaluation grid before the stride. 300 replications per cell, seed
+`20260830 + rep`, Monte-Carlo standard error ~1.3pp.
+
+| T | h | φ = 0 | φ = 0.9 |
+|---|---|---|---|
+| 120 | 1 | 0.037 | 0.033 |
+| 120 | 5 | 0.020 | 0.027 |
+| 240 | 1 | 0.073 | 0.060 |
+| 240 | 5 | 0.050 | 0.033 |
+
+Calibrated-to-conservative throughout (2.0–7.3%), and the persistent
+factor moves nothing outside the iid band — every difference is inside two
+Monte-Carlo standard errors. The conservatism at `h = 5` is the expected
+cost of the block bootstrap's block-length floor at `overlap_periods`
+absorbing the MA(*h*−1) overlap. A reduced-replication re-run guards the
+numbers in `tests/stats/test_monotonicity_size.py`.
+
+### `directional_hit_rate`: measured size of the Pesaran-Timmermann test
+
+True-null rejection rates at a nominal 5% for the PT statistic $S_n$ with
+the Kolari-Pynnönen within-period deflation applied (it fires on every
+cell of this grid — the null panel is a cross-section, so the pooled
+`(date, asset)` trials are not independent). Same null and seed scheme as
+the table above; 300 replications per cell, Monte-Carlo standard error
+~1.3pp.
+
+| T | h | φ = 0 | φ = 0.9 |
+|---|---|---|---|
+| 120 | 1 | 0.043 | 0.053 |
+| 120 | 5 | 0.030 | 0.047 |
+| 240 | 1 | 0.040 | 0.067 |
+| 240 | 5 | 0.060 | 0.077 |
+
+Calibrated across the grid (3.0–7.7%). The persistent-factor column runs
+slightly hotter than the iid one at `T = 240` (6.7% and 7.7% against 4.0%
+and 6.0%), but the gap is within two Monte-Carlo standard errors and the
+worst cell is still inside the 7–9% short-sample band every other
+per-period path in this document sits in. The deflation is what keeps it
+there: the raw pooled $S_n$ treats 50 same-date names as 50 independent
+trials. A reduced-replication re-run guards the numbers in
+`tests/stats/test_directional_hit_rate_size.py`.
+
+### `positive_rate`: measured size of the exact binomial test, and its discreteness
+
+True-null rejection rates at a nominal 5% for the two-sided exact
+binomial test against `H0: p = 0.5`. Two nulls, both at
+`overlap_periods=1` so `n` is the series length directly; 300
+replications per cell, seed `20260830 + rep`, Monte-Carlo standard error
+~1.3pp.
+
+- **iid Gaussian series** — `value ~ N(0, 1)`, the textbook null the exact
+  test is derived against.
+- **IC-series pipeline** — the per-period Spearman IC of
+  `make_cs_panel(n_assets=50, ic_target=0.0)` at `forward_periods=1`, i.e.
+  the series a caller actually feeds it after `compute_ic`.
+
+| n | iid Gaussian series | IC-series pipeline |
+|---|---|---|
+| 60 | 0.027 | 0.023 |
+| 120 | 0.030 | 0.040 |
+| 240 | 0.047 | 0.080 |
+
+Both columns sit at or below nominal, which is the *expected* behaviour
+and not a defect: the binomial distribution is discrete, so at most `n`
+the attainable two-sided level nearest 5% from below is materially under
+it — the exact test spends whatever is left over as conservatism. That is
+the deliberate trade recorded in the function's docstring (the
+normal-approximation `z` attains 5% by *over*-rejecting: `n=20, 15 hits`
+gives `p=0.025` against the exact `0.041`). Read a `positive_rate` p as a
+conservative bound, and do not calibrate a power study against a nominal
+5% at short `n`. The IC-series column's 8.0% at `n = 240` is the one cell
+above nominal and is inside two Monte-Carlo standard errors of the iid
+column. A reduced-replication re-run guards the numbers in
+`tests/stats/test_positive_rate_size.py`.
+
+### Inference paths still without a size table
+
+Every other `p_value` factrix publishes has a measured size somewhere in
+this section. These four do not, and are listed here rather than left
+silent so the gap is a documented one. A test
+(`tests/stats/test_section6_covers_every_p_value_path.py`) enumerates the
+metrics whose `MetricResult` can carry a non-`None` `p_value` and fails if
+any is missing from this section, so a new inference path cannot be added
+without either measuring it or naming it here.
+
+**`common_asymmetry` and `common_quantile_spread` — measured, withheld at
+`overlap_periods > 1`.** A COMMON-scope null found both Wald p-values
+over-rejecting at `h > 1` in a way that does *not* shrink with `T`. The
+cause is the bandwidth `_resolve_nw_lags` gives the Wald family: its
+overlap floor is `overlap_periods - 1`, against the `3(h - 1)` the scalar
+series-mean HAR path uses (`_resolve_har_lags`), so the MA(*h*−1)
+structure an overlapping forward return carries by construction is
+absorbed at the minimum admissible bandwidth. The numbers are withheld
+until that floor is settled, because tabling them would record a defect as
+a calibration. Until then read both metrics' `p_value` at
+`overlap_periods > 1` as not calibrated — prefer `h = 1`, or read `value`
+and the bucket / slope detail in `metadata` descriptively.
+
+**`common_beta` and `ic_trend` — not yet measured.** Neither has a
+true-null size measurement on this page. Both are per-period series means
+tested with the same HAC machinery §1 measures, so the sizes documented
+there are the closest available guide, but neither has been measured on
+its own null and neither should be read as inheriting a table it does not
+have. Treat a borderline p from either as uncalibrated pending
+measurement.
+
 ### Which path to read: a routing guide from the size measurements
 
 The measurements above and in §1 say where each inference path is
@@ -1168,7 +1280,8 @@ nominal 5%; sample sizes count periods on the evaluation grid after the
 | `common_asymmetry` / `common_quantile_spread` with fewer than 10 periods after the `overlap_periods` stride | `unreliable_se_short_periods` | The effective sample, not the raw period count, is what the HAC standard error rests on: at `T = 120, h = 21` five independent observations carry a bandwidth-40 kernel. The persistence screen withholds itself there for the same reason. | Shorten the horizon or lengthen the history; the p carries little information at that effective count. |
 | Joint test on K ≥ 3 short slices | `slice_period_joint_test` warning | 8–9% for K = 5 on 50–90-period slices, converging by T ≈ 150; the bootstrap path inherits it (12%). K = 2 is calibrated throughout. | Read the pairwise contrasts on the same slices (5–6%) rather than the joint p, or lengthen the slices. |
 | Few event periods after the stride | `few_events` | Power-thin, not size-inflated for `caar` / `corrado_rank`; `bmp_z` is ~10% at 8 effective periods, ~7% at 15, clearing by ~30. | Read borderline p-values cautiously; extend the event history rather than switching estimator — all three count the same event periods. |
-| 3–19 portfolio periods in `top_concentration` | `borderline_portfolio_periods` | Extremely conservative at the bottom of the range: 0 of 250 null draws rejected at exactly 3 periods. | Treat `value` as descriptive until the series is well inside the range; the p carries essentially no information there. |
+| 3–19 portfolio periods in `top_concentration` | `borderline_portfolio_periods` | `top_concentration` publishes no p at any sample size — the withdrawn one-sided `t` against `ratio ≥ 0.5` never rejected, because the null diversification ratio is ~0.91 (0 of 300 draws at both 10 and 48 tested periods). The code is about the precision of the mean, not a test. | Read `value` and `ratio_eff_to_total` as a noisy mean over few periods; lengthen the history before comparing panels. |
+| Overlapping panel read through `common_asymmetry` / `common_quantile_spread` at `overlap_periods > 1` | No warning | Not tabled: the Wald family's HAC bandwidth floor is `overlap_periods - 1`, not the `3(h - 1)` the scalar HAR path uses, and the measured over-rejection does not shrink with `T` (section above). | Read `value` descriptively, or read the p at `h = 1` only, until the bandwidth floor is settled. |
 
 Two rules fall out of the table. A *size* problem driven by persistence or
 a short sample is not fixed by changing the inference member — the

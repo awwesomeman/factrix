@@ -18,6 +18,7 @@ from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _attach_abnormal_return,
     _is_sparse_magnitude_weighted,
+    _ragged_event_grid_message,
 )
 
 
@@ -179,5 +180,10 @@ def compute_caar(
             pl.lit(
                 ar_diagnostics["estimation_window_event_share"], dtype=pl.Float64
             ).alias("estimation_window_event_share"),
+            # Raggedness is a property of the panel, which only this node sees;
+            # `caar` reads the note off the frame and records the code there.
+            pl.lit(_ragged_event_grid_message("caar", data), dtype=pl.String).alias(
+                "ragged_period_grid_note"
+            ),
         )
     )

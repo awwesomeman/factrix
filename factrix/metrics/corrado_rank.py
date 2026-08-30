@@ -37,6 +37,7 @@ from factrix.metrics._helpers import (
     _warn_below_scaled_floor,
     _warn_estimation_window_contamination,
     _warn_event_window_overlap,
+    _warn_ragged_event_grid,
 )
 
 __all__ = [
@@ -106,6 +107,13 @@ def corrado_rank(
         MetricResult with value=mean rank deviation, stat=z.
 
     Notes:
+        **Windows are counted in panel periods.** The estimation window behind
+        the ranked abnormal return is measured on the panel's distinct-date
+        grid, not on the asset's own rows, so it spans ``estimation_window``
+        grid periods for every name; an asset's missing periods count as
+        missing observations inside it, and a ragged panel raises
+        ``ragged_period_grid``.
+
         **The event period is the unit of inference.** Events sharing a period
         share whatever moved the market then, so they are not
         independent draws. Collapsing each period's cross-section to
@@ -361,6 +369,9 @@ def corrado_rank(
     )
     _warn_estimation_window_contamination(
         "corrado_rank", metadata, warning_codes, expected_warnings=expected_warnings
+    )
+    _warn_ragged_event_grid(
+        "corrado_rank", data, warning_codes, expected_warnings=expected_warnings
     )
     raw_min_warn = _scaled_min_periods(MIN_EVENTS_WARN, overlap_periods)
     warn_code = _warn_below_scaled_floor(

@@ -17,6 +17,12 @@ Notes:
     on `signed_car`, then cross-event aggregation; binomial inference
     for hit rate, nonparametric for IC / skewness, descriptive
     elsewhere.
+
+    **Windows are counted in panel periods.** The estimation window behind
+    each event's abnormal return is measured on the panel's distinct-date
+    grid, not on the asset's own rows, so it spans `estimation_window` grid
+    periods for every name; an asset's missing periods count as missing
+    observations inside it, and a ragged panel raises `ragged_period_grid`.
 """
 
 from __future__ import annotations
@@ -49,6 +55,7 @@ from factrix.metrics._helpers import (
     _warn_below_scaled_floor,
     _warn_estimation_window_contamination,
     _warn_event_window_overlap,
+    _warn_ragged_event_grid,
 )
 
 __all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
@@ -228,6 +235,9 @@ def _spaced_events(
     )
     _warn_estimation_window_contamination(
         metric_name, metadata, warning_codes, expected_warnings=expected_warnings
+    )
+    _warn_ragged_event_grid(
+        metric_name, data, warning_codes, expected_warnings=expected_warnings
     )
     raw_min_warn = _scaled_min_periods(MIN_EVENTS_WARN, overlap_periods)
     warn_code = _warn_below_scaled_floor(

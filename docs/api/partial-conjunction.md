@@ -75,6 +75,10 @@ hypothesis per factor.
 | **Strict** (`n_conditions=int`) | Paper-grade; you know the design (e.g. exactly 2 universes, exactly 4 horizons) | Identity with any condition count other than `n_conditions` raises. Data gaps surface fail-loud. |
 | **Lenient** (`n_conditions=None`) | EDA / prototyping; condition count varies by identity | `m` inferred per identity from the data; only requires `m >= min_pass`. |
 
+Both modes count the conditions you submitted. Placeholder conditions are then
+excluded from `m` before the PC combination (see below), so a strictly declared
+design can still leave an identity with too few real conditions to screen.
+
 ```python title="Illustrative"
 # Strict: 2 universes required for every factor; missing one raises.
 fx.multi_factor.partial_conjunction(
@@ -106,6 +110,31 @@ $k = \texttt{min\_pass}$. Two corner cases worth knowing:
   `bhy(expand_over=...)`, where the family-level FDR inflation is
   explicit rather than hidden in a "robust across" claim.
 
+### Declare `min_pass` before you look at the p-values
+
+$p_{\text{PC}}$ is **not monotone in $k$**: the multiplier $m - k + 1$ falls as
+the order statistic $p_{(k)}$ rises, so demanding *more* passing conditions can
+*lower* the PC $p$-value. For $p = [0.01, 0.02, 0.9]$, $k = 2$ gives $0.04$ and
+$k = 3$ gives $0.9$; for $p = [0.01, 0.4, 0.5]$ the ordering reverses ($0.8$
+against $0.5$). Which direction helps depends on the data.
+
+Choosing $k$ after seeing the $p$-values is therefore a selection effect the
+outer BHY step-up does not correct — it is the same shopping this function
+exists to prevent, one level up. The "$k$ of $m$" claim is part of the
+hypothesis: fix it with the design.
+
+### Placeholder conditions leave $m$
+
+A condition whose metric never ran a test (`insufficient_*` short-circuit or
+`degenerate_variance`) is not a condition. It is dropped before the PC
+combination rather than entering it at $p = 1$, so `n_tests` is the count of
+*real* conditions per identity and the same degenerate cell costs the same here
+as under [`bhy`](bhy.md) — see [the module-level
+policy](multi-factor.md#placeholder-hypotheses).
+An identity left with fewer than `min_pass` real conditions cannot support the
+claim: it stays in `entries` for audit with `pc_p` / `adj_p` of `NaN` and never
+enters the outer BHY family.
+
 The PC $p$-values are then fed to a standard Benjamini-Hochberg-Yekutieli (BHY) step-up across
 identities, controlling group-level FDR ≤ `q`. The harmonic dependence
 correction $c(m) = \sum 1/i$ is applied because PC $p$-values across
@@ -132,8 +161,9 @@ per metric — the same `_FdrResultBase` shape as `bhy`'s
 | `pc_p_all` | Raw PC $p$-value (pre-BHY), aligned with `entries` |
 | `survivors` / `adj_p` | Surviving subset and its adjusted p-value (derived from `adj_p_all <= q`) |
 | `min_pass` | The $k$ you passed |
-| `n_tests` | Keyed by the identity tuple — `factor`, then `forward_periods` and `params` items not named by `expand_over` → condition count $m$ for that identity |
-| `n_passed_uncorr_all` | Per-identity count of raw $p < q$, aligned with `entries`. Descriptive — flags borderline (`n_passed_uncorr_all == min_pass`) and data-gap cases at a glance. **Cutoff is your `q`**, so the count moves with `q` — using it to override `adj_p` survivor selection is the anti-shopping failure mode this function exists to prevent. |
+| `n_tests` | Keyed by the identity tuple — `factor`, then `forward_periods` and `params` items not named by `expand_over` → count of *real* conditions $m$ for that identity |
+| `n_hypotheses_inactive` | Placeholder conditions excluded before adjustment |
+| `n_passed_uncorr_all` | Per-identity count of real conditions with raw $p \le q$ — the same `<=` rejection rule every screen uses — aligned with `entries`. Descriptive — flags borderline (`n_passed_uncorr_all == min_pass`) and data-gap cases at a glance. **Cutoff is your `q`**, so the count moves with `q` — using it to override `adj_p` survivor selection is the anti-shopping failure mode this function exists to prevent. |
 
 `to_frame()` gives a `factor | adj_p | survived` DataFrame over every tested
 identity, eliminated ones included.
@@ -152,7 +182,8 @@ identity, eliminated ones included.
 | `expand_over` names an identity field (`factor` / `forward_periods`) | [`UserInputError`][factrix.UserInputError] (anti-shopping defense — same as `bhy`). |
 | `n_conditions < min_pass` | [`UserInputError`][factrix.UserInputError] (unsatisfiable). |
 | Strict mode: identity's condition count $\neq$ `n_conditions` | [`UserInputError`][factrix.UserInputError] — surfaces missing-universe / missing-horizon data gaps. |
-| Identity with condition count $<$ `min_pass` (lenient) | [`UserInputError`][factrix.UserInputError]. |
+| Identity with submitted condition count $<$ `min_pass` (lenient) | [`UserInputError`][factrix.UserInputError]. |
+| Identity with fewer than `min_pass` *real* conditions (the rest placeholders) | No error — audited with `NaN`, excluded from the outer BHY family. |
 | Duplicate `(identity, expand_over_values)` partition key | [`UserInputError`][factrix.UserInputError] (family-resolution invariant). |
 
 ## References
