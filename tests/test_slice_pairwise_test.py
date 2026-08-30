@@ -178,7 +178,7 @@ def test_raises_when_single_slice() -> None:
     df = build_labelled_raw_panel(
         n_dates=60, seed=11, signal={"only": 0.0}, label_col="universe"
     )
-    with pytest.raises(ValueError, match="≥2 slice values"):
+    with pytest.raises(ValueError, match="≥2 distinct slice values"):
         slice_pairwise_test(
             df, ic(), by="universe", factor_col="factor", overlap_periods=1
         )

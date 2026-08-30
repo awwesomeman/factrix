@@ -53,6 +53,7 @@ from factrix.metrics._helpers import (
     _scaled_periods_threshold,
     _short_circuit_output,
     _validate_choice,
+    _validate_n_groups,
     _warn_high_tie_ratio,
 )
 
@@ -296,6 +297,9 @@ def monotonicity(
     cols = list(factor_cols)
     if not cols:
         raise ValueError("factor_cols must be non-empty")
+    _validate_n_groups(
+        n_groups, func_name="monotonicity", docs_path="api/metrics/monotonicity"
+    )
 
     # Raw (pre-sampling) date count: the axis the stride-scaled periods floor is
     # calibrated against, shared across all factors.

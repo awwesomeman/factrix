@@ -156,7 +156,7 @@ def _build_per_date_panel(
     the metric's producer, inner-join on date, return
     ``(labels, panel[T, K], n_obs)``.
 
-    Raises ``ValueError`` on <2 slice values or <2 aligned dates;
+    Raises ``UserInputError`` on <2 slice values or <2 aligned dates;
     ``TypeError`` (via resolver) if ``metric`` is not slice-test-eligible.
     """
     if factor_col not in data.columns:
@@ -169,10 +169,17 @@ def _build_per_date_panel(
         )
     per_date_fn = resolve_per_date_series(type(metric))
     producer = _resolve_producer(metric, func_name)
-    slices = _slice_by(data, by)
+    slices = _slice_by(data, by, func_name=func_name)
     if len(slices) < 2:
-        raise ValueError(
-            f"{func_name}: need ≥2 slice values on {by!r}; got {len(slices)}."
+        raise UserInputError(
+            func_name=func_name,
+            field="by",
+            value=by,
+            expected=(
+                f"a column holding ≥2 distinct slice values; {by!r} holds "
+                f"{len(slices)}. A one-value partition has nothing to compare."
+            ),
+            docs_path=_DOCS_SLICE,
         )
     labels = list(slices.keys())
 
@@ -188,7 +195,13 @@ def _build_per_date_panel(
             how="inner",
         )
     if aligned.height < 2:
-        raise ValueError(_too_few_aligned_dates_msg(func_name, slices, aligned.height))
+        raise UserInputError(
+            func_name=func_name,
+            field="by",
+            value=by,
+            expected=_too_few_aligned_dates_msg(func_name, slices, aligned.height),
+            docs_path=_DOCS_SLICE,
+        )
     panel = aligned.drop("date").to_numpy()
     return labels, panel, aligned.height
 
@@ -264,9 +277,9 @@ def slice_pairwise_test(
         UserInputError: ``metric`` is not a metric instance,
             ``factor_col`` is absent, or ``overlap_periods`` is not a
             positive ``int`` / disagrees with the panel's stamp / is missing
-            on an unstamped panel.
-        ValueError: Fewer than two slice values, or fewer than two dates
-            aligned across all slices (e.g. a date-disjoint partition).
+            on an unstamped panel. Also raised for fewer than two slice
+            values, or fewer than two dates aligned across all slices
+            (e.g. a date-disjoint partition).
         TypeError: Metric is not slice-test-eligible (no
             ``per_date_series`` capability / no producer).
 
@@ -393,9 +406,8 @@ def slice_joint_test(
         UserInputError: ``metric`` is not a metric instance,
             ``factor_col`` is absent, or ``overlap_periods`` is not a
             positive ``int`` / disagrees with the panel's stamp / is missing
-            on an unstamped panel.
-        ValueError: Fewer than two slice values, or fewer than two
-            dates aligned across all slices.
+            on an unstamped panel. Also raised for fewer than two slice
+            values, or fewer than two dates aligned across all slices.
         TypeError: Metric is not slice-test-eligible.
 
     Examples:

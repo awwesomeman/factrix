@@ -63,7 +63,7 @@ class TestSliceByLabel:
 
     def test_missing_label_raises(self):
         df = _label_series(10)
-        with pytest.raises(ValueError, match="not found in data"):
+        with pytest.raises(ValueError, match="unknown by="):
             _slice_by(df, "sector")
 
     def test_empty_df_raises(self):
@@ -78,7 +78,7 @@ class TestSliceByLabel:
             .otherwise(pl.col("regime"))
             .alias("regime")
         )
-        with pytest.raises(ValueError, match="contains nulls"):
+        with pytest.raises(ValueError, match="no nulls"):
             _slice_by(df, "regime")
 
     def test_numeric_label_stringified(self):
@@ -133,7 +133,7 @@ class TestBySlice:
 
     def test_missing_by_raises(self):
         panel = _sector_panel()
-        with pytest.raises(ValueError, match="not found in data"):
+        with pytest.raises(ValueError, match="unknown by="):
             by_slice(panel, ic(), by="industry", factor_col="factor")
 
     def test_bare_class_rejected(self):

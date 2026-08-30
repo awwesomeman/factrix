@@ -45,7 +45,7 @@ class TestMakeCsPanelSchema:
         assert not a["factor"].equals(b["factor"])
 
     def test_raises_on_short_panel(self):
-        with pytest.raises(ValueError, match="n_dates must be >="):
+        with pytest.raises(ValueError, match="n_dates"):
             datasets.make_cs_panel(n_assets=5, n_dates=5, signal_horizon=5)
 
     def test_raises_on_singleton_cross_section(self):
@@ -96,7 +96,7 @@ class TestMakeEventPanelSchema:
         assert a.equals(b)
 
     def test_raises_on_short_panel(self):
-        with pytest.raises(ValueError, match="n_dates must be >="):
+        with pytest.raises(ValueError, match="n_dates"):
             datasets.make_event_panel(n_assets=5, n_dates=5, signal_horizon=5)
 
 
@@ -153,7 +153,7 @@ class TestMakeMultiFactorEventPanelSchema:
         assert a.equals(b)
 
     def test_raises_on_short_panel(self):
-        with pytest.raises(ValueError, match="n_dates must be >="):
+        with pytest.raises(ValueError, match="n_dates"):
             datasets.make_multi_factor_event_panel(
                 n_factors=2, n_assets=5, n_dates=5, signal_horizon=5
             )

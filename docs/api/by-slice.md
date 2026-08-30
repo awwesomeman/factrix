@@ -67,9 +67,11 @@ result = by_slice(panel, positive_rate(), by="year", factor_col="factor")
 # ['slice_boundary_truncation']
 ```
 
-If `by` is not in `data.columns`, `by_slice` raises `ValueError` —
-compose the column upstream with `data.with_columns(...)` or
-`data.join(...)`.
+If `by` is not in `data.columns`, `by_slice` raises `UserInputError`
+naming `by` and listing the frame's own columns as candidates — compose
+the column upstream with `data.with_columns(...)` or `data.join(...)`.
+An empty frame and a `by` column carrying nulls are rejected the same
+way.
 
 ## Cross-slice comparison table
 
