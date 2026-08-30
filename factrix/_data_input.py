@@ -22,6 +22,9 @@ polars throughout) and avoids hiding the pd → pl copy inside every
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
+from typing import Any
+
 import polars as pl
 import polars.selectors as cs
 
@@ -276,6 +279,49 @@ def _validate_panel_key_columns(data: object, *, func_name: str) -> None:
         ),
         docs_path=_DOCS_DATA_SCHEMA,
     )
+
+
+def _validate_named_columns(
+    data: object,
+    named: Mapping[str, Any],
+    *,
+    func_name: str,
+    docs_path: str,
+) -> None:
+    """Reject a direct metric call naming a column the frame does not carry.
+
+    ``named`` maps a metric parameter (``factor_col``, ``return_col``,
+    ``weight_col``, ``factor_cols``, ...) to the caller's value. A name the
+    frame lacks is a call the caller has to change, so it fails here — with
+    the frame's own columns as did-you-mean candidates — rather than reaching
+    a polars ``ColumnNotFoundError`` from inside an expression, or a NaN
+    "insufficient data" envelope that reads as a property of the data.
+
+    ``None`` is skipped: a metric that documents an optional column uses it to
+    mean "not configured", not "a column called None".
+    """
+    if not isinstance(data, pl.DataFrame):
+        return
+    columns = data.columns
+    # The reserved stamps are evaluate-internal bookkeeping, never a legal
+    # answer to "which column did you mean?".
+    candidates = [c for c in columns if c not in _STAMP_COLUMNS]
+    for field, value in named.items():
+        if value is None:
+            continue
+        wanted: Sequence[str] = (
+            [value] if isinstance(value, str) else [str(v) for v in value]
+        )
+        for name in wanted:
+            if name in columns:
+                continue
+            raise UserInputError(
+                func_name=func_name,
+                field=field,
+                value=name,
+                candidates=candidates,
+                docs_path=docs_path,
+            )
 
 
 def _normalize_panel(data: pl.DataFrame) -> pl.DataFrame:

@@ -144,14 +144,23 @@ def common_quantile_spread(
     # bucket has no top-minus-bottom contrast to test.
     _validate_n_groups(n_groups)
     # ``date`` / ``asset_id`` are gated by the direct-call key-column check in
-    # ``MetricBase.__call__`` (and by ``evaluate``'s baseline gate), so only
-    # the configurable columns are checked here.
-    for col in (factor_col, return_col):
-        if col not in data.columns:
-            return _short_circuit_output(
-                "common_quantile_spread",
-                f"no_{col}_column",
-            )
+    # ``MetricBase.__call__``, which also rejects a caller-named column the
+    # frame does not carry (and ``evaluate`` validates the panel schema), so
+    # what reaches here is the *default* column missing from the data — a
+    # data-availability verdict, reported on the fixed ``reason`` tokens the
+    # sibling metrics use so consumers can branch on them.
+    if factor_col not in data.columns:
+        return _short_circuit_output(
+            "common_quantile_spread",
+            "no_factor_column",
+            missing_column=factor_col,
+        )
+    if return_col not in data.columns:
+        return _short_circuit_output(
+            "common_quantile_spread",
+            "no_return_column",
+            missing_column=return_col,
+        )
 
     per_date = _aggregate_to_per_date(
         data,

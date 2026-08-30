@@ -30,7 +30,18 @@ below:
 
 Hypothesis-test metrics share a common envelope (`p_value`,
 `stat_type`, `h0`, `method`) — listed once here, not repeated per
-metric below. Cross-slice inference functions
+metric below.
+
+A `no_*_column` short-circuit is a statement about the **data**, never about
+the call: it fires only for a column parameter left at its documented default
+(`factor`, `forward_return`, `price`, `market_cap`) that the frame does not
+carry. A column the caller *named* — any `*_col` / `*_cols` argument set away
+from its default — is validated at the metric gate instead, and a name the
+frame lacks raises `UserInputError` with the frame's columns as did-you-mean
+candidates rather than returning a NaN envelope. Every `reason` is a fixed
+token, so consumers can branch on it.
+
+Cross-slice inference functions
 ([`slice_pairwise_test`][factrix.slice_pairwise_test] /
 [`slice_joint_test`][factrix.slice_joint_test]) are
 not listed in the table: their headline output is a DataFrame of
