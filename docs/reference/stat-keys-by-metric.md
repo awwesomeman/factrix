@@ -911,7 +911,7 @@ Two complementary methods:
   `method_b`, `stat_type_method_b`, `beta_pos`, `beta_neg`,
   `p_wald_slopes`.
 - *descriptive*: `beta_long`, `beta_short`, `abs_short_over_long`,
-  `n_pos`, `n_neg`, `n_zero`, `n_periods`, `nw_lags_used`,
+  `n_pos`, `n_neg`, `n_zero`, `n_periods`, `newey_west_lags_used`,
   `method_b_skipped` (conditional), `intercept` (conditional),
   `beta_zero` (conditional).
 
@@ -927,7 +927,7 @@ Two complementary methods:
 - *secondary-test*: `spearman_rho`, `spearman_p` — small-sample
   Spearman of (bucket-idx, mean-return) for monotonicity diagnostic.
 - *descriptive*: `n_groups`, `n_periods`, `n_distinct_factor`,
-  `nw_lags_used`, `buckets` (list of `{idx, mean_return, n}`).
+  `newey_west_lags_used`, `buckets` (list of `{idx, mean_return, n}`).
 
 ### `tradability` (`factrix.metrics.tradability`)
 

@@ -199,6 +199,43 @@ Dispatch runs through the DAG executor
 
 ---
 
+## `overlap_periods`: injection order and signature defaults
+
+`overlap_periods` is an **injected** parameter (`MetricBase._INJECTED_PARAMS`),
+not a user knob: it describes the data, not the test. `MetricBase.__call__`
+resolves it in a fixed order:
+
+1. the caller's explicit `overlap_periods=` (re-validated at the boundary, so a
+   standalone call rejects the same bad value `evaluate` would);
+2. otherwise, for a frame input, the panel's reserved overlap stamp written by
+   `compute_forward_return` (`MetricBase._stamped_overlap_periods`);
+3. otherwise, the body's signature default.
+
+So the signature default is **unreachable under `evaluate`** — that path always
+injects the stamped horizon. It binds only on a standalone call against an
+unstamped frame, against a non-frame input (series consumers), or against a
+producer's derived frame that carries no stamp (`fm_beta`'s `beta_df`). Reading
+a signature default as "the horizon this metric assumes" is therefore wrong; it
+is only the fallback for an undeclared, unstamped input.
+
+Three defaults are in use, and the difference is deliberate:
+
+| Default | Metrics | Meaning |
+|---|---|---|
+| `5` (`DEFAULT_FORWARD_PERIODS`) | most metrics — `ic`, `quantile_spread`, `k_spread`, `caar`, `event_quality.*`, `predictive_beta`, … | "Assume the library's default forward horizon." It matches `compute_forward_return`'s own default, so a hand-built unstamped panel is treated the way the default pipeline would have stamped it. |
+| `1` | `spanning_alpha`, `rank_turnover` | The input is non-overlapping by construction — `spanning_alpha` consumes `compute_spread_series`' already-strided output, and on `rank_turnover` the value is a *stride* fallback rather than a HAC floor. `1` means "one period, no overlap". |
+| `None` | `fm_beta`, `common_quantile_spread`, `common_asymmetry` | "No horizon declared." The value flows straight into the optional-typed HAC resolvers (`_resolve_nw_lags`, `_resolve_har_lags`, `_har_dof`), which read `None` as "apply no overlap floor and no effective-dof cap". |
+
+`None` and `1` are **numerically identical** in all three resolvers — the floor
+is `max(h - 1, 0) = 0` and the dof cap is guarded by `h > 1` — so the `int` /
+`int | None` split is a semantic one (undeclared vs declared-as-one), not a
+behavioural one. `None` and `5` are not: the `5` default raises the bandwidth at
+small `T` and always tightens the dof cap, so unifying the `None` group onto
+`DEFAULT_FORWARD_PERIODS` would silently move p-values on every unstamped
+standalone call. That is why the three groups are left as they are.
+
+---
+
 ## PANEL / TIMESERIES equivalence
 
 Both structures produce real `MetricResult.p_value` values — neither is degraded.
@@ -547,9 +584,10 @@ Only the series-mean family (`ic`, `quantile_spread`, `quantile_spread_vw`,
 selectable `inference=`; every other metric carries a fixed estimator by
 its statistical shape, so the absence of the knob is by design. The
 `factrix.inference` module docstring is the SSOT for the full rule — the
-per-family rationale, the closed-union policy, and why `HANSEN_HODRICK` and
-`STATIONARY_BOOTSTRAP` are each exported but not admitted into every
-metric's union.
+per-family rationale, the closed-union policy, and why `HansenHodrick` is
+research-only — kept in `factrix.inference.series_mean` for standalone
+comparison studies, admitted to no metric's union and not exported from
+`factrix.inference`.
 
 ### `individual_continuous(IC)` — cross-section first
 

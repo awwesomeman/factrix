@@ -83,7 +83,7 @@ def common_quantile_spread(
     return_col: str = "forward_return",
     n_groups: int = 5,
     overlap_periods: int | None = None,
-    nw_lags: int | None = None,
+    newey_west_lags: int | None = None,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     """Bucket time-series factor by historical quantiles, test conditional means.
@@ -110,7 +110,7 @@ def common_quantile_spread(
             shape check is reported as NaN below ``K = 3``.
         overlap_periods: Overlap horizon of the forward return; floors
             the Newey-West (NW) bandwidth.
-        nw_lags: Override for the NW lag count. ``None`` resolves to
+        newey_west_lags: Override for the NW lag count. ``None`` resolves to
             the standard rule given ``overlap_periods`` and ``T``.
 
     Returns:
@@ -234,7 +234,7 @@ def common_quantile_spread(
     X = np.zeros((n_periods, n_groups))
     X[np.arange(n_periods), bucket_idx] = 1.0
 
-    lags = _resolve_nw_lags(n_periods, nw_lags, overlap_periods)
+    lags = _resolve_nw_lags(n_periods, newey_west_lags, overlap_periods)
     beta, V_hac, _ = _ols_nw_multivariate(r, X, lags=lags)
 
     R = np.zeros((1, n_groups))
@@ -279,7 +279,7 @@ def common_quantile_spread(
         "n_groups": n_groups,
         "n_periods": n_periods,
         "n_distinct_factor": n_distinct,
-        "nw_lags_used": lags,
+        "newey_west_lags_used": lags,
         "buckets": [
             {
                 "idx": int(k),

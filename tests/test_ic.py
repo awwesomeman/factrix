@@ -7,6 +7,7 @@ import numpy as np
 import polars as pl
 import pytest
 from factrix.inference import NeweyWest, NonOverlapping, StationaryBootstrap
+from factrix.inference.series_mean import HANSEN_HODRICK
 from factrix.metrics.ic import compute_ic, ic, ic_ir
 
 
@@ -462,7 +463,7 @@ class TestICInferenceAllowlist:
             ic(
                 self._ic_series(40),
                 overlap_periods=1,
-                inference=fx.inference.HANSEN_HODRICK,
+                inference=HANSEN_HODRICK,
             )
         assert exc.value.func_name == "ic"
         assert exc.value.applicable == (

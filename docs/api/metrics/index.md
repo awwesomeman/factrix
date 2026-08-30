@@ -115,12 +115,13 @@ passed method against its own allowlist and raises
 `IncompatibleInferenceError` for anything outside it, instead of running an
 unvetted test or falling back silently.
 
-`factrix.inference.HANSEN_HODRICK` is available as a standalone series-mean
-inference member, but it is deliberately in no metric's allowlist. The
-metric-supported choices are `NON_OVERLAPPING` and `NEWEY_WEST` on every
-`inference=`-bearing metric, plus `STATIONARY_BOOTSTRAP` on `ic` only —
-`quantile_spread`, `quantile_spread_vw` and `k_spread` hard-branch on
-`isinstance(NeweyWest)` and would need a polymorphic dispatch first.
+The metric-supported choices are `NON_OVERLAPPING`, `NEWEY_WEST` and
+`STATIONARY_BOOTSTRAP` on every `inference=`-bearing metric.
+`HansenHodrick` is **research-only**: it is in no metric's allowlist, so it
+is not exported from `factrix.inference` at all. Import it from
+`factrix.inference.series_mean` and call
+`HANSEN_HODRICK.compute(series_df, value_col=..., overlap_periods=...)`
+directly for a comparison study.
 
 ## Cell vs. DataStructure
 
