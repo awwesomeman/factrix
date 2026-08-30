@@ -28,7 +28,7 @@ from factrix.metrics._helpers import (
     _densify_on_period_grid,
     _warn_ragged_event_grid,
 )
-from factrix.metrics._primitives import compute_event_returns
+from factrix.metrics._primitives import compute_event_returns, compute_mfe_mae
 
 _D0 = date(2020, 1, 1)
 
@@ -165,6 +165,42 @@ class TestGoldenDensePanel:
             (pl.col("signed_return") - pl.col("signed_return_golden")).abs().max()
         ).item() == pytest.approx(0.0, abs=0.0)
 
+    def test_mfe_mae_matches_per_asset_row_excursions(self) -> None:
+        panel = _dense_event_panel()
+        window = 10
+        got = compute_mfe_mae(panel, window=window)
+        # The old row form: walk each asset's own rows for the excursion.
+        rows: list[dict] = []
+        sorted_df = panel.sort(["asset_id", "date"])
+        for aid, adf in sorted_df.group_by("asset_id", maintain_order=True):
+            prices = adf["price"].to_numpy()
+            idx_of = {d: i for i, d in enumerate(adf["date"].to_list())}
+            for row in adf.filter(pl.col("factor") != 0).iter_rows(named=True):
+                i = idx_of[row["date"]]
+                direction = 1.0 if row["factor"] > 0 else -1.0
+                end = min(i + window + 1, len(prices))
+                if i + 1 >= end:
+                    continue
+                signed = direction * (prices[i + 1 : end] / prices[i] - 1)
+                rows.append(
+                    {
+                        "date": row["date"],
+                        "asset_id": aid[0],
+                        "mfe_golden": max(0.0, float(np.max(signed))),
+                        "mae_golden": min(0.0, float(np.min(signed))),
+                    }
+                )
+        golden = pl.DataFrame(rows).with_columns(
+            pl.col("date").cast(panel.schema["date"])
+        )
+        assert got.height == golden.height
+        merged = got.join(golden, on=["date", "asset_id"], how="inner")
+        assert merged.height == got.height
+        for col in ("mfe", "mae"):
+            assert merged.select(
+                (pl.col(col) - pl.col(f"{col}_golden")).abs().max()
+            ).item() == pytest.approx(0.0, abs=0.0)
+
 
 class TestRaggedHandCase:
     """2 assets, a 120-period grid, B missing periods 60-79, window 30, h = 5."""
@@ -267,6 +303,66 @@ class TestRaggedOffsets:
         assert float(b["signed_return"][0]) == pytest.approx(expected, rel=1e-12)
 
 
+class TestRaggedExcursionWindow:
+    """The mfe_mae excursion spans grid periods, not the asset's own rows."""
+
+    def test_excursion_spans_window_grid_periods(self) -> None:
+        # B's event sits at period 55 and the hole is 60-79, so a 10-period
+        # excursion covers grid periods 56..65: five observed periods, then
+        # five that B is missing. The row form would have walked on to period
+        # 85 — a "10-period" excursion spanning 30 grid periods.
+        panel = _panel(gap=(60, 80), event_at=55)
+        out = compute_mfe_mae(panel, window=10)
+        b = out.filter(pl.col("asset_id") == "B")
+        assert b.height == 1
+
+        prices = dict(
+            zip(
+                panel.filter(pl.col("asset_id") == "B")["date"].to_list(),
+                panel.filter(pl.col("asset_id") == "B")["price"].to_list(),
+                strict=True,
+            )
+        )
+        entry = prices[_D0 + timedelta(days=55)]
+        grid_periods = list(range(56, 66))
+        assert len(grid_periods) == 10
+        # Periods 60..65 fall in B's hole and contribute nothing; the window
+        # does NOT walk on past the hole to collect ten observed periods.
+        grid_path = [
+            prices[_D0 + timedelta(days=t)] / entry - 1.0
+            for t in grid_periods
+            if _D0 + timedelta(days=t) in prices
+        ]
+        assert len(grid_path) == 4
+        assert float(b["mfe"][0]) == pytest.approx(
+            max(0.0, max(grid_path)), rel=1e-12, abs=1e-15
+        )
+        assert float(b["mae"][0]) == pytest.approx(
+            min(0.0, min(grid_path)), rel=1e-12, abs=1e-15
+        )
+
+        # The row form reached over the hole to periods 80..84.
+        row_periods = list(range(56, 60)) + list(range(80, 86))
+
+        assert len(row_periods) == 10
+        assert row_periods[-1] - row_periods[0] + 1 == 30
+        row_path = [prices[_D0 + timedelta(days=t)] / entry - 1.0 for t in row_periods]
+        assert len(row_path) == 10
+        # The extra periods it swept in carry a deeper adverse excursion.
+        assert float(b["mae"][0]) != pytest.approx(min(0.0, min(row_path)), rel=1e-9)
+
+        # A dense name on the same panel is untouched.
+        assert out.filter(pl.col("asset_id") == "A").height == 1
+
+    def test_excursion_entirely_inside_the_hole_yields_no_event(self) -> None:
+        # Event at period 59, hole 60-79, window 10: every period of the
+        # excursion is missing for B, so there is no excursion to report.
+        panel = _panel(gap=(60, 80), event_at=59)
+        out = compute_mfe_mae(panel, window=10)
+        assert out.filter(pl.col("asset_id") == "B").height == 0
+        assert out.filter(pl.col("asset_id") == "A").height == 1
+
+
 def _ragged_event_panel(*, ragged: bool) -> pl.DataFrame:
     """A 20-asset event panel with the forward return, optionally ragged.
 
@@ -300,16 +396,22 @@ _RAGGED_CODE = WarningCode.RAGGED_PERIOD_GRID.value
 def _entry_points() -> dict[str, object]:
     """The event metrics that must record ``ragged_period_grid``.
 
-    ``caar`` runs through its ``compute_caar`` pipeline node, which is where
-    the panel is seen; the rest read it off their own input.
+    ``caar`` and ``mfe_mae`` run through their own pipeline node
+    (``compute_caar`` / ``compute_mfe_mae``), which is where the panel is
+    seen; the rest read it off their own input.
     """
     from factrix.metrics.caar import bmp_z, caar, compute_caar
     from factrix.metrics.corrado_rank import corrado_rank
     from factrix.metrics.event_horizon import event_around_return
     from factrix.metrics.event_quality import event_hit_rate, event_ic, event_skewness
+    from factrix.metrics.mfe_mae import compute_mfe_mae as _compute_mfe_mae
+    from factrix.metrics.mfe_mae import mfe_mae
 
     def _caar(panel: pl.DataFrame, **kwargs: object) -> object:
         return caar(compute_caar(panel), **kwargs)  # type: ignore[arg-type]
+
+    def _mfe_mae(panel: pl.DataFrame, **kwargs: object) -> object:
+        return mfe_mae(_compute_mfe_mae(panel), **kwargs)  # type: ignore[arg-type]
 
     return {
         "bmp_z": bmp_z,
@@ -319,6 +421,7 @@ def _entry_points() -> dict[str, object]:
         "event_ic": event_ic,
         "event_skewness": event_skewness,
         "event_around_return": event_around_return,
+        "mfe_mae": _mfe_mae,
     }
 
 
