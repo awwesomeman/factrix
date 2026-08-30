@@ -21,7 +21,7 @@ References:
       Bootstrap."
     - [Politis & White (2004)][politis-white-2004], "Automatic Block-
       Length Selection for the Dependent Bootstrap." ``block_length=None``
-      runs the same spectral plug-in used by ``factrix.stats.BlockBootstrap``
+      runs the same spectral plug-in used by ``factrix.inference.StationaryBootstrap``
       (via ``factrix._stats.bootstrap._politis_white_block_length``), so
       "auto" means one calibrated estimate everywhere in the library rather
       than a cruder standalone default.
@@ -39,7 +39,7 @@ from factrix._stats.bootstrap import BOOTSTRAP_RESAMPLES_FLOOR
 
 
 def _resolve_auto_block_length(values: np.ndarray) -> float:
-    """Politis-White (2004) block length, shared with ``BlockBootstrap``.
+    """Politis-White (2004) block length, shared with ``StationaryBootstrap``.
 
     Matrix input resamples every column under one shared row-index draw
     (see ``stationary_bootstrap_resamples``), so a single block length must

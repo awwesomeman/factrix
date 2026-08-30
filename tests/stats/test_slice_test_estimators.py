@@ -1,10 +1,8 @@
-"""Tests for slice-test Estimators: WaldNWCluster / WaldTwoWayCluster / BlockBootstrap."""
+"""Tests for the selection-only Estimator handles: WaldNWCluster / WaldTwoWayCluster / DriscollKraay."""
 
 from __future__ import annotations
 
-import pytest
 from factrix.stats import (
-    BlockBootstrap,
     DriscollKraay,
     WaldNWCluster,
     WaldTwoWayCluster,
@@ -13,7 +11,6 @@ from factrix.stats import (
 _ALL_ESTIMATORS = (
     WaldNWCluster(),
     WaldTwoWayCluster(),
-    BlockBootstrap(),
     DriscollKraay(),
 )
 
@@ -24,7 +21,6 @@ class TestEstimatorProtocol:
         assert names == {
             "WaldNWCluster",
             "WaldTwoWayCluster",
-            "BlockBootstrap",
             "DriscollKraay",
         }
 
@@ -40,56 +36,3 @@ class TestWaldTwoWayCluster:
     def test_description_mentions_two_way(self):
         d = WaldTwoWayCluster().description.lower()
         assert "two-way" in d or "double" in d or "cgm" in d
-
-
-class TestBlockBootstrap:
-    def test_default_ctor(self):
-        est = BlockBootstrap()
-        assert est.block_length == "auto"
-        assert est.n_resamples == 999
-        assert est.scheme == "stationary"
-        assert est.rng_seed is None
-
-    def test_explicit_config_stored(self):
-        est = BlockBootstrap(
-            block_length=20,
-            n_resamples=499,
-            scheme="fixed",
-            rng_seed=42,
-        )
-        assert est.block_length == 20
-        assert est.n_resamples == 499
-        assert est.scheme == "fixed"
-        assert est.rng_seed == 42
-
-    def test_description_reflects_config(self):
-        est = BlockBootstrap(block_length=10, scheme="fixed", n_resamples=299)
-        d = est.description
-        assert "fixed" in d
-        assert "L=10" in d
-        assert "B=299" in d
-
-    def test_rejects_bad_block_length(self):
-        with pytest.raises(ValueError, match="block_length must be"):
-            BlockBootstrap(block_length=0)
-
-    def test_n_resamples_below_the_shared_inference_floor_is_rejected(self):
-        """BlockBootstrap reports a Davison-Hinkley empirical p from a
-        user-settable resample count, so it shares the refusal floor with
-        ``bootstrap_mean_ci`` and ``monotonicity``."""
-        from factrix._stats.bootstrap import BOOTSTRAP_RESAMPLES_FLOOR
-
-        for bad in (0, 1, BOOTSTRAP_RESAMPLES_FLOOR - 1):
-            with pytest.raises(ValueError, match="n_resamples must be >= 200"):
-                BlockBootstrap(n_resamples=bad)
-
-    def test_rejects_bad_scheme(self):
-        with pytest.raises(ValueError, match="scheme must be"):
-            BlockBootstrap(scheme="rolling")  # type: ignore[arg-type]
-
-    def test_two_instances_distinct(self):
-        # Same class, different config — caller passes an explicitly-
-        # constructed instance to make the inference choice explicit.
-        a = BlockBootstrap(scheme="stationary")
-        b = BlockBootstrap(scheme="fixed")
-        assert a.scheme != b.scheme

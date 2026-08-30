@@ -1,4 +1,4 @@
-"""Block-bootstrap primitives backing the ``BlockBootstrap`` Estimator.
+"""Block-bootstrap primitives backing ``StationaryBootstrap`` and the period slice tests.
 
 Two resampling schemes for dependent time series, plus the
 [Politis-White (2004)][politis-white-2004] automatic block-length
@@ -17,9 +17,10 @@ selector and a paired-diff empirical p-value:
 
 The public ``factrix.stats.bootstrap`` module ships standalone
 ``stationary_bootstrap_resamples`` / ``bootstrap_mean_ci`` for callers
-that want a CI utility outside the Estimator dispatch chain. This
-private module is consumed by the procedure that backs the
-``BlockBootstrap`` Estimator.
+that want a CI utility outside the inference dispatch chain. This
+private module is consumed by ``factrix.inference.StationaryBootstrap``
+(``_block_bootstrap_diff_p``) and by the period-family slice tests
+(``_stationary_block_indices`` / ``_politis_white_block_length``).
 
 References:
     - Politis, D. N. & Romano, J. P. (1992). "A Circular Block-
@@ -48,8 +49,8 @@ Scheme = Literal["fixed", "stationary"]
 #: by resampling noise: at B=200 the 2.5% tail is the 5th order statistic.
 #: Politis-White (2004) recommend >= 999 for two-sided 5% work; this is the
 #: refusal floor shared by every entry point that exposes a user-settable
-#: resample count *and* reports an inference drawn from it: ``bootstrap_mean_ci``,
-#: ``monotonicity``'s MR test, and ``BlockBootstrap``. Not the recommendation.
+#: resample count *and* reports an inference drawn from it: ``bootstrap_mean_ci``
+#: and ``monotonicity``'s MR test. Not the recommendation.
 #: Two neighbours are deliberately outside it: ``stationary_bootstrap_resamples``
 #: and ``_block_bootstrap_diff_p`` return draws / a raw p to internal callers
 #: without owning a user-facing knob, and the slice paths fix their own count at
@@ -242,12 +243,15 @@ def _max_block_length(n: int) -> int:
     return max(1, int(np.ceil(min(3.0 * np.sqrt(n), n / 3.0))))
 
 
-def _validate_block_length(block_length: float, n: int, func_name: str) -> None:
+def _validate_block_length(
+    block_length: float, n: int, func_name: str, docs_path: str
+) -> None:
     """Reject a block length too long for the sample. Raises ``UserInputError``.
 
-    ``func_name`` must be the *public* entry point the caller reached this
-    through (``BlockBootstrap``, ``stationary_bootstrap_resamples``), not the
-    private frame that happens to call it — the message is user-facing.
+    ``func_name`` / ``docs_path`` must name the *public* entry point the
+    caller reached this through (``StationaryBootstrap``,
+    ``stationary_bootstrap_resamples``), not the private frame that happens
+    to call it — the message is user-facing.
 
     ``L >= 1`` alone is not enough: see :func:`_max_block_length` for the
     degeneracy at ``L >= n``. This is a refusal rather than a silent clamp
@@ -267,7 +271,7 @@ def _validate_block_length(block_length: float, n: int, func_name: str) -> None:
                 f"a block length in [1, {b_max}] for a series of {n} "
                 f"observations (ceil(min(3*sqrt(n), n/3)))"
             ),
-            docs_path="api/stats#factrix.stats.BlockBootstrap",
+            docs_path=docs_path,
         )
 
 
@@ -320,7 +324,12 @@ def _stationary_block_indices(
     """
     if n == 0:
         return np.empty((n_resamples, 0), dtype=np.int64)
-    _validate_block_length(mean_block_length, n, "stationary_bootstrap_resamples")
+    _validate_block_length(
+        mean_block_length,
+        n,
+        "stationary_bootstrap_resamples",
+        "api/stats#factrix.stats.stationary_bootstrap_resamples",
+    )
     p_new = 1.0 / mean_block_length
     starts = rng.integers(0, n, size=(n_resamples, n))
     new_block = rng.random(size=(n_resamples, n)) < p_new
@@ -358,7 +367,9 @@ def _fixed_block_indices(
     """
     if n == 0:
         return np.empty((n_resamples, 0), dtype=np.int64)
-    _validate_block_length(block_length, n, "BlockBootstrap")
+    _validate_block_length(
+        block_length, n, "StationaryBootstrap", "reference/statistical-methods"
+    )
     n_blocks = int(np.ceil(n / block_length))
     starts = rng.integers(0, n, size=(n_resamples, n_blocks))
     offsets = np.arange(block_length, dtype=np.int64)
@@ -494,7 +505,7 @@ def _block_bootstrap_diff_p(
     # already knows it exactly there is no reason to accept a shorter block.
     if overlap_periods is not None and overlap_periods > 1:
         L = max(L, float(min(overlap_periods, _max_block_length(n))))
-    _validate_block_length(L, n, "BlockBootstrap")
+    _validate_block_length(L, n, "StationaryBootstrap", "reference/statistical-methods")
 
     # Resolve seed up front so it can be reported back even when None.
     # `secrets.randbits(32)` is the purpose-built "give me a random int

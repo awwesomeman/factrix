@@ -187,7 +187,7 @@ class TestStationaryBlockIndices:
             _stationary_block_indices(30, 5, mean_block_length=200.0, rng=rng)
 
 
-class TestBlockBootstrapDiffP:
+class TestStudentizedDiffP:
     def test_calibration_under_null(self):
         # Under H0 (true mean = 0), p should be roughly uniform — in
         # particular, large p on a series with mean ≈ 0.
