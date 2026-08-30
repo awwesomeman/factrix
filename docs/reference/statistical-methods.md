@@ -1229,7 +1229,7 @@ column. A reduced-replication re-run guards the numbers in
 ### Inference paths still without a size table
 
 Every other `p_value` factrix publishes has a measured size somewhere in
-this section. These four do not, and are listed here rather than left
+this section. These two do not, and are listed here rather than left
 silent so the gap is a documented one. A test
 (`tests/stats/test_section6_covers_every_p_value_path.py`) enumerates the
 metrics whose `MetricResult` can carry a non-`None` `p_value` and fails if
@@ -1249,13 +1249,77 @@ a calibration. Until then read both metrics' `p_value` at
 `overlap_periods > 1` as not calibrated — prefer `h = 1`, or read `value`
 and the bucket / slope detail in `metadata` descriptively.
 
-**`common_beta` and `ic_trend` — not yet measured.** Neither has a
-true-null size measurement on this page. Both are per-period series means
-tested with the same HAC machinery §1 measures, so the sizes documented
-there are the closest available guide, but neither has been measured on
-its own null and neither should be read as inheriting a table it does not
-have. Treat a borderline p from either as uncalibrated pending
-measurement.
+### `common_beta`: measured size of the calendar-time cross-asset $t$
+
+True-null rejection rates at a nominal 5% for `common_beta`'s
+cross-asset $t$ on $\mathbb{E}[\beta]$, on the COMMON-scope null the
+metric's cell describes: one AR($\varphi$) factor series broadcast to
+every asset, drawn from an RNG stream independent of the
+`make_cs_panel(n_assets=50, ic_target=0.0)` prices, so every true
+per-asset $\beta$ is zero while the assets keep the cross-sectional
+return correlation the panel generates. 300 replications per cell, seed
+`20260830 + rep` (factor stream `20260830 + 10000 + rep`), Monte-Carlo
+standard error ~1.3pp. `T` counts periods on the evaluation grid and `h`
+is `forward_periods`, passed through as `overlap_periods`.
+
+| T | h | φ = 0 | φ = 0.9 |
+|---|---|---|---|
+| 60 | 1 | 0.067 | 0.057 |
+| 60 | 5 | 0.073 | 0.033 |
+| 120 | 1 | 0.060 | 0.067 |
+| 120 | 5 | 0.067 | 0.027 |
+| 240 | 1 | 0.053 | 0.047 |
+| 240 | 5 | 0.053 | 0.020 |
+
+Calibrated across the grid (2.0–7.3%), with the worst cells at the short
+end where the Newey-West variance $V_{\mathrm{EW}}$ of the equal-weight
+portfolio slope rests on fewest periods. The calendar-time SE is what
+holds it there: the iid cross-asset $t$ the docstring keeps as
+`metadata["stat_uncorrected"]` is the one this null breaks, because 50
+assets loading on one shared regressor do not supply 50 independent
+betas. The persistent-factor column is the *conservative* direction at
+`h = 5` (3.3 / 2.7 / 2.0% against 7.3 / 6.7 / 5.3%) — a φ = 0.9 regressor
+read through an overlapping forward return leaves more serial dependence
+for the Newey-West kernel to pick up, so the SE widens. A
+reduced-replication re-run guards the numbers in
+`tests/stats/test_common_beta_size.py`. This is the panel-null companion
+to the synthetic-regime measurements in the function's own docstring
+(equicorrelated returns at fixed $T$, varying $N$ and $\rho$); neither
+covers a hand-built beta table, which falls back to the iid $t$ and says
+so in `metadata["calendar_time_se_applied"]`.
+
+### `ic_trend`: measured size of the Mann-Kendall trend test
+
+True-null rejection rates at a nominal 5% for `ic_trend`. The series is
+the per-period Spearman IC of `make_cs_panel(n_assets=50,
+ic_target=0.0)` through `compute_ic`, so the IC has no time trend to
+find; `factor_persistence` supplies the second null. The test runs on the
+non-overlapping subsample at stride `overlap_periods`, so the `h = 5`
+rows test roughly `T / 5` observations. 300 replications per cell, seed
+`20260830 + rep`, Monte-Carlo standard error ~1.3pp.
+
+| T | h | φ = 0 | φ = 0.9 |
+|---|---|---|---|
+| 60 | 1 | 0.040 | 0.030 |
+| 60 | 5 | 0.017 | 0.047 |
+| 120 | 1 | 0.043 | 0.050 |
+| 120 | 5 | 0.033 | 0.053 |
+| 240 | 1 | 0.017 | 0.047 |
+| 240 | 5 | 0.033 | 0.047 |
+
+Calibrated-to-conservative throughout (1.7–5.3%), and unlike the
+per-period mean paths in §1 the persistent factor moves nothing outside
+the iid band: factor persistence carries into the *level* of the
+per-period IC, not into a drift in it, and the Hamed-Rao variance
+correction absorbs the serial dependence the IC series does carry. Two
+things the table does not license. It is measured with the ADF gate at
+its default `adf_threshold=0.10`, on a null that is trend-free but also
+stationary — a unit-root input is the regime the gate exists for
+(`PERSISTENT_REGRESSOR`), and no size here speaks to it. And it is a
+*size* table only: the Theil-Sen slope's robustness is what recommends it
+over OLS, not a power advantage, and nothing above measures power. A
+reduced-replication re-run guards the numbers in
+`tests/stats/test_ic_trend_size.py`.
 
 ### Which path to read: a routing guide from the size measurements
 

@@ -137,7 +137,9 @@ def ic_trend(
         which the trend null is rejected at inflated rates regardless of
         the true trend, and now carries
         ``WarningCode.PERSISTENT_REGRESSOR`` rather than sitting in
-        metadata alone.
+        metadata alone. On a trend-free IC series the Mann-Kendall p
+        measures 1.7-5.3% at a nominal 5% over ``T`` in 60/120/240 and
+        ``h`` in 1/5 (``statistical-methods`` section 6).
 
         **Two corrections for serial dependence.** Striding does ~99% of
         the work; Hamed-Rao handles the residual persistence that
