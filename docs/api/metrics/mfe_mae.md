@@ -19,17 +19,18 @@ title: factrix.metrics.mfe_mae
     ---
 
     For each event, find the peak gain (MFE) and peak loss (MAE) over
-    the post-event window, plus bars-to-peak. Descriptive of the
+    the post-event window, plus periods-to-peak. Descriptive of the
     *shape* of the post-event price path, not just its endpoint.
 
 -   __Risk-adjusted favourability__
 
     ---
 
-    Headline ratio $\mathrm{MFE}_{p50} / |\mathrm{MAE}_{p75}|$ pairs
-    the median favourable excursion against the 75th percentile
-    adverse excursion — captures whether typical upside exceeds worst-
-    quartile downside.
+    Headline ratio $\mathrm{MFE}_{p50} / |\mathrm{MAE}_{p25}|$ pairs
+    the median favourable excursion against the worst adverse
+    quartile (MAE is a signed non-positive excursion, so the worst
+    quartile is the 25th percentile) — captures whether typical
+    upside exceeds worst-quartile downside.
 
 -   __Cross-horizon / cross-regime comparison__
 
@@ -42,6 +43,25 @@ title: factrix.metrics.mfe_mae
     regimes.
 
 </div>
+
+## Windows are counted on the panel's period grid
+
+`window` and `estimation_window` are counts of periods on the panel's own
+distinct-date grid, not counts of an asset's rows. Each event asset is laid
+onto the full grid before the excursion is walked, so on a ragged panel — an
+asset missing periods the other names have — the excursion spans exactly
+`window` grid periods and the missing periods count as missing observations
+inside it, instead of the walk stepping over the hole and reaching further
+out. A dense panel is unaffected. `bars_to_mfe` / `bars_to_mae` are offsets in
+grid periods.
+
+A ragged panel records `WarningCode.ragged_period_grid` on the `mfe_mae`
+result: the windows still span the requested number of periods, but a name
+missing periods carries fewer observations inside them than the rest, so its
+`est_sigma` (and the z-scored siblings) rest on a smaller sample. Declare it
+with `evaluate(..., expected_warnings=("ragged_period_grid",))` to silence the
+echo — the code is still recorded — or reindex the panel onto a common grid
+before calling.
 
 ## Choosing a function
 

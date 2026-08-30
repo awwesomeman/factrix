@@ -29,7 +29,11 @@ from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._types import EPSILON, MIN_EVENTS_HARD
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _enforce_min_floor, _short_circuit_output
+from factrix.metrics._helpers import (
+    _enforce_min_floor,
+    _record_ragged_event_grid,
+    _short_circuit_output,
+)
 from factrix.metrics._primitives import compute_mfe_mae
 
 __all__ = [
@@ -75,7 +79,11 @@ def _excursion_ratio(mfe: float, mae: float) -> tuple[float, str]:
     requires={"mfe_mae_df": compute_mfe_mae},
     sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
 )
-def mfe_mae(mfe_mae_df: pl.DataFrame) -> MetricResult:
+def mfe_mae(
+    mfe_mae_df: pl.DataFrame,
+    *,
+    expected_warnings: tuple[str, ...] = (),
+) -> MetricResult:
     """Aggregate MFE/MAE statistics.
 
     The static event floor (sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD)) gates the summary on the per-event MFE/MAE count. Pre-flight reads the raw non-zero factor count as a loose upper bound.
@@ -85,6 +93,8 @@ def mfe_mae(mfe_mae_df: pl.DataFrame) -> MetricResult:
 
     Args:
         mfe_mae_df: Output of ``compute_mfe_mae()``.
+        expected_warnings: Warning codes the caller declares; a declared code
+            is still recorded, the ``UserWarning`` echo is silenced.
 
     Returns:
         MetricResult with value=MFE_p50/|MAE_p25| ratio. On insufficient
@@ -127,7 +137,13 @@ def mfe_mae(mfe_mae_df: pl.DataFrame) -> MetricResult:
         (``mfe >= 0``, ``mae <= 0``, the Sweeney/Tharp definition), so the
         sign of ``mae`` is guaranteed here rather than assumed. Entry is
         the event bar's own close — see ``compute_mfe_mae`` for why this
-        primitive enters one bar earlier than the return-profile ones.
+        primitive enters one period earlier than the return-profile ones.
+
+        The excursion and estimation windows are counted on the panel's
+        period grid (see ``compute_mfe_mae``). A ragged panel records
+        ``WarningCode.RAGGED_PERIOD_GRID``: the windows still span the
+        requested number of periods, but an asset missing periods carries
+        fewer observations inside them than the rest.
 
     Examples:
         Chain from :func:`compute_mfe_mae` output:
@@ -152,6 +168,17 @@ def mfe_mae(mfe_mae_df: pl.DataFrame) -> MetricResult:
             n_events=0,
         )
 
+    # The panel itself is one DAG node upstream, so compute_mfe_mae measures
+    # the raggedness and broadcasts its note; the code is recorded here, where
+    # the metric's warning codes live.
+    warning_codes: list[str] = []
+    if "ragged_period_grid_note" in mfe_mae_df.columns and mfe_mae_df.height:
+        _record_ragged_event_grid(
+            mfe_mae_df["ragged_period_grid_note"][0] or None,
+            warning_codes,
+            expected_warnings=expected_warnings,
+        )
+
     mfe = mfe_mae_df["mfe"].drop_nulls().drop_nans()
     mae = mfe_mae_df["mae"].drop_nulls().drop_nans()
 
@@ -162,6 +189,7 @@ def mfe_mae(mfe_mae_df: pl.DataFrame) -> MetricResult:
         n_events,
         "insufficient_events",
         axis="events",
+        warning_codes=tuple(warning_codes),
         mfe_mae_ratio=float("nan"),
         n_events=n_events,
     )
@@ -202,5 +230,6 @@ def mfe_mae(mfe_mae_df: pl.DataFrame) -> MetricResult:
         value=ratio,
         n_obs=n_events,
         n_obs_axis="events",
+        warning_codes=tuple(warning_codes),
         metadata=metadata,
     )
