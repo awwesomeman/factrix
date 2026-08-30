@@ -38,6 +38,9 @@ class WarningCode(StrEnum):
     # plain t all over-reject, by 2–4x nominal at phi = 0.6 and worse above —
     # so the practitioner response is a raised hurdle (Harvey-Liu-Zhu 2016:
     # t > 3) or a longer sample, not a different inference member.
+    # The screen is WITHHELD below MIN_SERIES_PERIODS_HARD (10) strided
+    # observations: a lag-1 read off three to nine points is noise, and the
+    # shortage of periods is what UNRELIABLE_SE_SHORT_PERIODS reports.
     SERIAL_CORRELATION_DETECTED = "serial_correlation_detected"
     # Single cross-asset n_assets guard for PANEL common_continuous: the cross-asset
     # t-test on E[β] runs for any n_assets >= 2 (this axis never raises) but its t_crit
@@ -401,7 +404,11 @@ _WARNING_DESCRIPTIONS.update(
         WarningCode.SERIAL_CORRELATION_DETECTED: "The tested per-period series is "
         "persistent beyond the overlap horizon: lag-1 autocorrelation above "
         "PERSISTENT_SERIES_AUTOCORR (0.3) on the series strided at "
-        "overlap_periods. The MA(h-1) autocorrelation that overlapping "
+        "overlap_periods, which must itself reach MIN_SERIES_PERIODS_HARD "
+        "(10) observations — below that the screen is withheld, because a "
+        "lag-1 autocorrelation estimated from three to nine points is noise "
+        "and the shortage of periods is what UNRELIABLE_SE_SHORT_PERIODS "
+        "reports. The MA(h-1) autocorrelation that overlapping "
         "h-period forward returns induce is absorbed by the HAC bandwidth "
         "floor and the bootstrap block-length floor and does not fire this "
         "code; what does is persistence the stride cannot remove. No HAC or "

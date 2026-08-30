@@ -30,7 +30,12 @@ import polars as pl
 import pytest
 from factrix._stats.constants import PERSISTENT_SERIES_AUTOCORR
 from factrix._stats.diagnostics import _lag1_autocorr
+from factrix._types import MIN_SERIES_PERIODS_HARD
 from factrix.inference import NEWEY_WEST, NON_OVERLAPPING, StationaryBootstrap
+from factrix.inference.series_mean import (
+    _persistent_beyond_horizon,
+    _persistent_sample,
+)
 from factrix.metrics._helpers import _stride_dates
 from factrix.metrics._primitives import compute_ic
 from factrix.metrics.ic import ic
@@ -196,3 +201,48 @@ def test_stride_of_one_leaves_the_screen_unchanged():
     ic_df = _ar_signal_ic(240, 0.6, BASE_SEED)
     strided = _stride_dates(ic_df.sort("date"), 1)
     assert strided.equals(ic_df.sort("date"))
+
+
+# --------------------------------------------------------------------------
+# The series-periods floor: below it the screen is withheld, not guessed at.
+# --------------------------------------------------------------------------
+
+
+def _ramp_ic_frame(n_periods: int) -> pl.DataFrame:
+    """An IC series of ``n_periods`` points with lag-1 autocorrelation near 1.
+
+    A monotone ramp — as persistent as a series can be, so the only thing
+    that can keep the screen quiet is the periods floor itself.
+    """
+    dates = [dt.datetime(2024, 1, 1) + dt.timedelta(days=i) for i in range(n_periods)]
+    return pl.DataFrame(
+        {
+            "date": np.array(dates, dtype="datetime64[ms]"),
+            "ic": np.arange(n_periods, dtype=float),
+            "n_assets": np.full(n_periods, N_ASSETS),
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    ("n_periods", "expected"),
+    [(MIN_SERIES_PERIODS_HARD - 1, False), (MIN_SERIES_PERIODS_HARD, True)],
+)
+def test_screen_is_withheld_below_the_series_periods_floor(n_periods, expected):
+    """9 strongly autocorrelated observations do not fire; 10 do."""
+    ic_df = _ramp_ic_frame(n_periods)
+    values = ic_df["ic"].to_numpy()
+    # The input really is persistent — only the floor can be keeping it quiet.
+    assert _lag1_autocorr(values) > PERSISTENT_SERIES_AUTOCORR
+    assert _persistent_sample(values) is expected
+    assert _persistent_beyond_horizon(ic_df, "ic", 1) is expected
+
+
+def test_the_floor_is_the_stride_survivor_count_not_the_input_length():
+    """A long input strided below the floor is withheld all the same."""
+    # 27 periods strided at 21 leaves 2 survivors, below the floor.
+    ic_df = _ramp_ic_frame(27)
+    assert _lag1_autocorr(ic_df["ic"].to_numpy()) > PERSISTENT_SERIES_AUTOCORR
+    assert _persistent_beyond_horizon(ic_df, "ic", 21) is False
+    # The same input at stride 1 keeps all 27 and fires.
+    assert _persistent_beyond_horizon(ic_df, "ic", 1) is True

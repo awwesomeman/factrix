@@ -47,6 +47,7 @@ from factrix._types import MIN_SERIES_PERIODS_HARD
 from factrix.inference._base import InferenceResult
 
 if TYPE_CHECKING:
+    import numpy as np
     import polars as pl
 
 
@@ -62,6 +63,25 @@ def _clean_series(data: pl.DataFrame, value_col: str) -> pl.Series:
     if data["date"].is_sorted():
         return data[value_col].drop_nulls().drop_nans()
     return data.sort("date").get_column(value_col).drop_nulls().drop_nans()
+
+
+def _persistent_sample(values: np.ndarray) -> bool:
+    """Whether a strided subsample is persistent enough to warrant the screen.
+
+    Two conditions, both required. The lag-1 autocorrelation must exceed
+    ``PERSISTENT_SERIES_AUTOCORR``, and the subsample must reach
+    ``MIN_SERIES_PERIODS_HARD`` — the library's floor for estimating a
+    series statistic on the periods axis, the same one ``NonOverlapping``'s
+    post-stride sample is gated on. Below it the screen is **withheld**: a
+    lag-1 autocorrelation read off three to nine observations is noise, and
+    a sample value above 0.3 is common there under independence, so the
+    code would be reporting the shortage of periods rather than any
+    persistence. Shortage of periods is what
+    ``UNRELIABLE_SE_SHORT_PERIODS`` is for.
+    """
+    if len(values) < MIN_SERIES_PERIODS_HARD:
+        return False
+    return _lag1_autocorr(values) > PERSISTENT_SERIES_AUTOCORR
 
 
 def _persistent_beyond_horizon(
@@ -84,12 +104,13 @@ def _persistent_beyond_horizon(
     gone from that subsample, so what survives is persistence *beyond* the
     overlap horizon — the regime no path here is calibrated for. At
     ``overlap_periods <= 1`` the stride is a no-op and this is the plain
-    lag-1 screen.
+    lag-1 screen. Below ``MIN_SERIES_PERIODS_HARD`` strided observations the
+    screen is withheld — see ``_persistent_sample``.
     """
     from factrix.metrics._helpers import _stride_dates
 
     strided = _clean_series(_stride_dates(data, overlap_periods), value_col).to_numpy()
-    return _lag1_autocorr(strided) > PERSISTENT_SERIES_AUTOCORR
+    return _persistent_sample(strided)
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,12 +160,13 @@ class NonOverlapping:
         warnings: frozenset[WarningCode] = frozenset()
         # Persistence screen on the STRIDED sample — the series the t-test
         # runs on, and the same subsample the rest of the family screens
-        # (see ``_persistent_beyond_horizon``); it is already in hand here.
-        # Striding an AR(phi) series at h leaves autocorrelation phi^h, so a
-        # highly persistent full series can hand this test a near-iid
-        # subsample: AR(0.6) at h=21 sits at 4.5% (calibrated) and must not
-        # be flagged, while the same series at h=1 (32.9%) must be.
-        if _lag1_autocorr(sampled) > PERSISTENT_SERIES_AUTOCORR:
+        # (see ``_persistent_beyond_horizon``); it is already in hand here,
+        # so the array-level predicate is called directly. Striding an
+        # AR(phi) series at h leaves autocorrelation phi^h, so a highly
+        # persistent full series can hand this test a near-iid subsample:
+        # AR(0.6) at h=21 sits at 4.5% (calibrated) and must not be flagged,
+        # while the same series at h=1 (32.9%) must be.
+        if _persistent_sample(sampled):
             warnings |= frozenset({WarningCode.SERIAL_CORRELATION_DETECTED})
         # A NaN t on a subsample long enough to test means no dispersion at
         # all (every survivor identical). Flag it rather than let a NaN p read

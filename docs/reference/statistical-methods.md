@@ -795,7 +795,7 @@ Null: **iid factor** (`factor_persistence=0.0`)
 | 60 | 21 | — | 0.003 | 0.053 | 0.000 |
 | 120 | 1 | 0.050 | 0.040 | 0.053 | 0.000 |
 | 120 | 5 | 0.060 | 0.030 | 0.043 | 0.053 |
-| 120 | 21 | — | 0.023 | 0.100 | 0.080 |
+| 120 | 21 | — | 0.023 | 0.100 | 0.000 |
 | 240 | 1 | 0.053 | 0.053 | 0.060 | 0.000 |
 | 240 | 5 | 0.053 | 0.063 | 0.067 | 0.010 |
 | 240 | 21 | 0.033 | 0.027 | 0.043 | 0.060 |
@@ -809,7 +809,7 @@ Null: **persistent factor** (`factor_persistence=0.9`)
 | 60 | 21 | — | 0.010 | 0.040 | 0.000 |
 | 120 | 1 | 0.063 | 0.073 | 0.063 | 0.000 |
 | 120 | 5 | 0.073 | 0.063 | 0.067 | 0.030 |
-| 120 | 21 | — | 0.067 | 0.077 | 0.090 |
+| 120 | 21 | — | 0.067 | 0.077 | 0.000 |
 | 240 | 1 | 0.060 | 0.053 | 0.060 | 0.000 |
 | 240 | 5 | 0.080 | 0.087 | 0.090 | 0.020 |
 | 240 | 21 | 0.057 | 0.060 | 0.070 | 0.080 |
@@ -826,11 +826,24 @@ h = 21`, 2.3% at `T = 120, h = 21`) are the documented long-horizon
 conservatism of the HAR effective df `T/h − 1`, not a persistence effect —
 they are as low on the iid null as on the persistent one.
 
-The screen's 6–9% at `h = 21` on *both* nulls is its small-sample false-
-positive floor, not a signal: the strided sample there is 3–11
-observations, where a sample lag-1 above 0.3 is common under
-independence. Read a `serial_correlation_detected` on a short strided
-series as weak evidence.
+The screen is **withheld** below `MIN_SERIES_PERIODS_HARD` (10) strided
+observations — the library's floor for estimating a series statistic on
+the periods axis, the same one `NON_OVERLAPPING`'s post-stride sample is
+gated on. A lag-1 autocorrelation read off three to nine observations is
+noise: the estimator's standard error there is 0.3–0.6 and a sample value
+above `PERSISTENT_SERIES_AUTOCORR` is common under independence, so the
+code would be reporting the shortage of periods rather than any
+persistence, which is `UNRELIABLE_SE_SHORT_PERIODS`'s job. That is why
+the `h = 21` screen column reads 0.000 at `T ∈ {60, 120}` on both nulls:
+`T/h` is 3–6 observations there and nothing is estimated.
+
+`T = 240, h = 21` clears the floor at 12 strided observations and still
+fires on 6.0% (iid factor) / 8.0% (persistent factor) of draws. That is
+the residual small-sample noise of a lag-1 estimate at *n* = 12, where the
+estimator's own standard error is ~0.29 against a 0.3 threshold — equal on
+both nulls, so it is not persistence. Read a
+`serial_correlation_detected` on a strided series near the floor as weak
+evidence and check `n_obs`.
 
 #### A series that really is persistent beyond the horizon
 
@@ -965,7 +978,7 @@ windows but draw independent weights, so the overlap barely propagates.
 | 60 | 21 | — | — | — |
 | 120 | 1 | 0.060 | 0.057 | 0.003 |
 | 120 | 5 | 0.067 | 0.090 | 0.023 |
-| 120 | 21 | 0.077 | 0.100 | 0.073 |
+| 120 | 21 | 0.077 | 0.100 | 0.000 |
 | 240 | 1 | 0.047 | 0.050 | 0.000 |
 | 240 | 5 | 0.083 | 0.080 | 0.003 |
 | 240 | 21 | 0.043 | 0.067 | 0.047 |
@@ -1006,7 +1019,7 @@ nominal 5%; sample sizes count periods on the evaluation grid after the
 |---|---|---|---|
 | Overlapping `forward_periods` panel, per-period series not persistent once strided (the everyday case) | No warning | `NEWEY_WEST` 5–9% on real overlapping IC (h = 5, n = 240 / 480: 5.2% / 8.8%); `NON_OVERLAPPING` calibrated. On the persistent-factor null, where the overlap actually propagates into the per-period series, `ic` measures NW 1–8.7% and the bootstrap 3–9% across `T × h`, and the screen fires on 0–9% of draws (tables above). | Keep the default member. |
 | Persistent per-period series (lag-1 φ ≥ 0.3 on the *strided* tested series) | `serial_correlation_detected` | No path is calibrated. On an AR(φ) per-period IC series at `h = 1`: plain *t* 26.7–34.7%, NW 6.7–10.3%, bootstrap 6.7–15.3% at φ = 0.6, and 62.3–65.3% / 14.3–27.3% / 9.7–21.3% at φ = 0.9 (table above); the screen fires on 94.7–100% of those draws. | Do **not** switch member; it moves the number without fixing it. Read the *t* against a raised hurdle (*t* > 3) or lengthen the sample — at φ = 0.6 the plain *t* is still 34.7% at `T = 240`, so more periods alone is not enough either. A coarser `overlap_periods` stride under `NON_OVERLAPPING` helps mechanically where the horizon allows it — the strided sample sits at φ^h, and AR(0.6) strided at h = 21 measures 4.5%. |
-| Short strided series under a long horizon, otherwise unremarkable | `serial_correlation_detected` on 5–9% of draws | With `T/h` between 3 and 11 observations after the stride, a sample lag-1 above `PERSISTENT_SERIES_AUTOCORR` happens under independence: the screen measures the same 6–9% firing rate at `h = 21` on the iid-factor and persistent-factor nulls alike (tables above). | Treat the code as weak evidence here and read `n_obs` on the strided path. Lengthening the history is the only thing that sharpens it. |
+| Fewer than `MIN_SERIES_PERIODS_HARD` (10) periods after the stride | No `serial_correlation_detected` — the screen is withheld | A lag-1 autocorrelation estimated from 3–9 observations is noise, so the screen reports nothing rather than report the shortage of periods as persistence; measured firing rate at `h = 21, T ∈ {60, 120}` is 0.000 on both nulls. Just above the floor it is still weak: 12 strided observations at `T = 240, h = 21` fire on 6.0% / 8.0% of draws, equally on the iid and persistent nulls. | Read `unreliable_se_short_periods` and `n_obs` — the periods shortage, not the persistence, is what the sample is telling you. Lengthen the history or shorten the horizon. |
 | Short strided series (fewer than ~120 periods after the stride) | `unreliable_se_short_periods`, or nothing on a moderately short series | The *t* / NW branch runs 7–9%. A block-bootstrap p is *worse* here — the spread metrics' former automatic bootstrap branch (`_block_bootstrap_diff_p`, kernel-isolated on iid input) measured 13.6% at n = 12, 9.8% at 30, 7.4% at 60, reaching 5.2% only by 120 — and the strided series is short exactly when the horizon is long. The spread-series table above says the same at the short end: 8.2% at T = 60, h = 1. | Stay on the analytic *t* / NW. Do not reach for the bootstrap to rescue a short sample; shorten the stride or lengthen the history instead. |
 | Long strided series (≥ ~120 periods) whose distribution is in doubt (heavy tails, skew) | No warning | On iid input `STATIONARY_BOOTSTRAP` sits at the same 7–9% baseline as NW (φ = 0 row above) — it buys no *size*. On the spread series it measures 4.8–9.0% across the grid above, with its worst cell at the long horizon (9.0% at T = 120, h = 21) where NW is conservative instead (2.4%). Its case is distributional: it is the only member that does not assume asymptotic normality of the mean (§1). | Read `STATIONARY_BOOTSTRAP` alongside the analytic p — on `ic` and on all three spread metrics, which admit it on the strength of the table above — when tails or skew are the doubt. A documented option, not a default. |
 | Heavy-tailed *and* short | `unreliable_se_short_periods` | The *t* is size-robust to tails — 3–4% on t(3) input, i.e. conservative — while the small-n bootstrap is not (6–14%). | Keep the *t*. Tails are not a reason to bootstrap a short series. |

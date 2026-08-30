@@ -38,7 +38,7 @@ LINK_TARGETS = (
     "../reference/statistical-methods.md"
     "#joint-period-test-on-short-slices-known-over-rejection",
     "../reference/statistical-methods.md"
-    "#persistent-per-period-series-no-hac-or-bootstrap-path-is-calibrated",
+    "#persistence-beyond-the-overlap-horizon-no-hac-or-bootstrap-path-is-calibrated",
     "../api/slice-test.md#warning-contract-slice_period_joint_test",
 )
 
