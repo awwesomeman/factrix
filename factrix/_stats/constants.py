@@ -81,3 +81,11 @@ def har_bandwidth(T: int) -> int:
 # NEGATIVE autocorrelation also breaks HAC calibration (it is what drives
 # RECT_KERNEL_NEGATIVE_VARIANCE) and is deliberately not covered here.
 PERSISTENT_SERIES_AUTOCORR: float = 0.3
+
+
+# Minimum number of period returns inside the pre-event estimation window
+# before ``compute_mfe_mae`` will report ``est_sigma`` (and with it the
+# z-normalised excursions). The window is counted on the panel's period grid,
+# so periods an asset is missing count as missing observations inside it and a
+# ragged name can fall under this floor where a dense one does not.
+DEFAULT_MIN_ESTIMATION_PERIODS: int = 20
