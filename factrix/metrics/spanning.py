@@ -374,9 +374,11 @@ def spanning_alpha(
     base_names = list(base_arrays.keys())
     beta_dict = dict(zip(base_names, ols.betas, strict=False)) if base_names else {}
     n_obs = len(candidate_arr)
-    # Reference the regression residual dof (n - 1 - n_base_factors), not the
-    # single-sample n - 1: the alpha t-stat is built on the full design matrix.
-    p = _p_value_from_t(ols.alpha_t, n_obs, dof=ols.df_resid)
+    # Reference the HAC kernel's fixed-b effective dof, not the regression
+    # residual count: the alpha t-stat divides by a bandwidth-L HAC SE, which
+    # is not estimated from n_obs independent observations. ``df_resid`` stays
+    # in the result for reporting.
+    p = _p_value_from_t(ols.alpha_t, n_obs, dof=ols.alpha_dof)
 
     metadata: dict = {
         "stat_type": "t",

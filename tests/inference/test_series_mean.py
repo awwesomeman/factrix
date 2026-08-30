@@ -129,15 +129,15 @@ class TestNeweyWest:
         series = rng.standard_normal(60)
         df = _series_df(series)
         result = NEWEY_WEST.compute(df, value_col="ic", overlap_periods=overlap_periods)
-        nw_lags = _resolve_har_lags(len(series), None, overlap_periods)
+        newey_west_lags = _resolve_har_lags(len(series), None, overlap_periods)
         t_direct, p_direct, _ = _newey_west_t_test(
-            series, lags=nw_lags, overlap_periods=overlap_periods
+            series, lags=newey_west_lags, overlap_periods=overlap_periods
         )
         assert result.stat == t_direct
         assert result.p_value == p_direct
         assert result.metadata == {
-            "nw_lags": nw_lags,
-            "hac_dof": _har_dof(len(series), nw_lags, overlap_periods),
+            "newey_west_lags": newey_west_lags,
+            "hac_dof": _har_dof(len(series), newey_west_lags, overlap_periods),
         }
 
     def test_short_series_warns(self) -> None:
@@ -159,7 +159,7 @@ class TestNeweyWest:
         assert math.isnan(result.p_value)
         assert WarningCode.DEGENERATE_VARIANCE not in result.warnings
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS in result.warnings
-        assert result.metadata["nw_lags"] == 0
+        assert result.metadata["newey_west_lags"] == 0
 
     def test_constant_non_zero_series_is_flagged_not_nulled(self) -> None:
         # The reported shape: identical, non-zero observations. Evidence is

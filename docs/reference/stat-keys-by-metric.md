@@ -77,15 +77,15 @@ contrasts, not a sidecar to a primary value.
 | [`clustering_hhi`][factrix.metrics.clustering_hhi.clustering_hhi] | none — descriptive | — | event-period Herfindahl-Hirschman index (HHI) |
 | [`mfe_mae`][factrix.metrics.mfe_mae.mfe_mae] | none — descriptive | — | MFE_p50 / \|MAE_p75\| |
 | [`oos_decay`][factrix.metrics.oos_decay.oos_decay] | none — descriptive | — | survival = \|mean_oos\| / \|mean_is\| |
-| [`spanning_alpha`][factrix.metrics.spanning.spanning_alpha] | OLS `t` on α | `p_value` | spanning α |
+| [`spanning_alpha`][factrix.metrics.spanning.spanning_alpha] | HAR HAC `t` on α | `p_value` | spanning α |
 | [`greedy_forward_selection`][factrix.metrics.spanning.greedy_forward_selection] | none — selection meta | — | (NaN; results in metadata) |
 | [`ic_trend`][factrix.metrics.trend.ic_trend] | Mann-Kendall `tau` on the index | `p_value` | Theil-Sen slope |
 | [`predictive_beta`][factrix.metrics.predictive_beta.predictive_beta] | Newey-West HAC `t` on single-asset predictive slope | `p_value` | predictive beta |
 | [`common_beta`][factrix.metrics.common_beta.common_beta] | cross-asset `t` on per-asset β | `p_value` | mean(β) |
 | [`common_beta_sign_consistency`][factrix.metrics.common_beta.common_beta_sign_consistency] | none — descriptive | — | max(p, 1-p) on sign fraction |
 | [`common_beta_r_squared`][factrix.metrics.common_beta.common_beta_r_squared] | none — descriptive | — | mean(R²) |
-| [`common_asymmetry`][factrix.metrics.common_asymmetry.common_asymmetry] | Wald F (NW HAC, finite-sample) on slope sum / equality | `p_value` | β_long + β_short |
-| [`common_quantile_spread`][factrix.metrics.common_quantile.common_quantile_spread] | Wald F (NW HAC, finite-sample) on bucket β contrast | `p_value` | top − bottom bucket β |
+| [`common_asymmetry`][factrix.metrics.common_asymmetry.common_asymmetry] | Wald F (HAR HAC, finite-sample) on slope sum / equality | `p_value` | β_long + β_short |
+| [`common_quantile_spread`][factrix.metrics.common_quantile.common_quantile_spread] | Wald F (HAR HAC, finite-sample) on bucket β contrast | `p_value` | top − bottom bucket β |
 | [`rank_turnover`][factrix.metrics.tradability.rank_turnover] | none — descriptive | — | 1 − mean(rank-AC) |
 | [`notional_turnover`][factrix.metrics.tradability.notional_turnover] | none — descriptive | — | replaced fraction |
 | [`breakeven_cost`][factrix.metrics.tradability.breakeven_cost] | none — descriptive | — | breakeven one-way cost (bps) |
@@ -99,7 +99,7 @@ contrasts, not a sidecar to a primary value.
 
 - *primary*: `p_value` — test on the per-period IC series, from the configured `inference`: a `t`-test on a non-overlapping stride of `overlap_periods` (default), a Newey-West HAC `t`-test, or a stationary-bootstrap empirical `p`.
 - *descriptive*: `n_periods` (the sample the `value` / `stat` / `p_value` describe — the strided subsample under `NonOverlapping`, the full series under `NeweyWest` / `StationaryBootstrap`; equals `n_obs`), `n_periods_full` and `mean_ic_full` (the full per-period series, for reference), `overlap_periods`, `tie_ratio` (median across periods), `min_assets_per_period` / `warn_assets_per_period` when the upstream IC series carries per-period asset counts, `stat_type` (the test actually run: `"t"` under `NonOverlapping` / `NeweyWest`, `"bootstrap-mean"` under `StationaryBootstrap`), `h0` (`"mu=0"`), `method`.
-- *descriptive* (conditional, `NeweyWest`): `nw_lags` (resolved Bartlett bandwidth) and `hac_dof` (the effective degrees of freedom the `t` is read against; `None` when the sample is too short to run the kernel).
+- *descriptive* (conditional, `NeweyWest`): `newey_west_lags` (resolved Bartlett bandwidth) and `hac_dof` (the effective degrees of freedom the `t` is read against; `None` when the sample is too short to run the kernel).
 - *descriptive* (conditional, `StationaryBootstrap`): `n_resamples` and `seed` (the resolved seed, reported even when not supplied, so an unseeded run stays reproducible; `null` when a `numpy.random.Generator` was supplied — that stream is the caller's to reproduce), `p_value_mc_se` (Monte-Carlo SE of the empirical `p`), `block_length` (the resolved Politis-White mean block length) and `studentized`. See [Resampling knobs](statistical-methods.md#resampling-knobs).
 - *warning*: `WarningCode.FEW_ASSETS` when retained per-period IC cross-sections are below `MIN_IC_ASSETS_WARN`; `WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED` under `NeweyWest` when the resolved bandwidth exceeds `n_periods / 5`.
 - *short-circuit*: `reason` `insufficient_ic_periods` (too few periods) carries `min_required`; `insufficient_ic_assets` (every cross-section below `MIN_IC_ASSETS_HARD`, so no per-period IC survived — common on one-valid-pair panels) carries `min_assets_required`.
@@ -643,9 +643,11 @@ hypothesis test.
 
 #### `spanning_alpha`
 
-- *primary*: `p_value` — OLS `t` on α from the multivariate spanning
-  regression. Plain (non-HAC) SE — assumes the input spread series
-  are non-overlapping.
+- *primary*: `p_value` — `t` on α from the multivariate spanning
+  regression. A single restriction, so the HAC SE, the `T/(T−L−1)` scale
+  and the reference `ν` all come from `_resolve_scalar_wald_hac`; the
+  regression residual count stays available as `_OLSResult.df_resid` but is
+  not what the `t` is read against.
 - Sample size: `MetricResult.n_obs` (length of the aligned
   candidate-series).
 - *descriptive*: `n_base_factors`, `base_factors` (list of base-factor
@@ -899,10 +901,14 @@ Descriptive symmetric consistency — `value ∈ [0.5, 1.0]`.
 
 Two complementary methods:
 
-- **Method A** (always): Wald F (finite-sample `F_{r, T−k}`) on
-  `H₀: β_long + β_short = 0` with NW HAC SE.
+Both are **single-restriction** contrasts, so both take the scalar HAR
+reference (`_resolve_scalar_wald_hac`): bandwidth, `T/(T−L−1)` variance
+scale and the kernel's fixed-`b` effective `ν`.
+
+- **Method A** (always): Wald F (finite-sample `F_{1, ν}`) on
+  `H₀: β_long + β_short = 0` with HAR HAC SE.
 - **Method B** (conditional, ≥ 2 distinct values per side):
-  Wald F (finite-sample `F_{r, T−k}`) on `H₀: β_pos = β_neg`.
+  Wald F (finite-sample `F_{1, ν}`) on `H₀: β_pos = β_neg`.
 
 - *primary*: `p_value` — Method A. `stat` / `p_value` are `None` with
   `degenerate_variance` when the contrast's HAC variance collapses (e.g.
@@ -910,6 +916,9 @@ Two complementary methods:
 - *secondary-test* (conditional, Method B ran):
   `method_b`, `stat_type_method_b`, `beta_pos`, `beta_neg`,
   `p_wald_slopes`.
+- *warning codes* (conditional): `serial_correlation_detected` (per-period
+  factor persistent once strided at `overlap_periods`),
+  `unreliable_se_short_periods` (fewer than 10 periods after that stride).
 - *descriptive*: `beta_long`, `beta_short`, `abs_short_over_long`,
   `n_pos`, `n_neg`, `n_zero`, `n_periods`, `newey_west_lags_used`,
   `method_b_skipped` (conditional), `intercept` (conditional),
@@ -919,13 +928,19 @@ Two complementary methods:
 
 #### `common_quantile_spread`
 
-- *primary*: `p_value` — Wald F (NW HAC, finite-sample `F_{r, T−k}`) on
-  `H₀: β_top = β_bottom` from an OLS fit on bucket dummies. `stat` /
+- *primary*: `p_value` — Wald F on `H₀: β_top = β_bottom` from an OLS fit
+  on bucket dummies. A single restriction, so it takes the scalar HAR
+  reference (`_resolve_scalar_wald_hac`): finite-sample `F_{1, ν}` at the
+  kernel's fixed-`b` effective `ν`. `stat` /
   `p_value` are `None` with `degenerate_variance` when the contrast's HAC
   variance collapses (e.g. identical bucket means every period); `value`
   is kept.
 - *secondary-test*: `spearman_rho`, `spearman_p` — small-sample
   Spearman of (bucket-idx, mean-return) for monotonicity diagnostic.
+- *warning codes* (conditional): `thin_quantile_periods`,
+  `serial_correlation_detected` (per-period factor persistent once strided
+  at `overlap_periods`), `unreliable_se_short_periods` (fewer than 10
+  periods after that stride).
 - *descriptive*: `n_groups`, `n_periods`, `n_distinct_factor`,
   `newey_west_lags_used`, `buckets` (list of `{idx, mean_return, n}`).
 

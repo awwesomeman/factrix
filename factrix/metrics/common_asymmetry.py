@@ -43,14 +43,16 @@ from factrix._axis import (
     FactorDensity,
     FactorScope,
 )
+from factrix._codes import WarningCode
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import (
     _ols_nw_multivariate,
-    _resolve_nw_lags,
+    _resolve_scalar_wald_hac,
     _wald_p_linear,
 )
-from factrix._types import MIN_PORTFOLIO_PERIODS_HARD
+from factrix._types import MIN_PORTFOLIO_PERIODS_HARD, MIN_SERIES_PERIODS_HARD
+from factrix.inference.series_mean import _persistent_array_beyond_horizon
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _aggregate_to_per_date,
@@ -94,11 +96,14 @@ def common_asymmetry(
         data: Long panel; aggregated to per-date ``(_f, _r)`` internally.
         factor_col: Column carrying the factor.
         return_col: Column carrying the forward return.
-        overlap_periods: Overlap horizon of the forward return; used
-            to floor the NW bandwidth so the kernel is consistent
-            with the autocorrelation it must absorb.
-        newey_west_lags: Override for the NW lag count. ``None`` resolves to
-            the standard rule given ``overlap_periods`` and ``T``.
+        overlap_periods: Overlap horizon of the forward return; floors the
+            Bartlett bandwidth at ``3 * (overlap_periods - 1)`` so the kernel
+            covers the autocorrelation it must absorb, and caps the reference
+            degrees of freedom at ``T / overlap_periods - 1``.
+        newey_west_lags: Override for the Bartlett lag count. ``None``
+            resolves to the standard rule given ``overlap_periods`` and
+            ``T``; the finite-sample scale and reference df follow the
+            resolved bandwidth either way.
 
     Returns:
         ``MetricResult`` whose ``value`` is the method-A magnitude;
@@ -122,6 +127,15 @@ def common_asymmetry(
         ``value = beta_long + beta_short`` (method A); 0 under perfect
         symmetry, positive when the long side dominates in magnitude.
 
+        Both restrictions are rank one, so both take the scalar HAR recipe
+        (:func:`~factrix._stats.hac._resolve_scalar_wald_hac`): bandwidth,
+        ``T / (T - L - 1)`` variance scale and fixed-``b`` effective degrees
+        of freedom together. See ``statistical-methods`` section 6 for the
+        measured size and for the two regimes it does not fix, which this
+        metric reports as ``serial_correlation_detected`` (per-period factor
+        persistent once strided) and ``unreliable_se_short_periods`` (fewer
+        than ten periods after that stride).
+
         factrix runs both methods under NW HAC + Wald (not Welch t)
         because ``overlap_periods > 1`` breaks the iid assumption Welch
         relies on, and using one estimator family across A and B keeps
@@ -132,8 +146,10 @@ def common_asymmetry(
         the Wald tests for both methods.
         [Newey-West 1994][newey-west-1994]: automatic Bartlett bandwidth
         used by the default lag resolver.
-        [Hansen-Hodrick 1980][hansen-hodrick-1980]: ``overlap_periods - 1``
-        floor for overlapping returns.
+        [Hansen-Hodrick 1980][hansen-hodrick-1980]: the MA(h-1) structure
+        the overlap floor covers.
+        [LLSW 2018][llsw-2018]: the HAR bandwidth and effective-df recipe the
+        single-restriction contrasts read.
 
     Examples:
         >>> import factrix as fx
@@ -209,7 +225,13 @@ def common_asymmetry(
             ),
         )
 
-    lags = _resolve_nw_lags(n_periods, newey_west_lags, overlap_periods)
+    # Both contrasts below are single restrictions, so both take the scalar
+    # HAR recipe -- bandwidth, T/(T-L-1) variance scale and fixed-b effective
+    # df together. The narrow K-restriction rule left this metric 15.3-34%
+    # oversized at h>1; see ``_resolve_scalar_wald_hac`` for the table.
+    lags, hac_scale, hac_dof = _resolve_scalar_wald_hac(
+        n_periods, newey_west_lags, overlap_periods
+    )
 
     # Drop the zero column when n_zero==0 to keep the design matrix full-rank.
     cols = [pos_mask.astype(float), neg_mask.astype(float)]
@@ -218,15 +240,14 @@ def common_asymmetry(
     X_a = np.column_stack(cols)
 
     beta_a, V_a, _ = _ols_nw_multivariate(r, X_a, lags=lags)
+    V_a = V_a * hac_scale
 
     R_a = np.zeros((1, X_a.shape[1]))
     R_a[0, 0] = 1.0
     R_a[0, 1] = 1.0
     asym_value = float(beta_a[0] + beta_a[1])
     asym_var = float((R_a @ V_a @ R_a.T)[0, 0])
-    # Finite-sample F_{r, T-k} reference (k = X_a regressors), matching the
-    # cluster-Wald paths; the asymptotic χ² over-rejects on short T.
-    _, p_a = _wald_p_linear(beta_a, V_a, R_a, q=0.0, df_denom=n_periods - X_a.shape[1])
+    _, p_a = _wald_p_linear(beta_a, V_a, R_a, q=0.0, df_denom=hac_dof)
     # A collapsed contrast variance admits no t and no Wald p: NaN here, and
     # the test fields are withheld below rather than reported as t=0 / p=1.
     asym_t = asym_value / float(np.sqrt(asym_var)) if np.isfinite(p_a) else float("nan")
@@ -251,13 +272,12 @@ def common_asymmetry(
         f_neg = np.where(neg_mask, f, 0.0)
         X_b = np.column_stack([np.ones(n_periods), f_pos, f_neg])
         beta_b, V_b, _ = _ols_nw_multivariate(r, X_b, lags=lags)
+        V_b = V_b * hac_scale
         R_b = np.array([[0.0, 1.0, -1.0]])
-        _, p_b = _wald_p_linear(
-            beta_b, V_b, R_b, q=0.0, df_denom=n_periods - X_b.shape[1]
-        )
+        _, p_b = _wald_p_linear(beta_b, V_b, R_b, q=0.0, df_denom=hac_dof)
         method_b.update(
             method_b="method B: split-slope regression on signed factor",
-            stat_type_method_b="wald (NW HAC)",
+            stat_type_method_b="wald (HAR HAC)",
             intercept=float(beta_b[0]),
             beta_pos=float(beta_b[1]),
             beta_neg=float(beta_b[2]),
@@ -265,9 +285,23 @@ def common_asymmetry(
             h0_method_b="beta_pos = beta_neg",
         )
 
-    warning_codes: list[str] = []
+    # The scalar HAR recipe absorbs the MA(h-1) overlap, but not a common
+    # factor that stays persistent once the overlap is strided away: measured
+    # 13.0% / 16.3% at a nominal 5% on an AR(0.9) common factor at T=60, h=5
+    # (against 5.7-8.0% at phi=0). Flagged, not tuned.
+    warning_codes: list[str] = (
+        [WarningCode.SERIAL_CORRELATION_DETECTED.value]
+        if _persistent_array_beyond_horizon(f, overlap_periods)
+        else []
+    )
+    # Effective sample, not raw periods: h-period overlapping returns leave
+    # about T/h independent observations while the bandwidth grows with h. It
+    # is also exactly where the persistence screen above withholds itself, so
+    # the two codes partition the regime rather than overlap.
+    if n_periods // max(overlap_periods or 1, 1) < MIN_SERIES_PERIODS_HARD:
+        warning_codes.append(WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value)
     metadata: dict[str, object] = {
-        "stat_type": "wald (NW HAC)",
+        "stat_type": "wald (HAR HAC)",
         "h0": "beta_long + beta_short = 0",
         "method": "method A: dummy regression on sign(factor)",
         "beta_long": e_long,

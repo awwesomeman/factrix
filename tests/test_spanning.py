@@ -72,9 +72,11 @@ class TestSpanningTest:
         result = spanning_alpha(factor, base_spreads={"base": base})
         assert isinstance(result, MetricResult)
 
-    def test_pvalue_uses_regression_dof(self):
-        # p-value must reference the regression residual dof (n - 1 - n_base),
-        # not the single-sample n - 1.
+    def test_pvalue_uses_the_hac_effective_dof(self):
+        # The alpha t divides by a bandwidth-L HAC SE, so the p references the
+        # kernel's fixed-b effective dof -- not the regression residual count
+        # (n - 1 - n_base) and not the single-sample n - 1.
+        from factrix._stats import _resolve_scalar_wald_hac
         from scipy import stats as sp_stats
 
         factor = _make_spread_series(40, 0.02, 0.01, 7)
@@ -84,7 +86,9 @@ class TestSpanningTest:
         }
         result = spanning_alpha(factor, base_spreads=base)
         n, n_base = 40, 2
-        expected = float(2 * sp_stats.t.sf(abs(result.stat), n - 1 - n_base))
+        _, _, dof = _resolve_scalar_wald_hac(n, None, 1)
+        assert dof != n - 1 - n_base
+        expected = float(2 * sp_stats.t.sf(abs(result.stat), dof))
         assert result.p_value == pytest.approx(expected)
 
 
