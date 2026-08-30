@@ -993,30 +993,22 @@ def _densify_on_period_grid(
     return dense, True
 
 
-def _warn_ragged_event_grid(
-    metric_name: str,
-    frame: pl.DataFrame,
-    *,
-    expected_warnings: tuple[str, ...] = (),
-) -> None:
-    """Fire ``RAGGED_PERIOD_GRID`` for an event path handed a ragged panel.
+def _ragged_event_grid_message(metric_name: str, frame: pl.DataFrame) -> str | None:
+    """The ``RAGGED_PERIOD_GRID`` echo text for a ragged panel, else ``None``.
 
-    The windows are correct — :func:`_densify_on_period_grid` counts them on
-    the panel grid — but an asset missing periods contributes fewer usable
-    returns inside a window of the same width, so its estimate rests on a
-    smaller sample than a caller comparing names would assume. Declarable
-    through ``expected_warnings`` like every other metric warning.
+    Single owner of the wording, split out from the recorder because the
+    ``caar`` pipeline sees the panel in ``compute_caar`` and the warning codes
+    one node later in :func:`~factrix.metrics.caar.caar`; the message rides
+    between them as a broadcast column.
     """
-    if WarningCode.RAGGED_PERIOD_GRID.value in expected_warnings:
-        return
     if "asset_id" not in frame.columns or "date" not in frame.columns:
-        return
+        return None
     n_periods = int(frame["date"].n_unique())
     per_asset = frame.group_by("asset_id").agg(pl.col("date").n_unique().alias("_n"))
     n_ragged = int((per_asset["_n"] < n_periods).sum())
     if not n_ragged:
-        return
-    warnings.warn(
+        return None
+    return (
         f"{metric_name}: {WarningCode.RAGGED_PERIOD_GRID.value} — {n_ragged} of "
         f"{per_asset.height} assets are missing periods that others have "
         f"(panel grid: {n_periods} periods). Estimation windows, lags and "
@@ -1025,17 +1017,56 @@ def _warn_ragged_event_grid(
         "periods count as missing observations inside them, leaving those "
         "assets with a smaller estimation sample than the rest. Reindex the "
         "panel onto a common grid if the estimates must be comparable across "
-        "names.",
-        UserWarning,
-        stacklevel=3,
+        "names."
+    )
+
+
+def _record_ragged_event_grid(
+    message: str | None,
+    warning_codes: list[str],
+    *,
+    expected_warnings: tuple[str, ...] = (),
+) -> None:
+    """Record ``RAGGED_PERIOD_GRID`` on ``warning_codes`` and echo ``message``.
+
+    Marked, never dropped: a code the caller declared via
+    ``evaluate(..., expected_warnings=(...,))`` is still appended (the record
+    is kept, and the result marks it expected) — the declaration suppresses
+    the ``UserWarning`` echo only.
+    """
+    if message is None:
+        return
+    code = WarningCode.RAGGED_PERIOD_GRID.value
+    if code not in expected_warnings:
+        warnings.warn(message, UserWarning, stacklevel=3)
+    if code not in warning_codes:
+        warning_codes.append(code)
+
+
+def _warn_ragged_event_grid(
+    metric_name: str,
+    frame: pl.DataFrame,
+    warning_codes: list[str],
+    *,
+    expected_warnings: tuple[str, ...] = (),
+) -> None:
+    """Record ``RAGGED_PERIOD_GRID`` for an event path handed a ragged panel.
+
+    The windows are correct — :func:`_densify_on_period_grid` counts them on
+    the panel grid — but an asset missing periods contributes fewer usable
+    returns inside a window of the same width, so its estimate rests on a
+    smaller sample than a caller comparing names would assume.
+    """
+    _record_ragged_event_grid(
+        _ragged_event_grid_message(metric_name, frame),
+        warning_codes,
+        expected_warnings=expected_warnings,
     )
 
 
 def _attach_abnormal_return(
     data: pl.DataFrame,
     *,
-    metric_name: str = "event metric",
-    expected_warnings: tuple[str, ...] = (),
     return_col: str = "forward_return",
     estimation_window: int = 60,
     overlap_periods: int = 5,
@@ -1100,8 +1131,9 @@ def _attach_abnormal_return(
     (:func:`_densify_on_period_grid`), so ``estimation_window`` spans that many
     grid periods for every asset and periods an asset is missing count as
     missing observations inside the window rather than stretching it further
-    back. A dense panel is unaffected; a ragged one raises
-    :attr:`~factrix._codes.WarningCode.RAGGED_PERIOD_GRID`.
+    back. A dense panel is unaffected; on a ragged one the caller records
+    :attr:`~factrix._codes.WarningCode.RAGGED_PERIOD_GRID`
+    (:func:`_warn_ragged_event_grid`).
 
     An event whose asset has too little history for the estimation window gets
     a null ``out_col`` and is dropped by the caller's finiteness filter, the
@@ -1116,9 +1148,6 @@ def _attach_abnormal_return(
             the estimation window; passing only event rows estimates the mean
             from events alone, which is not the same quantity.
         return_col: Raw return column to adjust.
-        metric_name: Metric named in the ragged-grid warning.
-        expected_warnings: Warning codes the caller has declared; a declared
-            ``ragged_period_grid`` is not echoed.
         estimation_window: Panel periods of history behind $\hat\mu_i$ —
             grid periods, not rows of the asset's own frame.
         overlap_periods: Overlap horizon; the lag, in panel periods, applied
@@ -1206,8 +1235,6 @@ def _attach_abnormal_return(
     # evaluated on the grid-dense frame (see _densify_on_period_grid) and the
     # result joined back onto the real rows. On a dense panel this is a no-op.
     dense, densified = _densify_on_period_grid(frame)
-    if densified:
-        _warn_ragged_event_grid(metric_name, frame, expected_warnings=expected_warnings)
     uses_price = price_col in frame.columns
     if uses_price:
         bar = pl.col(price_col) / pl.col(price_col).shift(1) - 1.0

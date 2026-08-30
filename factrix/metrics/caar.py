@@ -76,6 +76,7 @@ from factrix.metrics._helpers import (
     _is_sparse_magnitude_weighted,
     _kp_cluster_scale,
     _kp_deflation_scale,
+    _record_ragged_event_grid,
     _sample_event_spaced,
     _sample_events_non_overlapping,
     _scaled_min_periods,
@@ -83,6 +84,7 @@ from factrix.metrics._helpers import (
     _warn_below_scaled_floor,
     _warn_estimation_window_contamination,
     _warn_event_window_overlap,
+    _warn_ragged_event_grid,
 )
 from factrix.metrics._metric_capabilities import per_date_series_rename
 from factrix.metrics._primitives import compute_caar
@@ -399,6 +401,15 @@ def caar(
     _warn_estimation_window_contamination(
         "caar", metadata, warning_codes, expected_warnings=expected_warnings
     )
+    # The panel itself is one DAG node upstream, so compute_caar measures the
+    # raggedness and broadcasts its message; the code is recorded here, where
+    # the metric's warning_codes live.
+    if "ragged_period_grid_note" in caar_df.columns and caar_df.height:
+        _record_ragged_event_grid(
+            caar_df["ragged_period_grid_note"][0],
+            warning_codes,
+            expected_warnings=expected_warnings,
+        )
 
     # Fewer than two spaced event periods, or an identical CAAR on all of them:
     # ``mean_caar`` still stands, the t does not exist.
@@ -712,8 +723,6 @@ def bmp_z(
     # its own window mean, so the residual std is the same either way.
     sorted_df, ar_diagnostics = _attach_abnormal_return(
         data.sort(["asset_id", "date"]),
-        metric_name="bmp_z",
-        expected_warnings=expected_warnings,
         return_col=return_col,
         estimation_window=estimation_window,
         overlap_periods=overlap_periods,
@@ -878,6 +887,9 @@ def bmp_z(
     )
     _warn_estimation_window_contamination(
         "bmp_z", metadata, warning_codes, expected_warnings=expected_warnings
+    )
+    _warn_ragged_event_grid(
+        "bmp_z", data, warning_codes, expected_warnings=expected_warnings
     )
     if not uses_price:
         code = WarningCode.BMP_RETURN_VOL_FALLBACK.value

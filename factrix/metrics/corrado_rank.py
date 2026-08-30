@@ -37,6 +37,7 @@ from factrix.metrics._helpers import (
     _warn_below_scaled_floor,
     _warn_estimation_window_contamination,
     _warn_event_window_overlap,
+    _warn_ragged_event_grid,
 )
 
 __all__ = [
@@ -231,8 +232,6 @@ def corrado_rank(
     # rank of an event depend on the asset's drift as much as on the event.
     data, ar_diagnostics = _attach_abnormal_return(
         data,
-        metric_name="corrado_rank",
-        expected_warnings=expected_warnings,
         return_col=return_col,
         estimation_window=estimation_window,
         overlap_periods=overlap_periods,
@@ -370,6 +369,9 @@ def corrado_rank(
     )
     _warn_estimation_window_contamination(
         "corrado_rank", metadata, warning_codes, expected_warnings=expected_warnings
+    )
+    _warn_ragged_event_grid(
+        "corrado_rank", data, warning_codes, expected_warnings=expected_warnings
     )
     raw_min_warn = _scaled_min_periods(MIN_EVENTS_WARN, overlap_periods)
     warn_code = _warn_below_scaled_floor(

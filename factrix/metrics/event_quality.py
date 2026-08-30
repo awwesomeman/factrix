@@ -55,6 +55,7 @@ from factrix.metrics._helpers import (
     _warn_below_scaled_floor,
     _warn_estimation_window_contamination,
     _warn_event_window_overlap,
+    _warn_ragged_event_grid,
 )
 
 __all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
@@ -85,8 +86,6 @@ def _finite_events(
     factor_col: str,
     return_col: str,
     *,
-    metric_name: str,
-    expected_warnings: tuple[str, ...] = (),
     estimation_window: int = 60,
     overlap_periods: int = 5,
 ) -> tuple[pl.DataFrame, int, dict]:
@@ -123,8 +122,6 @@ def _finite_events(
     """
     adjusted, ar_diagnostics = _attach_abnormal_return(
         data,
-        metric_name=metric_name,
-        expected_warnings=expected_warnings,
         return_col=return_col,
         estimation_window=estimation_window,
         overlap_periods=overlap_periods,
@@ -238,6 +235,9 @@ def _spaced_events(
     )
     _warn_estimation_window_contamination(
         metric_name, metadata, warning_codes, expected_warnings=expected_warnings
+    )
+    _warn_ragged_event_grid(
+        metric_name, data, warning_codes, expected_warnings=expected_warnings
     )
     raw_min_warn = _scaled_min_periods(MIN_EVENTS_WARN, overlap_periods)
     warn_code = _warn_below_scaled_floor(
@@ -387,8 +387,6 @@ def event_hit_rate(
         data,
         factor_col,
         return_col,
-        expected_warnings=expected_warnings,
-        metric_name="event_hit_rate",
         estimation_window=estimation_window,
         overlap_periods=overlap_periods,
     )
@@ -556,8 +554,6 @@ def event_ic(
         data,
         factor_col,
         return_col,
-        expected_warnings=expected_warnings,
-        metric_name="event_ic",
         estimation_window=estimation_window,
         overlap_periods=overlap_periods,
     )
@@ -676,7 +672,6 @@ def profit_factor(
     return_col: str = "forward_return",
     overlap_periods: int = 5,
     estimation_window: int = 60,
-    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Profit factor = sum(gains) / sum(|losses|) across events.
 
@@ -728,8 +723,6 @@ def profit_factor(
         data,
         factor_col,
         return_col,
-        expected_warnings=expected_warnings,
-        metric_name="profit_factor",
         estimation_window=estimation_window,
         overlap_periods=overlap_periods,
     )
@@ -880,8 +873,6 @@ def event_skewness(
         data,
         factor_col,
         return_col,
-        expected_warnings=expected_warnings,
-        metric_name="event_skewness",
         estimation_window=estimation_window,
         overlap_periods=overlap_periods,
     )

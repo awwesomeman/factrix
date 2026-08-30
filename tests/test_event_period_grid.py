@@ -23,7 +23,11 @@ import numpy as np
 import polars as pl
 import pytest
 from factrix._codes import WarningCode
-from factrix.metrics._helpers import _attach_abnormal_return, _densify_on_period_grid
+from factrix.metrics._helpers import (
+    _attach_abnormal_return,
+    _densify_on_period_grid,
+    _warn_ragged_event_grid,
+)
 from factrix.metrics._primitives import compute_event_returns
 
 _D0 = date(2020, 1, 1)
@@ -221,15 +225,18 @@ class TestRaggedHandCase:
         assert event["_abnormal_return"][0] is None
 
     def test_ragged_grid_warning_fires(self) -> None:
-        panel = _panel(gap=(60, 80))
+        codes: list[str] = []
         with pytest.warns(UserWarning, match=WarningCode.RAGGED_PERIOD_GRID.value):
-            _attach_abnormal_return(panel, estimation_window=30, overlap_periods=5)
+            _warn_ragged_event_grid("caar", _panel(gap=(60, 80)), codes)
+        assert codes == [WarningCode.RAGGED_PERIOD_GRID.value]
 
-    def test_dense_panel_does_not_warn(self) -> None:
-        panel = _panel()
+    def test_dense_panel_neither_warns_nor_records(self) -> None:
+        codes: list[str] = []
         with warnings.catch_warnings():
             warnings.simplefilter("error")
-            _attach_abnormal_return(panel, estimation_window=30, overlap_periods=5)
+            _warn_ragged_event_grid("caar", _panel(), codes)
+            _attach_abnormal_return(_panel(), estimation_window=30, overlap_periods=5)
+        assert codes == []
 
 
 class TestRaggedOffsets:
@@ -258,3 +265,128 @@ class TestRaggedOffsets:
             prices[_D0 + timedelta(days=107)] / prices[_D0 + timedelta(days=101)] - 1.0
         )
         assert float(b["signed_return"][0]) == pytest.approx(expected, rel=1e-12)
+
+
+def _ragged_event_panel(*, ragged: bool) -> pl.DataFrame:
+    """A 20-asset event panel with the forward return, optionally ragged.
+
+    ``ragged`` drops asset 0's rows for the 60th-79th distinct dates, so the
+    panel grid keeps every period and exactly one name is short. The event
+    magnitudes carry jitter so ``event_ic`` has a continuous signal to rank
+    and does not short-circuit as discrete before the discipline runs.
+    """
+    panel = fx.preprocess.compute_forward_return(
+        fx.datasets.make_event_panel(
+            n_assets=20,
+            n_dates=200,
+            event_rate=0.05,
+            event_magnitude_jitter=0.5,
+            rng=1,
+        ),
+        forward_periods=5,
+    )
+    if not ragged:
+        return panel
+    asset = panel["asset_id"].unique().sort()[0]
+    holes = panel["date"].unique().sort()[60:80]
+    return panel.filter(
+        ~((pl.col("asset_id") == asset) & pl.col("date").is_in(holes.implode()))
+    )
+
+
+_RAGGED_CODE = WarningCode.RAGGED_PERIOD_GRID.value
+
+
+def _entry_points() -> dict[str, object]:
+    """The event metrics that must record ``ragged_period_grid``.
+
+    ``caar`` runs through its ``compute_caar`` pipeline node, which is where
+    the panel is seen; the rest read it off their own input.
+    """
+    from factrix.metrics.caar import bmp_z, caar, compute_caar
+    from factrix.metrics.corrado_rank import corrado_rank
+    from factrix.metrics.event_horizon import event_around_return
+    from factrix.metrics.event_quality import event_hit_rate, event_ic, event_skewness
+
+    def _caar(panel: pl.DataFrame, **kwargs: object) -> object:
+        return caar(compute_caar(panel), **kwargs)  # type: ignore[arg-type]
+
+    return {
+        "bmp_z": bmp_z,
+        "caar": _caar,
+        "corrado_rank": corrado_rank,
+        "event_hit_rate": event_hit_rate,
+        "event_ic": event_ic,
+        "event_skewness": event_skewness,
+        "event_around_return": event_around_return,
+    }
+
+
+@pytest.mark.parametrize("name", sorted(_entry_points()))
+class TestRaggedCodeIsRecorded:
+    """The code is marked, never dropped — the UserWarning is only its echo."""
+
+    def test_recorded_on_a_ragged_panel(self, name: str) -> None:
+        metric = _entry_points()[name]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            result = metric(_ragged_event_panel(ragged=True))  # type: ignore[operator]
+        assert _RAGGED_CODE in result.warning_codes
+
+    def test_absent_on_a_dense_panel(self, name: str) -> None:
+        metric = _entry_points()[name]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            result = metric(_ragged_event_panel(ragged=False))  # type: ignore[operator]
+        assert _RAGGED_CODE not in result.warning_codes
+
+    def test_declared_is_still_recorded_and_stops_the_echo(self, name: str) -> None:
+        metric = _entry_points()[name]
+        panel = _ragged_event_panel(ragged=True)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            result = metric(panel, expected_warnings=(_RAGGED_CODE,))  # type: ignore[operator]
+        assert _RAGGED_CODE in result.warning_codes
+        assert not [w for w in caught if _RAGGED_CODE in str(w.message)]
+
+    def test_echo_fires_when_not_declared(self, name: str) -> None:
+        metric = _entry_points()[name]
+        panel = _ragged_event_panel(ragged=True)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            metric(panel)  # type: ignore[operator]
+        assert [w for w in caught if _RAGGED_CODE in str(w.message)]
+
+
+class TestRaggedCodeReachesEvaluate:
+    """Declared is acknowledged, not absent — the record reaches the result."""
+
+    @staticmethod
+    def _run(**kwargs: object) -> object:
+        from factrix.metrics import bmp_z, caar, event_hit_rate
+
+        return fx.evaluate(
+            _ragged_event_panel(ragged=True),
+            metrics={
+                "caar": caar(),
+                "bmp_z": bmp_z(),
+                "event_hit_rate": event_hit_rate(),
+            },
+            factor_cols=["factor"],
+            **kwargs,  # type: ignore[arg-type]
+        )["factor"]
+
+    def test_declared_code_is_marked_expected_not_dropped(self) -> None:
+        result = self._run(expected_warnings=(_RAGGED_CODE,))
+        records = [w for w in result.warnings if w.code.value == _RAGGED_CODE]
+        assert records, "ragged_period_grid must survive on the evaluate record"
+        assert all(w.expected for w in records)
+        assert not [
+            w for w in result.unexpected_warnings if w.code.value == _RAGGED_CODE
+        ]
+
+    def test_undeclared_code_is_unexpected(self) -> None:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            result = self._run()
+        assert [w for w in result.unexpected_warnings if w.code.value == _RAGGED_CODE]
