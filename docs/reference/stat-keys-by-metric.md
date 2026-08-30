@@ -89,7 +89,7 @@ contrasts, not a sidecar to a primary value.
 - *primary*: `p_value` — test on the per-period IC series, from the configured `inference`: a `t`-test on a non-overlapping stride of `overlap_periods` (default), a Newey-West HAC `t`-test, or a stationary-bootstrap empirical `p`.
 - *descriptive*: `n_periods` (the sample the `value` / `stat` / `p_value` describe — the strided subsample under `NonOverlapping`, the full series under `NeweyWest` / `StationaryBootstrap`; equals `n_obs`), `n_periods_full` and `mean_ic_full` (the full per-period series, for reference), `overlap_periods`, `tie_ratio` (median across periods), `min_assets_per_period` / `warn_assets_per_period` when the upstream IC series carries per-period asset counts, `stat_type` (the test actually run: `"t"` under `NonOverlapping` / `NeweyWest`, `"bootstrap-mean"` under `StationaryBootstrap`), `h0` (`"mu=0"`), `method`.
 - *descriptive* (conditional, `NeweyWest`): `nw_lags` (resolved Bartlett bandwidth) and `hac_dof` (the effective degrees of freedom the `t` is read against; `None` when the sample is too short to run the kernel).
-- *descriptive* (conditional, `StationaryBootstrap`): `n_resamples` and `seed` (the resolved seed, reported even when not supplied, so an unseeded run stays reproducible), `p_value_mc_se` (Monte-Carlo SE of the empirical `p`), `block_length` (the resolved Politis-White mean block length) and `studentized`. See [Resampling knobs](statistical-methods.md#resampling-knobs).
+- *descriptive* (conditional, `StationaryBootstrap`): `n_resamples` and `seed` (the resolved seed, reported even when not supplied, so an unseeded run stays reproducible; `null` when a `numpy.random.Generator` was supplied — that stream is the caller's to reproduce), `p_value_mc_se` (Monte-Carlo SE of the empirical `p`), `block_length` (the resolved Politis-White mean block length) and `studentized`. See [Resampling knobs](statistical-methods.md#resampling-knobs).
 - *warning*: `WarningCode.FEW_ASSETS` when retained per-period IC cross-sections are below `MIN_IC_ASSETS_WARN`; `WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED` under `NeweyWest` when the resolved bandwidth exceeds `n_periods / 5`.
 - *short-circuit*: `reason` `insufficient_ic_periods` (too few periods) carries `min_required`; `insufficient_ic_assets` (every cross-section below `MIN_IC_ASSETS_HARD`, so no per-period IC survived — common on one-valid-pair panels) carries `min_assets_required`.
 
@@ -439,7 +439,8 @@ frequency on the same panels is 5.0% / 5.0% / 4.0% at a nominal 5%.
 - *MR detail*: `mr_min_diff`, `mr_adjacent_diffs` (every `Δ̄_i`, so the
   binding step is visible), `mr_direction`, `n_resamples`,
   `seed` (resolved and reported when not supplied, so an
-  unseeded run is still reproducible after the fact), `p_value_mc_se`
+  unseeded run is still reproducible after the fact; `null` when a
+  `numpy.random.Generator` was supplied), `p_value_mc_se`
   (Monte-Carlo SE of the empirical p, `sqrt(p(1-p)/n_resamples)` — how far
   the p would move on a re-run with a different seed, ~0.7pp at the default
   `n_resamples=999` and p near 0.05; `n_resamples` is floored at 199 — see

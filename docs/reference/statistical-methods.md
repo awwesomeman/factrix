@@ -300,13 +300,13 @@ Every entry point that turns a resample count into a reported p or
 interval takes the same two knobs under the same names, with the same
 default and the same refusal floor.
 
-| Entry point | `n_resamples` default | `seed` | Floor enforced | Reports `p_value_mc_se` |
+| Entry point | `n_resamples` default | `seed` reported as | Floor enforced | Reports `p_value_mc_se` |
 |---|---|---|---|---|
-| `ic(inference=StationaryBootstrap(...))` | 999 | yes | yes | yes (`metadata`) |
-| `monotonicity(...)` | 999 | yes | yes | yes (`metadata`) |
-| `bootstrap_mean_ci(...)` | 999 | yes | yes | no (returns an interval, not a p) |
-| `slice_period_pairwise_test` / `slice_period_joint_test` (`method="bootstrap"`) | 999 | yes | yes | no (see below) |
-| `stationary_bootstrap_resamples(...)` | 999 | yes | **no** | no (returns draws, not inference) |
+| `ic(inference=StationaryBootstrap(...))` | 999 | `metadata["seed"]` | yes | yes (`metadata`) |
+| `monotonicity(...)` | 999 | `metadata["seed"]` | yes | yes (`metadata`) |
+| `bootstrap_mean_ci(...)` | 999 | not reported (returns an interval) | yes | no (returns an interval, not a p) |
+| `slice_period_pairwise_test` / `slice_period_joint_test` (`method="bootstrap"`) | 999 | the `seed` output column | yes | no (see below) |
+| `stationary_bootstrap_resamples(...)` | 999 | not reported (returns draws) | **no** | no (returns draws, not inference) |
 
 The floor is `BOOTSTRAP_RESAMPLES_FLOOR = 199` and a lower count raises
 `UserInputError`. A Davison-Hinkley smoothed p lives on the `1/(B+1)`
@@ -327,9 +327,22 @@ slice tests do **not** report it: their `p_adj` is a Romano-Wolf
 step-down adjustment, not a single binomial draw, so the formula does
 not apply.
 
-Passing `seed=None` (the default) draws from system entropy and reports
-the resolved seed back in `metadata["seed"]`, so an unseeded run is
-still reproducible after the fact.
+`seed` takes the same three types everywhere — including
+`datasets.make_*`, which reports nothing:
+
+- an **`int`** reproduces the run and is reported back unchanged;
+- **`None`** (the default) draws a 32-bit int from system entropy and
+  reports it, so an unseeded run is still reproducible after the fact;
+- a **`numpy.random.Generator`** is used as-is and *advanced* by the
+  call, so two calls on one generator draw differently while two
+  generators built from the same seed agree. That is the numpy / scipy
+  `rng=` semantics, and it is what a nested or large-scale simulation
+  running off one stream needs. The reported seed is then `None`: the
+  stream is the caller's, so only the caller can reproduce the draw.
+
+Anything else raises `UserInputError`. The period slice tests carry the
+report in a `seed` output column, which is null under
+`method="analytic"` (that path draws nothing).
 
 ---
 

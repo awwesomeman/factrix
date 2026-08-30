@@ -33,6 +33,7 @@ References:
 from __future__ import annotations
 
 import secrets
+from numbers import Integral
 from typing import Literal
 
 import numpy as np
@@ -83,6 +84,63 @@ def _check_n_resamples(n_resamples: int, *, func_name: str, docs_path: str) -> N
             ),
             docs_path=docs_path,
         )
+
+
+#: Type of every ``seed`` knob in factrix. ``int`` reproduces a run exactly;
+#: ``None`` lets the entry point draw one from system entropy and report it
+#: back; a ``numpy.random.Generator`` hands the entry point a stream the
+#: caller owns and advances (the direction numpy, scipy's ``rng=`` and arch
+#: have converged on), which is what nested or large-scale simulation needs.
+#: Lives here rather than in ``factrix._types`` because that module is the
+#: numpy-free home of numerical constants and ``Literal`` option aliases.
+Seed = int | np.random.Generator | None
+
+
+def _resolve_rng(
+    seed: Seed, *, func_name: str, docs_path: str
+) -> tuple[np.random.Generator, int | None]:
+    """Resolve a ``seed`` knob into ``(generator, reported_seed)``.
+
+    The single place factrix builds a ``Generator``, so the three-way
+    contract cannot drift between entry points:
+
+    - ``None`` — draw a 32-bit int from system entropy, build a
+      ``default_rng`` on it and report the int, so an unseeded run stays
+      reproducible after the fact.
+    - ``int`` — ``default_rng(int)``, reported unchanged.
+    - ``Generator`` — used as-is and reported as ``None``: the caller owns
+      the stream, so only the caller can reproduce the draw, and the
+      generator is *advanced* by the call.
+
+    ``secrets.randbits(32)`` is the purpose-built "give me a random int
+    seed" call — ``SeedSequence().entropy`` is typed as
+    ``int | Sequence[int] | None`` and the Sequence branch breaks the
+    bit-mask path.
+
+    ``func_name`` / ``docs_path`` must name the *public* entry point the
+    caller reached this through — the rejection message is user-facing.
+    """
+    from factrix._errors import UserInputError
+
+    if isinstance(seed, np.random.Generator):
+        return seed, None
+    if seed is None:
+        resolved = secrets.randbits(32)
+        return np.random.default_rng(resolved), resolved
+    if isinstance(seed, bool) or not isinstance(seed, Integral):
+        raise UserInputError(
+            func_name=func_name,
+            field="seed",
+            value=seed,
+            expected=(
+                "an int (reproduces the run), None (one is drawn and "
+                "reported back), or a numpy.random.Generator (a stream the "
+                "caller owns and advances)"
+            ),
+            docs_path=docs_path,
+        )
+    resolved = int(seed)
+    return np.random.default_rng(resolved), resolved
 
 
 def _empirical_p(n_extreme: int, n_resamples: int) -> tuple[float, float]:
@@ -364,8 +422,8 @@ def _block_bootstrap_diff_p(
     block_length: int | Literal["auto"] = "auto",
     n_resamples: int = 999,
     overlap_periods: int | None = None,
-    seed: int | None = None,
-) -> tuple[float, dict[str, float | int | str]]:
+    seed: Seed = None,
+) -> tuple[float, dict[str, float | int | str | None]]:
     r"""Two-sided empirical p for ``H₀: E[diff] = 0`` on a paired series.
 
     Resamples ``diff`` under the centring ``diff - mean(diff)`` (the
@@ -428,16 +486,20 @@ def _block_bootstrap_diff_p(
             to rediscover it from a short noisy sample and systematically
             under-shoots (measured mean L of 7.95 against a needed 21 at
             T=60, h=21). Mirrors the HAC paths' bandwidth floor.
-        seed: ``None`` draws from system entropy; the resolved seed
-            is returned in the metadata dict so the caller can record it.
+        seed: ``None`` draws from system entropy and the resolved int is
+            returned in the metadata dict so the caller can record it; an
+            ``int`` is reported unchanged; a ``numpy.random.Generator`` is
+            used as-is and advanced, and the metadata reports ``None``
+            because only its owner can reproduce the draw.
 
     Returns:
         ``(p_value, metadata)`` — p in ``[1/(B+1), 1]``; metadata
         records the resolved (fractional) block length, ``n_resamples``,
         whether the root was studentized, the Monte-Carlo SE of the
-        reported p (``p_value_mc_se``), and the actual seed used (so the
-        run is reproducible from the logged metadata even when the caller
-        passed ``seed=None``).
+        reported p (``p_value_mc_se``), and the resolved seed (so the run
+        is reproducible from the logged metadata even when the caller
+        passed ``seed=None``) — ``None`` when the caller supplied a
+        ``Generator``.
 
         A series too short to test (``n < 2``) returns ``p = nan`` with
         ``block_length = nan`` and ``n_resamples = 0``. NaN rather than
@@ -452,13 +514,18 @@ def _block_bootstrap_diff_p(
     if diff.size and not np.all(np.isfinite(diff)):
         raise ValueError("_block_bootstrap_diff_p: diff must be finite (no NaN / inf).")
     n = len(diff)
+    # Resolve up front so the degenerate path reports the same resolved seed
+    # the testable path would, and a bogus seed is refused either way.
+    rng, seed_used = _resolve_rng(
+        seed, func_name="StationaryBootstrap", docs_path="reference/statistical-methods"
+    )
     if n < 2:
         return float("nan"), {
             "block_length": float("nan"),
             "n_resamples": 0,
             "studentized": False,
             "p_value_mc_se": float("nan"),
-            "seed": seed if seed is not None else -1,
+            "seed": seed_used,
         }
 
     L: float
@@ -481,13 +548,6 @@ def _block_bootstrap_diff_p(
     if overlap_periods is not None and overlap_periods > 1:
         L = max(L, float(min(overlap_periods, _max_block_length(n))))
     _validate_block_length(L, n, "StationaryBootstrap", "reference/statistical-methods")
-
-    # Resolve seed up front so it can be reported back even when None.
-    # `secrets.randbits(32)` is the purpose-built "give me a random int
-    # seed" call — `SeedSequence().entropy` is typed as `int | Sequence[int]
-    # | None` and the Sequence branch breaks the bit-mask path.
-    seed_used = secrets.randbits(32) if seed is None else int(seed)
-    rng = np.random.default_rng(seed_used)
 
     # Centre under H0 (mean=0) before resampling.
     centred = diff - float(np.mean(diff))
@@ -518,7 +578,7 @@ def _block_bootstrap_diff_p(
         n_used = int(n_resamples)
 
     p, p_mc_se = _empirical_p(extreme, n_used)
-    metadata: dict[str, float | int | str] = {
+    metadata: dict[str, float | int | str | None] = {
         "block_length": L,
         "n_resamples": int(n_resamples),
         "studentized": studentized,

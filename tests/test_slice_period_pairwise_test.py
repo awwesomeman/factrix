@@ -27,6 +27,7 @@ _PAIRWISE_COLS = [
     "df_denom",
     "multiplicity",
     "min_periods",
+    "seed",
     "reason",
 ]
 

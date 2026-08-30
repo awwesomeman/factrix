@@ -72,9 +72,11 @@ from factrix._codes import WarningCode, _validate_expected_warnings_arg
 from factrix._data_input import _resolve_overlap_periods
 from factrix._errors import UserInputError
 from factrix._stats.bootstrap import (
+    Seed,
     _check_n_resamples,
     _empirical_p,
     _politis_white_block_length,
+    _resolve_rng,
     _stationary_block_indices,
 )
 from factrix._stats.wald import _nw_hac_vector_mean, _wald_p_linear
@@ -279,7 +281,7 @@ def slice_period_pairwise_test(
     method: Method = "bootstrap",
     overlap_periods: int | None = None,
     n_resamples: int = 999,
-    seed: int | None = None,
+    seed: Seed = None,
     strict: bool = True,
 ) -> pl.DataFrame:
     """Pairwise cross-slice contrasts for a **date-disjoint** partition.
@@ -325,7 +327,12 @@ def slice_period_pairwise_test(
             two-sided 5% work.
         seed: Reproducibility seed for the ``"bootstrap"`` path
             (ignored by ``"analytic"``). ``None`` draws from system
-            entropy.
+            entropy and the resolved int is reported in the ``seed``
+            column; an ``int`` is reported unchanged; a
+            ``numpy.random.Generator`` is used as-is and advanced by the
+            call, and the column is null because only its owner can
+            reproduce the draw. Under ``method="analytic"`` the column is
+            null throughout.
         strict: ``True`` (default) raises ``ValueError`` when any slice is
             below the metric's sample floor. ``False`` keeps the schema and
             returns every pair touching a thin slice as an unavailable row
@@ -339,7 +346,7 @@ def slice_period_pairwise_test(
     Returns:
         Long-form ``pl.DataFrame`` with columns ``(slice_a, slice_b,
         n_periods_a, n_periods_b, mean_diff, stat, p_raw, p_adj, stat_type,
-        reference_dist, df_num, df_denom, multiplicity, min_periods,
+        reference_dist, df_num, df_denom, multiplicity, min_periods, seed,
         reason)``; one row per ordered slice pair ``(a, b)``. ``n_periods_*``
         are each slice's own date counts (disjoint spans differ in length)
         and ``min_periods`` the floor they were gated on (resolved at the
@@ -398,6 +405,14 @@ def slice_period_pairwise_test(
     # machinery below runs on that subset and the multiplicity family is the
     # tested pairs only. Pairs touching a thin slice (``strict=False``) are
     # assembled afterwards as unavailable rows in the same schema.
+    # Resolve once for the whole call: every pair's contrast draws from the
+    # same stream, and the resolved int is reported so an unseeded run stays
+    # reproducible. The analytic path draws nothing and reports null, but the
+    # seed is still validated so a bogus type is refused on both paths.
+    rng, seed_used = _resolve_rng(
+        seed, func_name="slice_period_pairwise_test", docs_path=_DOCS_SLICE
+    )
+    seed_reported = seed_used if method == "bootstrap" else None
     tested = [i for i, lbl in enumerate(labels) if lbl not in built.thin]
     series_list = [built.series[i] for i in tested]
     tested_pairs = list(combinations(range(len(tested)), 2))
@@ -408,7 +423,7 @@ def slice_period_pairwise_test(
         method=method,
         overlap_periods=op,
         n_resamples=n_resamples,
-        seed=seed,
+        rng=rng,
     )
     by_pair = {
         (tested[i], tested[j]): row
@@ -446,11 +461,13 @@ def slice_period_pairwise_test(
             "multiplicity": ["romano_wolf" if method == "bootstrap" else "holm"]
             * n_pairs,
             "min_periods": [built.min_periods] * n_pairs,
+            "seed": [seed_reported] * n_pairs,
             "reason": reasons,
         },
         schema_overrides={
             "df_denom": pl.Float64,
             "min_periods": pl.Int64,
+            "seed": pl.Int64,
             "reason": pl.String,
         },
     )
@@ -464,7 +481,7 @@ def _pairwise_contrasts(
     method: Method,
     overlap_periods: int | None,
     n_resamples: int,
-    seed: int | None,
+    rng: np.random.Generator,
 ) -> list[tuple[float, float, float, float, float | None]]:
     """Studentized contrast per pair: ``(mean_diff, stat, p_raw, p_adj, df_denom)``.
 
@@ -474,7 +491,6 @@ def _pairwise_contrasts(
     family, which runs over the computable pairs only.
     """
     if method == "bootstrap":
-        rng = np.random.default_rng(seed)
         obs_means, boot = _bootstrap_slice_means(
             series_list, n_resamples=n_resamples, rng=rng
         )
@@ -678,7 +694,7 @@ def slice_period_joint_test(
     method: Method = "bootstrap",
     overlap_periods: int | None = None,
     n_resamples: int = 999,
-    seed: int | None = None,
+    seed: Seed = None,
     strict: bool = True,
     expected_warnings: tuple[str, ...] = (),
 ) -> pl.DataFrame:
@@ -723,7 +739,12 @@ def slice_period_joint_test(
             two-sided 5% work.
         seed: Reproducibility seed for the ``"bootstrap"`` path
             (ignored by ``"analytic"``). ``None`` draws from system
-            entropy.
+            entropy and the resolved int is reported in the ``seed``
+            column; an ``int`` is reported unchanged; a
+            ``numpy.random.Generator`` is used as-is and advanced by the
+            call, and the column is null because only its owner can
+            reproduce the draw. Under ``method="analytic"`` the column is
+            null throughout.
         strict: ``True`` (default) raises ``ValueError`` when any slice is
             below the metric's sample floor. ``False`` returns the same
             single-row schema as an unavailable row instead (``stat`` /
@@ -742,8 +763,8 @@ def slice_period_joint_test(
     Returns:
         Single-row ``pl.DataFrame`` with columns ``(k_slices, n_periods_min,
         stat, p_value, stat_type, reference_dist, df_num, df_denom,
-        multiplicity, min_periods, short_slice_periods, warning_codes,
-        unexpected_warning_codes, reason)``. ``stat`` is the joint Wald
+        multiplicity, min_periods, seed, short_slice_periods,
+        warning_codes, unexpected_warning_codes, reason)``. ``stat`` is the joint Wald
         statistic; ``n_periods_min`` the shortest slice's date count and
         ``min_periods`` the floor it was gated on (resolved at the panel's
         stamped or declared ``overlap_periods``); ``reason`` is null when the test ran
@@ -812,6 +833,12 @@ def slice_period_joint_test(
     expected = _validate_expected_warnings_arg(
         expected_warnings, func_name="slice_period_joint_test", docs_path=_DOCS_SLICE
     )
+    # Resolved before the unavailable-row short-circuits so every row carries
+    # the same column, and so a bogus seed is refused on both methods.
+    rng, seed_used = _resolve_rng(
+        seed, func_name="slice_period_joint_test", docs_path=_DOCS_SLICE
+    )
+    seed_reported = seed_used if method == "bootstrap" else None
     op = _resolve_overlap_periods(
         data, overlap_periods, horizon=None, func_name="slice_period_joint_test"
     )
@@ -852,6 +879,7 @@ def slice_period_joint_test(
                 "df_denom": [df_denom],
                 "multiplicity": [None],
                 "min_periods": [built.min_periods],
+                "seed": [seed_reported],
                 "short_slice_periods": [_JOINT_SHORT_SLICE_PERIODS],
                 "warning_codes": [list(warning_codes)],
                 "unexpected_warning_codes": [unexpected],
@@ -861,6 +889,7 @@ def slice_period_joint_test(
                 "df_denom": pl.Float64,
                 "multiplicity": pl.String,
                 "min_periods": pl.Int64,
+                "seed": pl.Int64,
                 "short_slice_periods": pl.Int64,
                 "warning_codes": pl.List(pl.String),
                 "unexpected_warning_codes": pl.List(pl.String),
@@ -891,7 +920,6 @@ def slice_period_joint_test(
     restriction = _equality_restriction(k)
 
     if method == "bootstrap":
-        rng = np.random.default_rng(seed)
         obs_means, boot = _bootstrap_slice_means(
             series_list, n_resamples=n_resamples, rng=rng
         )
