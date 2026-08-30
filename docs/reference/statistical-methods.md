@@ -293,6 +293,44 @@ literature ([Berk-Brown-Buja-Zhang-Zhao 2013][berk-brown-buja-zhang-zhao-2013],
 correction; factrix does not implement it because the function is
 intended as a diagnostic, not a hypothesis test.
 
+
+### Resampling knobs
+
+Every entry point that turns a resample count into a reported p or
+interval takes the same two knobs under the same names, with the same
+default and the same refusal floor.
+
+| Entry point | `n_resamples` default | `seed` | Floor enforced | Reports `p_value_mc_se` |
+|---|---|---|---|---|
+| `ic(inference=StationaryBootstrap(...))` | 999 | yes | yes | yes (`metadata`) |
+| `monotonicity(...)` | 999 | yes | yes | yes (`metadata`) |
+| `bootstrap_mean_ci(...)` | 999 | yes | yes | no (returns an interval, not a p) |
+| `slice_period_pairwise_test` / `slice_period_joint_test` (`method="bootstrap"`) | 999 | yes | yes | no (see below) |
+| `stationary_bootstrap_resamples(...)` | 999 | yes | **no** | no (returns draws, not inference) |
+
+The floor is `BOOTSTRAP_RESAMPLES_FLOOR = 199` and a lower count raises
+`UserInputError`. A Davison-Hinkley smoothed p lives on the `1/(B+1)`
+grid, so `B` should be chosen with `α·(B + 1)` an integer
+([Davidson-MacKinnon 2000][davidson-mackinnon-2000]): 199 / 399 / 999 at
+the conventional levels. 199 is the smallest such grid point — below it
+the p resolves no finer than 0.005 — and the default 999 is
+[Politis-White (2004)][politis-white-2004]'s recommendation for two-sided
+5% work. `stationary_bootstrap_resamples` sits outside the floor
+deliberately: it returns draws and claims no inference on them.
+
+`p_value_mc_se` is `sqrt(p(1-p)/B)`, the binomial SE of the resampling
+draw itself — how far the reported p would move on a re-run with a
+different seed, not a statistical SE of the estimate. At `B = 999` and
+p near 0.05 it is ~0.7pp, so 0.043 and 0.058 are one draw apart. It
+shrinks only as `1/sqrt(B)`; no amount of data shrinks it. The period
+slice tests do **not** report it: their `p_adj` is a Romano-Wolf
+step-down adjustment, not a single binomial draw, so the formula does
+not apply.
+
+Passing `seed=None` (the default) draws from system entropy and reports
+the resolved seed back in `metadata["seed"]`, so an unseeded run is
+still reproducible after the fact.
+
 ---
 
 ## 3. Robust scale and outlier handling

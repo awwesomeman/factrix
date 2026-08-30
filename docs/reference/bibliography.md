@@ -836,9 +836,10 @@ Künsch, H. R. (1989). "The Jackknife and the Bootstrap for General
 Stationary Observations." *Annals of Statistics* 17(3), 1217–1241.
 
 Originates the fixed-length moving-block bootstrap, where blocks are
-drawn only from starts that fit inside the sample. factrix's
-``scheme="fixed"`` implements the circular variant below, not this one;
-kept as the origin of the fixed-length block idea.
+drawn only from starts that fit inside the sample. factrix implements
+neither this nor the circular variant below — only the stationary
+scheme — but both are kept as the origin of the block bootstrap idea
+the stationary scheme generalises.
 
 ### Politis & Romano (1992)
 [](){ #politis-romano-1992 }
@@ -850,9 +851,20 @@ LePage, R. & Billard, L. (eds.), Wiley, 263–270.
 Circular block bootstrap: fixed-length blocks whose starts are uniform
 over all ``n`` positions and wrap modulo ``n``, so every observation is
 resampled with equal weight (the moving-block scheme under-weights the
-two tails). Underlies factrix's ``scheme="fixed"`` block bootstrap, and
-supplies the ``(4/3)·g(0)²`` variance constant its automatic
-block-length selector uses.
+two tails). Not implemented by factrix, which exposes the stationary
+scheme only; kept because the automatic block-length selector below is
+derived for both and the ``(4/3)·g(0)²`` constant is this scheme's.
+
+### Davidson & MacKinnon (2000)
+[](){ #davidson-mackinnon-2000 }
+
+Davidson, R. & MacKinnon, J. G. (2000). "Bootstrap Tests: How Many
+Bootstraps?" *Econometric Reviews* 19(1), 55–68.
+
+Shows that a bootstrap p-value lives on the ``1/(B+1)`` grid, so ``B``
+should be chosen with ``alpha·(B + 1)`` an integer — 199 / 399 / 999 at
+the conventional levels. Supplies the grid argument behind factrix's
+``BOOTSTRAP_RESAMPLES_FLOOR``.
 
 ### Politis & Romano (1994)
 [](){ #politis-romano-1994 }

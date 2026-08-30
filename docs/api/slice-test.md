@@ -95,6 +95,11 @@ covariance. A two-valued `method` flag selects the estimator:
 | `"bootstrap"` (default) | Independent stationary block bootstrap (Politis-White automatic block length) | Romano-Wolf step-down | Short regimes (T ≈ 30-80); never invalid |
 | `"analytic"` | Per-slice Newey-West HAC, Welch-style pairwise contrast | Holm step-down | Long spans (T ≳ 100); fast, deterministic |
 
+Under `method="bootstrap"` both take `n_resamples=` (default 999, floored
+at 199) and `seed=` — the library-wide resampling knobs, see
+[Resampling knobs](../reference/statistical-methods.md#resampling-knobs).
+`"analytic"` ignores both.
+
 Each slice's per-period series must clear the metric's own sample floor,
 resolved at the panel's stamped or declared `overlap_periods` — the same
 floor `by_slice` short-circuits on — otherwise the test raises `ValueError`

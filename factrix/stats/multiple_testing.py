@@ -396,12 +396,12 @@ def romano_wolf_adjusted_p(
         bootstrap_use = np.abs(bootstrap)
 
     desc_order = np.argsort(-observed_use, kind="stable")
-    n_bootstrap = bootstrap_use.shape[0]
+    n_resamples = bootstrap_use.shape[0]
     observed_desc = observed_use[desc_order]
     bootstrap_desc = bootstrap_use[:, desc_order]
     max_remaining = np.maximum.accumulate(bootstrap_desc[:, ::-1], axis=1)[:, ::-1]
     exceedances = np.sum(max_remaining >= observed_desc, axis=0)
-    p_initial = (exceedances + 1.0) / (n_bootstrap + 1.0)
+    p_initial = (exceedances + 1.0) / (n_resamples + 1.0)
     p_adj_desc = np.maximum.accumulate(p_initial)
     np.minimum(p_adj_desc, 1.0, out=p_adj_desc)
 

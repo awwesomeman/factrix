@@ -1,4 +1,4 @@
-"""Tests for ``factrix._stats.bootstrap`` (Künsch / PR / PW)."""
+"""Tests for ``factrix._stats.bootstrap`` (Politis-Romano / Politis-White)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,6 @@ import numpy as np
 import pytest
 from factrix._stats.bootstrap import (
     _block_bootstrap_diff_p,
-    _fixed_block_indices,
     _politis_white_block_length,
     _stationary_block_indices,
 )
@@ -19,7 +18,7 @@ class TestPolitisWhiteBlockLength:
         # IID series: optimal block length should be small (< T^(1/3) * something).
         rng = np.random.default_rng(seed=0)
         x = rng.standard_normal(size=500)
-        L = _politis_white_block_length(x, scheme="stationary")
+        L = _politis_white_block_length(x)
         assert 1.0 <= L <= 50.0  # generous upper bound for IID
 
     def test_persistent_returns_longer_block(self):
@@ -30,24 +29,11 @@ class TestPolitisWhiteBlockLength:
         x[0] = rng.standard_normal()
         for t in range(1, n):
             x[t] = 0.7 * x[t - 1] + rng.standard_normal()
-        L_persist = _politis_white_block_length(x, scheme="stationary")
+        L_persist = _politis_white_block_length(x)
         # Generate matched-length IID and compare.
         x_iid = rng.standard_normal(size=n)
-        L_iid = _politis_white_block_length(x_iid, scheme="stationary")
+        L_iid = _politis_white_block_length(x_iid)
         assert L_persist > L_iid
-
-    def test_fixed_smaller_than_stationary(self):
-        # PW eq 9 vs 12: D_CB = (4/3)·g(0)² > D_SB = 2·g(0)²? No — 4/3 < 2,
-        # so fixed L = (2G²/D_CB)^(1/3) > stationary L. Verify direction.
-        rng = np.random.default_rng(seed=2)
-        n = 400
-        x = np.empty(n)
-        x[0] = rng.standard_normal()
-        for t in range(1, n):
-            x[t] = 0.5 * x[t - 1] + rng.standard_normal()
-        L_sb = _politis_white_block_length(x, scheme="stationary")
-        L_cb = _politis_white_block_length(x, scheme="fixed")
-        assert L_cb >= L_sb
 
     def test_fallback_on_short_series(self):
         # n=3 < 4 → fallback to 1.75 * n^(1/3).
@@ -57,11 +43,6 @@ class TestPolitisWhiteBlockLength:
     def test_fallback_on_zero_variance(self):
         L = _politis_white_block_length(np.zeros(100))
         assert pytest.approx(max(1.0, 1.75 * 100 ** (1.0 / 3.0))) == L
-
-    def test_rejects_unknown_scheme(self):
-        rng = np.random.default_rng(seed=7)
-        with pytest.raises(ValueError, match="scheme must be"):
-            _politis_white_block_length(rng.standard_normal(200), scheme="other")  # type: ignore[arg-type]
 
 
 class TestPolitisWhiteUpperBound:
@@ -111,50 +92,6 @@ class TestPolitisWhiteUpperBound:
         assert 1.0 < L < np.ceil(min(3 * np.sqrt(300), 100))
 
 
-class TestFixedBlockIndices:
-    def test_shape_and_range(self):
-        rng = np.random.default_rng(seed=0)
-        idx = _fixed_block_indices(100, 50, block_length=5, rng=rng)
-        assert idx.shape == (50, 100)
-        assert idx.min() >= 0 and idx.max() < 100
-
-    def test_block_contiguity(self):
-        # Within each block of length L, indices should be consecutive
-        # modulo n. Sample one resample.
-        rng = np.random.default_rng(seed=42)
-        n, L = 50, 4
-        idx = _fixed_block_indices(n, 1, block_length=L, rng=rng)[0]
-        # Each block of length L (except maybe last) should have
-        # idx[t+1] = (idx[t] + 1) % n.
-        n_full_blocks = len(idx) // L
-        for b in range(n_full_blocks):
-            block = idx[b * L : (b + 1) * L]
-            diffs = (block[1:] - block[:-1]) % n
-            assert np.all(diffs == 1)
-
-    def test_rejects_zero_block_length(self):
-        rng = np.random.default_rng()
-        with pytest.raises(ValueError, match="invalid block_length"):
-            _fixed_block_indices(10, 5, block_length=0, rng=rng)
-
-    def test_rejects_block_length_at_or_past_the_sample(self):
-        """L >= n makes every resample a rotation of the whole series, so
-        the centred bootstrap mean is identically 0 and p == 1/(B+1) on any
-        data. Refuse rather than return the strongest possible significance
-        from a validation-parameter typo."""
-        rng = np.random.default_rng()
-        for bad in (11, 30, 40):
-            with pytest.raises(ValueError, match="invalid block_length"):
-                _fixed_block_indices(30, 5, block_length=bad, rng=rng)
-        # ceil(min(3*sqrt(30), 30/3)) == 10 is the last admissible value.
-        assert _fixed_block_indices(30, 5, block_length=10, rng=rng).shape == (5, 30)
-
-    def test_empty(self):
-        rng = np.random.default_rng()
-        idx = _fixed_block_indices(0, 5, block_length=3, rng=rng)
-        assert idx.shape == (5, 0)
-
-
 class TestStationaryBlockIndices:
     def test_shape_and_range(self):
         rng = np.random.default_rng(seed=0)
@@ -193,7 +130,7 @@ class TestStudentizedDiffP:
         # particular, large p on a series with mean ≈ 0.
         rng = np.random.default_rng(seed=0)
         diff = rng.standard_normal(size=200)  # mean ≈ 0
-        p, _meta = _block_bootstrap_diff_p(diff, n_resamples=499, rng_seed=0)
+        p, _meta = _block_bootstrap_diff_p(diff, n_resamples=499, seed=0)
         assert 0.0 < p <= 1.0
         # mean ≈ 0 → not significant.
         assert p > 0.1
@@ -201,36 +138,22 @@ class TestStudentizedDiffP:
     def test_power_under_strong_alt(self):
         rng = np.random.default_rng(seed=1)
         diff = rng.standard_normal(size=200) + 0.5  # strong positive shift
-        p, _ = _block_bootstrap_diff_p(diff, n_resamples=499, rng_seed=0)
+        p, _ = _block_bootstrap_diff_p(diff, n_resamples=499, seed=0)
         assert p < 0.01
 
     def test_seed_recorded_when_none(self):
         diff = np.array([0.1, -0.2, 0.3, -0.1, 0.2, 0.0, -0.05, 0.15])
-        _p, meta = _block_bootstrap_diff_p(diff, n_resamples=199, rng_seed=None)
-        assert isinstance(meta["rng_seed"], int)
-        assert meta["rng_seed"] >= 0
+        _p, meta = _block_bootstrap_diff_p(diff, n_resamples=199, seed=None)
+        assert isinstance(meta["seed"], int)
+        assert meta["seed"] >= 0
         assert meta["n_resamples"] == 199
 
     def test_explicit_seed_reproducible(self):
         diff = np.array([0.3, -0.1, 0.4, -0.2, 0.1, 0.05, -0.15, 0.2, 0.0, 0.1])
-        p1, m1 = _block_bootstrap_diff_p(diff, n_resamples=199, rng_seed=123)
-        p2, m2 = _block_bootstrap_diff_p(diff, n_resamples=199, rng_seed=123)
+        p1, m1 = _block_bootstrap_diff_p(diff, n_resamples=199, seed=123)
+        p2, m2 = _block_bootstrap_diff_p(diff, n_resamples=199, seed=123)
         assert p1 == p2
-        assert m1["rng_seed"] == m2["rng_seed"] == 123
-
-    def test_fixed_scheme(self):
-        rng = np.random.default_rng(seed=2)
-        diff = rng.standard_normal(size=100) + 0.4
-        p_fixed, m_fixed = _block_bootstrap_diff_p(
-            diff,
-            block_length=5,
-            scheme="fixed",
-            n_resamples=499,
-            rng_seed=0,
-        )
-        assert p_fixed < 0.05
-        assert m_fixed["scheme"] == "fixed"
-        assert m_fixed["block_length"] == 5
+        assert m1["seed"] == m2["seed"] == 123
 
     def test_stationary_auto_block_length_is_not_discretized(self):
         """The stationary L is a geometric MEAN, so it must stay fractional.
@@ -246,10 +169,10 @@ class TestStudentizedDiffP:
         for t in range(1, 300):
             x[t] = 0.6 * x[t - 1] + rng.standard_normal()
 
-        expected = _politis_white_block_length(x, scheme="stationary")
+        expected = _politis_white_block_length(x)
         assert expected != round(expected), "fixture must exercise a fractional L"
 
-        _p, meta = _block_bootstrap_diff_p(x, n_resamples=199, rng_seed=0)
+        _p, meta = _block_bootstrap_diff_p(x, n_resamples=199, seed=0)
         assert meta["block_length"] == pytest.approx(expected)
 
     def test_stationary_auto_matches_period_inference(self):
@@ -260,34 +183,14 @@ class TestStudentizedDiffP:
         rounded it first, so the two re-sampled the same series with
         different effective block lengths.
         """
-        from factrix.slicing.period_inference import _SCHEME
-
         rng = np.random.default_rng(seed=11)
         x = np.empty(300)
         x[0] = rng.standard_normal()
         for t in range(1, 300):
             x[t] = 0.6 * x[t - 1] + rng.standard_normal()
 
-        _p, meta = _block_bootstrap_diff_p(
-            x, n_resamples=199, rng_seed=0, scheme=_SCHEME
-        )
-        assert meta["block_length"] == pytest.approx(
-            _politis_white_block_length(x, scheme=_SCHEME)
-        )
-
-    def test_fixed_auto_block_length_stays_integral(self):
-        """The fixed scheme's L IS a block size, so rounding is correct there."""
-        rng = np.random.default_rng(seed=7)
-        x = np.empty(300)
-        x[0] = rng.standard_normal()
-        for t in range(1, 300):
-            x[t] = 0.6 * x[t - 1] + rng.standard_normal()
-
-        _p, meta = _block_bootstrap_diff_p(
-            x, n_resamples=199, rng_seed=0, scheme="fixed"
-        )
-        L = meta["block_length"]
-        assert int(L) == L
+        _p, meta = _block_bootstrap_diff_p(x, n_resamples=199, seed=0)
+        assert meta["block_length"] == pytest.approx(_politis_white_block_length(x))
 
     def test_short_series_withholds_the_test(self):
         """n < 2 admits no test. NaN, not 1.0: an untestable sample is not
@@ -302,7 +205,7 @@ class TestStudentizedDiffP:
     def test_p_floor_smoothing(self):
         # p should never be exactly 0 (Davison-Hinkley smoothing).
         diff = np.full(100, 100.0)  # huge mean → all bootstrap means 0
-        p, _ = _block_bootstrap_diff_p(diff, n_resamples=99, rng_seed=0)
+        p, _ = _block_bootstrap_diff_p(diff, n_resamples=99, seed=0)
         assert p == pytest.approx(1.0 / 100.0)
 
 
@@ -313,7 +216,7 @@ class TestRejectsNonFinite:
         significance — so a NaN must be refused, not tolerated."""
         diff = np.array([0.1, 0.2, float("nan"), 0.3, 0.1, 0.2])
         with pytest.raises(ValueError, match="finite"):
-            _block_bootstrap_diff_p(diff, rng_seed=0)
+            _block_bootstrap_diff_p(diff, seed=0)
 
     def test_politis_white_falls_back_on_nan(self):
         x = np.array([0.1, float("nan"), 0.2, 0.3, 0.4, 0.5, 0.6, 0.7])
@@ -341,10 +244,10 @@ class TestStudentizedRoot:
 
         rng = np.random.default_rng(0)
         diff = rng.standard_normal(120)
-        p, meta = _block_bootstrap_diff_p(diff, n_resamples=199, rng_seed=7)
+        p, meta = _block_bootstrap_diff_p(diff, n_resamples=199, seed=7)
         assert meta["studentized"] is True
 
-        L = _politis_white_block_length(diff, scheme="stationary")
+        L = _politis_white_block_length(diff)
         assert meta["block_length"] == pytest.approx(L)
         idx = _stationary_block_indices(120, 199, L, np.random.default_rng(7))
         resamples = (diff - diff.mean())[idx]
@@ -376,13 +279,13 @@ class TestStudentizedRoot:
         rng = np.random.default_rng(2)
         for n in (6, 20, 120):
             _, meta = _block_bootstrap_diff_p(
-                rng.standard_normal(n), n_resamples=99, rng_seed=0
+                rng.standard_normal(n), n_resamples=99, seed=0
             )
             assert meta["studentized"] is True
 
     def test_degenerate_series_falls_back_to_the_raw_mean_root(self):
         """A zero-dispersion series leaves no SE to divide by."""
-        _, meta = _block_bootstrap_diff_p(np.full(40, 2.0), n_resamples=99, rng_seed=0)
+        _, meta = _block_bootstrap_diff_p(np.full(40, 2.0), n_resamples=99, seed=0)
         assert meta["studentized"] is False
 
     @pytest.mark.parametrize(("n", "phi"), [(120, 0.5), (500, 0.8)])
@@ -398,10 +301,10 @@ class TestStudentizedRoot:
         studentized = plain = 0
         for _ in range(n_reps):
             diff = self._ar1(n, phi, rng)
-            p, _ = _block_bootstrap_diff_p(diff, n_resamples=299, rng_seed=1)
+            p, _ = _block_bootstrap_diff_p(diff, n_resamples=299, seed=1)
             studentized += p < 0.05
             # Same draws, unstudentized root (the pre-fix behaviour).
-            L = _politis_white_block_length(diff, scheme="stationary")
+            L = _politis_white_block_length(diff)
             idx = _stationary_block_indices(n, 299, L, np.random.default_rng(1))
             boot = (diff - diff.mean())[idx].mean(axis=1)
             p_plain = (np.sum(np.abs(boot) >= abs(diff.mean())) + 1.0) / 300.0
@@ -415,7 +318,7 @@ class TestOverlapHorizonFloor:
         rng = np.random.default_rng(3)
         diff = rng.standard_normal(200)
         _, meta = _block_bootstrap_diff_p(
-            diff, overlap_periods=21, n_resamples=99, rng_seed=0
+            diff, overlap_periods=21, n_resamples=99, seed=0
         )
         assert meta["block_length"] >= 21
 
@@ -426,7 +329,7 @@ class TestOverlapHorizonFloor:
         rng = np.random.default_rng(3)
         diff = rng.standard_normal(30)
         _, meta = _block_bootstrap_diff_p(
-            diff, overlap_periods=100, n_resamples=99, rng_seed=0
+            diff, overlap_periods=100, n_resamples=99, seed=0
         )
         assert meta["block_length"] == _max_block_length(30)
 
@@ -434,9 +337,9 @@ class TestOverlapHorizonFloor:
         rng = np.random.default_rng(3)
         diff = rng.standard_normal(200)
         _, floored = _block_bootstrap_diff_p(
-            diff, overlap_periods=1, n_resamples=99, rng_seed=0
+            diff, overlap_periods=1, n_resamples=99, seed=0
         )
-        _, plain = _block_bootstrap_diff_p(diff, n_resamples=99, rng_seed=0)
+        _, plain = _block_bootstrap_diff_p(diff, n_resamples=99, seed=0)
         assert floored["block_length"] == plain["block_length"]
 
 

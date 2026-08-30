@@ -42,7 +42,7 @@ def test_two_slice_returns_one_row(
         seed=1, spans={"bull": (60, 0.1), "bear": (60, 0.1)}, label_col="regime"
     )
     out = slice_period_pairwise_test(
-        df, ic(), by="regime", factor_col="factor", method=method, rng_seed=1
+        df, ic(), by="regime", factor_col="factor", method=method, seed=1
     )
     assert out.height == 1
     assert out.columns == _PAIRWISE_COLS
@@ -133,9 +133,7 @@ def test_three_slice_returns_three_rows() -> None:
         spans={"bull": (60, 0.1), "bear": (60, 0.1), "flat": (60, 0.1)},
         label_col="regime",
     )
-    out = slice_period_pairwise_test(
-        df, ic(), by="regime", factor_col="factor", rng_seed=2
-    )
+    out = slice_period_pairwise_test(df, ic(), by="regime", factor_col="factor", seed=2)
     assert out.height == 3
     pairs = set(zip(out["slice_a"].to_list(), out["slice_b"].to_list(), strict=False))
     assert pairs == {("bull", "bear"), ("bull", "flat"), ("bear", "flat")}
@@ -146,9 +144,7 @@ def test_per_slice_period_counts_reported() -> None:
     df = build_disjoint_period_panel(
         seed=3, spans={"early": (50, 0.1), "late": (90, 0.1)}, label_col="regime"
     )
-    out = slice_period_pairwise_test(
-        df, ic(), by="regime", factor_col="factor", rng_seed=3
-    )
+    out = slice_period_pairwise_test(df, ic(), by="regime", factor_col="factor", seed=3)
     row = out.row(0, named=True)
     assert row["n_periods_a"] == 50
     assert row["n_periods_b"] == 90
@@ -159,9 +155,7 @@ def test_disjoint_dates_do_not_raise() -> None:
     df = build_disjoint_period_panel(
         seed=4, spans={"a": (50, 0.1), "b": (50, 0.1)}, label_col="regime"
     )
-    out = slice_period_pairwise_test(
-        df, ic(), by="regime", factor_col="factor", rng_seed=4
-    )
+    out = slice_period_pairwise_test(df, ic(), by="regime", factor_col="factor", seed=4)
     assert out.height == 1
     assert np.isfinite(out["stat"][0])
 
@@ -172,7 +166,7 @@ def test_detects_signal_difference(method: str) -> None:
         seed=5, spans={"hot": (200, 0.4), "cold": (200, -0.1)}, label_col="regime"
     )
     out = slice_period_pairwise_test(
-        df, ic(), by="regime", factor_col="factor", method=method, rng_seed=5
+        df, ic(), by="regime", factor_col="factor", method=method, seed=5
     )
     assert out["p_raw"][0] < 0.05
 
@@ -183,7 +177,7 @@ def test_mean_diff_sign_matches_direction(method: str) -> None:
         seed=15, spans={"hot": (200, 0.4), "cold": (200, -0.1)}, label_col="regime"
     )
     out = slice_period_pairwise_test(
-        df, ic(), by="regime", factor_col="factor", method=method, rng_seed=6
+        df, ic(), by="regime", factor_col="factor", method=method, seed=6
     )
     row = out.row(0, named=True)
     # mean_diff = μ_a − μ_b; positive iff slice_a is the higher-IC regime.
@@ -198,7 +192,7 @@ def test_p_adj_dominates_raw(method: str) -> None:
         label_col="regime",
     )
     out = slice_period_pairwise_test(
-        df, ic(), by="regime", factor_col="factor", method=method, rng_seed=7
+        df, ic(), by="regime", factor_col="factor", method=method, seed=7
     )
     for raw, adj in zip(out["p_raw"].to_list(), out["p_adj"].to_list(), strict=False):
         assert adj >= raw - 1e-12
@@ -208,12 +202,8 @@ def test_bootstrap_reproducible_under_seed() -> None:
     df = build_disjoint_period_panel(
         seed=8, spans={"a": (80, 0.1), "b": (80, -0.05)}, label_col="regime"
     )
-    a = slice_period_pairwise_test(
-        df, ic(), by="regime", factor_col="factor", rng_seed=99
-    )
-    b = slice_period_pairwise_test(
-        df, ic(), by="regime", factor_col="factor", rng_seed=99
-    )
+    a = slice_period_pairwise_test(df, ic(), by="regime", factor_col="factor", seed=99)
+    b = slice_period_pairwise_test(df, ic(), by="regime", factor_col="factor", seed=99)
     assert a["stat"].to_list() == b["stat"].to_list()
     assert a["p_adj"].to_list() == b["p_adj"].to_list()
 
@@ -223,7 +213,7 @@ def test_fama_macbeth_metric_accepted() -> None:
         seed=9, spans={"x": (60, 0.1), "y": (60, 0.1)}, label_col="regime"
     )
     out = slice_period_pairwise_test(
-        df, fm_beta(), by="regime", factor_col="factor", rng_seed=9
+        df, fm_beta(), by="regime", factor_col="factor", seed=9
     )
     assert out.height == 1
     assert out.columns == _PAIRWISE_COLS
@@ -247,7 +237,7 @@ def test_caar_metric_accepted_for_event_regimes() -> None:
         .alias("regime")
     )
     out = slice_period_pairwise_test(
-        panel, caar(), by="regime", factor_col="factor_0000", rng_seed=9
+        panel, caar(), by="regime", factor_col="factor_0000", seed=9
     )
     assert out.height == 1
     assert out.columns == _PAIRWISE_COLS
@@ -326,9 +316,7 @@ def test_raises_when_slice_below_metric_floor() -> None:
         seed=18, spans={"a": (30, 0.1), "b": (30, 0.1)}, label_col="regime"
     )
     with pytest.raises(ValueError, match="sample floor"):
-        slice_period_pairwise_test(
-            df, ic(), by="regime", factor_col="factor", rng_seed=18
-        )
+        slice_period_pairwise_test(df, ic(), by="regime", factor_col="factor", seed=18)
 
 
 def test_runs_at_metric_floor() -> None:
@@ -337,7 +325,7 @@ def test_runs_at_metric_floor() -> None:
         seed=19, spans={"a": (50, 0.1), "b": (60, 0.1)}, label_col="regime"
     )
     out = slice_period_pairwise_test(
-        df, ic(), by="regime", factor_col="factor", rng_seed=19
+        df, ic(), by="regime", factor_col="factor", seed=19
     )
     assert out.height == 1
 
@@ -364,7 +352,7 @@ def test_constant_slices_carry_nan_not_a_non_rejection(method: str):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         out = slice_period_pairwise_test(
-            df, ic(), by="regime", factor_col="factor", method=method, rng_seed=1
+            df, ic(), by="regime", factor_col="factor", method=method, seed=1
         )
     is_ab = (pl.col("slice_a") == "a") & (pl.col("slice_b") == "b")
     ab = out.filter(is_ab)
@@ -417,7 +405,7 @@ class TestNonStrict:
             by="regime",
             factor_col="factor",
             method=method,
-            rng_seed=1,
+            seed=1,
             strict=False,
         )
         assert out.columns == _PAIRWISE_COLS
@@ -442,7 +430,7 @@ class TestNonStrict:
         self, method: str
     ) -> None:
         panel = self._panel()
-        kw = dict(by="regime", factor_col="factor", method=method, rng_seed=1)
+        kw = dict(by="regime", factor_col="factor", method=method, seed=1)
         loose = slice_period_pairwise_test(panel, ic(), strict=False, **kw)
         only_valid = slice_period_pairwise_test(
             panel.filter(pl.col("regime") != "bear"), ic(), **kw

@@ -72,7 +72,8 @@ from factrix._codes import WarningCode, _validate_expected_warnings_arg
 from factrix._data_input import _resolve_overlap_periods
 from factrix._errors import UserInputError
 from factrix._stats.bootstrap import (
-    Scheme,
+    _check_n_resamples,
+    _empirical_p,
     _politis_white_block_length,
     _stationary_block_indices,
 )
@@ -91,9 +92,6 @@ from factrix.slicing.inference import (
 from factrix.stats.multiple_testing import holm_adjusted_p, romano_wolf_adjusted_p
 
 Method = Literal["bootstrap", "analytic"]
-
-_N_RESAMPLES = 999
-_SCHEME: Scheme = "stationary"
 
 # Slice length below which the joint test's realised size exceeds ~1.5× its
 # nominal level on a true null with K >= 3 slices. Set from the measured
@@ -249,6 +247,7 @@ def _build_per_slice_series(
 def _bootstrap_slice_means(
     series_list: list[np.ndarray],
     *,
+    n_resamples: int,
     rng: np.random.Generator,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Independent stationary-block bootstrap of each slice's mean.
@@ -262,11 +261,11 @@ def _bootstrap_slice_means(
     """
     k = len(series_list)
     obs_means = np.empty(k)
-    boot = np.empty((k, _N_RESAMPLES))
+    boot = np.empty((k, n_resamples))
     for i, s in enumerate(series_list):
         obs_means[i] = float(s.mean())
-        block_len = _politis_white_block_length(s, scheme=_SCHEME)
-        idx = _stationary_block_indices(len(s), _N_RESAMPLES, float(block_len), rng)
+        block_len = _politis_white_block_length(s)
+        idx = _stationary_block_indices(len(s), n_resamples, float(block_len), rng)
         boot[i] = s[idx].mean(axis=1)
     return obs_means, boot
 
@@ -279,7 +278,8 @@ def slice_period_pairwise_test(
     factor_col: str,
     method: Method = "bootstrap",
     overlap_periods: int | None = None,
-    rng_seed: int | None = None,
+    n_resamples: int = 999,
+    seed: int | None = None,
     strict: bool = True,
 ) -> pl.DataFrame:
     """Pairwise cross-slice contrasts for a **date-disjoint** partition.
@@ -317,10 +317,15 @@ def slice_period_pairwise_test(
             contract is :func:`factrix.evaluate`'s — a value disagreeing with
             the stamp is rejected, and an unstamped panel with no declaration
             is an error rather than a silent default.
-        rng_seed: Reproducibility seed for the ``"bootstrap"`` path
+        n_resamples: ``B`` for the ``"bootstrap"`` path (ignored by
+            ``"analytic"``). Must be at least ``BOOTSTRAP_RESAMPLES_FLOOR``
+            — the shared floor every factrix entry point reporting an
+            inference drawn from resamples enforces. The default 999 is
+            [Politis-White (2004)][politis-white-2004]'s recommendation for
+            two-sided 5% work.
+        seed: Reproducibility seed for the ``"bootstrap"`` path
             (ignored by ``"analytic"``). ``None`` draws from system
-            entropy. This is plumbing, not a statistical knob — block
-            length, ``B``, and scheme are fixed by sensible defaults.
+            entropy.
         strict: ``True`` (default) raises ``ValueError`` when any slice is
             below the metric's sample floor. ``False`` keeps the schema and
             returns every pair touching a thin slice as an unavailable row
@@ -371,6 +376,9 @@ def slice_period_pairwise_test(
     """
     _validate_metric_instance(metric, "slice_period_pairwise_test")
     _validate_method(method, "slice_period_pairwise_test")
+    _check_n_resamples(
+        n_resamples, func_name="slice_period_pairwise_test", docs_path=_DOCS_SLICE
+    )
     op = _resolve_overlap_periods(
         data, overlap_periods, horizon=None, func_name="slice_period_pairwise_test"
     )
@@ -399,7 +407,8 @@ def slice_period_pairwise_test(
         tested_pairs,
         method=method,
         overlap_periods=op,
-        rng_seed=rng_seed,
+        n_resamples=n_resamples,
+        seed=seed,
     )
     by_pair = {
         (tested[i], tested[j]): row
@@ -454,7 +463,8 @@ def _pairwise_contrasts(
     *,
     method: Method,
     overlap_periods: int | None,
-    rng_seed: int | None,
+    n_resamples: int,
+    seed: int | None,
 ) -> list[tuple[float, float, float, float, float | None]]:
     """Studentized contrast per pair: ``(mean_diff, stat, p_raw, p_adj, df_denom)``.
 
@@ -464,8 +474,10 @@ def _pairwise_contrasts(
     family, which runs over the computable pairs only.
     """
     if method == "bootstrap":
-        rng = np.random.default_rng(rng_seed)
-        obs_means, boot = _bootstrap_slice_means(series_list, rng=rng)
+        rng = np.random.default_rng(seed)
+        obs_means, boot = _bootstrap_slice_means(
+            series_list, n_resamples=n_resamples, rng=rng
+        )
         t_obs: list[float] = []
         boot_cols: list[np.ndarray] = []
         mean_diffs: list[float] = []
@@ -478,7 +490,7 @@ def _pairwise_contrasts(
                 # No resampling dispersion in the contrast: no test. NaN,
                 # not t = 0 / p = 1 — see ``_stats.wald._NOT_COMPUTABLE``.
                 t = float("nan")
-                col = np.full(_N_RESAMPLES, float("nan"))
+                col = np.full(n_resamples, float("nan"))
             else:
                 t = diff_obs / se
                 # Centre on the OBSERVED difference, not the bootstrap mean:
@@ -494,7 +506,9 @@ def _pairwise_contrasts(
                 p_raw.append(float("nan"))
             else:
                 extreme = int(np.sum(np.abs(col) >= abs(t)))
-                p_raw.append((extreme + 1.0) / (_N_RESAMPLES + 1.0))
+                # Raw p only; the Romano-Wolf step-down p_adj below is not a
+                # single binomial draw, so no MC SE is reported here.
+                p_raw.append(_empirical_p(extreme, n_resamples)[0])
         # Romano-Wolf runs over the computable pairs; a collapsed pair stays
         # NaN in stat / p_raw / p_adj.
         t_arr = np.asarray(t_obs, dtype=float)
@@ -651,9 +665,8 @@ def _wald_bootstrap_omnibus(
     # the Wald quadratic form per draw (einsum over the (r, B) contrasts).
     null_contrasts = restriction @ (boot - obs_means[:, None])
     w_boot = np.einsum("ib,ij,jb->b", null_contrasts, middle_inv, null_contrasts)
-    b = boot.shape[1]
-    p = (int(np.sum(w_boot >= stat)) + 1.0) / (b + 1.0)
-    return stat, float(p)
+    p, _mc_se = _empirical_p(int(np.sum(w_boot >= stat)), boot.shape[1])
+    return stat, p
 
 
 def slice_period_joint_test(
@@ -664,7 +677,8 @@ def slice_period_joint_test(
     factor_col: str,
     method: Method = "bootstrap",
     overlap_periods: int | None = None,
-    rng_seed: int | None = None,
+    n_resamples: int = 999,
+    seed: int | None = None,
     strict: bool = True,
     expected_warnings: tuple[str, ...] = (),
 ) -> pl.DataFrame:
@@ -701,8 +715,15 @@ def slice_period_joint_test(
             contract is :func:`factrix.evaluate`'s — a value disagreeing with
             the stamp is rejected, and an unstamped panel with no declaration
             is an error rather than a silent default.
-        rng_seed: Reproducibility seed for the ``"bootstrap"`` path
-            (ignored by ``"analytic"``).
+        n_resamples: ``B`` for the ``"bootstrap"`` path (ignored by
+            ``"analytic"``). Must be at least ``BOOTSTRAP_RESAMPLES_FLOOR``
+            — the shared floor every factrix entry point reporting an
+            inference drawn from resamples enforces. The default 999 is
+            [Politis-White (2004)][politis-white-2004]'s recommendation for
+            two-sided 5% work.
+        seed: Reproducibility seed for the ``"bootstrap"`` path
+            (ignored by ``"analytic"``). ``None`` draws from system
+            entropy.
         strict: ``True`` (default) raises ``ValueError`` when any slice is
             below the metric's sample floor. ``False`` returns the same
             single-row schema as an unavailable row instead (``stat`` /
@@ -785,6 +806,9 @@ def slice_period_joint_test(
     """
     _validate_metric_instance(metric, "slice_period_joint_test")
     _validate_method(method, "slice_period_joint_test")
+    _check_n_resamples(
+        n_resamples, func_name="slice_period_joint_test", docs_path=_DOCS_SLICE
+    )
     expected = _validate_expected_warnings_arg(
         expected_warnings, func_name="slice_period_joint_test", docs_path=_DOCS_SLICE
     )
@@ -867,8 +891,10 @@ def slice_period_joint_test(
     restriction = _equality_restriction(k)
 
     if method == "bootstrap":
-        rng = np.random.default_rng(rng_seed)
-        obs_means, boot = _bootstrap_slice_means(series_list, rng=rng)
+        rng = np.random.default_rng(seed)
+        obs_means, boot = _bootstrap_slice_means(
+            series_list, n_resamples=n_resamples, rng=rng
+        )
         variances = boot.var(axis=1, ddof=1)
         stat, p = _wald_bootstrap_omnibus(obs_means, boot, variances, restriction)
         df_denom = None

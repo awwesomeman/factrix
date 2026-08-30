@@ -32,10 +32,7 @@ from factrix._errors import UserInputError
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_t
-from factrix._stats.bootstrap import (
-    BOOTSTRAP_RESAMPLES_FLOOR,
-    bootstrap_p_mc_se,
-)
+from factrix._stats.bootstrap import _check_n_resamples, _empirical_p
 from factrix._types import (
     DDOF,
     MIN_MONOTONICITY_PERIODS_HARD,
@@ -106,7 +103,7 @@ def _mr_test(
     bucket_means: np.ndarray,
     *,
     direction: MRDirection,
-    n_bootstrap: int,
+    n_resamples: int,
     seed: int | None,
 ) -> tuple[float, float, dict[str, object]]:
     """Patton-Timmermann (2010) MR test on a ``(n_periods, n_groups)`` block.
@@ -124,8 +121,8 @@ def _mr_test(
     column by column.
 
     ``p = (1 + #{J* >= J}) / (B + 1)`` — the Davison-Hinkley ``+1`` smoothing
-    the rest of the library's empirical-p paths use, so the p can never be
-    exactly 0.
+    the rest of the library's empirical-p paths use (:func:`_empirical_p`),
+    so the p can never be exactly 0.
     """
     from factrix.stats import stationary_bootstrap_resamples
 
@@ -139,18 +136,20 @@ def _mr_test(
         # Mirror ``StationaryBootstrap``: resolve a seed and report it, so a run
         # is reproducible after the fact without a mandatory knob.
         seed = int(np.random.default_rng().integers(0, 2**31 - 1))
-    resamples = stationary_bootstrap_resamples(diffs, n_bootstrap, seed=seed)
+    resamples = stationary_bootstrap_resamples(diffs, n_resamples, seed=seed)
     # (B, T, K-1) -> (B, K-1) bootstrap means, recentred under H0.
     j_star = (resamples.mean(axis=1) - delta_bar).min(axis=1)
-    p_value = float((1 + int(np.count_nonzero(j_star >= j_stat))) / (n_bootstrap + 1))
+    p_value, p_mc_se = _empirical_p(
+        int(np.count_nonzero(j_star >= j_stat)), n_resamples
+    )
 
     metadata: dict[str, object] = {
         "mr_direction": direction,
         "mr_min_diff": j_stat,
         "mr_adjacent_diffs": [float(v) for v in delta_bar],
-        "n_bootstrap": n_bootstrap,
-        "bootstrap_seed": seed,
-        "p_value_mc_se": bootstrap_p_mc_se(p_value, n_bootstrap),
+        "n_resamples": n_resamples,
+        "seed": seed,
+        "p_value_mc_se": p_mc_se,
     }
     return j_stat, p_value, metadata
 
@@ -171,7 +170,7 @@ def monotonicity(
     return_col: str = "forward_return",
     tie_policy: str = "ordinal",
     direction: MRDirection = "increasing",
-    n_bootstrap: int = 1000,
+    n_resamples: int = 999,
     seed: int | None = None,
     expected_warnings: tuple[str, ...] = (),
 ) -> dict[str, MetricResult]:
@@ -196,19 +195,18 @@ def monotonicity(
             (default) or ``"decreasing"`` in bucket index. Declare it from the
             factor's hypothesis; running both and reporting the smaller p is a
             two-sided search charged at a one-sided level.
-        n_bootstrap: Bootstrap resamples for the MR null distribution. Must
-            be at least ``BOOTSTRAP_RESAMPLES_FLOOR`` (200) — the same floor
-            ``factrix.stats.bootstrap_mean_ci`` enforces, since both report an
-            inference drawn from the resamples rather than the resamples
-            themselves. Below it the empirical p is dominated by resampling
+        n_resamples: Bootstrap resamples for the MR null distribution. Must
+            be at least ``BOOTSTRAP_RESAMPLES_FLOOR`` — the shared floor every
+            factrix entry point reporting an inference drawn from resamples
+            enforces. Below it the empirical p is dominated by resampling
             noise: the Monte-Carlo SE of the reported p is
-            ``sqrt(p(1-p)/n_bootstrap)``, reported as
-            ``metadata["p_value_mc_se"]``. At the default 1000 resamples a p
+            ``sqrt(p(1-p)/n_resamples)``, reported as
+            ``metadata["p_value_mc_se"]``. At the default 999 resamples a p
             near 0.05 carries ~0.7pp of MC SE, so 0.043 and 0.058 are one
-            draw apart; raise ``n_bootstrap`` to shrink it, since no amount
+            draw apart; raise ``n_resamples`` to shrink it, since no amount
             of data does.
         seed: Bootstrap seed. ``None`` resolves one and reports it in
-            ``metadata["bootstrap_seed"]``, so a run stays reproducible after
+            ``metadata["seed"]``, so a run stays reproducible after
             the fact. An unseeded re-run redraws the null, moving the p by
             roughly ``metadata["p_value_mc_se"]``.
 
@@ -257,7 +255,7 @@ def monotonicity(
         ...     forward_periods=5,
         ... )
         >>> result = monotonicity(
-        ...     panel, overlap_periods=5, n_groups=5, n_bootstrap=200, seed=0
+        ...     panel, overlap_periods=5, n_groups=5, n_resamples=199, seed=0
         ... )
         >>> result["factor"].name == ""
         True
@@ -271,18 +269,11 @@ def monotonicity(
             expected="'increasing' (default) or 'decreasing'",
             docs_path="api/metrics/monotonicity",
         )
-    if n_bootstrap < BOOTSTRAP_RESAMPLES_FLOOR:
-        raise UserInputError(
-            func_name="monotonicity",
-            field="n_bootstrap",
-            value=n_bootstrap,
-            expected=(
-                f"at least {BOOTSTRAP_RESAMPLES_FLOOR} bootstrap resamples — "
-                f"below that the MR empirical p is dominated by resampling "
-                f"noise (the same floor bootstrap_mean_ci enforces)"
-            ),
-            docs_path="api/metrics/monotonicity",
-        )
+    _check_n_resamples(
+        n_resamples,
+        func_name="monotonicity",
+        docs_path="api/metrics/monotonicity",
+    )
     cols = list(factor_cols)
     if not cols:
         raise ValueError("factor_cols must be non-empty")
@@ -401,7 +392,7 @@ def monotonicity(
         j_stat, p_mr, mr_metadata = _mr_test(
             mat,
             direction=direction,
-            n_bootstrap=n_bootstrap,
+            n_resamples=n_resamples,
             seed=seed,
         )
         # Descriptive shape statistics, kept because magnitude and direction

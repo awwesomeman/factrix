@@ -1,19 +1,18 @@
 """Block-bootstrap primitives backing ``StationaryBootstrap`` and the period slice tests.
 
-Two resampling schemes for dependent time series, plus the
+The stationary resampling scheme for dependent time series
+([Politis-Romano (1994)][politis-romano-1994]) — geometric block lengths
+with mean ``L``, circular sampling — plus the
 [Politis-White (2004)][politis-white-2004] automatic block-length
-selector and a paired-diff empirical p-value:
+selector and a paired-diff empirical p-value. Resamples are themselves
+stationary processes, which is what downstream estimators relying on
+stationarity (CI for serially-correlated means, Sharpe) need.
 
-- **Stationary scheme** ([Politis-Romano (1994)][politis-romano-1994]) —
-  geometric block lengths with mean ``L``. Resamples are themselves
-  stationary processes; preferred when downstream estimators rely on
-  stationarity (CI for serially-correlated means, Sharpe).
-- **Fixed scheme** ([Politis-Romano (1992)][politis-romano-1992]) —
-  deterministic block length ``L``, starts uniform over all ``n``
-  positions and wrapped modulo ``n`` (the *circular* block bootstrap, not
-  Künsch's moving-block scheme: wrapping keeps every observation equally
-  weighted). Cleaner for variance estimation; loses stationarity at the
-  join points but tighter at small ``B``.
+Only the stationary scheme is implemented. The fixed-length circular
+scheme ([Politis-Romano (1992)][politis-romano-1992]) lived here for a
+while with no public entry point able to select it, and no size table of
+its own; factrix exposes measured paths only, so it was removed rather
+than promoted to a knob.
 
 The public ``factrix.stats.bootstrap`` module ships standalone
 ``stationary_bootstrap_resamples`` / ``bootstrap_mean_ci`` for callers
@@ -23,9 +22,6 @@ private module is consumed by ``factrix.inference.StationaryBootstrap``
 (``_stationary_block_indices`` / ``_politis_white_block_length``).
 
 References:
-    - Politis, D. N. & Romano, J. P. (1992). "A Circular Block-
-      Resampling Procedure for Stationary Data." In Exploring the Limits
-      of Bootstrap, 263–270. Wiley.
     - Politis, D. N. & Romano, J. P. (1994). "The Stationary
       Bootstrap." Journal of the American Statistical Association,
       89(428), 1303–1313.
@@ -43,49 +39,81 @@ import numpy as np
 
 from factrix._types import EPSILON
 
-Scheme = Literal["fixed", "stationary"]
-
-#: Below this many resamples a bootstrap quantile or empirical p is dominated
-#: by resampling noise: at B=200 the 2.5% tail is the 5th order statistic.
-#: Politis-White (2004) recommend >= 999 for two-sided 5% work; this is the
-#: refusal floor shared by every entry point that exposes a user-settable
-#: resample count *and* reports an inference drawn from it: ``bootstrap_mean_ci``
-#: and ``monotonicity``'s MR test. Not the recommendation.
-#: Two neighbours are deliberately outside it: ``stationary_bootstrap_resamples``
-#: and ``_block_bootstrap_diff_p`` return draws / a raw p to internal callers
-#: without owning a user-facing knob, and the slice paths fix their own count at
-#: 999, already above the floor.
-#: The 200 is argued above from the quantile side (interval endpoints). On the
-#: empirical-p side it is looser than it looks: at ``p = 0.05`` the Monte-Carlo
-#: SE is ``sqrt(.05*.95/200)`` = 1.5pp, so a p printed as 0.05 carries a ~95%
-#: resampling range of roughly [0.02, 0.08] and straddles the conventional
-#: threshold in both directions. The floor refuses the indefensible, it does not
-#: certify 200; ``bootstrap_p_mc_se`` is reported so the cost is visible, and
-#: Politis-White's >= 999 remains the recommendation for two-sided 5% work.
+#: Refusal floor for every entry point that exposes a user-settable resample
+#: count *and* reports an inference drawn from it (``bootstrap_mean_ci``,
+#: ``monotonicity``'s MR test, ``StationaryBootstrap``, the period slice
+#: tests). A Davison-Hinkley empirical p lives on the ``1/(B+1)`` grid, so
+#: ``B`` should be chosen with ``alpha * (B + 1)`` an integer
+#: ([Davidson-MacKinnon (2000)][davidson-mackinnon-2000]): 199 / 399 / 999 for
+#: the usual levels. 199 is the smallest such grid point, and below it the p
+#: resolves no finer than 0.005 while its Monte-Carlo SE at ``p = 0.05`` is
+#: ``sqrt(.05*.95/199)`` = 1.5pp — a p printed as 0.05 then straddles the
+#: conventional threshold in both directions. The floor refuses the
+#: indefensible; it does not certify 199. Politis-White (2004) recommend
+#: >= 999 for two-sided 5% work, which is the default everywhere, and
+#: ``p_value_mc_se`` is reported so the cost of a lower ``B`` stays visible.
+#: ``stationary_bootstrap_resamples`` is deliberately outside the floor: it
+#: returns draws, not an inference.
 #: Deliberately not named ``MIN_*``: that prefix is reserved (FX003) for
 #: sample-size floors on a data axis, and a resample count is an algorithm
 #: knob, not an axis.
-BOOTSTRAP_RESAMPLES_FLOOR: int = 200
+BOOTSTRAP_RESAMPLES_FLOOR: int = 199
 
 
-def bootstrap_p_mc_se(p_value: float, n_bootstrap: int) -> float:
-    """Monte-Carlo standard error of a bootstrap empirical p-value.
+def _check_n_resamples(n_resamples: int, *, func_name: str, docs_path: str) -> None:
+    """Reject a resample count below ``BOOTSTRAP_RESAMPLES_FLOOR``.
 
-    ``sqrt(p * (1 - p) / B)`` — the binomial SE of the resampling draw
-    itself, *not* a statistical SE of the estimate. It says how much the
-    reported p would move on a re-run with a different seed, which is the
-    quantity a reader needs when a p sits near a decision threshold: at
-    ``B = 1000`` and ``p = 0.05`` it is ~0.7pp, so 0.043 and 0.058 are one
-    draw apart. Shrinks as ``1 / sqrt(B)``; raise ``n_bootstrap`` to shrink
-    it, since no amount of data does.
-
-    Callers are the gated inference entry points, so ``n_bootstrap`` is always
-    at or above ``BOOTSTRAP_RESAMPLES_FLOOR`` and ``p_value`` is a
-    Davison-Hinkley smoothed p confined to ``[1/(B+1), 1]``. No clamping or
-    zero-guard is needed at that contract, and none is done.
+    The one validator behind every entry point that turns a resample count
+    into a reported p or interval, so the floor, the message and the
+    exception type cannot drift apart. ``func_name`` / ``docs_path`` must
+    name the *public* entry point the caller reached this through — the
+    message is user-facing.
     """
-    p = float(p_value)
-    return float(np.sqrt(p * (1.0 - p) / n_bootstrap))
+    from factrix._errors import UserInputError
+
+    if n_resamples < BOOTSTRAP_RESAMPLES_FLOOR:
+        raise UserInputError(
+            func_name=func_name,
+            field="n_resamples",
+            value=n_resamples,
+            expected=(
+                f"at least {BOOTSTRAP_RESAMPLES_FLOOR} resamples — below that "
+                f"the empirical p / interval endpoints are resampling noise "
+                f"(p resolves no finer than 1/(B+1) = 0.005)"
+            ),
+            docs_path=docs_path,
+        )
+
+
+def _empirical_p(n_extreme: int, n_resamples: int) -> tuple[float, float]:
+    """Davison-Hinkley smoothed empirical p and its Monte-Carlo SE.
+
+    ``p = (n_extreme + 1) / (B + 1)`` — the ``+1`` smoothing keeps the p
+    strictly positive, so log-scale plots and downstream multi-stage
+    adjustments never see a hard zero, and it is the unbiased form under the
+    null (Davison-Hinkley smoothing).
+
+    The second element is ``sqrt(p * (1 - p) / B)``, the binomial SE of the
+    resampling draw itself — *not* a statistical SE of the estimate. It says
+    how much the reported p would move on a re-run with a different seed,
+    which is the quantity a reader needs when a p sits near a decision
+    threshold: at ``B = 1000`` and ``p = 0.05`` it is ~0.7pp, so 0.043 and
+    0.058 are one draw apart. It shrinks as ``1 / sqrt(B)``; raise ``B`` to
+    shrink it, since no amount of data does.
+
+    Args:
+        n_extreme: Count of resamples at least as extreme as the observed
+            statistic.
+        n_resamples: ``B``, the number of resamples the count is out of.
+
+    Returns:
+        ``(p_value, p_value_mc_se)``. Callers are gated entry points, so
+        ``B >= BOOTSTRAP_RESAMPLES_FLOOR`` and ``p`` is confined to
+        ``[1/(B+1), 1]``; no clamping or zero-guard is needed, and none is
+        done.
+    """
+    p = (n_extreme + 1.0) / (n_resamples + 1.0)
+    return float(p), float(np.sqrt(p * (1.0 - p) / n_resamples))
 
 
 def _flat_top_kernel(t: float) -> float:
@@ -104,20 +132,14 @@ def _flat_top_kernel(t: float) -> float:
     return 0.0
 
 
-def _politis_white_block_length(
-    values: np.ndarray,
-    *,
-    scheme: Scheme = "stationary",
-) -> float:
+def _politis_white_block_length(values: np.ndarray) -> float:
     """[Politis-White (2004)][politis-white-2004] automatic block length.
 
     Implements the spectral plug-in described in PW §3-4:
     ``L̂ = (2 Ĝ² / D̂)^(1/3) · T^(1/3)`` where ``Ĝ`` and ``D̂`` are
     flat-top kernel estimates of, respectively, the first derivative
-    and variance of the spectral density at frequency 0. Caller picks
-    ``scheme`` because ``D̂`` differs by a factor (``2 g(0)²`` for
-    stationary, ``(4/3) g(0)²`` for the fixed-length circular blocks;
-    PW eq 9 / 12).
+    and variance of the spectral density at frequency 0, with the
+    stationary scheme's ``D̂ = 2 g(0)²`` (PW eq 9).
 
     Falls back to ``max(1, 1.75 · T^(1/3))`` (the widely-cited practical
     PW approximation, also used by ``factrix.stats.bootstrap``) when
@@ -174,12 +196,7 @@ def _politis_white_block_length(
     # `range(1, M)` covers every non-zero contributor.
     g0 = gamma[0] + 2.0 * sum(_flat_top_kernel(k / M) * gamma[k] for k in range(1, M))
     g_deriv = 2.0 * sum(_flat_top_kernel(k / M) * k * gamma[k] for k in range(1, M))
-    if scheme == "stationary":
-        d_hat = 2.0 * g0 * g0
-    elif scheme == "fixed":
-        d_hat = (4.0 / 3.0) * g0 * g0
-    else:
-        raise ValueError(f"scheme must be 'fixed' or 'stationary'; got {scheme!r}")
+    d_hat = 2.0 * g0 * g0
 
     if d_hat < EPSILON or not np.isfinite(g_deriv):
         return fallback
@@ -234,8 +251,8 @@ def _max_block_length(n: int) -> int:
     ``ceil(min(3 * sqrt(n), n / 3))`` — ``arch``'s ``b_max``
     (``arch.bootstrap._single_optimal_block``). Bounding ``L`` relative to
     ``n`` is what keeps enough effective blocks (``~n/L``) for the resample
-    distribution to carry information: at ``L >= n`` the circular fixed-block
-    resample degenerates to a rotation of the whole series, every resample is
+    distribution to carry information: at ``L >= n`` the circular resample
+    degenerates to a rotation of the whole series, every resample is
     a permutation of the same values, and the centred bootstrap mean is
     identically zero — so the empirical p is ``1/(B+1)`` on any data
     whatsoever, the strongest possible significance from a parameter typo.
@@ -341,51 +358,13 @@ def _stationary_block_indices(
     return idx
 
 
-def _fixed_block_indices(
-    n: int,
-    n_resamples: int,
-    block_length: int,
-    rng: np.random.Generator,
-) -> np.ndarray:
-    """[Politis-Romano (1992)][politis-romano-1992] circular fixed-block
-    index matrix, shape ``(B, n)``.
-
-    Picks ``ceil(n / L)`` random block starts per resample, lays the
-    blocks contiguously (modulo ``n`` for circular wrap), then truncates
-    to length ``n``. Each resample is composed of ``ceil(n/L)`` blocks
-    of identical length ``L`` — the cleaner variance-estimation path
-    when serial correlation has a known horizon.
-
-    Starts are uniform over all ``n`` positions and wrap, which makes
-    this the circular block bootstrap rather than [Künsch
-    (1989)][kunsch-1989]'s moving-block scheme (starts restricted to
-    ``n - L + 1`` positions, leaving the first and last ``L - 1``
-    observations under-represented). The distinction is load-bearing for
-    the block-length selector: ``_politis_white_block_length(...,
-    scheme="fixed")`` uses PW's ``(4/3) g(0)²`` constant, which is
-    derived for circular blocks.
-    """
-    if n == 0:
-        return np.empty((n_resamples, 0), dtype=np.int64)
-    _validate_block_length(
-        block_length, n, "StationaryBootstrap", "reference/statistical-methods"
-    )
-    n_blocks = int(np.ceil(n / block_length))
-    starts = rng.integers(0, n, size=(n_resamples, n_blocks))
-    offsets = np.arange(block_length, dtype=np.int64)
-    # Broadcast (B, n_blocks, 1) + (block_length,) → (B, n_blocks, block_length).
-    idx = (starts[:, :, None] + offsets[None, None, :]) % n
-    return idx.reshape(n_resamples, n_blocks * block_length)[:, :n]
-
-
 def _block_bootstrap_diff_p(
     diff: np.ndarray,
     *,
     block_length: int | Literal["auto"] = "auto",
     n_resamples: int = 999,
-    scheme: Scheme = "stationary",
     overlap_periods: int | None = None,
-    rng_seed: int | None = None,
+    seed: int | None = None,
 ) -> tuple[float, dict[str, float | int | str]]:
     r"""Two-sided empirical p for ``H₀: E[diff] = 0`` on a paired series.
 
@@ -434,16 +413,13 @@ def _block_bootstrap_diff_p(
         block_length: ``"auto"`` runs Politis-White; an explicit ``int``
             is used unchanged. Either way the resolved value must land in
             ``[1, ceil(min(3*sqrt(n), n/3))]`` or ``UserInputError`` is
-            raised — see :func:`_validate_block_length`. Under
-            ``"stationary"`` the resolved value is the *mean* of the
-            geometric block-length distribution and stays fractional;
-            under ``"fixed"`` it is a literal block size and is rounded to
-            an integer.
+            raised — see :func:`_validate_block_length`. The resolved value
+            is the *mean* of the geometric block-length distribution and
+            stays fractional.
         n_resamples: ``B``. [Politis-White (2004)][politis-white-2004] recommends ≥ 999 for two-sided
-            5% tests; default matches.
-        scheme: ``"fixed"`` (fixed-length circular blocks,
-            Politis-Romano 1992) or ``"stationary"`` (geometric blocks,
-            Politis-Romano 1994).
+            5% tests; default matches. Validated against
+            ``BOOTSTRAP_RESAMPLES_FLOOR`` by the public entry point, not
+            here.
         overlap_periods: Overlap horizon ``h`` of the series. When set,
             floors the resolved block length at ``h``: Politis-Romano
             validity needs the mean block length to dominate the
@@ -452,16 +428,16 @@ def _block_bootstrap_diff_p(
             to rediscover it from a short noisy sample and systematically
             under-shoots (measured mean L of 7.95 against a needed 21 at
             T=60, h=21). Mirrors the HAC paths' bandwidth floor.
-        rng_seed: ``None`` draws from system entropy; the resolved seed
+        seed: ``None`` draws from system entropy; the resolved seed
             is returned in the metadata dict so the caller can record it.
 
     Returns:
         ``(p_value, metadata)`` — p in ``[1/(B+1), 1]``; metadata
-        records the resolved block length (a float: fractional under
-        ``"stationary"``, integral under ``"fixed"``), scheme,
-        n_resamples, whether the root was studentized, and the actual
-        seed used (so the run is reproducible from the logged metadata
-        even when the caller passed ``rng_seed=None``).
+        records the resolved (fractional) block length, ``n_resamples``,
+        whether the root was studentized, the Monte-Carlo SE of the
+        reported p (``p_value_mc_se``), and the actual seed used (so the
+        run is reproducible from the logged metadata even when the caller
+        passed ``seed=None``).
 
         A series too short to test (``n < 2``) returns ``p = nan`` with
         ``block_length = nan`` and ``n_resamples = 0``. NaN rather than
@@ -480,23 +456,22 @@ def _block_bootstrap_diff_p(
         return float("nan"), {
             "block_length": float("nan"),
             "n_resamples": 0,
-            "scheme": scheme,
             "studentized": False,
-            "rng_seed": rng_seed if rng_seed is not None else -1,
+            "p_value_mc_se": float("nan"),
+            "seed": seed if seed is not None else -1,
         }
 
     L: float
     if block_length == "auto":
-        L_auto = _politis_white_block_length(diff, scheme=scheme)
-        # Only the fixed scheme's L is a block *size* and has to be integral.
-        # The stationary scheme's is the MEAN of a geometric distribution —
+        L_auto = _politis_white_block_length(diff)
+        # L stays fractional: it is the MEAN of a geometric distribution —
         # ``_stationary_block_indices`` only ever reads it as
         # ``p_new = 1 / L`` — so rounding discretizes the renewal probability
-        # for nothing: L=3.4 turns p_new 0.294 into 0.333. It also put this
-        # function out of step with the other two consumers of the same
+        # for nothing: L=3.4 turns p_new 0.294 into 0.333. It would also put
+        # this function out of step with the other two consumers of the same
         # estimate, ``stationary_bootstrap_resamples`` and
         # ``slicing.period_inference``, which both pass the float through.
-        L = max(1.0, L_auto) if scheme == "stationary" else float(max(1, round(L_auto)))
+        L = max(1.0, L_auto)
     else:
         L = float(int(block_length))
 
@@ -511,15 +486,12 @@ def _block_bootstrap_diff_p(
     # `secrets.randbits(32)` is the purpose-built "give me a random int
     # seed" call — `SeedSequence().entropy` is typed as `int | Sequence[int]
     # | None` and the Sequence branch breaks the bit-mask path.
-    seed_used = secrets.randbits(32) if rng_seed is None else int(rng_seed)
+    seed_used = secrets.randbits(32) if seed is None else int(seed)
     rng = np.random.default_rng(seed_used)
 
     # Centre under H0 (mean=0) before resampling.
     centred = diff - float(np.mean(diff))
-    if scheme == "stationary":
-        idx = _stationary_block_indices(n, n_resamples, L, rng)
-    else:
-        idx = _fixed_block_indices(n, n_resamples, int(L), rng)
+    idx = _stationary_block_indices(n, n_resamples, L, rng)
     resamples = centred[idx]
     boot_means = resamples.mean(axis=1)
     observed = float(np.mean(diff))
@@ -545,12 +517,12 @@ def _block_bootstrap_diff_p(
         extreme = int(np.sum(np.abs(boot_means) >= abs(observed)))
         n_used = int(n_resamples)
 
-    p = (extreme + 1.0) / (n_used + 1.0)
+    p, p_mc_se = _empirical_p(extreme, n_used)
     metadata: dict[str, float | int | str] = {
         "block_length": L,
         "n_resamples": int(n_resamples),
-        "scheme": scheme,
         "studentized": studentized,
-        "rng_seed": seed_used,
+        "p_value_mc_se": p_mc_se,
+        "seed": seed_used,
     }
     return float(p), metadata
