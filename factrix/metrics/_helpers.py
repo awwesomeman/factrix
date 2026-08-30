@@ -25,7 +25,7 @@ from __future__ import annotations
 import math
 import warnings
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, get_args
 
 import numpy as np
 import polars as pl
@@ -43,7 +43,14 @@ if TYPE_CHECKING:
     from factrix.metrics._base import MetricBase
 from factrix._metric_index import SampleThreshold
 from factrix._results import MetricResult, PValueAlternative
-from factrix._types import DDOF, EPSILON, N_GROUPS_FLOOR, KPSource, SampleAxis
+from factrix._types import (
+    DDOF,
+    EPSILON,
+    N_GROUPS_FLOOR,
+    KPSource,
+    SampleAxis,
+    TiePolicy,
+)
 
 # Median-across-dates tie_ratio above this triggers a UserWarning when
 # tie_policy="ordinal". 0.3 is the empirical cutoff for "crowded" factors
@@ -1503,6 +1510,67 @@ def _lag_within_asset(
     )
 
 
+def _validate_choice(
+    value: object,
+    choices: object,
+    *,
+    func_name: str,
+    field: str,
+    docs_path: str,
+) -> None:
+    """Reject a closed-set knob value outside its ``Literal`` alias.
+
+    ``choices`` is the ``Literal`` alias that annotates the knob (e.g.
+    :data:`~factrix._types.ConcentrationWeight`); the legal set is read off it
+    with :func:`typing.get_args`, so the annotation and the runtime check
+    cannot drift apart. Every closed-set knob routes through here, which is
+    what makes a typo a :class:`~factrix._errors.UserInputError` naming the
+    legal values instead of a silent fall-through to whichever branch has no
+    ``else`` (or a polars error naming polars' own vocabulary).
+    """
+    from factrix._errors import UserInputError
+
+    allowed = get_args(choices)
+    if value not in allowed:
+        raise UserInputError(
+            func_name=func_name,
+            field=field,
+            value=value,
+            candidates=allowed,
+            docs_path=docs_path,
+        )
+
+
+def _validate_open_unit_interval(
+    value: float,
+    *,
+    func_name: str,
+    field: str,
+    detail: str,
+    docs_path: str,
+) -> None:
+    """Reject a fraction knob outside the open interval ``(0, 1)``.
+
+    ``detail`` says what each endpoint would degenerate into, in the style of
+    ``oos_decay(is_ratio=...)``.
+    """
+    from factrix._errors import UserInputError
+
+    # A bool is an int to Python and a string is not a number at all; both
+    # would otherwise reach the comparison and either pass (``True`` is 1) or
+    # raise a bare TypeError instead of the library's own diagnostic. NaN
+    # fails every comparison, so it lands here too.
+    numeric = not isinstance(value, bool) and isinstance(value, int | float)
+    if not numeric or not 0.0 < float(value) < 1.0:
+        raise UserInputError(
+            func_name=func_name,
+            field=field,
+            value=value,
+            expected=f"a fraction strictly inside (0, 1). {detail}",
+            docs_path=docs_path,
+        )
+
+
 def _validate_n_groups(n_groups: int) -> None:
     """Reject a quantile count below :data:`~factrix._types.N_GROUPS_FLOOR`.
 
@@ -1523,7 +1591,7 @@ def _assign_quantile_groups(
     data: pl.DataFrame,
     factor_col: str = "factor",
     n_groups: int = 5,
-    tie_policy: str = "ordinal",
+    tie_policy: TiePolicy = "ordinal",
 ) -> pl.DataFrame:
     """Assign quantile group labels (0 = bottom, n_groups-1 = top) per period.
 
@@ -1549,7 +1617,7 @@ def _assign_quantile_groups(
     rank_expr = (
         pl.when(finite)
         .then(pl.col(factor_col))
-        .rank(method=tie_policy)  # type: ignore[arg-type]
+        .rank(method=tie_policy)
         .over("date")
         .alias("_rank")
     )
@@ -1576,7 +1644,7 @@ def _assign_quantile_groups_batch(
     data: pl.DataFrame,
     factor_cols: list[str],
     n_groups: int,
-    tie_policy: str = "ordinal",
+    tie_policy: TiePolicy = "ordinal",
 ) -> pl.DataFrame:
     """Assign per-period quantile groups for N factors in one polars pass.
 
@@ -1592,7 +1660,7 @@ def _assign_quantile_groups_batch(
     rank_exprs = [
         pl.when(_finite_expr(f))
         .then(pl.col(f))
-        .rank(method=tie_policy)  # type: ignore[arg-type]
+        .rank(method=tie_policy)
         .over("date")
         .alias(f"_rank__{f}")
         for f in factor_cols
@@ -1653,7 +1721,7 @@ def _compute_tie_ratio(
 def _warn_high_tie_ratio(
     ratio: float,
     metric_name: str,
-    tie_policy: str,
+    tie_policy: TiePolicy,
     *,
     expected_warnings: tuple[str, ...] = (),
 ) -> bool:

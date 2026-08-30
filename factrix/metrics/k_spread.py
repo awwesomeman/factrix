@@ -39,7 +39,7 @@ from factrix._axis import (
 from factrix._codes import WarningCode
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
-from factrix._types import DDOF, MIN_PORTFOLIO_PERIODS_HARD
+from factrix._types import DDOF, MIN_PORTFOLIO_PERIODS_HARD, TiePolicy
 from factrix.inference import (
     NEWEY_WEST,
     NON_OVERLAPPING,
@@ -63,6 +63,7 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
     _spread_significance_with_inference,
     _surface_null_drop,
+    _validate_choice,
     _warn_high_tie_ratio,
 )
 
@@ -117,7 +118,7 @@ def _build_k_spread_series(
     k: int,
     factor_col: str,
     return_col: str,
-    tie_policy: str = "ordinal",
+    tie_policy: TiePolicy = "ordinal",
 ) -> tuple[pl.DataFrame | None, pl.DataFrame]:
     """Per-period Top-K/Bottom-K spread series from a (possibly sampled) panel.
 
@@ -157,7 +158,7 @@ def _build_k_spread_series(
     # so neither leg can be filled by sort artefacts; leg sizes then vary.
     ranked = clean.with_columns(
         pl.col(factor_col)
-        .rank(method=tie_policy, descending=True)  # type: ignore[arg-type]
+        .rank(method=tie_policy, descending=True)
         .over("date")
         .alias("_rank"),
         pl.len().over("date").alias("_n_date"),
@@ -198,7 +199,7 @@ def k_spread(
     k: int = 5,
     factor_col: str = "factor",
     return_col: str = "forward_return",
-    tie_policy: str = "ordinal",
+    tie_policy: TiePolicy = "ordinal",
     inference: NonOverlapping | NeweyWest | StationaryBootstrap = NON_OVERLAPPING,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
@@ -221,7 +222,8 @@ def k_spread(
         return_col: Realised-return column (default ``"forward_return"``).
         tie_policy: Tie-break policy for the leg ranking — the same knob and
             the same values as ``quantile_spread`` / ``quantile_spread_vw`` /
-            ``monotonicity``. ``"ordinal"`` (default) breaks ties by row order,
+            ``monotonicity``. Either ``"ordinal"`` or ``"average"``; anything else raises ``UserInputError``.
+            ``"ordinal"`` (default) breaks ties by row order,
             which keeps both legs exactly ``k`` names wide but fills them
             arbitrarily among tied values; ``"average"`` gives tied names a
             shared rank so a discrete signal cannot be split by sort artefacts.
@@ -313,6 +315,13 @@ def k_spread(
         >>> result.name == ""
         True
     """
+    _validate_choice(
+        tie_policy,
+        TiePolicy,
+        func_name="k_spread",
+        field="tie_policy",
+        docs_path="api/metrics/k_spread",
+    )
     if k < 1:
         raise ValueError(f"k must be >= 1; got {k}")
     _check_applicable_inference(inference, applicable_inference, func_name="k_spread")

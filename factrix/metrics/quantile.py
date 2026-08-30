@@ -35,6 +35,7 @@ from factrix._types import (
     DEFAULT_FORWARD_PERIODS,
     DEFAULT_N_GROUPS,
     MIN_PORTFOLIO_PERIODS_HARD,
+    TiePolicy,
 )
 from factrix.inference import (
     NEWEY_WEST,
@@ -62,6 +63,7 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
     _spread_significance_with_inference,
     _surface_null_drop,
+    _validate_choice,
     _warn_high_tie_ratio,
     _warn_thin_quantile_groups,
 )
@@ -162,7 +164,7 @@ def quantile_spread(
     overlap_periods: int = DEFAULT_FORWARD_PERIODS,
     n_groups: int = DEFAULT_N_GROUPS,
     factor_cols: Sequence[str] = ("factor",),
-    tie_policy: str = "ordinal",
+    tie_policy: TiePolicy = "ordinal",
     inference: NonOverlapping | NeweyWest | StationaryBootstrap = NON_OVERLAPPING,
     *,
     expected_warnings: tuple[str, ...] = (),
@@ -180,6 +182,7 @@ def quantile_spread(
             either (see Notes).
         _precomputed_series: If provided, skip recomputing ``compute_spread_series``.
         tie_policy: Bucketing tie-break policy, see ``_assign_quantile_groups``.
+            Either ``"ordinal"`` or ``"average"``; anything else raises ``UserInputError``.
             When ``_precomputed_series`` is passed, this only affects the
             ``tie_ratio`` diagnostic — the series itself was already built.
 
@@ -251,6 +254,13 @@ def quantile_spread(
         >>> result["factor"].name == ""
         True
     """
+    _validate_choice(
+        tie_policy,
+        TiePolicy,
+        func_name="quantile_spread",
+        field="tie_policy",
+        docs_path="api/metrics/quantile",
+    )
     cols = list(factor_cols)
     if not cols:
         raise ValueError("factor_cols must be non-empty")
@@ -322,7 +332,7 @@ def _quantile_spread_from_series(
     sampled: pl.DataFrame,
     n_raw_periods: int,
     factor_col: str,
-    tie_policy: str,
+    tie_policy: TiePolicy,
     inference: NonOverlapping | NeweyWest | StationaryBootstrap,
     overlap_periods: int,
     n_groups: int,
@@ -501,7 +511,7 @@ def _vw_spread_series(
     return_col: str,
     weight_col: str,
     n_groups: int,
-    tie_policy: str,
+    tie_policy: TiePolicy,
 ) -> pl.DataFrame:
     """Per-period value-weighted top-minus-bottom spread for ``panel``.
 
@@ -578,7 +588,7 @@ def quantile_spread_vw(
     factor_col: str = "factor",
     return_col: str = "forward_return",
     weight_col: str = "market_cap",
-    tie_policy: str = "ordinal",
+    tie_policy: TiePolicy = "ordinal",
     inference: NonOverlapping | NeweyWest | StationaryBootstrap = NON_OVERLAPPING,
     lag_weights: bool = True,
     expected_warnings: tuple[str, ...] = (),
@@ -698,6 +708,13 @@ def quantile_spread_vw(
         >>> result.name == ""
         True
     """
+    _validate_choice(
+        tie_policy,
+        TiePolicy,
+        func_name="quantile_spread_vw",
+        field="tie_policy",
+        docs_path="api/metrics/quantile",
+    )
     if weight_col not in data.columns:
         return _short_circuit_output(
             "quantile_spread_vw",
