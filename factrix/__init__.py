@@ -1306,7 +1306,7 @@ def _cell_mismatch_output(
     )
 
 
-__version__ = "0.29.0"
+__version__ = "0.30.0"
 
 __all__ = [
     # Axis enums (DataStructure intentionally NOT exported — it is
