@@ -287,7 +287,13 @@ class _FdrResultBase(_ScreenResultMixin):
         adj_p_all: BHY-adjusted p-value aligned with ``entries``; ``NaN``
             for an entry dropped before the family formed (data shortage).
         q: Nominal FDR target; must satisfy ``0 < q < 1``.
-        n_tests: Per-bucket / per-identity family size keyed by tuple.
+        n_tests: Per-bucket / per-identity family size keyed by tuple,
+            counting real hypotheses only.
+        n_hypotheses_inactive: Placeholder cells excluded from every family
+            before adjustment — a data-shortage short-circuit or a
+            ``degenerate_variance`` result never ran a test, so it is not a
+            hypothesis and does not enter ``m`` (or ``G``). Reported by every
+            screening verb under this one key.
     """
 
     metric_name: str
@@ -295,6 +301,7 @@ class _FdrResultBase(_ScreenResultMixin):
     adj_p_all: np.ndarray
     q: float
     n_tests: Mapping[tuple[Any, ...], int]
+    n_hypotheses_inactive: int
 
     def to_frame(self) -> pl.DataFrame:
         """Every tested factor with its adjusted p-value and survive flag.
@@ -364,8 +371,9 @@ class BhyResult(_FdrResultBase):
 class MetricHypothesis:
     """One traceable ``EvaluationResult`` x metric hypothesis.
 
-    ``is_active=False`` marks an ``insufficient_*`` data-shortage cell. The
-    record remains auditable but is excluded from the BHY denominator.
+    ``is_active=False`` marks a placeholder cell (data-shortage
+    short-circuit or degenerate variance). The record remains auditable but
+    is not a hypothesis, so it is excluded from every family.
     """
 
     result: EvaluationResult
@@ -386,6 +394,7 @@ class CrossMetricBhyResult(_ScreenResultMixin):
     metrics: tuple[str, ...]
     expand_over: tuple[str, ...]
     n_tests: Mapping[tuple[Any, ...], int]
+    n_hypotheses_inactive: int
 
     def to_frame(self) -> pl.DataFrame:
         """Return every tested cell, including inactive and eliminated rows."""
@@ -443,8 +452,10 @@ class PartialConjunctionResult(_FdrResultBase):
     Shares ``metric_name`` / ``entries`` / ``adj_p_all`` / ``q`` /
     ``n_tests`` with :class:`_FdrResultBase`. ``entries`` is one
     representative :class:`EvaluationResult` per identity; ``adj_p_all`` is
-    the BHY-adjusted PC p-value; ``n_tests`` is the condition count per
-    identity, keyed by the identifier with the ``expand_over`` components
+    the BHY-adjusted PC p-value (``NaN`` for an identity left with fewer
+    than ``min_pass`` real conditions, which never enters the family);
+    ``n_tests`` is the count of *real* conditions per identity — ``m`` in
+    the k-of-m claim — keyed by the identifier with the ``expand_over`` components
     stripped (``factor``, then ``forward_periods`` and ``params`` items not
     named by ``expand_over``).
 
@@ -452,9 +463,10 @@ class PartialConjunctionResult(_FdrResultBase):
         pc_p_all: Raw PC p-value aligned with ``entries``.
         expand_over: ``params`` keys defining the condition axis.
         min_pass: ``k`` in the ``k`` of ``m`` partial conjunction test.
-        n_passed_uncorr_all: Per-identity count of raw p-values strictly
-            below ``q`` (descriptive — not used in inference), aligned
-            with ``entries``.
+        n_passed_uncorr_all: Per-identity count of real conditions whose
+            raw p-value is at or below ``q`` — the same ``<=`` rejection
+            rule every other screen uses (descriptive — not used in
+            inference), aligned with ``entries``.
     """
 
     pc_p_all: np.ndarray
@@ -514,9 +526,9 @@ class CrossMetricPartialConjunctionResult(_ScreenResultMixin):
     metrics: tuple[str, ...]
     min_pass: int
     n_tests: Mapping[tuple[Any, ...], int]
-    n_active: Mapping[tuple[Any, ...], int]
     n_identities: int
     n_passed_uncorr_all: np.ndarray
+    n_hypotheses_inactive: int
 
     def to_frame(self) -> pl.DataFrame:
         """Return one row per factor identity, including ineligible rows."""
@@ -528,10 +540,9 @@ class CrossMetricPartialConjunctionResult(_ScreenResultMixin):
                 "adj_p": self.adj_p_all,
                 "survived": self._survived,
                 "active": [
-                    self.n_active[identity] >= self.min_pass for identity in identities
+                    self.n_tests[identity] >= self.min_pass for identity in identities
                 ],
                 "n_tests": [self.n_tests[identity] for identity in identities],
-                "n_active": [self.n_active[identity] for identity in identities],
                 "n_passed_uncorr": self.n_passed_uncorr_all,
             }
         )
@@ -584,7 +595,10 @@ class HierarchicalBhyResult(_FdrResultBase):
     the ``q`` the screen ran at, since ``R`` (groups selected by the outer
     layer) depends on it; ``q`` is shared by both
     layers; ``n_tests`` is the per-group inner family size keyed by
-    ``(group_value,)`` — covering *all* input groups, not just survivors.
+    ``(group_value,)`` — covering every group holding a real hypothesis,
+    not just the survivors, so ``G`` is ``len(n_tests)``. Placeholder
+    members, and groups made up entirely of them, are absent from the
+    family and carry ``NaN``.
 
     Attributes:
         group: ``params`` key naming the group axis.
@@ -688,10 +702,10 @@ def bhy(
     out: dict[str, BhyResult] = {}
     for spec in metric_list:
         entries = _attach_p_values(partition, func_name="bhy", metric=spec)
+        active_idx, n_inactive = _active_entries(entries, metric=spec)
+        active_set = set(active_idx)
         active_buckets: dict[tuple[Any, ...], list[int]] = {
-            bucket_key: [
-                i for i in ix if not _is_inactive_hypothesis(entries[i].result, spec)
-            ]
+            bucket_key: [i for i in ix if i in active_set]
             for bucket_key, ix in buckets.items()
         }
         active_buckets = {k: ix for k, ix in active_buckets.items() if ix}
@@ -717,6 +731,7 @@ def bhy(
             q=q_target,
             expand_over=expand_over_tuple,
             n_tests=n_tests,
+            n_hypotheses_inactive=n_inactive,
         )
     return out
 
@@ -730,14 +745,49 @@ def _is_inactive_hypothesis(result: EvaluationResult, metric: str) -> bool:
     (see ``factrix.metrics._helpers._degenerate_test_fields``); its
     ``p_value`` is ``None`` and ``_resolve_p_value`` substitutes an inert
     1.0. Neither is a hypothesis that was genuinely on the table, so both
-    stay out of the BHY denominator — counting them would shrink every
-    other factor's adjusted p for free.
+    stay out of every screening family — counting them would inflate every
+    other factor's adjusted p, penalising the real hypotheses for tests
+    that never ran.
     """
     out = result.metrics[metric]
     reason = out.metadata.get("reason")
     if isinstance(reason, str) and reason.startswith("insufficient_"):
         return True
     return WarningCode.DEGENERATE_VARIANCE.value in out.warning_codes
+
+
+def _active_entries(
+    entries: Sequence[Any],
+    *,
+    metric: str | None = None,
+) -> tuple[list[int], int]:
+    """Split a candidate family into real hypotheses and placeholders.
+
+    One policy for every screening verb: a placeholder (see
+    :func:`_is_inactive_hypothesis`) is not a hypothesis, so it never joins
+    a family, never enters ``m`` (or ``G``), and never reaches an
+    adjustment. The same degenerate input therefore yields the same
+    adjusted p for the surviving hypotheses whichever verb screens it.
+
+    Args:
+        entries: Family entries. Each exposes ``result``; a
+            :class:`MetricHypothesis` also carries its own ``metric_name``.
+        metric: Metric label for entries that do not carry one.
+
+    Returns:
+        ``(active_indices, n_inactive)`` — positions into ``entries`` that
+        are real hypotheses, in input order, and how many were dropped.
+    """
+    active: list[int] = []
+    n_inactive = 0
+    for idx, entry in enumerate(entries):
+        label = getattr(entry, "metric_name", metric)
+        assert label is not None
+        if _is_inactive_hypothesis(entry.result, label):
+            n_inactive += 1
+        else:
+            active.append(idx)
+    return active, n_inactive
 
 
 def _normalize_metric_hypotheses(
@@ -818,10 +868,10 @@ def bhy_across_metrics(
         func_name="bhy_across_metrics",
         expand_over=expand_over_tuple,
     )
+    active_idx, n_inactive = _active_entries(entries)
     buckets: dict[tuple[Any, ...], list[int]] = defaultdict(list)
-    for idx, entry in enumerate(entries):
-        if entry.is_active:
-            buckets[entry.expand_over_values].append(idx)
+    for idx in active_idx:
+        buckets[entries[idx].expand_over_values].append(idx)
 
     n_tests = {bucket_key: len(ix) for bucket_key, ix in buckets.items()}
     singleton = sum(1 for ix in buckets.values() if len(ix) == 1)
@@ -846,6 +896,7 @@ def bhy_across_metrics(
         metrics=tuple(metric_list),
         expand_over=expand_over_tuple,
         n_tests=n_tests,
+        n_hypotheses_inactive=n_inactive,
     )
 
 
@@ -871,6 +922,19 @@ def partial_conjunction(
     ``p_PC = (m - k + 1) * p_((k))`` capped at 1.
     ``k = 1`` reduces to ``m * min(p)`` (union semantics) and is
     forbidden.
+
+    **``min_pass`` must be declared before the p-values are seen.**
+    ``(m - k + 1) * p_((k))`` is not monotone in ``k``: raising the bar from
+    "2 of 4" to "3 of 4" can *lower* the PC p-value and turn a non-survivor
+    into a survivor. Picking ``k`` after looking at the p-values is
+    therefore a selection effect the outer BHY step-up does not correct —
+    the k-of-m claim is part of the hypothesis, not a knob to tune.
+
+    Placeholder conditions (a data-shortage short-circuit or a
+    ``degenerate_variance`` result) are not conditions: they leave ``m``
+    rather than entering it at ``p = 1``, exactly as in :func:`bhy`. An
+    identity left with fewer than ``min_pass`` real conditions stays in the
+    audit output with ``NaN`` and never enters the outer BHY family.
 
     Args:
         results: :class:`EvaluationResult` records. The aggregation
@@ -993,10 +1057,12 @@ def _partial_conjunction_one(
             identities_ordered.append(identity)
         entries_by_identity[identity].append(entry)
 
-    pc_p_arr = np.empty(len(identities_ordered), dtype=np.float64)
-    n_passed_arr = np.empty(len(identities_ordered), dtype=np.int64)
+    pc_p_arr = np.full(len(identities_ordered), np.nan, dtype=np.float64)
+    n_passed_arr = np.zeros(len(identities_ordered), dtype=np.int64)
     n_tests_per_id: dict[tuple[Any, ...], int] = {}
     rep_results: list[EvaluationResult] = []
+    eligible: list[int] = []
+    n_inactive = 0
 
     for i, identity in enumerate(identities_ordered):
         group = entries_by_identity[identity]
@@ -1030,14 +1096,22 @@ def _partial_conjunction_one(
                 docs_path="api/partial-conjunction#validation-summary",
             )
 
-        ps = np.array([e.p_value for e in group], dtype=np.float64)
-        pc_p_arr[i] = partial_conjunction_p(ps, min_pass=min_pass)
-        n_passed_arr[i] = int(np.sum(ps < q))
-        n_tests_per_id[identity] = m
+        active_idx, group_inactive = _active_entries(group, metric=metric)
+        n_inactive += group_inactive
+        ps = np.array([group[j].p_value for j in active_idx], dtype=np.float64)
+        # One placeholder policy: an inactive condition is not a condition, so
+        # it leaves both the k-of-m denominator and the raw pass count. An
+        # identity left with fewer than ``min_pass`` real conditions cannot
+        # support the claim and stays out of the outer BHY family.
+        n_tests_per_id[identity] = len(active_idx)
+        n_passed_arr[i] = int(np.sum(ps <= q))
+        if len(active_idx) >= min_pass:
+            pc_p_arr[i] = partial_conjunction_p(ps, min_pass=min_pass)
+            eligible.append(i)
         rep_results.append(group[0].result)
 
     if n_conditions is None:
-        m_values = set(n_tests_per_id.values())
+        m_values = {n_tests_per_id[identities_ordered[i]] for i in eligible}
         if len(m_values) > 1:
             warnings.warn(
                 "partial_conjunction: inferred condition counts (n_conditions=None) "
@@ -1050,7 +1124,9 @@ def _partial_conjunction_one(
                 stacklevel=3,
             )
 
-    adj_p_all = bhy_adjusted_p(pc_p_arr)
+    adj_p_all = np.full(len(identities_ordered), np.nan, dtype=np.float64)
+    if eligible:
+        adj_p_all[eligible] = bhy_adjusted_p(pc_p_arr[eligible])
     return PartialConjunctionResult(
         metric_name=metric,
         entries=rep_results,
@@ -1061,6 +1137,7 @@ def _partial_conjunction_one(
         min_pass=min_pass,
         n_tests=n_tests_per_id,
         n_passed_uncorr_all=n_passed_arr,
+        n_hypotheses_inactive=n_inactive,
     )
 
 
@@ -1075,17 +1152,21 @@ def partial_conjunction_across_metrics(
 
     Metric labels are the predeclared condition axis. For each result, the
     Bonferroni-style partial-conjunction p-value is computed across the fixed
-    ``m=len(metrics)`` endpoints, then BHY runs across factor identities.
-    ``insufficient_*`` endpoints are conservatively assigned p=1 rather than
-    shrinking ``m``; identities with fewer than ``min_pass`` active endpoints
-    remain in the audit output but do not enter the outer BHY family.
+    ``m`` real endpoints, then BHY runs across factor identities.
+    Placeholder endpoints (a data-shortage short-circuit or a
+    ``degenerate_variance`` result) never ran a test, so they leave ``m``
+    instead of entering it at ``p = 1``; identities with fewer than
+    ``min_pass`` real endpoints remain in the audit output but do not enter
+    the outer BHY family. ``min_pass`` must be declared before the p-values
+    are seen — ``(m - k + 1) * p_((k))`` is not monotone in ``k``.
 
     Args:
         results: Unique :class:`EvaluationResult` hypotheses. Horizon and all
             ``params`` remain part of each factor identity.
         metrics: At least two unique, predeclared inferential metric labels.
         min_pass: ``k`` in the claim "at least k of m metrics carry signal".
-            Must satisfy ``2 <= min_pass <= len(metrics)``.
+            Must satisfy ``2 <= min_pass <= len(metrics)``. Declared before
+            the p-values are seen.
         q: Nominal FDR target for BHY across factor identities.
 
     Returns:
@@ -1141,29 +1222,26 @@ def partial_conjunction_across_metrics(
 
     m = len(metric_list)
     identifiers = [_hypothesis_identity(result) for result in results]
-    n_tests = {identity: m for identity in identifiers}
-    n_active: dict[tuple[Any, ...], int] = {}
+    n_tests: dict[tuple[Any, ...], int] = {}
     pc_p_all = np.full(len(results), np.nan, dtype=np.float64)
     n_passed = np.zeros(len(results), dtype=np.int64)
     eligible: list[int] = []
+    n_inactive = 0
 
     for idx, identity in enumerate(identifiers):
         conditions = hypotheses[idx * m : (idx + 1) * m]
-        active_count = sum(condition.is_active for condition in conditions)
-        n_active[identity] = active_count
-        n_passed[idx] = sum(
-            condition.is_active and condition.p_value < q_target
-            for condition in conditions
-        )
-        if active_count < min_pass_int:
-            continue
+        # One placeholder policy: an inactive endpoint is not an endpoint. It
+        # leaves the k-of-m denominator instead of entering it at p=1.0, so
+        # the same degenerate cell costs the same here as under bhy().
+        active_idx, identity_inactive = _active_entries(conditions)
+        n_inactive += identity_inactive
+        n_tests[identity] = len(active_idx)
         p_values = np.array(
-            [
-                condition.p_value if condition.is_active else 1.0
-                for condition in conditions
-            ],
-            dtype=np.float64,
+            [conditions[j].p_value for j in active_idx], dtype=np.float64
         )
+        n_passed[idx] = int(np.sum(p_values <= q_target))
+        if len(active_idx) < min_pass_int:
+            continue
         pc_p_all[idx] = partial_conjunction_p(p_values, min_pass=min_pass_int)
         eligible.append(idx)
 
@@ -1180,9 +1258,9 @@ def partial_conjunction_across_metrics(
         metrics=tuple(metric_list),
         min_pass=min_pass_int,
         n_tests=n_tests,
-        n_active=n_active,
         n_identities=len(eligible),
         n_passed_uncorr_all=n_passed,
+        n_hypotheses_inactive=n_inactive,
     )
 
 
@@ -1261,7 +1339,10 @@ def bhy_hierarchical(
         group: Single key naming the group axis.
         q: Nominal FDR target. The outer layer runs at ``q``; the inner
             layer at the selective ``q · R / G``. Must satisfy
-            ``0 < q < 1``.
+            ``0 < q < 1``. ``G`` counts only groups holding at least one
+            real hypothesis: placeholder members leave their inner family,
+            and a group with none of them leaves the outer layer instead of
+            entering it at a Simes p of 1.0.
 
     Returns:
         ``dict[str, HierarchicalBhyResult]`` keyed by ``label``.
@@ -1305,35 +1386,37 @@ def _bhy_hierarchical_one(
         field="group",
     )
 
-    buckets: dict[Any, list[int]] = defaultdict(list)
+    submitted: dict[Any, list[int]] = defaultdict(list)
     for idx, entry in enumerate(entries):
-        buckets[entry.expand_over_values[0]].append(idx)
-    group_keys_ordered = list(
+        submitted[entry.expand_over_values[0]].append(idx)
+    declared_keys = list(
         dict.fromkeys(entry.expand_over_values[0] for entry in entries)
     )
 
-    n_groups = len(group_keys_ordered)
-    if n_groups == 1:
+    # The group-axis validations below judge the declared design, so they read
+    # the submitted input. Family formation below reads active hypotheses only.
+    n_declared = len(declared_keys)
+    if n_declared == 1:
         raise UserInputError(
             func_name="bhy_hierarchical",
             field="group",
             value=group,
             expected=(
                 "a key with at least 2 distinct values across input "
-                f"results; got 1 group ({group_keys_ordered[0]!r}). A "
+                f"results; got 1 group ({declared_keys[0]!r}). A "
                 "single group reduces the procedure to plain BHY on the "
                 "members. Call bhy(results, metrics=[...]) directly"
             ),
             docs_path="api/bhy-hierarchical#validation-summary",
         )
-    if n_groups == len(entries) and len(entries) >= 3:
+    if n_declared == len(entries) and len(entries) >= 3:
         raise UserInputError(
             func_name="bhy_hierarchical",
             field="group",
             value=group,
             expected=(
                 f"a key that partitions results into groups of size >= 2; "
-                f"got {n_groups} groups across {len(entries)} results "
+                f"got {n_declared} groups across {len(entries)} results "
                 "(every result is its own group). Pick a coarser "
                 "categorical (family / region / sector) or call bhy() "
                 "without grouping"
@@ -1341,7 +1424,31 @@ def _bhy_hierarchical_one(
             docs_path="api/bhy-hierarchical#validation-summary",
         )
 
-    singletons = sum(1 for ix in buckets.values() if len(ix) == 1)
+    # One placeholder policy: a placeholder is not a hypothesis, so it joins
+    # neither an inner family nor G. A group with no real member drops out of
+    # the outer layer entirely rather than entering it at a Simes p of 1.0.
+    active_idx, n_inactive = _active_entries(entries, metric=metric)
+    active_set = set(active_idx)
+    buckets = {
+        gkey: [i for i in ix if i in active_set] for gkey, ix in submitted.items()
+    }
+    group_keys_ordered = [gkey for gkey in declared_keys if buckets[gkey]]
+    n_groups = len(group_keys_ordered)
+
+    adj_p_all = np.full(len(entries), np.nan, dtype=np.float64)
+    if n_groups == 0:
+        return HierarchicalBhyResult(
+            n_selected_groups=0,
+            metric_name=metric,
+            entries=[e.result for e in entries],
+            adj_p_all=adj_p_all,
+            q=q,
+            group=group,
+            n_tests={},
+            n_hypotheses_inactive=n_inactive,
+        )
+
+    singletons = sum(1 for gkey in group_keys_ordered if len(buckets[gkey]) == 1)
     if singletons * 2 > n_groups:
         warnings.warn(
             f"bhy_hierarchical: {singletons} of {n_groups} groups "
@@ -1374,7 +1481,6 @@ def _bhy_hierarchical_one(
     n_selected = int(np.sum(outer_adj <= q))
     selection_scale = n_groups / n_selected if n_selected else np.inf
 
-    adj_p_all = np.empty(len(entries), dtype=np.float64)
     for g_idx, gkey in enumerate(group_keys_ordered):
         for j, idx in enumerate(buckets[gkey]):
             inner_selective = min(1.0, inner_adjs[g_idx][j] * selection_scale)
@@ -1388,6 +1494,7 @@ def _bhy_hierarchical_one(
         q=q,
         group=group,
         n_tests=n_tests,
+        n_hypotheses_inactive=n_inactive,
     )
 
 

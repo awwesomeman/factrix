@@ -52,7 +52,8 @@ The returned dictionary maps each mainstream metric label to a `BhyResult` conta
 | `adj_p` | `np.ndarray` | Adjusted p-value for the survivors, aligned with `survivors` (derived). |
 | `q` | `float` | The nominal target FDR you passed. |
 | `expand_over` | `tuple[str, ...]` | `()` for a single family; `("regime_id",)` etc. otherwise. |
-| `n_tests` | `Mapping[tuple, int]` | `{(): N}` or `{bucket_key: m_per_bucket}`. |
+| `n_tests` | `Mapping[tuple, int]` | `{(): N}` or `{bucket_key: m_per_bucket}`, counting real hypotheses only. |
+| `n_hypotheses_inactive` | `int` | Placeholder cells excluded from every family before adjustment (see [the module-level policy](multi-factor.md#placeholder-hypotheses)). |
 
 Call `result.to_frame()` for a `factor | adj_p | survived` DataFrame over
 **all** tested factors — so a screen of N factors passing 2 still shows how

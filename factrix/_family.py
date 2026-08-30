@@ -325,7 +325,8 @@ def _resolve_p_value(
         # way a data shortage is treated rather than aborting the whole
         # family: 1.0 is the inert placeholder, and
         # ``_is_inactive_hypothesis`` keeps it out of the BHY denominator so
-        # it cannot dilute the other factors' adjusted p-values.
+        # it cannot inflate the other factors' adjusted p-values (a
+        # placeholder counted in m raises every BH threshold divisor).
         return 1.0
     if p is None:
         raise UserInputError(

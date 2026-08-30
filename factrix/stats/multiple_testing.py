@@ -563,6 +563,15 @@ def partial_conjunction_p(
     (1-indexed). ``k = m`` reduces to ``max(p)`` (full conjunction);
     ``k = 1`` reduces to Bonferroni-corrected ``min(p)``.
 
+    **``min_pass`` must be declared before the p-values are seen.** The
+    combined p-value is not monotone in ``k``: the multiplier
+    ``m - k + 1`` falls as the order statistic ``p_((k))`` rises, so
+    demanding *more* passing conditions can *lower* ``p_PC`` — for
+    ``p = [0.01, 0.02, 0.9]``, ``k = 2`` gives ``0.04`` while ``k = 3``
+    gives ``0.9``, and for ``p = [0.01, 0.4, 0.5]`` the ordering reverses.
+    Choosing ``k`` after inspecting the p-values is a selection effect that
+    no downstream step-up corrects.
+
     Args:
         p_values: 1-D array of m per-condition p-values for a single
             hypothesis (e.g. one factor across m universes).
