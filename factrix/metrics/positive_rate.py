@@ -85,6 +85,7 @@ def positive_rate(
     series: pl.DataFrame,
     value_col: str = "value",
     overlap_periods: int = DEFAULT_FORWARD_PERIODS,
+    *,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     """Positive rate = proportion of periods where value > 0.

@@ -467,6 +467,7 @@ def common_beta_profile(
 )
 def common_beta_r_squared(
     common_betas_df: pl.DataFrame,
+    *,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Average $R^2$ across per-asset TS regressions — ``value`` $= \mathrm{mean}_i R^2_i$.
@@ -724,6 +725,7 @@ def compute_rolling_common_beta(
 )
 def common_beta_sign_consistency(
     common_betas_df: pl.DataFrame,
+    *,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     """Symmetric sign-agreement across per-asset βs — `value = max(pos, 1−pos)` where `pos = mean_i 1{β_i > 0}`.

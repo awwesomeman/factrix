@@ -134,8 +134,10 @@ def custom_trimmed_ic(ic_df: pl.DataFrame, trim_ratio: float = 0.05):
 ```
 
 `overlap_periods` and `expected_warnings` are injected at dispatch rather than
-configured, so they are never validated here — the constructor rejects them
-outright.
+configured, so neither is validated here. They differ at the constructor:
+`overlap_periods` is a property of the data and is rejected outright, while
+`expected_warnings` is accepted keyword-only on every metric — declare it on a
+standalone call and `evaluate` overrides it with the study-level declaration.
 
 ---
 

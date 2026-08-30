@@ -677,6 +677,7 @@ def profit_factor(
     return_col: str = "forward_return",
     overlap_periods: int = DEFAULT_FORWARD_PERIODS,
     estimation_window: int = 60,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Profit factor = sum(gains) / sum(|losses|) across events.
 
@@ -687,6 +688,8 @@ def profit_factor(
 
     Args:
         data: Panel with event density and forward return.
+        expected_warnings: Warning codes the caller declares; a declared code
+            is still recorded, the ``UserWarning`` echo is silenced.
 
     Returns:
         MetricResult with value=profit_factor.
@@ -932,6 +935,7 @@ def signal_density(
     data: pl.DataFrame,
     *,
     factor_col: str = "factor",
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     """Average bars per event (inverse frequency).
 
@@ -951,6 +955,8 @@ def signal_density(
 
     Args:
         data: Panel with ``date, asset_id, factor``.
+        expected_warnings: Warning codes the caller declares; a declared code
+            is still recorded, the ``UserWarning`` echo is silenced.
 
     Returns:
         MetricResult with value = mean bars-per-event across assets.

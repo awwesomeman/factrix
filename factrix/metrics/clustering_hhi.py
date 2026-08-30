@@ -50,6 +50,7 @@ def clustering_hhi(
     *,
     factor_col: str = "factor",
     cluster_window: int = 3,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Event clustering Herfindahl index on event dates.
 
@@ -86,6 +87,8 @@ def clustering_hhi(
             than this many periods earlier, measured on the full panel
             calendar; the share of such events is reported as
             ``share_events_in_bursts``.
+        expected_warnings: Warning codes the caller declares; a declared code
+            is still recorded, the ``UserWarning`` echo is silenced.
 
     Returns:
         MetricResult with value=HHI, metadata includes the cross-sectional

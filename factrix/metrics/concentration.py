@@ -97,6 +97,7 @@ def top_concentration(
     factor_col: str = "factor",
     return_col: str = "forward_return",
     weight_by: ConcentrationWeight = "abs_factor",
+    *,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Top-bucket concentration via Herfindahl-Hirschman index (HHI) inverse.

@@ -24,9 +24,19 @@ from factrix._metric_index import Cell, MetricSpec, SampleThreshold
 # configuring per metric: ``overlap_periods`` comes from the data's overlap
 # stamp, ``expected_warnings`` from the caller's study-level declaration on
 # ``evaluate``. On metrics whose body declares them they remain dataclass
-# fields (kept out of the user-facing ``_param_names``); every metric
-# constructor rejects them with a targeted message, declared or not.
+# fields, kept out of the user-facing ``_param_names`` so neither shows up as
+# a configured knob on ``spec()`` / ``_params()``.
 _INJECTED_PARAMS: frozenset[str] = frozenset({"overlap_periods", "expected_warnings"})
+
+# The injected param the public constructor refuses. ``overlap_periods`` is a
+# property of the *data* — the panel's own overlap horizon — so a per-metric
+# value could only disagree with the panel it runs on, and there is nothing a
+# caller could correctly pass. ``expected_warnings`` is not in this set: it is
+# a declaration *about* the run, every metric carries it keyword-only (see
+# :ref:`the contract <expected-warnings-contract>` in the module docstring of
+# ``factrix.metrics``), and both the constructor and the direct-call form take
+# it, with ``evaluate`` overriding it at dispatch with the study-level value.
+_REJECTED_PARAMS: frozenset[str] = frozenset({"overlap_periods"})
 
 
 def _log_exception_once(
@@ -107,22 +117,30 @@ class MetricMeta(type):
             return super().__call__(*args, **kwargs)
 
     def _reject_injected_params(cls, supplied: dict[str, Any]) -> None:
-        """Reject user-supplied injected params (``overlap_periods`` /
-        ``expected_warnings``).
+        """Reject a user-supplied ``overlap_periods`` on the constructor.
 
-        These are dispatch-injected, not per-metric knobs: ``evaluate`` injects
-        the panel's stamped overlap horizon and the caller's study-level
-        expected-warnings declaration. A metric never carries its own copy, so
-        there is no per-metric knob left to diverge — the guarantee is
+        The panel's overlap horizon is dispatch-injected, not a per-metric
+        knob: ``evaluate`` reads the data's stamp and hands it to every metric
+        in the call. A metric never carries its own copy, so there is no
+        per-metric value left to diverge from the panel — the guarantee is
         structural, enforced here at the constructor boundary.
+
+        ``expected_warnings`` is deliberately *not* rejected. It is a
+        declaration about the run rather than a property of the data, every
+        metric accepts it keyword-only, and a direct call is a legitimate
+        place to make it; ``evaluate`` still overrides it at dispatch with the
+        study-level declaration so a whole study speaks with one voice.
         """
-        offending = [name for name in supplied if name in _INJECTED_PARAMS]
+        offending = [name for name in supplied if name in _REJECTED_PARAMS]
         if offending:
             from factrix._errors import UserInputError
 
             name = offending[0]
-            expected_by_param = {
-                "overlap_periods": (
+            raise UserInputError(
+                func_name=cls.__name__,
+                field=name,
+                value=supplied[name],
+                expected=(
                     "'overlap_periods' is not a metric parameter — it is the "
                     "overlap of adjacent observations on the panel's "
                     "evaluation grid, read from the data. "
@@ -131,23 +149,7 @@ class MetricMeta(type):
                     "from dates= on a coarser one); evaluate reads it from "
                     "there, or takes overlap_periods= for an unstamped panel."
                 ),
-                "expected_warnings": (
-                    "'expected_warnings' is not a metric parameter — it is a "
-                    "study-level declaration. Pass it once on "
-                    "evaluate(..., expected_warnings=(...,)); every metric in "
-                    "the call inherits it at dispatch."
-                ),
-            }
-            raise UserInputError(
-                func_name=cls.__name__,
-                field=name,
-                value=supplied[name],
-                expected=expected_by_param[name],
-                docs_path=(
-                    "api/evaluate#forward_periods-and-overlap_periods"
-                    if name == "overlap_periods"
-                    else "api/evaluate#factrix.evaluate"
-                ),
+                docs_path="api/evaluate#forward_periods-and-overlap_periods",
             )
 
 
@@ -206,10 +208,12 @@ class MetricBase(metaclass=MetricMeta):
     _impl: ClassVar[Callable]
     _first_param_name: ClassVar[str | None]
     _param_names: ClassVar[tuple[str, ...]]
-    # Params injected from the data rather than configured per metric
-    # (``overlap_periods``): kept out of ``_param_names``, rejected at the
-    # constructor, and injected at dispatch into the metrics whose ``_impl``
-    # declares them. Empty for a metric that takes no injected param.
+    # Params dispatch injects rather than the user configuring per metric:
+    # ``overlap_periods`` (read from the data, rejected at the constructor) and
+    # ``expected_warnings`` (the study-level declaration; the constructor and
+    # the direct call both take it, ``evaluate`` overrides it). Both are kept
+    # out of ``_param_names`` and injected at dispatch into the metrics whose
+    # ``_impl`` declares them. Empty for a metric that takes neither.
     _injected_param_names: ClassVar[tuple[str, ...]] = ()
     # Closed-set knobs: ``(field, Literal alias)`` for every user-configurable
     # field annotated with a ``Literal``, resolved once by the decorator.
@@ -353,18 +357,23 @@ class MetricBase(metaclass=MetricMeta):
     ) -> dict[str, Any]:
         """Dispatch-time injected kwargs for ``_impl``.
 
-        Each injected param is forwarded only when the body declares it and the
-        dispatch supplied a value; a standalone call (``None``) leaves the
-        metric at its signature default.
+        Each injected param is forwarded only when the body declares it. A
+        dispatch-supplied value wins; ``None`` (a standalone call) falls back
+        to the instance's own field, so a direct-call declaration such as
+        ``ic(expected_warnings=("high_tie_ratio",))(panel)`` reaches the body
+        instead of being silently dropped. For ``overlap_periods`` the field is
+        always the signature default — the constructor rejects a user value —
+        so the fallback is exactly the old "leave it at the default" behaviour.
         """
         supplied = {
             "overlap_periods": overlap_periods,
             "expected_warnings": expected_warnings,
         }
         return {
-            name: value
-            for name, value in supplied.items()
-            if value is not None and name in self._injected_param_names
+            name: (
+                value if (value := supplied[name]) is not None else getattr(self, name)
+            )
+            for name in self._injected_param_names
         }
 
     def _named_column_params(self) -> dict[str, Any]:

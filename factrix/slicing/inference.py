@@ -39,6 +39,7 @@ from itertools import combinations
 import numpy as np
 import polars as pl
 
+from factrix._codes import _validate_expected_warnings_arg
 from factrix._data_input import _resolve_overlap_periods
 from factrix._errors import UserInputError
 from factrix._stats.wald import _wald_nw_cluster_means
@@ -230,6 +231,8 @@ def slice_pairwise_test(
     by: str,
     factor_col: str,
     overlap_periods: int | None = None,
+    strict: bool = True,
+    expected_warnings: tuple[str, ...] = (),
 ) -> pl.DataFrame:
     """Cross-slice pairwise Wald contrasts on a per-date metric panel.
 
@@ -257,6 +260,19 @@ def slice_pairwise_test(
             contract is :func:`factrix.evaluate`'s — a value disagreeing with
             the stamp is rejected, and an unstamped panel with no declaration
             is an error rather than a silent default.
+        strict: Accepted so the four slice-test entry points share one
+            signature shape; inert here. This path gates no slice on the
+            metric's ``SampleThreshold`` floor — a slice too thin to yield a
+            per-date series collapses the inner-join and raises
+            ``<2 aligned dates``, which is not a shortage ``strict=False``
+            could admit as an unavailable row. Its live counterpart is
+            :func:`factrix.slice_period_pairwise_test`'s.
+        expected_warnings: :class:`~factrix.WarningCode` values the caller
+            declares as the study's design. Validated on the same contract as
+            :func:`factrix.evaluate`'s (an unknown code is rejected, since a
+            declaration that marks nothing is always a typo); the cross-
+            sectional path raises no code of its own, so there is nothing for
+            a declaration to keep quiet yet.
 
     Returns:
         Long-form ``pl.DataFrame`` with columns ``(slice_a, slice_b,
@@ -308,6 +324,9 @@ def slice_pairwise_test(
         ['slice_a', 'slice_b', 'n_obs', 'mean_diff', 'stat', 'p_raw', 'p_adj', 'stat_type', 'reference_dist', 'df_num', 'df_denom', 'multiplicity']
     """
     _validate_metric_instance(metric, "slice_pairwise_test")
+    _validate_expected_warnings_arg(
+        expected_warnings, func_name="slice_pairwise_test", docs_path=_DOCS_SLICE
+    )
     op = _resolve_overlap_periods(
         data, overlap_periods, horizon=None, func_name="slice_pairwise_test"
     )
@@ -366,6 +385,8 @@ def slice_joint_test(
     by: str,
     factor_col: str,
     overlap_periods: int | None = None,
+    strict: bool = True,
+    expected_warnings: tuple[str, ...] = (),
 ) -> pl.DataFrame:
     """Omnibus Wald χ² that all K slice means are equal.
 
@@ -389,6 +410,19 @@ def slice_joint_test(
             contract is :func:`factrix.evaluate`'s — a value disagreeing with
             the stamp is rejected, and an unstamped panel with no declaration
             is an error rather than a silent default.
+        strict: Accepted so the four slice-test entry points share one
+            signature shape; inert here. This path gates no slice on the
+            metric's ``SampleThreshold`` floor — a slice too thin to yield a
+            per-date series collapses the inner-join and raises
+            ``<2 aligned dates``, which is not a shortage ``strict=False``
+            could admit as an unavailable row. Its live counterpart is
+            :func:`factrix.slice_period_pairwise_test`'s.
+        expected_warnings: :class:`~factrix.WarningCode` values the caller
+            declares as the study's design. Validated on the same contract as
+            :func:`factrix.evaluate`'s (an unknown code is rejected, since a
+            declaration that marks nothing is always a typo); the cross-
+            sectional path raises no code of its own, so there is nothing for
+            a declaration to keep quiet yet.
 
     Returns:
         Single-row ``pl.DataFrame`` with columns ``(n_obs, k_slices, stat,
@@ -434,6 +468,9 @@ def slice_joint_test(
         1
     """
     _validate_metric_instance(metric, "slice_joint_test")
+    _validate_expected_warnings_arg(
+        expected_warnings, func_name="slice_joint_test", docs_path=_DOCS_SLICE
+    )
     op = _resolve_overlap_periods(
         data, overlap_periods, horizon=None, func_name="slice_joint_test"
     )

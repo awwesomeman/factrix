@@ -615,6 +615,7 @@ def quantile_spread_vw(
     tie_policy: TiePolicy = "ordinal",
     inference: NonOverlapping | NeweyWest | StationaryBootstrap = NON_OVERLAPPING,
     lag_weights: bool = True,
+    *,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Value-weighted long-short spread — alpha concentration diagnostic.

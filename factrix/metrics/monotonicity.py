@@ -210,6 +210,7 @@ def monotonicity(
     direction: MRDirection = "increasing",
     n_resamples: int = 999,
     rng: Rng = None,
+    *,
     expected_warnings: tuple[str, ...] = (),
 ) -> dict[str, MetricResult]:
     """Quantile return monotonicity — Patton-Timmermann (2010) MR test.

@@ -182,6 +182,8 @@ def rank_turnover(
     overlap_periods: int = 1,
     rebalance_lag: int | None = None,
     quantile: float | None = None,
+    *,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Factor rank-stability via non-overlapping rank autocorrelation.
 
@@ -243,6 +245,8 @@ def rank_turnover(
             unfiltered ρ — tail names are more persistent by construction,
             so the resulting turnover will typically be lower. Compare
             only against other tail-filtered estimates at the same q.
+        expected_warnings: Warning codes the caller declares; a declared code
+            is still recorded, the ``UserWarning`` echo is silenced.
 
     Returns:
         MetricResult with ``value = 1 − mean(ρ)`` and metadata
@@ -431,6 +435,7 @@ def notional_turnover(
     n_groups: int = DEFAULT_N_GROUPS,
     rebalance_lag: int | None = None,
     overlap_periods: int = DEFAULT_FORWARD_PERIODS,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     """Portfolio notional turnover via top/bottom quantile membership churn.
 
@@ -481,6 +486,8 @@ def notional_turnover(
             ``evaluate`` from the ``compute_forward_return`` stamp, not a user
             knob; used only as the fallback stride when ``rebalance_lag`` is
             not given.
+        expected_warnings: Warning codes the caller declares; a declared code
+            is still recorded, the ``UserWarning`` echo is silenced.
 
     Warning:
         ``n_groups`` must match the ``quantile_spread`` run whose spread is
@@ -769,6 +776,7 @@ def breakeven_cost(
     turnover: float | MetricResult,
     *,
     holding_periods: int = DEFAULT_FORWARD_PERIODS,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     """Breakeven single-leg trading cost in bps.
 
@@ -807,6 +815,8 @@ def breakeven_cost(
             the rebalance interval measured in underlying periods, which is
             **not** the evaluation-grid ``overlap_periods`` and **not** the
             turnover metrics' ``rebalance_lag``.
+        expected_warnings: Warning codes the caller declares; a declared code
+            is still recorded, the ``UserWarning`` echo is silenced.
 
     Note:
         **Pass the ``MetricResult``s, not their ``.value``.** Both data
@@ -932,6 +942,7 @@ def net_spread(
     estimated_cost_bps: float = 30.0,
     *,
     holding_periods: int = DEFAULT_FORWARD_PERIODS,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     """Net spread after estimated trading costs (per underlying return period).
 
@@ -978,6 +989,8 @@ def net_spread(
             the rebalance interval measured in underlying periods, which is
             **not** the evaluation-grid ``overlap_periods`` and **not** the
             turnover metrics' ``rebalance_lag``.
+        expected_warnings: Warning codes the caller declares; a declared code
+            is still recorded, the ``UserWarning`` echo is silenced.
 
     Note:
         ``gross_spread`` and ``turnover`` accept the producing

@@ -37,6 +37,31 @@ result. They do **not** participate in Benjamini-Hochberg-Yekutieli (BHY) family
 p is a within-slice-family closure, not a cell-level discovery
 commitment.
 
+## One signature shape
+
+All four entry points take the same parameters, so moving a call between
+the cross-sectional and the date-disjoint path is a one-word edit:
+
+```python title="Illustrative"
+def slice_test(data, metric, *, by, factor_col,
+               overlap_periods=None, strict=True, expected_warnings=()): ...
+```
+
+The `slice_period_*` pair adds the three knobs its resampling machinery
+needs — `method`, `n_resamples`, `rng` — and nothing else differs.
+
+Two of the shared knobs are **inert on the cross-sectional pair**, kept so
+the shape holds rather than because they do work there:
+
+| Knob | `slice_period_*` | `slice_pairwise_test` / `slice_joint_test` |
+|---|---|---|
+| `strict` | gates each slice on the metric's `SampleThreshold` floor; `False` returns unavailable rows (see below) | inert — this path gates no slice on a floor; a slice too thin to produce a per-date series collapses the inner join and raises `<2 aligned dates`, which is not a shortage `strict=False` could admit |
+| `expected_warnings` | live on `slice_period_joint_test` (see below); validated but silent on `slice_period_pairwise_test` | validated, but this path raises no `WarningCode` of its own, so there is nothing to keep quiet |
+
+Validation is the part that is never inert: an unknown code is rejected at
+every one of the four, on the same contract as `evaluate`, because a
+declaration that marks nothing is always a typo.
+
 ## Evaluation-grid overlap (`overlap_periods`)
 
 The joint NW HAC bandwidth is floored at the evaluation-grid overlap —
@@ -191,8 +216,10 @@ rebalance frequencies prints nothing for an accepted limitation while the
 audit record survives. Undeclared codes keep the echo. Unknown codes are
 rejected. `by_slice` takes the same argument and forwards it to every
 per-slice `evaluate`, applying it to its own `slice_boundary_truncation`
-record as well; `slice_period_pairwise_test` and the cross-sectional slice
-tests raise no advisory today and carry no such columns.
+record as well. `slice_period_pairwise_test` and the cross-sectional slice
+tests accept the same argument on the same contract — a typo is refused
+there too — but raise no advisory today, so they carry no such columns and
+a declaration has nothing to mark.
 
 ## Inference path (cross-sectional slice tests)
 

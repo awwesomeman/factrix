@@ -225,6 +225,7 @@ def k_spread(
     return_col: str = "forward_return",
     tie_policy: TiePolicy = "ordinal",
     inference: NonOverlapping | NeweyWest | StationaryBootstrap = NON_OVERLAPPING,
+    *,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Fixed-K Top-K vs Bottom-K long-short spread.
