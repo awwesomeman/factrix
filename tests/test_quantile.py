@@ -403,7 +403,11 @@ class TestQuantileSpreadInference:
                 inference=fx.inference.HANSEN_HODRICK,
             )
         assert exc.value.func_name == "quantile_spread"
-        assert exc.value.applicable == ("NeweyWest", "NonOverlapping")
+        assert exc.value.applicable == (
+            "NeweyWest",
+            "NonOverlapping",
+            "StationaryBootstrap",
+        )
 
     def test_non_inference_object_raises(self):
         import factrix as fx

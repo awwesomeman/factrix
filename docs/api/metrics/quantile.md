@@ -112,6 +112,20 @@ title: factrix.metrics.quantile
     print(vw.value, vw.stat)
     # 0.0020  8.85   (approximate — a VW spread well below EW would signal
     #                 that the EW result rests on small-cap names)
+
+    # Same metric, a different inference member. The stationary bootstrap
+    # makes no asymptotic-normality assumption, so it is the second read
+    # when the spread distribution is in doubt; it keeps every period
+    # (no stride) and reports an empirical p from B resamples.
+    from factrix.inference import StationaryBootstrap
+
+    boot = quantile_spread(panel, overlap_periods=5, n_groups=5,
+                           inference=StationaryBootstrap(seed=0))["factor"]
+    print(boot.value, boot.p_value, boot.n_obs)
+    # 0.001903  0.001  494
+    print(boot.metadata["n_resamples"], boot.metadata["seed"],
+          round(boot.metadata["p_value_mc_se"], 5))
+    # 999  0  0.001   (the Monte-Carlo error of the empirical p itself)
     ```
 
 ## See also

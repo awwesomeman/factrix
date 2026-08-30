@@ -501,19 +501,18 @@ class TestApplicableInferenceDiscovery:
         from factrix.metrics.k_spread import k_spread
         from factrix.metrics.quantile import quantile_spread, quantile_spread_vw
 
-        # quantile_spread / quantile_spread_vw / k_spread dispatch through a
-        # hard isinstance(NeweyWest) branch, so their allowlist stays the
-        # original vetted pair.
+        # Every inference-bearing metric now dispatches polymorphically; the
+        # allowlist is the vetting record, and the same three members are
+        # measured on the spread series as on the IC series.
         for m in (quantile_spread, quantile_spread_vw, k_spread):
             allow = resolve_applicable_inference(m)
             assert allow is not None
             assert sorted(type(x).__name__ for x in allow) == [
                 "NeweyWest",
                 "NonOverlapping",
+                "StationaryBootstrap",
             ]
 
-        # ic dispatches polymorphically, so its allowlist additionally admits
-        # StationaryBootstrap.
         ic_allow = resolve_applicable_inference(ic)
         assert ic_allow is not None
         assert sorted(type(x).__name__ for x in ic_allow) == [

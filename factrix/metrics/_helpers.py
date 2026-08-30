@@ -34,11 +34,15 @@ from factrix._codes import WarningCode, cross_section_tier
 from factrix._errors import IncompatibleInferenceError
 
 if TYPE_CHECKING:
-    from factrix.inference import NeweyWest, NonOverlapping, StationaryBootstrap
+    from factrix.inference import (
+        InferenceResult,
+        NeweyWest,
+        NonOverlapping,
+        StationaryBootstrap,
+    )
     from factrix.metrics._base import MetricBase
 from factrix._metric_index import SampleThreshold
 from factrix._results import MetricResult, PValueAlternative
-from factrix._stats import _calc_t_stat, _p_value_from_t
 from factrix._types import DDOF, EPSILON, N_GROUPS_FLOOR, KPSource, SampleAxis
 
 # Median-across-dates tie_ratio above this triggers a UserWarning when
@@ -87,43 +91,6 @@ def _finite_values(series: pl.Series) -> pl.Series:
     return s.filter(s.is_finite())
 
 
-def _spread_significance(
-    spread: np.ndarray,
-    n_assets: int,
-) -> tuple[float, float, str, dict[str, object], tuple[str, ...]]:
-    """Headline significance for a per-period long-short spread series.
-
-    Returns ``(stat, p_value, method, extra_metadata, warning_codes)`` —
-    the non-overlapping ``t`` on the strided series, with the single
-    cross-section code (``FEW_ASSETS``) attached when
-    ``n_assets < MIN_ASSETS_WARN``. The warning is advisory: a thin
-    cross-section means each leg's mean rests on a handful of names, so the
-    spread is a noisier *estimate*, not a differently-distributed one.
-
-    An earlier version switched thin cross-sections to a block-bootstrap
-    CI on the grounds that few names per leg make the spread heavy-tailed
-    and the ``t`` unreliable. Measured, that was backwards on both counts.
-    The ``t``-test is size-robust to heavy tails — on t(3) input it rejects
-    3–4% at a nominal 5% — while the bootstrap p carries the usual small-n
-    distortion (iid input: 13.6% at ``n = 12``, 9.8% at 30, 7.4% at 60,
-    5.2% only by 120) and the strided spread series is short exactly when
-    ``overlap_periods`` is large. Through the public path the bootstrap
-    branch rejected 8–20% against the ``t`` branch's 7–9%. And the switch
-    keyed on the cross-section while the bootstrap's validity depends on
-    the number of periods, so it was effectively random which estimator a
-    panel got. Removing it returns the plain ``t`` that spread metrics
-    conventionally report; whether a long-series bootstrap route is worth
-    offering is a separate, larger routing question.
-    """
-    n = len(spread)
-    mean = float(np.mean(spread))
-    std = float(np.std(spread, ddof=DDOF))
-    t = _calc_t_stat(mean, std, n)
-    tier: WarningCode | None = cross_section_tier(n_assets)
-    codes = (tier.value,) if tier is not None else ()
-    return t, _p_value_from_t(t, n), "non-overlapping t-test", {}, codes
-
-
 def _check_applicable_inference(
     inference: object,
     applicable: frozenset[NonOverlapping | NeweyWest | StationaryBootstrap],
@@ -154,73 +121,134 @@ def _check_applicable_inference(
         )
 
 
+def _surface_inference_run_metadata(
+    result: InferenceResult, metadata: dict[str, object]
+) -> None:
+    """Copy the resampling knobs an ``Inference`` ran with into ``metadata``.
+
+    ``n_resamples`` / ``seed`` / ``p_value_mc_se`` are defined only by a
+    resampling member (``StationaryBootstrap``), and only that member emits
+    them. Surfacing them keeps a reported empirical p reproducible from the
+    result alone and puts its Monte-Carlo error next to it. Shared by ``ic``
+    and the spread chokepoint so both report the same three keys under the
+    same names.
+    """
+    for key in ("n_resamples", "seed", "p_value_mc_se"):
+        if key in result.metadata:
+            metadata[key] = result.metadata[key]
+
+
 def _spread_significance_with_inference(
-    inference: NonOverlapping | NeweyWest,
+    inference: NonOverlapping | NeweyWest | StationaryBootstrap,
     *,
-    strided_spread: np.ndarray,
+    strided_spread: pl.DataFrame,
     full_spread: pl.DataFrame | None,
     overlap_periods: int,
     n_assets: int,
-) -> tuple[float, float, float, str, dict[str, object], tuple[str, ...]]:
+) -> tuple[float, float, float, str, str, dict[str, object], tuple[str, ...]]:
     """Single headline-significance chokepoint shared by every spread metric.
 
-    Returns ``(value, stat, p_value, method, extra_metadata, warning_codes)``
-    where ``value`` is the mean-spread point estimate under the chosen
-    inference: the full-sample mean for the HAC path, the non-overlap mean
-    otherwise.
+    Returns ``(value, stat, p_value, method, stat_type, extra_metadata,
+    warning_codes)`` where ``value`` is the mean-spread point estimate over
+    the series the chosen member actually tested: the full overlapping series for a member
+    that consumes one, the strided series otherwise.
 
-    Both ``quantile_spread`` and ``k_spread`` route here so the policy
-    lives in one place. The requested member runs: ``NonOverlapping``
-    reproduces the non-overlap t **bit-for-bit** (``_t_stat_from_array`` is
-    the same ``_calc_t_stat`` formula on the same strided values, so the
-    default stays byte-identical), while ``NeweyWest`` keeps the *full*
-    overlapping ``full_spread`` series and HAC-corrects the MA(h-1) SE. A
-    thin cross-section (``n_assets < MIN_ASSETS_WARN``) attaches
-    ``FEW_ASSETS`` on either path and changes nothing else — the automatic
-    block-bootstrap fallback that used to override the requested member
-    there was removed after measurement (see :func:`_spread_significance`).
+    Both ``quantile_spread`` and ``k_spread`` route here so the policy lives
+    in one place, and the routing is the member's own declaration rather than
+    a type check here: ``Inference.consumes_full_series`` says whether the
+    member needs every period (it corrects or resamples the dependence
+    itself) or takes the pre-strided series (it sub-samples, and the metric's
+    panel-stride already did that). The chosen series then goes through the
+    ordinary ``compute(data, value_col=..., overlap_periods=...)`` call, the
+    same polymorphic path ``ic`` uses.
+
+    A pre-strided series is handed over with ``overlap_periods=1``: the
+    metric's panel-stride already broke the MA(h-1) overlap, and re-striding
+    it at ``h`` would sub-sample a second time. That also makes the member's
+    own stride bookkeeping a no-op, so it is not surfaced — the metric's
+    ``overlap_periods`` is the authority on the stride that was applied. This
+    keeps ``NonOverlapping`` **bit-for-bit** identical to the hard-branched
+    dispatch it replaced (same ``_calc_t_stat`` formula on the same values).
+
+    A thin cross-section (``n_assets < MIN_ASSETS_WARN``) attaches
+    ``FEW_ASSETS`` on either path and changes nothing else — the advisory
+    says each leg's mean rests on a handful of names, so the spread is a
+    noisier *estimate*, not a differently-distributed one.
+
+    An earlier version switched thin cross-sections to a block-bootstrap
+    CI on the grounds that few names per leg make the spread heavy-tailed
+    and the ``t`` unreliable. Measured, that was backwards on both counts.
+    The ``t``-test is size-robust to heavy tails — on t(3) input it rejects
+    3–4% at a nominal 5% — while the bootstrap p carries the usual small-n
+    distortion (iid input: 13.6% at ``n = 12``, 9.8% at 30, 7.4% at 60,
+    5.2% only by 120) and the strided spread series is short exactly when
+    ``overlap_periods`` is large. Through the public path the bootstrap
+    branch rejected 8–20% against the ``t`` branch's 7–9%. And the switch
+    keyed on the cross-section while the bootstrap's validity depends on
+    the number of periods, so it was effectively random which estimator a
+    panel got. That is why the bootstrap is offered as a member the caller
+    asks for by name — measured on the spread series, see the size table in
+    ``reference/statistical-methods`` — and never as an automatic switch.
 
     The two series inputs are a perf split, not duplicated logic: the cheap
     panel-stride feeds ``strided_spread`` for the common path; the full
-    series is built (h× more bucketing) only when the HAC path needs it.
-    ``full_spread`` is ``None`` off the HAC path; a missing one degrades to
-    the non-overlap path defensively and is flagged ``inference_overridden``.
+    series is built (h× more bucketing) only when the requested member
+    declares it consumes one. ``full_spread`` is ``None`` otherwise; a
+    missing one where the member needed it degrades to the strided
+    non-overlap path defensively and is flagged ``inference_overridden``.
     """
-    from factrix.inference import NeweyWest
+    from factrix.inference import NON_OVERLAPPING
 
-    strided_mean = float(np.mean(strided_spread))
-    use_hac = isinstance(inference, NeweyWest) and full_spread is not None
-    if not use_hac:
-        t, p, method, extra, codes = _spread_significance(strided_spread, n_assets)
-        if isinstance(inference, NeweyWest):
-            # Requested HAC but no full series was supplied — surface the
-            # degradation rather than report the non-overlap t as HAC.
-            extra = {
-                **extra,
-                "inference_requested": inference.summary,
-                "inference_overridden": True,
-            }
-        extra = {**extra, "n_periods_tested": len(strided_spread)}
-        return strided_mean, t, p, method, extra, codes
-
-    assert full_spread is not None  # narrowed by use_hac
-    res = inference.compute(
-        full_spread, value_col="spread", overlap_periods=overlap_periods
+    use_full = inference.consumes_full_series and full_spread is not None
+    member: NonOverlapping | NeweyWest | StationaryBootstrap = (
+        inference if use_full else NON_OVERLAPPING
     )
-    full_vals = _finite_values(full_spread["spread"])
-    full_mean = float(full_vals.mean())  # type: ignore[arg-type]
+    data = full_spread if use_full else strided_spread
+    assert data is not None  # narrowed by use_full
+    res = member.compute(
+        data, value_col="spread", overlap_periods=overlap_periods if use_full else 1
+    )
+    n_tested = res.n_obs if res.n_obs is not None else 0
+    # ``value`` must describe the sample the test ran on, and the member that
+    # ran is the only thing that knows what that sample was — a sub-sampling
+    # member tested the survivors of its own stride. So the headline estimate
+    # is always the member's, on every path.
+    mean_spread = res.estimate if res.estimate is not None else float("nan")
+
+    extra: dict[str, object]
+    if use_full:
+        extra = {**res.metadata, "n_periods_full": n_tested}
+    else:
+        extra = {}
+        _surface_inference_run_metadata(res, extra)
+        if inference.consumes_full_series:
+            # Requested a member that needs the full series but none was
+            # supplied — surface the degradation rather than report the
+            # strided non-overlap t under the requested method's name.
+            extra["inference_requested"] = inference.summary
+            extra["inference_overridden"] = True
     # ``n_periods_tested`` is the sample the stat / p / value describe: the
-    # full overlapping series here, the strided series on the other path.
-    extra = {
-        **res.metadata,
-        "n_periods_full": len(full_vals),
-        "n_periods_tested": len(full_vals),
-    }
+    # full overlapping series on one path, the strided series on the other.
+    extra["n_periods_tested"] = n_tested
+
     codes = tuple(code.value for code in res.warnings)
     tier: WarningCode | None = cross_section_tier(n_assets)
     if tier is not None and tier.value not in codes:
         codes = (*codes, tier.value)
-    return full_mean, res.stat, res.p_value, inference.summary, extra, codes
+    # ``method`` / ``stat_type`` describe the member that actually ran, not
+    # the one that was asked for: an ``inference_overridden`` degradation runs
+    # the non-overlap t and must say so, and a member whose ``stat`` is not a
+    # t-ratio (the bootstrap reports the observed mean under an empirical p)
+    # must not be read against a t-distribution.
+    return (
+        mean_spread,
+        res.stat,
+        res.p_value,
+        member.summary,
+        member.test,
+        extra,
+        codes,
+    )
 
 
 def _aggregate_to_per_date(

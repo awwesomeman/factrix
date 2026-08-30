@@ -36,7 +36,14 @@ from factrix._types import (
     DEFAULT_N_GROUPS,
     MIN_PORTFOLIO_PERIODS_HARD,
 )
-from factrix.inference import NEWEY_WEST, NON_OVERLAPPING, NeweyWest, NonOverlapping
+from factrix.inference import (
+    NEWEY_WEST,
+    NON_OVERLAPPING,
+    STATIONARY_BOOTSTRAP,
+    NeweyWest,
+    NonOverlapping,
+    StationaryBootstrap,
+)
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _all_dates_degenerate,
@@ -82,12 +89,14 @@ _Q_CELL = cell(
 # ``MIN_PORTFOLIO_PERIODS_HARD`` + ``_scaled_min_periods``, so the floors agree.
 _PORTFOLIO_PERIODS_FLOOR = _scaled_periods_threshold(MIN_PORTFOLIO_PERIODS_HARD)
 
-# Inference allowlist: the spread dispatch hard-branches on ``NeweyWest`` for the
-# HAC path and runs the non-overlap t-test otherwise, so the union is the exact
-# set it handles. Anything else (``HansenHodrick``, a non-``Inference`` object)
-# is rejected rather than silently reported as non-overlap.
-applicable_inference: frozenset[NonOverlapping | NeweyWest] = frozenset(
-    {NON_OVERLAPPING, NEWEY_WEST}
+# Inference allowlist: the vetted set, not a dispatch constraint — the spread
+# dispatch is polymorphic over any series-mean member. The non-overlap t-test,
+# the Bartlett-kernel Newey-West HAC and the stationary-bootstrap empirical p
+# are measured on the spread series (see the size table in
+# ``reference/statistical-methods``). ``HansenHodrick`` (rectangular kernel, no
+# PSD guarantee) is deliberately excluded, as is any non-``Inference`` object.
+applicable_inference: frozenset[NonOverlapping | NeweyWest | StationaryBootstrap] = (
+    frozenset({NON_OVERLAPPING, NEWEY_WEST, STATIONARY_BOOTSTRAP})
 )
 
 
@@ -154,7 +163,7 @@ def quantile_spread(
     n_groups: int = DEFAULT_N_GROUPS,
     factor_cols: Sequence[str] = ("factor",),
     tie_policy: str = "ordinal",
-    inference: NonOverlapping | NeweyWest = NON_OVERLAPPING,
+    inference: NonOverlapping | NeweyWest | StationaryBootstrap = NON_OVERLAPPING,
     *,
     expected_warnings: tuple[str, ...] = (),
     _precomputed_series: dict[str, pl.DataFrame] | None = None,
@@ -270,8 +279,9 @@ def quantile_spread(
             expected_warnings=expected_warnings,
         )
     )
-    # The HAC path needs the full overlapping spread series (every date);
-    # ``overlap_periods=1`` is the no-stride build of the same primitive.
+    # A member that consumes the full overlapping series needs every period;
+    # ``overlap_periods=1`` is the no-stride build of the same primitive. The
+    # member declares that itself, so this build is not keyed on its type.
     full_series_by_factor: dict[str, pl.DataFrame] | None = (
         compute_spread_series(
             data,
@@ -281,7 +291,7 @@ def quantile_spread(
             overlap_periods=1,
             expected_warnings=expected_warnings,
         )
-        if isinstance(inference, NeweyWest)
+        if inference.consumes_full_series
         else None
     )
     # Raw (pre-sampling) date count: the axis the stride-scaled periods floor is
@@ -313,7 +323,7 @@ def _quantile_spread_from_series(
     n_raw_periods: int,
     factor_col: str,
     tie_policy: str,
-    inference: NonOverlapping | NeweyWest,
+    inference: NonOverlapping | NeweyWest | StationaryBootstrap,
     overlap_periods: int,
     n_groups: int,
     full_series: pl.DataFrame | None,
@@ -380,8 +390,10 @@ def _quantile_spread_from_series(
         tie_policy,
         expected_warnings=expected_warnings,
     )
-    arr = spread_vals.to_numpy()
-    # Headline test: ``inference`` selects non-overlap t vs Newey-West HAC.
+    strided_series = series.select("date", pl.col("spread").cast(pl.Float64)).filter(
+        _finite_expr("spread")
+    )
+    # Headline test: ``inference`` selects the member; the chokepoint routes it.
     # ``mean_spread`` is the full-sample mean under HAC, the non-overlap mean
     # otherwise. The FEW_ASSETS advisory keys on the median *per-period*
     # finite-factor count, not the universe-wide unique asset count: how many
@@ -393,10 +405,10 @@ def _quantile_spread_from_series(
     clean_full_series = (
         full_series.filter(_finite_expr("spread")) if full_series is not None else None
     )
-    mean_spread, t, p, sig_method, sig_extra, sig_codes = (
+    mean_spread, t, p, sig_method, sig_stat_type, sig_extra, sig_codes = (
         _spread_significance_with_inference(
             inference,
-            strided_spread=arr,
+            strided_spread=strided_series,
             full_spread=clean_full_series,
             overlap_periods=overlap_periods,
             n_assets=n_assets,
@@ -433,7 +445,7 @@ def _quantile_spread_from_series(
         "median_cross_section": n_assets,
         "n_groups": n_groups,
         "overlap_periods": overlap_periods,
-        "stat_type": "t",
+        "stat_type": sig_stat_type,
         "h0": "mu=0",
         "method": sig_method,
         "long_alpha": mean_long,
@@ -567,7 +579,7 @@ def quantile_spread_vw(
     return_col: str = "forward_return",
     weight_col: str = "market_cap",
     tie_policy: str = "ordinal",
-    inference: NonOverlapping | NeweyWest = NON_OVERLAPPING,
+    inference: NonOverlapping | NeweyWest | StationaryBootstrap = NON_OVERLAPPING,
     lag_weights: bool = True,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
@@ -775,15 +787,17 @@ def quantile_spread_vw(
         tie_policy,
         expected_warnings=expected_warnings,
     )
-    arr = spread_vals.to_numpy()
+    strided_series = vw_series.select(
+        "date", pl.col("spread_vw").cast(pl.Float64).alias("spread")
+    ).filter(_finite_expr("spread"))
     # Same headline chokepoint as the equal-weighted sibling, so the pair is
     # tested the same way on the same date set: ``NON_OVERLAPPING`` reproduces
-    # the previous strided t bit-for-bit, ``NEWEY_WEST`` keeps every date and
-    # HAC-corrects the MA(h-1) overlap. The FEW_ASSETS advisory rides along on
-    # the median per-period finite-factor count.
+    # the previous strided t bit-for-bit, a member that consumes the full
+    # series keeps every date. The FEW_ASSETS advisory rides along on the
+    # median per-period finite-factor count.
     n_assets = _median_finite_cross_section(sampled, factor_col)
     full_series = None
-    if isinstance(inference, NeweyWest):
+    if inference.consumes_full_series:
         full_panel = _lag_within_asset(data, weight_col) if lag_weights else data
         full_series = _vw_spread_series(
             full_panel,
@@ -795,10 +809,10 @@ def quantile_spread_vw(
         ).select("date", pl.col("spread_vw").alias("spread"))
         full_series = full_series.filter(_finite_expr("spread"))
 
-    mean_spread, t, p, sig_method, sig_extra, sig_codes = (
+    mean_spread, t, p, sig_method, sig_stat_type, sig_extra, sig_codes = (
         _spread_significance_with_inference(
             inference,
-            strided_spread=arr,
+            strided_spread=strided_series,
             full_spread=full_series,
             overlap_periods=overlap_periods,
             n_assets=n_assets,
@@ -817,7 +831,7 @@ def quantile_spread_vw(
         "n_groups": n_groups,
         "overlap_periods": overlap_periods,
         "method": sig_method,
-        "stat_type": "t",
+        "stat_type": sig_stat_type,
         "h0": "mu=0",
         "tie_ratio": tie_ratio,
         "tie_policy": tie_policy,

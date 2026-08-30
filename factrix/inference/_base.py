@@ -6,7 +6,8 @@ labels. The Protocol constrains only the base identity ClassVars
 (``test`` / ``summary``); ``compute`` is deliberately **not** in the
 Protocol because its signature varies by target shape (series-mean /
 slice / panel) and a single Protocol cannot honestly cover all of them.
-Derived ClassVars (e.g. ``se``) are declared by downstream dataclasses as
+Derived ClassVars (e.g. ``se``, or the series-mean family's
+``consumes_full_series``) are declared by downstream dataclasses as
 needed, not hoisted into the base Protocol.
 
 ``InferenceResult`` is the harmonized return shape compute methods emit:
