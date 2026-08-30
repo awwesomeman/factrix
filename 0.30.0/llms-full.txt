@@ -1,0 +1,642 @@
+<!-- GENERATED FILE — DO NOT EDIT.
+     SSOT lives at factrix/llms-full.txt; regenerated on every mkdocs build
+     by scripts/mkdocs_hooks/sync_llms_txt.py. Edits here will be overwritten. -->
+
+# factrix — LLM reference
+
+> factrix is a polars-native Python library that answers one question for a given
+> dataset and factor columns: **Does this factor carry statistical edge?** It runs the
+> appropriate statistical procedure based on three design axes, returns a structured
+> result with p-values and warning flags, and screens large candidate sets with
+> per-family BHY FDR correction. Install:
+> `uv pip install git+https://github.com/awwesomeman/factrix.git`
+
+Source: https://github.com/awwesomeman/factrix
+Docs: https://awwesomeman.github.io/factrix/
+Full index: https://awwesomeman.github.io/factrix/llms.txt
+
+---
+
+## Core concept: three design axes
+
+An evaluation cell is defined by three orthogonal axes that specify the dataset properties:
+
+**FactorScope** — who carries the factor value:
+- `INDIVIDUAL` — each asset has its own factor value per period (e.g., P/B ratio).
+- `COMMON` — a single factor value is broadcast to all assets per period (e.g., VIX).
+
+**FactorDensity** — the value type:
+- `DENSE` — continuous numeric exposure (e.g., returns, z-scores, raw fundamentals).
+- `SPARSE` — zero-encoded event trigger: `0` on non-event entries, real-valued magnitude otherwise (e.g., event flags, event-shaped regime dummies). Null factor cells are missing values, not non-events; fill nulls to `0` only when that is the research contract.
+
+**DataStructure** — derived at evaluate-time from the asset count:
+- `PANEL` — `n_assets >= 2`
+- `TIMESERIES` — `n_assets == 1`
+
+Each metric spec is registered to run on a specific `(FactorScope, FactorDensity, DataStructure)` cell (or wildcard subset thereof).
+
+**Period grid, not calendar** — factrix never reads the calendar. `date` is an ordering key; every horizon, window, lag, stride and sample floor (`forward_periods`, estimation windows, Bartlett lags, block lengths, `min_periods`) is a count of periods on the panel's own distinct-date grid, never calendar time. No annualisation, no trading-day constant, no date arithmetic. Say "periods", never days / trading days / month-ends, when describing any contract.
+
+---
+
+## Canonical panel schema
+
+Every `evaluate()` call expects a polars DataFrame with at least these columns:
+
+| Column          | Required at | Description |
+|-----------------|-------------|-------------|
+| `date`          | input       | Date/time key (ordering key only; the grid need not be evenly spaced) |
+| `asset_id`      | input       | Unique asset identifier |
+| `<factor_col>`  | input       | The factor column name under test |
+| `forward_return`| evaluate    | Forward-return horizon (attached via `compute_forward_return`) |
+| `price`         | optional    | Optional column consumed by event-study metrics |
+
+Synthetic panels can be generated with `fx.datasets.make_cs_panel(...)` (for DENSE) or `fx.datasets.make_event_panel(...)` (for SPARSE).
+
+---
+
+## Typical usage
+
+### 1. Single-factor evaluation
+
+```python
+import factrix as fx
+from factrix.preprocess import compute_forward_return
+from factrix.metrics import ic
+
+# 1. Generate synthetic panel data and compute forward returns
+raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, rng=2024)
+data = compute_forward_return(raw, forward_periods=5)
+
+# 2. Run pre-flight check
+info = fx.inspect_data(data, factor_cols=["factor"])
+print("Detected structure:", info.properties.structure)
+
+# 3. Evaluate using ic with Newey-West HAC inference
+results = fx.evaluate(
+    data,
+    metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)},
+    factor_cols=["factor"],
+    forward_periods=5,
+)
+res = results["factor"]
+
+print("IC Value:", res.metrics["ic"].value)
+print("p-value:", res.metrics["ic"].p_value)
+```
+
+### 2. Multi-factor BHY screening
+
+```python
+import factrix as fx
+from factrix.preprocess import compute_forward_return
+from factrix.metrics import ic
+import polars as pl
+
+# 1. Prepare multi-factor dataset
+raw = fx.datasets.make_cs_panel(n_assets=50, n_dates=200, rng=2024)
+data = compute_forward_return(raw, forward_periods=5)
+
+# Add multiple candidate columns
+for i in range(5):
+    data = data.with_columns(
+        (pl.col("factor") + pl.lit(i * 0.2)).alias(f"factor_{i}")
+    )
+factor_cols = [f"factor_{i}" for i in range(5)]
+
+# 2. Evaluate all candidates simultaneously
+results = fx.evaluate(
+    data,
+    metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)},
+    factor_cols=factor_cols,
+    forward_periods=5,
+)
+
+# 3. Screen with Benjamini-Hochberg-Yekutieli step-up FDR
+screens = fx.multi_factor.bhy(list(results.values()), metrics=["ic"], q=0.05)
+ic_screen = screens["ic"]
+
+print("Survivors:", [p.factor for p in ic_screen.survivors])
+```
+
+### 3. Single-asset timeseries evaluation
+
+A single-asset panel (`n_assets == 1`) resolves to `DataStructure.TIMESERIES`.
+`Common × Continuous` metrics (`common_beta`, `common_quantile_spread`, `common_asymmetry`)
+are `PANEL` and need `n_assets >= 2` — they raise `IncompatibleAxisError` at
+`n_assets == 1`.
+Single-asset dense data uses `predictive_beta` for the direct HAC predictive
+regression slope and `directional_hit_rate` for sign prediction. Single-asset
+sparse data is served by `(*, SPARSE, *)` metrics whose cell allows
+`TIMESERIES`. Two-column diagnostics (`positive_rate`, `oos_decay`, `ic_trend`)
+remain standalone `(date, value)` tools; in `evaluate()` they layer on panel IC
+series, not raw single-asset dense panels.
+Always-in-market `{-1, +1}` signals are dense directional signals, not sparse
+events; sparse event signals need a non-event zero state (`{0, R}`).
+If that zero state exists but zeros are <50% of non-null cells, automatic
+routing stays dense; explicitly requested sparse metrics still run with a
+`frequent_event_signal` warning.
+
+```python
+import factrix as fx
+import polars as pl
+from factrix.preprocess import compute_forward_return
+from factrix.metrics import predictive_beta
+
+# 1. Generate single-asset timeseries data (make_cs_panel requires n_assets>=2; filter after)
+raw = fx.datasets.make_cs_panel(n_assets=2, n_dates=300, rng=2024)
+raw = raw.filter(pl.col("asset_id") == raw["asset_id"].item(0))
+data = compute_forward_return(raw, forward_periods=5)
+
+# 2. Evaluate the explicit single-asset dense predictive slope
+results = fx.evaluate(
+    data,
+    metrics={"predictive_beta": predictive_beta()},
+    factor_cols=["factor"],
+    forward_periods=5,
+)
+res = results["factor"]
+
+print("Predictive beta:", res.metrics["predictive_beta"].value)
+print("p-value:", res.metrics["predictive_beta"].p_value)
+```
+
+### 4. Allocation signal validation
+
+Small cross-sections reduce power; they do not change the estimand. For an
+`Individual × Dense` allocation panel:
+
+| Research question | Evidence | Role |
+|---|---|---|
+| Rank future returns | `ic(inference=fx.inference.NEWEY_WEST)` | First-pass inference for ranking |
+| Estimate premium per exposure unit | `fm_beta()` | First-pass inference for linear exposure |
+| Predict absolute up/down direction | `directional_hit_rate()` | Inferential only when sign prediction is the objective; not a rank-IC substitute |
+| Check same-period pair ordering | `directional_pair_accuracy()` | Descriptive (`p_value=None`) |
+| Check IC stability | `ic_ir()` | Descriptive; use `ic` for mean-IC inference |
+| Inspect payoff shape | `k_spread()`, `quantile_spread()`, `monotonicity()` | Supplementary; tiny legs are fragile |
+
+- A by-design thin study may pass `expected_warnings=("few_assets",)` to
+  `evaluate`. The warning record remains marked `expected=True`, inference is
+  unchanged, and `result.unexpected_warnings` remains the alert view.
+- Keep all factor × horizon hypotheses pooled in `bhy` when the workflow may
+  select the best combination. Use `expand_over=("forward_periods",)` only for
+  separately reported, predeclared horizon screens; use `partial_conjunction`
+  for a predeclared k-of-m horizon rule.
+- `notional_turnover` → `breakeven_cost` / `net_spread` models the matching
+  equal-weight top/bottom proxy. A long-only or custom-weight portfolio must
+  compute turnover and execution costs from its actual weights downstream;
+  `rank_turnover` is not a cost input.
+- Four period counts, identical on a full grid and distinct on a coarser one:
+  `forward_periods` (economic horizon, underlying period grid),
+  `overlap_periods` (inference, evaluation-grid observations, injected),
+  `rebalance_lag` (turnover comparison stride, evaluation-grid observations,
+  optional on `rank_turnover` / `notional_turnover`, defaults to the injected
+  overlap) and `holding_periods` (cost amortisation, underlying period grid,
+  required unit on `breakeven_cost` / `net_spread`). Never substitute the
+  derived `overlap_periods` for `holding_periods`: `gross_spread` is per
+  underlying return period, so that swap mis-states cost drag by the ratio of
+  the two.
+- Treat `by_slice`, `spanning_alpha`, and `pooled_beta` as follow-up robustness
+  evidence, not an unregistered any-pass promotion gate.
+
+Full workflow: https://awwesomeman.github.io/factrix/guides/validating-allocation-signals/
+
+---
+
+## Public API
+
+### `evaluate`
+
+```python
+def evaluate(
+    data: DataInput,
+    *,
+    metrics: dict[str, MetricBase],
+    factor_cols: list[str],
+    forward_periods: int | None = None,
+    overlap_periods: int | None = None,
+    strict: bool = True,
+    expected_warnings: tuple[str, ...] = (),
+) -> dict[str, EvaluationResult]:
+```
+
+`DataInput = pl.DataFrame | pl.LazyFrame`. factrix is polars-native on its primary entry points. `LazyFrame` is collected at the API boundary.
+
+- `metrics` accepts a dictionary mapping labels to metric **instances** from `factrix.metrics` (e.g., `{"ic_nw": ic(inference=fx.inference.NEWEY_WEST)}`).
+- `factor_cols` accepts a list of column names on `data`.
+- `forward_periods` is **not** a metric knob — it is the data's return horizon (the `forward_periods` `forward_return` was built with, in periods of the price grid; it names the hypothesis). Normally omitted: `compute_forward_return` stamps it on the panel and `evaluate` reads it from there. Pass it only to declare the horizon for a self-attached `forward_return` column that carries no stamp; a value disagreeing with the stamp is rejected. To compare horizons, build one panel per horizon and evaluate each (or use `evaluate_horizons`).
+- `overlap_periods` is the overlap of adjacent observations on the evaluation grid — the quantity inference consumes (HAC bandwidth and effective df, non-overlapping stride, stride-scaled sample floors). Normally omitted: `compute_forward_return` stamps it too (equal to `forward_periods` on the full grid, derived from `dates=` on a coarser one). For an unstamped panel it defaults to `forward_periods`; pass it only when a self-attached panel sits on a coarser grid than its horizon. A value disagreeing with the stamp is rejected. Surfaces as `EvaluationResult.overlap_periods` (bookkeeping, not identity) and `metadata["overlap_periods"]` on every metric.
+- `strict` (default `True`) raises an exception on inapplicable metrics; when `False`, inapplicable metrics return `NaN` with warnings.
+- `expected_warnings` (default `()`) declares warning regimes that are the study's design, e.g. `expected_warnings=("few_assets",)` for a by-design few-asset study (single asset, pairs). Declared codes are marked, never dropped: matching `Warning` records stay on the result with `expected=True` (read the alert view via `result.unexpected_warnings`), the per-run `UserWarning` echoes stop, and repr emphasis moves to unexpected warnings. Inference is untouched — the small-cross-section block-bootstrap switch still fires and stays readable in `metadata["method"]`. Unknown codes are rejected (typo guard). Every metric also accepts it keyword-only (`ic(expected_warnings=(...))`, `notional_turnover(panel, expected_warnings=(...))`) so a standalone call can declare the same regime; `evaluate` overrides the per-metric value with the study-level one so a whole study speaks with one voice. A metric that raises no code of its own carries the knob inert. `overlap_periods` is the injected param that stays rejected on a metric constructor — it is a property of the data.
+
+Under the hood, evaluation is scheduled and executed via `DagExecutor`, which topologically sorts specs and dependencies, raising a `CycleError` if circular dependencies are detected.
+
+Returns `dict[str, EvaluationResult]` keyed by factor column name, insertion order matches `factor_cols`.
+
+---
+
+### `evaluate_horizons`
+
+```python
+def evaluate_horizons(
+    data: DataInput,
+    *,
+    metrics: dict[str, MetricBase],
+    factor_cols: list[str],
+    forward_periods: list[int],
+    dates: pl.Series | Iterable | None = None,
+    strict: bool = True,
+    expected_warnings: tuple[str, ...] = (),
+) -> list[EvaluationResult]:
+```
+
+Thin sweep that runs `evaluate` across several return horizons of one **raw** panel (no `forward_return` attached — it is rebuilt per horizon via `compute_forward_return`, which is not idempotent). Pure composition over existing primitives; no new type, and the single-horizon contract of `evaluate` is untouched.
+
+- `data` is a raw price panel (`date`, `asset_id`, `price`, factor columns). Only forward-return is computed; winsorize / abnormal-return are out of scope.
+- `forward_periods` is a non-empty `list[int]` of distinct positive horizons (e.g. `[5, 20, 60]`); duplicates and non-positive values are rejected.
+- `dates` is an optional evaluation grid forwarded to every inner `compute_forward_return` call; each result carries its own derived `overlap_periods` while the `(factor, forward_periods)` identity is unaffected.
+- Returns a flat `list[EvaluationResult]` grouped by horizon then `factor_cols` order — one entry per `(factor, forward_periods)`. The list feeds straight into `compare(...)` and `bhy(...)`. Pool horizons when selection may choose across them; use `expand_over=("forward_periods",)` only for predeclared, separately reported horizon screens.
+- Comparability across horizons is a scale alignment (the `/ forward_periods` in `compute_forward_return` makes rank-IC comparable); signed-return-mean metrics carry a compounding bias that grows with `forward_periods`, so treat those sweeps as descriptive.
+
+---
+
+### `inspect_data`
+
+```python
+def inspect_data(
+    data: DataInput,
+    factor_cols: list[str] | None = None,
+) -> DataInspection:
+```
+
+Typed pre-flight introspection that combines axis detection with a per-metric usability verdict.
+
+- `DataInspection.properties: DataProperties` carries the detected enums (`scope` / `density` / `structure`), per-axis rationale strings (`scope_reason` / `density_reason` / `structure_reason`), plus shape numerics (`n_assets` / `n_periods` / `n_pairs` / `sparse_ratio`).
+- `DataInspection.metrics: list[MetricApplicability]` provides verdicts grouped into three usability `Tier` categories:
+  - `usable` (`MetricApplicabilityGroup` / `Tier.CLEAN`): Clean metrics ready to run.
+  - `degraded` (`MetricApplicabilityGroup` / `Tier.DEGRADED`): Metrics runnable with warnings.
+  - `unusable` (`MetricApplicabilityGroup` / `Tier.UNUSABLE`): Metrics that will short-circuit to NaN.
+- The usability tier classification is determined using the metric's `SampleThreshold`.
+- `.to_metrics_dict()` on a group returns the `{label: instance}` dictionary that `evaluate(metrics=...)` expects.
+- The verdict reads each metric's **default-configuration** floor. For the floor a configured instance gates on at run time, use `sample_requirements`.
+
+---
+
+### `sample_requirements`
+
+```python
+def sample_requirements(
+    metric: Metric,
+    *,
+    data: pl.DataFrame | None = None,
+    overlap_periods: int | None = None,
+) -> SampleThreshold:
+```
+
+Resolves a configured metric instance's `SampleThreshold` (hard `min_*` / soft `warn_*` per axis) at the panel's evaluation-grid overlap — the same floor `evaluate` and the `slice_period_*` tests apply. `data=` reads the stamped `overlap_periods` exactly as `evaluate` does (an explicit `overlap_periods` must agree; an unstamped panel needs it); `overlap_periods=` alone resolves at that overlap; neither resolves the default (what `list_metrics` / `metrics_summary` / `inspect_data` report). E.g. `ic()` → `min_periods=50`, `ic(inference=NEWEY_WEST)` → `20`, `positive_rate()` at `overlap_periods=1` → `10`, at `5` → `50`.
+
+---
+
+### `by_slice` / `slice_pairwise_test` / `slice_joint_test` / `slice_period_pairwise_test` / `slice_period_joint_test`
+
+These live in the `factrix.slicing` namespace and are re-exported at the top level (`fx.by_slice`, `fx.slice_joint_test`, ...).
+
+- `by_slice(data, metric, *, by, factor_col)` partitions an evaluate-ready panel (`forward_return` already attached, as `evaluate` requires) by a grouping column and runs `evaluate` per slice, returning `dict[str, EvaluationResult]` (same shape as `evaluate`, keyed by slice). `metric` is an instance (e.g. `ic()`); DAG-consumer metrics work with no pre-computation.
+- `slice_pairwise_test` / `slice_joint_test` perform **cross-sectional** (date-aligned) cross-slice Wald tests (joint Newey-West HAC + slice cluster, Holm-adjusted) on the per-period means — for slices that share dates (sector, size bucket, liquidity tier). Both take `overlap_periods=`, which floors the joint HAC bandwidth (there is no sample floor to gate on this path); resolution is `evaluate`'s contract — the `compute_forward_return` stamp is the truth, a disagreeing declaration is rejected, and an unstamped panel must declare it.
+- `slice_period_pairwise_test` / `slice_period_joint_test` are the **date-disjoint** counterparts (market regime, calendar period, in/out-of-sample) — each slice is an independent sample with block-diagonal covariance. A `method` flag selects the estimator: `"bootstrap"` (default; independent stationary block bootstrap + Romano-Wolf, right for short regimes) or `"analytic"` (per-slice Newey-West HAC + Welch contrast + Holm, for long spans T ≳ 100). Pairwise output carries per-slice `n_periods_a` / `n_periods_b`; both outputs carry the gating floor `min_periods` and a `reason` column (null when tested, `"degenerate_variance"` for a collapsed contrast). A slice below the metric's floor (resolved at the panel's stamped `overlap_periods`, or the `overlap_periods=` declared on an unstamped panel — `evaluate`'s contract, so `by_slice` and the slice tests gate at one floor; see `sample_requirements`) raises by default; `strict=False` returns the affected rows in the same schema with `reason="insufficient_periods"` and NaN `stat` / `p_*` instead — the joint test as one unavailable row, the pairwise test only for pairs touching the thin slice, with the remaining pairs tested as their own multiplicity family.
+
+---
+
+### `multi_factor.bhy`
+
+```python
+def bhy(
+    results: list[EvaluationResult],
+    *,
+    metrics: list[str],
+    expand_over: tuple[str, ...] = (),
+    q: float = 0.05,
+) -> dict[str, BhyResult]:
+```
+
+Benjamini-Hochberg-Yekutieli step-up FDR within a declared family. Returns a dictionary of `BhyResult` objects keyed by the metric labels.
+
+The base hypothesis identity is `(factor, forward_periods)`. With no
+`expand_over`, all factor × horizon hypotheses are pooled, which is required
+when the research process may select the best horizon. Partition by
+`forward_periods` only for predeclared horizon-specific screens; separate
+buckets do not control later horizon shopping.
+
+`BhyResult` contains:
+- `metric_name`: Metric label under test.
+- `survivors`: Surviving `EvaluationResult` records.
+- `adj_p`: Adjusted p-values aligned with `survivors`.
+- `q`: Target FDR.
+- `n_tests`: Partition sizes.
+
+### `multi_factor.bhy_across_metrics`
+
+```python
+def bhy_across_metrics(
+    results: list[EvaluationResult],
+    *,
+    metrics: list[str],
+    expand_over: tuple[str, ...] = (),
+    q: float = 0.05,
+) -> CrossMetricBhyResult:
+```
+
+Pools all declared factor × metric cells into one BHY family. The survivor unit
+is a `MetricHypothesis`, not a factor; deduplicating survivors by factor does
+not provide factor-level FDR control. `insufficient_*` cells remain auditable
+with `active=False` and empty adjusted p-values but do not enter `n_tests`.
+Other missing or invalid p-values fail loudly.
+
+For lower-level multiplicity adjustment, `factrix.stats.bhy_adjusted_p`
+controls FDR when retaining a batch, while
+`factrix.stats.holm_adjusted_p` controls FWER when a search selects one winner
+or every retained hypothesis must avoid any false positive. Both accept
+`n_tests` when the submitted p-values are the most-significant survivors of a
+larger recorded search family.
+
+`factrix.stats.romano_wolf_adjusted_p` is the dependence-aware FWER primitive
+for observed statistics plus a caller-supplied `(B, m)` bootstrap matrix. Each
+row must be one joint, null-centred draw across all hypotheses with the same
+studentization as the observed statistics; independently resampling columns is
+invalid. Every searched hypothesis needs a column — there is no `n_tests`
+shortcut for omitted Romano-Wolf hypotheses. The helper returns adjusted
+p-values only and does not construct the bootstrap family; use Holm when a
+valid joint bootstrap family is unavailable.
+
+`factrix.stats.stationary_bootstrap_resamples` accepts an aligned `(T, m)`
+per-period statistic matrix and applies common block indices to all columns,
+returning `(B, T, m)`. This preserves joint dependence before the caller
+centres and studentizes each bootstrap statistic for
+`romano_wolf_adjusted_p`; separate calls per column are not equivalent.
+
+Holm and BHY consume calibrated p-values and may combine documented one- and
+two-sided alternatives; they do not reinterpret tails. There is no generic
+tail-conversion helper. Factrix also does not expose a high-level
+`multi_factor.romano_wolf` or panel-aware bootstrap workflow: callers of the
+low-level primitive must supply the complete joint, H0-centred, correctly
+studentized `(B, m)` matrix.
+
+---
+
+### `multi_factor.bhy_hierarchical`
+
+```python
+def bhy_hierarchical(
+    results: list[EvaluationResult],
+    *,
+    metrics: list[str],
+    group: str,
+    q: float = 0.05,
+) -> dict[str, HierarchicalBhyResult]:
+```
+
+Yekutieli (2008) two-stage hierarchical FDR for factor sets with group structures. Outer BHY step-up on Simes group representatives controls group-level FDR, and inner BHY controls within-group FDR.
+
+---
+
+### `multi_factor.partial_conjunction`
+
+```python
+def partial_conjunction(
+    results: list[EvaluationResult],
+    *,
+    metrics: list[str],
+    min_pass: int,
+    expand_over: tuple[str, ...],
+    n_conditions: int | None = None,
+    q: float = 0.05,
+) -> dict[str, PartialConjunctionResult]:
+```
+
+Partial-conjunction screening: keeps factors significant in at least `min_pass` of `expand_over` conditions.
+
+### `multi_factor.partial_conjunction_across_metrics`
+
+```python
+def partial_conjunction_across_metrics(
+    results: list[EvaluationResult],
+    *,
+    metrics: list[str],
+    min_pass: int,
+    q: float = 0.05,
+) -> CrossMetricPartialConjunctionResult:
+```
+
+Treats the predeclared metric list as the fixed condition axis, computes one
+k-of-m p-value per factor identity, then runs BHY across identities. An
+`insufficient_*` endpoint is conservatively assigned p=1 rather than lowering
+m; an identity with fewer than k active endpoints stays in the audit output but
+does not enter the outer BHY family. Descriptive endpoints fail loudly.
+
+---
+
+### `compare`
+
+```python
+def compare(
+    results: list[EvaluationResult],
+    *,
+    metrics: list[str],
+    sort_by: str | None = None,
+    descending: bool = True,
+) -> pl.DataFrame:
+```
+
+Renders a wide leaderboard `pl.DataFrame` stacking metric values and p-values side-by-side.
+
+---
+
+### `list_metrics`
+
+```python
+def list_metrics() -> dict[str, list[MetricSpec]]:
+```
+Returns a catalog of public specs grouped by module family.
+
+### `metrics_summary`
+
+```python
+def metrics_summary() -> pl.DataFrame:
+```
+Compact discovery companion to `list_metrics`: a `pl.DataFrame` of
+`(family, metric, summary)` — the concept family, the public callable name, and
+the first line of its docstring. Use it to browse the catalog; reach for
+`list_metrics` when you need the full `MetricSpec`, and `inspect_data` for which
+metrics run on a given panel.
+
+---
+
+### Third-party metric registration
+
+Custom metrics plug into the registry via the `@metric_spec(...)` decorator and `factrix.metrics.register(fn)`:
+
+```python
+import factrix as fx
+from factrix import Aggregation, InputShape, MetricSpec, cell
+
+@fx.metric_spec(
+    MetricSpec(
+        name="custom_ic",
+        cell=cell(fx.FactorScope.INDIVIDUAL, fx.FactorDensity.DENSE),
+        aggregation=Aggregation.CS_THEN_TS,
+        input_shape=InputShape.PANEL,
+    )
+)
+def custom_ic(panel):
+    ...
+
+fx.metrics.register(custom_ic)
+```
+
+A registered callable is accepted directly as an `fx.evaluate(metrics=...)`
+value — pass the function itself, uncalled, since it carries no configuration
+object and runs on its signature defaults:
+
+```python
+fx.evaluate(panel, metrics={"custom_ic": custom_ic},
+            factor_cols=["factor"], forward_periods=5)
+```
+
+Use `@fx.metrics.metric(...)` instead when the metric needs per-run
+configuration. Either path works from any module — a metric defined in your
+own package or in `__main__` is resolved through the metric registry, not by
+import path.
+
+Resolve a registered spec by its label with `fx.spec_by_name()`, which
+returns the full `dict[str, MetricSpec]` registry keyed by metric name —
+the lookup the DAG executor itself uses, and the way to inspect a custom
+metric's declared cell after registration:
+
+```python
+specs = fx.spec_by_name()
+specs["custom_ic"].cell        # the declared analysis cell
+sorted(specs)                  # every metric label factrix knows
+```
+
+---
+
+### Preprocessing
+
+```python
+from factrix.preprocess import compute_forward_return
+
+panel = compute_forward_return(
+    data,
+    forward_periods: int = 5,
+    *,
+    dates: pl.Series | Iterable | None = None,
+    overwrite: bool = False,
+) -> pl.DataFrame
+```
+Appends `forward_return` to the DataFrame, stamps two reserved columns — `_forward_periods` (the return horizon, the hypothesis) and `_overlap_periods` (the overlap of adjacent observations on the evaluation grid, the quantity inference consumes) — and drops boundary nulls. Pass `overwrite=True` to replace an existing `forward_return` column.
+
+`dates=` evaluates on a coarser grid: the return is still computed on the full grid at `forward_periods`, only rows on those dates are kept (every value must be a member of the panel's distinct-date grid — nothing is snapped), and `overlap_periods` is derived on the full period index as `1 + max_i #{j in dates : 0 < idx(j) - idx(i) < h}` (stride 60 at h=60 → 1; stride 20 → 3; full grid → h; the maximum is taken because the evaluation grid may be spaced unevenly on the period grid — under-counting over-rejects, over-counting only thins the strided sample). Sub-sampling a panel by hand *after* this call leaves a stale `overlap_periods` stamp (still the horizon), so a 60-period return evaluated every 60 periods trips the stride-scaled `insufficient_*_periods` floor; the short-circuit message points at `dates=`. The unit of `forward_return` is unchanged: per period of the horizon, not per evaluation period.
+
+---
+
+## Result Types
+
+### `EvaluationResult`
+
+Dataclass containing the evaluation outputs:
+- `factor`: Column name.
+- `cell`: `(scope, density, structure)` tuple.
+- `forward_periods`: The return horizon (the hypothesis; joins the identity).
+- `overlap_periods`: The evaluation-grid overlap inference consumed — equal to `forward_periods` on the full grid, smaller on a coarser grid built with `compute_forward_return(..., dates=)`. Bookkeeping only: it does not join the identity (the same horizon on two grids is one hypothesis estimated twice).
+- `n_periods`: Unique non-null dates in the factor column (panel time-series depth).
+- `n_pairs`: Non-null `(date, asset_id)` pairs (effective cross-sectional coverage).
+- `n_assets`: Unique asset count.
+- `metrics`: read-only `Mapping[str, MetricResult]` holding metric results, keyed by user label.
+- `plan`: Execution plan string.
+- `params`: Caller-supplied hypothesis parameters (the swept knobs — `timeframe`, `universe`, ...). Every entry joins the hypothesis identifier `(factor, forward_periods, *params)`, so a swept knob never has to be encoded into the factor name to stay unique. `expand_over` may name these keys to partition a multiple-testing family.
+- `metadata`: Caller-supplied bookkeeping labels (`run_id`, data vintage, ...). Never joins the identifier and never partitions a family — two results differing only in `metadata` are the same hypothesis and raise as a duplicate.
+- `warnings`: Attached `Warning` records.
+
+Methods:
+- `to_frame()`: Stacks outputs to a long-form DataFrame.
+- `to_dict()`: Exports to a nested JSON-friendly dictionary.
+
+### `Warning`
+
+Flat warning representation containing:
+- `code`: The associated `WarningCode`.
+- `source`: String representing the metric name (or `None` for bundle-level).
+- `message`: Warning description.
+
+### `MetricResult`
+
+Dataclass for a single metric's output:
+- `value`: Raw scalar result.
+- `p_value`: Calibrated p-value for the metric's hypothesis test, or `None` for descriptive outputs.
+- `alternative`: Tested tail (`two-sided`, `greater`, or `less`), present exactly when `p_value` is present.
+- `n_obs`: Effective sample size the estimator actually used (single source of truth for sample size).
+- `n_obs_axis`: The sample dimension `n_obs` counts along, or `None`. One of `periods` (dates, or adjacent-period transitions for `rank_turnover` / `notional_turnover`), `assets`, `events`, `pairs` (pooled `(date, asset)` observations — `pooled_beta`, `directional_hit_rate`), `asset_pairs` (within-period asset couples — `directional_pair_accuracy`). `pairs` and `asset_pairs` are separate tokens because the counts differ by ~an order of magnitude on the same panel.
+- `stat`: Test statistic value (t, z, W, chi2, ...), when applicable.
+- `metadata`: Estimator-specific context beyond the top-level fields.
+- `warning_codes`: Per-metric advisory `WarningCode` values raised by this metric.
+- `name`: Metric identifier name.
+
+---
+
+## Errors
+
+All exceptions inherit from `FactrixError`:
+- `IncompatibleAxisError`: Invalid combination of axes.
+- `IncompatibleInferenceError`: `inference=` is outside the metric's `applicable_inference` allowlist.
+- `InsufficientSampleError`: Under `strict=True`, a requested metric's *effective* sample (post-stride periods, surviving cross-section) is below its own hard floor — an `insufficient_*` short-circuit reason. Carries `.axis` (the BINDING axis: `periods` / `assets` / `events` / `pairs` / `asset_pairs`), `.actual`, `.required`, and `.shortfalls` (one tuple per failing metric). The floor is per metric and per axis; there is no global `T < 20` rule. A missing input column or config (`no_*` reason) raises `UserInputError` instead.
+- `UserInputError`: Wrong schema, bad names, or mismatched shapes.
+
+---
+
+## WarningCode reference
+
+The canonical glosses live in `factrix._codes.WarningCode.description` and are regenerated into `docs/reference/_generated_warning_codes.md`. The 32 evaluation-side codes (the preprocess and data-shape codes are in that generated reference; of those, `non_finite_input_dropped` is also attached by `caar` when `compute_caar` drops non-finite event rows):
+
+| WarningCode | Description |
+|---|---|
+| `unreliable_se_short_periods` | `n_periods` is below the WARN floor (~30, `MIN_PERIODS_WARN` / `MIN_FM_PERIODS_WARN`); NW HAC SE may be biased. |
+| `event_window_overlap` | Two events on one asset sat fewer than overlap_periods apart, so their forward-return windows (t, t+h] overlapped and they are not independent draws. Every event significance test (caar / bmp_z / corrado_rank / event_hit_rate / event_ic / event_skewness) strides its event axis per asset before testing and fires this once, with the counts in metadata['n_events_overlapping'] / ['n_events_sampled']. The statistic is the calibrated one — it runs on the surviving non-overlapping events — so read the code as the cost in sample of a trigger that fires in bursts, not as a defect. It cannot fire at overlap_periods = 1 (consecutive events are already independent). |
+| `persistent_regressor` | The predictive regressor is in a regime the corrected test is less well sized in: ADF p exceeds the configured threshold, or the measured Stambaugh channel \|rho_hat * phi_corrected\| exceeds 0.7, or the bias-corrected AR(1) coefficient came out at or above one. The Stambaugh (1999) bias itself is *corrected* (Amihud-Hurvich 2004), so this is not "beta may be biased": at `overlap_periods=1` the strongest cells leave the corrected test at 6–8% against a nominal 5%. It says nothing about overlap — at `overlap_periods>1` the test is 7.5–14.5% oversized for every phi including rho=0, which is the overlapping-regression HAC problem and fires no code of its own. Read the p against a raised hurdle. |
+| `serial_correlation_detected` | The tested per-period series has lag-1 autocorrelation > 0.3; no HAC / bootstrap path is calibrated there (NW 13–17%, bootstrap 12–19%, plain t 32–34% at nominal 5% for phi=0.6) — raise the hurdle (t > 3) or lengthen the sample. |
+| `few_assets` | Cross-section asset count below the relevant WARN floor (`MIN_ASSETS_WARN`, `MIN_IC_ASSETS_WARN`, or `MIN_FM_ASSETS_WARN`); severity in the n_assets metadata. |
+| `thin_quantile_groups` | `quantile_spread` left < `MIN_GROUP_ASSETS` (5) assets per bucket; spread can be dominated by individual assets. Advisory only. |
+| `thin_quantile_periods` | `common_quantile_spread` with fewer than 5 periods per historical factor bucket on average; each bucket mean rests on a thin time-series sample. Reduce `n_groups` or read the conditional means cautiously. |
+| `high_tie_ratio` | Median per-period `tie_ratio` above `TIE_RATIO_WARN_THRESHOLD` (0.3). For the quantile-bucket metrics (`quantile_spread` / `quantile_spread_vw` / `k_spread` / `monotonicity`) with ordinal tie-breaking, low factor cardinality injects sorting-artifact noise — use `tie_policy='average'` or fewer groups. For `ic` / `ic_ir` Spearman is already tie-corrected, but heavy ties shrink the attainable range of rho below ±1, so IC magnitudes are not comparable across tie densities. |
+| `sparse_magnitude_weighted` | Sparse factor is mixed-sign and not a clean ±1 ternary. `caar` preserves magnitude (Sefcik-Thompson) while `bmp_z` / `corrado_rank` use sign only; apply `.sign()` first when the three should share sign-flip semantics. |
+| `few_events` | An event significance test (caar / corrado_rank / bmp_z / event_hit_rate / event_ic / event_skewness) with a raw event count below MIN_EVENTS_WARN (30) x overlap_periods. The floor is scaled because every one of these tests first strides its event axis at overlap_periods — keeping at most one event per overlap window per asset — so a raw series must carry overlap_periods x 30 events to land on 30 independent ones. The message states the scaled floor, the raw count and the count that survived sampling; caar and corrado_rank count event *periods* on that axis (caar an equal-weight calendar-time portfolio, corrado_rank the per-period mean signed rank), the others count events. bmp_z fires on a second trigger as well: once events share periods its effective sample is the distinct event periods, not the event count (the Kolari-Pynnönen adjustment cannot manufacture independent periods; measured ~10% size at 8 periods, ~7% at 15, clearing by ~30, nominal 5%). A sub-30 effective sample is power-thin for the asymptotic distribution — read borderline p-values cautiously. |
+| `borderline_portfolio_periods` | `top_concentration` with 3..19 periods; the mean effective number of names is averaged over few periods and is noisy. `top_concentration` is descriptive at every sample size (no `p_value`): the withdrawn one-sided t against `ratio >= 0.5` never rejected, since the null ratio is ~0.91 (0 of 300 draws at a nominal 5%). |
+| `few_directional_pairs` | `directional_hit_rate` with 10..29 pooled non-overlapping (date, asset) pairs; PT normal approximation is power-thin below ~30. |
+| `rect_kernel_negative_variance` | Rectangular-kernel HAC variance came out negative (no PSD guarantee); clamped to 0 → SE=0, so the t-test is not computable (also flagged `degenerate_variance`). |
+| `degenerate_variance` | The sample admits no test statistic: every observation identical (zero dispersion), the HAC SE collapsed to zero, or a Wald restriction's covariance is singular. The metric keeps its `value` but returns `stat=None` / `p_value=None` — an identical, non-zero sample is degenerate in the *maximum*-evidence direction, so `t=0, p=1` would invert the reading. |
+| `bmp_return_vol_fallback` | `bmp_z` ran without a `price` column; estimation-window vol falls back to lagged rolling std of `forward_return` (coarser proxy). Either path's horizon vol scale is exact only on the unsampled full grid; the p-value does not depend on it (the factor is common to every event and cancels in z), only the descriptive `metadata['std_sar']` and the mean-SAR value shift by a constant. |
+| `upstream_unavailable` | DAG consumer skipped because an upstream producer short-circuited; cause in `metadata['upstream_reason']`. |
+| `metric_unavailable` | Metric short-circuited on its OWN precondition (missing input/config or insufficient sample); cause in `metadata['reason']`. |
+| `structure_mismatch` | Metric's declared cell (scope/density/structure) does not match the detected factor cell; under `strict=False` it short-circuits to NaN. |
+| `low_cardinality_dense_signal` | Dense factor has few distinct values but no sparse event contract; sparse event metrics require explicit zero non-event rows. |
+| `frequent_event_signal` | Explicit sparse event metric ran on a factor with zero non-event rows but <50% zeros; event-time inference should be read cautiously. |
+| `cross_factor_density_mismatch` | Factor columns carry inconsistent `FactorDensity` (dense and sparse mixed). **Raised only by `inspect_data`** — a mixed-scope `evaluate` batch routes each factor to its own cell and emits per-factor `structure_mismatch` instead. |
+| `cross_factor_scope_mismatch` | Factor columns carry inconsistent `FactorScope` (individual and common mixed). **Raised only by `inspect_data`** (see above). |
+| `single_asset_event_data` | Single-asset event data (TIMESERIES + SPARSE, n_assets=1); asset-cross-section metrics (e.g. `clustering_hhi`) stay unusable. |
+| `excessive_period_drops` | An upstream PANEL→SERIES primitive dropped > `DROP_RATE_WARN_THRESHOLD` of periods at its cross-sectional filter; counts in `metadata` (`n_periods_in/out`, ...). |
+| `excessive_asset_drops` | An upstream primitive dropped > `DROP_RATE_WARN_THRESHOLD` of assets (e.g. `compute_common_betas`); counts in `metadata` (`n_assets_in/out`, ...). |
+| `few_ordering_pairs` | directional_pair_accuracy with MIN_PAIR_ACCURACY_PAIRS_HARD ≤ n_pairs < MIN_PAIR_ACCURACY_PAIRS_WARN (10..29); the descriptive ordering accuracy is returned but n counts pooled non-overlapping within-period asset pairs after factor/return ties are removed. Below the HARD floor the metric short-circuits to NaN. |
+| `hac_bandwidth_ill_conditioned` | The resolved Bartlett bandwidth L exceeds n_periods / 5, so the HAC long-run variance is estimated from too few lag products to be stable. Usually a long overlap_periods against a short sample. The t-test still runs with the effective-df correction, but treat the p-value as indicative only and lengthen the sample or shorten the horizon. In this regime the effective-df cap at n_periods / overlap_periods binds hard, so if the series carries less dependence than overlap_periods implies the test is conservative rather than oversized (measured 0.2-3.5% against a nominal 5% on an iid series at h=21). |
+| `estimation_window_contaminated` | A mean-adjusted event test (caar / bmp_z / corrado_rank / event_hit_rate / event_ic / event_skewness) found that, averaged over the tested events, more than ESTIMATION_WINDOW_EVENT_SHARE_WARN (25%) of each event's estimation-window periods lie inside another event's forward-return window on the same asset (metadata['estimation_window_event_share']). The window then estimates the neighbours' realised event returns rather than the asset's unconditional mean, the per-event abnormal returns are negatively correlated through the shared periods, and the cross-event variance overstates the variance of their mean: the test is conservative, not liberal (measured on an iid null at h = 21: bmp_z 0.3% size at nominal 5%). A dense trigger or a long horizon is the cause. A supplied market-adjusted 'abnormal_return' does not remove it (measured 0.3% -> 0.3%) and removes the effect itself when every name fires on the same periods, so the statistic is returned unchanged: read the p-value as an upper bound, or shorten the horizon / thin the trigger. |
+| `slice_boundary_truncation` | `by_slice` partitioned on a date-axis column while the metric declares `MetricSpec.slice_boundary_sensitive`; each slice sees truncated boundary history. Cross-sectional partitions (constant within an asset, e.g. sector) do not trigger. |
+| `short_slice_joint_test` | `slice_period_joint_test` ran on K >= 3 slices with the shortest below 150 periods; the omnibus over-rejects there (8–9% at nominal 5% for K=5 with 50–90-period slices) because each slice's noisy small-sample HAC variance is inverted across K-1 restrictions. The row records it in `warning_codes` / `unexpected_warning_codes` next to `k_slices`, `n_periods_min` and `short_slice_periods`; declare it in `expected_warnings=` to keep the record and stop the echo. Prefer the pairwise contrasts on the same slices. |
+| `one_signed_factor` | `top_concentration` with `weight_by='abs_factor'` on a factor that never changes sign; \|f\| is a density weight only around a zero neutral point, so an uncentred factor's HHI moves with an arbitrary shift — z-score it or use `alpha_contribution`. |
+| `event_clustering_adjusted` | A pooled statistic found its units correlated and deflated itself by the Kish design effect 1/sqrt(1 + (n_eff - 1) * r_hat) — the same Kolari-Pynnonen (2010) machinery bmp_z and directional_hit_rate use. event_hit_rate and event_ic key it on the within-period intraclass correlation of their own per-event score (events sharing a period share that period's shock, so they are not separate trials). It fires only when the deflation is material — r_hat > 0 and a scale below KP_MATERIAL_SCALE (0.95); above that the statistic is left alone and event_hit_rate keeps the exact binomial. The point estimate is untouched; the p-value widens. Measured on a true null: event_hit_rate 63.5% -> nominal at 20 assets sharing 40 event dates. metadata['kolari_pynnonen_r'] / ['kolari_pynnonen_scaling'] disclose the estimate and the deflator that ran. |
+
+---
+
+## Links
+
+- Docs: https://awwesomeman.github.io/factrix/
+- Source: https://github.com/awwesomeman/factrix
+- Issues: https://github.com/awwesomeman/factrix/issues
+- llms.txt index: https://awwesomeman.github.io/factrix/llms.txt
