@@ -30,6 +30,24 @@ only when the predeclared selection rule may choose among metric labels or
 requires confirmation on at least `k` endpoints; use the hierarchical function
 only for a predeclared group structure.
 
+## Placeholder hypotheses
+
+A metric output that never ran a test is not a hypothesis. Two shapes qualify:
+a data-shortage short-circuit (`reason` starting `insufficient_`) and a
+`degenerate_variance` result (observations but no dispersion, so no statistic
+exists).
+
+Every function on this page applies the same rule: such a cell is **excluded
+from its family before any adjustment**. It never enters `m`, never enters `G`,
+and never enters a `k`-of-`m` denominator. It stays in `entries` for audit with
+`adj_p = NaN`, and each result reports how many were dropped under one key,
+`n_hypotheses_inactive`.
+
+Counting placeholders instead would inflate every real hypothesis's adjusted
+p-value — the surviving factors would pay a correction for tests that never
+ran — and it would make the same input answer differently depending on which
+function screened it.
+
 ## See also
 
 <div class="grid cards" markdown>

@@ -115,7 +115,8 @@ metric — the `_FdrResultBase` shape (`entries` / `survivors` / `adj_p` /
 | `adj_p` | Max-of-layers $\text{adj}_p$ for the survivors; survivor iff `adj_p <= q` |
 | `q` | The `q` you passed (single target, both layers) |
 | `group` | Context key naming the group axis (a single `str`) |
-| `n_tests` | Mapping `(group_value,) -> m_group` for **every** input group (covers dead families too, so "N of M families survived" claims are computable directly). Counter to `partial_conjunction`, which keeps surviving identities only. |
+| `n_tests` | Mapping `(group_value,) -> m_group` for **every** group holding a real hypothesis (covers dead families too, so "N of M families survived" claims are computable directly), so `G = len(n_tests)`. Placeholder members leave their inner family, and a group made up entirely of them leaves `G` rather than entering the outer layer at a Simes p of 1.0 — see [the module-level policy](multi-factor.md#placeholder-hypotheses). |
+| `n_hypotheses_inactive` | Placeholder members excluded before adjustment |
 
 Per-survivor group label: `survivor.params[result.group]`.
 

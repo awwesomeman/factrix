@@ -36,8 +36,9 @@ For the claim that a factor works on at least `k` predeclared endpoints, use
 - Entry order is result-major, then caller-supplied metric order.
 - `expand_over` retains the existing `bhy` meaning: it partitions by a result
   field or `params` key; metric labels remain pooled inside each bucket.
-- An `insufficient_*` cell stays in `entries` with `active=False` and
-  `adj_p=NaN`, but does not enter the active family or `n_tests`.
+- A placeholder cell (`insufficient_*` or `degenerate_variance`) stays in
+  `entries` with `active=False` and `adj_p=NaN`, but does not enter the family
+  or `n_tests` — see [the module-level policy](multi-factor.md#placeholder-hypotheses).
 - Other missing or invalid p-values raise rather than silently changing the
   family.
 
@@ -51,6 +52,7 @@ For the claim that a factor works on at least `k` predeclared endpoints, use
 | `metrics` | Metric labels in declared order |
 | `expand_over` | Keys partitioning separately reported families |
 | `n_tests` | Active factor × metric family size per bucket |
+| `n_hypotheses_inactive` | Placeholder cells excluded before adjustment |
 
 ::: factrix.multi_factor.CrossMetricBhyResult
     options:
