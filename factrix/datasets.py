@@ -80,6 +80,7 @@ def make_cs_panel(
     n_dates: int = 252,
     ic_target: float = 0.04,
     signal_horizon: int = 5,
+    factor_persistence: float = 0.0,
     rng: Rng = 42,
     start_date: str = _DEFAULT_START,
 ) -> pl.DataFrame:
@@ -96,7 +97,9 @@ def make_cs_panel(
 
                factor[t] = ρ · z(fr[t]) + √(1−ρ²) · z(η[t])
 
-           where ``ρ = clip(ic_target, −0.99, 0.99)`` and ``z`` is plain
+           where ``ρ = clip(ic_target, −0.99, 0.99)``, ``η`` is the
+           per-asset AR(``factor_persistence``) noise process of step 6
+           and ``z`` is plain
            Gaussian (not MAD) z-score, which makes
            ``Corr(factor, fr) = ρ`` hold **in expectation** per date at
            horizon ``H`` — exactly only in the large-``n_assets`` limit.
@@ -117,6 +120,17 @@ def make_cs_panel(
         5. The last ``H+1`` dates have no defined forward return; factor
            values there are pure noise and will be dropped along with
            the null forward returns once ``compute_forward_return`` runs.
+        6. The noise leg ``η`` is a per-asset AR(φ) process,
+           ``η[t] = φ·η[t-1] + √(1−φ²)·ε[t]`` with ``φ =
+           factor_persistence`` and ``ε`` iid standard normal, started
+           from ``η[0] = ε[0]`` so the process is stationary with unit
+           variance throughout. ``φ = 0`` collapses it to ``η = ε``,
+           reproducing the iid-per-period factor bit for bit off a given
+           ``rng``. It is independent of the return process, so it moves
+           no realized IC — it only makes the per-period *series* a
+           metric averages (the IC series, the spread series) persistent
+           in its own right, which is the regime the persistence screen
+           behind ``WarningCode.SERIAL_CORRELATION_DETECTED`` is about.
 
     Args:
         n_assets: Cross-sectional width.
@@ -139,6 +153,14 @@ def make_cs_panel(
             realize the nominal IC; different horizons realize a
             decayed IC (correct physics for a density with a natural
             time-scale, not a bug).
+        factor_persistence: AR(1) coefficient ``φ ∈ [0, 1)`` of the
+            factor's noise leg, per asset along the period grid (step 6).
+            ``0.0`` (the default) is the iid-per-period factor. A positive
+            value makes the resulting per-period metric series persistent
+            *beyond* any forward-return overlap horizon — the null the
+            size studies for the HAC / bootstrap inference paths are
+            measured on. Independent of the return process, so
+            ``ic_target`` still sets the realized IC.
         rng: RNG seed — an ``int``, ``None`` (drawn from system
             entropy), or a ``numpy.random.Generator`` used as-is and
             advanced by the call.
@@ -167,6 +189,11 @@ def make_cs_panel(
     """
     if n_assets < 2:
         raise ValueError("n_assets must be >= 2 for a cross-section")
+    if not 0.0 <= factor_persistence < 1.0:
+        raise ValueError(
+            "factor_persistence must be in [0, 1) for a stationary factor "
+            f"(got {factor_persistence})"
+        )
     if n_dates < signal_horizon + 2:
         raise ValueError(
             f"n_dates must be >= signal_horizon + 2 (got n_dates={n_dates}, "
@@ -191,6 +218,14 @@ def make_cs_panel(
 
     rho = float(np.clip(ic_target, -0.99, 0.99))
     noise = rng.standard_normal((n_dates, n_assets))
+    if factor_persistence > 0.0:
+        # Per-asset AR(phi) along the period grid, started at the stationary
+        # variance so every period has unit variance (no burn-in transient).
+        # phi = 0 leaves ``noise`` untouched, which is what keeps the default
+        # panel identical to the iid-factor one off the same rng.
+        scale = float(np.sqrt(1.0 - factor_persistence * factor_persistence))
+        for t in range(1, n_dates):
+            noise[t] = factor_persistence * noise[t - 1] + scale * noise[t]
 
     factor = noise.copy()
     factor[:last_valid] = rho * _zscore_cs(fr) + np.sqrt(1.0 - rho * rho) * _zscore_cs(
