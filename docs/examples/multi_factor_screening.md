@@ -74,7 +74,7 @@ def variant_panel(
 
 candidates = {
     f"variant_{i}": variant_panel(
-        panel, name=f"variant_{i}", scale=0.5 + 0.3 * i, rng=100 + i
+        panel, name=f"variant_{i}", scale=0.5 + 0.3 * i, seed=100 + i
     )
     for i in range(5)
 }
