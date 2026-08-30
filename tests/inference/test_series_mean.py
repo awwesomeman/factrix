@@ -32,12 +32,12 @@ from factrix.inference import (
     NEWEY_WEST,
     NON_OVERLAPPING,
     STATIONARY_BOOTSTRAP,
-    HansenHodrick,
     Inference,
     NeweyWest,
     NonOverlapping,
     StationaryBootstrap,
 )
+from factrix.inference.series_mean import HansenHodrick
 
 
 def _series_df(values: np.ndarray) -> pl.DataFrame:

@@ -24,12 +24,12 @@ import pytest
 from factrix._errors import IncompatibleInferenceError
 from factrix._results import MetricResult
 from factrix.inference import (
-    HANSEN_HODRICK,
     NEWEY_WEST,
     NON_OVERLAPPING,
     STATIONARY_BOOTSTRAP,
     StationaryBootstrap,
 )
+from factrix.inference.series_mean import HANSEN_HODRICK
 from factrix.metrics.k_spread import k_spread
 from factrix.metrics.quantile import quantile_spread, quantile_spread_vw
 from factrix.preprocess import compute_forward_return

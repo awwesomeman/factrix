@@ -228,7 +228,7 @@ approximation assumption all three analytic methods still make:
 | Procedure | Mechanism | Strengths | Weaknesses | Where factrix uses it |
 |---|---|---|---|---|
 | **Newey-West (1987)** | Bartlett-kernel HAC on the full overlapping series, bandwidth `L = max(bandwidth_base, h−1)`. | Simple, deterministic, asymptotically valid for arbitrary autocorrelation up to `L`. | Asymptotic Gaussian — finite-sample size distortion when `h/T` is non-trivial; bandwidth rule is conservative. | `ic` / `quantile_spread` / `quantile_spread_vw` / `k_spread` (with `NeweyWest` inference), `fm_beta` stage 2, `pooled_beta`, `common_quantile_spread`, `common_asymmetry`. |
-| **Hansen-Hodrick (HH) (1980)** | A generalized method of moments (GMM)-style HAC estimator with a rectangular kernel truncated at `h−1`; the canonical reference for overlap-aware long-horizon SEs. | Targets the MA(`h−1`) residual structure overlap induces. | Rectangular kernel can yield a non-PSD covariance matrix in finite samples; still asymptotic. | Exposed as `factrix.inference.HANSEN_HODRICK` (rectangular-kernel SE → t-statistic → two-sided p-value), but deliberately in **no** metric's `applicable_inference` allowlist — passing it to a metric raises `IncompatibleInferenceError`. Also borrows the `h−1` lag idea as a floor on the NW bandwidth above. |
+| **Hansen-Hodrick (HH) (1980)** | A generalized method of moments (GMM)-style HAC estimator with a rectangular kernel truncated at `h−1`; the canonical reference for overlap-aware long-horizon SEs. | Targets the MA(`h−1`) residual structure overlap induces. | Rectangular kernel can yield a non-PSD covariance matrix in finite samples; still asymptotic. | **Research-only.** Implemented as `factrix.inference.series_mean.HANSEN_HODRICK` (rectangular-kernel SE → t-statistic → two-sided p-value) and usable standalone via `HANSEN_HODRICK.compute(...)`, but deliberately in **no** metric's `applicable_inference` allowlist — passing it to a metric raises `IncompatibleInferenceError` — and for that reason not re-exported from `factrix.inference`. Also borrows the `h−1` lag idea as a floor on the NW bandwidth above. |
 | **Hodrick (1992) "1B"** | Reverse-regression: regress one-period return on the predictor sum `X_t = Σ x_{t-j}` over the last `h` periods. | Size-correct in finite samples even at large `h/T`; no bandwidth choice. | Coefficient interpretation differs — `β` is the response to a cumulative-predictor stimulus (MA on the RHS) rather than a long-horizon forecast slope (MA on the LHS in the standard form); not a drop-in replacement for the canonical `β`. | **Not implemented**. Cited as the right tool when overlap is severe; the `Individual × Continuous` cell side-steps the issue with non-overlapping resampling instead. |
 | **Stationary bootstrap (Politis-Romano 1994)** | Block-resamples the series (geometric block length, Politis-White 2004 automatic selection), centred under `H0`, studentizes both the observed and the resampled root by a batch-means SE at the same block length, and reports the empirical two-sided p from the resampled `t` ratios. | No normality or asymptotic-variance assumption at all — valid when the IC/return distribution is heavy-tailed or skewed enough that NW's / HH's Gaussian p-value is itself suspect. | Heavier to compute (resampling, not closed-form); the reported `stat` is the observed mean rather than the root the p is computed from. On a zero-dispersion sample there is no block SE to divide by, and the kernel falls back to the raw-mean root — reported as `metadata["studentized"] = False` and `degenerate_variance`. | Exposed as `factrix.inference.STATIONARY_BOOTSTRAP` on `ic`, `quantile_spread`, `quantile_spread_vw` and `k_spread` — every one of them dispatches the member polymorphically, and the spread series carries its own measured size table (§6). |
 
@@ -246,6 +246,24 @@ Practical rule of thumb:
   prefer `STATIONARY_BOOTSTRAP` over any of the analytic methods above —
   it is the only one of the four that does not assume asymptotic
   normality.
+
+### Which metrics take `inference=`, and which take a raw lag knob
+
+Two different surfaces set the HAC bandwidth, and which one a metric
+offers is decided by whether that metric's series has a **measured size
+table**, not by convenience:
+
+| Metric | Bandwidth surface | Why |
+|---|---|---|
+| `ic`, `quantile_spread`, `quantile_spread_vw`, `k_spread` | `inference=` (allowlist: `NON_OVERLAPPING`, `NEWEY_WEST`, `STATIONARY_BOOTSTRAP`) | Headline test is "average an overlapping per-date series, test `mean != 0`". The IC series and the spread series each carry their own measured size table (this section and §6), so each member is admitted on the strength of it, and the bandwidth is chosen for the caller by the member. |
+| `fm_beta`, `predictive_beta`, `common_quantile_spread`, `common_asymmetry` | raw `newey_west_lags` | Same Newey-West kernel, but no size table has been measured **on these metrics' own series**, so there is nothing to admit an `inference` member against. `None` (the default, and the only calibrated setting) resolves the bandwidth by the standard rule; an explicit integer is an unvetted override for research use. |
+| `pooled_beta` | raw `driscoll_kraay_lags` | A different estimator entirely — Driscoll-Kraay is a two-dimensional (period × asset) kernel, not the series-mean HAC, so it is neither an `inference` member nor a `newey_west_lags`. |
+| `spanning_alpha`, the slice Wald tests | neither | Bandwidth is fully determined by `overlap_periods` through `_resolve_nw_lags`; there is no caller knob to mis-set. |
+
+The rule for moving a metric from the second row to the first is the same
+one that governs the allowlists: measure size on **that metric's own
+series** first, then admit. Until then the raw knob is deliberately raw —
+it does not pretend to be a vetted choice.
 
 ---
 

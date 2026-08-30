@@ -75,7 +75,7 @@ def common_asymmetry(
     factor_col: str = "factor",
     return_col: str = "forward_return",
     overlap_periods: int | None = None,
-    nw_lags: int | None = None,
+    newey_west_lags: int | None = None,
 ) -> MetricResult:
     """Long/short asymmetry of factor → return relationship.
 
@@ -97,7 +97,7 @@ def common_asymmetry(
         overlap_periods: Overlap horizon of the forward return; used
             to floor the NW bandwidth so the kernel is consistent
             with the autocorrelation it must absorb.
-        nw_lags: Override for the NW lag count. ``None`` resolves to
+        newey_west_lags: Override for the NW lag count. ``None`` resolves to
             the standard rule given ``overlap_periods`` and ``T``.
 
     Returns:
@@ -209,7 +209,7 @@ def common_asymmetry(
             ),
         )
 
-    lags = _resolve_nw_lags(n_periods, nw_lags, overlap_periods)
+    lags = _resolve_nw_lags(n_periods, newey_west_lags, overlap_periods)
 
     # Drop the zero column when n_zero==0 to keep the design matrix full-rank.
     cols = [pos_mask.astype(float), neg_mask.astype(float)]
@@ -278,7 +278,7 @@ def common_asymmetry(
         "n_neg": n_neg,
         "n_zero": n_zero,
         "n_periods": n_periods,
-        "nw_lags_used": lags,
+        "newey_west_lags_used": lags,
         **method_b,
     }
     stat, p_out, alternative = _degenerate_test_fields(

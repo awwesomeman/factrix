@@ -8,7 +8,8 @@ import polars as pl
 import pytest
 from factrix._codes import WarningCode
 from factrix._errors import IncompatibleInferenceError
-from factrix.inference import HANSEN_HODRICK, NEWEY_WEST
+from factrix.inference import NEWEY_WEST
+from factrix.inference.series_mean import HANSEN_HODRICK
 from factrix.metrics.quantile import (
     compute_spread_series,
     quantile_spread,
@@ -400,7 +401,7 @@ class TestQuantileSpreadInference:
                 panel,
                 overlap_periods=5,
                 n_groups=5,
-                inference=fx.inference.HANSEN_HODRICK,
+                inference=HANSEN_HODRICK,
             )
         assert exc.value.func_name == "quantile_spread"
         assert exc.value.applicable == (

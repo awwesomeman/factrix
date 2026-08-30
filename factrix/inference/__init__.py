@@ -74,8 +74,8 @@ and the long-short spread series have different distributions, so each
 carries its own size table (see ``reference/statistical-methods``) and
 each admits a member only on the strength of it.
 
-``HANSEN_HODRICK`` vs the metric allowlists
--------------------------------------------
+``HansenHodrick`` is research-only
+----------------------------------
 ``HansenHodrick`` is a complete series-mean member (same ``compute``
 contract as the others) and is in no metric's ``applicable_inference``.
 The reason is statistical, not structural: its rectangular kernel has no
@@ -85,6 +85,13 @@ PSD guarantee and can clamp a negative variance (see
 *is* admitted everywhere the family is offered — it makes no
 asymptotic-variance assumption at all, so it is the recommended read when
 a series is too short or too heavy-tailed for a HAC member to be trusted.
+
+Because no metric can accept it, ``HansenHodrick`` / ``HANSEN_HODRICK``
+are **not** re-exported here: a name on ``fx.inference.*`` reads as
+"pass this to a metric", and every such call raises
+``IncompatibleInferenceError``. They stay importable from
+``factrix.inference.series_mean`` for standalone comparison studies —
+call ``HANSEN_HODRICK.compute(...)`` on a series directly.
 
 Who builds which series
 -----------------------
@@ -104,22 +111,18 @@ from __future__ import annotations
 
 from factrix.inference._base import Inference, InferenceResult
 from factrix.inference.series_mean import (
-    HANSEN_HODRICK,
     NEWEY_WEST,
     NON_OVERLAPPING,
     STATIONARY_BOOTSTRAP,
-    HansenHodrick,
     NeweyWest,
     NonOverlapping,
     StationaryBootstrap,
 )
 
 __all__ = [
-    "HANSEN_HODRICK",
     "NEWEY_WEST",
     "NON_OVERLAPPING",
     "STATIONARY_BOOTSTRAP",
-    "HansenHodrick",
     "Inference",
     "InferenceResult",
     "NeweyWest",

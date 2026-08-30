@@ -8,6 +8,7 @@ from datetime import date, timedelta
 import numpy as np
 import polars as pl
 import pytest
+from factrix.inference.series_mean import HANSEN_HODRICK
 from factrix.metrics.k_spread import k_spread
 from factrix.metrics.quantile import quantile_spread
 
@@ -288,9 +289,7 @@ class TestInference:
 
         panel = self._ample_panel()
         with pytest.raises(fx.IncompatibleInferenceError) as exc:
-            k_spread(
-                panel, overlap_periods=5, k=5, inference=fx.inference.HANSEN_HODRICK
-            )
+            k_spread(panel, overlap_periods=5, k=5, inference=HANSEN_HODRICK)
         assert exc.value.func_name == "k_spread"
         assert exc.value.applicable == (
             "NeweyWest",
