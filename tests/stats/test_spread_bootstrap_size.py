@@ -42,7 +42,7 @@ def _rejection_rates(n_periods: int, overlap_periods: int) -> tuple[float, float
             n_assets=N_ASSETS,
             n_dates=n_periods + overlap_periods,
             ic_target=0.0,
-            seed=seed,
+            rng=seed,
         )
         panel = compute_forward_return(raw, forward_periods=overlap_periods)
         with warnings.catch_warnings():
@@ -53,7 +53,7 @@ def _rejection_rates(n_periods: int, overlap_periods: int) -> tuple[float, float
             sb = quantile_spread(
                 panel,
                 overlap_periods=overlap_periods,
-                inference=StationaryBootstrap(n_resamples=N_RESAMPLES, seed=seed),
+                inference=StationaryBootstrap(n_resamples=N_RESAMPLES, rng=seed),
             )["factor"]
         tested += 1
         rejected["nw"] += nw.p_value < NOMINAL
@@ -78,7 +78,7 @@ def test_bootstrap_size_is_not_wildly_liberal(n_periods, overlap_periods):
 def test_long_horizon_short_panel_is_refused_not_measured():
     """``T = 60, h = 21`` has no rejection rate: the metric refuses the panel."""
     raw = fx.datasets.make_cs_panel(
-        n_assets=N_ASSETS, n_dates=81, ic_target=0.0, seed=BASE_SEED
+        n_assets=N_ASSETS, n_dates=81, ic_target=0.0, rng=BASE_SEED
     )
     panel = compute_forward_return(raw, forward_periods=21)
     with warnings.catch_warnings():
@@ -86,6 +86,6 @@ def test_long_horizon_short_panel_is_refused_not_measured():
         result = quantile_spread(
             panel,
             overlap_periods=21,
-            inference=StationaryBootstrap(n_resamples=N_RESAMPLES, seed=1),
+            inference=StationaryBootstrap(n_resamples=N_RESAMPLES, rng=1),
         )["factor"]
     assert "metric_unavailable" in result.warning_codes

@@ -33,7 +33,7 @@ def _thinned_panel(
     by ``compute_ic`` — yielding a ~50% period drop with enough survivors to
     clear the consumers' own sample floors.
     """
-    raw = fx.datasets.make_cs_panel(n_assets=full, n_dates=n_dates, seed=seed)
+    raw = fx.datasets.make_cs_panel(n_assets=full, n_dates=n_dates, rng=seed)
     panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
     dates = panel["date"].unique().sort()
     thin_dates = dates.gather(range(0, len(dates), 2))
@@ -45,7 +45,7 @@ def _thinned_panel(
 
 
 def _full_panel(*, n_dates: int = 300, n_assets: int = 40, seed: int = 0):
-    raw = fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=n_dates, seed=seed)
+    raw = fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=n_dates, rng=seed)
     return fx.preprocess.compute_forward_return(raw, forward_periods=5)
 
 
@@ -128,7 +128,7 @@ class TestConsumerWarning:
     def test_full_drop_defers_to_short_circuit(self):
         # Every date below the IC floor → empty IC series → consumer
         # short-circuits and must NOT emit a drop-rate warning (no double-warn).
-        raw = fx.datasets.make_cs_panel(n_assets=2, n_dates=300, seed=0)
+        raw = fx.datasets.make_cs_panel(n_assets=2, n_dates=300, rng=0)
         panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
         keep_asset = panel["asset_id"].unique().sort()[0]
         panel = panel.with_columns(

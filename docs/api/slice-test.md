@@ -96,7 +96,7 @@ covariance. A two-valued `method` flag selects the estimator:
 | `"analytic"` | Per-slice Newey-West HAC, Welch-style pairwise contrast | Holm step-down | Long spans (T ≳ 100); fast, deterministic |
 
 Under `method="bootstrap"` both take `n_resamples=` (default 999, floored
-at 199) and `seed=` — the library-wide resampling knobs, see
+at 199) and `rng=` — the library-wide resampling knobs, see
 [Resampling knobs](../reference/statistical-methods.md#resampling-knobs).
 `"analytic"` ignores both.
 

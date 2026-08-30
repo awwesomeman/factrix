@@ -54,7 +54,7 @@ title: factrix.metrics.clustering_hhi
     # At this event rate the generator's calendar already puts several
     # events on the same period, which is the regime the diagnostic reads.
     raw   = fx.datasets.make_event_panel(
-        n_assets=200, n_dates=500, event_rate=0.02, seed=2024,
+        n_assets=200, n_dates=500, event_rate=0.02, rng=2024,
     )
     panel = compute_forward_return(raw, forward_periods=5)
 

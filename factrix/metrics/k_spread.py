@@ -306,7 +306,7 @@ def k_spread(
         >>> from factrix.preprocess import compute_forward_return
         >>> from factrix.metrics.k_spread import k_spread
         >>> panel = compute_forward_return(
-        ...     fx.datasets.make_cs_panel(n_assets=20, n_dates=180, seed=0),
+        ...     fx.datasets.make_cs_panel(n_assets=20, n_dates=180, rng=0),
         ...     forward_periods=5,
         ... )
         >>> result = k_spread(panel, overlap_periods=5, k=3)

@@ -40,7 +40,7 @@ def test_single_row_shape(method: str) -> None:
         label_col="regime",
     )
     out = slice_period_joint_test(
-        df, ic(), by="regime", factor_col="factor", method=method, seed=1
+        df, ic(), by="regime", factor_col="factor", method=method, rng=1
     )
     assert out.height == 1
     assert out.columns == _JOINT_COLS
@@ -91,7 +91,7 @@ def test_two_slice_df_is_one(method: str) -> None:
         seed=2, spans={"a": (80, 0.1), "b": (80, 0.1)}, label_col="regime"
     )
     out = slice_period_joint_test(
-        df, ic(), by="regime", factor_col="factor", method=method, seed=2
+        df, ic(), by="regime", factor_col="factor", method=method, rng=2
     )
     assert out["df_num"][0] == 1
 
@@ -104,7 +104,7 @@ def test_detects_difference(method: str) -> None:
         label_col="regime",
     )
     out = slice_period_joint_test(
-        df, ic(), by="regime", factor_col="factor", method=method, seed=3
+        df, ic(), by="regime", factor_col="factor", method=method, rng=3
     )
     assert out["p_value"][0] < 0.05
 
@@ -125,10 +125,10 @@ def test_identical_signal_less_significant_than_split(method: str) -> None:
         seed=4, spans={"a": (200, 0.3), "b": (200, -0.2)}, label_col="regime"
     )
     p_same = slice_period_joint_test(
-        same, ic(), by="regime", factor_col="factor", method=method, seed=4
+        same, ic(), by="regime", factor_col="factor", method=method, rng=4
     )["p_value"][0]
     p_split = slice_period_joint_test(
-        split, ic(), by="regime", factor_col="factor", method=method, seed=4
+        split, ic(), by="regime", factor_col="factor", method=method, rng=4
     )["p_value"][0]
     assert p_same > p_split
 
@@ -142,8 +142,8 @@ def test_bootstrap_joint_is_bootstrap_native_for_two_slices() -> None:
     df = build_disjoint_period_panel(
         seed=11, spans={"a": (60, 0.15), "b": (60, 0.0)}, label_col="regime"
     )
-    pw = slice_period_pairwise_test(df, ic(), by="regime", factor_col="factor", seed=5)
-    jt = slice_period_joint_test(df, ic(), by="regime", factor_col="factor", seed=5)
+    pw = slice_period_pairwise_test(df, ic(), by="regime", factor_col="factor", rng=5)
+    jt = slice_period_joint_test(df, ic(), by="regime", factor_col="factor", rng=5)
     # Both empirical with the same B → identical 1/(B+1) granularity.
     assert jt["p_value"][0] == pytest.approx(pw["p_raw"][0])
 
@@ -154,8 +154,8 @@ def test_bootstrap_reproducible_under_seed() -> None:
         spans={"a": (80, 0.1), "b": (80, -0.05), "c": (80, 0.0)},
         label_col="regime",
     )
-    a = slice_period_joint_test(df, ic(), by="regime", factor_col="factor", seed=42)
-    b = slice_period_joint_test(df, ic(), by="regime", factor_col="factor", seed=42)
+    a = slice_period_joint_test(df, ic(), by="regime", factor_col="factor", rng=42)
+    b = slice_period_joint_test(df, ic(), by="regime", factor_col="factor", rng=42)
     assert a["stat"][0] == b["stat"][0]
 
 
@@ -212,7 +212,7 @@ def test_raises_when_slice_below_metric_floor() -> None:
         seed=11, spans={"a": (30, 0.1), "b": (30, 0.1)}, label_col="regime"
     )
     with pytest.raises(ValueError, match="sample floor"):
-        slice_period_joint_test(df, ic(), by="regime", factor_col="factor", seed=11)
+        slice_period_joint_test(df, ic(), by="regime", factor_col="factor", rng=11)
 
 
 class TestShortSliceDisclosure:
@@ -304,11 +304,11 @@ class TestFloorFollowsPanelStamp:
         )
         assert all(r.metrics["positive_rate"].n_obs == 20 for r in per_slice.values())
         joint = slice_period_joint_test(
-            panel, positive_rate(), by="regime", factor_col="factor", seed=1
+            panel, positive_rate(), by="regime", factor_col="factor", rng=1
         )
         assert joint["k_slices"].item() == 2
         pairwise = slice_period_pairwise_test(
-            panel, positive_rate(), by="regime", factor_col="factor", seed=1
+            panel, positive_rate(), by="regime", factor_col="factor", rng=1
         )
         assert pairwise.select("n_periods_a", "n_periods_b").row(0) == (20, 20)
 
@@ -341,7 +341,7 @@ class TestFloorFollowsPanelStamp:
             by="regime",
             factor_col="factor",
             overlap_periods=1,
-            seed=1,
+            rng=1,
         )
         assert joint["k_slices"].item() == 2
         assert joint["min_periods"].item() == 10
@@ -351,7 +351,7 @@ class TestFloorFollowsPanelStamp:
             by="regime",
             factor_col="factor",
             overlap_periods=1,
-            seed=1,
+            rng=1,
         )
         assert pairwise.select("n_periods_a", "n_periods_b").row(0) == (20, 20)
 
@@ -385,7 +385,7 @@ class TestFloorFollowsPanelStamp:
             by="regime",
             factor_col="factor",
             overlap_periods=1,
-            seed=1,
+            rng=1,
         )
         assert joint["reason"].item() is None
         assert (
@@ -438,7 +438,7 @@ class TestNonStrict:
             seed=5, spans={"a": (60, 0.1), "b": (60, 0.1)}, label_col="regime"
         )
         out = slice_period_joint_test(
-            df, ic(), by="regime", factor_col="factor", seed=1, strict=False
+            df, ic(), by="regime", factor_col="factor", rng=1, strict=False
         )
         row = out.row(0, named=True)
         assert row["reason"] is None
@@ -449,7 +449,7 @@ class TestNonStrict:
         df = build_disjoint_period_panel(
             seed=5, spans={"a": (60, 0.1), "b": (60, 0.1)}, label_col="regime"
         )
-        kw = dict(by="regime", factor_col="factor", seed=1)
+        kw = dict(by="regime", factor_col="factor", rng=1)
         strict = slice_period_joint_test(df, ic(), **kw)
         loose = slice_period_joint_test(df, ic(), strict=False, **kw)
         assert strict.equals(loose)

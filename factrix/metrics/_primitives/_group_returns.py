@@ -75,7 +75,7 @@ def compute_group_returns(
         >>> from factrix.preprocess import compute_forward_return
         >>> from factrix.metrics.quantile import compute_group_returns
         >>> panel = compute_forward_return(
-        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, rng=0),
         ...     forward_periods=5,
         ... )
         >>> groups = compute_group_returns(panel, overlap_periods=5, n_groups=5)

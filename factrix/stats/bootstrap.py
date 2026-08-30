@@ -35,7 +35,7 @@ from typing import Literal, NamedTuple
 
 import numpy as np
 
-from factrix._stats.bootstrap import Seed, _check_n_resamples, _resolve_rng
+from factrix._stats.bootstrap import Rng, _check_n_resamples, _resolve_rng
 
 
 def _resolve_auto_block_length(values: np.ndarray) -> float:
@@ -63,7 +63,7 @@ def stationary_bootstrap_resamples(
     n_resamples: int = 999,
     *,
     block_length: float | None = None,
-    seed: Seed = None,
+    rng: Rng = None,
 ) -> np.ndarray:
     """Draw ``n_resamples`` stationary-bootstrap resamples of ``values``.
 
@@ -92,7 +92,7 @@ def stationary_bootstrap_resamples(
             same bound and raises ``UserInputError`` outside it, rather
             than being silently passed through: at ``L >= T`` a circular
             resample degenerates to a rotation of the input.
-        seed: An ``int`` makes the resample reproducible, ``None`` draws
+        rng: An ``int`` makes the resample reproducible, ``None`` draws
             one from system entropy, and a ``numpy.random.Generator`` is
             used as-is and advanced by the call, so consecutive calls on
             one generator draw different resamples. The resolved seed is
@@ -162,7 +162,7 @@ def stationary_bootstrap_resamples(
         raise ValueError(f"block_length must be >= 1.0, got {block_length!r}")
 
     rng, _ = _resolve_rng(
-        seed,
+        rng,
         func_name="stationary_bootstrap_resamples",
         docs_path="api/stats#factrix.stats.stationary_bootstrap_resamples",
     )
@@ -190,7 +190,7 @@ def bootstrap_mean_ci(
     n_resamples: int = 999,
     ci: float = 0.95,
     block_length: float | None = None,
-    seed: Seed = None,
+    rng: Rng = None,
     statistic: Callable[[np.ndarray], float] | None = None,
     method: Literal["studentized", "percentile"] = "studentized",
 ) -> BootstrapCI:
@@ -247,7 +247,7 @@ def bootstrap_mean_ci(
             against ``[1, ceil(min(3*sqrt(T), T/3))]``; a length at or
             past ``T`` used to collapse every resample to a rotation of
             the input and return a zero-width interval.
-        seed: An ``int`` reproduces the interval, ``None`` draws one from
+        rng: An ``int`` reproduces the interval, ``None`` draws one from
             system entropy, and a ``numpy.random.Generator`` is used as-is
             and advanced by the call. Not reported back: this function
             returns an interval, not a metadata-carrying result.
@@ -343,7 +343,7 @@ def bootstrap_mean_ci(
         values,
         n_resamples=n_resamples,
         block_length=block_length,
-        seed=seed,
+        rng=rng,
     )
     alpha = (1.0 - ci) / 2.0
 

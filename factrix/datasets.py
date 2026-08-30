@@ -35,7 +35,7 @@ from datetime import datetime, timedelta
 import numpy as np
 import polars as pl
 
-from factrix._stats.bootstrap import Seed, _resolve_rng
+from factrix._stats.bootstrap import Rng, _resolve_rng
 
 _DEFAULT_START = "2020-01-02"
 
@@ -80,7 +80,7 @@ def make_cs_panel(
     n_dates: int = 252,
     ic_target: float = 0.04,
     signal_horizon: int = 5,
-    seed: Seed = 42,
+    rng: Rng = 42,
     start_date: str = _DEFAULT_START,
 ) -> pl.DataFrame:
     """Synthetic cross-sectional panel with a calibrated target information coefficient (IC).
@@ -139,7 +139,7 @@ def make_cs_panel(
             realize the nominal IC; different horizons realize a
             decayed IC (correct physics for a density with a natural
             time-scale, not a bug).
-        seed: RNG seed — an ``int``, ``None`` (drawn from system
+        rng: RNG seed — an ``int``, ``None`` (drawn from system
             entropy), or a ``numpy.random.Generator`` used as-is and
             advanced by the call.
         start_date: ISO date for the first row.
@@ -174,7 +174,7 @@ def make_cs_panel(
         )
 
     rng, _ = _resolve_rng(
-        seed,
+        rng,
         func_name="make_cs_panel",
         docs_path="api/datasets#factrix.datasets.make_cs_panel",
     )
@@ -215,7 +215,7 @@ def make_event_panel(
     event_magnitude_jitter: float = 0.0,
     post_event_drift_bps: float = 10.0,
     signal_horizon: int = 5,
-    seed: Seed = 42,
+    rng: Rng = 42,
     start_date: str = _DEFAULT_START,
 ) -> pl.DataFrame:
     """Synthetic event-density panel — sparse ``{0, R}`` schema.
@@ -257,7 +257,7 @@ def make_event_panel(
             the nominal drift; different horizons realize a weakened or
             diluted density (correct physics for a density with a natural
             time-scale, not a bug).
-        seed: RNG seed — an ``int``, ``None`` (drawn from system
+        rng: RNG seed — an ``int``, ``None`` (drawn from system
             entropy), or a ``numpy.random.Generator`` used as-is and
             advanced by the call.
         start_date: ISO date for the first row.
@@ -291,7 +291,7 @@ def make_event_panel(
         )
 
     rng, _ = _resolve_rng(
-        seed,
+        rng,
         func_name="make_event_panel",
         docs_path="api/datasets#factrix.datasets.make_event_panel",
     )
@@ -336,7 +336,7 @@ def make_multi_factor_panel(
     ic_target: float = 0.04,
     factor_correlation: float = 0.0,
     signal_horizon: int = 5,
-    seed: Seed = 42,
+    rng: Rng = 42,
     start_date: str = _DEFAULT_START,
 ) -> pl.DataFrame:
     """Synthetic multi-factor panel with calibrated IC and tunable
@@ -369,7 +369,7 @@ def make_multi_factor_panel(
             higher values share more of a common cross-sectional driver.
         signal_horizon: Horizon (in bars) at which the synthetic density
             lives.
-        seed: RNG seed — an ``int``, ``None`` (drawn from system
+        rng: RNG seed — an ``int``, ``None`` (drawn from system
             entropy), or a ``numpy.random.Generator`` used as-is and
             advanced by the call.
         start_date: ISO date for the first row.
@@ -395,7 +395,7 @@ def make_multi_factor_panel(
         )
 
     rng, _ = _resolve_rng(
-        seed,
+        rng,
         func_name="make_multi_factor_panel",
         docs_path="api/datasets#factrix.datasets.make_multi_factor_panel",
     )
@@ -460,7 +460,7 @@ def make_multi_factor_event_panel(
     event_magnitude_jitter: float = 0.0,
     post_event_drift_bps: float = 10.0,
     signal_horizon: int = 5,
-    seed: Seed = 42,
+    rng: Rng = 42,
     start_date: str = _DEFAULT_START,
 ) -> pl.DataFrame:
     """Synthetic multi-factor event-density panel.
@@ -487,7 +487,7 @@ def make_multi_factor_event_panel(
             window (bars ``t+2 .. t+1+H``).
         signal_horizon: Horizon (in bars) over which post-event drift
             is distributed.
-        seed: RNG seed — an ``int``, ``None`` (drawn from system
+        rng: RNG seed — an ``int``, ``None`` (drawn from system
             entropy), or a ``numpy.random.Generator`` used as-is and
             advanced by the call.
         start_date: ISO date for the first row.
@@ -523,7 +523,7 @@ def make_multi_factor_event_panel(
         )
 
     rng, _ = _resolve_rng(
-        seed,
+        rng,
         func_name="make_multi_factor_event_panel",
         docs_path="api/datasets#factrix.datasets.make_multi_factor_event_panel",
     )

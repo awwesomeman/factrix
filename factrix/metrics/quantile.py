@@ -244,7 +244,7 @@ def quantile_spread(
         >>> from factrix.preprocess import compute_forward_return
         >>> from factrix.metrics.quantile import quantile_spread
         >>> panel = compute_forward_return(
-        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, rng=0),
         ...     forward_periods=5,
         ... )
         >>> result = quantile_spread(panel, overlap_periods=5, n_groups=5)
@@ -691,7 +691,7 @@ def quantile_spread_vw(
         >>> from factrix.preprocess import compute_forward_return
         >>> from factrix.metrics.quantile import quantile_spread_vw
         >>> panel = compute_forward_return(
-        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, rng=0),
         ...     forward_periods=5,
         ... ).with_columns(pl.lit(1e6).alias("market_cap"))
         >>> result = quantile_spread_vw(panel, overlap_periods=5, n_groups=5)

@@ -300,7 +300,7 @@ Every entry point that turns a resample count into a reported p or
 interval takes the same two knobs under the same names, with the same
 default and the same refusal floor.
 
-| Entry point | `n_resamples` default | `seed` reported as | Floor enforced | Reports `p_value_mc_se` |
+| Entry point | `n_resamples` default | resolved `seed` reported as | Floor enforced | Reports `p_value_mc_se` |
 |---|---|---|---|---|
 | `ic(inference=StationaryBootstrap(...))` | 999 | `metadata["seed"]` | yes | yes (`metadata`) |
 | `monotonicity(...)` | 999 | `metadata["seed"]` | yes | yes (`metadata`) |
@@ -327,7 +327,7 @@ slice tests do **not** report it: their `p_adj` is a Romano-Wolf
 step-down adjustment, not a single binomial draw, so the formula does
 not apply.
 
-`seed` takes the same three types everywhere — including
+`rng` takes the same three types everywhere — including
 `datasets.make_*`, which reports nothing:
 
 - an **`int`** reproduces the run and is reported back unchanged;

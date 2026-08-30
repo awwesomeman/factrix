@@ -57,12 +57,12 @@ title: factrix.metrics.monotonicity
     from factrix.preprocess import compute_forward_return
 
     raw   = fx.datasets.make_cs_panel(
-        n_assets=2000, n_dates=500, ic_target=0.08, seed=2024,
+        n_assets=2000, n_dates=500, ic_target=0.08, rng=2024,
     )
     panel = compute_forward_return(raw, forward_periods=5)
 
     # monotonicity returns dict[str, MetricResult], keyed by factor column
-    out = monotonicity(panel, overlap_periods=5, n_groups=10, seed=0)["factor"]
+    out = monotonicity(panel, overlap_periods=5, n_groups=10, rng=0)["factor"]
     print(out.value, out.p_value,
           out.metadata["mr_adjacent_diffs"],
           out.metadata["mean_abs_spearman"])

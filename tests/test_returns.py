@@ -110,7 +110,7 @@ class TestComputeForwardReturn:
         import factrix as fx
         from factrix._data_input import _read_forward_periods_stamp
 
-        raw = fx.datasets.make_cs_panel(n_assets=10, n_dates=60, seed=0)
+        raw = fx.datasets.make_cs_panel(n_assets=10, n_dates=60, rng=0)
         once = compute_forward_return(raw, forward_periods=1)
         changed = compute_forward_return(once, forward_periods=2, overwrite=True)
         assert changed.height > 0

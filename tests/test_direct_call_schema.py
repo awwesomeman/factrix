@@ -32,7 +32,7 @@ from factrix.preprocess import compute_forward_return
 
 @pytest.fixture(scope="module")
 def panel() -> pl.DataFrame:
-    raw = fx.datasets.make_cs_panel(n_assets=8, n_dates=60, seed=0)
+    raw = fx.datasets.make_cs_panel(n_assets=8, n_dates=60, rng=0)
     return compute_forward_return(raw, forward_periods=5)
 
 

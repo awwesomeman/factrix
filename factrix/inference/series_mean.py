@@ -16,7 +16,7 @@ series too short or non-normal for a HAC t-test to be trusted. The
 lag / bandwidth / block length is derived from the compute-time sample,
 so the dataclasses take no *statistical* constructor knobs;
 ``StationaryBootstrap`` carries the two resampling knobs (``n_resamples``
-/ ``seed``) that only the caller can decide.
+/ ``rng``) that only the caller can decide.
 
 Each member also declares, through the ``consumes_full_series``
 ``ClassVar``, whether it needs every period of the series or takes a
@@ -36,7 +36,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
 from factrix._codes import WarningCode
-from factrix._stats.bootstrap import Seed
+from factrix._stats.bootstrap import Rng
 from factrix._stats.constants import (
     MIN_PERIODS_HARD,
     MIN_PERIODS_WARN,
@@ -362,7 +362,7 @@ class StationaryBootstrap:
             The default 999 is [Politis-White (2004)][politis-white-2004]'s
             recommendation for two-sided 5% work; the Monte-Carlo cost of a
             lower ``B`` is reported as ``metadata["p_value_mc_se"]``.
-        seed: An ``int``, ``None``, or a ``numpy.random.Generator``.
+        rng: An ``int``, ``None``, or a ``numpy.random.Generator``.
             ``None`` draws from system entropy and reports the resolved
             seed in ``metadata["seed"]``, so a run stays reproducible after
             the fact.
@@ -379,7 +379,7 @@ class StationaryBootstrap:
     """
 
     n_resamples: int = 999
-    seed: Seed = None
+    rng: Rng = None
 
     test: ClassVar[str] = "bootstrap-mean"
     se: ClassVar[str | None] = "bootstrap"
@@ -414,7 +414,7 @@ class StationaryBootstrap:
             vals,
             n_resamples=self.n_resamples,
             overlap_periods=overlap_periods,
-            seed=self.seed,
+            rng=self.rng,
         )
 
         warnings: frozenset[WarningCode] = frozenset()

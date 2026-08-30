@@ -63,7 +63,7 @@ title: factrix.metrics.directional_pair_accuracy
     from factrix.metrics.directional_pair_accuracy import directional_pair_accuracy
     from factrix.preprocess import compute_forward_return
 
-    raw = fx.datasets.make_cs_panel(n_assets=12, n_dates=160, seed=2024)
+    raw = fx.datasets.make_cs_panel(n_assets=12, n_dates=160, rng=2024)
     panel = compute_forward_return(raw, forward_periods=5)
 
     out = directional_pair_accuracy(panel, overlap_periods=5)

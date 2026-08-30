@@ -17,7 +17,7 @@ from factrix.metrics import ic, positive_rate
 
 
 def _stamped(overlap_periods: int):
-    raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120, seed=3)
+    raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120, rng=3)
     return fx.preprocess.compute_forward_return(raw, forward_periods=overlap_periods)
 
 
@@ -58,7 +58,7 @@ class TestHorizonResolution:
             fx.sample_requirements(positive_rate(), data=_stamped(5), overlap_periods=1)
 
     def test_unstamped_panel_requires_explicit_horizon(self):
-        raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120, seed=3)
+        raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120, rng=3)
         with pytest.raises(UserInputError, match="forward_periods"):
             fx.sample_requirements(positive_rate(), data=raw)
         assert (

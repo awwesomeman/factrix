@@ -259,7 +259,7 @@ def caar(
         >>> from factrix.preprocess import compute_forward_return
         >>> from factrix.metrics.caar import compute_caar, caar
         >>> panel = compute_forward_return(
-        ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0),
+        ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, rng=0),
         ...     forward_periods=5,
         ... )
         >>> caar_df = compute_caar(panel)
@@ -678,7 +678,7 @@ def bmp_z(
         >>> from factrix.preprocess import compute_forward_return
         >>> from factrix.metrics.caar import bmp_z
         >>> panel = compute_forward_return(
-        ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0),
+        ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, rng=0),
         ...     forward_periods=5,
         ... )
         >>> result = bmp_z(panel, overlap_periods=5)

@@ -265,7 +265,7 @@ class TestCorrectedFitDiagnostics:
     def test_serial_correlation_verdict_follows_the_corrected_residuals(self):
         """A draw where the two residual series straddle the threshold.
 
-        Seed 57 of this DGP puts the uncorrected OLS residual at 0.322 and the
+        Rng 57 of this DGP puts the uncorrected OLS residual at 0.322 and the
         corrected model's at 0.292, either side of
         ``PERSISTENT_SERIES_AUTOCORR`` = 0.3: the metric used to flag serial
         correlation for a residual series it did not report.

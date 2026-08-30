@@ -33,7 +33,7 @@ from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_t
 from factrix._stats.bootstrap import (
-    Seed,
+    Rng,
     _check_n_resamples,
     _empirical_p,
     _resolve_rng,
@@ -109,7 +109,7 @@ def _mr_test(
     *,
     direction: MRDirection,
     n_resamples: int,
-    seed: Seed,
+    rng: Rng,
 ) -> tuple[float, float, dict[str, object]]:
     """Patton-Timmermann (2010) MR test on a ``(n_periods, n_groups)`` block.
 
@@ -140,9 +140,9 @@ def _mr_test(
     # Mirror ``StationaryBootstrap``: resolve the seed and report it, so a run
     # is reproducible after the fact without a mandatory knob.
     rng, seed_used = _resolve_rng(
-        seed, func_name="monotonicity", docs_path="api/metrics/monotonicity"
+        rng, func_name="monotonicity", docs_path="api/metrics/monotonicity"
     )
-    resamples = stationary_bootstrap_resamples(diffs, n_resamples, seed=rng)
+    resamples = stationary_bootstrap_resamples(diffs, n_resamples, rng=rng)
     # (B, T, K-1) -> (B, K-1) bootstrap means, recentred under H0.
     j_star = (resamples.mean(axis=1) - delta_bar).min(axis=1)
     p_value, p_mc_se = _empirical_p(
@@ -177,7 +177,7 @@ def monotonicity(
     tie_policy: str = "ordinal",
     direction: MRDirection = "increasing",
     n_resamples: int = 999,
-    seed: Seed = None,
+    rng: Rng = None,
     expected_warnings: tuple[str, ...] = (),
 ) -> dict[str, MetricResult]:
     """Quantile return monotonicity — Patton-Timmermann (2010) MR test.
@@ -211,7 +211,7 @@ def monotonicity(
             near 0.05 carries ~0.7pp of MC SE, so 0.043 and 0.058 are one
             draw apart; raise ``n_resamples`` to shrink it, since no amount
             of data does.
-        seed: Bootstrap seed — an ``int``, ``None``, or a
+        rng: Bootstrap seed — an ``int``, ``None``, or a
             ``numpy.random.Generator``. ``None`` resolves one and reports it
             in ``metadata["seed"]``, so a run stays reproducible after the
             fact; a ``Generator`` is used as-is and advanced, and
@@ -260,11 +260,11 @@ def monotonicity(
         >>> from factrix.preprocess import compute_forward_return
         >>> from factrix.metrics.monotonicity import monotonicity
         >>> panel = compute_forward_return(
-        ...     fx.datasets.make_cs_panel(n_assets=200, n_dates=180, seed=0),
+        ...     fx.datasets.make_cs_panel(n_assets=200, n_dates=180, rng=0),
         ...     forward_periods=5,
         ... )
         >>> result = monotonicity(
-        ...     panel, overlap_periods=5, n_groups=5, n_resamples=199, seed=0
+        ...     panel, overlap_periods=5, n_groups=5, n_resamples=199, rng=0
         ... )
         >>> result["factor"].name == ""
         True
@@ -402,7 +402,7 @@ def monotonicity(
             mat,
             direction=direction,
             n_resamples=n_resamples,
-            seed=seed,
+            rng=rng,
         )
         # Descriptive shape statistics, kept because magnitude and direction
         # consistency read separately (see Notes) — not the headline.

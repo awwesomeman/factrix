@@ -57,7 +57,7 @@ The closed union is a type annotation, not a runtime gate, so every
 ``applicable_inference`` frozenset and validates against it on entry (via
 ``_check_applicable_inference``). Membership is by the member's exact
 type, not its value, so a configured ``StationaryBootstrap(n_resamples=,
-seed=)`` is admitted wherever the method is. A method outside the set
+rng=)`` is admitted wherever the method is. A method outside the set
 raises :class:`~factrix.IncompatibleInferenceError` listing the allowed
 members, rather than running an unintended test or silently falling back
 to the default. ``ic`` / ``quantile_spread`` / ``quantile_spread_vw`` /

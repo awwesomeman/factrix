@@ -274,7 +274,7 @@ def fm_beta(
         >>> from factrix.preprocess import compute_forward_return
         >>> from factrix.metrics.fm_beta import compute_fm_betas, fm_beta
         >>> panel = compute_forward_return(
-        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, rng=0),
         ...     forward_periods=5,
         ... )
         >>> beta_df = compute_fm_betas(panel)["factor"]
@@ -702,7 +702,7 @@ def pooled_beta(
         >>> from factrix.preprocess import compute_forward_return
         >>> from factrix.metrics.fm_beta import pooled_beta
         >>> panel = compute_forward_return(
-        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, rng=0),
         ...     forward_periods=5,
         ... )
         >>> result = pooled_beta(panel)
@@ -946,7 +946,7 @@ def fm_beta_sign_consistency(
         ...     fm_beta_sign_consistency,
         ... )
         >>> panel = compute_forward_return(
-        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, rng=0),
         ...     forward_periods=5,
         ... )
         >>> beta_df = compute_fm_betas(panel)["factor"]

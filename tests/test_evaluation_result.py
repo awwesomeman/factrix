@@ -424,7 +424,7 @@ class TestToFrameMetadataExport:
         from factrix.metrics import notional_turnover, quantile_spread
         from factrix.preprocess import compute_forward_return
 
-        raw = fx.datasets.make_cs_panel(n_assets=6, n_dates=120, seed=0)
+        raw = fx.datasets.make_cs_panel(n_assets=6, n_dates=120, rng=0)
         panel = compute_forward_return(raw, forward_periods=5)
         out = fx.evaluate(
             panel,

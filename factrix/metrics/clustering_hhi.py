@@ -120,7 +120,7 @@ def clustering_hhi(
     Examples:
         >>> import factrix as fx
         >>> from factrix.metrics.clustering_hhi import clustering_hhi
-        >>> panel = fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0)
+        >>> panel = fx.datasets.make_event_panel(n_assets=50, n_dates=400, rng=0)
         >>> result = clustering_hhi(panel)
         >>> result.name == ""
         True

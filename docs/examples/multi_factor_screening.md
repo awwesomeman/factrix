@@ -58,7 +58,7 @@ raw = fx.datasets.make_cs_panel(
     n_assets=100,
     n_dates=500,
     ic_target=0.08,
-    seed=2024,
+    rng=2024,
 )
 panel = compute_forward_return(raw, forward_periods=5)
 

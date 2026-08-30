@@ -285,7 +285,7 @@ class TestShortCircuitWarningCodes:
         from factrix.metrics import quantile_spread_vw
 
         panel = compute_forward_return(
-            fx.datasets.make_cs_panel(n_assets=20, n_dates=120, seed=1),
+            fx.datasets.make_cs_panel(n_assets=20, n_dates=120, rng=1),
             forward_periods=5,
         )
         er = fx.evaluate(

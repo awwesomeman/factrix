@@ -121,7 +121,7 @@ def positive_rate(
         >>> from factrix.metrics.ic import compute_ic
         >>> from factrix.metrics.positive_rate import positive_rate
         >>> panel = compute_forward_return(
-        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, rng=0),
         ...     forward_periods=5,
         ... )
         >>> series = compute_ic(panel)["factor"].rename({"ic": "value"}).select("date", "value")

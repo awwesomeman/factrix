@@ -70,7 +70,7 @@ title: factrix.metrics.directional_hit_rate
     from factrix.preprocess import compute_forward_return
 
     raw   = fx.datasets.make_cs_panel(
-        n_assets=25, n_dates=120, ic_target=0.06, seed=2024,
+        n_assets=25, n_dates=120, ic_target=0.06, rng=2024,
     )
     panel = compute_forward_return(raw, forward_periods=5)
 

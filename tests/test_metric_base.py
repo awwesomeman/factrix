@@ -275,7 +275,7 @@ class TestPositionalKnobsRejected:
         from factrix.preprocess import compute_forward_return
 
         return compute_forward_return(
-            fx.datasets.make_cs_panel(n_assets=30, n_dates=120, seed=0),
+            fx.datasets.make_cs_panel(n_assets=30, n_dates=120, rng=0),
             forward_periods=5,
         )
 
@@ -331,7 +331,7 @@ class TestStandaloneReadsTheForwardPeriodsStamp:
         import factrix as fx
 
         return fx.preprocess.compute_forward_return(
-            fx.datasets.make_cs_panel(n_assets=40, n_dates=200, seed=0),
+            fx.datasets.make_cs_panel(n_assets=40, n_dates=200, rng=0),
             forward_periods=forward_periods,
         )
 

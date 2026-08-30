@@ -66,7 +66,7 @@ title: factrix.metrics.k_spread
     from factrix.metrics.k_spread import k_spread
     from factrix.preprocess import compute_forward_return
 
-    raw   = fx.datasets.make_cs_panel(n_assets=20, n_dates=180, seed=2024)
+    raw   = fx.datasets.make_cs_panel(n_assets=20, n_dates=180, rng=2024)
     panel = compute_forward_return(raw, forward_periods=5)
 
     out = k_spread(panel, overlap_periods=5, k=3)
@@ -79,7 +79,7 @@ title: factrix.metrics.k_spread
     from factrix.inference import StationaryBootstrap
 
     boot = k_spread(panel, overlap_periods=5, k=3,
-                    inference=StationaryBootstrap(seed=0))
+                    inference=StationaryBootstrap(rng=0))
     print(boot.value, boot.p_value, boot.n_obs)
     # 0.000443  0.248  174
     print(boot.metadata["n_resamples"], boot.metadata["seed"])

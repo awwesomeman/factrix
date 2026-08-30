@@ -102,11 +102,11 @@ title: factrix.metrics.spanning
     panels = {
         name: compute_forward_return(
             fx.datasets.make_cs_panel(
-                n_assets=200, n_dates=500, ic_target=ic, seed=seed,
+                n_assets=200, n_dates=500, ic_target=ic, rng=s,
             ),
             forward_periods=5,
         )
-        for name, ic, seed in [
+        for name, ic, s in [
             ("size",     0.05, 1),
             ("value",    0.06, 2),
             ("momentum", 0.08, 3),

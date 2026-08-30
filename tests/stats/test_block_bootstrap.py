@@ -64,7 +64,7 @@ class TestPolitisWhiteUpperBound:
     def test_bound_binds_on_short_trending_series(self):
         # A short random walk pushes the plug-in L past the bound; at n=20
         # the old n/2 bound allowed L=10 (2 blocks per resample), the arch
-        # bound caps it at ceil(min(3*sqrt(20), 20/3)) = 7. Seed chosen so
+        # bound caps it at ceil(min(3*sqrt(20), 20/3)) = 7. Rng chosen so
         # the unclamped estimate genuinely exceeds the bound.
         n = 20
         x = np.cumsum(np.random.default_rng(156).standard_normal(n))
@@ -130,7 +130,7 @@ class TestStudentizedDiffP:
         # particular, large p on a series with mean ≈ 0.
         rng = np.random.default_rng(seed=0)
         diff = rng.standard_normal(size=200)  # mean ≈ 0
-        p, _meta = _block_bootstrap_diff_p(diff, n_resamples=499, seed=0)
+        p, _meta = _block_bootstrap_diff_p(diff, n_resamples=499, rng=0)
         assert 0.0 < p <= 1.0
         # mean ≈ 0 → not significant.
         assert p > 0.1
@@ -138,20 +138,20 @@ class TestStudentizedDiffP:
     def test_power_under_strong_alt(self):
         rng = np.random.default_rng(seed=1)
         diff = rng.standard_normal(size=200) + 0.5  # strong positive shift
-        p, _ = _block_bootstrap_diff_p(diff, n_resamples=499, seed=0)
+        p, _ = _block_bootstrap_diff_p(diff, n_resamples=499, rng=0)
         assert p < 0.01
 
     def test_seed_recorded_when_none(self):
         diff = np.array([0.1, -0.2, 0.3, -0.1, 0.2, 0.0, -0.05, 0.15])
-        _p, meta = _block_bootstrap_diff_p(diff, n_resamples=199, seed=None)
+        _p, meta = _block_bootstrap_diff_p(diff, n_resamples=199, rng=None)
         assert isinstance(meta["seed"], int)
         assert meta["seed"] >= 0
         assert meta["n_resamples"] == 199
 
     def test_explicit_seed_reproducible(self):
         diff = np.array([0.3, -0.1, 0.4, -0.2, 0.1, 0.05, -0.15, 0.2, 0.0, 0.1])
-        p1, m1 = _block_bootstrap_diff_p(diff, n_resamples=199, seed=123)
-        p2, m2 = _block_bootstrap_diff_p(diff, n_resamples=199, seed=123)
+        p1, m1 = _block_bootstrap_diff_p(diff, n_resamples=199, rng=123)
+        p2, m2 = _block_bootstrap_diff_p(diff, n_resamples=199, rng=123)
         assert p1 == p2
         assert m1["seed"] == m2["seed"] == 123
 
@@ -172,7 +172,7 @@ class TestStudentizedDiffP:
         expected = _politis_white_block_length(x)
         assert expected != round(expected), "fixture must exercise a fractional L"
 
-        _p, meta = _block_bootstrap_diff_p(x, n_resamples=199, seed=0)
+        _p, meta = _block_bootstrap_diff_p(x, n_resamples=199, rng=0)
         assert meta["block_length"] == pytest.approx(expected)
 
     def test_stationary_auto_matches_period_inference(self):
@@ -189,7 +189,7 @@ class TestStudentizedDiffP:
         for t in range(1, 300):
             x[t] = 0.6 * x[t - 1] + rng.standard_normal()
 
-        _p, meta = _block_bootstrap_diff_p(x, n_resamples=199, seed=0)
+        _p, meta = _block_bootstrap_diff_p(x, n_resamples=199, rng=0)
         assert meta["block_length"] == pytest.approx(_politis_white_block_length(x))
 
     def test_short_series_withholds_the_test(self):
@@ -205,7 +205,7 @@ class TestStudentizedDiffP:
     def test_p_floor_smoothing(self):
         # p should never be exactly 0 (Davison-Hinkley smoothing).
         diff = np.full(100, 100.0)  # huge mean → all bootstrap means 0
-        p, _ = _block_bootstrap_diff_p(diff, n_resamples=99, seed=0)
+        p, _ = _block_bootstrap_diff_p(diff, n_resamples=99, rng=0)
         assert p == pytest.approx(1.0 / 100.0)
 
 
@@ -216,7 +216,7 @@ class TestRejectsNonFinite:
         significance — so a NaN must be refused, not tolerated."""
         diff = np.array([0.1, 0.2, float("nan"), 0.3, 0.1, 0.2])
         with pytest.raises(ValueError, match="finite"):
-            _block_bootstrap_diff_p(diff, seed=0)
+            _block_bootstrap_diff_p(diff, rng=0)
 
     def test_politis_white_falls_back_on_nan(self):
         x = np.array([0.1, float("nan"), 0.2, 0.3, 0.4, 0.5, 0.6, 0.7])
@@ -244,7 +244,7 @@ class TestStudentizedRoot:
 
         rng = np.random.default_rng(0)
         diff = rng.standard_normal(120)
-        p, meta = _block_bootstrap_diff_p(diff, n_resamples=199, seed=7)
+        p, meta = _block_bootstrap_diff_p(diff, n_resamples=199, rng=7)
         assert meta["studentized"] is True
 
         L = _politis_white_block_length(diff)
@@ -279,13 +279,13 @@ class TestStudentizedRoot:
         rng = np.random.default_rng(2)
         for n in (6, 20, 120):
             _, meta = _block_bootstrap_diff_p(
-                rng.standard_normal(n), n_resamples=99, seed=0
+                rng.standard_normal(n), n_resamples=99, rng=0
             )
             assert meta["studentized"] is True
 
     def test_degenerate_series_falls_back_to_the_raw_mean_root(self):
         """A zero-dispersion series leaves no SE to divide by."""
-        _, meta = _block_bootstrap_diff_p(np.full(40, 2.0), n_resamples=99, seed=0)
+        _, meta = _block_bootstrap_diff_p(np.full(40, 2.0), n_resamples=99, rng=0)
         assert meta["studentized"] is False
 
     @pytest.mark.parametrize(("n", "phi"), [(120, 0.5), (500, 0.8)])
@@ -301,7 +301,7 @@ class TestStudentizedRoot:
         studentized = plain = 0
         for _ in range(n_reps):
             diff = self._ar1(n, phi, rng)
-            p, _ = _block_bootstrap_diff_p(diff, n_resamples=299, seed=1)
+            p, _ = _block_bootstrap_diff_p(diff, n_resamples=299, rng=1)
             studentized += p < 0.05
             # Same draws, unstudentized root (the pre-fix behaviour).
             L = _politis_white_block_length(diff)
@@ -318,7 +318,7 @@ class TestOverlapHorizonFloor:
         rng = np.random.default_rng(3)
         diff = rng.standard_normal(200)
         _, meta = _block_bootstrap_diff_p(
-            diff, overlap_periods=21, n_resamples=99, seed=0
+            diff, overlap_periods=21, n_resamples=99, rng=0
         )
         assert meta["block_length"] >= 21
 
@@ -329,7 +329,7 @@ class TestOverlapHorizonFloor:
         rng = np.random.default_rng(3)
         diff = rng.standard_normal(30)
         _, meta = _block_bootstrap_diff_p(
-            diff, overlap_periods=100, n_resamples=99, seed=0
+            diff, overlap_periods=100, n_resamples=99, rng=0
         )
         assert meta["block_length"] == _max_block_length(30)
 
@@ -337,9 +337,9 @@ class TestOverlapHorizonFloor:
         rng = np.random.default_rng(3)
         diff = rng.standard_normal(200)
         _, floored = _block_bootstrap_diff_p(
-            diff, overlap_periods=1, n_resamples=99, seed=0
+            diff, overlap_periods=1, n_resamples=99, rng=0
         )
-        _, plain = _block_bootstrap_diff_p(diff, n_resamples=99, seed=0)
+        _, plain = _block_bootstrap_diff_p(diff, n_resamples=99, rng=0)
         assert floored["block_length"] == plain["block_length"]
 
 

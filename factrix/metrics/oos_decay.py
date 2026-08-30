@@ -148,7 +148,7 @@ def oos_decay(
         >>> from factrix.metrics.ic import compute_ic
         >>> from factrix.metrics.oos_decay import oos_decay
         >>> panel = compute_forward_return(
-        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=240, seed=0),
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=240, rng=0),
         ...     forward_periods=5,
         ... )
         >>> series = compute_ic(panel)["factor"].rename({"ic": "value"}).select("date", "value")

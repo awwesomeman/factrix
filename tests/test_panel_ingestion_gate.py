@@ -158,7 +158,7 @@ class TestHorizonIsMeasuredOnThePeriodGrid:
 
 class TestGateReachesEveryEntryPoint:
     def test_evaluate_rejects_duplicate_keys(self):
-        raw = fx.datasets.make_cs_panel(n_assets=10, n_dates=40, seed=0)
+        raw = fx.datasets.make_cs_panel(n_assets=10, n_dates=40, rng=0)
         panel = compute_forward_return(raw, forward_periods=1)
         dup = pl.concat([panel, panel.head(1)])
         with pytest.raises(UserInputError, match=r"\(date, asset_id\)"):
@@ -170,7 +170,7 @@ class TestGateReachesEveryEntryPoint:
             )
 
     def test_inspect_data_rejects_duplicate_keys(self):
-        raw = fx.datasets.make_cs_panel(n_assets=10, n_dates=40, seed=0)
+        raw = fx.datasets.make_cs_panel(n_assets=10, n_dates=40, rng=0)
         panel = compute_forward_return(raw, forward_periods=1)
         dup = pl.concat([panel, panel.head(1)])
         with pytest.raises(UserInputError, match=r"\(date, asset_id\)"):

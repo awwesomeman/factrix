@@ -56,13 +56,13 @@ def _persistent_beta_panel() -> pl.DataFrame:
 
 def _short_panel() -> pl.DataFrame:
     """Too few periods for a Driscoll-Kraay cross-sectional HAC."""
-    raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=25, seed=3)
+    raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=25, rng=3)
     return fx.preprocess.compute_forward_return(raw, forward_periods=1)
 
 
 def _tied_panel() -> pl.DataFrame:
     """Low-cardinality factor: the per-period IC rests mostly on mid-ranks."""
-    raw = fx.datasets.make_cs_panel(n_assets=30, n_dates=200, seed=5)
+    raw = fx.datasets.make_cs_panel(n_assets=30, n_dates=200, rng=5)
     tied = raw.with_columns(
         (pl.col("factor").rank("dense") % 3).cast(pl.Float64).alias("factor")
     )
@@ -71,14 +71,14 @@ def _tied_panel() -> pl.DataFrame:
 
 def _thin_bucket_panel() -> pl.DataFrame:
     """Six assets cut into three buckets — two names per bucket."""
-    raw = fx.datasets.make_cs_panel(n_assets=6, n_dates=220, seed=11)
+    raw = fx.datasets.make_cs_panel(n_assets=6, n_dates=220, rng=11)
     panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
     return panel.with_columns(pl.lit(1.0).alias("market_cap"))
 
 
 def _one_signed_panel() -> pl.DataFrame:
     """A factor that never crosses zero, so |factor| is not a density weight."""
-    raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=80, seed=7)
+    raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=80, rng=7)
     pos = raw.with_columns((pl.col("factor").abs() + 10.0).alias("factor"))
     return fx.preprocess.compute_forward_return(pos, forward_periods=1)
 
@@ -455,7 +455,7 @@ class TestHighTieRatio:
         assert all(not w.expected for w in _records(res, WarningCode.HIGH_TIE_RATIO))
 
     def test_a_continuous_factor_does_not_trip_it(self):
-        raw = fx.datasets.make_cs_panel(n_assets=30, n_dates=200, seed=5)
+        raw = fx.datasets.make_cs_panel(n_assets=30, n_dates=200, rng=5)
         panel = fx.preprocess.compute_forward_return(raw, forward_periods=1)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")

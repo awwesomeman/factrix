@@ -133,7 +133,7 @@ from factrix.preprocess import compute_forward_return
 # From here on the examples need a panel long and wide enough to evaluate;
 # your own step-1 output takes the generator's place. Its signal column is
 # named `factor`, so rename it to the `momentum` this page uses.
-raw = fx.datasets.make_cs_panel(n_assets=60, n_dates=260, seed=0).rename(
+raw = fx.datasets.make_cs_panel(n_assets=60, n_dates=260, rng=0).rename(
     {"factor": "momentum"}
 )
 panel = compute_forward_return(raw, forward_periods=5)

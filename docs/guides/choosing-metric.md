@@ -85,7 +85,7 @@ To evaluate both IC and Fama-MacBeth on a candidate factor panel, pass both metr
 import factrix as fx
 from factrix.metrics import ic, fm_beta
 
-raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=200, seed=42)
+raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=200, rng=42)
 data = fx.preprocess.compute_forward_return(raw, forward_periods=5)
 
 results = fx.evaluate(

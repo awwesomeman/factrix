@@ -167,7 +167,7 @@ allocation rule.
     # Build a panel where ``factor`` is broadcast (one value per date,
     # shared across all assets) — VIX / USD-index / NFP surprise style.
     raw = fx.datasets.make_cs_panel(
-        n_assets=50, n_dates=500, ic_target=0.08, seed=2024,
+        n_assets=50, n_dates=500, ic_target=0.08, rng=2024,
     )
     common = (
         raw.group_by("date").agg(pl.col("factor").mean().alias("factor"))

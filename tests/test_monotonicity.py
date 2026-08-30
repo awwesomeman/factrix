@@ -21,7 +21,7 @@ class TestComputeMonotonicity:
         # sampling. Use noisy_panel (20 dates × 30 assets) with perfect
         # factor-return alignment.
         result = monotonicity(
-            self._perfect(noisy_panel), overlap_periods=1, n_groups=5, seed=0
+            self._perfect(noisy_panel), overlap_periods=1, n_groups=5, rng=0
         )["factor"]
         # Every adjacent bucket step is strictly positive and identical across
         # periods, so the MR statistic is the (positive) common step.
@@ -44,7 +44,7 @@ class TestComputeMonotonicity:
             overlap_periods=1,
             n_groups=5,
             n_resamples=n_resamples,
-            seed=0,
+            rng=0,
         )["factor"]
         assert result.p_value == pytest.approx(1 / (n_resamples + 1))
         assert result.alternative == "greater"
@@ -63,7 +63,7 @@ class TestComputeMonotonicity:
                 "forward_return"
             )
         )
-        result = monotonicity(inverted, overlap_periods=1, n_groups=5, seed=0)["factor"]
+        result = monotonicity(inverted, overlap_periods=1, n_groups=5, rng=0)["factor"]
         # H1 is "increasing" by default, so a perfectly decreasing pattern is
         # the furthest thing from it: J < 0 and the p is at its ceiling.
         assert result.value < 0
@@ -85,7 +85,7 @@ class TestComputeMonotonicity:
             n_groups=5,
             direction="decreasing",
             n_resamples=199,
-            seed=0,
+            rng=0,
         )["factor"]
         assert result.value > 0
         assert result.p_value == pytest.approx(1 / 200)
@@ -148,7 +148,7 @@ class TestSmallUniverse:
         from factrix.preprocess import compute_forward_return
 
         return compute_forward_return(
-            fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=240, seed=7),
+            fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=240, rng=7),
             forward_periods=5,
         )
 
@@ -325,7 +325,7 @@ class TestPattonTimmermannMRTest:
                 overlap_periods=1,
                 n_groups=n_groups,
                 n_resamples=199,
-                seed=rep,
+                rng=rep,
             )["factor"]
             rejections += result.p_value < 0.05
             floors.append(result.metadata["mean_abs_spearman"])
@@ -338,7 +338,7 @@ class TestPattonTimmermannMRTest:
 
         panel = self._null_panel(n_dates=60, n_assets=20, seed=3)
         result = monotonicity(
-            panel, overlap_periods=1, n_groups=4, n_resamples=199, seed=2
+            panel, overlap_periods=1, n_groups=4, n_resamples=199, rng=2
         )["factor"]
         diffs = np.asarray(result.metadata["mr_adjacent_diffs"])
         assert len(diffs) == 3  # n_groups - 1 adjacent steps
@@ -348,8 +348,8 @@ class TestPattonTimmermannMRTest:
     def test_bootstrap_is_reproducible_and_reports_its_seed(self):
         panel = self._null_panel(n_dates=60, n_assets=20, seed=4)
         kwargs = {"overlap_periods": 1, "n_groups": 4, "n_resamples": 199}
-        a = monotonicity(panel, seed=7, **kwargs)["factor"]
-        b = monotonicity(panel, seed=7, **kwargs)["factor"]
+        a = monotonicity(panel, rng=7, **kwargs)["factor"]
+        b = monotonicity(panel, rng=7, **kwargs)["factor"]
         assert a.p_value == b.p_value
         assert a.metadata["seed"] == 7
         # An unseeded run resolves one and reports it, so the run stays
@@ -380,7 +380,7 @@ class TestPattonTimmermannMRTest:
             }
         ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = monotonicity(
-            panel, overlap_periods=1, n_groups=5, n_resamples=199, seed=5
+            panel, overlap_periods=1, n_groups=5, n_resamples=199, rng=5
         )["factor"]
         assert result.value > 0
         assert result.p_value < 0.05
@@ -408,7 +408,7 @@ class TestTieRatioCountsFiniteValuesOnly:
                 )
         panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = monotonicity(
-            panel, overlap_periods=1, n_groups=3, n_resamples=199, seed=0
+            panel, overlap_periods=1, n_groups=3, n_resamples=199, rng=0
         )["factor"]
         assert result.metadata["tie_ratio"] == pytest.approx(0.0)
 
@@ -432,7 +432,7 @@ class TestTieRatioCountsFiniteValuesOnly:
                 )
         panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = monotonicity(
-            panel, overlap_periods=1, n_groups=3, n_resamples=199, seed=0
+            panel, overlap_periods=1, n_groups=3, n_resamples=199, rng=0
         )["factor"]
         assert result.metadata["tie_ratio"] == pytest.approx(0.0)
 
@@ -457,7 +457,7 @@ class TestTieRatioCountsFiniteValuesOnly:
         panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         with pytest.warns(UserWarning, match="tie_ratio"):
             result = monotonicity(
-                panel, overlap_periods=1, n_groups=3, n_resamples=199, seed=0
+                panel, overlap_periods=1, n_groups=3, n_resamples=199, rng=0
             )["factor"]
         assert result.metadata["tie_ratio"] == pytest.approx(0.8)
 
@@ -466,7 +466,7 @@ class TestMRArgumentValidation:
     @staticmethod
     def _panel():
         return fx.preprocess.compute_forward_return(
-            fx.datasets.make_cs_panel(n_assets=40, n_dates=120, seed=3),
+            fx.datasets.make_cs_panel(n_assets=40, n_dates=120, rng=3),
             forward_periods=1,
         )
 
@@ -475,7 +475,7 @@ class TestMRArgumentValidation:
         from factrix.metrics.monotonicity import monotonicity
 
         with pytest.raises(UserInputError, match="direction"):
-            monotonicity(self._panel(), n_resamples=199, seed=0, direction="decrease")
+            monotonicity(self._panel(), n_resamples=199, rng=0, direction="decrease")
 
     def test_p_value_mc_se_is_reported_and_shrinks_with_resamples(self):
         """The reported p carries its own Monte-Carlo SE.
@@ -488,8 +488,8 @@ class TestMRArgumentValidation:
         from factrix.metrics.monotonicity import monotonicity
 
         panel = self._panel()
-        small = monotonicity(panel, n_resamples=199, seed=0)["factor"]
-        large = monotonicity(panel, n_resamples=1999, seed=0)["factor"]
+        small = monotonicity(panel, n_resamples=199, rng=0)["factor"]
+        large = monotonicity(panel, n_resamples=1999, rng=0)["factor"]
 
         for res, b in ((small, 199), (large, 1999)):
             p_hat = res.p_value
