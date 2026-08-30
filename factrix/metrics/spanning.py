@@ -223,6 +223,8 @@ def spanning_alpha(
     factor_spread: pl.DataFrame,
     base_spreads: dict[str, pl.DataFrame] | None = None,
     overlap_periods: int = 1,
+    *,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Test whether a factor has alpha after controlling for base factors.
 
@@ -241,6 +243,8 @@ def spanning_alpha(
             (the output of ``compute_spread_series``, which strides to the
             rebalance schedule). ``evaluate`` injects the panel's stamped
             horizon; a standalone call declares it.
+        expected_warnings: Warning codes the caller declares; a declared code
+            is still recorded, the ``UserWarning`` echo is silenced.
 
     Returns:
         MetricResult with value=alpha, t_stat, significance. When
@@ -454,6 +458,8 @@ def greedy_forward_selection(
     significance_threshold: float = 2.0,
     max_factors: int = 20,
     suppress_snooping_warning: bool = False,
+    *,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     """Greedy forward selection with backward elimination.
 
@@ -491,6 +497,8 @@ def greedy_forward_selection(
             Only set when the caller has explicitly acknowledged that
             the returned t-stats are for model-construction, not
             inference.
+        expected_warnings: Warning codes the caller declares; a declared code
+            is still recorded, the ``UserWarning`` echo is silenced.
 
     Returns:
         A descriptive :class:`~factrix._results.MetricResult`: ``value`` is

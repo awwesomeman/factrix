@@ -12,8 +12,10 @@ bit-for-bit unchanged.
 
 from __future__ import annotations
 
+import inspect
 import warnings
 from datetime import datetime, timedelta
+from typing import ClassVar
 
 import factrix as fx
 import numpy as np
@@ -21,7 +23,9 @@ import polars as pl
 import pytest
 from factrix._codes import WarningCode
 from factrix._errors import UserInputError
-from factrix.metrics import ic, ic_ir, quantile_spread
+from factrix.metrics import ic, ic_ir, notional_turnover, quantile_spread
+
+from tests._slice_panel import build_disjoint_period_panel, build_labelled_raw_panel
 
 
 def _thin_panel(n_assets: int = 6, n_dates: int = 220) -> pl.DataFrame:
@@ -178,9 +182,18 @@ class TestDeclaredStudy:
 class TestDeclarationSurface:
     """The declaration is study-level with a strict typo guard."""
 
-    def test_metric_constructor_rejects_expected_warnings(self):
-        with pytest.raises(UserInputError, match="study-level declaration"):
-            quantile_spread(n_groups=2, expected_warnings=("few_assets",))
+    def test_metric_constructor_accepts_expected_warnings(self):
+        # One contract: the declaration is a study-level default, not a
+        # metric-shaped refusal. Configuring it on the metric is legal and
+        # reaches the body on a direct call.
+        configured = quantile_spread(n_groups=2, expected_warnings=("few_assets",))
+        assert configured.expected_warnings == ("few_assets",)
+
+    def test_metric_constructor_still_rejects_overlap_periods(self):
+        # The other injected param is a property of the *data*, so a
+        # per-metric value could only disagree with the panel it runs on.
+        with pytest.raises(UserInputError, match="not a metric parameter"):
+            quantile_spread(n_groups=2, overlap_periods=3)
 
     def test_bare_string_rejected(self):
         panel = _thin_panel()
@@ -416,3 +429,174 @@ class TestDropEchoFollowsDeclaration:
             for w in res.unexpected_warnings
             if w.code in (WarningCode.EXCESSIVE_PERIOD_DROPS, WarningCode.FEW_ASSETS)
         ]
+
+
+class TestOneContractAcrossMetrics:
+    """Every registered metric carries the same knob, in the same shape.
+
+    The old surface had three answers to ``expected_warnings=``: a
+    keyword-only parameter, a positional-capable one, and a constructor
+    refusal claiming the knob was study-level only — a claim most metrics
+    already contradicted. A metric that raises no code of its own carries
+    the knob inert; that is the contract, not an exception, so the sweep
+    admits no allowlist.
+    """
+
+    @staticmethod
+    def _metric_classes() -> dict[str, type]:
+        from factrix._axis import SpecRole
+        from factrix.metrics._registry import REGISTRY
+
+        return {
+            name: cls for name, cls in REGISTRY.items() if cls.role is SpecRole.METRIC
+        }
+
+    def test_every_metric_declares_it_keyword_only(self):
+        offenders = {}
+        for name, cls in self._metric_classes().items():
+            param = inspect.signature(cls).parameters.get("expected_warnings")
+            if param is None:
+                offenders[name] = "missing"
+            elif param.kind is not inspect.Parameter.KEYWORD_ONLY:
+                offenders[name] = param.kind.name
+            elif param.default != ():
+                offenders[name] = f"default={param.default!r}"
+        assert offenders == {}
+
+    def test_it_is_never_a_configured_knob(self):
+        # It stays out of ``_param_names``: injected at dispatch, so it must
+        # not surface as a configured parameter on ``spec()`` / ``_params()``.
+        for name, cls in self._metric_classes().items():
+            assert "expected_warnings" not in cls._param_names, name
+            assert "expected_warnings" in cls._injected_param_names, name
+
+
+class TestPreviouslyRejectingMetricAcceptsIt:
+    """``notional_turnover`` emits ``thin_quantile_groups`` but could not be
+    told about it on the direct path. Both paths now take the declaration and
+    agree on the result."""
+
+    @staticmethod
+    def _too_thin_for_groups() -> pl.DataFrame:
+        raw = fx.datasets.make_cs_panel(n_assets=4, n_dates=60, rng=3)
+        return fx.preprocess.compute_forward_return(raw, forward_periods=5)
+
+    def test_direct_call_accepts_the_declaration(self):
+        panel = self._too_thin_for_groups()
+        declared = notional_turnover(
+            panel, n_groups=10, expected_warnings=("thin_quantile_groups",)
+        )
+        bare = notional_turnover(panel, n_groups=10)
+        assert WarningCode.THIN_QUANTILE_GROUPS.value in declared.warning_codes
+        assert declared.warning_codes == bare.warning_codes
+        assert declared.metadata["reason"] == bare.metadata["reason"]
+
+    def test_evaluate_and_direct_call_agree(self):
+        panel = self._too_thin_for_groups()
+        results = fx.evaluate(
+            panel,
+            metrics={"turnover": notional_turnover(n_groups=10)},
+            factor_cols=["factor"],
+            expected_warnings=("thin_quantile_groups",),
+            strict=False,
+        )
+        via_evaluate = results["factor"].metrics["turnover"]
+        direct = notional_turnover(
+            panel, n_groups=10, expected_warnings=("thin_quantile_groups",)
+        )
+        assert via_evaluate.warning_codes == direct.warning_codes
+        assert via_evaluate.metadata["reason"] == direct.metadata["reason"]
+
+
+class TestSliceEntryPointShape:
+    """The four slice-test entry points share one signature shape.
+
+    They may differ only in the knobs a resampling method needs; every
+    other parameter — including the inert ones — is present on all four so
+    a caller can move between the cross-sectional and the date-disjoint
+    path without re-reading the signature.
+    """
+
+    _METHOD_KNOBS: ClassVar[set[str]] = {"method", "n_resamples", "rng"}
+
+    @staticmethod
+    def _params(fn) -> dict[str, inspect.Parameter]:
+        return dict(inspect.signature(fn).parameters)
+
+    def test_shared_shape(self):
+        shapes = {}
+        for name in (
+            "slice_pairwise_test",
+            "slice_joint_test",
+            "slice_period_pairwise_test",
+            "slice_period_joint_test",
+        ):
+            params = self._params(getattr(fx, name))
+            shapes[name] = {
+                n: p.kind.name for n, p in params.items() if n not in self._METHOD_KNOBS
+            }
+        assert len(set(map(str, shapes.values()))) == 1, shapes
+        common = next(iter(shapes.values()))
+        assert common == {
+            "data": "POSITIONAL_OR_KEYWORD",
+            "metric": "POSITIONAL_OR_KEYWORD",
+            "by": "KEYWORD_ONLY",
+            "factor_col": "KEYWORD_ONLY",
+            "overlap_periods": "KEYWORD_ONLY",
+            "strict": "KEYWORD_ONLY",
+            "expected_warnings": "KEYWORD_ONLY",
+        }
+
+    def test_method_knobs_are_the_only_difference(self):
+        cross = set(self._params(fx.slice_pairwise_test))
+        period = set(self._params(fx.slice_period_pairwise_test))
+        assert period - cross == self._METHOD_KNOBS
+        assert cross - period == set()
+
+    def test_shared_defaults(self):
+        for name in (
+            "slice_pairwise_test",
+            "slice_joint_test",
+            "slice_period_pairwise_test",
+            "slice_period_joint_test",
+        ):
+            params = self._params(getattr(fx, name))
+            assert params["overlap_periods"].default is None, name
+            assert params["strict"].default is True, name
+            assert params["expected_warnings"].default == (), name
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "slice_pairwise_test",
+            "slice_joint_test",
+            "slice_period_pairwise_test",
+            "slice_period_joint_test",
+        ],
+    )
+    def test_unknown_code_rejected_everywhere(self, name):
+        # The inert knobs still validate: one declaration contract means a
+        # typo is refused at every entry point, not only where a code fires.
+        if "period" in name:
+            panel = build_disjoint_period_panel(
+                seed=1,
+                spans={"bull": (60, 0.1), "bear": (60, 0.1)},
+                label_col="regime",
+            )
+            by = "regime"
+        else:
+            panel = build_labelled_raw_panel(
+                n_dates=60,
+                seed=1,
+                signal={"tech": 0.1, "fin": 0.1},
+                label_col="sector",
+            )
+            by = "sector"
+        with pytest.raises(UserInputError, match="unknown codes are rejected"):
+            getattr(fx, name)(
+                panel,
+                ic(),
+                by=by,
+                factor_col="factor",
+                expected_warnings=("few_asset",),
+            )

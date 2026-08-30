@@ -78,6 +78,7 @@ def common_asymmetry(
     return_col: str = "forward_return",
     overlap_periods: int | None = None,
     newey_west_lags: int | None = None,
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     """Long/short asymmetry of factor → return relationship.
 
@@ -104,6 +105,8 @@ def common_asymmetry(
             resolves to the standard rule given ``overlap_periods`` and
             ``T``; the finite-sample scale and reference df follow the
             resolved bandwidth either way.
+        expected_warnings: Warning codes the caller declares; a declared code
+            is still recorded, the ``UserWarning`` echo is silenced.
 
     Returns:
         ``MetricResult`` whose ``value`` is the method-A magnitude;

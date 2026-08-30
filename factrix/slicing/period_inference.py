@@ -361,6 +361,7 @@ def slice_period_pairwise_test(
     n_resamples: int = 999,
     rng: Rng = None,
     strict: bool = True,
+    expected_warnings: tuple[str, ...] = (),
 ) -> pl.DataFrame:
     """Pairwise cross-slice contrasts for a **date-disjoint** partition.
 
@@ -420,6 +421,15 @@ def slice_period_pairwise_test(
             ``strict=False`` counterpart of :func:`factrix.evaluate`'s
             ``metric_unavailable`` short-circuit, for batch regime research
             where one thin regime must not abort the sweep.
+        expected_warnings: :class:`~factrix.WarningCode` values the caller
+            declares as the study's design. Validated on the same contract as
+            :func:`factrix.evaluate`'s (an unknown code is rejected, since a
+            declaration that marks nothing is always a typo); the pairwise
+            path raises no code of its own — the short-slice
+            ``SHORT_SLICE_JOINT_TEST`` echo belongs to
+            :func:`slice_period_joint_test`, whose K-1 inverted restrictions
+            cause it — so there is nothing for a declaration to keep quiet
+            yet.
 
     Returns:
         Long-form ``pl.DataFrame`` with columns ``(slice_a, slice_b,
@@ -466,6 +476,11 @@ def slice_period_pairwise_test(
     _validate_method(method, "slice_period_pairwise_test")
     _check_n_resamples(
         n_resamples, func_name="slice_period_pairwise_test", docs_path=_DOCS_SLICE
+    )
+    _validate_expected_warnings_arg(
+        expected_warnings,
+        func_name="slice_period_pairwise_test",
+        docs_path=_DOCS_SLICE,
     )
     op = _resolve_overlap_periods(
         data, overlap_periods, horizon=None, func_name="slice_period_pairwise_test"

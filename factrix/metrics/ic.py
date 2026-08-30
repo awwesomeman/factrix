@@ -240,6 +240,7 @@ def ic(
     ic_df: pl.DataFrame,
     overlap_periods: int = 5,
     inference: NonOverlapping | NeweyWest | StationaryBootstrap = NON_OVERLAPPING,
+    *,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Information coefficient (IC) mean significance: is mean IC significantly different from zero?
@@ -431,6 +432,7 @@ def ic(
 )
 def ic_ir(
     ic_df: pl.DataFrame,
+    *,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""$\mathrm{ICIR} = \mathrm{mean}(\mathrm{IC}) / \mathrm{std}(\mathrm{IC})$.

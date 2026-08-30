@@ -58,6 +58,7 @@ def directional_pair_accuracy(
     overlap_periods: int = 5,
     factor_col: str = "factor",
     return_col: str = "forward_return",
+    *,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     """Pairwise ordering accuracy for small allocation universes.
