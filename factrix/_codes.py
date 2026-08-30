@@ -301,10 +301,11 @@ class WarningCode(StrEnum):
     # space. ``mean_betas`` is suppressed rather than reported.
     RANK_DEFICIENT_DESIGN = "rank_deficient_design"
 
-    # Fired by ``compute_forward_return`` when the per-asset date grids are
-    # ragged (an asset is missing periods other assets have). The horizon is a
-    # row shift within an asset, so on a ragged grid an h-period-ahead return
-    # spans a different number of real periods for different assets.
+    # Fired by ``compute_forward_return`` and by the event family when the
+    # per-asset date grids are ragged (an asset is missing periods other assets
+    # have). Both count their steps on the panel's period grid, so the pairing
+    # and the window widths stay right; the asset with the hole simply has
+    # fewer observations to pair or to estimate on than the other names.
     RAGGED_PERIOD_GRID = "ragged_period_grid"
 
     # Fired by ``compute_forward_return`` when the caller-chosen evaluation
@@ -651,12 +652,15 @@ _WARNING_DESCRIPTIONS.update(
         "residual (a unique projection) stays correct but the betas are an "
         "arbitrary point in the solution space. mean_betas is suppressed. Drop "
         "one dummy category as the reference level.",
-        WarningCode.RAGGED_PERIOD_GRID: "compute_forward_return saw per-asset "
-        "date grids that do not agree: at least one asset is missing periods "
-        "that others have. The horizon is a shift along each asset's own "
-        "period index, so an h-period-ahead return then spans a different "
-        "number of panel periods for different assets. Reindex the panel onto "
-        "a common grid if the horizons must be comparable across names.",
+        WarningCode.RAGGED_PERIOD_GRID: "compute_forward_return or an event "
+        "metric saw per-asset date grids that do not agree: at least one asset "
+        "is missing periods that others have. Horizons, estimation windows, "
+        "lags and event offsets are all counted on the panel's period grid, so "
+        "they still span the requested number of periods; the asset with the "
+        "hole has no observation to pair at the exit period, and fewer "
+        "observations inside an estimation window, than the other names. "
+        "Reindex the panel onto a common grid if the estimates must be "
+        "comparable across names.",
         WarningCode.UNEVEN_EVALUATION_GRID: "compute_forward_return(dates=) "
         "kept an evaluation grid whose adjacent kept rows are not a constant "
         "number of periods apart. Series-mean inference (NonOverlapping, "

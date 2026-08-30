@@ -45,6 +45,22 @@ links here.
   price sources onto one grid, is the caller's responsibility
   ([Preparing data §5](../guides/preparing-data.md#5-frequency-alignment-is-the-callers-job)).
 
+**Ragged panels and the row/period distinction.** A rolling window or a shift
+in polars counts *rows within a frame*; on a panel whose assets all carry every
+period the two coincide, and on a ragged one — an asset missing periods the
+other names have — they do not. The event family therefore reindexes onto the
+panel grid before any window is taken: each asset is laid onto the full set of
+distinct dates, an absent period becoming a null row rather than no row, so an
+`estimation_window` of 30 spans exactly 30 grid periods for every asset and the
+missing periods inside it count as missing observations instead of pulling
+older periods in to fill the window. The same rule governs the event offsets in
+`compute_event_returns`: `k` periods after the event is `k` steps on the grid,
+and an offset landing on a period the asset does not have has no return, rather
+than silently reaching further out. A dense panel is unaffected — the reindex
+is a no-op there — and an asset short of periods raises
+`WarningCode.RAGGED_PERIOD_GRID`, because the window still spans the requested
+periods but rests on a smaller sample than the other names'.
+
 **Wording rule.** Documentation, docstrings, warning messages and code
 comments say *periods*. They do not say days, trading days, weeks,
 month-ends or any other calendar unit, and examples that need a concrete

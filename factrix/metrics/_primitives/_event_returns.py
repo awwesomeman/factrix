@@ -38,6 +38,13 @@ def compute_event_returns(
     from a common entry, pre-event offsets are single-bar returns. Read the
     output curve accordingly — it is not a CAR path on both sides of zero.
 
+    An offset is a step on the **panel's period grid**, not on the asset's own
+    rows: ``k`` periods after the event is ``k`` grid periods after it for
+    every name, and an offset landing on a period the asset does not have
+    yields no return for that event rather than reaching on to the asset's
+    next row — which on a ragged panel would sit further out on the grid than
+    the offset advertises. ``idx`` below is that grid position.
+
     Post-event (``k > 0``) — cumulative holding return::
 
         entry = prices[idx + 1]                 # bar after the event
@@ -100,13 +107,26 @@ def compute_event_returns(
     if len(events) == 0:
         return pl.DataFrame(schema=empty_schema)  # type: ignore[arg-type]
 
+    # Offsets are counted on the panel's distinct-date grid, not on the asset's
+    # own rows: an asset missing periods that others have would otherwise step
+    # over the hole as though it were one period, so its "k periods after the
+    # event" price would sit further out on the grid than every other name's.
+    # Each asset's prices are laid onto the full grid, absent periods carrying
+    # NaN, and an offset that lands on one is skipped like a missing bar.
+    grid_idx = {d: i for i, d in enumerate(sorted_df["date"].unique().sort().to_list())}
+    n_grid = len(grid_idx)
     event_assets = set(events["asset_id"].unique().to_list())
-    asset_data: dict[str, tuple[dict, np.ndarray]] = {}
+    asset_prices: dict[str, np.ndarray] = {}
     for aid in event_assets:
         adf = sorted_df.filter(pl.col("asset_id") == aid)
-        date_idx = {d: i for i, d in enumerate(adf["date"].to_list())}
-        prices = adf[price_col].to_numpy()
-        asset_data[aid] = (date_idx, prices)
+        prices = np.full(n_grid, np.nan, dtype=np.float64)
+        positions = np.fromiter(
+            (grid_idx[d] for d in adf["date"].to_list()),
+            dtype=np.int64,
+            count=adf.height,
+        )
+        prices[positions] = adf[price_col].to_numpy().astype(np.float64)
+        asset_prices[aid] = prices
 
     rows: list[dict] = []
     for row in events.iter_rows(named=True):
@@ -114,8 +134,8 @@ def compute_event_returns(
         edate = row["date"]
         direction = np.sign(row[factor_col])
 
-        date_idx, prices = asset_data[aid]
-        idx = date_idx.get(edate)
+        prices = asset_prices[aid]
+        idx = grid_idx.get(edate)
         if idx is None:
             continue
 
@@ -123,21 +143,28 @@ def compute_event_returns(
             if k > 0:
                 entry_idx = idx + 1
                 exit_idx = idx + 1 + k
-                if entry_idx >= len(prices) or exit_idx >= len(prices):
+                if entry_idx >= n_grid or exit_idx >= n_grid:
                     continue
                 entry_p = prices[entry_idx]
+                exit_p = prices[exit_idx]
+                if not np.isfinite(entry_p) or not np.isfinite(exit_p):
+                    continue
                 if entry_p < EPSILON:
                     continue
-                raw_ret = prices[exit_idx] / entry_p - 1
+                raw_ret = exit_p / entry_p - 1
                 signed_ret = float(direction * raw_ret)
             else:
                 bar_idx = idx + k
                 prev_idx = bar_idx - 1
-                if bar_idx < 0 or prev_idx < 0 or bar_idx >= len(prices):
+                if bar_idx < 0 or prev_idx < 0 or bar_idx >= n_grid:
                     continue
-                if prices[prev_idx] < EPSILON:
+                bar_p = prices[bar_idx]
+                prev_p = prices[prev_idx]
+                if not np.isfinite(bar_p) or not np.isfinite(prev_p):
                     continue
-                raw_ret = prices[bar_idx] / prices[prev_idx] - 1
+                if prev_p < EPSILON:
+                    continue
+                raw_ret = bar_p / prev_p - 1
                 signed_ret = float(direction * raw_ret)
 
             rows.append(

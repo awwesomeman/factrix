@@ -29,7 +29,11 @@ from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._types import DDOF, EPSILON
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _short_circuit_output
+from factrix.metrics._helpers import (
+    _densify_on_period_grid,
+    _short_circuit_output,
+    _warn_ragged_event_grid,
+)
 from factrix.metrics._primitives import compute_event_returns
 
 __all__ = [
@@ -50,12 +54,17 @@ def _unconditional_bar_return(data: pl.DataFrame, price_col: str) -> float:
     Subtracting this baseline makes the leakage score measure what its name
     says. Returns ``0.0`` when it cannot be computed, which leaves the score
     exactly as it was.
+
+    The bar is one step on the panel's period grid, matching the offsets it is
+    subtracted from: on a ragged panel a step across an asset's missing periods
+    is not a one-period return and drops out rather than inflating the
+    baseline.
     """
     if price_col not in data.columns or "asset_id" not in data.columns:
         return 0.0
+    dense, _ = _densify_on_period_grid(data)
     rets = (
-        data.sort(["asset_id", "date"])
-        .with_columns(
+        dense.with_columns(
             (pl.col(price_col) / pl.col(price_col).shift(1).over("asset_id") - 1).alias(
                 "_bar_ret"
             )
@@ -78,12 +87,17 @@ def event_around_return(
     offsets: list[int] | None = None,
     factor_col: str = "factor",
     price_col: str = "price",
+    expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Return profile at multiple offsets around event date.
 
     No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because this is a multi-horizon summary metric whose available offsets and event counts are factor-context-dependent.
 
     Summarizes per-offset: mean, median, p25, p75, hit_rate, n.
+
+    Offsets are steps on the panel's period grid (see
+    :func:`~factrix.metrics._primitives.compute_event_returns`), as is the
+    unconditional bar return the pre-event means are taken against.
 
     The primary value is the pre-event leakage score: the mean over
     pre-event offsets of ``|cross-event mean single-bar excess return|``,
@@ -249,11 +263,17 @@ def event_around_return(
     # row count is not it; the distinct event count is.
     n_events = event_rets.select("date", "asset_id").n_unique()
 
+    warning_codes: list[str] = []
+    _warn_ragged_event_grid(
+        "event_around_return", data, warning_codes, expected_warnings=expected_warnings
+    )
+
     return MetricResult(
         p_value=None,
         value=leakage,
         n_obs=n_events,
         n_obs_axis="events",
+        warning_codes=tuple(warning_codes),
         metadata={
             "n_events": n_events,
             "per_offset": per_offset,

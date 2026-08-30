@@ -249,13 +249,22 @@ def _two_event_panel(
     ret_a: float,
     ret_b: float,
 ) -> pl.DataFrame:
+    """Two events on adjacent periods, one per asset, on a common grid.
+
+    Both assets carry both event periods — the non-event one with a zero
+    factor — so the panel is dense. A frame holding only each asset's own
+    event period is ragged, and the event family's windows are counted on the
+    panel's period grid, so it would (correctly) fire ``ragged_period_grid``
+    over a fixture whose point is the factor's input form.
+    """
+    dates = [datetime(2020, 1, 1), datetime(2020, 1, 2)]
     return with_estimation_window(
         pl.DataFrame(
             {
-                "date": [datetime(2020, 1, 1), datetime(2020, 1, 2)],
-                "asset_id": ["A", "B"],
-                "factor": [factor_a, factor_b],
-                "forward_return": [ret_a, ret_b],
+                "date": dates + dates,
+                "asset_id": ["A", "A", "B", "B"],
+                "factor": [factor_a, 0.0, 0.0, factor_b],
+                "forward_return": [ret_a, 0.0, 0.0, ret_b],
             }
         )
     )
