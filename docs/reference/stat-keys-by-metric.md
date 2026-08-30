@@ -54,7 +54,7 @@ contrasts, not a sidecar to a primary value.
 | [`directional_hit_rate`][factrix.metrics.directional_hit_rate.directional_hit_rate] | Pesaran-Timmermann `z` (one-sided) | `p_value` | directional hit rate ∈ [0, 1] |
 | [`event_hit_rate`][factrix.metrics.event_quality.event_hit_rate] | binomial test (or normal `z`) | `p_value` | hit rate ∈ [0, 1] |
 | [`event_ic`][factrix.metrics.event_quality.event_ic] | Fisher-transformed Spearman `z` | `p_value` | Spearman ρ |
-| [`event_skewness`][factrix.metrics.event_quality.event_skewness] | D'Agostino skew `z` (N ≥ 20) | `p_value` (conditional) | Fisher skewness |
+| [`event_skewness`][factrix.metrics.event_quality.event_skewness] | none — descriptive (the D'Agostino skew test is withdrawn, section 6) | — | Fisher skewness |
 | [`profit_factor`][factrix.metrics.event_quality.profit_factor] | none — descriptive | — | gains / \|losses\| |
 | [`signal_density`][factrix.metrics.event_quality.signal_density] | none — descriptive | — | mean bars per event |
 | [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | none — descriptive | — | mean leakage score |
@@ -359,16 +359,28 @@ variance (e.g. binary {-1, +1}).
 
 #### `event_skewness`
 
-- *primary* (conditional, N ≥ 20): `p_value` — D'Agostino skew `z`.
+Descriptive; no test. `MetricResult.p_value`, `stat` and `alternative` are
+`None` at every sample size, and no `stat_type` / `h0` / `method` key is
+written.
+
 - *descriptive*: `n_events` (post-spacing), `n_events_dropped_non_finite`,
   `n_events_dropped_no_estimation_window`, `abnormal_return_model` /
   `estimation_window` / `estimation_window_lag`, `sign_base_rate_up` /
   `sign_base_rate_source` / `n_base_rate_rows`,
   `n_events_overlapping` / `n_events_sampled`.
 
-When `n_events < 20`, `MetricResult.stat = None` and `p_value` / `stat_type`
-/ `h0` / `method` are omitted — the metric reports the Fisher
-skewness in `value` only.
+factrix used to publish D'Agostino's skew-test `z` beside the point
+estimate whenever `n_events >= 20`. That test has no calibrated pooled form
+here for two independent reasons: it assumes the signed abnormal returns
+are normal under the null and over-rejects on the excess kurtosis a sampled
+event panel carries with no clustering at all (19.0% and 23.3% at a nominal
+5%), and it over-rejects again at 30.3% when same-period events share a
+shock and a factor sign. The sibling clustering deflation repairs neither —
+it moves the first to 17.7% / 22.7% and over-corrects the second to 0.0%.
+The size table and both null definitions are in
+[statistical-methods section 6](statistical-methods.md#event-skewness-no-calibrated-test).
+Test the direction of an event payoff with `event_hit_rate` / `event_ic` /
+`bmp_z`, which stay sized on both.
 
 #### `profit_factor`
 

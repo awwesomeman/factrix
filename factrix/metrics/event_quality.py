@@ -201,9 +201,10 @@ def _spaced_events(
 ) -> pl.DataFrame:
     """Apply the event-axis non-overlap discipline shared by the per-event tests.
 
-    Every hypothesis test in this module reduces per-event ``signed_car`` to a
-    scalar and reads its p-value off an iid-draws null (binomial, Spearman,
-    D'Agostino). Two events on one asset closer than ``overlap_periods`` share
+    Every metric here that pools per-event ``signed_car`` into a scalar — a
+    hit count read off a binomial null, a Spearman rho, a third moment —
+    treats the events as independent draws. Two events on one asset closer
+    than ``overlap_periods`` share
     future bars, so they are not two draws — pooling them inflates ``N`` and
     the test over-rejects. This is the same discipline ``caar`` applies to its
     event-period series, made per-asset here because the overlap is a
@@ -237,8 +238,8 @@ def _spaced_events(
         f"(= MIN_EVENTS_WARN {MIN_EVENTS_WARN} x overlap_periods "
         f"{overlap_periods}); {sampled.height} events survive non-overlap "
         f"sampling at stride h={overlap_periods}, which keeps up to one event "
-        f"in h per asset. The statistic is returned but its null assumes "
-        f"independent draws and is power-thin on a sample this short.",
+        f"in h per asset. The statistic is returned but it pools the events "
+        f"as independent draws and is thin on a sample this short.",
         WarningCode.FEW_EVENTS,
         expected_warnings=expected_warnings,
     )
@@ -785,32 +786,64 @@ def event_skewness(
     (desirable for event strategies). Uses scipy's Fisher skewness
     (bias-corrected).
 
-    Also tests H₀: skewness = 0 via D'Agostino's skew test.
+    Descriptive only: no p-value, no test statistic.
 
     Args:
         data: Panel with event density and forward return.
 
     Returns:
-        MetricResult with value=skewness, stat=z from D'Agostino test.
+        MetricResult with value=skewness, ``stat=None`` and ``p_value=None``.
 
     Notes:
         ``skew = m_3 / m_2^(3/2)`` (Fisher, bias-corrected via
-        ``scipy.stats.skew(bias=False)``); D'Agostino skew test gives
-        ``z`` with ``H0: skew = 0`` when ``n_events >= 20``. Below 20 events,
-        the test is not produced (``stat=None``) but the descriptive
-        skewness is still returned.
+        ``scipy.stats.skew(bias=False)``).
 
-        factrix gates the inference branch at ``n_events >= 20`` because the
-        D'Agostino-Pearson normal approximation degrades sharply on
-        small samples; reporting an unreliable z would invite
-        false-positive significance.
+        factrix used to publish D'Agostino's skew-test ``z`` and its
+        ``p`` beside the point estimate whenever ``n_events >= 20``. That
+        test is withdrawn. It has no calibrated pooled form here for two
+        independent reasons, and neither is repaired by the same-period
+        clustering deflation the sibling event tests apply
+        (``event_hit_rate``, ``event_ic``) — routing the ``z`` through the
+        design effect of the per-event standardised cubed deviation
+        ``((x_i - x̄)/s)^3``, whose mean is the skewness.
+
+        First, **non-normal signed CARs, with no clustering needed**.
+        D'Agostino's test assumes the sample is normal under the null and
+        derives ``Var(g_1) = 6/n`` from that; it is the *fourth* moment
+        that breaks it. On a true null event panel averaging 1.55 events
+        per event period — near enough no clustering — the sampled signed
+        CARs carry excess kurtosis (measured +0.63 at 252 periods, +0.95
+        at 504), the null ``z`` comes out with SD 1.31 and 1.50 against a
+        nominal 1.0, and the test rejects 19.0% and 23.3% of the time at a
+        nominal 5%. Deflation barely moves those: 17.7% and 22.7%. The
+        within-period correlation of the cubed-deviation score is near
+        zero on this null by construction — signing by ``sign(factor)``
+        enters a shared period shock with an asset-random sign — so the
+        deflator has nothing to grip.
+
+        Second, **same-period shocks with sign-aligned events**. When
+        every event on a period shares one factor sign, the period's shock
+        no longer cancels: 40 assets firing together on 20 shared periods,
+        one common shock per period, rejects 30.3% at a nominal 5% with
+        near-zero excess kurtosis (−0.09) — a pure dependence failure, not
+        a kurtosis one. Here the deflator does grip (ICC 0.30, mean scale
+        0.286) but does not restore size: it drives the rejection rate to
+        0.0%, trading a 6x over-rejection for a test with no power at all.
+
+        A deflator tuned to fix either failure worsens the other, so
+        factrix publishes no test rather than one calibrated against the
+        null it happens to be measured on. Take ``value`` as the
+        descriptive shape of the event return distribution and test
+        direction with ``event_hit_rate`` / ``event_ic`` / ``bmp_z``,
+        which are calibrated on both. The full size table is in
+        ``docs/reference/statistical-methods.md`` section 6.
 
         Events with a non-finite ``return_col`` / ``factor_col`` are
         dropped before the moments are taken and counted in
         ``metadata["n_events_dropped_non_finite"]``. A single NaN used to
-        make ``skew`` and the ``skewtest`` p NaN, and a NaN ``p_value``
-        raises ``ValueError`` out of ``MetricResult`` — the metric crashed
-        rather than degrading.
+        make ``skew`` NaN, and a NaN ``p_value`` raised ``ValueError``
+        out of ``MetricResult`` — the metric crashed rather than
+        degrading.
 
     Examples:
         >>> import factrix as fx
@@ -821,7 +854,7 @@ def event_skewness(
         ...     forward_periods=5,
         ... )
         >>> result = event_skewness(panel)
-        >>> result.name == ""
+        >>> result.p_value is None and result.stat is None
         True
     """
     from scipy import stats as sp_stats
@@ -860,33 +893,16 @@ def event_skewness(
 
     skew = float(sp_stats.skew(signed, bias=False))
 
-    if n >= 20:
-        z, p = sp_stats.skewtest(signed)
-        z = float(z)
-        p = float(p)
-    else:
-        z = None
-        p = None
-
     return MetricResult(
-        p_value=p,
-        alternative="two-sided" if p is not None else None,
+        p_value=None,
+        alternative=None,
         value=skew,
         n_obs=n,
         n_obs_axis="events",
-        stat=z,
+        stat=None,
         metadata={
             **metadata,
             "n_events": n,
-            **(
-                {
-                    "stat_type": "z",
-                    "h0": "skew=0",
-                    "method": "D'Agostino skew test",
-                }
-                if p is not None
-                else {}
-            ),
         },
         warning_codes=tuple(warning_codes),
     )

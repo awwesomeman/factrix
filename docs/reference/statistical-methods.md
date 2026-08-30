@@ -444,7 +444,9 @@ does not deliver.
 
 The `individual_sparse` cell aggregates per-event abnormal returns
 across assets. Three estimators are exposed, each making a different
-assumption about the cross-event distribution:
+assumption about the cross-event distribution. A fourth pooled statistic —
+the skewness of the signed event returns — is reported descriptively only;
+see [event_skewness](#event-skewness-no-calibrated-test) in section 6.
 
 ### CAAR cross-event t
 [](){ #caar-cross-event-t }
@@ -532,6 +534,87 @@ variance already contains the between-date component; applying $(1 - \bar r)$
 on top would double-count. Choosing the design-effect form is the
 engine-specific decision; the textbook K-P form is correct for the single-day
 BMP setting it was derived in.
+
+### `event_skewness`: no calibrated test for the third moment
+[](){ #event-skewness-no-calibrated-test }
+
+`event_skewness` reports the Fisher skewness of the sampled signed
+abnormal returns and **no p-value or test statistic**. It used to publish
+D'Agostino's skew-test $z$ and its two-sided $p$ whenever
+`n_events >= 20`; that test is withdrawn as uncalibrated. It has no
+calibrated pooled form here for two independent reasons, and the
+same-period clustering deflation `event_hit_rate` and `event_ic` apply
+repairs neither.
+
+The measured null size, at a nominal 5%, 300 replications per cell, base
+seed 20260830 + replication. The deflated column routes the $z$ through
+the design effect of the per-event standardised cubed deviation
+$((x_i - \bar x)/s)^3$, whose mean is $g_1$ — the same helper the sibling
+event tests use on their own per-event score. Three nulls:
+
+- **Panel** — `make_event_panel(n_assets=50, post_event_drift_bps=0,
+  event_rate=0.02, signal_horizon=5)` through
+  `compute_forward_return(forward_periods=5)`, read by
+  `event_skewness(overlap_periods=5)`. Events land independently, so an
+  event period holds 1.55 events on average.
+- **Sign-randomised clustered** — 50 events on each of 20 shared event
+  periods, one shared shock per period added to every event's return, and
+  each event's factor sign drawn independently per asset.
+- **Sign-aligned clustered** — 40 assets, 400 periods, returns
+  $r_{t,i} = \delta_t + \varepsilon_{t,i}$ with $\delta_t,
+  \varepsilon_{t,i} \sim N(0, 0.01^2)$ compounded into a price series; all
+  40 assets fire together on 20 randomly chosen periods, and every event
+  on a period carries **one common factor sign** drawn for that period.
+  This is the auditor's construction; it is the same shared-shock
+  mechanism as the row above with the sign randomisation removed.
+
+| Null | Events per event period | Excess kurtosis of signed CAR | SD of the null $z$ | Size, D'Agostino $z$ | Size, $z$ deflated for clustering |
+|---|---|---|---|---|---|
+| Panel, 252 periods | 1.55 | +0.63 | 1.31 | **19.0%** | **17.7%** |
+| Panel, 504 periods | 1.52 | +0.95 | 1.50 | **23.3%** | **22.7%** |
+| Panel, `n_assets=1`, 2000 periods | 1.00 | −0.29 | 0.92 | 3.0% | 3.0% |
+| Sign-randomised clustered, 50 events per period | 50.0 | −0.08 | 1.13 | 4.7% | 2.0% |
+| Sign-aligned clustered, 40 events per period | 40.0 | −0.09 | 2.04 | **30.3%** | **0.0%** |
+
+**Failure one: non-normal signed CARs, with no clustering needed.**
+D'Agostino's test assumes the sample is normal under the null and derives
+$\operatorname{Var}(g_1) = 6/n$ from that; leptokurtic input inflates the
+true variance of $m_3 / m_2^{3/2}$ above it, and the null $z$ comes out
+over-dispersed by exactly the factor the size implies. The two panel rows
+break the test at 19.0% and 23.3% while averaging 1.55 events per event
+period — near enough no clustering at all — and the deflation moves them
+barely, to 17.7% and 22.7%. On this null the within-period correlation of
+the cubed-deviation score is near zero by construction: signing by
+$\operatorname{sign}(\text{factor})$ enters a shared period shock with an
+asset-random sign, so a common shock moves the cubed deviations
+symmetrically and leaves no between-period variance for the ICC to find.
+The sign-randomised clustered row is the control — maximal clustering,
+near-zero excess kurtosis, correctly sized at 4.7%, and over-deflated to
+2.0% for its trouble.
+
+**Failure two: same-period shocks with sign-aligned events.** Remove the
+sign randomisation and the shared shock no longer cancels. The sign-aligned
+row rejects 30.3% at a nominal 5% with excess kurtosis of −0.09 — a pure
+dependence failure, with none of the non-normality that drives the panel
+rows. Here the deflator does grip (estimated ICC 0.30, mean Kish scale
+0.286), but it does not restore size: it drives the rejection rate to
+**0.0%**, trading a 6x over-rejection for a test with no power at all.
+
+The two failures pull in opposite directions — a deflator strong enough to
+touch the sign-aligned row annihilates it, and one weak enough to leave the
+sign-randomised control alone does nothing for the panel rows, which are
+not a dependence problem in the first place. factrix therefore has no
+calibrated pooled test for the skewness of sampled event returns, and does
+not manufacture one by tuning a deflator against whichever null it happens
+to be measured on. Read `value` as the descriptive shape of the event
+return distribution, and test the direction of the payoff with
+`event_hit_rate`, `event_ic`, `caar` or `bmp_z` — all of which stay sized
+on the mechanism that breaks hardest here. On the sign-aligned null, same
+300 replications: `bmp_z` 7.0% (71.3% with `kolari_pynnonen_adjust=False`,
+which is the deflator doing exactly the job it was built for, on a
+statistic whose failure *is* a shared mean shift), `event_hit_rate` 7.0%,
+`corrado_rank` 6.0%. `tests/stats/test_event_skewness_size.py` re-runs the
+252-period and sign-aligned cells at a cut replication count.
 
 ### Which HAC family a test is in
 [](){ #hac-families }

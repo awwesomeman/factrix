@@ -59,9 +59,10 @@ title: factrix.metrics.event_quality
     the ratio is unbounded (`value = inf`, `profit_factor_status =
     "unbounded_no_losses"`); if both are zero, the ratio is undefined
     (`value = NaN`). `event_skewness` reports the Fisher-
-    corrected skewness of the `signed_car` distribution with a
-    D'Agostino test when `n_events >= 20`. Useful for screening
-    fat-right-tail vs symmetric event payoffs.
+    corrected skewness of the `signed_car` distribution, descriptively:
+    `p_value` and `stat` are always `None` because no pooled test of that
+    third moment is calibrated here (statistical-methods section 6).
+    Useful for screening fat-right-tail vs symmetric event payoffs.
 
 -   __Firing frequency__
 
@@ -80,7 +81,7 @@ title: factrix.metrics.event_quality
 | Directional-accuracy binomial test                         | `event_hit_rate`     |
 | Magnitude-of-signal → magnitude-of-return rank correlation | `event_ic`           |
 | Gross gain / loss ratio (descriptive only)                 | `profit_factor`      |
-| Tail asymmetry of `signed_car` with D'Agostino skew test   | `event_skewness`     |
+| Tail asymmetry of `signed_car` (descriptive only)          | `event_skewness`     |
 | Inverse firing frequency (bars per event)                  | `signal_density`     |
 
 ## Worked example — directional accuracy + tail shape
@@ -105,8 +106,8 @@ title: factrix.metrics.event_quality
     # 0.564  3.81  1.4e-04   (approximate)
 
     sk = event_skewness(panel)
-    print(sk.value, sk.stat)
-    # 0.42  4.10   (approximate; stat is D'Agostino z when n_events >= 20)
+    print(sk.value, sk.stat, sk.p_value)
+    # 0.42  None  None   (approximate value; descriptive, no test)
 
     pf = profit_factor(panel)
     print(pf.value, pf.metadata["n_wins"], pf.metadata["n_losses"])
