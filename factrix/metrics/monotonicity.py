@@ -39,6 +39,7 @@ from factrix._stats.bootstrap import (
 )
 from factrix._types import (
     DDOF,
+    DEFAULT_FORWARD_PERIODS,
     MIN_MONOTONICITY_PERIODS_HARD,
     TiePolicy,
 )
@@ -201,7 +202,7 @@ def _validate_monotonicity(m: MetricBase) -> None:
 )
 def monotonicity(
     data: pl.DataFrame,
-    overlap_periods: int = 5,
+    overlap_periods: int = DEFAULT_FORWARD_PERIODS,
     n_groups: int = 10,
     factor_cols: Sequence[str] = ("factor",),
     return_col: str = "forward_return",

@@ -26,6 +26,7 @@ from factrix._codes import WarningCode
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._types import (
+    DEFAULT_FORWARD_PERIODS,
     EPSILON,
     MIN_PAIR_ACCURACY_PAIRS_HARD,
     MIN_PAIR_ACCURACY_PAIRS_WARN,
@@ -55,7 +56,7 @@ __all__ = [
 )
 def directional_pair_accuracy(
     data: pl.DataFrame,
-    overlap_periods: int = 5,
+    overlap_periods: int = DEFAULT_FORWARD_PERIODS,
     factor_col: str = "factor",
     return_col: str = "forward_return",
     expected_warnings: tuple[str, ...] = (),

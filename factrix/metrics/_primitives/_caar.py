@@ -14,6 +14,7 @@ from factrix._axis import (
 )
 from factrix._codes import WarningCode
 from factrix._metric_index import cell
+from factrix._types import DEFAULT_FORWARD_PERIODS
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _attach_abnormal_return,
@@ -37,7 +38,7 @@ def compute_caar(
     factor_col: str = "factor",
     return_col: str = "forward_return",
     estimation_window: int = 60,
-    overlap_periods: int = 5,
+    overlap_periods: int = DEFAULT_FORWARD_PERIODS,
     expected_warnings: tuple[str, ...] = (),
 ) -> pl.DataFrame:
     r"""Per-event-period weighted abnormal return series.

@@ -15,11 +15,8 @@ import polars as pl
 import pytest
 from factrix._codes import WarningCode
 from factrix._stats.constants import MIN_ASSETS_WARN
-from factrix._types import EPSILON
-from factrix.metrics._primitives._common_betas import (
-    MIN_COMMON_BETA_PERIODS_HARD,
-    compute_common_betas,
-)
+from factrix._types import EPSILON, MIN_COMMON_BETA_PERIODS_HARD
+from factrix.metrics._primitives._common_betas import compute_common_betas
 from factrix.metrics.common_beta import (
     common_beta,
     common_beta_profile,
@@ -27,7 +24,7 @@ from factrix.metrics.common_beta import (
     compute_rolling_common_beta,
 )
 
-_OUT_COLS = ["asset_id", "beta", "alpha", "t_stat", "r_squared", "n_obs"]
+_OUT_COLS = ["asset_id", "beta", "alpha", "t_stat", "r_squared", "n_periods"]
 
 
 def _common_factor_panel(n_assets: int, n_dates: int, seed: int) -> pl.DataFrame:
@@ -82,7 +79,7 @@ def _lstsq_reference(
                 "alpha": float(b[0]),
                 "t_stat": t,
                 "r_squared": r2,
-                "n_obs": n,
+                "n_periods": n,
             }
         )
     return pl.DataFrame(rows).sort("asset_id")
@@ -106,7 +103,7 @@ class TestComputeCommonBetas:
             "_drop_stats",
         ]
         assert df["asset_id"].is_sorted()
-        assert df.schema["n_obs"] == pl.Int64
+        assert df.schema["n_periods"] == pl.Int64
 
     def test_matches_lstsq_reference_columnwise(self):
         panel = _common_factor_panel(40, 120, seed=2)
@@ -118,9 +115,9 @@ class TestComputeCommonBetas:
             assert j[col].to_numpy() == pytest.approx(
                 j[f"{col}_g"].to_numpy(), abs=1e-10
             ), col
-        assert (j["n_obs"] == j["n_obs_g"]).all()
+        assert (j["n_periods"] == j["n_periods_g"]).all()
 
-    def test_drops_assets_below_min_obs(self):
+    def test_drops_assets_below_min_periods(self):
         # GOOD has MIN_COMMON_BETA_PERIODS_HARD rows; SHORT has fewer → dropped.
         panel = _common_factor_panel(
             1, MIN_COMMON_BETA_PERIODS_HARD, seed=3
@@ -164,7 +161,7 @@ class TestComputeCommonBetas:
         y = complete["forward_return"].to_numpy()
         beta_aligned = np.polyfit(x, y, 1)[0]
 
-        assert got["n_obs"][0] == 29
+        assert got["n_periods"][0] == 29
         assert got["beta"][0] == pytest.approx(beta_aligned, abs=1e-10)
 
 
@@ -369,7 +366,7 @@ class TestCommonBetaFewAssets:
                 "alpha": [0.0] * n_assets,
                 "t_stat": [3.0] * n_assets,
                 "r_squared": [0.5] * n_assets,
-                "n_obs": [50] * n_assets,
+                "n_periods": [50] * n_assets,
             }
         )
 
@@ -416,7 +413,7 @@ class TestCommonBetasNonFinite:
         assert np.isfinite(out["beta"].to_numpy()).all()
         assert np.isfinite(out["alpha"].to_numpy()).all()
 
-    def test_nan_factor_row_reduces_n_obs_for_that_asset_only(self):
+    def test_nan_factor_row_reduces_n_periods_for_that_asset_only(self):
         panel = _common_factor_panel(n_assets=4, n_dates=60, seed=12)
         victim = panel["asset_id"][0]
         poisoned = panel.with_columns(
@@ -429,8 +426,8 @@ class TestCommonBetasNonFinite:
         )
         clean = compute_common_betas(panel)["factor"]
         out = compute_common_betas(poisoned)["factor"]
-        n_clean = dict(zip(clean["asset_id"], clean["n_obs"], strict=True))
-        n_out = dict(zip(out["asset_id"], out["n_obs"], strict=True))
+        n_clean = dict(zip(clean["asset_id"], clean["n_periods"], strict=True))
+        n_out = dict(zip(out["asset_id"], out["n_periods"], strict=True))
         assert n_out[victim] == n_clean[victim] - 1
         for a in n_clean:
             if a != victim:
@@ -447,7 +444,7 @@ class TestCommonBetasNonFinite:
                 "alpha": [0.0, 0.0, 0.0, 0.0],
                 "t_stat": [3.0, 3.0, None, 3.0],
                 "r_squared": [0.5, 0.5, 0.5, 0.5],
-                "n_obs": [50, 50, 50, 50],
+                "n_periods": [50, 50, 50, 50],
             }
         )
         result = common_beta(df)
@@ -465,7 +462,7 @@ class TestCommonBetasNonFinite:
                 "alpha": [0.0, 0.0, 0.0],
                 "t_stat": [3.0, None, 3.0],
                 "r_squared": [0.4, float("nan"), 0.6],
-                "n_obs": [50, 50, 50],
+                "n_periods": [50, 50, 50],
             }
         )
         sign = common_beta_sign_consistency(df)

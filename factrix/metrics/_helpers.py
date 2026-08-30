@@ -45,6 +45,8 @@ from factrix._metric_index import SampleThreshold
 from factrix._results import MetricResult, PValueAlternative
 from factrix._types import (
     DDOF,
+    DEFAULT_FORWARD_PERIODS,
+    DEFAULT_N_GROUPS,
     EPSILON,
     N_GROUPS_FLOOR,
     KPSource,
@@ -1074,7 +1076,7 @@ def _attach_abnormal_return(
     *,
     return_col: str = "forward_return",
     estimation_window: int = 60,
-    overlap_periods: int = 5,
+    overlap_periods: int = DEFAULT_FORWARD_PERIODS,
     price_col: str = "price",
     factor_col: str = "factor",
     out_col: str = "_abnormal_return",
@@ -1845,7 +1847,7 @@ def _validate_n_groups(n_groups: int, *, func_name: str, docs_path: str) -> None
 def _assign_quantile_groups(
     data: pl.DataFrame,
     factor_col: str = "factor",
-    n_groups: int = 5,
+    n_groups: int = DEFAULT_N_GROUPS,
     tie_policy: TiePolicy = "ordinal",
 ) -> pl.DataFrame:
     """Assign quantile group labels (0 = bottom, n_groups-1 = top) per period.

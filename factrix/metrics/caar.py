@@ -59,6 +59,7 @@ from factrix._stats import (
 )
 from factrix._types import (
     DDOF,
+    DEFAULT_FORWARD_PERIODS,
     EPSILON,
     MIN_EVENTS_HARD,
     MIN_EVENTS_WARN,
@@ -139,7 +140,7 @@ def _caar_sample_threshold(self: MetricBase) -> SampleThreshold:
 def caar(
     caar_df: pl.DataFrame,
     *,
-    overlap_periods: int = 5,
+    overlap_periods: int = DEFAULT_FORWARD_PERIODS,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""CAAR significance: is mean CAAR significantly different from zero?
@@ -440,7 +441,7 @@ def bmp_z(
     factor_col: str = "factor",
     return_col: str = "forward_return",
     estimation_window: int = 60,
-    overlap_periods: int = 5,
+    overlap_periods: int = DEFAULT_FORWARD_PERIODS,
     kolari_pynnonen_adjust: bool = True,
     include_prediction_error_variance: bool = False,
     expected_warnings: tuple[str, ...] = (),
