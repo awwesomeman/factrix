@@ -10,7 +10,7 @@ from factrix import slice_period_pairwise_test
 from factrix._errors import UserInputError
 from factrix.metrics import caar, fm_beta, ic, monotonicity
 
-from tests._slice_panel import build_disjoint_period_panel
+from tests._slice_panel import build_disjoint_period_panel, build_labelled_raw_panel
 
 _PAIRWISE_COLS = [
     "slice_a",
@@ -463,3 +463,53 @@ class TestNonStrict:
             df, ic(), by="regime", factor_col="factor", method="analytic"
         )
         assert out["reason"].to_list() == ["degenerate_variance"]
+
+
+class TestDateAlignedPartitionRefused:
+    """Mirror of the cross-sectional `<2 aligned dates` guard.
+
+    The period family treats slices as independent samples, so a partition
+    whose slices share dates (sector, size bucket) must be refused and
+    routed to the cross-sectional pair rather than silently tested.
+    """
+
+    def test_fully_aligned_partition_names_the_cross_sectional_entry_point(
+        self,
+    ) -> None:
+        df = build_labelled_raw_panel(
+            n_dates=120, seed=21, signal={"tech": 0.2, "fin": 0.05}, label_col="sector"
+        )
+        with pytest.raises(UserInputError) as excinfo:
+            slice_period_pairwise_test(
+                df, ic(), by="sector", factor_col="factor", overlap_periods=5
+            )
+        message = str(excinfo.value)
+        assert "share 120 dates" in message
+        assert "slice_pairwise_test" in message
+        assert excinfo.value.field == "by"
+        assert excinfo.value.value == "sector"
+
+    def test_partially_overlapping_spans_refused(self) -> None:
+        """10% shared periods is still a shared common shock, not a boundary."""
+        df = build_disjoint_period_panel(
+            seed=22,
+            spans={"early": (80, 0.1), "late": (80, 0.1)},
+            label_col="regime",
+            shared_periods=8,
+        )
+        with pytest.raises(UserInputError, match="share 8 dates"):
+            slice_period_pairwise_test(df, ic(), by="regime", factor_col="factor")
+
+    def test_single_boundary_date_tolerated(self) -> None:
+        """One shared truncation boundary stays inside the disjoint contract."""
+        df = build_disjoint_period_panel(
+            seed=23,
+            spans={"early": (80, 0.1), "late": (80, 0.1)},
+            label_col="regime",
+            shared_periods=1,
+        )
+        out = slice_period_pairwise_test(
+            df, ic(), by="regime", factor_col="factor", rng=23
+        )
+        assert out.height == 1
+        assert np.isfinite(out["stat"][0])

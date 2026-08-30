@@ -65,6 +65,7 @@ def build_disjoint_period_panel(
     n_assets: int = 40,
     noise: float = 0.3,
     overlap_periods: int | None = 5,
+    shared_periods: int = 0,
 ) -> pl.DataFrame:
     """Raw panel whose labels occupy **disjoint** calendar spans.
 
@@ -76,6 +77,11 @@ def build_disjoint_period_panel(
     ``slice_period_*`` pair handles. Spans may differ in length, exercising
     the per-slice ``n_periods_*`` reporting.
 
+    ``shared_periods`` back-dates each span's start so that it overlaps its
+    predecessor by that many periods — 0 (default) keeps the spans strictly
+    disjoint, 1 is the single boundary period the period tests tolerate, and
+    anything larger is a date-aligned partition they must refuse.
+
     ``overlap_periods`` stamps the panel the way ``compute_forward_return``
     would (horizon and overlap alike); pass ``None`` for the unstamped,
     self-attached ``forward_return`` panel that must declare its overlap at
@@ -86,7 +92,7 @@ def build_disjoint_period_panel(
     frames = []
     for lbl, (n_dates, s) in spans.items():
         dates = [cursor + dt.timedelta(days=i) for i in range(n_dates)]
-        cursor = dates[-1] + dt.timedelta(days=1)
+        cursor = dates[-1] + dt.timedelta(days=1 - shared_periods)
         date_series = pl.Series("date", dates, dtype=pl.Date)
         idx = np.repeat(np.arange(n_dates), n_assets)
         factor = rng.normal(size=n_dates * n_assets)
