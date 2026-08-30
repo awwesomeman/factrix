@@ -84,6 +84,28 @@ distinguishes them:
   shared-date count and blames the thin universe — widen each slice's
   asset universe or use a coarser partition.
 
+### The refusal is symmetric
+
+Each pair refuses the other's partition, before its metric runs, and names
+the entry point that fits:
+
+| You called | With slices that | You get |
+|---|---|---|
+| `slice_pairwise_test` / `slice_joint_test` | share <2 dates (date-disjoint) | `ValueError`: `<2 aligned dates … use slice_period_pairwise_test / slice_period_joint_test for date-disjoint partitions.` |
+| `slice_period_pairwise_test` / `slice_period_joint_test` | share ≥2 dates in any pair (date-aligned) | `UserInputError` on `by`: `slices 'tech' and 'fin' share 120 dates … use slice_pairwise_test / slice_joint_test for date-aligned partitions.` |
+
+The period-family refusal is a hard error, not a warning: those tests treat
+each slice as an **independent sample** with block-diagonal cross-slice
+covariance, so slices sharing dates would have their common shocks counted
+as independent evidence and the p-values would be anticonservative with
+nothing in the result marking it. Partially overlapping spans are refused
+on the same rule — the shared periods carry the shared shock whether they
+are 10% of the span or all of it. Slices sharing **exactly one** date are
+tolerated: a date-axis partition truncated at a regime boundary can leave
+one common period, which
+[`slice_boundary_truncation`](../reference/warning-codes.md) already
+describes.
+
 For genuinely time-disjoint slices, reach for
 `slice_period_pairwise_test` / `slice_period_joint_test`. They build the
 same per-slice per-date series but **do not** inner-join — each slice is

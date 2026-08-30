@@ -185,6 +185,64 @@ def _require_slice_floor(
     )
 
 
+_MAX_TOLERATED_SHARED_DATES = 1
+
+
+def _require_date_disjoint(
+    slices: dict[str, pl.DataFrame],
+    labels: list[str],
+    *,
+    by: str,
+    func_name: str,
+) -> None:
+    """Refuse a partition whose slices share dates, before the metric runs.
+
+    Mirror of the cross-sectional guard: :func:`slice_pairwise_test` /
+    :func:`slice_joint_test` refuse a date-disjoint partition because their
+    inner-join collapses to <2 aligned rows; this pair must refuse the
+    opposite case just as loudly. The period-family maths treats each slice
+    as an **independent sample** with block-diagonal cross-slice covariance,
+    so slices that share dates (a cross-sectional partition — sector, size
+    bucket — carries every date in every slice) would be contrasted as if
+    their common shocks were independent, and the p-values would be
+    anticonservative with nothing in the result marking it.
+
+    Sharing a single date is tolerated: a date-axis partition truncated at a
+    regime boundary can leave one common date, which
+    ``slice_boundary_truncation`` already describes. Any pair sharing ≥2
+    dates is a date-aligned partition and raises.
+    """
+    date_sets = {
+        lbl: set(slices[lbl].get_column("date").unique().to_list()) for lbl in labels
+    }
+    worst: tuple[int, str, str] | None = None
+    for i, left in enumerate(labels):
+        for right in labels[i + 1 :]:
+            shared = len(date_sets[left] & date_sets[right])
+            if shared > _MAX_TOLERATED_SHARED_DATES and (
+                worst is None or shared > worst[0]
+            ):
+                worst = (shared, left, right)
+    if worst is None:
+        return
+    shared, left, right = worst
+    raise UserInputError(
+        func_name=func_name,
+        field="by",
+        value=by,
+        expected=(
+            f"a column whose slices are date-disjoint; slices {left!r} and "
+            f"{right!r} share {shared} dates. These tests are date-disjoint "
+            f"— they treat each slice as an independent sample, so slices "
+            f"must share ≤1 date (a truncated regime boundary). A "
+            f"date-aligned partition (e.g. sector, size bucket) shares its "
+            f"dates and is not supported here — use slice_pairwise_test / "
+            f"slice_joint_test for date-aligned partitions."
+        ),
+        docs_path=_DOCS_SLICE,
+    )
+
+
 def _build_per_slice_series(
     data: pl.DataFrame,
     metric: MetricBase,
@@ -204,8 +262,9 @@ def _build_per_slice_series(
     per-period metric values, plus the resolved floor and the labels below it
     (empty unless ``strict=False`` admitted them).
 
-    Raises ``UserInputError`` if ``factor_col`` is absent; ``ValueError``
-    on <2 slice values or any slice with <2 dates; ``TypeError`` (via
+    Raises ``UserInputError`` if ``factor_col`` is absent or the slices are
+    not date-disjoint; ``ValueError`` on <2 slice values or any slice with
+    <2 dates; ``TypeError`` (via
     resolver) if ``metric`` is not slice-test-eligible.
     """
     if factor_col not in data.columns:
@@ -224,6 +283,7 @@ def _build_per_slice_series(
             f"{func_name}: need ≥2 slice values on {by!r}; got {len(slices)}."
         )
     labels = list(slices.keys())
+    _require_date_disjoint(slices, labels, by=by, func_name=func_name)
     series_list: list[np.ndarray] = []
     for lbl in labels:
         produced = _run_producer_for_factor(producer, slices[lbl], factor_col)
@@ -369,9 +429,12 @@ def slice_period_pairwise_test(
 
     Raises:
         UserInputError: ``metric`` is not a metric instance, ``factor_col``
-            is absent, ``method`` is invalid, or ``overlap_periods`` is not a
+            is absent, ``method`` is invalid, ``overlap_periods`` is not a
             positive ``int`` / disagrees with the panel's stamp / is missing
-            on an unstamped panel.
+            on an unstamped panel, or ``by`` names a **date-aligned**
+            partition — any two slices sharing ≥2 dates are not independent
+            samples and belong to :func:`factrix.slice_pairwise_test` /
+            :func:`factrix.slice_joint_test`.
         ValueError: Fewer than two slice values, any slice with fewer than
             two dates, or (``strict=True``) any slice whose per-period series
             is below the metric's own ``SampleThreshold`` floor resolved at
@@ -789,9 +852,12 @@ def slice_period_joint_test(
 
     Raises:
         UserInputError: ``metric`` is not a metric instance, ``factor_col``
-            is absent, ``method`` is invalid, or ``overlap_periods`` is not a
+            is absent, ``method`` is invalid, ``overlap_periods`` is not a
             positive ``int`` / disagrees with the panel's stamp / is missing
-            on an unstamped panel.
+            on an unstamped panel, or ``by`` names a **date-aligned**
+            partition — any two slices sharing ≥2 dates are not independent
+            samples and belong to :func:`factrix.slice_pairwise_test` /
+            :func:`factrix.slice_joint_test`.
         ValueError: Fewer than two slice values, any slice with fewer than
             two dates, or (``strict=True``) any slice whose per-period series
             is below the metric's own ``SampleThreshold`` floor resolved at

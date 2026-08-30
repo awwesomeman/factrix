@@ -11,9 +11,9 @@ Slice analysis asks "is this factor stable across a partition of the panel?" The
 The **inference** functions are not. Cross-slice testing splits on a statistical fault line the dispatcher does not see — **do the slices share dates?**
 
 - **Cross-sectional / date-aligned** slices (sector, size bucket, liquidity tier) co-exist in time; cross-slice covariance is real and enters through a joint Newey-West HAC. → [`slice_pairwise_test` / `slice_joint_test`](../api/slice-test.md).
-- **Date-disjoint** slices (market regime, calendar period, in/out-of-sample) share no dates; they are (approximately) independent samples with block-diagonal covariance. The cross-sectional pair inner-joins on `date` and raises `<2 aligned dates` here. → [`slice_period_pairwise_test` / `slice_period_joint_test`](../api/slice-test.md), which treat each slice as an independent sample (bootstrap by default, analytic HAC opt-in).
+- **Date-disjoint** slices (market regime, calendar period, in/out-of-sample) share no dates; they are (approximately) independent samples with block-diagonal covariance. The cross-sectional pair inner-joins on `date` and raises `<2 aligned dates` here; symmetrically, this pair raises `UserInputError` on `by` when any two slices share ≥2 dates and points back at the cross-sectional pair. → [`slice_period_pairwise_test` / `slice_period_joint_test`](../api/slice-test.md), which treat each slice as an independent sample (bootstrap by default, analytic HAC opt-in).
 
-Picking the wrong pair is not a tuning choice — it is the wrong statistical assumption, so the two are **separate, explicitly-named** functions rather than one auto-routing surface.
+Picking the wrong pair is not a tuning choice — it is the wrong statistical assumption, so the two are **separate, explicitly-named** functions rather than one auto-routing surface, and each refuses the other's partition instead of returning a number ([the symmetric refusal](../api/slice-test.md#the-refusal-is-symmetric)).
 
 factrix splits this work into two roles because **slicing the panel** and **testing significance across slices** are different jobs that need different APIs.
 
@@ -23,7 +23,7 @@ factrix splits this work into two roles because **slicing the panel** and **test
 |---|---|---|---|
 | Dispatcher | [`by_slice(data, metric, *, by, factor_col)`](../api/by-slice.md) | Partitions an evaluate-ready panel (`forward_return` already attached) on an existing column and runs `evaluate` per slice; returns `dict[str, EvaluationResult]` (same shape as `evaluate`, keyed by slice) | **No cross-slice statistical test** |
 | Inference (date-aligned) | [`slice_pairwise_test`](../api/slice-test.md) / [`slice_joint_test`](../api/slice-test.md) | Cross-sectional pairwise contrasts (joint NW-HAC Wald χ² + Holm) or omnibus χ² that all slice means are equal | Only accepts metrics with a `per_date_series` capability (`ic`, `fm_beta`, `positive_rate`); requires slices to share dates |
-| Inference (date-disjoint) | [`slice_period_pairwise_test`](../api/slice-test.md) / [`slice_period_joint_test`](../api/slice-test.md) | Independent-sample pairwise contrasts (bootstrap + Romano-Wolf, or analytic HAC + Holm) / block-diagonal omnibus χ² for regime / calendar-period splits | Same `per_date_series` requirement; treats each slice as an independent sample |
+| Inference (date-disjoint) | [`slice_period_pairwise_test`](../api/slice-test.md) / [`slice_period_joint_test`](../api/slice-test.md) | Independent-sample pairwise contrasts (bootstrap + Romano-Wolf, or analytic HAC + Holm) / block-diagonal omnibus χ² for regime / calendar-period splits | Same `per_date_series` requirement; refuses a date-aligned partition (any pair of slices sharing ≥2 dates) |
 
 **Use the dispatcher when:** you want raw per-slice numbers, or you want to compose your own cross-slice test.
 
