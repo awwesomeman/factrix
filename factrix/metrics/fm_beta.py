@@ -41,6 +41,7 @@ from factrix._axis import (
     InputShape,
 )
 from factrix._codes import WarningCode
+from factrix._errors import UserInputError
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import (
@@ -49,7 +50,7 @@ from factrix._stats import (
     _p_value_from_t,
 )
 from factrix._stats.constants import MIN_PERIODS_WARN, PERSISTENT_SERIES_AUTOCORR
-from factrix._types import DDOF, EPSILON, ShankenVarSource
+from factrix._types import EPSILON
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _degenerate_test_fields,
@@ -91,6 +92,9 @@ per_date_series = per_date_series_rename("beta")
 # that the asymptotic t is borderline). ``T ≥ WARN`` is silent.
 MIN_FM_PERIODS_HARD: int = 4
 MIN_FM_PERIODS_WARN: int = 30
+
+# Docs page the ``factor_return_var`` input error points at.
+_DOCS_FM_BETA = "api/metrics/fm_beta"
 
 
 def _min_fm_assets(beta_df: pl.DataFrame) -> int | None:
@@ -177,7 +181,8 @@ def fm_beta(
             kernel is consistent *and* the reference distribution is
             calibrated under the MA($h-1$) overlap structure of
             $h$-period returns.
-        is_estimated_factor: Set True when the ``Signal_i`` column used by
+        is_estimated_factor: Requires ``factor_return_var``. Set True when
+            the ``Signal_i`` column used by
             ``compute_fm_betas`` is itself an **estimated** quantity
             (rolling ordinary least squares (OLS) $\beta$ to another factor, PCA score,
             ML-predicted score, residual from a first-stage regression).
@@ -206,19 +211,20 @@ def fm_beta(
             diagnostic literature.
 
         factor_return_var: $\sigma^2_f$, the time-series variance of the
-            factor-mimicking portfolio return. Prefer supplying this when
-            you have a spread-portfolio return series (the long-short
-            spread actually traded on the density). When ``None`` and
-            ``is_estimated_factor=True``, falls back to
-            $\mathrm{var}(\beta_t)$ as a rough placeholder —
-            $\hat\beta_t$ is *not* the factor-mimicking return but is
-            usually the only readily-available series. Because
-            $\mathrm{var}(\hat\beta_t)$ already absorbs upstream
-            estimation noise, it inflates the denominator of the EIV
-            factor and so deflates the SE correction; treat the
-            ``betas_timeseries_proxy`` result as a **lower bound on the
-            true SE inflation** — i.e. an **upper bound on the reported
-            $t$-stat** — not a precise estimate.
+            factor-mimicking portfolio return — the long-short spread
+            actually traded on the density. **Mandatory** when
+            ``is_estimated_factor=True``; ``None`` there raises
+            ``UserInputError``. There is deliberately no default: the
+            obvious candidate, $\mathrm{var}(\hat\beta_t)$, makes the
+            multiplier $1 + \overline{\beta}^2/\mathrm{var}(\hat\beta_t)
+            \equiv 1 + t^2_{\mathrm{iid}}/T$ identically — an algebraic
+            restatement of the $t$-stat that carries no
+            errors-in-variables information about the regressor. When
+            $\sigma^2_f$ is below machine epsilon the multiplier is
+            undefined; the correction is skipped, the uncorrected
+            Newey-West $p$ is returned, and
+            ``WarningCode.DEGENERATE_VARIANCE`` is raised alongside
+            ``metadata["shanken_correction"]``.
 
     Notes:
         Stage 2 of FM:
@@ -230,7 +236,9 @@ def fm_beta(
         $\nu = \min(1.5T/L - 1,\, T/h - 1)$.
         With ``is_estimated_factor=True``, the
         [Shanken (1992)][shanken-1992] single-factor correction scales
-        SE by $\sqrt{1 + \overline{\beta}^2 / \sigma^2_f}$.
+        SE by $\sqrt{1 + \overline{\beta}^2 / \sigma^2_f}$, and the
+        corrected $t$ is read against the same effective $\nu$ as the
+        uncorrected one — so the correction can only move $p$ upward.
 
         factrix uses the [LLSW (2018)][llsw-2018] HAR bandwidth rule
         floored against the Hansen-Hodrick overlap horizon, with a
@@ -282,6 +290,22 @@ def fm_beta(
         >>> result.name == ""
         True
     """
+    if is_estimated_factor and factor_return_var is None:
+        raise UserInputError(
+            func_name="fm_beta",
+            field="factor_return_var",
+            value=factor_return_var,
+            expected=(
+                "the time-series variance of the factor-mimicking portfolio "
+                "return (a float) whenever is_estimated_factor=True. There is "
+                "no usable default: substituting var(β̂_t) makes the Shanken "
+                "multiplier 1 + mean(β)²/var(β̂_t) identically 1 + t²/T, which "
+                "is a restatement of the t-stat and carries no "
+                "errors-in-variables information about the regressor"
+            ),
+            docs_path=_DOCS_FM_BETA,
+        )
+
     betas = beta_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
 
@@ -340,34 +364,45 @@ def fm_beta(
     }
 
     if is_estimated_factor:
-        sigma2_f = (
-            float(factor_return_var)
-            if factor_return_var is not None
-            else float(np.var(betas, ddof=DDOF))
-        )
+        sigma2_f = float(factor_return_var)  # type: ignore[arg-type]
         # σ²_f ≈ 0 means the factor premium series is flat; Shanken's
         # denominator collapses and the correction is undefined. Skip
         # rather than divide into EPSILON — the uncorrected NW result
-        # is the honest answer in a degenerate regime.
+        # is the honest answer in a degenerate regime. A skipped
+        # correction is a regime switch, so it carries a warning code
+        # rather than only a metadata string.
         if sigma2_f < EPSILON:
             metadata["shanken_correction"] = "skipped_zero_factor_variance"
+            code = WarningCode.DEGENERATE_VARIANCE.value
+            if code not in warning_codes:
+                warning_codes.append(code)
+            if code not in expected_warnings:
+                warnings.warn(
+                    f"fm_beta: factor_return_var={sigma2_f!r} is below "
+                    f"EPSILON={EPSILON}, so the Shanken (1992) EIV multiplier "
+                    f"1 + mean(β)²/σ²_f is undefined. The correction is "
+                    f"skipped and the UNCORRECTED Newey-West p-value is "
+                    f"returned — read it as un-adjusted for the estimated "
+                    f"regressor.",
+                    UserWarning,
+                    stacklevel=2,
+                )
         else:
             c = 1.0 + (mean_beta**2) / sigma2_f
             sqrt_c = math.sqrt(c)
             t_shanken = t / sqrt_c
-            p_shanken = _p_value_from_t(t_shanken, n)
-            source: ShankenVarSource = (
-                "user_supplied"
-                if factor_return_var is not None
-                else "betas_timeseries_proxy"
-            )
+            # Read the corrected t against the SAME effective df the
+            # uncorrected p used. Falling back to n-1 widens the reference
+            # distribution far enough to more than undo the √c SE inflation,
+            # which turns a conservative correction into a p-value that is
+            # SMALLER than the uncorrected one.
+            p_shanken = _p_value_from_t(t_shanken, n, dof=metadata["hac_dof"])
             metadata.update(
                 {
                     "p_value_uncorrected": p,
                     "stat_uncorrected": t,
                     "shanken_c": c,
                     "shanken_factor_return_var": sigma2_f,
-                    "shanken_factor_return_var_source": source,
                     "method": ("Fama-MacBeth + Newey-West + Shanken (1992) EIV"),
                 }
             )

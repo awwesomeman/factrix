@@ -38,12 +38,15 @@ title: factrix.metrics.fm_beta
 
     ---
 
-    Set `is_estimated_factor=True` (with `factor_return_var=` where the
-    factor-mimicking-portfolio return series is available) to apply the
+    Set `is_estimated_factor=True` **together with** `factor_return_var=`
+    — the variance of the factor-mimicking portfolio return — to apply the
     Shanken (1992) single-factor EIV correction (the multi-factor
     multiplicative term collapses to $1 + \hat\lambda^2/\sigma^2_f$).
     Required when the FactorDensity column is itself estimated — rolling beta,
-    PCA score, ML prediction.
+    PCA score, ML prediction. There is no default $\sigma^2_f$: omitting it
+    raises `UserInputError`, because the obvious proxy
+    $\mathrm{var}(\hat\beta_t)$ makes the multiplier $1 + t^2/T$
+    identically and carries no EIV information.
 
 -   __Pooled OLS robustness check__
 

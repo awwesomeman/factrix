@@ -119,11 +119,13 @@ is emitted.
 - *warning*: `WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED` when the resolved
   bandwidth exceeds `n_periods / 5`.
 - *descriptive* (conditional, Shanken applied): `shanken_c`,
-  `shanken_factor_return_var`, `shanken_factor_return_var_source`.
+  `shanken_factor_return_var` (the caller-supplied σ²_f). The corrected
+  `p_value` is read against the same `hac_dof` as `p_value_uncorrected`,
+  so `p_value >= p_value_uncorrected` always.
 - *descriptive* (conditional, σ²_f ≈ 0): `shanken_correction` =
   `"skipped_zero_factor_variance"` — the correction is undefined
   when the factor-return variance collapses; the uncorrected NW
-  result is reported.
+  result is reported and `WarningCode.DEGENERATE_VARIANCE` is raised.
 
 #### `pooled_beta` (emits `MetricResult.name = "pooled_beta"`)
 

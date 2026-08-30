@@ -181,14 +181,24 @@ omits: at finite $T$ the omission **understates** the EIV inflation
 and so **overstates** the resulting $t$. The simplification is honest
 only when $T$ is large enough that the dropped term is negligible.
 
-When `factor_return_var` is not supplied, factrix falls back to
-$\mathrm{var}(\hat\beta_t)$ as a proxy for $\sigma^2_f$. Because
-$\hat\beta_t$ already absorbs
-estimation noise from the upstream factor score, this proxy
-**inflates the denominator** of the EIV factor and so **further
-deflates** the correction. Treat the
-`betas_timeseries_proxy` result as a lower bound on the true
-inflation — i.e. an upper bound on the reported `t`.
+`factor_return_var` is **required** under `is_estimated_factor=True`;
+omitting it raises `UserInputError`. There is no default because the
+only readily-available substitute, $\mathrm{var}(\hat\beta_t)$, makes the
+multiplier $1 + \overline{\beta}^2 / \mathrm{var}(\hat\beta_t) \equiv
+1 + t^2_{\mathrm{iid}} / T$ identically — an algebraic restatement of the
+$t$-stat that carries no errors-in-variables information about the
+regressor at all. When $\sigma^2_f$ collapses below machine epsilon the
+multiplier is undefined; factrix skips the correction, returns the
+uncorrected Newey-West $p$, and raises
+`WarningCode.DEGENERATE_VARIANCE` rather than switching silently.
+
+The corrected $t$ is read against the **same** effective degrees of
+freedom $\nu$ as the uncorrected one (`metadata["hac_dof"]`), so
+$c \ge 1$ translates into $p_{\text{Shanken}} \ge p_{\text{uncorrected}}$
+on any given series. Reading it against $T - 1$ instead would widen the
+reference distribution far enough to more than undo the $\sqrt{c}$ SE
+inflation and make the "conservative" correction return the *smaller*
+$p$.
 
 Default versus paired t-test is a separate choice: the mainstream
 metrics (`ic`, `caar`) use **non-overlapping resampling** as the
@@ -586,6 +596,30 @@ or Andrews-Monahan prewhitening) would change every HAC $p$-value in the
 library and is a project rather than a patch. Read HAC $p$-values near the
 threshold as optimistic when the input is persistent — the `persistence`
 diagnostic in section 4 flags exactly that case.
+
+### Shanken EIV correction on `fm_beta`: measured size
+
+Rejection frequency at a nominal 5% on a true null —
+`make_cs_panel(ic_target=0.0)`, 50 assets, 300 replications per cell,
+seed 20260830 + replication. $\sigma^2_f$ is the variance of the panel's
+own realised long-short forward return (top-minus-bottom quintile,
+equal-weighted, computed from the same panel), which is what a caller
+holding the traded spread would supply.
+
+| $T$ | $h$ | uncorrected | Shanken |
+|---|---|---|---|
+| 120 | 1 | 7.3% | 7.3% |
+| 120 | 5 | 3.3% | 3.3% |
+| 240 | 1 | 4.3% | 4.0% |
+| 240 | 5 | 6.0% | 6.0% |
+
+Under the null $\overline{\beta} \to 0$, so $c \to 1$ and the correction is
+close to inert: the row simply inherits the scalar series-mean size of the
+HAR path in the table above. That is the intended shape — the correction
+costs no size on a true null and only shrinks $t$ where a premium is
+actually estimated. Producing module:
+`tests/stats/test_fm_beta_shanken_size.py`, which re-measures the same
+grid at a reduced replication count.
 
 ### Joint period test on short slices: known over-rejection
 
