@@ -12,7 +12,11 @@ from factrix._axis import (
     OutputShape,
     SpecRole,
 )
-from factrix._data_input import _OVERLAP_PERIODS_COL, _validate_panel_key_columns
+from factrix._data_input import (
+    _OVERLAP_PERIODS_COL,
+    _validate_named_columns,
+    _validate_panel_key_columns,
+)
 from factrix._metric_index import Cell, MetricSpec, SampleThreshold
 
 # Parameters that ``evaluate`` injects at dispatch rather than the user
@@ -307,6 +311,39 @@ class MetricBase(metaclass=MetricMeta):
             if value is not None and name in self._injected_param_names
         }
 
+    def _named_column_params(self) -> dict[str, Any]:
+        """Column names this call *chose* — the ones the caller can mis-type.
+
+        Every metric already follows one naming convention: a parameter ending
+        in ``_col`` carries one column name, one ending in ``_cols`` a sequence
+        of them. Only values that differ from the signature default are
+        returned. A param left at its default names a column the metric
+        documents (``factor``, ``forward_return``, ``price``, ``market_cap``),
+        and its absence is a fact about the data — a short-circuit verdict the
+        body already reports — not a typo the caller can fix by renaming.
+        """
+        named: dict[str, Any] = {}
+        for name in self._param_names:
+            if not name.endswith(("_col", "_cols")):
+                continue
+            value = getattr(self, name)
+            field = self.__dataclass_fields__[name]  # type: ignore[attr-defined]
+            if value != field.default:
+                named[name] = value
+        return named
+
+    def _docs_path(self) -> str:
+        """Docs page for this metric — one page per public metrics module.
+
+        A private (underscore-prefixed) module holds a producer the DAG
+        configures rather than a documented metric, so it has no page of its
+        own; those point at the metrics index.
+        """
+        module = self.__class__.__module__.rsplit(".", 1)[-1]
+        if module.startswith("_"):
+            return "api/metrics"
+        return f"api/metrics/{module}"
+
     def __call__(
         self,
         *args: Any,
@@ -324,6 +361,17 @@ class MetricBase(metaclass=MetricMeta):
             # ``requires`` consumer takes a producer's derived frame instead —
             # its schema is the producer's contract, not the panel's.
             _validate_panel_key_columns(args[0], func_name=self.__class__.__name__)
+            # Then the columns this call named itself: a mis-typed
+            # ``factor_col`` / ``return_col`` / ``weight_col`` is the same
+            # class of mistake as a mis-typed ``asset_id`` and fails the same
+            # way, instead of reaching a polars expression or being answered
+            # with a NaN "insufficient data" envelope.
+            _validate_named_columns(
+                args[0],
+                self._named_column_params(),
+                func_name=self.__class__.__name__,
+                docs_path=self._docs_path(),
+            )
         if overlap_periods is None and args:
             # Standalone call: the horizon is a property of the data, so read
             # the stamp rather than letting the signature default diverge from

@@ -68,6 +68,7 @@ Concrete messages, what triggers them, and where to look for the fix.
 |---|---|---|
 | `factor_cols 'X' not in data columns` | Typo or wrong column name | Check `data.columns`; pass the actual name to `factor_cols=`. See [Data schema](data-schema.md). |
 | `forward_return column missing` | Forgot the preprocess step | `compute_forward_return(raw, forward_periods=h)` before `evaluate`. See [Preparing data](../guides/preparing-data.md). |
+| `<metric>(): unknown factor_col='X'` | Typo in a column named on a direct metric call (`factor_col` / `return_col` / `weight_col` / `factor_cols`) | Read `.candidates` / `.suggestions` — they are the frame's own columns. A mis-named column is a caller error, not a thin sample: it never returns a NaN "insufficient data" result. |
 
 ### Structural and sample failures
 
