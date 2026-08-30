@@ -335,6 +335,11 @@ def test_evaluate_reports_a_bad_split_identically(panel):
 
 _DATASET_CASES = [
     ("make_cs_panel", {"n_assets": 1, "n_dates": 40}, "n_assets"),
+    (
+        "make_cs_panel",
+        {"n_assets": 8, "n_dates": 40, "factor_persistence": 1.0},
+        "factor_persistence",
+    ),
     ("make_cs_panel", {"n_assets": 8, "n_dates": 3}, "n_dates"),
     ("make_event_panel", {"n_assets": 0, "n_dates": 40}, "n_assets"),
     ("make_event_panel", {"n_assets": 8, "n_dates": 3}, "n_dates"),
