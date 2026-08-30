@@ -40,21 +40,22 @@ def _events_panel(n_events: int, seed: int = 0) -> pl.DataFrame:
 
 
 class TestEventSkewness:
-    def test_thin_sample_below_skewtest_floor_returns_null_p_and_alternative(self):
-        # scipy.stats.skewtest requires n >= 20; below that event_skewness
-        # short-circuits its own significance test (p=None) while still
-        # returning a descriptive skewness value.
-        result = event_skewness(_events_panel(10), overlap_periods=1)
+    @pytest.mark.parametrize("n_events", [10, 50])
+    def test_descriptive_at_every_sample_size(self, n_events):
+        # The D'Agostino skew test is withdrawn at every sample size: it
+        # assumes normality under the null and over-rejects on the excess
+        # kurtosis a sampled event panel carries (measured 19-23% at a
+        # nominal 5%). The descriptive skewness is still returned.
+        result = event_skewness(_events_panel(n_events), overlap_periods=1)
         assert result.p_value is None
         assert result.alternative is None
         assert result.stat is None
         assert np.isfinite(result.value)
 
-    def test_large_sample_returns_two_sided_p_and_alternative(self):
+    def test_no_test_keys_in_metadata(self):
         result = event_skewness(_events_panel(50), overlap_periods=1)
-        assert result.p_value is not None
-        assert result.alternative == "two-sided"
-        assert result.stat is not None
+        for key in ("stat_type", "h0", "method"):
+            assert key not in result.metadata
 
 
 # ---------------------------------------------------------------------------
@@ -115,12 +116,11 @@ class TestNonFiniteEventsDropped:
     def test_skewness_does_not_raise_on_a_hole(self, hole):
         rng = np.random.default_rng(0)
         returns = [*rng.normal(0.01, 0.02, 40), hole]
-        # Old behaviour: NaN propagated into skewtest, p became NaN and
-        # MetricResult raised ValueError.
+        # Old behaviour: NaN propagated into the skewness, the p became NaN
+        # and MetricResult raised ValueError.
         result = event_skewness(_event_panel(returns), overlap_periods=1)
         assert np.isfinite(result.value)
-        assert result.p_value is not None
-        assert np.isfinite(result.p_value)
+        assert result.p_value is None
         assert result.n_obs == 40
         assert result.metadata["n_events_dropped_non_finite"] == 1
 
