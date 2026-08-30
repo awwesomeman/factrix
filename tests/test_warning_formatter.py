@@ -55,7 +55,7 @@ class TestOneEmitChokepoint:
         for path in sorted(_PACKAGE.rglob("*.py")):
             if path == _CHOKEPOINT:
                 continue
-            source = path.read_text()
+            source = path.read_text(encoding="utf-8")
             tree = ast.parse(source)
             lines = source.splitlines()
             for call in _warn_calls(tree):
