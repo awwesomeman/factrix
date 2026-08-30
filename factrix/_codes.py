@@ -469,12 +469,14 @@ _WARNING_DESCRIPTIONS.update(
         "p-values cautiously. event_skewness publishes no p-value; there the "
         "code says its third moment is estimated on a thin sample.",
         WarningCode.BORDERLINE_PORTFOLIO_PERIODS: "top_concentration with MIN_PORTFOLIO_PERIODS_HARD "
-        "≤ n_periods < MIN_PORTFOLIO_PERIODS_WARN (3..19); the one-sided t-test "
-        "on the per-period diversification ratio is returned but df=n-1 inflates "
-        "t_crit, and at the bottom of the range it is extremely conservative: "
-        "at exactly 3 periods it rejected 0 of 250 null draws at a nominal 5%, "
-        "so a p-value there carries essentially no information. Treat value "
-        "as descriptive until the series is well inside the range.",
+        "≤ n_periods < MIN_PORTFOLIO_PERIODS_WARN (3..19); the mean effective "
+        "number of names is averaged over few periods and moves substantially "
+        "between draws. top_concentration is descriptive at every sample size — "
+        "it publishes no p-value (the withdrawn one-sided t against ratio ≥ 0.5 "
+        "never rejected: the null ratio is ~0.91, measured 0 of 300 draws at a "
+        "nominal 5%) — so this code is about the precision of value and "
+        "ratio_eff_to_total, not about a test. Lengthen the history before "
+        "comparing panels.",
         WarningCode.FEW_DIRECTIONAL_PAIRS: "directional_hit_rate with MIN_DIRECTIONAL_PAIRS_HARD "
         "≤ n_pairs < MIN_DIRECTIONAL_PAIRS_WARN (10..29); the Pesaran-Timmermann "
         "hit rate is returned but n counts pooled non-overlapping (date, asset) "

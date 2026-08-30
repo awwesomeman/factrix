@@ -7,7 +7,8 @@ inverse.
 Notes:
     **Pipeline.** Per-period HHI inverse on top-bucket weights
     (cross-section step) → per-period ratio series, then non-overlapping
-    sample; across-time t against ``H₀: ratio ≥ 0.5``.
+    sample. Descriptive: no p-value is reported (see the ``Notes`` on
+    ``top_concentration`` for the measurement that withdrew it).
 
     **Input.** DataFrame with ``date, asset_id, factor, forward_return``.
 """
@@ -28,9 +29,7 @@ from factrix._axis import (
 from factrix._codes import WarningCode
 from factrix._metric_index import cell
 from factrix._results import MetricResult
-from factrix._stats import _calc_t_stat, _p_value_from_t
 from factrix._types import (
-    DDOF,
     EPSILON,
     MIN_PORTFOLIO_PERIODS_HARD,
     MIN_PORTFOLIO_PERIODS_WARN,
@@ -40,7 +39,6 @@ from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _compute_tie_ratio,
-    _degenerate_test_fields,
     _enforce_scaled_floor,
     _finite_expr,
     _finite_values,
@@ -140,29 +138,39 @@ def top_concentration(
 
     Returns:
         MetricResult with value = mean(1/HHI) across dates.
-        Higher = more diversified top bucket.
+        Higher = more diversified top bucket. **Descriptive**:
+        ``p_value``, ``stat`` and ``alternative`` are ``None`` — see Notes.
 
     Notes:
-        **Bottom of the warn range.** ``MIN_PORTFOLIO_PERIODS_HARD = 3``
-        admits a one-sided ``t`` with ``df = 2``. Measured on a true null at
-        exactly 3 periods it rejected 0 of 250 draws at a nominal 5% —
-        extremely conservative, so a p-value there carries essentially no
-        information. ``BORDERLINE_PORTFOLIO_PERIODS`` covers the whole
-        ``[3, 20)`` range; at its bottom read ``value`` (mean effective
-        number of names) descriptively and do not lean on ``p_value``. The
-        floor is not raised because the value is still a valid descriptive
-        statistic there and raising it would lock out users who get one
-        today.
+        **The metric is descriptive; there is no p-value.** Earlier
+        versions reported a one-sided ``t`` against
+        $H_0: \mathbb{E}[r] \geq 0.5$. That test is withdrawn because the
+        0.5 reference ratio sits far inside the null for any realistic
+        panel, not near it: on a Gaussian factor with ``abs_factor``
+        weights the null diversification ratio is ~0.91, roughly nine
+        null standard deviations above the boundary. Measured on
+        ``make_cs_panel(ic_target=0.0)``, 50 assets, ``q_top=0.2``,
+        ``overlap_periods=5``, seed 20260830 + replication, it rejected
+        **0 of 300** draws at a nominal 5% at 10 tested periods and 0 of
+        300 at 48 tested periods. A p-value that cannot reject at any
+        sample size carries no information, so it is no longer emitted.
+
+        This is a *boundary* choice, not a degrees-of-freedom effect.
+        Earlier releases attributed the conservatism to the ``df = 2``
+        admitted by ``MIN_PORTFOLIO_PERIODS_HARD = 3``; the measurement
+        above shows the rejection rate is 0 at every sample size, so
+        short samples were never the cause. Read ``value`` (mean
+        effective number of names) and ``ratio_eff_to_total`` against a
+        reference *you* choose for your universe.
 
         Per non-overlap date $t$ with top-bucket members $Q^{\mathrm{top}}(t)$
         (size $n^{\mathrm{top}}$), define weights $w_i$ by ``weight_by``
         and form the Herfindahl
         $\mathrm{HHI}_t = \sum_i (w_i / \sum_j w_j)^2$. Effective
-        independent bets $n^{\mathrm{eff}}_t = 1 / \mathrm{HHI}_t$.
-        Per-period diversification ratio
-        $r_t = n^{\mathrm{eff}}_t / n^{\mathrm{top}}$ is averaged and tested
-        one-sided against $H_0: \mathbb{E}[r] \geq 0.5$: rejecting flags
-        concentration.
+        independent bets $n^{\mathrm{eff}}_t = 1 / \mathrm{HHI}_t$. The
+        per-period diversification ratio
+        $r_t = n^{\mathrm{eff}}_t / n^{\mathrm{top}}$ is averaged into
+        ``metadata["ratio_eff_to_total"]`` and reported as is.
 
         **Membership is a count, not a percent-rank threshold.** With
         $n_t$ *finite* factor values on date $t$, the bucket is the
@@ -209,7 +217,7 @@ def top_concentration(
         return _short_circuit_output(
             "top_concentration",
             "no_return_column",
-            alternative="less",
+            descriptive=True,
             missing_column=return_col,
             weight_by=weight_by,
         )
@@ -290,6 +298,7 @@ def top_concentration(
         MIN_PORTFOLIO_PERIODS_HARD,
         overlap_periods,
         "insufficient_portfolio_periods",
+        descriptive=True,
         tie_ratio=tie_ratio,
     )
     if sc is not None:
@@ -331,11 +340,11 @@ def top_concentration(
         overlap_periods,
         f"top_concentration: {n_raw_periods} raw dates below "
         f"MIN_PORTFOLIO_PERIODS_WARN*overlap_periods="
-        f"{MIN_PORTFOLIO_PERIODS_WARN * overlap_periods}; the one-sided t-test "
-        f"on the per-period diversification ratio is returned but df=n-1 inflates "
-        f"t_crit, and near the floor it is extremely conservative (at 3 periods "
-        f"it rejected 0 of 250 null draws at a nominal 5%): treat the p-value "
-        f"as uninformative there and read the value descriptively.",
+        f"{MIN_PORTFOLIO_PERIODS_WARN * overlap_periods}; the mean effective "
+        f"number of names is averaged over few periods and moves substantially "
+        f"between draws. The metric is descriptive (no p-value at any sample "
+        f"size), so read value and ratio_eff_to_total as a noisy estimate here "
+        f"and lengthen the history before comparing panels.",
         WarningCode.BORDERLINE_PORTFOLIO_PERIODS,
         expected_warnings=expected_warnings,
     )
@@ -348,7 +357,7 @@ def top_concentration(
         return _short_circuit_output(
             "top_concentration",
             "insufficient_top_bucket_periods",
-            alternative="less",
+            descriptive=True,
             n_obs=0,
             n_obs_axis="periods",
             tie_ratio=tie_ratio,
@@ -361,23 +370,17 @@ def top_concentration(
     mean_eff_n = float(np.mean(eff_n_arr))
     mean_n_top = float(np.mean(n_top_arr))
     ratio = mean_eff_n / max(mean_n_top, 1)
+    n = len(eff_n_arr)
 
-    # WHY: t-stat tests H₀: ratio ≥ 0.5 (well-diversified).
-    # Per-period ratio = eff_n / n_top; if mean ratio < 0.5 with significant t,
-    # alpha is concentrated in a few stocks.
-    ratio_arr = eff_n_arr / np.maximum(n_top_arr, 1)
-    n = len(ratio_arr)
-    mean_ratio = float(np.mean(ratio_arr))
-    std_ratio = float(np.std(ratio_arr, ddof=DDOF))
-    # Test H₀: ratio ≥ 0.5 → shift by 0.5 then use standard t-test
-    t = _calc_t_stat(mean_ratio - 0.5, std_ratio, n)
-
-    # WHY: one-sided test → p = P(T < t), not two-sided
-    p = _p_value_from_t(t, n, alternative="less")
+    # No hypothesis test. The one-sided t against ``H₀: ratio >= 0.5`` this
+    # metric used to report never rejected — the null ratio is ~0.91 on a
+    # Gaussian factor with ``abs_factor`` weights, so 0.5 is ~9 null SDs
+    # inside H₀ and the measured rejection rate is 0/300 at both 10 and 48
+    # tested periods (docstring Notes). A test that cannot reject at any
+    # sample size is not inference, so ``value`` and ``ratio_eff_to_total``
+    # are returned descriptively instead.
     metadata: dict = {
-        "stat_type": "t",
-        "h0": "ratio>=0.5",
-        "method": "one-sided t-test on ratio",
+        "method": "descriptive: mean 1/HHI on the top bucket",
         "mean_n_top": mean_n_top,
         "ratio_eff_to_total": ratio,
         "tie_ratio": tie_ratio,
@@ -391,18 +394,13 @@ def top_concentration(
         # Present only when ONE_SIGNED_FACTOR fired; the sign split behind it.
         **one_signed_meta,
     }
-    # A uniform factor gives every date the same diversification ratio: the
-    # ratio itself is still the answer, the one-sided t is not computable.
-    stat, p_out, alternative = _degenerate_test_fields(
-        t, p, "less", metadata, warning_codes
-    )
     return MetricResult(
-        p_value=p_out,
-        alternative=alternative,
+        p_value=None,
+        alternative=None,
         value=mean_eff_n,
         n_obs=n,
         n_obs_axis="periods",
-        stat=stat,
+        stat=None,
         metadata=metadata,
         warning_codes=tuple(warning_codes),
     )
