@@ -49,27 +49,31 @@ An `EvaluationResult` represents the outcome of evaluating a single factor colum
 
 ### 3. Evaluated metrics (`result.metrics`)
 
-The `metrics` attribute is a read-only `Mapping[str, MetricResult]` mapping the user-supplied label to a `MetricResult`.
+The `metrics` attribute is a read-only `Mapping[str, MetricResult]` mapping
+the user-supplied label to a `MetricResult`. The full field list — including
+the serialization methods `to_frame()` / `to_dict()` — is specified once in
+[`MetricResult` key fields](../api/evaluation-results.md#key-fields); this
+page gives only the order to read them in.
 
-For a specific metric `key`, `result.metrics[key]` exposes:
+Read a `MetricResult` in this order:
 
-- **`value`**: Raw metric value (e.g. mean IC).
-- **`p_value`**: Calibrated p-value for the metric's test (when applicable, or `None`).
-- **`alternative`**: The tested tail (`two-sided`, `greater`, or `less`), present exactly when `p_value` is present. Never infer the tail from the sign of `stat`.
-- **`stat`**: Test statistic (t, z, W, chi2, ...).
-- **`n_obs`**: Observations seen by this specific metric's estimator.
-- **`warning_codes`**: Advisory warnings attached by the metric (e.g. `FEW_EVENTS`).
-- **`metadata`**: Tool-specific context.
+1. **`is_applicable`** — `False` marks a `strict=False` short-circuit
+   placeholder. Stop here: `value`, `p_value` and `stat` are not results.
+2. **`reason`** — the stable short-circuit reason behind an
+   `is_applicable is False`. It says which metric/input combination was
+   unsupported.
+3. **the value itself** — `value`, then `p_value` with its `alternative`
+   (never infer the tail from the sign of `stat`), then `stat`, then `n_obs`
+   with the `n_obs_axis` that makes the count interpretable.
 
-For CAAR event studies, distinguish raw events from the effective test sample:
-`metadata["total_events"]` is the raw non-zero event-row count,
-`metadata["n_event_periods"]` is the number of event dates after same-date
-events are collapsed, and `metadata["n_event_periods_sampled"]` is the
-non-overlapping event-date sample used for the headline `p_value`.
+Then check `warning_codes` before quoting the number, and read `metadata`
+for the estimator-specific detail (for `caar`, the raw-versus-effective
+event counts are set out on the [caar page](../api/metrics/caar.md)).
 
 ### 4. Warnings and Execution Plan
 
 - **`warnings`**: Flat list of `Warning` objects. A per-metric warning carries `source == metric_name`; a panel-level warning carries `source is None`.
+- **`unexpected_warnings`**: The subset of `warnings` not named in the metrics' `expected_warnings` — the ones to triage first.
 - **`plan`**: Multi-line topological execution plan showing how the DAG resolved and batched the metrics.
 
 ---

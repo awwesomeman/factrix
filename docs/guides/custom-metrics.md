@@ -30,9 +30,7 @@ Here is how to implement a custom Information Coefficient (IC) metric that accep
 ```python
 import polars as pl
 import factrix as fx
-from factrix._axis import Aggregation, InputShape
-from factrix._metric_index import cell, SampleThreshold
-from factrix import MetricResult
+from factrix import Aggregation, InputShape, MetricResult, SampleThreshold, cell
 from factrix.metrics import compute_ic, metric
 
 # 1. Define the metric cell and thresholds
@@ -173,13 +171,8 @@ Both paths work from any module: a metric defined in your own package (or in
 ```python
 import polars as pl
 import factrix as fx
-from factrix import MetricSpec, MetricResult, metric_spec
+from factrix import Aggregation, MetricSpec, MetricResult, cell, metric_spec
 from factrix.metrics import register
-
-# `cell` and the spec enums are not yet on the public surface; import
-# from the internal modules until they are re-exported.
-from factrix._axis import Aggregation
-from factrix._metric_index import cell
 
 # 1. Stamp the spec onto the callable
 @metric_spec(
