@@ -34,8 +34,26 @@ except fx.FactrixError as exc:
     ...
 ```
 
-All factrix-raised exceptions inherit from `FactrixError`, so a single
-`except fx.FactrixError` blocks every library-raised failure.
+Every input mistake factrix rejects at an entry point — `evaluate`, a
+direct metric call, `by_slice` and the slice tests, the `datasets`
+builders — raises a `FactrixError` subclass, and the same mistake raises
+the same class whichever entry point you used: `ic(ic_df,
+overlap_periods=0)` and `evaluate(..., overlap_periods=0)` both raise
+`UserInputError`, `n_groups=1` raises it from every bucketing metric, and
+an unvetted `inference=` raises `IncompatibleInferenceError` whether the
+sample-floor pre-flight or the metric body sees it first.
+
+`except fx.FactrixError` does not yet block *every* library-raised
+failure. What still surfaces as a builtin:
+
+| Still builtin | Where | Why |
+|---|---|---|
+| `TypeError` | An argument of the wrong Python type (`by_slice(rows, ...)` on a non-frame, a metric class passed where an instance is required, a positional metric knob) | Wrong *type* is a `TypeError` by Python convention; wrong *value* is a `UserInputError`. |
+| `ValueError` | Numeric knob guards on some metrics (`k_spread(k=0)`, `notional_turnover(rebalance_lag=0)`, `holding_periods`, `neutral_epsilon`) | Not yet on the structured contract; they carry a plain message and no `.field`. |
+| `ValueError` | The low-level helpers in [`factrix.stats`](stats.md) (`bhy_adjust`, `romano_wolf_adjusted_p`, `stationary_bootstrap`, …) and the result exporters (`to_frame` / `to_dict` collisions) | Array-shape and finiteness guards on numeric primitives, documented per function. |
+
+`UserInputError` multi-inherits from `ValueError`, so
+`except ValueError` catches both it and everything in the table.
 
 ## Exception hierarchy
 

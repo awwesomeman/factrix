@@ -64,6 +64,7 @@ from factrix.metrics._helpers import (
     _spread_significance_with_inference,
     _surface_null_drop,
     _validate_choice,
+    _validate_n_groups,
     _warn_high_tie_ratio,
     _warn_thin_quantile_groups,
 )
@@ -78,6 +79,8 @@ __all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
     "quantile_spread",
     "quantile_spread_vw",
 ]
+
+_DOCS_QUANTILE = "api/metrics/quantile"
 
 _Q_CELL = cell(
     FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
@@ -272,6 +275,7 @@ def quantile_spread(
     _check_applicable_inference(
         inference, applicable_inference, func_name="quantile_spread"
     )
+    _validate_n_groups(n_groups, func_name="quantile_spread", docs_path=_DOCS_QUANTILE)
 
     # Sample once across all factors; bucketing tie_ratio is computed
     # on the sampled subset (what bucketing actually sees) rather than
@@ -715,16 +719,20 @@ def quantile_spread_vw(
         field="tie_policy",
         docs_path="api/metrics/quantile",
     )
+    _check_applicable_inference(
+        inference, applicable_inference, func_name="quantile_spread_vw"
+    )
+    _validate_n_groups(
+        n_groups, func_name="quantile_spread_vw", docs_path=_DOCS_QUANTILE
+    )
+    # Knobs first, data verdict second: a caller mistake must not be answered
+    # with a short-circuit that reads as a property of the panel.
     if weight_col not in data.columns:
         return _short_circuit_output(
             "quantile_spread_vw",
             "no_weight_column",
             missing_column=weight_col,
         )
-
-    _check_applicable_inference(
-        inference, applicable_inference, func_name="quantile_spread_vw"
-    )
 
     sampled = _sample_non_overlapping(data, overlap_periods)
     if lag_weights:

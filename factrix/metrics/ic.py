@@ -199,6 +199,12 @@ def _ic_sample_threshold(self: MetricBase) -> SampleThreshold:
     # ``inference`` is an ``ic``-specific field; the resolver is only ever bound
     # to ``ic``, but its declared param type is the ``MetricBase`` contract.
     inference = self.inference  # type: ignore[attr-defined]
+    # The floor dereferences ``inference`` before the body ever runs, so an
+    # unvetted value (a stray string, a non-allowlisted method) would surface
+    # here as an ``AttributeError`` from the pre-flight instead of the body's
+    # ``IncompatibleInferenceError``. Same chokepoint, same error, whichever
+    # runs first.
+    _check_applicable_inference(inference, applicable_inference, func_name="ic")
     return SampleThreshold(
         min_periods=inference.min_input_periods(self.overlap_periods)
     )

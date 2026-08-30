@@ -15,6 +15,7 @@ from factrix._axis import (
 from factrix._data_input import (
     _OVERLAP_PERIODS_COL,
     _validate_named_columns,
+    _validate_overlap_periods,
     _validate_panel_key_columns,
 )
 from factrix._metric_index import Cell, MetricSpec, SampleThreshold
@@ -352,6 +353,17 @@ class MetricBase(metaclass=MetricMeta):
         **kwargs: Any,
     ) -> Any:
         """Evaluate the metric on a single input (one factor's view / upstream)."""
+        if overlap_periods is not None:
+            # A direct call declares the horizon here rather than through
+            # ``evaluate``, which type/range-checks it at the boundary. Run the
+            # same validator so the same mistake raises the same
+            # ``UserInputError`` either way, instead of surfacing as an
+            # ``OverflowError`` or a polars error from inside a stride
+            # computation. ``evaluate`` injects an already-validated value, so
+            # re-checking it is a no-op.
+            _validate_overlap_periods(
+                overlap_periods, func_name=self.__class__.__name__
+            )
         if args and self.input_shape is InputShape.PANEL and not self.requires:
             # Standalone call on the raw panel: ``evaluate`` validated the
             # schema once and projected a view; a direct call skips that gate,

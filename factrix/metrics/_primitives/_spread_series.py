@@ -20,6 +20,7 @@ from factrix.metrics._helpers import (
     _assign_quantile_groups_batch,
     _finite_expr,
     _sample_non_overlapping,
+    _validate_n_groups,
     _warn_thin_quantile_groups,
 )
 
@@ -103,6 +104,9 @@ def compute_spread_series(
     cols = list(factor_cols)
     if not cols:
         raise ValueError("factor_cols must be non-empty")
+    _validate_n_groups(
+        n_groups, func_name="compute_spread_series", docs_path="api/metrics/quantile"
+    )
 
     sampled = _sample_non_overlapping(data, overlap_periods)
 

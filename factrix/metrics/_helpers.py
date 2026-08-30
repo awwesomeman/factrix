@@ -1571,19 +1571,29 @@ def _validate_open_unit_interval(
         )
 
 
-def _validate_n_groups(n_groups: int) -> None:
+def _validate_n_groups(n_groups: int, *, func_name: str, docs_path: str) -> None:
     """Reject a quantile count below :data:`~factrix._types.N_GROUPS_FLOOR`.
 
-    The single bound every bucketing path shares: both group-assignment
-    kernels call it, so a consumer cannot accept a split its siblings reject.
+    The single bound every bucketing path shares, applied at the top of every
+    bucketing metric so a consumer cannot accept a split its siblings reject.
     ``n_groups=1`` used to sail through ``quantile_spread`` as a spread of
     exactly zero, while ``notional_turnover`` refused the two-group book the
-    spread had just priced.
+    spread had just priced. Raised as a :class:`UserInputError` — it is a
+    caller's knob, so it fails the way every other mistyped knob does whether
+    the metric was reached through ``evaluate`` or called directly.
     """
+    from factrix._errors import UserInputError
+
     if n_groups < N_GROUPS_FLOOR:
-        raise ValueError(
-            f"n_groups must be >= {N_GROUPS_FLOOR} (a long-short split needs "
-            f"distinct top and bottom buckets), got {n_groups!r}"
+        raise UserInputError(
+            func_name=func_name,
+            field="n_groups",
+            value=n_groups,
+            expected=(
+                f"n_groups must be >= {N_GROUPS_FLOOR} (a long-short split "
+                f"needs distinct top and bottom buckets)"
+            ),
+            docs_path=docs_path,
         )
 
 
@@ -1607,8 +1617,10 @@ def _assign_quantile_groups(
 
     Returns:
         DataFrame with ``_group`` column appended.
+
+    ``n_groups`` is validated by the calling metric (``_validate_n_groups``)
+    before any data work, so the bound is not re-checked per kernel call.
     """
-    _validate_n_groups(n_groups)
     # A float NaN is *not* null to polars: ``rank`` places it above every
     # finite value (top bucket) and ``count`` includes it. Treat NaN like a
     # missing factor (pandas ``qcut`` / alphalens drop it) so it never lands
@@ -1655,8 +1667,10 @@ def _assign_quantile_groups_batch(
     query optimiser can fuse them. Used by the batch paths of
     ``compute_spread_series`` and ``monotonicity``; both consume the
     ``_group__<f>`` columns directly.
+
+    ``n_groups`` is validated by the calling metric (``_validate_n_groups``)
+    before any data work, so the bound is not re-checked per kernel call.
     """
-    _validate_n_groups(n_groups)
     rank_exprs = [
         pl.when(_finite_expr(f))
         .then(pl.col(f))

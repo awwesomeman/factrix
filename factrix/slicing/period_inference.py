@@ -174,14 +174,19 @@ def _require_slice_floor(
     if not thin or not strict:
         return floor, frozenset(lbl for lbl, _ in thin)
     detail = ", ".join(f"{lbl!r} (n_periods={n})" for lbl, n in thin)
-    raise ValueError(
-        f"{func_name}: slice(s) {detail} fall below {type(metric).__name__!r}'s "
-        f"minimum sample floor ({floor}, resolved at "
-        f"overlap_periods={overlap_periods}); "
-        f"by_slice short-circuits this metric to NaN at that size, "
-        f"so the date-disjoint tests refuse to return a contrast that is not "
-        f"calibrated. Use coarser regimes (each ≥{floor} periods) or a metric "
-        f"with a lower sample floor."
+    raise UserInputError(
+        func_name=func_name,
+        field="by",
+        value=detail,
+        expected=(
+            f"every slice at or above {type(metric).__name__!r}'s minimum "
+            f"sample floor ({floor}, resolved at "
+            f"overlap_periods={overlap_periods}); by_slice short-circuits this "
+            f"metric to NaN at that size, so the date-disjoint tests refuse to "
+            f"return a contrast that is not calibrated. Use coarser regimes "
+            f"(each ≥{floor} periods) or a metric with a lower sample floor."
+        ),
+        docs_path=_DOCS_SLICE,
     )
 
 
@@ -277,10 +282,17 @@ def _build_per_slice_series(
         )
     per_date_fn = resolve_per_date_series(type(metric))
     producer = _resolve_producer(metric, func_name)
-    slices = _slice_by(data, by)
+    slices = _slice_by(data, by, func_name=func_name)
     if len(slices) < 2:
-        raise ValueError(
-            f"{func_name}: need ≥2 slice values on {by!r}; got {len(slices)}."
+        raise UserInputError(
+            func_name=func_name,
+            field="by",
+            value=by,
+            expected=(
+                f"a column holding ≥2 distinct slice values; {by!r} holds "
+                f"{len(slices)}. A one-value partition has nothing to compare."
+            ),
+            docs_path=_DOCS_SLICE,
         )
     labels = list(slices.keys())
     _require_date_disjoint(slices, labels, by=by, func_name=func_name)
@@ -289,10 +301,16 @@ def _build_per_slice_series(
         produced = _run_producer_for_factor(producer, slices[lbl], factor_col)
         s = per_date_fn(produced)["value"].to_numpy()
         if s.shape[0] < 2:
-            raise ValueError(
-                f"{func_name}: slice {lbl!r} has <2 dates ({s.shape[0]}); "
-                f"each disjoint slice needs ≥2 per-period observations for a "
-                f"within-slice variance estimate."
+            raise UserInputError(
+                func_name=func_name,
+                field="by",
+                value=lbl,
+                expected=(
+                    f"≥2 per-period observations per disjoint slice for a "
+                    f"within-slice variance estimate; slice {lbl!r} has "
+                    f"{s.shape[0]}."
+                ),
+                docs_path=_DOCS_SLICE,
             )
         series_list.append(np.asarray(s, dtype=float))
     floor, thin = _require_slice_floor(

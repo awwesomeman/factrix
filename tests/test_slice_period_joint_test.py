@@ -193,7 +193,7 @@ def test_raises_when_single_slice() -> None:
     df = build_disjoint_period_panel(
         seed=9, spans={"only": (60, 0.0)}, label_col="regime"
     )
-    with pytest.raises(ValueError, match="≥2 slice values"):
+    with pytest.raises(ValueError, match="≥2 distinct slice values"):
         slice_period_joint_test(df, ic(), by="regime", factor_col="factor")
 
 
@@ -201,7 +201,7 @@ def test_raises_when_slice_too_short() -> None:
     df = build_disjoint_period_panel(
         seed=10, spans={"a": (1, 0.1), "b": (40, 0.1)}, label_col="regime"
     )
-    with pytest.raises(ValueError, match="<2 dates"):
+    with pytest.raises(ValueError, match="≥2 per-period observations"):
         slice_period_joint_test(df, ic(), by="regime", factor_col="factor")
 
 

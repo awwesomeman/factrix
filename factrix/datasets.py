@@ -35,6 +35,7 @@ from datetime import datetime, timedelta
 import numpy as np
 import polars as pl
 
+from factrix._errors import UserInputError
 from factrix._stats.bootstrap import Rng, _resolve_rng
 
 _DEFAULT_START = "2020-01-02"
@@ -71,6 +72,32 @@ def _zscore_cs(x: np.ndarray, eps: float = 1e-12) -> np.ndarray:
     # correlation by O(1/n) — see make_cs_panel's docstring.
     return (x - x.mean(axis=-1, keepdims=True)) / (
         x.std(axis=-1, ddof=0, keepdims=True) + eps
+    )
+
+
+# One page for every generator; each builder's anchor is the qualified name.
+# Split from the anchor so the composed path is not a literal the docs-path
+# sweep would try to resolve as a page of its own — the four full anchors are
+# already literal at the ``_resolve_rng`` call sites it does check.
+_DOCS_DATASETS = "api/datasets"
+
+
+def _bad_arg(
+    func_name: str, field: str, value: object, expected: str
+) -> UserInputError:
+    """Build the generator's shape-guard rejection.
+
+    The ``make_*`` builders are documented entry points, so a nonsensical
+    argument is a caller mistake and fails the way every other one does — a
+    :class:`~factrix._errors.UserInputError` carrying ``field`` / ``value``
+    and the builder's own docs anchor — rather than a bare ``ValueError``.
+    """
+    return UserInputError(
+        func_name=func_name,
+        field=field,
+        value=value,
+        expected=expected,
+        docs_path=f"{_DOCS_DATASETS}#factrix.datasets.{func_name}",
     )
 
 
@@ -166,11 +193,19 @@ def make_cs_panel(
         True
     """
     if n_assets < 2:
-        raise ValueError("n_assets must be >= 2 for a cross-section")
+        raise _bad_arg(
+            "make_cs_panel",
+            "n_assets",
+            n_assets,
+            "an int >= 2 (a cross-section needs at least two assets)",
+        )
     if n_dates < signal_horizon + 2:
-        raise ValueError(
-            f"n_dates must be >= signal_horizon + 2 (got n_dates={n_dates}, "
-            f"signal_horizon={signal_horizon})"
+        raise _bad_arg(
+            "make_cs_panel",
+            "n_dates",
+            n_dates,
+            f"an int >= signal_horizon + 2 (signal_horizon={signal_horizon}); "
+            "the panel needs at least two periods past the signal horizon",
         )
 
     rng, _ = _resolve_rng(
@@ -277,17 +312,25 @@ def make_event_panel(
         True
     """
     if n_assets < 1:
-        raise ValueError("n_assets must be >= 1")
+        raise _bad_arg("make_event_panel", "n_assets", n_assets, "an int >= 1")
     if n_dates < signal_horizon + 2:
-        raise ValueError(
-            f"n_dates must be >= signal_horizon + 2 (got n_dates={n_dates}, "
-            f"signal_horizon={signal_horizon})"
+        raise _bad_arg(
+            "make_event_panel",
+            "n_dates",
+            n_dates,
+            f"an int >= signal_horizon + 2 (signal_horizon={signal_horizon}); "
+            "the panel needs at least two periods past the signal horizon",
         )
     if not 0.0 <= event_rate <= 1.0:
-        raise ValueError(f"event_rate must be in [0, 1], got {event_rate}")
+        raise _bad_arg(
+            "make_event_panel", "event_rate", event_rate, "a float in [0, 1]"
+        )
     if event_magnitude_jitter < 0.0:
-        raise ValueError(
-            f"event_magnitude_jitter must be >= 0, got {event_magnitude_jitter}"
+        raise _bad_arg(
+            "make_event_panel",
+            "event_magnitude_jitter",
+            event_magnitude_jitter,
+            "a float >= 0",
         )
 
     rng, _ = _resolve_rng(
@@ -381,17 +424,28 @@ def make_multi_factor_panel(
         sort order.
     """
     if n_factors < 1:
-        raise ValueError("n_factors must be >= 1")
+        raise _bad_arg("make_multi_factor_panel", "n_factors", n_factors, "an int >= 1")
     if n_assets < 2:
-        raise ValueError("n_assets must be >= 2 for a cross-section")
+        raise _bad_arg(
+            "make_multi_factor_panel",
+            "n_assets",
+            n_assets,
+            "an int >= 2 (a cross-section needs at least two assets)",
+        )
     if n_dates < signal_horizon + 2:
-        raise ValueError(
-            f"n_dates must be >= signal_horizon + 2 (got n_dates={n_dates}, "
-            f"signal_horizon={signal_horizon})"
+        raise _bad_arg(
+            "make_multi_factor_panel",
+            "n_dates",
+            n_dates,
+            f"an int >= signal_horizon + 2 (signal_horizon={signal_horizon}); "
+            "the panel needs at least two periods past the signal horizon",
         )
     if not 0.0 <= factor_correlation < 1.0:
-        raise ValueError(
-            f"factor_correlation must be in [0, 1), got {factor_correlation}"
+        raise _bad_arg(
+            "make_multi_factor_panel",
+            "factor_correlation",
+            factor_correlation,
+            "a float in [0, 1)",
         )
 
     rng, _ = _resolve_rng(
@@ -507,19 +561,34 @@ def make_multi_factor_event_panel(
         True
     """
     if n_factors < 1:
-        raise ValueError("n_factors must be >= 1")
+        raise _bad_arg(
+            "make_multi_factor_event_panel", "n_factors", n_factors, "an int >= 1"
+        )
     if n_assets < 1:
-        raise ValueError("n_assets must be >= 1")
+        raise _bad_arg(
+            "make_multi_factor_event_panel", "n_assets", n_assets, "an int >= 1"
+        )
     if n_dates < signal_horizon + 2:
-        raise ValueError(
-            f"n_dates must be >= signal_horizon + 2 (got n_dates={n_dates}, "
-            f"signal_horizon={signal_horizon})"
+        raise _bad_arg(
+            "make_multi_factor_event_panel",
+            "n_dates",
+            n_dates,
+            f"an int >= signal_horizon + 2 (signal_horizon={signal_horizon}); "
+            "the panel needs at least two periods past the signal horizon",
         )
     if not 0.0 <= event_rate <= 1.0:
-        raise ValueError(f"event_rate must be in [0, 1], got {event_rate}")
+        raise _bad_arg(
+            "make_multi_factor_event_panel",
+            "event_rate",
+            event_rate,
+            "a float in [0, 1]",
+        )
     if event_magnitude_jitter < 0.0:
-        raise ValueError(
-            f"event_magnitude_jitter must be >= 0, got {event_magnitude_jitter}"
+        raise _bad_arg(
+            "make_multi_factor_event_panel",
+            "event_magnitude_jitter",
+            event_magnitude_jitter,
+            "a float >= 0",
         )
 
     rng, _ = _resolve_rng(

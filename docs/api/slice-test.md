@@ -67,7 +67,7 @@ run inference on the intersected rows. Joint Newey-West (NW) heteroskedasticity-
 needs aligned rows so cross-slice covariance enters through the joint
 kernel. Slices with **disjoint date supports** (e.g. regimes split by
 time period) yield zero aligned rows and these functions raise
-`ValueError` (`<2 aligned dates`). Date-shared slices — universe,
+`UserInputError` on `by` (`<2 aligned dates`). Date-shared slices — universe,
 sector, market-cap tier — are their intended use case.
 
 A `<2 aligned dates` error has **two distinct causes**, and the message
@@ -91,7 +91,7 @@ the entry point that fits:
 
 | You called | With slices that | You get |
 |---|---|---|
-| `slice_pairwise_test` / `slice_joint_test` | share <2 dates (date-disjoint) | `ValueError`: `<2 aligned dates … use slice_period_pairwise_test / slice_period_joint_test for date-disjoint partitions.` |
+| `slice_pairwise_test` / `slice_joint_test` | share <2 dates (date-disjoint) | `UserInputError` on `by`: `<2 aligned dates … use slice_period_pairwise_test / slice_period_joint_test for date-disjoint partitions.` |
 | `slice_period_pairwise_test` / `slice_period_joint_test` | share ≥2 dates in any pair (date-aligned) | `UserInputError` on `by`: `slices 'tech' and 'fin' share 120 dates … use slice_pairwise_test / slice_joint_test for date-aligned partitions.` |
 
 The period-family refusal is a hard error, not a warning: those tests treat
@@ -124,7 +124,8 @@ at 199) and `rng=` — the library-wide resampling knobs, see
 
 Each slice's per-period series must clear the metric's own sample floor,
 resolved at the panel's stamped or declared `overlap_periods` — the same
-floor `by_slice` short-circuits on — otherwise the test raises `ValueError`
+floor `by_slice` short-circuits on — otherwise the test raises
+`UserInputError` on `by`
 rather than return an uncalibrated contrast. Plan the partition against
 [`sample_requirements`](inspect-data.md#resolved-floor-for-a-configured-metric)
 (e.g. `positive_rate()` needs 10 periods per slice at `overlap_periods=1`,

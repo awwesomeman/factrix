@@ -115,7 +115,7 @@ def test_raises_when_single_slice() -> None:
     df = build_labelled_raw_panel(
         n_dates=60, seed=8, signal={"only": 0.0}, label_col="sector"
     )
-    with pytest.raises(ValueError, match="≥2 slice values"):
+    with pytest.raises(ValueError, match="≥2 distinct slice values"):
         slice_joint_test(df, ic(), by="sector", factor_col="factor", overlap_periods=1)
 
 

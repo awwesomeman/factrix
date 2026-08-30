@@ -495,7 +495,9 @@ def notional_turnover(
     # The shared bucketing floor, checked up front rather than left to the
     # kernel call below so an invalid split fails before the date floor can
     # short-circuit it into an "insufficient_dates" result.
-    _validate_n_groups(n_groups)
+    _validate_n_groups(
+        n_groups, func_name="notional_turnover", docs_path=_DOCS_TRADABILITY
+    )
 
     lag = _resolve_rebalance_lag(rebalance_lag, overlap_periods)
     if lag > 1:

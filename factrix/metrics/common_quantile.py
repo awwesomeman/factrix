@@ -142,7 +142,11 @@ def common_quantile_spread(
     # This metric buckets the factor *history* with its own ordinal cut rather
     # than the panel kernel, so it applies the shared floor explicitly: one
     # bucket has no top-minus-bottom contrast to test.
-    _validate_n_groups(n_groups)
+    _validate_n_groups(
+        n_groups,
+        func_name="common_quantile_spread",
+        docs_path="api/metrics/common_quantile",
+    )
     # ``date`` / ``asset_id`` are gated by the direct-call key-column check in
     # ``MetricBase.__call__``, which also rejects a caller-named column the
     # frame does not carry (and ``evaluate`` validates the panel schema), so

@@ -204,8 +204,9 @@ DEFAULT_N_GROUPS: int = 5
 # guidance recommends and the coarsest one where "top" and "bottom" are still
 # distinct buckets. One group has no long-short leg at all: the spread is
 # identically zero, turnover has nothing to churn and a monotonicity curve is a
-# single point. Enforced once, in ``_assign_quantile_groups`` (and its batch
-# twin), so every consumer — ``quantile_spread``, ``quantile_spread_vw``,
+# single point. Enforced through one validator (``_validate_n_groups``), called
+# at the top of every bucketing entry point before any data work, so every
+# consumer — ``quantile_spread``, ``quantile_spread_vw``,
 # ``compute_spread_series``, ``monotonicity``, ``notional_turnover`` — rejects
 # the same values with the same message instead of each carrying its own
 # bound (``notional_turnover`` used to demand three groups while

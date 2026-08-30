@@ -18,6 +18,7 @@ from factrix.metrics._helpers import (
     _assign_quantile_groups,
     _finite_expr,
     _sample_non_overlapping,
+    _validate_n_groups,
 )
 
 
@@ -83,6 +84,9 @@ def compute_group_returns(
         >>> set(groups.columns) >= {"group", "mean_return"}
         True
     """
+    _validate_n_groups(
+        n_groups, func_name="compute_group_returns", docs_path="api/metrics/quantile"
+    )
     sampled = _sample_non_overlapping(data, overlap_periods)
     grouped = _assign_quantile_groups(
         sampled,
