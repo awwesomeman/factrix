@@ -59,9 +59,9 @@ contrasts, not a sidecar to a primary value.
 | [`signal_density`][factrix.metrics.event_quality.signal_density] | none — descriptive | — | mean bars per event |
 | [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | none — descriptive | — | mean leakage score |
 | [`monotonicity`][factrix.metrics.monotonicity.monotonicity] | Patton-Timmermann (2010) MR (stationary-bootstrap p) | `p_value` | `mr_min_diff` (min adjacent bucket-return difference) |
-| [`quantile_spread`][factrix.metrics.quantile.quantile_spread] | non-overlapping `t` on top-bottom spread (NW HAC under `NEWEY_WEST`) | `p_value` | mean(spread) |
-| [`k_spread`][factrix.metrics.k_spread.k_spread] | non-overlapping `t` on top-K−bottom-K spread (NW HAC under `NEWEY_WEST`) | `p_value` | mean(spread) |
-| [`quantile_spread_vw`][factrix.metrics.quantile.quantile_spread_vw] | non-overlap `t` (default) or NW HAC `t` on vw spread | `p_value` | mean(vw spread) |
+| [`quantile_spread`][factrix.metrics.quantile.quantile_spread] | non-overlapping `t` on top-bottom spread (NW HAC under `NEWEY_WEST`, empirical p under `STATIONARY_BOOTSTRAP`) | `p_value` | mean(spread) |
+| [`k_spread`][factrix.metrics.k_spread.k_spread] | non-overlapping `t` on top-K−bottom-K spread (NW HAC under `NEWEY_WEST`, empirical p under `STATIONARY_BOOTSTRAP`) | `p_value` | mean(spread) |
+| [`quantile_spread_vw`][factrix.metrics.quantile.quantile_spread_vw] | non-overlap `t` (default), NW HAC `t`, or bootstrap empirical p on vw spread | `p_value` | mean(vw spread) |
 | [`top_concentration`][factrix.metrics.concentration.top_concentration] | one-sided `t` on diversity ratio | `p_value` | mean(eff_n) = mean(1/HHI) |
 | [`clustering_hhi`][factrix.metrics.clustering_hhi.clustering_hhi] | none — descriptive | — | event-period Herfindahl-Hirschman index (HHI) |
 | [`mfe_mae`][factrix.metrics.mfe_mae.mfe_mae] | none — descriptive | — | MFE_p50 / \|MAE_p75\| |
@@ -458,7 +458,8 @@ frequency on the same panels is 5.0% / 5.0% / 4.0% at a nominal 5%.
 
 - *primary*: `p_value` — non-overlapping `t`-test on the
   (top − bottom) spread series (Newey-West HAC on the full series under
-  `inference=NEWEY_WEST`). Small cross-sections
+  `inference=NEWEY_WEST`, a block-bootstrap empirical p on the full
+  series under `inference=STATIONARY_BOOTSTRAP`). Small cross-sections
   (`median_cross_section < MIN_ASSETS_WARN`) attach `few_assets` and
   change nothing else; see the shared small-N note below.
 - *secondary-test*: `long_alpha`, `long_stat`, `long_p_value` —
@@ -472,7 +473,7 @@ frequency on the same panels is 5.0% / 5.0% / 4.0% at a nominal 5%.
   overlapping series under `NEWEY_WEST`), `n_periods_strided` (the
   non-overlap count, always present), `median_cross_section` (median
   per-period count of finite factor values — what the small-N switch
-  reads), `tie_ratio`, `tie_policy`, `method`.
+  reads), `tie_ratio`, `tie_policy`, `stat_type` (the test actually run: `"t"` under `NonOverlapping` / `NeweyWest`, `"bootstrap-mean"` under `StationaryBootstrap`), `method`.
 - *descriptive*: `n_periods_in`, `n_periods_out`, `n_dropped`,
   `drop_rate`, `drop_reason` — the null/NaN-drop bookkeeping on the
   **strided** spread series (`n_periods_in` also appears on the
@@ -489,8 +490,8 @@ frequency on the same panels is 5.0% / 5.0% / 4.0% at a nominal 5%.
 #### `quantile_spread_vw`
 
 Value-weighted variant. Same metadata shape as `quantile_spread` —
-including `median_cross_section`, `n_periods_strided` and whatever the
-selected inference member contributes — plus a `weights_lagged` flag
+including `median_cross_section`, `n_periods_strided`, `stat_type` (the test actually run: `"t"` under `NonOverlapping` / `NeweyWest`, `"bootstrap-mean"` under `StationaryBootstrap`)
+and whatever the selected inference member contributes — plus a `weights_lagged` flag
 indicating whether the weighting input was lagged before the join
 (descriptive). It takes the same `inference=` knob off the same
 allowlist as `quantile_spread`, so the equal-weighted / value-weighted
@@ -514,7 +515,8 @@ Fixed-K (top-K − bottom-K) long-short spread; the small-N sibling of
 `quantile_spread`.
 
 - *primary*: `p_value` — non-overlapping `t`-test on the spread
-  series (`method` records the inference member that ran).
+  series (`method` records the inference member that ran, and
+  `stat_type` (the test actually run: `"t"` under `NonOverlapping` / `NeweyWest`, `"bootstrap-mean"` under `StationaryBootstrap`) the statistic it reports).
 - *descriptive*: `k` (names per leg), `tie_ratio` / `tie_policy` (the
   same tie diagnostics `quantile_spread` and `monotonicity` report —
   the leg ranking used to be hard-coded `"ordinal"` with no tie ratio at

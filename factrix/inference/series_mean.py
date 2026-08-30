@@ -18,6 +18,12 @@ so the dataclasses take no *statistical* constructor knobs;
 ``StationaryBootstrap`` carries the two resampling knobs (``n_resamples``
 / ``seed``) that only the caller can decide.
 
+Each member also declares, through the ``consumes_full_series``
+``ClassVar``, whether it needs every period of the series or takes a
+pre-strided one: a metric that strides its own panel reads that flag to
+decide whether to pay for building the full overlapping series, instead
+of type-checking the member.
+
 These are metric-internal inference units: ``compute`` returns an
 ``InferenceResult`` whose ``stat`` / ``p_value`` feed a ``MetricResult``
 directly.
@@ -74,6 +80,9 @@ class NonOverlapping:
     se: ClassVar[str | None] = "ols"
     summary: ClassVar[str] = "non-overlapping t-test"
     min_periods: ClassVar[int] = MIN_PERIODS_WARN
+    # A metric that pre-strides its own panel hands this member the strided
+    # series directly; it needs no full overlapping series built for it.
+    consumes_full_series: ClassVar[bool] = False
 
     def min_input_periods(self, overlap_periods: int) -> int:
         """Minimum input series length (periods): need ``base · h`` rows to land ``base`` after striding."""
@@ -167,6 +176,10 @@ class NeweyWest:
     se: ClassVar[str | None] = "hac"
     summary: ClassVar[str] = "Newey-West HAC t-test"
     min_periods: ClassVar[int] = MIN_PERIODS_WARN
+    # Every observation is kept and the dependence is corrected for, so a
+    # metric that pre-strides its own panel must build the full overlapping
+    # series before calling ``compute``.
+    consumes_full_series: ClassVar[bool] = True
 
     def min_input_periods(self, overlap_periods: int) -> int:
         """Minimum input series length (periods) below which the HAC t-test cannot run."""
@@ -243,6 +256,10 @@ class HansenHodrick:
     se: ClassVar[str | None] = "hac"
     summary: ClassVar[str] = "Hansen-Hodrick HAC t-test"
     min_periods: ClassVar[int] = MIN_PERIODS_WARN
+    # Every observation is kept and the dependence is corrected for, so a
+    # metric that pre-strides its own panel must build the full overlapping
+    # series before calling ``compute``.
+    consumes_full_series: ClassVar[bool] = True
 
     def min_input_periods(self, overlap_periods: int) -> int:
         """Minimum input series length (periods) below which the HAC t-test cannot run."""
@@ -356,6 +373,10 @@ class StationaryBootstrap:
     se: ClassVar[str | None] = "bootstrap"
     summary: ClassVar[str] = "stationary-bootstrap empirical p-test"
     min_periods: ClassVar[int] = MIN_PERIODS_WARN
+    # Every observation is kept and the dependence is corrected for, so a
+    # metric that pre-strides its own panel must build the full overlapping
+    # series before calling ``compute``.
+    consumes_full_series: ClassVar[bool] = True
 
     def __post_init__(self) -> None:
         from factrix._stats.bootstrap import _check_n_resamples

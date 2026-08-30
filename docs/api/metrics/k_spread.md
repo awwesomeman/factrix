@@ -39,8 +39,9 @@ title: factrix.metrics.k_spread
 
     ---
 
-    The headline test is the non-overlapping `t` on the strided spread
-    series (`_spread_significance`); with `n_assets < MIN_ASSETS_WARN`
+    The headline test is the one the `inference` member defines, run on the
+    strided or full spread series as that member declares; with
+    `n_assets < MIN_ASSETS_WARN`
     the metric attaches `few_assets` — the spread is a noisier estimate with
     few names per leg — and changes nothing else. `metadata["method"]`
     records the inference member that ran.
@@ -71,6 +72,18 @@ title: factrix.metrics.k_spread
     out = k_spread(panel, overlap_periods=5, k=3)
     print(out.value, out.metadata["method"], out.metadata["cross_sectional_dispersion"])
     # 0.0018  non-overlapping t-test  0.041   (approximate)
+
+    # A different inference member on the same metric. The stationary
+    # bootstrap keeps every period instead of striding and reports an
+    # empirical p, with the resampling knobs it ran with in metadata.
+    from factrix.inference import StationaryBootstrap
+
+    boot = k_spread(panel, overlap_periods=5, k=3,
+                    inference=StationaryBootstrap(seed=0))
+    print(boot.value, boot.p_value, boot.n_obs)
+    # 0.000443  0.248  174
+    print(boot.metadata["n_resamples"], boot.metadata["seed"])
+    # 999  0
     ```
 
 ## See also

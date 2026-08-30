@@ -40,7 +40,14 @@ from factrix._codes import WarningCode
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._types import DDOF, MIN_PORTFOLIO_PERIODS_HARD
-from factrix.inference import NEWEY_WEST, NON_OVERLAPPING, NeweyWest, NonOverlapping
+from factrix.inference import (
+    NEWEY_WEST,
+    NON_OVERLAPPING,
+    STATIONARY_BOOTSTRAP,
+    NeweyWest,
+    NonOverlapping,
+    StationaryBootstrap,
+)
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _all_dates_degenerate,
@@ -63,12 +70,12 @@ __all__ = [
     "k_spread",
 ]
 
-# Inference allowlist: like ``quantile_spread``, the spread dispatch handles
-# exactly the non-overlap t-test and the Newey-West HAC; anything else
-# (``HansenHodrick``, a non-``Inference`` object) is rejected rather than
-# silently reported as non-overlap.
-applicable_inference: frozenset[NonOverlapping | NeweyWest] = frozenset(
-    {NON_OVERLAPPING, NEWEY_WEST}
+# Inference allowlist: like ``quantile_spread``, a vetting record rather than a
+# dispatch constraint — the non-overlap t-test, the Newey-West HAC and the
+# stationary-bootstrap empirical p are the members measured on a spread series.
+# Anything else (``HansenHodrick``, a non-``Inference`` object) is rejected.
+applicable_inference: frozenset[NonOverlapping | NeweyWest | StationaryBootstrap] = (
+    frozenset({NON_OVERLAPPING, NEWEY_WEST, STATIONARY_BOOTSTRAP})
 )
 
 _K_SPREAD_PERIODS_FLOOR = _scaled_periods_threshold(MIN_PORTFOLIO_PERIODS_HARD)
@@ -192,7 +199,7 @@ def k_spread(
     factor_col: str = "factor",
     return_col: str = "forward_return",
     tie_policy: str = "ordinal",
-    inference: NonOverlapping | NeweyWest = NON_OVERLAPPING,
+    inference: NonOverlapping | NeweyWest | StationaryBootstrap = NON_OVERLAPPING,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Fixed-K Top-K vs Bottom-K long-short spread.
@@ -401,12 +408,14 @@ def k_spread(
             tie_policy=tie_policy,
         )
 
-    arr = spread_vals.to_numpy()
-    # The HAC path needs the full overlapping spread series (every date);
+    strided_series = series.select("date", pl.col("spread").cast(pl.Float64)).filter(
+        _finite_expr("spread")
+    )
+    # A member that consumes the full overlapping series needs every period;
     # build it once on the unsampled panel. Non-finite spreads are filtered out
-    # before the HAC regression for the same reason ``arr`` is cleaned.
+    # before it for the same reason the strided series is cleaned.
     full_series: pl.DataFrame | None = None
-    if isinstance(inference, NeweyWest):
+    if inference.consumes_full_series:
         full_series, _ = _build_k_spread_series(
             data, k, factor_col, return_col, tie_policy
         )
@@ -416,10 +425,10 @@ def k_spread(
     # names, not the universe-wide unique asset count (see
     # ``_median_per_date_count``).
     median_xs = _median_per_date_count(clean)
-    mean_spread, t, p, sig_method, sig_extra, sig_codes = (
+    mean_spread, t, p, sig_method, sig_stat_type, sig_extra, sig_codes = (
         _spread_significance_with_inference(
             inference,
-            strided_spread=arr,
+            strided_spread=strided_series,
             full_spread=full_series,
             overlap_periods=overlap_periods,
             n_assets=median_xs,
@@ -448,7 +457,7 @@ def k_spread(
         "k": k,
         "tie_ratio": tie_ratio,
         "tie_policy": tie_policy,
-        "stat_type": "t",
+        "stat_type": sig_stat_type,
         "h0": "mu=0",
         "method": sig_method,
         "cross_sectional_dispersion": mean_dispersion,

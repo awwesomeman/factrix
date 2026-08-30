@@ -60,35 +60,44 @@ type, not its value, so a configured ``StationaryBootstrap(n_resamples=,
 seed=)`` is admitted wherever the method is. A method outside the set
 raises :class:`~factrix.IncompatibleInferenceError` listing the allowed
 members, rather than running an unintended test or silently falling back
-to the default. ``quantile_spread`` / ``k_spread`` allow
-``{NON_OVERLAPPING, NEWEY_WEST}``; ``ic`` additionally allows
-``STATIONARY_BOOTSTRAP`` (see below); ``resolve_applicable_inference``
-reads the set back for discovery.
+to the default. ``ic`` / ``quantile_spread`` / ``quantile_spread_vw`` /
+``k_spread`` all allow ``{NON_OVERLAPPING, NEWEY_WEST,
+STATIONARY_BOOTSTRAP}``; ``resolve_applicable_inference`` reads the set
+back for discovery.
 
-``HANSEN_HODRICK`` / ``STATIONARY_BOOTSTRAP`` vs the metric allowlists
------------------------------------------------------------------------
-``HansenHodrick`` and ``StationaryBootstrap`` are complete series-mean
-members (same ``compute`` contract as the others), but neither is in
-every metric's ``applicable_inference``, for reasons that differ per
-dispatch style:
+The allowlist is a **vetting record, not a dispatch table**. Every
+``inference=``-bearing metric dispatches polymorphically — it calls
+``inference.compute(...)`` and reads the ``InferenceResult`` back — so it
+could in principle run any series-mean member. What the allowlist says is
+which members have been *measured on that metric's series*: the IC series
+and the long-short spread series have different distributions, so each
+carries its own size table (see ``reference/statistical-methods``) and
+each admits a member only on the strength of it.
 
-- ``ic`` dispatches **polymorphically** (``inference.compute(...)`` /
-  ``inference.min_input_periods(...)``), so it could in principle run
-  ``HANSEN_HODRICK`` — its allowlist is narrower than its capability. The
-  vetted HAC pair is kept: ``NeweyWest`` (Bartlett kernel, PSD-guaranteed) is
-  the recommended HAC, while ``HansenHodrick``'s rectangular kernel has no
-  PSD guarantee (it can clamp a negative variance — see
-  ``WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE``). ``StationaryBootstrap``
-  runs through the same polymorphic path and *is* admitted — it makes no
-  asymptotic-variance assumption at all, so it is the recommended fallback
-  when the IC series is too short or too heavy-tailed for either HAC
-  member to be trusted.
-- ``quantile_spread`` / ``k_spread`` dispatch through
-  ``_spread_significance_with_inference``, which hard-branches on
-  ``isinstance(inference, NeweyWest)`` for the HAC path. The allowlist is
-  **load-bearing** there: it admits exactly the two members that dispatch
-  handles, so widening it to ``HANSEN_HODRICK`` or ``STATIONARY_BOOTSTRAP``
-  requires making that dispatch polymorphic first — not done here.
+``HANSEN_HODRICK`` vs the metric allowlists
+-------------------------------------------
+``HansenHodrick`` is a complete series-mean member (same ``compute``
+contract as the others) and is in no metric's ``applicable_inference``.
+The reason is statistical, not structural: its rectangular kernel has no
+PSD guarantee and can clamp a negative variance (see
+``WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE``), so the vetted HAC is
+``NeweyWest``'s PSD-guaranteed Bartlett kernel. ``StationaryBootstrap``
+*is* admitted everywhere the family is offered — it makes no
+asymptotic-variance assumption at all, so it is the recommended read when
+a series is too short or too heavy-tailed for a HAC member to be trusted.
+
+Who builds which series
+-----------------------
+Members differ in the series they consume, and each one declares that
+itself through the ``consumes_full_series`` ``ClassVar``:
+``NonOverlapping`` sub-samples, so a metric that already strided its own
+panel hands it the strided series; ``NeweyWest`` / ``HansenHodrick`` /
+``StationaryBootstrap`` correct or resample the dependence and need every
+period, so the metric builds the full overlapping series for them. The
+flag is series-mean-specific — a slice- or panel-shaped member has no
+"full series" to speak of — so it stays on the family's dataclasses and
+out of the base ``Inference`` Protocol, which constrains only the
+dimension-agnostic identity fields.
 """
 
 from __future__ import annotations

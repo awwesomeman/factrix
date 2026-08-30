@@ -220,7 +220,7 @@ approximation assumption all three analytic methods still make:
 | **Newey-West (1987)** | Bartlett-kernel HAC on the full overlapping series, bandwidth `L = max(bandwidth_base, h−1)`. | Simple, deterministic, asymptotically valid for arbitrary autocorrelation up to `L`. | Asymptotic Gaussian — finite-sample size distortion when `h/T` is non-trivial; bandwidth rule is conservative. | `ic` / `quantile_spread` / `quantile_spread_vw` / `k_spread` (with `NeweyWest` inference), `fm_beta` stage 2, `pooled_beta`, `common_quantile_spread`, `common_asymmetry`. |
 | **Hansen-Hodrick (HH) (1980)** | A generalized method of moments (GMM)-style HAC estimator with a rectangular kernel truncated at `h−1`; the canonical reference for overlap-aware long-horizon SEs. | Targets the MA(`h−1`) residual structure overlap induces. | Rectangular kernel can yield a non-PSD covariance matrix in finite samples; still asymptotic. | Exposed as `factrix.inference.HANSEN_HODRICK` (rectangular-kernel SE → t-statistic → two-sided p-value), but deliberately in **no** metric's `applicable_inference` allowlist — passing it to a metric raises `IncompatibleInferenceError`. Also borrows the `h−1` lag idea as a floor on the NW bandwidth above. |
 | **Hodrick (1992) "1B"** | Reverse-regression: regress one-period return on the predictor sum `X_t = Σ x_{t-j}` over the last `h` periods. | Size-correct in finite samples even at large `h/T`; no bandwidth choice. | Coefficient interpretation differs — `β` is the response to a cumulative-predictor stimulus (MA on the RHS) rather than a long-horizon forecast slope (MA on the LHS in the standard form); not a drop-in replacement for the canonical `β`. | **Not implemented**. Cited as the right tool when overlap is severe; the `Individual × Continuous` cell side-steps the issue with non-overlapping resampling instead. |
-| **Stationary bootstrap (Politis-Romano 1994)** | Block-resamples the series (geometric block length, Politis-White 2004 automatic selection), centred under `H0`, studentizes both the observed and the resampled root by a batch-means SE at the same block length, and reports the empirical two-sided p from the resampled `t` ratios. | No normality or asymptotic-variance assumption at all — valid when the IC/return distribution is heavy-tailed or skewed enough that NW's / HH's Gaussian p-value is itself suspect. | Heavier to compute (resampling, not closed-form); the reported `stat` is the observed mean rather than the root the p is computed from. On a zero-dispersion sample there is no block SE to divide by, and the kernel falls back to the raw-mean root — reported as `metadata["studentized"] = False` and `degenerate_variance`. | Exposed as `factrix.inference.STATIONARY_BOOTSTRAP` on `ic` only — `quantile_spread` / `k_spread` dispatch on a hard `isinstance(NeweyWest)` check that would need to go polymorphic first. |
+| **Stationary bootstrap (Politis-Romano 1994)** | Block-resamples the series (geometric block length, Politis-White 2004 automatic selection), centred under `H0`, studentizes both the observed and the resampled root by a batch-means SE at the same block length, and reports the empirical two-sided p from the resampled `t` ratios. | No normality or asymptotic-variance assumption at all — valid when the IC/return distribution is heavy-tailed or skewed enough that NW's / HH's Gaussian p-value is itself suspect. | Heavier to compute (resampling, not closed-form); the reported `stat` is the observed mean rather than the root the p is computed from. On a zero-dispersion sample there is no block SE to divide by, and the kernel falls back to the raw-mean root — reported as `metadata["studentized"] = False` and `degenerate_variance`. | Exposed as `factrix.inference.STATIONARY_BOOTSTRAP` on `ic`, `quantile_spread`, `quantile_spread_vw` and `k_spread` — every one of them dispatches the member polymorphically, and the spread series carries its own measured size table (§6). |
 
 Practical rule of thumb:
 
@@ -682,6 +682,46 @@ and the regression kernels `_ols_nw_slope_t` / `_ols_nw_multivariate`
 would need their own measurement first — a vector series needs a VAR(1)
 fit and regression scores a different derivation.
 
+### Stationary bootstrap on the spread series: measured size
+
+`ic`'s size table is a table of the *IC* series. A long-short spread
+series is a different object — a cross-sectional bucket difference, not a
+rank correlation — so admitting `STATIONARY_BOOTSTRAP` to
+`quantile_spread` / `quantile_spread_vw` / `k_spread` needed its own
+measurement rather than an inherited one.
+
+True-null rejection rates at a nominal 5% on `quantile_spread`, measured
+on `make_cs_panel(n_assets=50, ic_target=0.0)` with
+`compute_forward_return(forward_periods=h)` and `overlap_periods=h`; 500
+replications per cell, `n_resamples=499`, base seed 20260830. Monte-Carlo
+standard error is ~1.0pp per cell. `T` counts periods on the evaluation
+grid before the stride.
+
+| T | h | `NEWEY_WEST` | `STATIONARY_BOOTSTRAP` |
+|---|---|---|---|
+| 60 | 1 | 0.074 | 0.082 |
+| 60 | 5 | 0.036 | 0.066 |
+| 60 | 21 | — | — |
+| 120 | 1 | 0.056 | 0.052 |
+| 120 | 5 | 0.054 | 0.072 |
+| 120 | 21 | 0.024 | 0.090 |
+| 240 | 1 | 0.046 | 0.048 |
+| 240 | 5 | 0.076 | 0.080 |
+| 240 | 21 | 0.036 | 0.068 |
+
+`T = 60, h = 21` is not measurable: the metric refuses that panel at its
+stride-scaled periods floor (`metric_unavailable`) rather than testing
+~2 effective periods, so there is no rejection rate to report.
+
+The bootstrap is calibrated-to-slightly-liberal across every measurable
+cell (4.8–9.0%) and never worse than the short-sample distortion already
+documented for the *t*. `NEWEY_WEST` is tighter at `h = 1` and
+conservative at long horizons (2.4–3.6% at `h = 21`), where the HAR
+effective df `T/h - 1` spends most of the sample. Neither dominates; both
+are reported, and the choice is the routing question the next section
+answers. A reduced-replication re-run of two cells guards the numbers in
+`tests/stats/test_spread_bootstrap_size.py`.
+
 ### Which path to read: a routing guide from the size measurements
 
 The measurements above and in §1 say where each inference path is
@@ -697,8 +737,8 @@ nominal 5%; sample sizes count periods on the evaluation grid after the
 |---|---|---|---|
 | Overlapping `forward_periods` panel, per-period series not persistent (the everyday case) | No warning | `NEWEY_WEST` 5–9% on real overlapping IC (h = 5, n = 240 / 480: 5.2% / 8.8%); `NON_OVERLAPPING` calibrated. | Keep the default member. |
 | Persistent per-period series (lag-1 φ ≥ 0.3 on the *tested* series) | `serial_correlation_detected` | No path is calibrated — NW 13–17%, stationary bootstrap 12–19%, plain *t* 32–34% at φ = 0.6 (table above). | Do **not** switch member; it moves the number without fixing it. Read the *t* against a raised hurdle (*t* > 3) or lengthen the sample. A coarser `overlap_periods` stride under `NON_OVERLAPPING` also helps mechanically — the strided sample sits at φ^h, and AR(0.6) strided at h = 21 measures 4.5%. |
-| Short strided series (fewer than ~120 periods after the stride) | `unreliable_se_short_periods`, or nothing on a moderately short series | The *t* / NW branch runs 7–9%. A block-bootstrap p is *worse* here — the spread metrics' former bootstrap branch (`_block_bootstrap_diff_p`, kernel-isolated on iid input) measured 13.6% at n = 12, 9.8% at 30, 7.4% at 60, reaching 5.2% only by 120 — and the strided series is short exactly when the horizon is long. | Stay on the analytic *t* / NW. Do not reach for the bootstrap to rescue a short sample; shorten the stride or lengthen the history instead. |
-| Long strided series (≥ ~120 periods) whose distribution is in doubt (heavy tails, skew) | No warning | On iid input `STATIONARY_BOOTSTRAP` sits at the same 7–9% baseline as NW (φ = 0 row above) — it buys no *size*. Its case is distributional: it is the only member that does not assume asymptotic normality of the mean (§1). | Read `STATIONARY_BOOTSTRAP` on `ic` alongside the analytic p when tails or skew are the doubt; the spread metrics keep `NON_OVERLAPPING` / `NEWEY_WEST` (their allowlist). A documented option, not a default. |
+| Short strided series (fewer than ~120 periods after the stride) | `unreliable_se_short_periods`, or nothing on a moderately short series | The *t* / NW branch runs 7–9%. A block-bootstrap p is *worse* here — the spread metrics' former automatic bootstrap branch (`_block_bootstrap_diff_p`, kernel-isolated on iid input) measured 13.6% at n = 12, 9.8% at 30, 7.4% at 60, reaching 5.2% only by 120 — and the strided series is short exactly when the horizon is long. The spread-series table above says the same at the short end: 8.2% at T = 60, h = 1. | Stay on the analytic *t* / NW. Do not reach for the bootstrap to rescue a short sample; shorten the stride or lengthen the history instead. |
+| Long strided series (≥ ~120 periods) whose distribution is in doubt (heavy tails, skew) | No warning | On iid input `STATIONARY_BOOTSTRAP` sits at the same 7–9% baseline as NW (φ = 0 row above) — it buys no *size*. On the spread series it measures 4.8–9.0% across the grid above, with its worst cell at the long horizon (9.0% at T = 120, h = 21) where NW is conservative instead (2.4%). Its case is distributional: it is the only member that does not assume asymptotic normality of the mean (§1). | Read `STATIONARY_BOOTSTRAP` alongside the analytic p — on `ic` and on all three spread metrics, which admit it on the strength of the table above — when tails or skew are the doubt. A documented option, not a default. |
 | Heavy-tailed *and* short | `unreliable_se_short_periods` | The *t* is size-robust to tails — 3–4% on t(3) input, i.e. conservative — while the small-n bootstrap is not (6–14%). | Keep the *t*. Tails are not a reason to bootstrap a short series. |
 | Thin cross-section (few names per leg) | `few_assets` | Each leg mean rests on a handful of names: a noisier estimate, not a differently-distributed one. The automatic bootstrap switch this once triggered rejected 8–20% against the *t*'s 7–9% and keyed on the wrong axis; it was removed. | Keep the requested member; read `n_assets` and treat the spread as fragile. |
 | Joint test on K ≥ 3 short slices | `slice_period_joint_test` warning | 8–9% for K = 5 on 50–90-period slices, converging by T ≈ 150; the bootstrap path inherits it (12%). K = 2 is calibrated throughout. | Read the pairwise contrasts on the same slices (5–6%) rather than the joint p, or lengthen the slices. |
