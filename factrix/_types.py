@@ -114,6 +114,24 @@ MIN_PORTFOLIO_PERIODS_WARN: int = 20
 
 MIN_MONOTONICITY_PERIODS_HARD: int = 5
 
+# Minimum complete (factor, return) observations per asset before
+# ``compute_common_betas`` will fit that asset's time-series slope. Counted on
+# the panel's period grid, so periods an asset is missing count as missing
+# observations and a ragged name can fall under the floor where a dense one
+# does not. Assets below it are dropped; the reduction is carried on the
+# assets axis by ``_attach_drop_stats`` and surfaced by the cross-asset
+# consumers as ``WarningCode.EXCESSIVE_ASSET_DROPS`` once the drop rate clears
+# ``DROP_RATE_WARN_THRESHOLD``.
+MIN_COMMON_BETA_PERIODS_HARD: int = 20
+
+# Two-tier sample-size guard on the Fama-MacBeth β series. ``T < HARD`` short-
+# circuits — a Newey-West HAC SE on a 3-period series is undefined. ``HARD ≤ T
+# < WARN`` returns the stat with ``WarningCode.UNRELIABLE_SE_SHORT_PERIODS``
+# attached (literature floor: Fama-MacBeth originally used T~30+; below that
+# the asymptotic t is borderline). ``T ≥ WARN`` is silent.
+MIN_FM_PERIODS_HARD: int = 4
+MIN_FM_PERIODS_WARN: int = 30
+
 # Per-date cross-section floor (assets axis) for the robust-scale estimators in
 # ``factrix.preprocess.normalize``. Below three finite values a per-date median /
 # MAD pair carries no information about dispersion: at n=1 the chain used to

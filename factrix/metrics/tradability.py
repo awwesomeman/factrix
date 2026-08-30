@@ -352,7 +352,7 @@ def rank_turnover(
         paired.group_by("date")
         .agg(
             pl.corr("rank_curr", "rank_prev").alias("rc"),
-            pl.len().alias("n_pair"),
+            pl.len().alias("n_pairs"),
         )
         .filter(pl.col("rc").is_not_null() & pl.col("rc").is_not_nan())
         .sort("date")
@@ -373,7 +373,7 @@ def rank_turnover(
     rc_arr = rc_per_date["rc"].to_numpy()
     mean_rc = float(np.mean(rc_arr))
     std_rc = float(np.std(rc_arr, ddof=DDOF))
-    n_cs_mean = float(rc_per_date["n_pair"].mean())  # type: ignore[arg-type]
+    n_cs_mean = float(rc_per_date["n_pairs"].mean())  # type: ignore[arg-type]
 
     return MetricResult(
         value=1.0 - mean_rc,

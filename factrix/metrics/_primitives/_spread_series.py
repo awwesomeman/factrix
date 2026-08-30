@@ -14,7 +14,11 @@ from factrix._axis import (
     SpecRole,
 )
 from factrix._metric_index import cell
-from factrix._types import TiePolicy
+from factrix._types import (
+    DEFAULT_FORWARD_PERIODS,
+    DEFAULT_N_GROUPS,
+    TiePolicy,
+)
 from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
@@ -54,8 +58,8 @@ def _validate_compute_spread_series(m: MetricBase) -> None:
 )
 def compute_spread_series(
     data: pl.DataFrame,
-    overlap_periods: int = 5,
-    n_groups: int = 5,
+    overlap_periods: int = DEFAULT_FORWARD_PERIODS,
+    n_groups: int = DEFAULT_N_GROUPS,
     factor_cols: Sequence[str] = ("factor",),
     return_col: str = "forward_return",
     tie_policy: TiePolicy = "ordinal",

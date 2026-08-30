@@ -249,7 +249,7 @@ Boehmer-Musumeci-Poulsen standardised-abnormal-return cross-sectional
 - *descriptive*: `n_events` (raw event rows — `n_event_periods` times the mean
   events per period, **not** the test's sample size), `events_per_period_mean`,
   `events_per_period_max` (clustering profile; read them together with
-  `clustering_hhi`), `n_total_obs` (finite return cells behind the ranks),
+  `clustering_hhi`), `n_pairs_total` (finite return cells behind the ranks),
   `n_events_dropped_non_finite`, `n_events_dropped_no_estimation_window`
   (events whose asset had too little history for the abnormal-return
   estimate), `abnormal_return_model` (`"mean_adjusted"` or

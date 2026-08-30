@@ -208,7 +208,10 @@ def common_beta(
         $h > 1$ understates the overlap-inflated noise, so $\hat\tau^2$ is
         over-stated and the SE errs conservative there. On an unbalanced
         panel the equal-weight slope (``ew_portfolio_beta``) can differ from
-        the mean of the per-asset slopes; both are reported.
+        the mean of the per-asset slopes; both are reported. On a
+        COMMON-scope panel null the test measures 2.0-7.3% across
+        $T \in \{60, 120, 240\}$ and $h \in \{1, 5\}$
+        (``statistical-methods`` section 6).
 
     References:
         [Black-Jensen-Scholes 1972][black-jensen-scholes-1972]:

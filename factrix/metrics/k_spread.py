@@ -39,7 +39,12 @@ from factrix._axis import (
 from factrix._codes import WarningCode
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
-from factrix._types import DDOF, MIN_PORTFOLIO_PERIODS_HARD, TiePolicy
+from factrix._types import (
+    DDOF,
+    DEFAULT_FORWARD_PERIODS,
+    MIN_PORTFOLIO_PERIODS_HARD,
+    TiePolicy,
+)
 from factrix.inference import (
     NEWEY_WEST,
     NON_OVERLAPPING,
@@ -214,7 +219,7 @@ def _validate_k_spread(m: MetricBase) -> None:
 )
 def k_spread(
     data: pl.DataFrame,
-    overlap_periods: int = 5,
+    overlap_periods: int = DEFAULT_FORWARD_PERIODS,
     k: int = 5,
     factor_col: str = "factor",
     return_col: str = "forward_return",

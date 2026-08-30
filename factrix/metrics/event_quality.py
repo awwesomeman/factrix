@@ -39,7 +39,12 @@ from factrix._codes import WarningCode
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import _binomial_two_sided_p
-from factrix._types import EPSILON, MIN_EVENTS_HARD, MIN_EVENTS_WARN
+from factrix._types import (
+    DEFAULT_FORWARD_PERIODS,
+    EPSILON,
+    MIN_EVENTS_HARD,
+    MIN_EVENTS_WARN,
+)
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _attach_abnormal_return,
@@ -87,7 +92,7 @@ def _finite_events(
     return_col: str,
     *,
     estimation_window: int = 60,
-    overlap_periods: int = 5,
+    overlap_periods: int = DEFAULT_FORWARD_PERIODS,
 ) -> tuple[pl.DataFrame, int, dict]:
     """Event rows (``factor != 0``) restricted to finite factor *and* return.
 
@@ -268,7 +273,7 @@ def event_hit_rate(
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
-    overlap_periods: int = 5,
+    overlap_periods: int = DEFAULT_FORWARD_PERIODS,
     estimation_window: int = 60,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
@@ -494,7 +499,7 @@ def event_ic(
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
-    overlap_periods: int = 5,
+    overlap_periods: int = DEFAULT_FORWARD_PERIODS,
     estimation_window: int = 60,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
@@ -670,7 +675,7 @@ def profit_factor(
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
-    overlap_periods: int = 5,
+    overlap_periods: int = DEFAULT_FORWARD_PERIODS,
     estimation_window: int = 60,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
@@ -783,7 +788,7 @@ def event_skewness(
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
-    overlap_periods: int = 5,
+    overlap_periods: int = DEFAULT_FORWARD_PERIODS,
     estimation_window: int = 60,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:

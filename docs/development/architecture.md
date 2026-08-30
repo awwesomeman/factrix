@@ -347,6 +347,19 @@ Silent-drop diagnostics emit a fixed per-axis metadata schema
 `dropped_<axis>`, `drop_rate`, `drop_reason` — the count keys carry the
 axis token, the rate keys are axis-neutral.
 
+**Where the constants live, and what enforces the grammar.** The calibrated
+literals are declared once and imported everywhere: the generic TIMESERIES
+floors and the HAC bandwidth rules in `factrix/_stats/constants.py`, the
+per-metric domain floors (`MIN_COMMON_BETA_PERIODS_HARD`, `MIN_FM_PERIODS_*`,
+`MIN_PORTFOLIO_PERIODS_*`, …) alongside their neighbours in `factrix/_types.py`.
+No module re-declares one locally. `tests/test_sample_naming_lint.py` holds the
+lints: FX003 on the `MIN_*` constant names, FX005 on metric metadata keys (they
+must name their axis rather than use the neutral `obs` / `sample` vocabulary
+reserved for `MetricResult.n_obs` and `fx.inference`), and FX006 on the two
+single-sourced signature defaults `overlap_periods` / `n_groups`, which must
+reference `DEFAULT_FORWARD_PERIODS` / `DEFAULT_N_GROUPS` instead of repeating
+the value.
+
 **Effective-sample single source.** The count a metric *gates* on
 (`min_<axis>`), *reports* (`n_obs` / `n_<axis>`), and records in *drop-stats*
 must be the one the statistic is actually *estimated* on — the complete

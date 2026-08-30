@@ -23,16 +23,14 @@ from factrix._codes import WarningCode
 from factrix._types import (
     MIN_EVENTS_HARD,
     MIN_EVENTS_WARN,
+    MIN_FM_PERIODS_HARD,
+    MIN_FM_PERIODS_WARN,
     MIN_PORTFOLIO_PERIODS_HARD,
     MIN_PORTFOLIO_PERIODS_WARN,
 )
 from factrix.metrics.caar import caar
 from factrix.metrics.concentration import top_concentration
-from factrix.metrics.fm_beta import (
-    MIN_FM_PERIODS_HARD,
-    MIN_FM_PERIODS_WARN,
-    fm_beta,
-)
+from factrix.metrics.fm_beta import fm_beta
 
 
 def _beta_df(n: int, *, seed: int = 0) -> pl.DataFrame:

@@ -36,7 +36,11 @@ from factrix._stats.constants import (
     PERSISTENT_SERIES_AUTOCORR,
 )
 from factrix._stats.ols import _amihud_hurvich_beta
-from factrix._types import DDOF, EPSILON
+from factrix._types import (
+    DDOF,
+    DEFAULT_FORWARD_PERIODS,
+    EPSILON,
+)
 from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
@@ -85,7 +89,7 @@ def predictive_beta(
     data: pl.DataFrame,
     *,
     newey_west_lags: int | None = None,
-    overlap_periods: int = 5,
+    overlap_periods: int = DEFAULT_FORWARD_PERIODS,
     adf_threshold: float | None = 0.10,
     factor_col: str = "factor",
     return_col: str = "forward_return",

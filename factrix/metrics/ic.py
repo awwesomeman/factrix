@@ -31,6 +31,7 @@ from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats.constants import MIN_PERIODS_HARD, MIN_PERIODS_WARN
 from factrix._types import (
+    DEFAULT_FORWARD_PERIODS,
     EPSILON,
     MIN_IC_ASSETS_HARD,
     MIN_IC_ASSETS_WARN,
@@ -238,7 +239,7 @@ def _ic_shortfall_is_asset_driven(ic_df: pl.DataFrame, raw_min: int) -> bool:
 )
 def ic(
     ic_df: pl.DataFrame,
-    overlap_periods: int = 5,
+    overlap_periods: int = DEFAULT_FORWARD_PERIODS,
     inference: NonOverlapping | NeweyWest | StationaryBootstrap = NON_OVERLAPPING,
     *,
     expected_warnings: tuple[str, ...] = (),
