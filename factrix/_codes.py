@@ -26,12 +26,21 @@ class WarningCode(StrEnum):
     # Fired by the series-mean inference members and ``fm_beta`` when the
     # tested per-period series — the series the mean test runs on (IC series,
     # per-period betas, spread series), not the raw factor / return columns —
-    # has lag-1 autocorrelation above
-    # ``PERSISTENT_SERIES_AUTOCORR`` (0.3). In that regime no path in the
+    # is persistent BEYOND the overlap horizon: lag-1 autocorrelation above
+    # ``PERSISTENT_SERIES_AUTOCORR`` (0.3) on the series strided at
+    # ``overlap_periods``. The stride matters: overlapping h-period forward
+    # returns carry an MA(h-1) structure whose lag-1 is near 1 - 1/h by
+    # construction, and that is exactly what the HAC bandwidth floor and the
+    # bootstrap block-length floor absorb — reading lag-1 on the unstrided
+    # series flags the everyday overlapping case, where the paths are
+    # calibrated. What survives the stride is the regime where no path in the
     # library is calibrated — Newey-West, the stationary bootstrap and the
     # plain t all over-reject, by 2–4x nominal at phi = 0.6 and worse above —
     # so the practitioner response is a raised hurdle (Harvey-Liu-Zhu 2016:
     # t > 3) or a longer sample, not a different inference member.
+    # The screen is WITHHELD below MIN_SERIES_PERIODS_HARD (10) strided
+    # observations: a lag-1 read off three to nine points is noise, and the
+    # shortage of periods is what UNRELIABLE_SE_SHORT_PERIODS reports.
     SERIAL_CORRELATION_DETECTED = "serial_correlation_detected"
     # Single cross-asset n_assets guard for PANEL common_continuous: the cross-asset
     # t-test on E[β] runs for any n_assets >= 2 (this axis never raises) but its t_crit
@@ -392,13 +401,22 @@ _WARNING_DESCRIPTIONS.update(
         "test is conservative rather than oversized (measured 0.2-3.5% against "
         "a nominal 5% on an iid series at h=21).",
         WarningCode.PERSISTENT_REGRESSOR: "The predictive regressor is in a regime the corrected test is less well sized in: ADF p exceeds the configured threshold (unit-root suspect), or the measured Stambaugh channel |rho_hat * phi_corrected| exceeds 0.7, or the bias-corrected AR(1) coefficient came out at or above one. The Stambaugh (1999) bias itself is CORRECTED via the Amihud-Hurvich (2004) augmented regression, so this is not 'beta may be biased' - at overlap_periods=1 it is 'the strongest Stambaugh cells leave the corrected test at 6-8% against a nominal 5%, where the calibrated cells sit at 4-6%'. Note this code is about the regressor, NOT about overlap: at overlap_periods>1 the test is 7.5-14.5% oversized for every phi INCLUDING rho=0, which is the overlapping-regression HAC problem and fires no code of its own. Read the p against a raised hurdle.",
-        WarningCode.SERIAL_CORRELATION_DETECTED: "The tested per-period series has "
-        "lag-1 autocorrelation above PERSISTENT_SERIES_AUTOCORR (0.3). No HAC or "
-        "bootstrap path is calibrated here — measured 13–17% (NW), 12–19% "
-        "(bootstrap) and 32–34% (plain t) at a nominal 5% for phi=0.6, worse "
-        "above — so read the p-value against a raised hurdle (Harvey-Liu-Zhu "
-        "2016: t > 3) or lengthen the sample; switching inference member does "
-        "not fix it.",
+        WarningCode.SERIAL_CORRELATION_DETECTED: "The tested per-period series is "
+        "persistent beyond the overlap horizon: lag-1 autocorrelation above "
+        "PERSISTENT_SERIES_AUTOCORR (0.3) on the series strided at "
+        "overlap_periods, which must itself reach MIN_SERIES_PERIODS_HARD "
+        "(10) observations — below that the screen is withheld, because a "
+        "lag-1 autocorrelation estimated from three to nine points is noise "
+        "and the shortage of periods is what UNRELIABLE_SE_SHORT_PERIODS "
+        "reports. The MA(h-1) autocorrelation that overlapping "
+        "h-period forward returns induce is absorbed by the HAC bandwidth "
+        "floor and the bootstrap block-length floor and does not fire this "
+        "code; what does is persistence the stride cannot remove. No HAC or "
+        "bootstrap path is calibrated there — measured 6.7-10.3% (NW), "
+        "6.7-15.3% (bootstrap) and 26.7-34.7% (plain t) at a nominal 5% on an "
+        "AR(0.6) per-period series, worse above — so read the p-value against "
+        "a raised hurdle (Harvey-Liu-Zhu 2016: t > 3) or lengthen the sample; "
+        "switching inference member does not fix it.",
         WarningCode.FEW_ASSETS: "Cross-section asset count is below the "
         "relevant WARN floor (panel-wide MIN_ASSETS_WARN=30, per-period "
         "MIN_IC_ASSETS_WARN=10, or per-period MIN_FM_ASSETS_WARN=10). The "

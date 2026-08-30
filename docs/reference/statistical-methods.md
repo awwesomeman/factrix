@@ -722,7 +722,7 @@ size sweep tracker). The function warns in this regime and the
 characterisation test in `tests/test_slice_period_joint_test.py` pins the
 measured band; pairwise contrasts on the
 same slices (5–6%) are the better-calibrated read.
-### Persistent per-period series: no HAC or bootstrap path is calibrated
+### Persistence *beyond the overlap horizon*: no HAC or bootstrap path is calibrated
 
 Every mean test on a per-period series (`ic` under any inference member,
 the spread metrics, `fm_beta`) is measured on a true null against the
@@ -740,9 +740,131 @@ block bootstrap inherits it. This is the well-documented short-sample
 behaviour of Newey-West, not a factrix defect, and the field's response
 is not a different kernel: report the *t* against a raised hurdle
 ([Harvey, Liu & Zhu (2016)][harvey-liu-zhu-2016]: *t* > 3) or lengthen
-the sample. factrix screens the tested series' lag-1 autocorrelation
-and raises `WarningCode.SERIAL_CORRELATION_DETECTED` above
-`PERSISTENT_SERIES_AUTOCORR` (0.3) so the regime is never silent.
+the sample.
+
+#### What the screen reads, and why it is the strided series
+
+factrix raises `WarningCode.SERIAL_CORRELATION_DETECTED` above
+`PERSISTENT_SERIES_AUTOCORR` (0.3) so the regime above is never silent.
+The number it screens is lag-1 autocorrelation **on the series strided at
+`overlap_periods`** — first observation of each block, the same stride
+`NON_OVERLAPPING` runs its *t*-test on — not on the full overlapping
+series.
+
+The distinction is the whole content of the screen. Overlapping *h*-period
+forward returns carry an MA(*h*−1) structure by construction: lag-1
+autocorrelation near 1 − 1/*h*, lag-*h* near zero. That is precisely what
+the HAC bandwidth floor `3(h − 1)` and the bootstrap block-length floor
+`overlap_periods` exist to absorb, and the size tables below show they do.
+A lag-1 read on the unstrided series therefore fires on the everyday
+overlapping case — where the paths *are* calibrated — and says nothing
+about the regime where they are not. Measured on the persistent-factor
+null below (300 replications, φ = 0.9), an unstrided lag-1 screen fires on
+99–100% of draws at *h* ∈ {5, 21} while the measured size stays at
+3.7–9.0%; the strided screen fires on 0–9% of the same draws.
+
+Whether a factor is persistent is not itself the question. A per-asset
+AR(φ) factor makes the *IC series* persistent only through the
+forward-return overlap: measured lag-1 rises to 0.61–0.81 at *h* ∈ {5, 21}
+while lag-*h* stays at −0.02 to −0.11, the MA(*h*−1) signature. What the
+screen is for is a series that stays autocorrelated once the overlap is
+strided away — a drifting signal level, a slow-moving regime — and there
+the stride cannot help and neither can the kernel.
+
+#### The `ic` pipeline: measured size and screen firing rate
+
+True-null rejection rates at a nominal 5% for `ic` under each inference
+member, on two nulls. Both are
+`make_cs_panel(n_assets=50, ic_target=0.0, signal_horizon=h)` with
+`n_dates = T + h`, `compute_forward_return(forward_periods=h)` and
+`overlap_periods=h`; they differ only in `factor_persistence` — φ = 0 is
+the iid-per-period factor, φ = 0.9 a per-asset AR(0.9) factor independent
+of returns, which is what makes the overlap mechanism bite at all. 300
+replications per cell, seed `20260830 + rep`, `n_resamples=499`.
+Monte-Carlo standard error is ~1.3pp per cell. `T` counts periods on the
+evaluation grid before the stride. "screen" is the fraction of draws
+raising `serial_correlation_detected`; it is a property of the series, so
+it is identical across the three members.
+
+Null: **iid factor** (`factor_persistence=0.0`)
+
+| T | h | `NON_OVERLAPPING` | `NEWEY_WEST` | `STATIONARY_BOOTSTRAP` | screen |
+|---|---|---|---|---|---|
+| 60 | 1 | 0.047 | 0.057 | 0.057 | 0.003 |
+| 60 | 5 | 0.043 | 0.060 | 0.080 | 0.047 |
+| 60 | 21 | — | 0.003 | 0.053 | 0.000 |
+| 120 | 1 | 0.050 | 0.040 | 0.053 | 0.000 |
+| 120 | 5 | 0.060 | 0.030 | 0.043 | 0.053 |
+| 120 | 21 | — | 0.023 | 0.100 | 0.000 |
+| 240 | 1 | 0.053 | 0.053 | 0.060 | 0.000 |
+| 240 | 5 | 0.053 | 0.063 | 0.067 | 0.010 |
+| 240 | 21 | 0.033 | 0.027 | 0.043 | 0.060 |
+
+Null: **persistent factor** (`factor_persistence=0.9`)
+
+| T | h | `NON_OVERLAPPING` | `NEWEY_WEST` | `STATIONARY_BOOTSTRAP` | screen |
+|---|---|---|---|---|---|
+| 60 | 1 | 0.020 | 0.037 | 0.030 | 0.000 |
+| 60 | 5 | 0.040 | 0.060 | 0.083 | 0.067 |
+| 60 | 21 | — | 0.010 | 0.040 | 0.000 |
+| 120 | 1 | 0.063 | 0.073 | 0.063 | 0.000 |
+| 120 | 5 | 0.073 | 0.063 | 0.067 | 0.030 |
+| 120 | 21 | — | 0.067 | 0.077 | 0.000 |
+| 240 | 1 | 0.060 | 0.053 | 0.060 | 0.000 |
+| 240 | 5 | 0.080 | 0.087 | 0.090 | 0.020 |
+| 240 | 21 | 0.057 | 0.060 | 0.070 | 0.080 |
+
+`NON_OVERLAPPING` at `T ∈ {60, 120}, h = 21` has no rejection rate: `ic`
+refuses the panel at its stride-scaled periods floor (`metric_unavailable`)
+rather than testing ~3 effective periods.
+
+Both nulls read the same way, which is the point: the persistent factor
+moves no member outside the band the iid factor already sits in
+(`NEWEY_WEST` 0.3–8.7%, `STATIONARY_BOOTSTRAP` 3.0–10.0%), and the screen
+stays quiet on both. The `NEWEY_WEST` floor cells (0.3% at `T = 60,
+h = 21`, 2.3% at `T = 120, h = 21`) are the documented long-horizon
+conservatism of the HAR effective df `T/h − 1`, not a persistence effect —
+they are as low on the iid null as on the persistent one.
+
+The screen is **withheld** below `MIN_SERIES_PERIODS_HARD` (10) strided
+observations — the library's floor for estimating a series statistic on
+the periods axis, the same one `NON_OVERLAPPING`'s post-stride sample is
+gated on. A lag-1 autocorrelation read off three to nine observations is
+noise: the estimator's standard error there is 0.3–0.6 and a sample value
+above `PERSISTENT_SERIES_AUTOCORR` is common under independence, so the
+code would be reporting the shortage of periods rather than any
+persistence, which is `UNRELIABLE_SE_SHORT_PERIODS`'s job. That is why
+the `h = 21` screen column reads 0.000 at `T ∈ {60, 120}` on both nulls:
+`T/h` is 3–6 observations there and nothing is estimated.
+
+`T = 240, h = 21` clears the floor at 12 strided observations and still
+fires on 6.0% (iid factor) / 8.0% (persistent factor) of draws. That is
+the residual small-sample noise of a lag-1 estimate at *n* = 12, where the
+estimator's own standard error is ~0.29 against a 0.3 threshold — equal on
+both nulls, so it is not persistence. Read a
+`serial_correlation_detected` on a strided series near the floor as weak
+evidence and check `n_obs`.
+
+#### A series that really is persistent beyond the horizon
+
+Constructed directly rather than through the overlap: a per-period
+factor→return signal level following a zero-mean AR(φ) across the grid, 50
+assets, `overlap_periods=1`, so the IC series is AR(φ) with no overlap
+component at all. 300 replications, seed `20260830 + rep`, nominal 5%.
+
+| φ | T | plain *t* (`NON_OVERLAPPING`) | `NEWEY_WEST` | `STATIONARY_BOOTSTRAP` | screen |
+|---|---|---|---|---|---|
+| 0.6 | 60 | 0.340 | 0.103 | 0.153 | 0.947 |
+| 0.6 | 120 | 0.267 | 0.067 | 0.067 | 1.000 |
+| 0.6 | 240 | 0.347 | 0.073 | 0.073 | 1.000 |
+| 0.9 | 60 | 0.653 | 0.273 | 0.213 | 0.997 |
+| 0.9 | 120 | 0.623 | 0.193 | 0.143 | 1.000 |
+| 0.9 | 240 | 0.630 | 0.143 | 0.097 | 1.000 |
+
+This is the regime the code names, and the screen fires on 94.7–100% of
+draws in it. Note that lengthening the sample does not fix the plain *t*
+here — 34.7% at `T = 240` — because the persistence, not the sample size,
+is what the OLS SE is missing.
 
 Measured but deliberately **not** adopted: the Newey-West (1994) plug-in
 bandwidth (worse than the fixed rule on iid input), longer Bartlett
@@ -822,10 +944,12 @@ measurement rather than an inherited one.
 
 True-null rejection rates at a nominal 5% on `quantile_spread`, measured
 on `make_cs_panel(n_assets=50, ic_target=0.0)` with
-`compute_forward_return(forward_periods=h)` and `overlap_periods=h`; 500
-replications per cell, `n_resamples=499`, base seed 20260830. Monte-Carlo
-standard error is ~1.0pp per cell. `T` counts periods on the evaluation
-grid before the stride.
+`compute_forward_return(forward_periods=h)` and `overlap_periods=h`. `T`
+counts periods on the evaluation grid before the stride. Each table
+states its null; both use base seed 20260830 and `n_resamples=499`.
+
+Null: **iid factor** (`factor_persistence=0.0`, the default) — 500
+replications per cell, Monte-Carlo standard error ~1.0pp.
 
 | T | h | `NEWEY_WEST` | `STATIONARY_BOOTSTRAP` |
 |---|---|---|---|
@@ -839,9 +963,37 @@ grid before the stride.
 | 240 | 5 | 0.076 | 0.080 |
 | 240 | 21 | 0.036 | 0.068 |
 
-`T = 60, h = 21` is not measurable: the metric refuses that panel at its
-stride-scaled periods floor (`metric_unavailable`) rather than testing
-~2 effective periods, so there is no rejection rate to report.
+Null: **persistent factor** (`factor_persistence=0.9`, per-asset AR(0.9)
+independent of returns) — 300 replications per cell, seed
+`20260830 + rep`, Monte-Carlo standard error ~1.3pp. This is the null
+under which the forward-return overlap actually shows up in the spread
+series: with an iid factor, consecutive periods' spreads share return
+windows but draw independent weights, so the overlap barely propagates.
+"screen" is the fraction of draws raising `serial_correlation_detected`.
+
+| T | h | `NEWEY_WEST` | `STATIONARY_BOOTSTRAP` | screen |
+|---|---|---|---|---|
+| 60 | 1 | 0.027 | 0.037 | 0.003 |
+| 60 | 5 | 0.083 | 0.083 | 0.063 |
+| 60 | 21 | — | — | — |
+| 120 | 1 | 0.060 | 0.057 | 0.003 |
+| 120 | 5 | 0.067 | 0.090 | 0.023 |
+| 120 | 21 | 0.077 | 0.100 | 0.000 |
+| 240 | 1 | 0.047 | 0.050 | 0.000 |
+| 240 | 5 | 0.083 | 0.080 | 0.003 |
+| 240 | 21 | 0.043 | 0.067 | 0.047 |
+
+`T = 60, h = 21` is not measurable on either null: the metric refuses that
+panel at its stride-scaled periods floor (`metric_unavailable`) rather
+than testing ~2 effective periods, so there is no rejection rate to
+report.
+
+The persistent-factor null moves nothing outside the iid-factor bands
+(`NEWEY_WEST` 2.7–8.3% against 2.4–7.6%, `STATIONARY_BOOTSTRAP`
+3.7–10.0% against 4.8–9.0%; every difference is inside two Monte-Carlo
+standard errors), and the screen stays quiet — the 4.7–7.3% at `h = 21` is
+the small-sample false-positive floor of a 3–11-observation strided
+sample, present on the iid null too.
 
 The bootstrap is calibrated-to-slightly-liberal across every measurable
 cell (4.8–9.0%) and never worse than the short-sample distortion already
@@ -865,8 +1017,9 @@ nominal 5%; sample sizes count periods on the evaluation grid after the
 
 | Input regime | What you see | What the measurements say | Read / do |
 |---|---|---|---|
-| Overlapping `forward_periods` panel, per-period series not persistent (the everyday case) | No warning | `NEWEY_WEST` 5–9% on real overlapping IC (h = 5, n = 240 / 480: 5.2% / 8.8%); `NON_OVERLAPPING` calibrated. | Keep the default member. |
-| Persistent per-period series (lag-1 φ ≥ 0.3 on the *tested* series) | `serial_correlation_detected` | No path is calibrated — NW 13–17%, stationary bootstrap 12–19%, plain *t* 32–34% at φ = 0.6 (table above). | Do **not** switch member; it moves the number without fixing it. Read the *t* against a raised hurdle (*t* > 3) or lengthen the sample. A coarser `overlap_periods` stride under `NON_OVERLAPPING` also helps mechanically — the strided sample sits at φ^h, and AR(0.6) strided at h = 21 measures 4.5%. |
+| Overlapping `forward_periods` panel, per-period series not persistent once strided (the everyday case) | No warning | `NEWEY_WEST` 5–9% on real overlapping IC (h = 5, n = 240 / 480: 5.2% / 8.8%); `NON_OVERLAPPING` calibrated. On the persistent-factor null, where the overlap actually propagates into the per-period series, `ic` measures NW 1–8.7% and the bootstrap 3–9% across `T × h`, and the screen fires on 0–9% of draws (tables above). | Keep the default member. |
+| Persistent per-period series (lag-1 φ ≥ 0.3 on the *strided* tested series) | `serial_correlation_detected` | No path is calibrated. On an AR(φ) per-period IC series at `h = 1`: plain *t* 26.7–34.7%, NW 6.7–10.3%, bootstrap 6.7–15.3% at φ = 0.6, and 62.3–65.3% / 14.3–27.3% / 9.7–21.3% at φ = 0.9 (table above); the screen fires on 94.7–100% of those draws. | Do **not** switch member; it moves the number without fixing it. Read the *t* against a raised hurdle (*t* > 3) or lengthen the sample — at φ = 0.6 the plain *t* is still 34.7% at `T = 240`, so more periods alone is not enough either. A coarser `overlap_periods` stride under `NON_OVERLAPPING` helps mechanically where the horizon allows it — the strided sample sits at φ^h, and AR(0.6) strided at h = 21 measures 4.5%. |
+| Fewer than `MIN_SERIES_PERIODS_HARD` (10) periods after the stride | No `serial_correlation_detected` — the screen is withheld | A lag-1 autocorrelation estimated from 3–9 observations is noise, so the screen reports nothing rather than report the shortage of periods as persistence; measured firing rate at `h = 21, T ∈ {60, 120}` is 0.000 on both nulls. Just above the floor it is still weak: 12 strided observations at `T = 240, h = 21` fire on 6.0% / 8.0% of draws, equally on the iid and persistent nulls. | Read `unreliable_se_short_periods` and `n_obs` — the periods shortage, not the persistence, is what the sample is telling you. Lengthen the history or shorten the horizon. |
 | Short strided series (fewer than ~120 periods after the stride) | `unreliable_se_short_periods`, or nothing on a moderately short series | The *t* / NW branch runs 7–9%. A block-bootstrap p is *worse* here — the spread metrics' former automatic bootstrap branch (`_block_bootstrap_diff_p`, kernel-isolated on iid input) measured 13.6% at n = 12, 9.8% at 30, 7.4% at 60, reaching 5.2% only by 120 — and the strided series is short exactly when the horizon is long. The spread-series table above says the same at the short end: 8.2% at T = 60, h = 1. | Stay on the analytic *t* / NW. Do not reach for the bootstrap to rescue a short sample; shorten the stride or lengthen the history instead. |
 | Long strided series (≥ ~120 periods) whose distribution is in doubt (heavy tails, skew) | No warning | On iid input `STATIONARY_BOOTSTRAP` sits at the same 7–9% baseline as NW (φ = 0 row above) — it buys no *size*. On the spread series it measures 4.8–9.0% across the grid above, with its worst cell at the long horizon (9.0% at T = 120, h = 21) where NW is conservative instead (2.4%). Its case is distributional: it is the only member that does not assume asymptotic normality of the mean (§1). | Read `STATIONARY_BOOTSTRAP` alongside the analytic p — on `ic` and on all three spread metrics, which admit it on the strength of the table above — when tails or skew are the doubt. A documented option, not a default. |
 | Heavy-tailed *and* short | `unreliable_se_short_periods` | The *t* is size-robust to tails — 3–4% on t(3) input, i.e. conservative — while the small-n bootstrap is not (6–14%). | Keep the *t*. Tails are not a reason to bootstrap a short series. |

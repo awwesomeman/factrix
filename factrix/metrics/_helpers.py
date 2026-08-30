@@ -1224,6 +1224,26 @@ def _warn_estimation_window_contamination(
         warning_codes.append(code)
 
 
+def _stride_dates(
+    data: pl.DataFrame,
+    overlap_periods: int,
+) -> pl.DataFrame:
+    """Rows on every ``overlap_periods``-th distinct date, first-of-each-block.
+
+    The bare stride behind :func:`_sample_non_overlapping`, split out so a
+    caller that only wants to *inspect* the strided series (the persistence
+    screen in ``factrix.inference.series_mean``) does not emit that helper's
+    short-sample WARNING, which speaks about a t-test being run on the
+    subsample.
+
+    Striding on the distinct dates — not on row position — is load-bearing:
+    the panel's period grid may be unevenly spaced, and phase must be fixed
+    by the grid rather than by which rows happen to be finite.
+    """
+    sampled_dates = data["date"].unique().sort().gather_every(overlap_periods)
+    return data.filter(pl.col("date").is_in(sampled_dates.implode()))
+
+
 def _sample_non_overlapping(
     data: pl.DataFrame,
     overlap_periods: int,
@@ -1270,9 +1290,8 @@ def _sample_non_overlapping(
     from factrix._logging import get_metrics_logger
     from factrix._types import MIN_SERIES_PERIODS_HARD
 
-    sampled_dates = data["date"].unique().sort().gather_every(overlap_periods)
-    result = data.filter(pl.col("date").is_in(sampled_dates.implode()))
-    n_after = len(sampled_dates)
+    result = _stride_dates(data, overlap_periods)
+    n_after = result["date"].n_unique()
     logger = get_metrics_logger()
     logger.debug(
         "non_overlap_sample: overlap_periods=%d n_dates_before=%d n_after=%d",
