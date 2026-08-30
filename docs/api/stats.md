@@ -14,7 +14,6 @@ The selection-only estimator classes under `factrix.stats`:
 |---|---|---|
 | `WaldNWCluster` | Cluster-Wald $\chi^2$ (1-way cluster on slice) | 1-way cluster-robust Wald contrast test |
 | `WaldTwoWayCluster` | Cluster-Wald $\chi^2$ (two-way cluster on (date, asset)) | 2-way cluster-robust Wald contrast test |
-| `BlockBootstrap` | Politis-Romano stationary or circular fixed-length block bootstrap | Empirical p-value block bootstrap for paired contrast |
 | `DriscollKraay` | Driscoll-Kraay cross-section-robust HAC SE | Selection-only base Estimator for Driscoll-Kraay robust standard errors |
 
 ---

@@ -331,9 +331,9 @@ class StationaryBootstrap:
     ``metadata["studentized"] = False`` *and* as
     ``WarningCode.DEGENERATE_VARIANCE``, never silently.
 
-    Delegates to ``factrix._stats.bootstrap._block_bootstrap_diff_p`` —
-    the same kernel backing ``factrix.stats.BlockBootstrap`` — so the
-    empirical-p convention is one implementation, not a parallel one.
+    Delegates to ``factrix._stats.bootstrap._block_bootstrap_diff_p``, the
+    library's single studentized block-bootstrap empirical-p kernel, so the
+    convention is one implementation, not a parallel one.
     """
 
     test: ClassVar[str] = "bootstrap-mean"

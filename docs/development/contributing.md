@@ -764,7 +764,7 @@ The slicing subsystem is the worked example of the rule:
 |---|---|
 | `Layer-A` / first-layer dispatcher | **slice dispatcher** — describes partitioning by label + applying a metric per slice (`by_slice`) |
 | `Layer-B` / second-layer / curated wrapper (inference path) | **slice-test function** / **inference function** — describes the cross-slice estimator + multiple-testing pipeline (`slice_pairwise_test` / `slice_joint_test`) |
-| `Layer-B` Estimator | **slice-test Estimator** — Estimators consumed by the slice-test functions (`WaldNWCluster` / `WaldTwoWayCluster` / `BlockBootstrap`) |
+| `Layer-B` Estimator | **selection-only Estimator** — identity handles under `factrix.stats` (`WaldNWCluster` / `WaldTwoWayCluster` / `DriscollKraay`); their numerics live in the `_stats` kernels and the slice-test / pooled-beta procedures that consume them |
 | `EvaluationResult.to_frame()` renderer layer | **renderer** — result-side method; no separate tier implied |
 
 The rule is functional, not lexical — `dispatcher`, `function`, and `wrapper` are fine on their own when they describe what the function does. It is the **pairing** as a tier label (`dispatcher` vs `curated wrapper` as the two levels of the slicing system) that drifts; the same word as a behavioural noun is stable. Describe the specification by its content when a docstring needs to point at one, rather than `Layer-B (#NNN)` — the `Layer-B` tier label drifts, and an issue number does not belong in source either.

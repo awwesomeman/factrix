@@ -9,8 +9,6 @@ selection-only instances for slice contrasts.
 ``DriscollKraay`` — [Driscoll-Kraay (1998)][driscoll-kraay-1998]
 cross-section-robust HAC SE for pooled-panel slopes; selection-only
 identity handle, numerics consumed by ``pooled_beta``.
-``BlockBootstrap`` — block-bootstrap empirical-p selection-only
-instance for paired-diff slice tests.
 ``multiple_testing`` — BHY false-discovery plus Holm and Romano-Wolf
 family-wise error-rate adjustments across a declared search family.
 ``bootstrap`` — stationary-bootstrap resampling + CI for dependent series.
@@ -18,7 +16,6 @@ family-wise error-rate adjustments across a declared search family.
 
 from __future__ import annotations
 
-from factrix.stats.block_bootstrap import BlockBootstrap
 from factrix.stats.bootstrap import (
     bootstrap_mean_ci,
     stationary_bootstrap_resamples,
@@ -33,7 +30,6 @@ from factrix.stats.multiple_testing import (
 from factrix.stats.wald_cluster import WaldNWCluster, WaldTwoWayCluster
 
 __all__ = [
-    "BlockBootstrap",
     "DriscollKraay",
     "WaldNWCluster",
     "WaldTwoWayCluster",
