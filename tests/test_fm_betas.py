@@ -7,6 +7,7 @@ batch element equals the corresponding list-of-one call).
 
 from __future__ import annotations
 
+import warnings
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -508,3 +509,109 @@ class TestPooledClusteredSEAgainstHandComputation:
         assert out.metadata["n_clusters_a"] == 10
         assert out.metadata["n_clusters_b"] == 2
         assert WarningCode.METRIC_UNAVAILABLE.value in out.warning_codes
+
+
+class TestShankenCorrection:
+    """The EIV path: mandatory σ²_f, HAR df, and the degenerate regime."""
+
+    @staticmethod
+    def _beta_df(betas: np.ndarray) -> pl.DataFrame:
+        start = datetime(2020, 1, 1)
+        return pl.DataFrame(
+            {
+                "date": [start + timedelta(days=i) for i in range(len(betas))],
+                "beta": betas,
+            }
+        )
+
+    @staticmethod
+    def _draw(n: int, mean: float, rng_seed: int) -> np.ndarray:
+        rng = np.random.default_rng(rng_seed)
+        return mean + rng.standard_normal(n) * 0.01
+
+    @pytest.mark.parametrize("n_periods", [60, 120, 240])
+    @pytest.mark.parametrize("overlap_periods", [None, 5])
+    def test_correction_can_only_raise_the_p_value(self, n_periods, overlap_periods):
+        """c >= 1 shrinks |t|; read against the SAME df, p can only grow.
+
+        The bug this pins: the corrected t used to be read against ``n - 1``
+        while the uncorrected p used the HAR effective df (~16 at T = 240),
+        so the wider reference distribution more than undid the sqrt(c) SE
+        inflation and the "conservative" correction returned a SMALLER p.
+        """
+        betas = self._draw(n_periods, 0.004, 11)
+        beta_df = self._beta_df(betas)
+        out = fm_beta(
+            beta_df,
+            overlap_periods=overlap_periods,
+            is_estimated_factor=True,
+            factor_return_var=0.0004,
+        )
+        assert out.metadata["shanken_c"] >= 1.0
+        assert abs(out.stat) <= abs(out.metadata["stat_uncorrected"])
+        assert out.p_value >= out.metadata["p_value_uncorrected"]
+
+    def test_corrected_p_is_read_against_the_reported_hac_dof(self):
+        from factrix._stats import _p_value_from_t
+
+        betas = self._draw(120, 0.004, 3)
+        out = fm_beta(
+            self._beta_df(betas),
+            overlap_periods=5,
+            is_estimated_factor=True,
+            factor_return_var=0.0004,
+        )
+        assert out.p_value == pytest.approx(
+            _p_value_from_t(out.stat, out.n_obs, dof=out.metadata["hac_dof"])
+        )
+
+    def test_estimated_factor_without_a_variance_is_a_user_input_error(self):
+        from factrix._errors import UserInputError
+
+        betas = self._draw(120, 0.004, 5)
+        with pytest.raises(UserInputError) as excinfo:
+            fm_beta(self._beta_df(betas), is_estimated_factor=True)
+        err = excinfo.value
+        assert err.field == "factor_return_var"
+        assert err.func_name == "fm_beta"
+        # The proxy is refused because it is algebraically inert, and the
+        # message has to say so — see the docstring's 1 + t^2/T identity.
+        assert "1 + t" in str(err)
+
+    def test_degenerate_factor_variance_raises_a_warning_code(self):
+        betas = self._draw(120, 0.004, 7)
+        with pytest.warns(UserWarning, match="Shanken"):
+            out = fm_beta(
+                self._beta_df(betas),
+                is_estimated_factor=True,
+                factor_return_var=0.0,
+            )
+        assert WarningCode.DEGENERATE_VARIANCE.value in out.warning_codes
+        assert out.metadata["shanken_correction"] == "skipped_zero_factor_variance"
+        # Skipped, so the uncorrected result stands and no Shanken key appears.
+        assert "shanken_c" not in out.metadata
+        uncorrected = fm_beta(self._beta_df(betas))
+        assert out.p_value == pytest.approx(uncorrected.p_value)
+
+    def test_expected_warnings_silences_the_degenerate_regime(self):
+        betas = self._draw(120, 0.004, 7)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            out = fm_beta(
+                self._beta_df(betas),
+                is_estimated_factor=True,
+                factor_return_var=0.0,
+                expected_warnings=(WarningCode.DEGENERATE_VARIANCE.value,),
+            )
+        assert WarningCode.DEGENERATE_VARIANCE.value in out.warning_codes
+
+    def test_no_variance_source_key_is_reported(self):
+        """Only one source survives, so the key carries no information."""
+        betas = self._draw(120, 0.004, 9)
+        out = fm_beta(
+            self._beta_df(betas),
+            is_estimated_factor=True,
+            factor_return_var=0.0004,
+        )
+        assert "shanken_factor_return_var_source" not in out.metadata
+        assert out.metadata["shanken_factor_return_var"] == pytest.approx(0.0004)
