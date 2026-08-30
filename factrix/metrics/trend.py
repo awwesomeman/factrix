@@ -31,6 +31,7 @@ from factrix._results import MetricResult
 from factrix._stats import _adf, _mann_kendall_hamed_rao
 from factrix._stats.constants import PERSISTENT_SERIES_AUTOCORR
 from factrix._stats.diagnostics import _lag1_autocorr
+from factrix._types import DEFAULT_FORWARD_PERIODS
 from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
@@ -79,7 +80,7 @@ def _validate_ic_trend(m: MetricBase) -> None:
 def ic_trend(
     series: pl.DataFrame,
     value_col: str = "value",
-    overlap_periods: int = 5,
+    overlap_periods: int = DEFAULT_FORWARD_PERIODS,
     *,
     name: str = "ic_trend",
     adf_threshold: float | None = 0.10,

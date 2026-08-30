@@ -24,7 +24,10 @@ from factrix._axis import (
 from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._stats import _binomial_two_sided_p
-from factrix._types import MIN_SERIES_PERIODS_HARD
+from factrix._types import (
+    DEFAULT_FORWARD_PERIODS,
+    MIN_SERIES_PERIODS_HARD,
+)
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _enforce_scaled_floor,
@@ -81,7 +84,7 @@ def per_date_series(series: pl.DataFrame) -> pl.DataFrame:
 def positive_rate(
     series: pl.DataFrame,
     value_col: str = "value",
-    overlap_periods: int = 5,
+    overlap_periods: int = DEFAULT_FORWARD_PERIODS,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     """Positive rate = proportion of periods where value > 0.

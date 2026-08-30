@@ -16,7 +16,11 @@ from factrix._axis import (
 )
 from factrix._metric_index import cell
 from factrix._stats.ols import _ols_nw_slope_se
-from factrix._types import EPSILON
+from factrix._types import (
+    DEFAULT_FORWARD_PERIODS,
+    EPSILON,
+    MIN_COMMON_BETA_PERIODS_HARD,
+)
 from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
@@ -24,10 +28,6 @@ from factrix.metrics._helpers import (
     _finite_expr,
     _validate_factor_cols,
 )
-
-# Minimum complete (factor, return) observations per asset to fit a
-# time-series slope. Mirrors the historical per-asset floor.
-MIN_COMMON_BETA_PERIODS_HARD: int = 20
 
 # One carrier label covering the three silent asset-axis reductions in
 # ``_common_betas_one``: assets with no complete (factor, return) pairs vanish at
@@ -126,7 +126,7 @@ def compute_common_betas(
     data: pl.DataFrame,
     factor_cols: Sequence[str] = ("factor",),
     return_col: str = "forward_return",
-    overlap_periods: int = 5,
+    overlap_periods: int = DEFAULT_FORWARD_PERIODS,
 ) -> dict[str, pl.DataFrame]:
     r"""Per-asset time-series ordinary least squares (OLS).
 
@@ -160,7 +160,7 @@ def compute_common_betas(
 
     Returns:
         Dict mapping each factor name to a DataFrame with columns
-        ``asset_id, beta, alpha, t_stat, r_squared, n_obs`` sorted by
+        ``asset_id, beta, alpha, t_stat, r_squared, n_periods`` sorted by
         ``asset_id``, three broadcast calendar-time columns —
         ``ew_portfolio_beta`` / ``ew_portfolio_beta_var`` (the equal-weight
         portfolio's slope on the factor and its Newey-West variance, the
@@ -198,7 +198,7 @@ def compute_common_betas(
         ``NaN``; the asset then emitted a ``NaN`` beta that survived
         ``drop_nulls`` and poisoned every cross-asset aggregate downstream.
         Row-wise dropping (rather than voiding the whole asset) matches a
-        pandas ``dropna()`` per-asset OLS, and ``n_obs`` is the finite-pair
+        pandas ``dropna()`` per-asset OLS, and ``n_periods`` is the finite-pair
         count actually regressed.
 
         ``t_stat`` is **null when the standard error is undefined**: an exact
@@ -236,17 +236,17 @@ def _common_betas_one(
         .filter(valid_mask)
         .group_by("asset_id")
         .agg(
-            pl.len().alias("n_obs"),
+            pl.len().alias("n_periods"),
             pl.col(factor_col).mean().alias("_xbar"),
             pl.col(return_col).mean().alias("_ybar"),
             pl.col(factor_col).var().alias("_var_x"),
             pl.col(return_col).var().alias("_var_y"),
             pl.cov(factor_col, return_col).alias("_cov"),
         )
-        .filter(pl.col("n_obs") >= MIN_COMMON_BETA_PERIODS_HARD)
+        .filter(pl.col("n_periods") >= MIN_COMMON_BETA_PERIODS_HARD)
     )
 
-    n = pl.col("n_obs")
+    n = pl.col("n_periods")
     s_xx = (n - 1) * pl.col("_var_x")
     s_yy = (n - 1) * pl.col("_var_y")
     s_xy = (n - 1) * pl.col("_cov")
@@ -293,7 +293,7 @@ def _common_betas_one(
             "alpha",
             "t_stat",
             "r_squared",
-            pl.col("n_obs").cast(pl.Int64),
+            pl.col("n_periods").cast(pl.Int64),
         )
         .sort("asset_id")
         .collect()

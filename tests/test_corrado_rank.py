@@ -129,8 +129,11 @@ class TestNonFiniteReturns:
         # abnormal-return series: it starts once the estimation mean exists
         # (min_samples=20 plus the overlap_periods lag of 5), so 300 - 24 cells
         # would remain and the hole removes one more.
-        assert nan_result.metadata["n_total_obs"] == 275
-        assert nan_result.metadata["n_total_obs"] == null_result.metadata["n_total_obs"]
+        assert nan_result.metadata["n_pairs_total"] == 275
+        assert (
+            nan_result.metadata["n_pairs_total"]
+            == null_result.metadata["n_pairs_total"]
+        )
 
     @pytest.mark.parametrize("hole", [float("nan"), None])
     def test_non_finite_event_row_is_dropped_and_counted(self, hole):
@@ -174,7 +177,7 @@ class TestNonFiniteReturns:
         assert result.metadata["n_events_dropped_no_estimation_window"] == 0
         # 300 rows less the 24 the estimation mean needs (min_samples=20 plus
         # the overlap_periods lag of 5).
-        assert result.metadata["n_total_obs"] == 276
+        assert result.metadata["n_pairs_total"] == 276
 
 
 class TestClusterRobustDenominator:

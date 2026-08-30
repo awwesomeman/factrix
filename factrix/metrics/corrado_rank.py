@@ -21,6 +21,7 @@ from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat
 from factrix._types import (
     DDOF,
+    DEFAULT_FORWARD_PERIODS,
     EPSILON,
     MIN_EVENTS_HARD,
     MIN_EVENTS_WARN,
@@ -59,7 +60,7 @@ def corrado_rank(
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
-    overlap_periods: int = 5,
+    overlap_periods: int = DEFAULT_FORWARD_PERIODS,
     estimation_window: int = 60,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
@@ -158,7 +159,7 @@ def corrado_rank(
         $U_{\text{event}}$ and from the pooled ``std(U_all)``, and the
         excluded event count is reported as
         ``metadata["n_events_dropped_non_finite"]``;
-        ``metadata["n_total_obs"]`` counts the finite cells actually behind
+        ``metadata["n_pairs_total"]`` counts the finite cells actually behind
         the denominator. This matters because polars ranks a float ``NaN``
         as the largest value rather than treating it as missing: left
         unmasked, every NaN return would enter the test as a maximal
@@ -320,7 +321,7 @@ def corrado_rank(
     n_event_periods = len(u_bar)
     events_per_period = per_period["_k"].to_numpy()
 
-    n_total_obs = int(ranked["_rank_u"].drop_nulls().drop_nans().len())
+    n_pairs_total = int(ranked["_rank_u"].drop_nulls().drop_nans().len())
 
     # The period series carries the test, so the floor moves onto periods:
     # 396 events spread over 3 periods estimate the time-series SD from 3
@@ -349,7 +350,7 @@ def corrado_rank(
         "n_events": n_events,
         "events_per_period_mean": float(np.mean(events_per_period)),
         "events_per_period_max": int(np.max(events_per_period)),
-        "n_total_obs": n_total_obs,
+        "n_pairs_total": n_pairs_total,
         "n_events_dropped_non_finite": n_events_dropped_non_finite,
         "n_events_dropped_no_estimation_window": n_events_dropped_no_estimation_window,
         "stat_type": "z",

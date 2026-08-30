@@ -50,7 +50,7 @@ from factrix._stats import (
     _p_value_from_t,
 )
 from factrix._stats.constants import MIN_PERIODS_WARN, PERSISTENT_SERIES_AUTOCORR
-from factrix._types import EPSILON
+from factrix._types import EPSILON, MIN_FM_PERIODS_HARD, MIN_FM_PERIODS_WARN
 from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
@@ -85,14 +85,6 @@ _FM_CELL = cell(
 # the per-period OLS rather than via this attribute.
 min_assets_per_group: int | None = None
 per_date_series = per_date_series_rename("beta")
-
-# Two-tier sample-size guard on the FM β series. ``T < HARD`` short-
-# circuits — NW HAC SE on a 3-period series is undefined. ``HARD ≤ T <
-# WARN`` returns the stat with ``WarningCode.UNRELIABLE_SE_SHORT_PERIODS``
-# attached (literature floor: Fama-MacBeth originally used T~30+; below
-# that the asymptotic t is borderline). ``T ≥ WARN`` is silent.
-MIN_FM_PERIODS_HARD: int = 4
-MIN_FM_PERIODS_WARN: int = 30
 
 # Docs page the ``factor_return_var`` input error points at.
 _DOCS_FM_BETA = "api/metrics/fm_beta"

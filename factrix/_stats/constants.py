@@ -1,7 +1,15 @@
 """TIMESERIES sample-size thresholds and Newey-West Bartlett bandwidth.
 
-Single source of truth for the sample-size floors: no literal ``20`` /
-``30`` / ``floor(4 * (T/100)**(2/9))`` may appear elsewhere in factrix.
+Single source of truth for the floors of the **generic TIMESERIES inference
+path** and for the HAC bandwidth rules: their values may not be repeated as
+literals anywhere else in factrix, and consumers import them from here.
+
+Per-metric domain floors — the ``MIN_[<DOMAIN>_]<AXIS>[_<TIER>]`` family such as
+``MIN_COMMON_BETA_PERIODS_HARD`` or ``MIN_FM_PERIODS_WARN`` — are equally
+single-sourced, but they live with their neighbours in :mod:`factrix._types`;
+they are not re-declared here and no module re-declares them locally. The
+``MIN_*`` naming grammar itself is linted by FX003
+(``tests/test_sample_naming_lint.py``).
 """
 
 from __future__ import annotations

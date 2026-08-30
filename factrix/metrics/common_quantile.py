@@ -37,7 +37,11 @@ from factrix._stats import (
     _resolve_scalar_wald_hac,
     _wald_p_linear,
 )
-from factrix._types import MIN_PORTFOLIO_PERIODS_HARD, MIN_SERIES_PERIODS_HARD
+from factrix._types import (
+    DEFAULT_N_GROUPS,
+    MIN_PORTFOLIO_PERIODS_HARD,
+    MIN_SERIES_PERIODS_HARD,
+)
 from factrix.inference.series_mean import _persistent_array_beyond_horizon
 from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
@@ -82,7 +86,7 @@ def common_quantile_spread(
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
-    n_groups: int = 5,
+    n_groups: int = DEFAULT_N_GROUPS,
     overlap_periods: int | None = None,
     newey_west_lags: int | None = None,
     expected_warnings: tuple[str, ...] = (),
