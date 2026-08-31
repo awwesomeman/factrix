@@ -296,27 +296,32 @@ def _spread_significance_with_inference(
     panel-stride feeds ``strided_spread`` for the common path; the full
     series is built (h× more bucketing) only when the requested member
     declares it consumes one. ``full_spread`` is ``None`` otherwise; a
-    missing one where the member needed it degrades to the strided
-    non-overlap path defensively and is flagged ``inference_overridden``.
+    missing one where the member needs it is an internal contract violation,
+    not permission to run a different estimator.
     """
     from factrix._stats.constants import MIN_ASSETS_WARN
-    from factrix.inference import NON_OVERLAPPING
 
-    use_full = inference.consumes_full_series and full_spread is not None
-    member: NonOverlapping | NeweyWest | StationaryBootstrap = (
-        inference if use_full else NON_OVERLAPPING
-    )
+    use_full = inference.consumes_full_series
+    if use_full and full_spread is None:
+        raise RuntimeError(
+            f"{metric_name}: {inference.summary} requires the full spread series"
+        )
+    member = inference
     data = full_spread if use_full else strided_spread
-    assert data is not None  # narrowed by use_full
+    assert data is not None  # full_spread narrowed by the guard above
     res = member.compute(
         data, value_col="spread", overlap_periods=overlap_periods if use_full else 1
     )
-    n_tested = res.n_obs if res.n_obs is not None else 0
+    if res.n_obs is None or res.estimate is None:
+        raise RuntimeError(
+            f"{metric_name}: {member.summary} returned an incomplete inference result"
+        )
+    n_tested = res.n_obs
     # ``value`` must describe the sample the test ran on, and the member that
     # ran is the only thing that knows what that sample was — a sub-sampling
     # member tested the survivors of its own stride. So the headline estimate
     # is always the member's, on every path.
-    mean_spread = res.estimate if res.estimate is not None else float("nan")
+    mean_spread = res.estimate
 
     extra: dict[str, object]
     if use_full:
@@ -324,12 +329,6 @@ def _spread_significance_with_inference(
     else:
         extra = {}
         _surface_inference_run_metadata(res, extra)
-        if inference.consumes_full_series:
-            # Requested a member that needs the full series but none was
-            # supplied — surface the degradation rather than report the
-            # strided non-overlap t under the requested method's name.
-            extra["inference_requested"] = inference.summary
-            extra["inference_overridden"] = True
     code_list: list[str] = []
     _emit_inference_warnings(
         res,
@@ -351,11 +350,9 @@ def _spread_significance_with_inference(
             stacklevel=3,
         )
     codes = tuple(code_list)
-    # ``method`` / ``stat_type`` describe the member that actually ran, not
-    # the one that was asked for: an ``inference_overridden`` degradation runs
-    # the non-overlap t and must say so, and a member whose ``stat`` is not a
-    # t-ratio (the bootstrap reports the observed mean under an empirical p)
-    # must not be read against a t-distribution.
+    # ``method`` / ``stat_type`` describe the member that ran. A member whose
+    # ``stat`` is not a t-ratio (the bootstrap reports the observed mean under
+    # an empirical p) must not be read against a t-distribution.
     return (
         mean_spread,
         res.stat,

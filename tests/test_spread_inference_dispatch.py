@@ -20,6 +20,7 @@ tolerance to loosen.
 from __future__ import annotations
 
 import factrix as fx
+import polars as pl
 import pytest
 from factrix._errors import IncompatibleInferenceError
 from factrix._results import MetricResult
@@ -30,6 +31,7 @@ from factrix.inference import (
     StationaryBootstrap,
 )
 from factrix.inference.series_mean import HANSEN_HODRICK
+from factrix.metrics._helpers import _spread_significance_with_inference
 from factrix.metrics.k_spread import k_spread
 from factrix.metrics.quantile import quantile_spread, quantile_spread_vw
 from factrix.preprocess import compute_forward_return
@@ -102,6 +104,19 @@ def _run(metric_name: str, panel, inference) -> MetricResult:
             inference=inference,
         )
     return k_spread(panel, overlap_periods=OVERLAP_PERIODS, inference=inference)
+
+
+def test_full_series_member_rejects_missing_full_series():
+    """An internal routing error must not change the requested estimator."""
+    with pytest.raises(RuntimeError, match="requires the full spread series"):
+        _spread_significance_with_inference(
+            NEWEY_WEST,
+            strided_spread=pl.DataFrame({"spread": [0.01, -0.02, 0.03]}),
+            full_spread=None,
+            overlap_periods=5,
+            n_assets=80,
+            metric_name="quantile_spread",
+        )
 
 
 @pytest.mark.parametrize(("metric_name", "inference_name"), sorted(GOLDEN))
