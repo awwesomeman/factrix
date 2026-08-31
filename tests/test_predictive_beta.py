@@ -299,8 +299,7 @@ class TestPredictiveBetaOverlapAndPersistenceScreens:
         assert result.metadata["n_periods_effective"] == (n - 21) // 21
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value in result.warning_codes
         assert (
-            WarningCode.OVERLAPPING_PREDICTIVE_INFERENCE.value
-            in result.warning_codes
+            WarningCode.OVERLAPPING_PREDICTIVE_INFERENCE.value in result.warning_codes
         )
 
     def test_same_length_at_horizon_one_stays_clean(self):
@@ -327,8 +326,7 @@ class TestPredictiveBetaOverlapAndPersistenceScreens:
                 overlap_periods=5,
             )
         assert (
-            WarningCode.OVERLAPPING_PREDICTIVE_INFERENCE.value
-            in result.warning_codes
+            WarningCode.OVERLAPPING_PREDICTIVE_INFERENCE.value in result.warning_codes
         )
 
     def test_persistent_residuals_flag_serial_correlation(self):
@@ -389,6 +387,5 @@ class TestPredictiveBetaOverlapAndPersistenceScreens:
             )
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value in result.warning_codes
         assert (
-            WarningCode.OVERLAPPING_PREDICTIVE_INFERENCE.value
-            in result.warning_codes
+            WarningCode.OVERLAPPING_PREDICTIVE_INFERENCE.value in result.warning_codes
         )

@@ -524,9 +524,7 @@ def _pooled_beta_driscoll_kraay(
         n_periods, lags, overlap_periods
     )
     try:
-        cov, n_periods, lags_used = _dk_cov(
-            X, resid, period_ids, lags=resolved_lags
-        )
+        cov, n_periods, lags_used = _dk_cov(X, resid, period_ids, lags=resolved_lags)
         dk_meta = {"n_periods": n_periods, "driscoll_kraay_lags": lags_used}
     except np.linalg.LinAlgError:
         return _short_circuit_output(
