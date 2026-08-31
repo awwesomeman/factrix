@@ -110,9 +110,7 @@ class TestDateWeighting:
             for asset in range(20)
         )
 
-        out = compute_group_returns(
-            _panel(rows), overlap_periods=1, n_groups=2
-        )
+        out = compute_group_returns(_panel(rows), overlap_periods=1, n_groups=2)
 
         top = out.filter(pl.col("group") == 1)["mean_return"].item()
         assert top == pytest.approx(0.5)
