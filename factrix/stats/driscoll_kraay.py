@@ -29,10 +29,11 @@ class DriscollKraay:
     them directly.
 
     Pass an instance to a function to make the inference choice explicit.
-    Constructor takes no arguments in this release; the Bartlett bandwidth
-    is resolved automatically ([Newey-West (1994)][newey-west-1994]
-    ``auto_bartlett`` on the period count) and an explicit-lag override
-    lives on the ``pooled_beta`` call rather than on the instance.
+    Constructor takes no arguments in this release. ``pooled_beta`` resolves
+    the Bartlett bandwidth, finite-sample covariance scale, and effective
+    degrees of freedom from the period count and overlap horizon; an
+    explicit-lag override lives on the metric call rather than on this
+    identity handle.
     """
 
     @property

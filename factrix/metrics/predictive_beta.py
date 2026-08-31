@@ -20,7 +20,7 @@ import numpy as np
 import polars as pl
 
 from factrix._axis import Aggregation, DataStructure, FactorDensity, InputShape
-from factrix._codes import WarningCode
+from factrix._codes import WarningCode, _emit_warning
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import (
@@ -99,9 +99,9 @@ def predictive_beta(
 
     Fits the direct predictive regression
     $R_{t+h} = \alpha + \beta F_t + \varepsilon_t$ on one asset and tests
-    ``H0: beta = 0``. The Bartlett lag defaults to the Newey-West (1994)
-    automatic rule, floored at ``overlap_periods - 1`` so overlapping
-    forward-return windows do not understate the standard error.
+    ``H0: beta = 0``. The headline bias-corrected slope test uses the
+    project's scalar HAR bandwidth; the raw OLS reference retained in
+    metadata uses the narrower Newey-West rule.
 
     ``value`` is the **Stambaugh-bias-corrected** slope, not the raw OLS
     one. [Stambaugh (1999)][stambaugh-1999] showed OLS here is biased by
@@ -133,7 +133,8 @@ def predictive_beta(
     (plain OLS-NW carries the same excess), only partly repaired by the HAR
     bandwidth and fixed-$b$ effective df this test now uses. Read an
     ``h > 1`` predictive $p$ against a raised hurdle regardless of the
-    correction.
+    correction. ``WarningCode.OVERLAPPING_PREDICTIVE_INFERENCE`` makes that
+    known regime explicit on every such result.
 
     **The correction costs power** where OLS's apparent power was partly
     its own bias: at $T=60,\ \phi=0.95,\ \rho=-0.9$ the corrected test
@@ -354,6 +355,19 @@ def predictive_beta(
         }
 
     warning_codes: list[str] = []
+    if overlap_periods > 1:
+        _emit_warning(
+            WarningCode.OVERLAPPING_PREDICTIVE_INFERENCE,
+            f"overlap_periods={overlap_periods} puts the predictive slope "
+            "test in a known-oversized HAC regime (7.5-14.5% measured null "
+            "rejection at a nominal 5%). The estimate and p-value are "
+            "returned; use a raised hurdle and compare h=1 or a genuinely "
+            "non-overlapping design.",
+            label="predictive_beta",
+            expected_warnings=expected_warnings,
+            warning_codes=warning_codes,
+            stacklevel=2,
+        )
     # The regime flag fires on the ACTUAL bias channel - the product of
     # persistence and innovation correlation - not on the ADF screen alone.
     # ADF proxies phi only, carries no information about rho, and has low

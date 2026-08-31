@@ -15,6 +15,7 @@ import numpy as np
 import polars as pl
 import pytest
 from factrix._codes import WarningCode
+from factrix._stats import _resolve_scalar_wald_hac
 from factrix.metrics.fm_beta import pooled_beta
 
 
@@ -58,6 +59,11 @@ class TestDriscollKraayPath:
         assert "Driscoll-Kraay" in res.metadata["method"]
         assert res.metadata["n_periods"] == 60
         assert isinstance(res.metadata["driscoll_kraay_lags"], int)
+        lags, scale, dof = _resolve_scalar_wald_hac(60, None, 5)
+        assert res.metadata["driscoll_kraay_lags"] == lags
+        assert res.metadata["hac_scale"] == pytest.approx(scale)
+        assert res.metadata["hac_dof"] == pytest.approx(dof)
+        assert res.metadata["overlap_periods"] == 5
 
     def test_point_estimate_matches_clustered_path(self):
         # SE method does not change the OLS slope — only its variance.
@@ -106,8 +112,25 @@ class TestDriscollKraayPath:
 
     def test_explicit_lags_recorded(self):
         df = _common_factor_panel(n_dates=60, n_assets=12, rho=0.3)
-        res = pooled_beta(df, driscoll_kraay=True, driscoll_kraay_lags=1)
+        res = pooled_beta(
+            df,
+            driscoll_kraay=True,
+            driscoll_kraay_lags=1,
+            overlap_periods=1,
+        )
         assert res.metadata["driscoll_kraay_lags"] == 1
+
+    def test_explicit_lags_cannot_undercut_overlap_floor(self):
+        df = _common_factor_panel(n_dates=120, n_assets=12, rho=0.3)
+        res = pooled_beta(
+            df,
+            driscoll_kraay=True,
+            driscoll_kraay_lags=1,
+            overlap_periods=21,
+            expected_warnings=("hac_bandwidth_ill_conditioned",),
+        )
+        expected_lags, _, _ = _resolve_scalar_wald_hac(120, 1, 21)
+        assert res.metadata["driscoll_kraay_lags"] == expected_lags
 
     def test_default_path_unchanged(self):
         # driscoll_kraay defaults to False → clustered SE, no DK metadata.
@@ -121,10 +144,11 @@ class TestDriscollKraayPath:
 
         df = _common_factor_panel(n_dates=60, n_assets=12, rho=0.3)
         res = pooled_beta(df, driscoll_kraay=True)
-        # Manually compute the p-value with dof = n_periods - 1
+        # The scalar restriction uses the calibrated effective degrees of
+        # freedom carried in metadata.
         n_periods = res.metadata["n_periods"]
         assert n_periods == 60
-        dof = n_periods - 1
+        dof = res.metadata["hac_dof"]
         t_stat = res.stat
         expected_p = float(2 * sp_stats.t.sf(abs(t_stat), dof))
         assert res.p_value == pytest.approx(expected_p)

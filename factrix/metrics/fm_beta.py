@@ -44,12 +44,19 @@ from factrix._errors import UserInputError
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import (
+    _hac_bandwidth_ill_conditioned,
     _lag1_autocorr,
     _newey_west_t_test,
     _p_value_from_t,
+    _resolve_scalar_wald_hac,
 )
 from factrix._stats.constants import MIN_PERIODS_WARN, PERSISTENT_SERIES_AUTOCORR
-from factrix._types import EPSILON, MIN_FM_PERIODS_HARD, MIN_FM_PERIODS_WARN
+from factrix._types import (
+    DEFAULT_FORWARD_PERIODS,
+    EPSILON,
+    MIN_FM_PERIODS_HARD,
+    MIN_FM_PERIODS_WARN,
+)
 from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
@@ -484,6 +491,7 @@ def _pooled_beta_driscoll_kraay(
     cluster_col: str,
     two_way_cluster_col: str | None,
     lags: int | None,
+    overlap_periods: int,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Driscoll-Kraay (1998) cross-section-robust SE path for ``pooled_beta``.
@@ -491,26 +499,17 @@ def _pooled_beta_driscoll_kraay(
     Replaces the clustered-sandwich meat with the DK covariance
     (``factrix._stats.hac._driscoll_kraay_cov``): per-observation scores summed
     cross-sectionally per period, Bartlett-HAC'd over the period series,
-    sandwiched with ``(X'X)⁻¹``. ``df = T_periods - 1``. Short-circuits
-    with ``value=NaN`` / ``stat=None`` / ``p=1.0`` below
+    sandwiched with ``(X'X)⁻¹``. The scalar restriction uses the project's
+    calibrated HAR bandwidth, finite-sample variance scale and effective
+    degrees of freedom. Short-circuits with
+    ``value=NaN`` / ``stat=None`` / ``p=1.0`` below
     ``_MIN_DK_PERIODS_HARD`` periods (HAC undefined), mirroring the clustered
     ``G < 3`` guard.
     """
     from factrix._stats.hac import _driscoll_kraay_cov as _dk_cov
 
     period_ids = data[cluster_col].to_numpy()
-    try:
-        cov, n_periods, lags_used = _dk_cov(X, resid, period_ids, lags=lags)
-        dk_meta = {"n_periods": n_periods, "driscoll_kraay_lags": lags_used}
-    except np.linalg.LinAlgError:
-        return _short_circuit_output(
-            "pooled_beta",
-            "singular_pooled_design_matrix",
-            n_obs=n_obs,
-            n_obs_axis="pairs",
-        )
-
-    n_periods = int(dk_meta["n_periods"])
+    n_periods = len(np.unique(period_ids))
     if n_periods < _MIN_DK_PERIODS_HARD:
         return _short_circuit_output(
             "pooled_beta",
@@ -521,6 +520,24 @@ def _pooled_beta_driscoll_kraay(
             min_required=_MIN_DK_PERIODS_HARD,
         )
 
+    resolved_lags, hac_scale, hac_dof = _resolve_scalar_wald_hac(
+        n_periods, lags, overlap_periods
+    )
+    try:
+        cov, n_periods, lags_used = _dk_cov(
+            X, resid, period_ids, lags=resolved_lags
+        )
+        dk_meta = {"n_periods": n_periods, "driscoll_kraay_lags": lags_used}
+    except np.linalg.LinAlgError:
+        return _short_circuit_output(
+            "pooled_beta",
+            "singular_pooled_design_matrix",
+            n_obs=n_obs,
+            n_obs_axis="pairs",
+        )
+
+    n_periods = int(dk_meta["n_periods"])
+    cov *= hac_scale
     se_slope = float(np.sqrt(max(float(cov[1, 1]), 0.0)))
     # A zero clustered SE is degeneracy in the MAXIMUM-evidence direction
     # (perfect fit, zero residuals), never the null. The former
@@ -528,10 +545,26 @@ def _pooled_beta_driscoll_kraay(
     # exactly, and carried no warning code - pooled_beta was the only metric
     # in the library skipping the repo's own degenerate-sample convention.
     t_stat = float("nan") if se_slope < EPSILON else slope / se_slope
-    df_t = n_periods
-    p = _p_value_from_t(t_stat, df_t)
+    p = _p_value_from_t(t_stat, n_periods, dof=hac_dof)
 
     warning_codes: list[str] = []
+    # Keep the two diagnostics non-redundant: below 30 periods the binding
+    # problem is already the short score series, not a second bandwidth echo.
+    if n_periods >= MIN_PERIODS_WARN and _hac_bandwidth_ill_conditioned(
+        n_periods, resolved_lags
+    ):
+        _emit_warning(
+            WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED,
+            f"resolved Driscoll-Kraay bandwidth L={resolved_lags} exceeds "
+            f"n_periods/5 for n_periods={n_periods}; the score-series HAC "
+            "variance is estimated from few lag products. The test still "
+            "uses the effective-df correction, but treat the p-value as "
+            "indicative.",
+            label="pooled_beta",
+            expected_warnings=expected_warnings,
+            warning_codes=warning_codes,
+            stacklevel=2,
+        )
     if n_periods < MIN_PERIODS_WARN:
         _emit_warning(
             WarningCode.UNRELIABLE_SE_SHORT_PERIODS,
@@ -552,6 +585,9 @@ def _pooled_beta_driscoll_kraay(
         "se_method": "driscoll_kraay",
         "n_periods": n_periods,
         "driscoll_kraay_lags": dk_meta["driscoll_kraay_lags"],
+        "hac_scale": hac_scale,
+        "hac_dof": hac_dof,
+        "overlap_periods": overlap_periods,
     }
     stat, p_out, alternative = _degenerate_test_fields(
         t_stat, p, "two-sided", metadata, warning_codes
@@ -612,6 +648,7 @@ def pooled_beta(
     two_way_cluster_col: str | None = None,
     driscoll_kraay: bool = False,
     driscoll_kraay_lags: int | None = None,
+    overlap_periods: int = DEFAULT_FORWARD_PERIODS,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Pooled ordinary least squares (OLS) with clustered SE — robustness check against FM.
@@ -696,9 +733,11 @@ def pooled_beta(
                    (\hat\Omega_j + \hat\Omega_j'),
         $$
 
-        $\hat\Omega_j = \sum_t h_t h_{t-j}'$, bandwidth $m$ from the
-        [Newey-West (1994)][newey-west-1994] auto rule on the period count
-        ($\mathrm{df} = T - 1$).
+        $\hat\Omega_j = \sum_t h_t h_{t-j}'$. Because the slope is one
+        scalar restriction, bandwidth $m$, the finite-sample variance scale,
+        and reference degrees of freedom use the same calibrated HAR recipe
+        as the project's scalar HAC tests, resolved on the period count and
+        ``overlap_periods``.
 
     Notes:
         Pool ``(date, asset)`` rows and run a single OLS ``R = alpha +
@@ -715,6 +754,13 @@ def pooled_beta(
         alternative — propagating ``NaN`` into ``lstsq`` — yields a ``NaN``
         slope that ``MetricResult`` rejects outright, turning one bad cell
         into a hard failure of the whole panel.
+
+        ``driscoll_kraay_lags`` replaces the automatic base bandwidth but
+        cannot undercut the overlap floor and remains subject to the
+        estimability cap. ``metadata["driscoll_kraay_lags"]``,
+        ``metadata["hac_scale"]`` and ``metadata["hac_dof"]`` report the
+        resolved test. ``overlap_periods`` is injected from the panel by
+        ``evaluate``; standalone calls may pass it directly.
 
         factrix reports ``value = NaN`` and ``stat = None`` (rather than a
         finite slope and zero statistic) when ``G < 3`` because the
@@ -805,6 +851,7 @@ def pooled_beta(
             cluster_col=cluster_col,
             two_way_cluster_col=two_way_cluster_col,
             lags=driscoll_kraay_lags,
+            overlap_periods=overlap_periods,
             expected_warnings=expected_warnings,
         )
 

@@ -157,10 +157,15 @@ is emitted.
 - *descriptive* (Driscoll-Kraay path, `driscoll_kraay=True`):
   `se_method` (`"driscoll_kraay"`), `n_periods` (length of the
   cross-sectional score-sum series), and `driscoll_kraay_lags` (the
-  Bartlett bandwidth used). The DK path uses `df = n_periods − 1`,
-  emits `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` below 30 periods, and
-  short-circuits to `value = NaN` with `reason = "insufficient_periods"`
-  below 3.
+  resolved Bartlett bandwidth), `hac_scale` (`T / (T - L - 1)`),
+  `hac_dof` (the scalar HAR reference degrees of freedom), and
+  `overlap_periods`. At 30 or more periods the DK path emits
+  `WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED` when `L > T / 5`; below 30
+  it emits the binding `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` without a
+  redundant bandwidth echo. It short-circuits to `value = NaN` with
+  `reason = "insufficient_periods"` below 3. An explicit
+  `driscoll_kraay_lags` replaces the automatic base
+  but cannot undercut the overlap floor or exceed the estimability cap.
 
 #### `fm_beta_sign_consistency`
 
@@ -838,8 +843,12 @@ which reports `R²` for the OLS regression.
   code fired on the whole `rho = -0.5` column and read "oversized here"
   where it is not. The code means "the corrected test is itself somewhat
   oversized in this regime", not "beta may carry Stambaugh bias" — the bias
-  is corrected. It is about the *regressor*: the `h > 1` over-rejection
-  above fires no code of its own.
+  is corrected. It is about the *regressor*, not overlapping windows.
+- *warning*: `WarningCode.OVERLAPPING_PREDICTIVE_INFERENCE` whenever
+  `overlap_periods > 1`. The corrected test remains 7.5-14.5% oversized
+  across the measured null cells, including independent-regressor designs;
+  read the returned p-value against a raised hurdle and compare `h = 1` or
+  a genuinely non-overlapping design.
 - *warning*: `WarningCode.SERIAL_CORRELATION_DETECTED` when the **reported**
   model's residuals — `y - alpha - value * factor` over the `n_obs` rows,
   strided at `overlap_periods` — have a lag-1 autocorrelation above

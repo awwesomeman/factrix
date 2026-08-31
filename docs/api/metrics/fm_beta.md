@@ -58,6 +58,18 @@ title: factrix.metrics.fm_beta
     $\hat\lambda$ disagree in sign, the result's `warnings` flag a
     misspecification red flag.
 
+-   __Cross-section-robust pooled inference__
+
+    ---
+
+    `pooled_beta(..., driscoll_kraay=True)` keeps the pooled OLS slope and
+    applies a Driscoll-Kraay sandwich to the period-level cross-sectional
+    score sums. Its scalar slope test uses the same overlap-aware HAR
+    bandwidth, finite-sample variance scale, and effective degrees of freedom
+    as other scalar HAC restrictions in factrix. The resolved
+    `driscoll_kraay_lags`, `hac_scale`, `hac_dof`, and `overlap_periods` are
+    available in metadata.
+
 </div>
 
 ## Choosing a function
@@ -66,7 +78,7 @@ title: factrix.metrics.fm_beta
 |------------------------------------------------------------------------------|-------------------------|
 | Per-date FM beta table for downstream inspection / slicing                   | `compute_fm_betas`      |
 | Mean-$\beta$ significance with NW HAC SE (default Stage 2)                   | `fm_beta`          |
-| Pooled OLS with cluster-robust SE (one-way on date, or two-way)              | `pooled_beta`            |
+| Pooled OLS with clustered or Driscoll-Kraay SE                              | `pooled_beta`            |
 | Directional stability — fraction of periods with the expected $\beta$ sign   | `fm_beta_sign_consistency` |
 
 ## Worked example — per-date FM beta then NW HAC significance

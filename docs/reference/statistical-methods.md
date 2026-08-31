@@ -265,14 +265,15 @@ table**, not by convenience:
 | Metric | Bandwidth surface | Why |
 |---|---|---|
 | `ic`, `quantile_spread`, `quantile_spread_vw`, `k_spread` | `inference=` (allowlist: `NON_OVERLAPPING`, `NEWEY_WEST`, `STATIONARY_BOOTSTRAP`) | Headline test is "average an overlapping per-date series, test `mean != 0`". The IC series and the spread series each carry their own measured size table (this section and §6), so each member is admitted on the strength of it, and the bandwidth is chosen for the caller by the member. |
-| `fm_beta`, `predictive_beta`, `common_quantile_spread`, `common_asymmetry` | raw `newey_west_lags` | Same Newey-West kernel, but no size table has been measured **on these metrics' own series**, so there is nothing to admit an `inference` member against. `None` (the default, and the only calibrated setting) resolves the bandwidth by the standard rule; an explicit integer is an unvetted override for research use. |
-| `pooled_beta` | raw `driscoll_kraay_lags` | A different estimator entirely — Driscoll-Kraay is a two-dimensional (period × asset) kernel, not the series-mean HAC, so it is neither an `inference` member nor a `newey_west_lags`. |
+| `fm_beta`, `predictive_beta`, `common_quantile_spread`, `common_asymmetry` | raw `newey_west_lags` | These are estimator-specific regression paths rather than interchangeable series-mean tests. `None` (the default and calibrated setting) resolves the project's applicable rule; an explicit integer is an unvetted research override. |
+| `pooled_beta` | raw `driscoll_kraay_lags` | Driscoll-Kraay is a two-dimensional (period × asset) sandwich, not an `inference` member. Its default is calibrated on its own pooled-panel DGP; an explicit integer replaces the automatic base but cannot undercut the overlap floor or estimability cap. |
 | `spanning_alpha`, the slice Wald tests | neither | Bandwidth is fully determined by `overlap_periods` through `_resolve_nw_lags`; there is no caller knob to mis-set. |
 
-The rule for moving a metric from the second row to the first is the same
-one that governs the allowlists: measure size on **that metric's own
-series** first, then admit. Until then the raw knob is deliberately raw —
-it does not pretend to be a vetted choice.
+An `inference=` allowlist is reserved for metrics whose tested per-period
+series supports interchangeable inference members. Regression estimators
+keep their estimator-specific lag surface even after own-DGP calibration;
+the raw knob is deliberately raw and does not pretend that a caller override
+is a vetted choice.
 
 ---
 
@@ -671,13 +672,41 @@ sizes are at a nominal 5% on a true null.
 | `predictive_beta` — single-restriction slope, $h = 1$ | none: Amihud-Hurvich's homoskedastic $s^2(X'X)^{-1}$ | $t_{m-3}$ | 4.3–5.5% at $\rho = 0$; 6.2–8.3% in the strongest Stambaugh cells |
 | `predictive_beta` — single-restriction slope, $h > 1$ | `_resolve_har_lags` | $t_\nu$ via `_har_dof` | **7.5–14.5%** — known-oversized, see below |
 | `spanning_alpha`, `common_quantile_spread`, `common_asymmetry`, `_ols.py` — single-restriction regression contrast | `_resolve_scalar_wald_hac`: the scalar HAR recipe (bandwidth, $T/(T{-}L{-}1)$ scale, effective $\nu$) | $t_\nu$ / $F_{1,\,\nu}$ | 3.3–8.0% for the two `common_*` metrics on the non-persistent common-factor null across $T \in \{60,120,240\} \times h \in \{1,5,21\}$; 5.7–11.7% for `spanning_alpha` on an overlapping-sum spread null; **7.3–16.3%** on a persistent ($\phi = 0.9$) common factor, flagged — see below |
-| `pooled_beta` — pooled OLS slope under a Driscoll-Kraay (1998) sandwich | `driscoll_kraay_lags`: `auto_bartlett` on the period count, applied to the cross-sectionally summed scores | $t_{T_{\text{periods}}}$ | **not measured on its own series.** A two-dimensional (period × asset) kernel, not the series-mean HAC — it shares neither bandwidth rule above, and the rows in this table do not transfer to it. Its short-period regime is gated by `unreliable_se_short_periods` and by a hard floor below which the statistic is withheld |
+| `pooled_beta` — pooled OLS slope under a Driscoll-Kraay (1998) sandwich | `_resolve_scalar_wald_hac` on the $T$ cross-sectionally summed score vectors: overlap-aware HAR bandwidth and $T/(T-L-1)$ covariance scale | $t_\nu$, $\nu = \min(1.5T/L - 1,\ T/h - 1)$ | **1.7–9.1%** across its own persistent-regressor, cross-sectionally correlated, overlapping-return panel grid, versus **4.9–23.2%** under the former auto-bandwidth / $t_{T-1}$ path; the low end is conservative, see below |
 | The slice Wald tests (`slice_joint_test`, `slice_pairwise_test`) — cluster-mean Wald | `_resolve_nw_lags`: $\max(\text{auto\_bartlett}(T), h-1)$ | $F_{r,\,T-1}$ | **8–9%** for the $K = 5$ joint test on 50–90-period slices. The pairwise contrasts are calibrated at $K \le 3$ (5.8% bootstrap / 5.4% Holm at $K = 3$, $T = 60$) but not at $K = 5$, where the bootstrap path runs 7.4–8.5% against Holm's 5.7–6.7% |
 
 Producing modules: `tests/stats/test_hac_overlap_size.py` for the scalar
 series-mean rows, `tests/test_stambaugh_bias.py` for the `predictive_beta`
-rows, and `tests/test_slice_period_joint_test.py` for the slice-test band
-in the last row.
+rows, `tests/stats/test_driscoll_kraay_size.py` for the reduced-replication
+DK regression check, and `tests/test_slice_period_joint_test.py` for the
+slice-test band in the last row.
+
+The Driscoll-Kraay row was measured on its **own** estimator rather than
+assuming that the scalar series-mean results transfer. The null panel has
+20 assets (plus a 50-asset check), a factor AR coefficient in `{0, 0.8}`,
+common and idiosyncratic factor and return innovations, and overlapping
+$h$-period return shocks; 1,000 replications per cell use seed
+`20260831 + rep`. The DK sandwich remains the standard cross-sectional
+score-sum estimator. Only its scalar slope test's bandwidth, finite-sample
+scale, and reference degrees of freedom change:
+
+| $T$ | $h$ | $\phi_x$ | return / factor common share | former | calibrated |
+|---:|---:|---:|---:|---:|---:|
+| 60 | 1 | 0.0 | 0.0 / 0.0 | 6.5% | 3.7% |
+| 60 | 5 | 0.8 | 0.5 / 0.3 | 15.7% | 6.9% |
+| 120 | 5 | 0.8 | 0.5 / 0.3 | 13.5% | 7.6% |
+| 120 | 21 | 0.0 | 0.5 / 0.3 | 5.2% | 1.7% |
+| 120 | 21 | 0.8 | 0.5 / 0.3 | 23.2% | 4.7% |
+| 240 | 21 | 0.8 | 0.5 / 0.3 | 20.3% | 4.9% |
+| 120 | 5 | 0.8 | 0.8 / 0.8 | 13.8% | 9.1% |
+
+The non-persistent $h=21$ cell shows the cost of treating the declared
+overlap horizon as binding when the score sequence carries less dependence:
+the correction can be conservative. The last cell is the deliberately severe
+dependence check. Together they are why the documentation reports a range
+rather than claiming exact 5% size. Large bandwidths still emit
+`hac_bandwidth_ill_conditioned`; fewer than 30 periods still emit
+`unreliable_se_short_periods`.
 
 Two of these rows are **known-oversized regimes rather than calibrated
 ones**, and are disclosed rather than corrected:
@@ -782,8 +811,10 @@ cell is genuinely uncovered and disclosed rather than gated: $\phi = 0$,
 $T = 240$, $h = 21$ measures 9.7% with 11 independent observations — above
 the shortage floor, and with no persistence left after the stride. That is
 the residual overlapping-regression HAC excess `predictive_beta` carries at
-$h > 1$ for the same reason, and it fires no code of its own on either
-path.
+$h > 1$ for the same reason. `predictive_beta` now emits
+`overlapping_predictive_inference` for that known regime; the two `common_*`
+metrics do not, because their non-persistent grid is generally calibrated
+and this is one isolated residual cell rather than their defining regime.
 
 **What moving only the overlap floor would have done.** The narrow rule's
 $h - 1$ floor is the [Hansen-Hodrick (1980)][hansen-hodrick-1980]
@@ -1353,6 +1384,7 @@ nominal 5%; sample sizes count periods on the evaluation grid after the
 | Persistent per-period series (lag-1 φ ≥ 0.3 on the *strided* tested series) | `serial_correlation_detected` | No path is calibrated. On an AR(φ) per-period IC series at `h = 1`: plain *t* 26.7–34.7%, NW 6.7–10.3%, bootstrap 6.7–15.3% at φ = 0.6, and 62.3–65.3% / 14.3–27.3% / 9.7–21.3% at φ = 0.9 (table above); the screen fires on 94.7–100% of those draws. | Do **not** switch member; it moves the number without fixing it. Read the *t* against a raised hurdle (*t* > 3) or lengthen the sample — at φ = 0.6 the plain *t* is still 34.7% at `T = 240`, so more periods alone is not enough either. A coarser `overlap_periods` stride under `NON_OVERLAPPING` helps mechanically where the horizon allows it — the strided sample sits at φ^h, and AR(0.6) strided at h = 21 measures 4.5%. |
 | Fewer than `MIN_SERIES_PERIODS_HARD` (10) periods after the stride | No `serial_correlation_detected` — the screen is withheld | A lag-1 autocorrelation estimated from 3–9 observations is noise, so the screen reports nothing rather than report the shortage of periods as persistence; measured firing rate at `h = 21, T ∈ {60, 120}` is 0.000 on both nulls. Just above the floor it is still weak: 12 strided observations at `T = 240, h = 21` fire on 6.0% / 8.0% of draws, equally on the iid and persistent nulls. | Read `unreliable_se_short_periods` and `n_obs` — the periods shortage, not the persistence, is what the sample is telling you. Lengthen the history or shorten the horizon. |
 | Short strided series (fewer than ~120 periods after the stride) | `unreliable_se_short_periods`, or nothing on a moderately short series | The *t* / NW branch runs 7–9%. A block-bootstrap p is *worse* here — the spread metrics' former automatic bootstrap branch (`_block_bootstrap_diff_p`, kernel-isolated on iid input) measured 13.6% at n = 12, 9.8% at 30, 7.4% at 60, reaching 5.2% only by 120 — and the strided series is short exactly when the horizon is long. The spread-series table above says the same at the short end: 8.2% at T = 60, h = 1. | Stay on the analytic *t* / NW. Do not reach for the bootstrap to rescue a short sample; shorten the stride or lengthen the history instead. |
+| `predictive_beta` with `overlap_periods > 1` | `overlapping_predictive_inference` | The bias-corrected slope test remains 7.5–14.5% oversized at a nominal 5%, including independent-regressor nulls. This is separate from Stambaugh bias and residual persistence. | Keep the returned estimate for effect size, but read the p-value against a raised hurdle and compare `h = 1` or a genuinely non-overlapping design. |
 | Long strided series (≥ ~120 periods) whose distribution is in doubt (heavy tails, skew) | No warning | On iid input `STATIONARY_BOOTSTRAP` sits at the same 7–9% baseline as NW (φ = 0 row above) — it buys no *size*. On the spread series it measures 4.8–9.0% across the grid above, with its worst cell at the long horizon (9.0% at T = 120, h = 21) where NW is conservative instead (2.4%). Its case is distributional: it is the only member that does not assume asymptotic normality of the mean (§1). | Read `STATIONARY_BOOTSTRAP` alongside the analytic p — on `ic` and on all three spread metrics, which admit it on the strength of the table above — when tails or skew are the doubt. A documented option, not a default. |
 | Heavy-tailed *and* short | `unreliable_se_short_periods` | The *t* is size-robust to tails — 3–4% on t(3) input, i.e. conservative — while the small-n bootstrap is not (6–14%). | Keep the *t*. Tails are not a reason to bootstrap a short series. |
 | Thin cross-section (few names per leg) | `few_assets` | Each leg mean rests on a handful of names: a noisier estimate, not a differently-distributed one. The automatic bootstrap switch this once triggered rejected 8–20% against the *t*'s 7–9% and keyed on the wrong axis; it was removed. | Keep the requested member; read `n_assets` and treat the spread as fragile. |
