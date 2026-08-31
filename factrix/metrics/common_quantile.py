@@ -31,8 +31,7 @@ from factrix._codes import WarningCode, _emit_warning
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import (
-    _ols_nw_multivariate,
-    _resolve_scalar_wald_hac,
+    _ols_scalar_wald_hac,
     _wald_p_linear,
 )
 from factrix._types import (
@@ -142,6 +141,10 @@ def common_quantile_spread(
         ``Spearman(0..K-1, beta)`` rank-monotonicity diagnostic across
         buckets is reported alongside.
 
+        ``HAC_BANDWIDTH_ILL_CONDITIONED`` reports a resolved bandwidth
+        estimated from too few lag products on samples of at least 30 periods.
+        Shorter samples follow this metric's effective-sample warning contract.
+
         factrix uses NW HAC + Wald rather than Welch t for cross-method
         comparability with ``common_asymmetry`` / ``common_beta`` and
         because ``overlap_periods > 1`` breaks the iid assumption Welch
@@ -250,17 +253,19 @@ def common_quantile_spread(
     # HAR recipe -- bandwidth, T/(T-L-1) variance scale and fixed-b effective
     # df together. The narrow K-restriction rule left this metric 9.7-21%
     # oversized at h=5; see ``_resolve_scalar_wald_hac`` for the table.
-    lags, hac_scale, hac_dof = _resolve_scalar_wald_hac(
-        n_periods, newey_west_lags, overlap_periods
+    hac = _ols_scalar_wald_hac(
+        r,
+        X,
+        lags=newey_west_lags,
+        overlap_periods=overlap_periods,
     )
-    beta, V_hac, _ = _ols_nw_multivariate(r, X, lags=lags)
-    V_hac = V_hac * hac_scale
+    beta, V_hac = hac.beta, hac.covariance
 
     R = np.zeros((1, n_groups))
     R[0, n_groups - 1] = 1.0
     R[0, 0] = -1.0
     spread_value = float(beta[n_groups - 1] - beta[0])
-    _, p_spread = _wald_p_linear(beta, V_hac, R, q=0.0, df_denom=hac_dof)
+    _, p_spread = _wald_p_linear(beta, V_hac, R, q=0.0, df_denom=hac.dof)
 
     # A collapsed contrast variance (identical bucket means every period, or
     # a singular HAC covariance) admits no t and no Wald p: NaN here, and the
@@ -293,6 +298,8 @@ def common_quantile_spread(
         warning_codes.append(WarningCode.THIN_QUANTILE_PERIODS.value)
     if _persistent_array_beyond_horizon(per_date["_f"].to_numpy(), overlap_periods):
         warning_codes.append(WarningCode.SERIAL_CORRELATION_DETECTED.value)
+    if hac.bandwidth_ill_conditioned:
+        warning_codes.append(WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED.value)
     # Effective sample, not raw periods: h-period overlapping returns leave
     # about T/h independent observations while the bandwidth grows with h. It
     # is also exactly where the persistence screen above withholds itself, so
@@ -308,7 +315,7 @@ def common_quantile_spread(
         "n_groups": n_groups,
         "n_periods": n_periods,
         "n_distinct_factor": n_distinct,
-        "newey_west_lags_used": lags,
+        "newey_west_lags_used": hac.lags,
         "buckets": [
             {
                 "idx": int(k),

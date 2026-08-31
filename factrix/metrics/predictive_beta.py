@@ -25,6 +25,7 @@ from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import (
     _adf,
+    _hac_bandwidth_ill_conditioned,
     _lag1_autocorr,
     _ols_nw_slope_t,
     _resolve_har_lags,
@@ -134,7 +135,11 @@ def predictive_beta(
     bandwidth and fixed-$b$ effective df this test now uses. Read an
     ``h > 1`` predictive $p$ against a raised hurdle regardless of the
     correction. ``WarningCode.OVERLAPPING_PREDICTIVE_INFERENCE`` makes that
-    known regime explicit on every such result.
+    known regime explicit on every such result. When the resolved bandwidth
+    also exceeds one fifth of a sample of at least 30 periods,
+    ``WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED`` records the separate kernel
+    estimation problem; shorter samples use
+    ``WarningCode.UNRELIABLE_SE_SHORT_PERIODS`` instead.
 
     **The correction costs power** where OLS's apparent power was partly
     its own bias: at $T=60,\ \phi=0.95,\ \rho=-0.9$ the corrected test
@@ -368,6 +373,8 @@ def predictive_beta(
             warning_codes=warning_codes,
             stacklevel=2,
         )
+    if _hac_bandwidth_ill_conditioned(n, har_lags):
+        warning_codes.append(WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED.value)
     # The regime flag fires on the ACTUAL bias channel - the product of
     # persistence and innovation correlation - not on the ADF screen alone.
     # ADF proxies phi only, carries no information about rho, and has low

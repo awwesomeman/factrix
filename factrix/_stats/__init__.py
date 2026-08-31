@@ -60,7 +60,11 @@ from factrix._stats.hac import (
     _resolve_nw_lags,
     _resolve_scalar_wald_hac,
 )
-from factrix._stats.ols import _ols_nw_multivariate, _ols_nw_slope_t
+from factrix._stats.ols import (
+    _ols_nw_multivariate,
+    _ols_nw_slope_t,
+    _ols_scalar_wald_hac,
+)
 from factrix._stats.unit_root import _ADF_CRITS_CONSTANT, _adf, _adf_pvalue_interp
 from factrix._stats.wald import _wald_p_linear
 
@@ -83,6 +87,7 @@ __all__ = [
     "_newey_west_t_test",
     "_ols_nw_multivariate",
     "_ols_nw_slope_t",
+    "_ols_scalar_wald_hac",
     "_p_value_from_t",
     "_p_value_from_z",
     "_resolve_har_lags",

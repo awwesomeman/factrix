@@ -668,7 +668,8 @@ hypothesis test.
   candidate-series).
 - *warning codes* (conditional): `serial_correlation_detected` (candidate
   spread persistent once strided at `overlap_periods`),
-  `unreliable_se_short_periods` (fewer than 10 periods after that stride).
+  `unreliable_se_short_periods` (fewer than 10 periods after that stride),
+  `hac_bandwidth_ill_conditioned` when `n_periods >= 30` and `L > T / 5`.
 - *descriptive*: `n_base_factors`, `base_factors` (list of base-factor
   names), `betas` (per-base OLS slope dict), `r_squared`.
 - *descriptive* (conditional, short-circuit): `reason`.
@@ -863,6 +864,9 @@ which reports `R²` for the OLS regression.
   flipped the verdict on draws where the two slopes are far apart.
 - *warning*: `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` when
   `n_periods_effective` is below `MIN_PERIODS_WARN`.
+- *warning*: `WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED` when the scalar HAR
+  bandwidth satisfies `L > T / 5` on at least 30 finite periods. Below 30,
+  `UNRELIABLE_SE_SHORT_PERIODS` owns the regime without a duplicate warning.
 - *short-circuit*: `reason` `insufficient_predictive_periods`,
   `degenerate_factor_variance`, `no_factor_column`, or
   `no_return_column`. The `insufficient_predictive_periods` floor is a
@@ -941,7 +945,8 @@ scale and the kernel's fixed-`b` effective `ν`.
   `p_wald_slopes`.
 - *warning codes* (conditional): `serial_correlation_detected` (per-period
   factor persistent once strided at `overlap_periods`),
-  `unreliable_se_short_periods` (fewer than 10 periods after that stride).
+  `unreliable_se_short_periods` (fewer than 10 periods after that stride),
+  `hac_bandwidth_ill_conditioned` when `n_periods >= 30` and `L > T / 5`.
 - *descriptive*: `beta_long`, `beta_short`, `abs_short_over_long`,
   `n_pos`, `n_neg`, `n_zero`, `n_periods`, `newey_west_lags_used`,
   `method_b_skipped` (conditional), `intercept` (conditional),
@@ -963,7 +968,8 @@ scale and the kernel's fixed-`b` effective `ν`.
 - *warning codes* (conditional): `thin_quantile_periods`,
   `serial_correlation_detected` (per-period factor persistent once strided
   at `overlap_periods`), `unreliable_se_short_periods` (fewer than 10
-  periods after that stride).
+  periods after that stride), `hac_bandwidth_ill_conditioned` when
+  `n_periods >= 30` and `L > T / 5`.
 - *descriptive*: `n_groups`, `n_periods`, `n_distinct_factor`,
   `newey_west_lags_used`, `buckets` (list of `{idx, mean_return, n}`).
 

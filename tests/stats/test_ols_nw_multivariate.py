@@ -3,7 +3,13 @@
 from __future__ import annotations
 
 import numpy as np
-from factrix._stats import _ols_nw_multivariate, _wald_p_linear
+import pytest
+from factrix._stats import (
+    _ols_nw_multivariate,
+    _ols_scalar_wald_hac,
+    _resolve_scalar_wald_hac,
+    _wald_p_linear,
+)
 
 
 class TestPointEstimates:
@@ -57,6 +63,41 @@ class TestHACVariance:
         _, V8, _ = _ols_nw_multivariate(y, X, lags=8)
         # SE on slope coefficient (index 1) should grow with lags.
         assert np.sqrt(V8[1, 1]) > np.sqrt(V0[1, 1])
+
+
+class TestScalarWaldHacFit:
+    def test_applies_the_resolved_scale_inside_the_consumer(self):
+        rng = np.random.default_rng(12)
+        n, h = 120, 5
+        x = rng.standard_normal(n)
+        X = np.column_stack([np.ones(n), x])
+        y = 0.4 + 0.7 * x + rng.standard_normal(n)
+
+        fit = _ols_scalar_wald_hac(y, X, overlap_periods=h)
+        lags, scale, dof = _resolve_scalar_wald_hac(n, None, h)
+        beta, covariance, resid = _ols_nw_multivariate(y, X, lags=lags)
+
+        np.testing.assert_allclose(fit.beta, beta)
+        np.testing.assert_allclose(fit.covariance, covariance * scale)
+        np.testing.assert_allclose(fit.resid, resid)
+        assert fit.lags == lags
+        assert fit.dof == pytest.approx(dof)
+
+    @pytest.mark.parametrize(
+        ("n", "expected"),
+        [(29, False), (30, True), (120, True)],
+    )
+    def test_bandwidth_warning_policy_suppresses_the_short_sample(
+        self, n: int, expected: bool
+    ) -> None:
+        rng = np.random.default_rng(n)
+        x = rng.standard_normal(n)
+        X = np.column_stack([np.ones(n), x])
+        y = 0.2 * x + rng.standard_normal(n)
+
+        fit = _ols_scalar_wald_hac(y, X, overlap_periods=21)
+
+        assert fit.bandwidth_ill_conditioned is expected
 
 
 class TestWaldLinear:

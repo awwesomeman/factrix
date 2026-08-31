@@ -548,9 +548,7 @@ def _pooled_beta_driscoll_kraay(
     warning_codes: list[str] = []
     # Keep the two diagnostics non-redundant: below 30 periods the binding
     # problem is already the short score series, not a second bandwidth echo.
-    if n_periods >= MIN_PERIODS_WARN and _hac_bandwidth_ill_conditioned(
-        n_periods, resolved_lags
-    ):
+    if _hac_bandwidth_ill_conditioned(n_periods, resolved_lags):
         _emit_warning(
             WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED,
             f"resolved Driscoll-Kraay bandwidth L={resolved_lags} exceeds "
