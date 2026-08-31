@@ -61,7 +61,8 @@ title: factrix.metrics.event_quality
     (`value = NaN`). `event_skewness` reports the Fisher-
     corrected skewness of the `signed_car` distribution, descriptively:
     `p_value` and `stat` are always `None` because no pooled test of that
-    third moment is calibrated here (statistical-methods section 6).
+    third moment is calibrated here (see
+    [Inference calibration and limitations](../../reference/inference-calibration.md#event-skewness-has-no-calibrated-test)).
     Useful for screening fat-right-tail vs symmetric event payoffs.
 
 -   __Firing frequency__

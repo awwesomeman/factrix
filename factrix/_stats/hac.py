@@ -225,7 +225,7 @@ def _resolve_scalar_wald_hac(
     13.0% / 16.3% at ``T = 60, h = 5``, converging to 6.0% / 7.7% by
     ``T = 240``. That regime is flagged
     (:attr:`~factrix._codes.WarningCode.SERIAL_CORRELATION_DETECTED`)
-    rather than corrected — see ``statistical-methods`` section 6.
+    rather than corrected — see ``reference/inference-calibration``.
     """
     resolved = _resolve_har_lags(n, lags, overlap_periods)
     remaining = n - resolved - 1
@@ -317,7 +317,7 @@ def _newey_west_se(
     published numbers is a core use of this library, and R's
     ``sandwich::NeweyWest`` is the only mainstream tool that defaults it
     on (statsmodels and Stata do not). The flag exists so the
-    characterisation tests and ``statistical-methods`` section 6 can pin
+    characterisation tests and ``reference/inference-calibration`` can pin
     what prewhitening would and would not buy; every library path uses
     the default.
 

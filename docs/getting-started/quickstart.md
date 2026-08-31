@@ -71,78 +71,26 @@ contain sporadic missing or non-finite values.
 
 ---
 
-## Research question → metric mapping
+## Choose metrics
 
-In `factrix`, rather than constructing a central config object, you pass metric instances imported from `factrix.metrics` directly to the `metrics` parameter of `fx.evaluate()`.
+Pass metric instances from `factrix.metrics` directly to the `metrics`
+parameter of `evaluate()`; there is no central configuration object.
 
 To learn how to choose the right metrics and configure them, see [Choosing a metric](../guides/choosing-metric.md) and [Concepts](concepts.md).
 
 ---
 
-## `EvaluationResult.to_dict()` and warnings
+## Read the result
 
-Calling `.to_dict()` on the returned `EvaluationResult` returns a flat, JSON-friendly representation of the results, including evaluation metadata, statistics, and any active warnings:
+Read a metric's `value` and `p_value` together with `n_obs`, metadata, and
+the enclosing result's warnings. A small p-value is not sufficient evidence
+when the result also reports a persistence, overlap, clustering, or thin-sample
+warning.
 
-```json
-{
-  "factor": "factor",
-  "cell": {
-    "scope": "individual",
-    "density": "dense",
-    "structure": "panel"
-  },
-  "forward_periods": 5,
-  "overlap_periods": 5,
-  "n_periods": 494,
-  "n_pairs": 49400,
-  "n_assets": 100,
-  "params": {},
-  "metadata": {},
-  "metrics": {
-    "ic": {
-      "value": 0.07221,
-      "p_value": 2.367e-12,
-      "alternative": "two-sided",
-      "stat": 12.79,
-      "n_obs": 494,
-      "n_obs_axis": "periods",
-      "is_applicable": true,
-      "reason": null,
-      "metadata": {
-        "n_periods": 494,
-        "n_periods_full": 494,
-        "mean_ic_full": 0.07221,
-        "overlap_periods": 5,
-        "stat_type": "t",
-        "h0": "mu=0",
-        "method": "Newey-West HAC t-test",
-        "tie_ratio": 0.0,
-        "min_assets_per_period": 100,
-        "warn_assets_per_period": 10,
-        "n_periods_in": 494,
-        "n_periods_out": 494,
-        "dropped_periods": 0,
-        "drop_rate": 0.0,
-        "drop_reason": null
-      }
-    }
-  },
-  "warnings": [],
-  "plan": "1. compute_ic [batchable]\n2. ic [per-factor] requires=compute_ic"
-}
-```
-
-The most common warnings include:
-
-- `UNRELIABLE_SE_SHORT_PERIODS` — the effective (post-stride) sample is under `MIN_PERIODS_WARN` (= 30); the SE is unstable. (Falling below the metric's *hard* floor raises `InsufficientSampleError` under `strict=True`. The floor is per metric and per axis, checked on the effective sample — read `exc.axis` before assuming it is the time axis.)
-- `PERSISTENT_REGRESSOR` — the predictive regressor sits in a regime the corrected test is less well sized in: an augmented Dickey-Fuller (ADF) $p$-value above the configured threshold (default 0.10), a strong measured Stambaugh channel, or a bias-corrected AR(1) coefficient at or above one. Raised by `predictive_beta` / `trend` / `fm_beta`, not by `ic`.
-- `OVERLAPPING_PREDICTIVE_INFERENCE` — `predictive_beta` uses overlapping forward-return windows (`overlap_periods > 1`), where its corrected HAC test remains oversized in the measured null grid. The estimate and p-value are returned; use a raised hurdle and an `h = 1` or non-overlapping sensitivity check.
-- `EVENT_WINDOW_OVERLAP` — event windows overlap on the same asset.
-- `SERIAL_CORRELATION_DETECTED` — the tested per-period series is persistent beyond the overlap horizon: lag-1 autocorrelation above `PERSISTENT_SERIES_AUTOCORR` on the series strided at `overlap_periods`. The MA(h-1) structure of overlapping forward returns is absorbed by the HAC bandwidth floor and does not fire this; what does is persistence the stride cannot remove, and no HAC or bootstrap path is calibrated there, so read the p-value against a raised hurdle.
-
-For the full enum and the trigger conditions for each `WarningCode`, see [Reference § Warning codes](../reference/warning-codes.md).
-
-For exception classes (`InsufficientSampleError`, `IncompatibleAxisError`, `UserInputError`, ...) and their catch patterns, see [Errors](../api/errors.md).
+`EvaluationResult.to_dict()` returns the complete result as a flat,
+JSON-friendly mapping. See [Reading results](../guides/reading-results.md) for
+the field-by-field contract, [Warning codes](../reference/warning-codes.md) for
+trigger conditions, and [Errors](../api/errors.md) for strict-mode failures.
 
 ---
 

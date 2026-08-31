@@ -2,978 +2,216 @@
 title: Contributing to factrix
 ---
 
-This document describes the factrix development workflow. factrix is a
-public repository with a single maintainer, so this guide covers the
-**development workflow and its pitfalls** rather than OSS contributor
-conventions (licensing / DCO / CLA).
+This page covers the development workflow. Use the companion references for
+[documentation conventions](documentation.md), the
+[release process](release-process.md), and current
+[architecture contracts](architecture.md).
 
----
-
-## 1. Development setup
-
-Clone the factrix repo directly into its own venv:
+## Development setup
 
 ```bash
 git clone https://github.com/awwesomeman/factrix.git
 cd factrix
 uv sync --extra dev
-uv run pytest        # confirm baseline is green
+python scripts/setup_dev.py
+uv run pytest
 ```
 
-factrix is developed and tested as a standalone package. A consuming
-project (a research workspace, a notebook, a pipeline) depends on it the
-way it depends on any other library — an exact PyPI version or a git tag —
-and is never edited from inside that project; see
-[Versioning and release](#7-versioning-and-release-semver--release) for the pinning policy.
+`pyproject.toml` and `uv.lock` define the environment. Do not install packages
+directly into `.venv`; use `uv add`, update the project metadata, and commit the
+lockfile change together.
 
----
+### Extras
 
-## 2. Environment setup
+| Command | Purpose |
+|---|---|
+| `uv sync` | Runtime dependencies only |
+| `uv sync --extra dev` | Tests, lint, typing, and commit tooling |
+| `uv sync --extra docs` | MkDocs and API-documentation tooling |
+| `uv sync --extra pandas` | pandas/pyarrow input adapter |
+| `uv sync --extra jupyter` | Notebook environment |
+| `uv sync --frozen --all-extras` | Full CI or release verification |
 
-factrix uses **uv** to manage the Python venv and lockfile.
-`pyproject.toml` and `uv.lock` are the sole authority—do not use
-`pip install` to drop anything directly into `.venv/`.
+The named `all` extra is the optional runtime bundle; it does not include the
+development and docs toolchains. Use `--all-extras` when every declared extra
+is required.
 
-Python is pinned to **3.12+** (defined by `requires-python` in
-`pyproject.toml`).
-
-### Dependencies and extras
-Use `--extra` to add or drop modules per development needs:
-
-```bash
-uv sync                              # core only (polars, numpy, scipy)
-uv sync --extra dev                  # +pytest, commitizen, etc. (required to write code)
-uv sync --extra pandas               # +pandas / pyarrow (factrix.adapt on pandas input)
-uv sync --extra jupyter              # +jupyter / jupyterlab / ipywidgets (notebooks)
-uv sync --extra docs                 # +mkdocs-material, mkdocstrings, mike (build the site)
-uv sync --frozen --all-extras        # local CI / release checks (see the release-train drift audit)
-```
-
-The declared extras are `pandas`, `jupyter`, `dev`, `docs`, and `all` (where
-`all == factrix[jupyter]`).
-
-!!! note "`dev` and `docs` are separate from `all`"
-    `all` only pulls in the `jupyter` extra — the toolchain (`dev`) and
-    docs-build (`docs`) extras are deliberately kept separate from the named
-    `all` extra. Use `--all-extras` when you really want every declared extra:
-
-    ```bash
-    uv sync --all-extras              # every declared extra
-    ```
-
-### Common environment commands
-```bash
-uv run <cmd>         # run inside the venv (e.g. uv run pytest)
-uv add <pkg>         # add dep, sync pyproject + uv.lock
-uv lock --upgrade    # upgrade lock to the latest within current pyproject constraints
-```
-
-### Windows test notes
-
-On Windows consoles, prefer UTF-8 mode for tests that read Markdown or
-render diagnostics with non-ASCII characters:
+On Windows, enable UTF-8 for Markdown and diagnostic tests if the console does
+not already do so:
 
 ```powershell
 $env:PYTHONUTF8="1"
 .\.venv\Scripts\python.exe -m pytest -q -p no:faulthandler
 ```
 
-Timezone-aware Polars tests also need Python timezone data available
-for `ZoneInfo("UTC")` / UTC conversions. Run `uv sync --extra dev`
-from the repo lockfile before testing; if a local environment was
-manually altered and timezone tests fail with missing timezone data,
-resync the environment instead of patching tests.
+`uv sync` installs factrix in editable mode. Restart a Jupyter kernel after
+changing module imports, dataclasses, or module-level constants; autoreload is
+not sufficient for those changes.
 
-### Editable install and Jupyter
+### Environment troubleshooting
 
-`uv sync` installs factrix in editable mode, so source changes reach
-`import factrix` immediately — with the usual Jupyter exceptions:
+Each clone normally owns its `.venv`; another project does not mix packages
+into it. The uv download cache is shared by default, so a reported cache error
+can affect more than one clone without implying that their environments were
+combined.
 
-- Function body changes → caught by `%autoreload 2`
-- `__init__.py` imports / dataclass definitions / module-level
-  constants → **restart the kernel**
-
-When in doubt, restart the kernel.
-
-### Git hooks
-
-Hooks are managed by the [pre-commit](https://pre-commit.com/) framework;
-`.pre-commit-config.yaml` at the repo root declares them and
-`scripts/hooks/` holds the two repo-local hook scripts. Run once after a
-fresh clone:
+When several toolchains are needed on a development machine, install them in
+one sync and retain existing extras:
 
 ```bash
-python scripts/setup_dev.py
+uv sync --inexact --extra dev --extra docs
 ```
 
-The script runs `pre-commit install` for the `pre-commit`, `commit-msg`
-and `pre-push` stages. Idempotent — re-running just rewrites the same
-shims; aborts (non-zero exit) if `core.hooksPath` is set at all, since it
-would shadow the installed hooks and a contributor's dotfiles-managed hook
-surface must not be silently overwritten. The installation is per-clone
-and local; it does not propagate across machines, so every clone / new
-machine must run the script once. `git worktree` instances share
-`.git/hooks` with their primary clone, so one
-run at the primary clone covers every worktree under it.
+On a centrally managed Windows machine, use the organisation-approved Python
+and certificate profile. A typical invocation with an existing system Python
+is:
 
-`pre-commit` — when staged changes include `*.py` / `*.ipynb`, runs
-`ruff check` + `ruff format --check`. Both gate rather than rewrite: a
-hook run never mutates your files. CI's `lint` job runs the same
-`uv run pre-commit run --all-files --hook-stage pre-commit`, so local and
-CI cannot drift. Fail → blocks the commit; fix-then-commit, or use
-`git commit --no-verify` to bypass. Scoped to staged files, so commits
-touching only YAML / Markdown / .txt don't trigger.
-
-`commit-msg` — rejects `Co-Authored-By: Claude <...@anthropic.com>`
-trailers, which GitHub would surface on the repo's contributor graph.
-
-`pre-push` — for `v1.0.0+` release commits (`chore(release): vX.Y.Z`),
-checks that the `## vX.Y.Z` section in `CHANGELOG.md` has ≥ 25 non-blank
-lines. Below threshold → blocks the push, forcing you to add WHY narrative
-(BREAKING migration, behavioural direction, motivation) before pushing. Pre-1.0
-release commits skip this gate; see the [Pre-1.0 version guide](#pre-10-version-guide). It
-also runs `mkdocs build --strict` when the push touches docs-relevant paths and
-`uv run mypy factrix` when it touches `factrix/**/*.py`. To bypass:
-`git push --no-verify`.
-
-Adjust the threshold (per-shell):
-
-```bash
-CHANGELOG_MIN_LINES=10 git push
+```powershell
+py -m uv --system-certs --no-python-downloads sync `
+  --inexact --extra dev --extra docs
 ```
 
-Run any stage by hand without committing:
+Use this diagnostic order instead of repeatedly restarting an installation:
+
+1. Confirm the interpreter and environment with
+   `.\.venv\Scripts\python.exe -c "import sys; print(sys.executable); print(sys.prefix)"`.
+2. Run `py -m uv pip check --python .\.venv\Scripts\python.exe` and inspect
+   `py -m uv cache dir` when uv reports cache or package-metadata errors.
+3. If dependency resolution has finished but the process shows no sustained
+   CPU, disk, or network activity for about a minute, stop it and investigate
+   proxy, certificate, antivirus, or endpoint file-scanning controls. Waiting
+   longer does not repair an idle finalisation step.
+4. When uv names a damaged cache package, remove only that package with
+   `py -m uv cache clean <package>`, then run one sync. Do not clear unrelated
+   caches or run concurrent repair attempts.
+5. If imports succeed but package metadata or plugin discovery is missing,
+   treat `.venv` as incomplete. Recreate only the repository-local environment
+   through the approved setup rather than editing `site-packages` manually.
+
+Do not disable TLS verification or endpoint security to make an install pass.
+Use system certificates, an approved package mirror, or an administrator-
+managed exception for the project environment and cache paths. Clean CI can
+provide an independent verification gate, but it does not make a partially
+installed local environment healthy.
+
+## Git hooks
+
+`python scripts/setup_dev.py` installs the `pre-commit`, `commit-msg`, and
+`pre-push` stages declared in `.pre-commit-config.yaml`. Installation is local
+to each clone.
+
+| Stage | Checks |
+|---|---|
+| `pre-commit` | Ruff lint and format checks for staged Python/notebook changes |
+| `commit-msg` | Commit-message and contributor-trailer policy |
+| `pre-push` | Strict docs build for docs-relevant paths, mypy for package paths, and release-note checks where applicable |
+
+Run the lint stage directly with:
 
 ```bash
 uv run pre-commit run --all-files --hook-stage pre-commit
 ```
 
-Maintenance: `uv run pre-commit autoupdate` bumps each `rev` to the
-latest upstream tag. The ruff `rev` must stay equal to the `ruff==` pin
-in `pyproject.toml` — that pin is the source of truth, so bump it to
-match in the same commit. `tests/test_precommit_ruff_pin.py` fails when
-the two diverge.
+When updating hook versions, run `uv run pre-commit autoupdate`. Keep the Ruff
+hook revision equal to the `ruff==` development pin in `pyproject.toml`; a test
+enforces the match.
 
-Rationale: see [Versioning and release](#7-versioning-and-release-semver--release) for release-note and pre-1.0 policy.
-
----
-
-## 3. Development cycle (branch → test → commit → push → PR)
+## Development workflow
 
 ```bash
-# 1. Branch off main (do not commit directly to main)
-git checkout main && git pull
-git checkout -b <type>/<short-desc>     # e.g. feat/redundancy-heatmap
+git switch main
+git pull --ff-only origin main
+git switch -c <type>/<short-description>
 
-# 2. Develop + run tests frequently
-# ...edit...
-uv run pytest                            # must be all green before commit
-uv run pytest tests/test_<file>.py -v   # focus on a single module for fast iteration
+# edit and test
+uv run pytest tests/test_<area>.py -v
+uv run pytest
 
-# 3. Commit (Conventional Commits + interactive generation)
-git add <specific-files>                 # avoid -A
-cz commit                                # Commitizen produces standard format
-
-# 4. Push + open PR
-git push origin feat/redundancy-heatmap
-gh pr create --title "..." --body "..."
-
-# 5. After CI is green, merge (currently solo → squash-merge or rebase-merge)
-gh pr merge --squash
+git add <specific-files>
+cz commit
+git push -u origin <type>/<short-description>
+gh pr create
 ```
 
-!!! warning "Do not run `cz bump` after merge"
-    Versions and tags follow the [release-train cadence](#release-cadence--release-train) — a single
-    release fires after several PRs accumulate. Follow the Pre-1.0 version guide
-    in the [Pre-1.0 version guide](#pre-10-version-guide) for pre-1.0 PR narrative and changelog behavior.
+Use lowercase, hyphenated branches under `feat/`, `fix/`, `docs/`,
+`refactor/`, or `chore/`. Do not commit directly to `main`.
 
-### Branch naming
+Commits follow Conventional Commits. Keep the subject concise and use the body
+for the reason and behavioural effect. Do not add AI co-author or
+`Signed-off-by` trailers unless a future repository policy explicitly requires
+them.
 
-`<type>/<short-desc>`, all lowercase with hyphens:
+Open one pull request for one reviewable concern. The PR body should contain a
+short summary, the verification performed, and `Closes #<issue>` when it
+resolves an issue. Version bumps and tags follow the independent
+[release process](release-process.md), not each merged PR.
 
-- `feat/...` — new feature
-- `fix/...` — bug fix
-- `refactor/...` — refactor (no behavioural change)
-- `docs/...` — documentation
-- `chore/...` — packaging / CI / lockfile maintenance
+## Testing rules
 
-### Commit message
+- Use synthetic fixtures from `tests/conftest.py` or `factrix.datasets`; tests
+  do not read private or live market data.
+- Add tests for new metrics, public result fields, parameters, error paths, and
+  documented warnings.
+- Characterise statistical size separately from ordinary unit behaviour. A
+  reduced-replication guard can pin a measured band, while the larger sweep is
+  documented in [Inference calibration](../reference/inference-calibration.md).
+- Run focused tests while iterating, then the full suite before opening a PR.
+- Do not bypass hooks or tests to make a branch appear green.
 
-The project follows **Commitizen** + **Conventional Commits**.
-**Always use `cz commit` for interactive commits**—it validates title
-length and other rules automatically.
-
-**Reminders**:
-- Description length `< 50 chars`
-- Body uses `-` bullets, recording only "why" + "what"—do not restate
-  the diff; aim for `< 72 chars` per line
-- No AI co-author signature, no emoji, no trailing period
-- Do not append commit signature trailers unless a future DCO policy explicitly
-  requires them
-
----
-
-## 4. Docs sync boundary (Source of Truth)
-
-After editing `factrix/`, the table below tells you which `docs/`
-files auto-update and which need manual maintenance.
-
-### Auto-sync pipelines
-
-| Source (SSOT) | Docs target | Mechanism |
-|---|---|---|
-| `factrix/**/*.py` docstrings | `:::` directives in `docs/api/**/*.md` | mkdocstrings plugin |
-| `factrix._metric_index.public_specs()` | `docs/reference/_generated_metric_matrix.md`, `docs/reference/_generated_metric_name_index.md` | hooks: `scripts/mkdocs_hooks/gen_metric_matrix.py`, `scripts/mkdocs_hooks/gen_metric_name_index.py` |
-| `factrix._codes.WarningCode.description` | `docs/reference/_generated_warning_codes.md` | hook: `scripts/mkdocs_hooks/gen_code_descriptions.py` |
-| `factrix/llms*.txt` | site root `llms*.txt` | hook: `scripts/mkdocs_hooks/sync_llms_txt.py` |
-
-#### Docstring `Examples:` — runnable, copy-paste ready
-
-Every page-primary callable reachable from the API Reference nav carries an
-`Examples:` block in its docstring.
-The docstring is the single source of truth — `.md` pages do not
-duplicate runnable examples, only document things the example
-cannot show (output schemas, attribute tables, semantic intent).
-
-Convention:
-
-- Section header is `Examples:` (plural, Google style).
-- Source uses `>>>` doctest prompt syntax. The Material copy button
-  is configured (via `docs/javascripts/copy-strip-pycon.js`) to
-  strip `>>>` prompts and expected-output lines from the clipboard
-  payload, so readers can copy a `pycon` block straight into a
-  REPL or script.
-- Show **call shape**, not fragile output. Lines starting with
-  `>>>` carry the educational value; expected-output lines (lines
-  without `>>>`) are reserved for values stable across BLAS / numpy
-  / polars / Python versions.
-- Avoid concrete floating-point values, DataFrame / array reprs, or
-  multi-line text reprs as expected output. If a value must be
-  shown, prefer structural facts (enum value, integer length,
-  boolean from `isinstance`).
-- Setup is self-contained — construct any required panel inline via
-  `fx.datasets.make_cs_panel(...)` + `compute_forward_return(...)`
-  so the snippet runs verbatim with no surrounding fixtures.
-
-Examples blocks are CI-verified. The `doctest` job in
-`.github/workflows/test.yml` runs `pytest --doctest-modules
-factrix/` on every PR; option flags (`ELLIPSIS`,
-`NORMALIZE_WHITESPACE`) live in `[tool.pytest.ini_options]
-doctest_optionflags` so individual Examples carry no
-`# doctest:` directives. A renamed symbol, changed signature,
-or dropped import that breaks an Example surfaces on the same
-PR as the change.
-
-Page-level demo admonitions (`## Worked example`, `!!! example`
-blocks) are reserved for end-to-end demos that intentionally show
-something the docstring cannot — typically a longer
-synthetic-panel walk-through with `EvaluationResult.warnings` output or a
-cross-cell config recipe table. They do not echo the docstring
-example.
-
-#### Examples - notebook SSOT + generated MkDocs pages
-
-`examples/*.ipynb` files at repo root are the executable source of truth for
-worked example recipes. The `docs/examples/*.md` pages are generated by
-`scripts/mkdocs_hooks/render_example_notebooks.py` during `mkdocs build` and
-must not be edited directly.
-
-New example convention:
-
-- Write or update `examples/<name>.ipynb` first. Match the shape of the existing
-  recipes: a top-level title, narrative blocks (`Factor type` / `Use this when`
-  / `What it tests` / `Output to read` where useful), numbered step sections,
-  runnable code cells, and short illustrative output blocks only when they help
-  interpretation.
-- Do **not** print `fx.__version__` or include trailing
-  `print("<name>: ok")` smoke tests in visible notebook cells. Those lines render
-  into the docs and invite drift on every release.
-- Regenerate the derived markdown with
-  `python scripts/mkdocs_hooks/render_example_notebooks.py` or `mkdocs build`.
-  `tests/test_example_notebook_docs.py` and the docs workflow fail when the
-  generated pages are stale.
-
-### Docs that still need manual maintenance
-
-- `docs/api/**/*.md`: each contains a hand-written 2–5 line
-  narrative intro plus a `:::` directive; new public metrics require a
-  new file plus a `nav:` entry in `mkdocs.yml`
-- `docs/getting-started/`, `docs/guides/`, `docs/development/`, the
-  homepage `index.md`, and per-section `index.md`: pure narrative
-- `docs/reference/metric-pipelines.md`, `statistical-methods.md`,
-  `warning-codes.md`, `bibliography.md`: narrative roll-ups (not
-  matrices)
-
-### Nav classification principle
-
-Pages are placed in the nav by **what reading task they serve**, not by
-which folder they happen to live in. Four shapes carry the whole site:
-
-- **symbol-centric** — one mkdocstrings page per public callable / class.
-  Lives under `API reference`. Reader knows the name, wants signature +
-  semantics. (`evaluate`, `bhy`, `EvaluationResult`, every `metrics/<x>.md`.)
-- **question-centric** — answers a "how do I do X?" task with a short
-  walk-through. Lives under `User guide` > `How-to`. Title is the
-  question, body is the recipe. (`Choosing a metric`,
-  `Panel vs timeseries`, `Preparing data`.)
-- **lookup** — pure table or reverse-index, scanned not read. Lives
-  under `User guide` > `Reference tables`. Ordered by quant scan
-  frequency, not alphabetically. (`Metrics applicability`, `Stat keys`,
-  `Warning codes`.)
-- **migration** — deprecation notes, rename recipes, BREAKING upgrade
-  paths. Belongs to the `Release notes` register. Linked from the
-  CHANGELOG entry that retired the surface; not given its own nav slot
-  unless ≥ 3 active migration pages accumulate (single-member groups
-  read as navigation cruft).
-
-#### Folder path and nav placement are decoupled
-
-The on-disk path under `docs/` is **never** changed to match a nav
-move. mike publishes versioned URLs from the file path, and external
-links (issue references, downstream notebooks, search indexes) pin to
-that URL — relocating `docs/api/metrics/ic.md` to
-`docs/guides/ic.md` would 404 every link captured before the
-move. Nav is the editorial layer; folders are the URL contract. When
-re-classifying a page, change only the `mkdocs.yml` entry; leave the
-file where it is.
-
-#### Title casing and acronym rules
-
-Nav labels and page `title:` frontmatter follow sentence case: only the
-first word, proper nouns, and code identifiers used as proper nouns
-take a capital. Tab labels (`Get started`, `User guide`, `API
-reference`, `Release notes`) follow the same rule.
-
-- **Acronyms in nav labels are spelled out** (`Timeseries-mode
-  conventions`, `Validating allocation signals`)
-  with no parenthetical short form. The short form is redundant for
-  domain readers and mis-leading for newcomers; first-use expansion is
-  the page's first paragraph or the `Glossary` entry, not the sidebar.
-- **Universal technical acronyms are an exception** — `API` is not
-  expanded.
-- **Code identifiers do not appear in CAPS in nav labels.** DataStructure enum
-  values (`DataStructure.PANEL` / `DataStructure.TIMESERIES`) become `Panel` / `Timeseries`
-  in nav; reach for backticks inside body prose when the literal
-  identifier matters. Dataclass / class names inside `Results` (e.g.
-  `MetricResult`, `EvaluationResult`) keep PascalCase because that node *is*
-  the mkdocstrings spec page for the symbol — the title is the symbol.
-
-### Nav structure conventions
-
-The mkdocs nav follows a **pure-label** policy: every group label in
-`mkdocs.yml` is a non-clickable organising heading; every entry with
-content is an explicit leaf with a sidebar label. `navigation.indexes`
-is intentionally disabled so the visual contract is "label = heading,
-leaf = page, never both".
-
-When adding a new section or hub page:
-
-- Group labels carry no page reference. They look like `- Concepts:`
-  followed by an indented list of leaves.
-- Hub or overview pages (e.g. `api/metrics/index.md`) appear as an
-  explicit leaf with label `Overview` as the first child of their
-  group: `- Overview: api/metrics/index.md`.
-- Leaf labels are unique within their sidebar branch — never reuse the
-  parent group's name as a leaf label.
-
-This keeps `mkdocs build --strict` green and the sidebar legible without
-clicking through to discover affordance.
-
----
-
-## 5. Drift management
-
-Documentation, generated reference material, and example notebooks drift
-away from the code they describe. The project's working policy:
-**automate symbol-level drift, leave narrative/conceptual drift to
-review, and run a manual half-hour pass at every release-train cut.**
-The framing below is heuristic — when a new "should I add a test for
-this drift?" question arises, judge it by whether the cost of
-automating exceeds the cost of missing.
-
-### 5.1 Automated drift checks
-
-Enforced by tests and CI — a regression fails the PR build.
-
-| Drift class | Enforced by |
-|---|---|
-| Generated docs freshness (metric matrix, name index, warning-code table) | `tests/test_docs_matrix.py`, plus the `git diff --exit-code` step in `.github/workflows/docs-deploy-dev.yml` |
-| Public-surface mention coverage in `factrix/llms-full.txt` | `tests/test_docs_llms.py` |
-| Public-surface mention coverage across all docs pages | `tests/test_docs_pages.py` |
-| Hand-authored `python` fences on every docs page execute against the current API | `tests/test_docs_examples.py` |
-| Every public metric module has a docs page whose `members:` mirrors its `__all__` | `tests/test_metric_api_members_match_all.py` (module list derived from `factrix/metrics/`) |
-| README quickstart end-to-end | `tests/test_readme_quickstart.py` |
-| mkdocs nav / link integrity | `uv run mkdocs build --strict` (run in `.github/workflows/docs-deploy-dev.yml`) |
-| Type-checking gate (`mypy factrix`) | `uv run mypy factrix` (lint job in `.github/workflows/test.yml`) |
-
-### 5.2 Drift left to human review
-
-Deliberately not automated, because machine-judgement cost > miss cost:
-
-- **Architecture narrative vs current code design**
-  (`docs/development/architecture.md`) — accuracy hinges on whether the
-  prose still captures the *spirit* of the design; a string match
-  cannot judge that.
-- **Conceptual / explanatory text in guides**
-  (`docs/guides/*.md`, `docs/getting-started/*.md`) — wording quality
-  and pedagogical ordering are reviewer calls; a stale phrasing often
-  parses fine.
-- **Editorial choices in `factrix/llms-full.txt`** — depth of context,
-  ordering, and what to omit are agent-UX decisions, not symbol
-  coverage (which [Automated drift checks](#51-automated-drift-checks) already enforces).
-
-Rule of thumb: if the drift can be detected by a string match or a
-function call, automate it; if catching it requires reading prose for
-meaning, leave it to release-train review.
-
-### 5.3 Release-train drift audit
-
-Before running a release bump (see [Versioning and release](#7-versioning-and-release-semver--release)), run this checklist on `main`:
+The baseline local checks are:
 
 ```bash
-# 1. Search for symbols retired this release cycle that may have leaked back in.
-#    Build PATTERN from the breaking changes since the last tag (the `!`-marked
-#    commits and the CHANGELOG's breaking entries). It is rebuilt every cycle,
-#    not inherited — a pattern that survives past its removal only adds noise.
-git grep -nE "$PATTERN"
-
-# 2. Sync the release-check toolchain from locked project metadata. All
-#    extras, not just dev + docs: the full suite expects the optional
-#    ``pandas`` / ``pyarrow`` path installed (CI runs the no-pandas floor
-#    separately), and dropping the extra leaves a dangling
-#    ``site-packages/pandas/`` that imports without ``DataFrame``.
-uv sync --frozen --all-extras
-
-# 3. Lint, formatting, and typing — mirrors the CI lint job.
-uv run ruff check .
-uv run ruff format --check .
+uv run pre-commit run --all-files --hook-stage pre-commit
 uv run mypy factrix
-
-# 4. Full test suite — covers every automated drift check.
-uv run pytest -q
-
-# 5. Doctests — mirrors the CI doctest job.
-uv run pytest --doctest-modules factrix/
-
-# 6. Strict docs build — surfaces broken nav, links, and generated-file drift.
-uv run mkdocs build --strict
-
-# 7. Public-surface coverage spot-check (also run by step 4; explicit run
-#    is cheap and isolates failures).
-uv run pytest tests/test_docs_llms.py tests/test_docs_pages.py -q
-
-# 8. Package build — mirrors the CI wheel build job.
-uv build --python 3.12
-
-# 9. Review release-note policy before changelog edits:
-#    - the versioning and release section of this file
-#    - the top of CHANGELOG.md
-```
-
-A failure on any step is a release blocker — fix on `main` (or revert
-the offending PR) before bumping.
-
-### 5.4 Type-checking conventions
-
-`uv run mypy factrix` is enforced in CI. Three recurring patterns:
-
-- Polars scalar aggregations (`.median() / .mean() / .std() / .quantile() / .item()`) annotate as a broad union; suppress per call site with `# type: ignore[arg-type]`. `warn_unused_ignores = true` self-cleans these if stubs improve.
-- Polars schema dicts typed `dict[str, pl.DataType]` need **instances** (`pl.String()`), not class references (`pl.String`). Both work at runtime; only instances satisfy the annotation.
-- scipy / pandas: routed through `[[tool.mypy.overrides]] ignore_missing_imports = true`. New stub-less third-party deps must extend that override.
-
-For hand-written nested dicts (e.g. per-regime / per-horizon stats), prefer a `TypedDict` over scattered suppressions — those errors point at a typing gap, not a Polars one.
-
-### 5.5 Design proposals — use issues, not files
-
-New design proposals go in a **GitHub issue** (label: `design`), not a markdown file under `docs/plans/`. Issues give threaded discussion, edit history, cross-links to PRs / commits, and zero file-maintenance overhead. The `docs/plans/archive/` directory is the frozen legacy plan corpus — read-only history; never add to it.
-
-Exceptions where a file-form plan still earns its keep:
-
-- Multi-thousand-line specs with heavy LaTeX / diagrams that strain GitHub markdown
-- Plans that go through ≥3 numbered revisions where commit history of the file itself is the record
-
-In those cases, file under `docs/plans/active/<short-slug>.md` and open a tracking issue that links to it. Once shipped or superseded, the same PR that lands the work deletes the file and records the outcome on the tracking issue; the archive stays frozen.
-
----
-
-## 6. Testing rules
-
-### Synthetic fixtures only
-
-**factrix tests must not load real market data**—every fixture must be
-constructed programmatically in `tests/conftest.py` or the test module
-itself, using numpy / polars. This invariant lets tests run in any
-environment (CI / new machine / fresh clone) and prevents the repo
-from being polluted with data.
-
-Pattern (see `tests/conftest.py`):
-
-```python title="Illustrative"
-@pytest.fixture
-def clean_panel():
-    rng = np.random.default_rng(42)
-    return pl.DataFrame({
-        "date": [...],
-        "asset_id": [...],
-        "factor_value": rng.normal(size=n),
-        "forward_return": rng.normal(size=n) * 0.01,
-    })
-```
-
-### New features require tests
-
-A new metric, `MetricSpec` field, result field, or API parameter must come with
-a matching test in the same PR. Review should block the PR if tests are missing.
-
-### CI must be green
-
-`.github/workflows/test.yml` runs the full pytest suite on every push
-/ PR. **A red PR must not merge**—fix first, then continue.
-
-### Docstring style boundary — Google sections, ruff for everything else
-
-The project's style policy is split between two complementary but distinct conventions; conflating them invites drift.
-
-- **Code formatting and structure** (line length, naming, imports, indentation, formatter tool) follows PEP 8 and the Black / ruff defaults configured in `pyproject.toml [tool.ruff]`. The selector set (`E/W/F/I/B/UP/SIM/RUF/D`, with `D` scoped to the Google convention via `[tool.ruff.lint.pydocstyle]` and six codes ignored) and 88-character line length there are the source of truth.
-- **Docstring format** follows the griffe / mkdocstrings interpretation of Google section convention, because the mkdocstrings python handler is configured for `docstring_style: google` (see `mkdocs.yml`). Recognised section headers — the complete set this project commits to — are colon-terminated and ordered per the "Section order" subsection below. Dataclasses use `Attributes:` in place of `Args:`. `References:` is a project-local extension — griffe handles it via fallthrough rather than as a strict Google section, so it is listed here so future contributors do not "fix" it away.
-- **Structured sections vs admonitions.** Two visually similar groups are not interchangeable: structured sections expect `Type: description` entries (`Args:`, `Returns:`, `Yields:`, `Raises:`, `Warns:`, `Attributes:`); admonitions accept free-form prose under a heading (`Note:`, `Warning:`, `Tip:`, `Important:`, `Caution:`). `Warns:` lists `WarningClass: msg` entries (paired with `warnings.warn` call sites); `Warning:` is a free-form caveat block. Same distinction applies in principle to `Notes:` vs `Note:`, though `Notes:` is the project default for multi-paragraph commentary. Use the plural / structured form when the content is a typed list; use the singular / admonition form for prose caveats.
-- **The Google Python Style Guide as a whole is not adopted.** Its 80-character line limit, single-quote string preference, and yapf formatter conflict with the ruff configuration above and do not apply. Only the docstring section convention is taken from Google.
-
-NumPy-style underline sections (`Parameters\n----------`) and Sphinx field lists (`:param x:` / `:returns:`) are not parsed by the Google handler and render as plain prose under generic headings. Convert on sight.
-
-`Examples:` blocks are covered by `pytest --doctest-modules` in CI. Any sweep touching `Examples:` must keep them runnable; non-runnable illustrative code belongs in `.md` under the intent-layer policy below, not in docstrings.
-
-**Narrative subsection headings** (`Algorithm:`, `Formula:`, `Construction:`, `Aggregation:`, `Scale:`, `Steps:`, `Invariants:`, `Reported:`, etc.) are permitted as in-body prose subsection labels — they sit before the structured-section block, are griffe-rendered as generic colon-terminated headings rather than typed admonitions, and document the algorithm / math / pipeline structure that does not belong in `Notes:`. They are not part of the recognised structured-section set listed above and have no canonical ordering among themselves; place each where it best explains the docstring's flow. Reach for one only when the content is a self-contained explanatory block; otherwise keep it in body prose.
-
-### Module docstring layering — navigation vs implementation
-
-Module-level and function-level docstrings carry different roles. The split is structural, not stylistic.
-
-- **Module docstring** holds navigation + cross-module context only:
-    - A one-to-three-sentence TL;DR of what the module is for and which entry point / public surface consumes it.
-    - When the module hosts several callables sharing one theoretical frame (e.g. `_stats/bootstrap.py` covering stationary + fixed schemes): a brief inventory naming each public callable with a one-line distinguishing characteristic.
-    - Non-obvious sibling-module relationships when the boundary matters (e.g. `_stats/bootstrap.py` supplies private block-index primitives to public `factrix.stats.bootstrap`).
-- **Function / class / method docstring** holds the implementation contract: `Args:` → `Returns:` → `Yields:` → `Attributes:` → `Raises:` → `Warns:` → `Notes:` → `References:` → `Examples:` (see the "Section order" subsection below for the canonical sequence).
-- The module docstring does **not** hold parameter contracts, return shape, pipeline `Notes:`, runnable `Examples:`, or implementation rationale.
-
-#### Section order — body prose before structured sections
-
-Within any docstring (module-level or function-level), free-form body prose comes before all structured Google sections. The canonical order follows NumPy / numpydoc convention (factrix imports NumPy-only sections such as `Notes:` / `References:` / `See Also:`, so the trailing-section order aligns with the broader convention rather than Google's narrower spec): summary line → body prose → `Args:` → `Returns:` → `Yields:` → `Receives:` → `Other Parameters:` → `Raises:` → `Warns:` → `See Also:` → `Notes:` → `References:` → `Examples:`. `Examples:` sits last. The same rule applies to attribute-bearing classes (`Attributes:` sits with `Args:` / `Returns:` and accepts no trailing prose). The arrow is a strict total order — no two sections are interchangeable, even when conceptually paired (e.g. `Args:` always precedes `Returns:` in source even though both describe input/output). griffe / napoleon also accept `Warnings:` as a synonym for the `Warns:` structured section header; in this project the structured section header is `Warns:` only. Unrelated occurrences of the word — MkDocs Material admonitions (`!!! warning`), markdown headings, or body-prose English — are out of scope for this rule.
-
-Putting `Notes:` or `References:` mid-text — between the summary and the rest of the prose, with prose still appearing below the heading — breaks the rendered metric page: the admonition box jumps above the function inventory, severing the reader's eye-path from summary to body.
-
-#### `References:` placement — by callable count
-
-Placement is driven by how many public callables the module hosts, not by paper-vs-module scope. The rule matches the rendered metric / API page: `::: factrix.metrics.<x>` with several `members:` produces one page with multiple function sections, and reader UX differs by layout.
-
-- **Single-callable module** (e.g. `corrado.py`, most `metrics/*.py` files that host one public function): `References:` lives only on the function. No module-level References — would just duplicate the function block above it on the rendered page.
-- **Multi-callable module** (e.g. `caar.py` with `compute_caar` / `caar` / `bmp_z`; `factrix.stats.multiple_testing` with the Benjamini-Hochberg-Yekutieli (BHY) family): module docstring carries a short-form `References:` overview listing the key papers covering the module's topic; each function then carries its own `References:` block with inline full citations for the specific paper driving that function's algorithm. Same paper appearing at both module-overview and function-detail levels is accepted here — they serve different reader animations on the same page.
-- **Private `_stats/*` modules**: source-only. Inline full citation at module level is fine since these are not rendered to user-facing pages.
-
-Format in every case: Google `References:` (colon-terminated heading, indented body), not NumPy underline (`References\n----------`).
-
-#### Inline citation form — bullet list + autorefs hyperlink + full text
-
-`References:` entries are markdown bullet list items, uniformly — one paper or many, every entry starts with `- `. Each entry's author-year prefix is an autorefs reference-style link to the catalog; the rest of the citation follows as plain text on continuation lines indented to align under the link.
-
-```
-References:
-    - [MacKinlay (1997)][mackinlay-1997]. "Event Studies in Economics
-      and Finance." Journal of Economic Literature, 35(1), 13–39.
-```
-
-This serves two animations without compromising either:
-
-- Reader who does not click — sees the full citation inline (author, year, title, journal, volume, pages) and never needs to leave the page.
-- Reader who clicks the author-year link — jumps to `bibliography.md#mackinlay-1997` to read the paper's role in factrix and cross-metric usage.
-
-Short-form module-level overviews on multi-callable modules can drop the trailing full-citation text (the link + title is enough at the overview layer):
-
-```
-References:
-    - [MacKinlay (1997)][mackinlay-1997], "Event Studies in Economics
-      and Finance."
-    - [Boehmer, Musumeci & Poulsen (1991)][boehmer-musumeci-poulsen-1991],
-      "Event-study methodology under conditions of event-induced
-      variance."
-```
-
-The uniform bullet form keeps every `References:` block visually identical regardless of paper count and removes the failure mode of forgetting blank-line separators when a second paper is added. The slug must match an anchor declared in `docs/reference/bibliography.md`; missing anchors produce an mkdocs `--strict` warning.
-
-#### Inline-prose citations — same hyperlink, hyphenated author form
-
-Paper citations appearing inside docstring prose (`Notes:`, argument descriptions, narrative paragraphs — not inside a `References:` block) use the same autorefs-linked shape with hyphenated multi-author surnames:
-
-```
-Shanken (1992) shows ...               # avoid (bare text — not clickable)
-[Shanken (1992)][shanken-1992] shows ...                                   # ok
-[Newey-West (1987)][newey-west-1987] HAC ...                               # ok (hyphenated)
-[Cameron-Gelbach-Miller (2011)][cameron-gelbach-miller-2011] two-way ...   # ok (hyphenated)
-```
-
-Conventions split by layer:
-
-- **Bibliography heading** (`bibliography.md`): formal `Author & Author (Year)` with ampersand (matches the paper's title-page citation, APA-style).
-- **Anchor ID**: lowercase hyphenated `author-author-year`.
-- **Docstring link text** (both `References:` bullets and inline prose): hyphenated `Author-Author (Year)` — consistent with how factrix's prose names the *method* (Newey-West estimator, Hansen-Hodrick SE, Fama-MacBeth regression) and with how `bibliography.md`'s own intro example reads (`[Newey-West 1987][newey-west-1987]`).
-
-Conversion rules when migrating from a bare citation: `&` and `and` in the visible text become hyphens; commas in 3+ author lists also become hyphens (`Black, Jensen & Scholes (1972)` → `[Black-Jensen-Scholes (1972)][black-jensen-scholes-1972]`); single-author citations stay single (`MacKinlay (1997)` → `[MacKinlay (1997)][mackinlay-1997]`). Year stays parenthesised.
-
-The rule applies uniformly to module-level docstrings and to public symbol (function / class / method) docstrings. It does **not** apply to Python `# comments` or to runtime string values (`WarningCode` descriptions, `"method": "..."` dict literals, `refs=(...)` tuples on registry calls) — those render outside the mkdocs autorefs pipeline and the link would not resolve.
-
-#### `bibliography.md` as catalog, not single SSOT
-
-`docs/reference/bibliography.md` is a **catalog page**, not the SSOT for citation metadata: every cited paper appears there once with its full citation, an anchor, and a paragraph on the paper's role in factrix. It serves three roles:
-
-- Aggregated browse view ("which papers does factrix cite").
-- Anchor target for inline `References:` hyperlinks inside docstrings.
-- Anchor provider for cross-page links from guides / how-tos using the autorefs form `[Corrado 1989][corrado-1989]`.
-
-The hyperlinks are an enhancement, not a dependency: if `bibliography.md` is removed, inline citations still carry the full metadata inline — only the link targets would 404. When updating a citation (typo, DOI), update the catalog entry and each inline copy that carries the full text.
-
-#### `Notes:` rule — function self-contained
-
-Function docstrings are self-sufficient. If a function's behaviour is only intelligible with one sentence of module-level frame, **copy that sentence into the function `Notes:`** rather than forcing the reader to scroll up. Duplication cost is less than reading-context-break cost.
-
-Module-level `Notes:` exists only when no single function carries the canonical pipeline — rare in factrix, since most modules host one canonical function per metric.
-
-### Markdown code-block intent layers — runnable vs illustrative
-
-Code blocks under `docs/api/**/*.md` carry two distinct intents; verify which layer a block belongs to before editing.
-
-- **Runnable** — `pycon` blocks injected from docstring `Examples:` via mkdocstrings autodoc. Self-contained imports, no unbound names, no fragile output; the rendered page exposes a copy button that strips `>>>` and expected-output lines, so blocks must remain paste-ready Python.
-- **Illustrative** — hand-authored `python` fenced blocks that use unbound names (e.g. `panel_large`, `regime_labels`) to communicate semantic intent, plus ASCII / DataFrame layouts that document output schema. Deliberately not runnable; visual lookup value beats setup faithfulness. Do not "fix" these into runnable form — confirm the intent first.
-
-`tests/test_docs_examples.py` executes every hand-authored `python` fence on `README.md` and every docs page, in page order, sharing one namespace per page. **Any exception fails the page** — a `NameError` from an unbound name, a `TypeError` from a stale keyword, an `AttributeError` from a removed helper, a `KeyError` from a renamed metadata key, a polars column error from an outdated schema.
-
-An illustrative block therefore has to say so, on its own fence — open it with <code>&#96;&#96;&#96;python title="Illustrative"</code> instead of a bare <code>&#96;&#96;&#96;python</code>. A declared block is compiled (it must still parse) but never executed, and the marker renders as a caption above the block, so the reader learns the same thing the harness does. `title=` is the only marker that works: a bare word (`python illustrative`) or an unknown key (`python exec="false"`) makes `pymdownx.superfences` drop the block to inline code. Declared blocks are not unchecked — `tests/test_docs_pages.py` still resolves every `factrix.*` symbol they name — and each one gets its own case in `test_illustrative_block_compiles`, so a `-v` run prints the full inventory of what was not executed.
-
-Reach for the marker only after a minimal setup has been ruled out: two lines of `fx.datasets.make_cs_panel(...)` + `fx.preprocess.compute_forward_return(...)` turn many placeholder blocks into real coverage. Blocks must be side-effect free (no file I/O, no plotting). `docs/examples/*.md` are rendered from `examples/*.ipynb` — fix the notebook and re-render.
-
-### Metric docstring style
-
-Docstrings in `factrix/metrics/*.py` are the **authoritative source**
-for each metric's "exact formula / algorithm". Overall doc partitioning
-(what goes where) is in the README "Where to look next" table—single
-source, not restated here. Format:
-
-1. **TL;DR first line** — one sentence describing what the metric
-   measures, optionally with a short formula
-   (e.g. `IC_IR = mean(IC) / std(IC).`)
-2. **Formula**:
-   - **Single-line formula** → inline, format `value = <expr>`
-   - **Multi-line algorithms / sandwich SE / non-trivial procedures** →
-     `Formula:` block with indented equations, so anyone scanning
-     `help()` gets readable display math
-3. **Args / Returns** blocks (Google-style)
-4. **Short-circuit conditions** as a final paragraph (which inputs
-   short-circuit to NaN, what `metadata["reason"]` reports)
-5. Paper citations under a `References:` block (optional; only complex
-   methods need it, simple diagnostics don't)
-
-Examples (inline formula): `common_beta.common_beta_sign_consistency`
-Examples (Formula block): `fm_beta.pooled_beta`,
-`_helpers._sample_non_overlapping`
-
-### LLM agent reference sync
-
-The SSOT lives in `factrix/llms.txt` and `factrix/llms-full.txt`
-(shipped with the wheel; an mkdocs hook mirrors them to the site root
-at build time). Their content overlaps with the mkdocs site partially
-but **neither is the SSOT for the other**—agents need density and
-humans need progressive disclosure; the structural targets are
-mutually exclusive, so both tracks are maintained.
-
-When any of the following ships, sync `factrix/llms*.txt` in the same
-PR. CI validates public-symbol coverage and resolvable references; review owns
-ordering, omissions, and agent-UX quality.
-
-- Additions / removals to `factrix/__init__.py` `__all__`
-- Public API signature changes (factory, `evaluate`, `bhy`,
-  `EvaluationResult`)
-- `WarningCode` additions, renames, or description rewrites
-- DataStructure dispatch rules or canonical data schema changes
-
-PR self-check:
-
-```bash
-uv run pytest tests/test_docs_llms.py tests/test_docs_pages.py -q
+uv run pytest
+uv run pytest --doctest-modules factrix
 uv run mkdocs build --strict
 ```
 
-If the content grows substantially, keep the `cl100k` token count under 8000.
+Use `uv sync --frozen --all-extras` before the complete run so optional adapter
+tests do not execute against a partially installed pandas/pyarrow environment.
 
-### Docs callout conventions
+## Python and API changes
 
-Use mkdocs-material admonitions to elevate content that breaks from the
-surrounding flow (different audience or different urgency). Default to
-plain prose; reach for a callout only when the elevation earns it.
-
-- `!!! abstract "Answers"` — top-of-page scope statement on reference pages.
-- `!!! warning` — gotcha / data-validity precondition the reader must check first; surface invariants whose violation breaks the analysis silently.
-- `!!! note` — orthogonal context that helps but isn't required (e.g. mode-axis edge cases).
-- `!!! info` — contract / convention block (e.g. event-study contracts, TS-mode conventions).
-- `!!! example` — minimal worked code that surrounding prose references.
-- `??? note "..."` (collapsible) — long content for a subset of readers (derivations, full enum tables).
-- `> **Input contract** — …` (blockquote, two lines) — appears only on raw-data `(data, ...)` entry points (`docs/api/evaluate.md`), placed between the frontmatter and the autodoc block. Format: one short sentence naming the four-column floor + a link to [Data schema](../api/data-schema.md). Other API pages consume pre-computed artefacts (`EvaluationResult` / `BhyResult` / `MetricResult`) and do not carry the callout.
-
-Apply opportunistically: when you touch a page for any other reason and a paragraph already qualifies, hoist it. Do not retrofit pages just to add admonitions.
-
-### Autodoc target — top-level path for `__all__` symbols
-
-For each `::: <target>` directive in `docs/api/`, the target dotted path matches the symbol's canonical user-facing import:
-
-- Symbol in `factrix.__all__` → top-level path (`::: factrix.evaluate`, `::: factrix.by_slice`). Do not target the submodule that physically defines it (e.g. `factrix.slicing.dispatcher` with `members: [by_slice]`) — submodule-target with member filter renders the *submodule* as the page h1 and buries the documented symbol below.
-- Symbol reached only via a submodule path → submodule path (`::: factrix.preprocess.compute_forward_return`, `::: factrix.metrics.ic` with `members: [ic, ic_ir]`, `::: factrix.datasets.make_cs_panel`). The submodule path is the canonical import.
-
-mkdocstrings cross-references (`[X][factrix.<...>.X]`) and intra-doc anchor links (`page.md#factrix.<...>.X`) follow the same rule — the path inside the brackets matches the autodoc target. Changing one without the other breaks the cross-ref.
-
-### Autodoc options — globals + per-block deviations
-
-`mkdocs.yml` carries the page-primary defaults for mkdocstrings (`show_root_heading: true`, `show_root_full_path: true`, `show_root_toc_entry: true`, `heading_level: 1`, `separate_signature: true`, `show_signature_annotations: true`, `show_source: false`, `merge_init_into_class: true`, `docstring_style: google`). Every `::: factrix.<X>` block in `docs/api/**` inherits these.
-
-Per-block `options:` should carry **only deviations** from the globals. Common deviations:
-
-- Secondary block on a page (e.g. `BhyResult` on `bhy.md`, individual error classes on `errors.md`): `show_root_toc_entry: false`, `heading_level: 3` or `4`.
-- Dataclass page where the class name is already in the frontmatter title: `show_root_heading: false`.
-- Module-level block with a curated function list: `members: [...]`, optionally `show_root_members_full_path: true`.
-
-Bare `::: factrix.<X>` is the canonical form for page-primary function / dataclass blocks; do not duplicate globals.
-
-### Page-shape conventions — when to add `## Use cases` / `## Worked example`
-
-These two sections appear on pages whose primary purpose is to show the reader *how to call the API*. They are content shapes for workflow-oriented pages — not a universal requirement.
-
-- **Expected on callable entry points.** Function pages under `docs/api/` whose page subject is a callable the user invokes directly. Includes the entry-point callables listed in the API nav and every metric page under `docs/api/metrics/`.
-- **Not expected** on:
-    - Dataclass / container pages (`evaluation-results.md`, which documents `EvaluationResult` / `MetricResult` / `Warning`) — these describe a return type, not a workflow.
-    - Reference / taxonomy / hub pages (`errors.md`, `data-schema.md`, `api/index.md`, `multi-horizon.md`, `metrics/index.md`, the cell-grouped metrics index pages) — content shape is a table or a concept, not a call.
-    - Namespace / module pages (`stats.md`, `datasets.md`) — content shape is a catalogue of members.
-
-A page that legitimately does not need these sections carries no marker — silence is the policy default. Pages in the "expected" category that currently lack the sections are accepted as a backfill debt rather than a defect.
-
-### Terminology — functional names, not stage labels
-
-Code (`factrix/**/*.py` docstrings + module headers) and published docs (`docs/**/*.md` excluding `docs/plans/`) describe behaviour by **what a function does**, not by **which planning tier it lives in**. Stage labels — `Layer-A` / `Layer-B`, `first / second layer`, `Phase 1` / `P1`, `curated wrapper`, `dispatcher vs wrapper` as a tier pair — belong only to GitHub issues / labels / milestones, where they can be renamed as the roadmap shifts.
-
-Reason: planning labels drift on the issue tracker (`P1` → `P0` after triage, `Phase 1` → `v1` after milestone rename, `Layer-B` → `slice-test function` after the feature lands), but a docstring or `architecture.md` paragraph is bound to a release. The two timescales pull apart; the docstring becomes wrong without ever being touched. Additionally, AI agents reading a body that says `P1 contract` will copy that label into downstream files and amplify the drift.
-
-The slicing subsystem is the worked example of the rule:
-
-| Stage-label phrasing (avoid) | Functional phrasing (use) |
-|---|---|
-| `Layer-A` / first-layer dispatcher | **slice dispatcher** — describes partitioning by label + applying a metric per slice (`by_slice`) |
-| `Layer-B` / second-layer / curated wrapper (inference path) | **slice-test function** / **inference function** — describes the cross-slice estimator + multiple-testing pipeline (`slice_pairwise_test` / `slice_joint_test`) |
-| `Layer-B` Estimator | **selection-only Estimator** — identity handles under `factrix.stats` (`WaldNWCluster` / `WaldTwoWayCluster` / `DriscollKraay`); their numerics live in the `_stats` kernels and the slice-test / pooled-beta procedures that consume them |
-| `EvaluationResult.to_frame()` renderer layer | **renderer** — result-side method; no separate tier implied |
-
-The rule is functional, not lexical — `dispatcher`, `function`, and `wrapper` are fine on their own when they describe what the function does. It is the **pairing** as a tier label (`dispatcher` vs `curated wrapper` as the two levels of the slicing system) that drifts; the same word as a behavioural noun is stable. Describe the specification by its content when a docstring needs to point at one, rather than `Layer-B (#NNN)` — the `Layer-B` tier label drifts, and an issue number does not belong in source either.
-
-#### Two-register convention: "verb" vs "function" / "entry point"
-
-User-facing surface uses **function** when referring to one specific callable,
-and **entry point** when referring to the public callables grouped as entry
-points in the API nav. Design-issue bodies and RFC comments may keep **verb** as
-RFC vocabulary — that register is internal to design discussion and does not
-propagate to user docs. When sweeping prose from a design issue into a guide or
-docstring, translate `verb` → `function` (or rephrase to name the specific
-callable) as part of the move.
-
-User-facing surface covers `docs/**/*.md`, README, docstrings, CHANGELOG, **and
-the error contract** — the structured attributes on `UserInputError` (and any
-future user-facing exception) belong to the user-facing register. The
-failing-function slot is named `func_name`, not `verb`, on every error class
-users can catch and read. Internal source may use different local variable names
-while populating the error; the rule is about what the user sees on the caught
-exception.
-
----
-
-## 7. Versioning and release (SemVer & Release)
-
-factrix is currently in **pre-1.0** (v0.x.x). The operational policy for API
-stability, docs wording, and release notes lives in the Pre-1.0 version guide
-below.
-
-**The project uses Commitizen for fully automated bump and changelog
-generation, paired with the release-train cadence: PRs merge whenever,
-but releases (bump + tag) are scheduled independently.**
-
-### Pre-1.0 version guide
-
-Until `v1.0.0`, treat published docs as a current-state manual, not a
-version-by-version history.
-
-- Public API may break in MINOR bumps. Consumers should pin an exact
-  version or tag, not a SemVer range.
-- PR descriptions carry the reviewable WHY / migration narrative. Do not add
-  detailed per-release entries to `CHANGELOG.md` during the pre-1.0 line.
-- `CHANGELOG.md` remains a policy note plus historical GitHub-release index.
-  Do not backfill pre-1.0 entries unless each entry is audited against its tag.
-- From `v1.0.0` onward, resume the maintained `## [Unreleased]` flow and freeze
-  release notes into version headings at release time.
-- Published mkdocs pages and docstrings describe the current public surface.
-  Do not write backward-looking version sentences such as "removed in v0.12.0",
-  "added in v0.13.0", or "since v0.x" in guides, API pages, reference pages, or
+- Public functions and classes use type annotations and Google-style
   docstrings.
-- `pre-push` enforces polished `CHANGELOG.md` release sections only for
-  `v1.0.0+` release commits. Pre-1.0 release commits skip that gate.
+- `data` names a DataFrame-like input; reserve `df_*` for degrees of freedom.
+- A new metric registers one `MetricSpec`; do not add a parallel applicability
+  or routing table.
+- A formal p-value and `alternative` must be published together through
+  `MetricResult.p_value`; metadata must not duplicate the canonical p-value.
+- Public metric names describe the statistic. Avoid `_test` suffixes, and add
+  a method token when several estimators produce the same concept.
 
-Exceptions:
+For the complete dispatch, result, guard, and naming invariants, see
+[Architecture](architecture.md). For user-visible prose, citations, examples,
+and generated pages, see [Documentation conventions](documentation.md).
 
-- `CHANGELOG.md` may keep its historical release index.
-- This contributing guide may describe the pre-1.0 documentation and release
-  policy itself.
-- Issue / PR text may mention exact historical versions when needed for review
-  or release coordination.
+## Design proposals
 
-### Release cadence — release train
+`architecture.md` describes the current state, not design history. Use a
+GitHub issue for a proposed behavioural or architectural change, record the
+decision and definition of done there, and link the implementing PR. Update the
+architecture page only when the current contract changes.
 
-PRs and releases are decoupled:
+The files under `docs/plans/archive/` are frozen historical plans and are not
+published. Do not create a new plan file for ordinary development work; use an
+issue unless the design genuinely requires a long-lived external artifact.
 
-- **PR cadence**: high-frequency, atomic. Do **not** bump or tag after
-  merge.
-- **Release cadence**: low-frequency, aggregated. A release fires when
-  any of the following holds:
-  - ≥ 3 user-facing `feat:` / `fix:` accumulated
-  - ≥ 2 weeks since the last tag
-  - An urgent downstream bug fix (a one-off PATCH may ship
-    immediately)
-  - A named version is needed for a person / demo
+## Communication and language
 
-### Release workflow
+Issues, pull requests, commit messages, changelog entries, package docstrings,
+and published docs use English. Planning archives may remain bilingual because
+they are excluded from the site.
 
-```bash
-# 1. On main, ensure latest
-git checkout main && git pull
+Small decisions belong in the PR rationale. Invariant-level changes must also
+update the relevant architecture section. If a decision changes a public
+contract, state the migration path explicitly.
 
-# 2. Verify CI is green and local release checks pass
-#    See the release-train drift audit above.
+## Licensing
 
-# 3. Auto-bump and tag
-# cz derives the level from commits since the last tag (feat=MINOR, fix=PATCH),
-# updates pyproject.toml, and auto-commits + tags. Follow the Pre-1.0 version
-# guide above until v1.0.0.
-uv run cz bump
-
-# 4. If this is v1.0.0 or later, maintain CHANGELOG.md manually (or via
-#    cz bump --changelog) and polish the release section. If polishing after
-#    the release commit, amend and re-tag:
-git commit --amend --no-edit
-git tag -d v<X.Y.Z> && git tag v<X.Y.Z>
-
-# 5. Push the release commit and annotated tag
-git push origin main --follow-tags
-
-```
-
-### CHANGELOG entry convention
-
-See the Pre-1.0 version guide above for changelog behavior before `v1.0.0`.
-From `v1.0.0` onward, changelog entries should link via **PR number** (`(#PR)`)
-because the PR carries the diff / review / discussion that downstream upgraders
-need when triaging a change.
-
-CHANGELOG paragraphs and bullets are not hard-wrapped: each paragraph is one
-line, and each bullet is one line. The 72-character wrap convention applies to
-commit messages, not to CHANGELOG prose; GitHub Release notes treat single
-newlines as `<br>`, so source-level wrapping leaks into the rendered output.
-
-### BC change reminders
-
-Example: `breakeven_cost` / `net_spread` were renamed from
-`overlap_periods` to `holding_periods`. This
-kind of rename is a BC change. When using `cz commit`, the developer must
-select Breaking Change and **explicitly write the migration path** in the
-prompt (old → new names, affected fields). The Pre-1.0 version guide
-above defines where that upgrade text lives before `v1.0.0`; from
-`v1.0.0` onward, carry it into the maintained changelog entry.
-
----
-
-## 8. Architecture / design decisions
-
-Before a new feature or large change, read:
-
-- `docs/development/architecture.md` — current snapshot of the package
-  (positioning, public API, metric-spec dispatch, result contract, invariants)
-- `CHANGELOG.md` and the Pre-1.0 version guide in this file — release-note
-  policy and historical index expectations
-
-`docs/development/architecture.md` describes the **current state**, not
-the design history. For "why is it designed this way" process records,
-see the closed `design`-labelled GitHub issues and the linked PRs; the
-frozen pre-issue plan corpus lives under `docs/plans/archive/`.
-
-### Metric naming conventions
-
-Two rules when adding or renaming a public metric. They exist to fix
-real confusion, not to enforce a uniform grammar — most existing names
-are fine as-is.
-
-1. **No `_test` suffix for statistical tests.** In Python `_test` reads
-   as a pytest utility, not a production metric. Name by the output
-   statistic instead (e.g. a z-test → `bmp_z`); the academic test name
-   lives in the docstring.
-2. **One concept, many estimators → every variant carries a method
-   token.** When the same quantity is computed by different methods,
-   each metric name must include its method (`fm_beta_sign_consistency`
-   vs `common_beta_sign_consistency`, `fm_beta` vs `common_beta` vs
-   `pooled_beta`). A bare name with no token is ambiguous about which
-   estimator it is. Conversely, a family prefix (`event_`, `ts_`) is
-   only warranted when a bare-name sibling exists or the prefix names
-   the defining methodology — not merely to restate the input domain.
-
----
-
-## 9. Asking questions / decision communication
-
-Self-use repo for the author + AI agents, so there is no issue
-template / discussion board. Decision-record channels:
-
-- **Small changes**: PR description spells out the why and any BC
-- **Large changes / architectural decisions**: open a GitHub design issue
-  (see [Design proposals](#55-design-proposals--use-issues-not-files)). Use a file-form plan only for the exceptions listed there,
-  and link it from the issue / PR.
-- **Invariant-level rule changes**: update the `Invariants` section in
-  `docs/development/architecture.md`
-
----
-
-## 10. Style — single language
-
-All issue / PR titles + bodies, commit messages, CHANGELOG entries,
-and any content under `factrix/` and `docs/` (excluding `docs/plans/`)
-is written in **English**. Internal planning notes under `docs/plans/`
-may remain bilingual; they are excluded from the published mkdocs site
-via `mkdocs.yml` `exclude_docs`.
-
-Rationale: mixed-language content fragments full-text search
-(`gh issue list`, GitHub search, `git log`), splits visual flow in
-notification emails, and burdens readers who must context-switch
-mid-paragraph. The choice of language is not prescribed by tooling—the
-repo settled on English to align with the public docstring surface,
-README, and CHANGELOG.
-
----
-
-## 11. Licensing and contribution terms
-
-This project is released under the [Apache License 2.0](https://github.com/awwesomeman/factrix/blob/main/LICENSE).
-
-**Inbound = Outbound**: per Apache-2.0 §5, any content you submit to
-this repo (PRs, patches, issue-attached code, etc.) is **deemed
-licensed back to the project under the same Apache-2.0 terms**, unless
-you explicitly state otherwise at submission time. Before opening a
-PR, confirm:
-
-- You hold the right to license that code (self-authored, or sourced
-  under an Apache-2.0-compatible licence)
-- When citing third-party code, mark the original licence in the file
-  header or PR description
-- Patent-encumbered algorithms (e.g. methods you or your organisation
-  hold patents on) must be disclosed proactively in the PR description
-
-Code under strong copyleft (GPL/AGPL etc.) is not accepted into the
-main code tree, since it would propagate licence obligations onto
-downstream users.
+factrix is licensed under Apache-2.0. Contributions are licensed to the project
+under the same terms unless the contributor states otherwise. Submit only code
+you have the right to license, identify third-party sources and licences, and
+disclose relevant patent claims. Strong-copyleft code is not accepted into the
+main package because it would change downstream obligations.

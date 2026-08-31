@@ -138,8 +138,7 @@ def common_quantile_spread(
         variance scale and the fixed-``b`` effective degrees of freedom come
         from :func:`~factrix._stats.hac._resolve_scalar_wald_hac` — the same
         recipe the scalar series-mean HAR t-test uses, and the one this
-        metric's size table is measured on (``statistical-methods``
-        section 6). A
+        metric's size table is measured on (``inference-calibration``). A
         ``Spearman(0..K-1, beta)`` rank-monotonicity diagnostic across
         buckets is reported alongside.
 

@@ -1,5 +1,5 @@
 ---
-title: Timeseries-mode conventions
+title: Common-factor regression conventions
 ---
 
 !!! tip "Canonical reference"

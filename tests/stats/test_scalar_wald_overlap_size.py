@@ -5,7 +5,7 @@ restriction on an OLS fit, so they resolve their HAC reference through
 ``_resolve_scalar_wald_hac`` (the scalar HAR recipe) rather than through the
 ``max(auto_bartlett(T), h - 1)`` rule the K-restriction Wald paths keep.
 
-On the common-factor null of ``statistical-methods`` section 6 (300
+On the common-factor null of ``inference-calibration`` (300
 replications, seed ``20260830 + rep``) the change measures, at a nominal 5%:
 
 | metric | phi | T, h | narrow rule | shipped rule |

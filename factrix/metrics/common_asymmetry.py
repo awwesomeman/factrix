@@ -133,7 +133,7 @@ def common_asymmetry(
         Both restrictions are rank one, so both take the scalar HAR recipe
         (:func:`~factrix._stats.hac._resolve_scalar_wald_hac`): bandwidth,
         ``T / (T - L - 1)`` variance scale and fixed-``b`` effective degrees
-        of freedom together. See ``statistical-methods`` section 6 for the
+        of freedom together. See ``inference-calibration`` for the
         measured size and for the two regimes it does not fix, which this
         metric reports as ``serial_correlation_detected`` (per-period factor
         persistent once strided) and ``unreliable_se_short_periods`` (fewer

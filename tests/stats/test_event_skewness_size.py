@@ -5,7 +5,7 @@ two-sided ``p``. The test has no calibrated pooled form, for two
 independent reasons, and the same-period clustering deflation
 ``event_hit_rate`` / ``event_ic`` apply repairs neither. Full table (300
 replications per cell, base seed 20260830) in
-``reference/statistical-methods`` section 6.
+``reference/inference-calibration``.
 
 1. **Non-normal signed CARs, no clustering needed.** On the null event
    panel — ``make_event_panel`` with ``post_event_drift_bps=0``,

@@ -211,7 +211,7 @@ def common_beta(
         the mean of the per-asset slopes; both are reported. On a
         COMMON-scope panel null the test measures 2.0-7.3% across
         $T \in \{60, 120, 240\}$ and $h \in \{1, 5\}$
-        (``statistical-methods`` section 6).
+        (``reference/inference-calibration``).
 
     References:
         [Black-Jensen-Scholes 1972][black-jensen-scholes-1972]:

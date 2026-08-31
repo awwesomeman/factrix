@@ -4,7 +4,7 @@ title: Panel vs timeseries
 
 !!! abstract "Answers"
     What `DataStructure.PANEL` vs `DataStructure.TIMESERIES` mean, when each is dispatched, and the sample-guard contract for each.
-    For the conventions table (column names, alignment), see [Timeseries-mode conventions](../reference/ts-mode-conventions.md).
+    For stage-1 regressions inside common-factor panel metrics, see [Common-factor regression conventions](../reference/ts-mode-conventions.md).
     For the `evaluate()` entry point, see [`evaluate`](../api/evaluate.md).
     For sample-guard error surfacing (`InsufficientSampleError`, `IncompatibleAxisError`), see [Errors](../api/errors.md).
 

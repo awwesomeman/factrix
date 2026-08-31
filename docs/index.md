@@ -4,38 +4,34 @@ title: factrix
 
 <h3 align="center"><b>Tests one factor. Screens a thousand.</b></h3>
 
-**Does this factor possess predictive edge?**
+**Does this factor have predictive value?**
 
-factrix is the first Polars-native Python toolkit that picks the right statistical test for each factor type. Cross-sectional, event, common factor — each gets the tests that fit its data-generating process.
+factrix is a Polars-native toolkit for factor inference and batch screening.
+It provides methods for cross-sectional, event, and common factors while
+keeping estimates, p-values, diagnostics, and warnings explicit.
 
 [![GitHub](https://img.shields.io/badge/GitHub-factrix-blue?logo=github)](https://github.com/awwesomeman/factrix)
 
-## What ships
-
-factrix exposes a small set of functions organised by category:
-
-- **Compute** — `evaluate`, `evaluate_horizons`
-- **Screening (false discovery rate (FDR))** — `bhy`, `partial_conjunction`, `bhy_hierarchical`, `bhy_across_metrics`, `partial_conjunction_across_metrics`
-- **Inference (no FDR)** — `slice_pairwise_test`, `slice_joint_test` (cross-sectional slices), `slice_period_pairwise_test`, `slice_period_joint_test` (date-disjoint slices)
-- **Descriptive view** — `by_slice`, `compare`
-- **Introspection** — `list_metrics`, `inspect_data`
-
-See the [API reference landing](api/index.md) for the function-flow graph, edge conventions, and the full entry-point table with category, signature summary, and when-to-reach-for guidance.
-
----
-
-## Quick links
+## Start here
 
 | If you want | Go to |
 |---|---|
-| **Prepare your own data** | [Preparing data](guides/preparing-data.md) |
-| **Pick the right metric** | [Choosing a metric](guides/choosing-metric.md) |
-| **Install and run a smoke test** | [Installation](getting-started/install.md) · [Quickstart](getting-started/quickstart.md) |
-| **Understand the three-axis design** (scope / signal / metric) | [Concepts](getting-started/concepts.md) |
-| **Compare factrix against alphalens / qlib / peers** | [Where factrix fits](where-factrix-fits.md) |
-| **Screen a batch of factors with Benjamini-Hochberg-Yekutieli (BHY)** | [BHY FDR screening](api/bhy.md) |
-| **Slice any metric by regime / universe / sector** | [Slice analysis](guides/slice-analysis.md) |
-| **Look up formulas and applicability** | [Metric applicability](reference/metric-applicability.md) |
-| **Read every public symbol** | [API reference](api/index.md) |
-| **Browse runnable notebooks** | [Examples](examples/index.md) |
-| **Read the internal architecture** | [Architecture](development/architecture.md) |
+| Install and run a complete example | [Installation](getting-started/install.md) · [Quickstart](getting-started/quickstart.md) |
+| Prepare and validate a panel | [Preparing data](guides/preparing-data.md) |
+| Match a research question to a metric | [Choosing a metric](guides/choosing-metric.md) |
+| Understand factor types and dispatch | [Concepts](getting-started/concepts.md) · [Panel vs timeseries](guides/panel-timeseries.md) |
+| Read estimates, metadata, and warnings | [Reading results](guides/reading-results.md) |
+| Screen many factors with FDR control | [Multi-factor screening](examples/multi_factor_screening.md) |
+| Look up a metric or public symbol | [Metric applicability](reference/metric-applicability.md) · [API reference](api/index.md) |
+| Decide whether factrix fits your workflow | [Where factrix fits](where-factrix-fits.md) |
+
+## Workflow
+
+1. Prepare a long Polars frame on a consistent period grid.
+2. Choose metrics that match the factor scope, density, and data structure.
+3. Run `evaluate()` and inspect each metric's estimate, sample metadata, and warnings.
+4. When screening a family of candidates, apply the multi-factor FDR helpers.
+
+The [API reference](api/index.md) lists every entry point. Contributors should
+start with the [development guide](development/contributing.md) and
+[architecture](development/architecture.md).

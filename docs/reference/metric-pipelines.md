@@ -8,11 +8,11 @@ title: Metric pipelines
     For output schema and metadata keys, see [Stat keys by metric](stat-keys-by-metric.md).
     For the research-question → metric mapping, see [Choosing a metric](../guides/choosing-metric.md).
 
-Cross-module index of every module under `factrix/metrics/`. Use this
-page to pick the existing aggregation pattern a new metric should
-match, or to mechanically check that a candidate metric satisfies the
-[Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) discipline](statistical-methods.md) the rest of the suite
-follows.
+Cross-module index of every module under `factrix/metrics/`. Use it to trace
+how a metric aggregates observations and which inference procedure it reports.
+Contributors adding a metric should also follow the
+[documentation conventions](../development/documentation.md) and
+[architecture contracts](../development/architecture.md).
 
 The matrix lists **all** metric modules — both the metrics
 [`evaluate()`](../api/evaluate.md) runs for each cell

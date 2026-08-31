@@ -10,11 +10,11 @@ title: factrix.metrics.common_asymmetry
 
 <hr>
 
-!!! info "Timeseries-mode conventions"
+!!! info "Common-factor regression conventions"
     Plain stage-1 SE rationale and the `forward_periods` vs
     `signal_horizon` bias framing apply here as for the rest of the
     Common × Continuous family. See
-    [Timeseries-mode conventions](../../reference/ts-mode-conventions.md).
+    [Common-factor regression conventions](../../reference/ts-mode-conventions.md).
 
 ## Use cases
 
@@ -128,7 +128,7 @@ title: factrix.metrics.common_asymmetry
 
     [reference/statistical-methods →](../../reference/statistical-methods.md)
 
--   __Timeseries-mode conventions__
+-   __Common-factor regression conventions__
 
     ---
 

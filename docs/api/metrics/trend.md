@@ -30,16 +30,17 @@ title: factrix.metrics.trend
 
     Median pairwise slope $\mathrm{median}\{(y_j - y_i)/(j - i): i <
     j\}$ has a 29.3 % breakdown point — absorbs IC outliers (e.g. COVID-
-    era spikes) that would dominate an ordinary least squares (OLS) slope. The trade-off is the
-    SE recovered from the rank-CI is approximate, not asymptotically
-    exact.
+    era spikes) that would dominate an ordinary least squares (OLS) slope.
+    Theil-Sen supplies magnitude and a descriptive interval; Hamed-Rao
+    Mann-Kendall supplies the test statistic and p-value.
 
 -   __Unit-root pre-check on the input__
 
     ---
 
-    `adf_threshold` (default 0.10, the Stock-Watson cutoff) drives an
-    augmented Dickey-Fuller (ADF) persistence diagnostic on the input series. Above the cutoff
+    `adf_threshold` (default 0.10, a conventional practitioner cutoff) drives
+    an augmented Dickey-Fuller (ADF) persistence diagnostic on the strided
+    tested series. Above the cutoff
     the slope null is rejected at inflated rates regardless of the
     true trend; the slope value is still returned but
     `metadata["unit_root_suspected"] = True` flags it for sceptical
@@ -122,7 +123,7 @@ title: factrix.metrics.trend
     ---
 
     Theil-Sen breakdown point, ADF persistence diagnostic (MacKinnon
-    response surface), and the rank-CI to approximate-$t$ recovery.
+    response surface), and Hamed-Rao Mann-Kendall inference.
 
     [reference/statistical-methods →](../../reference/statistical-methods.md)
 

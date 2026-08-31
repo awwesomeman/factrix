@@ -1,18 +1,12 @@
 # Changelog
 
-Detailed changelog entries are not maintained for the current pre-1.0
-development line.
+Detailed entries are not maintained for the current pre-1.0 line. Reconstructing
+rapid historical API and architecture changes now would risk presenting an
+incomplete upgrade guide as authoritative.
 
-factrix moved quickly and several large API, documentation, and architecture changes landed between tags before the release-note process was reliable. Reconstructing those notes after the fact would be expensive and would risk presenting incomplete or mis-bucketed history as authoritative upgrade guidance.
-
-For that reason, this file intentionally does **not** list detailed entries for
-pre-1.0 releases or current unreleased work. Exact historical source snapshots
-remain available through git tags and commit history; the index below lists only
-the pre-1.0 versions that have GitHub release entries.
-
-The changelog will be maintained from `v1.0.0` onward, when the public API is
-expected to be stable enough for release notes to serve as a trustworthy upgrade
-guide.
+Git tags and commit history remain the source for exact pre-1.0 snapshots. The
+index below lists releases with GitHub release entries; detailed changelog
+maintenance starts at `v1.0.0`, when the public API is expected to be stable.
 
 ## Historical pre-1.0 GitHub releases
 

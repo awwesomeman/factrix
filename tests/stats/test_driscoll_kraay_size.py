@@ -3,7 +3,7 @@
 The panel null combines a persistent regressor, cross-sectional common shocks,
 and overlapping forward returns. It pins the regression-specific calibration
 behind the public ``pooled_beta`` path without turning the test suite into the
-full 1,000-replication research run documented in statistical-methods.md.
+full 1,000-replication research run documented in inference-calibration.md.
 """
 
 from __future__ import annotations

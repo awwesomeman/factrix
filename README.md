@@ -35,52 +35,23 @@
 
 <p align="center"><a href="https://awwesomeman.github.io/factrix/latest/"><b>📖 Full documentation</b></a></p>
 
-## Where factrix fits
+## What factrix does
 
-**Does this factor possess predictive edge?**
+factrix is a Polars-native toolkit for testing whether a candidate factor has
+predictive evidence. It provides factor-type-specific tests for
+cross-sectional, event, and common factors, and rejects metric/data
+combinations that do not apply.
 
-factrix is the first Polars-native Python toolkit that picks the right statistical test for each factor type. Cross-sectional, event, common factor — each gets the tests that fit its data-generating process. The full scope comparison against neighbouring libraries is in [Where factrix fits](https://awwesomeman.github.io/factrix/latest/where-factrix-fits/).
+- **Inference built for factor data** — overlap-aware standard errors,
+  persistence diagnostics, and event-study methods.
+- **Batch screening** — false-discovery-rate control for testing many factors.
+- **Structured results** — estimates, p-values, metadata, and warnings remain
+  separate instead of being collapsed into one score.
 
-```
-factor construction  →  factrix (inference)  →  strategy construction  →  backtest  →  live trading
-                            ▲ you are here
-```
-
-For each candidate factor factrix answers — *is the predictive power real?* — and corrects for multiple testing when you screen at scale. Kill fakes before they cost you a backtest.
-
-### Why factrix?
-
-- **Type-routed evaluation** — Information Coefficient + Fama-MacBeth for cross-sectional factors; Cumulative Average Abnormal Return for events.
-- **Financial statistics built in** — autocorrelation-robust standard errors (Newey-West), overlapping-forward-return correction, persistent-predictor flagging (Stambaugh bias), and false-discovery-rate control across batches (Benjamini-Hochberg-Yekutieli).
-- **Polars-native** — modern Polars alternative to the pandas-based alphalens.
-
-factrix stops at the inference — primary test plus diagnostic battery. It does not size positions, model slippage, optimise weights, or compose alphas; those belong to the later stages of the pipeline.
-
-### Is factrix the right tool?
-
-| You want to… | Use this |
-|---|---|
-| Inference on a factor (cross-sectional / event / common factor) | **factrix** |
-| Screen many factors with multiple-testing correction | **factrix** |
-| Backtest with positions / slippage / margin | [zipline-reloaded][zipline], [backtrader][backtrader], [bt][bt], [vectorbt][vectorbt], [nautilus_trader][nautilus] |
-| Optimise portfolio weights | [skfolio][skfolio], [riskfolio-lib][riskfolio] |
-| Returns-level tear-sheet (P&L diagnostics) | [pyfolio-reloaded][pyfolio], [QuantStats][quantstats] |
-| Familiar cross-sectional tear-sheet | [alphalens-reloaded][alphalens] |
-| End-to-end machine-learning pipeline | [qlib][qlib] |
-| Deflated / probabilistic Sharpe today (commercial) | [mlfinlab][mlfinlab] |
-
-[alphalens]: https://github.com/stefan-jansen/alphalens-reloaded
-[vectorbt]: https://github.com/polakowo/vectorbt
-[zipline]: https://github.com/stefan-jansen/zipline-reloaded
-[backtrader]: https://github.com/mementum/backtrader
-[bt]: https://github.com/pmorissette/bt
-[nautilus]: https://github.com/nautechsystems/nautilus_trader
-[skfolio]: https://skfolio.org/
-[riskfolio]: https://github.com/dcajasn/Riskfolio-Lib
-[pyfolio]: https://github.com/stefan-jansen/pyfolio-reloaded
-[quantstats]: https://github.com/ranaroussi/quantstats
-[qlib]: https://github.com/microsoft/qlib
-[mlfinlab]: https://github.com/hudson-and-thames/mlfinlab
+factrix covers factor inference and screening. Portfolio construction,
+backtesting, and execution remain downstream; see
+[Where factrix fits](https://awwesomeman.github.io/factrix/latest/where-factrix-fits/)
+for the scope boundary and neighbouring tools.
 
 ## Installation
 
@@ -92,16 +63,16 @@ uv add factrix
 
 See the [installation guide](https://awwesomeman.github.io/factrix/latest/getting-started/install/) for version pinning and development setup.
 
-## Typical usage
-
-**Single factor — IC evaluation**
+## Quickstart
 
 ```python
 import factrix as fx
 from factrix.metrics import ic
 
-raw   = fx.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, rng=2024)
-data  = fx.preprocess.compute_forward_return(raw, forward_periods=5)
+raw = fx.datasets.make_cs_panel(
+    n_assets=100, n_dates=500, ic_target=0.08, rng=2024
+)
+data = fx.preprocess.compute_forward_return(raw, forward_periods=5)
 
 results = fx.evaluate(
     data,
@@ -112,24 +83,31 @@ results = fx.evaluate(
 res = results["factor"]
 ic_res = res.metrics["ic"]
 
-print('ic_mean =', round(ic_res.value, 4))
-print('p_value =', round(ic_res.p_value, 4))
+print("ic_mean =", round(ic_res.value, 4))
+print("p_value =", round(ic_res.p_value, 4))
 ```
 
-More scenarios, runnable end to end:
+The minimum input is a long Polars frame keyed by `date` and `asset_id`, with
+a factor column and `forward_return`. Read the returned `p_value` together with
+the result's sample metadata and warnings; the
+[quickstart](https://awwesomeman.github.io/factrix/latest/getting-started/quickstart/)
+shows the complete result shape.
 
-- [Quickstart](https://awwesomeman.github.io/factrix/latest/getting-started/quickstart/) — same example, plus `.to_dict()` output and warnings.
+## Next steps
+
+- [Preparing data](https://awwesomeman.github.io/factrix/latest/guides/preparing-data/) — validate and align your own panel.
+- [Choosing a metric](https://awwesomeman.github.io/factrix/latest/guides/choosing-metric/) — map a research question to a metric.
 - [Multi-factor screening](https://awwesomeman.github.io/factrix/latest/examples/multi_factor_screening/) — BHY false-discovery-rate control across candidate factors.
 - [Multi-horizon evaluation](https://awwesomeman.github.io/factrix/latest/api/multi-horizon/) — sweeping `forward_periods` with `evaluate_horizons`.
-- [PANEL vs TIMESERIES](https://awwesomeman.github.io/factrix/latest/guides/panel-timeseries/) — single-asset evaluation with `predictive_beta`.
+- [Panel vs timeseries](https://awwesomeman.github.io/factrix/latest/guides/panel-timeseries/) — understand data-shape dispatch.
 
 ## Documentation
 
-- [**Get Started**](https://awwesomeman.github.io/factrix/latest/) — install, quickstart, where factrix fits
-- [**User Guide**](https://awwesomeman.github.io/factrix/latest/guides/) — concepts and conventions, how-to (preparing data, choosing a metric, panel vs timeseries, reading results, slice analysis), examples
-- [**API Reference**](https://awwesomeman.github.io/factrix/latest/api/) — entry points, results, lookup tables, per-metric pages
-- [**Development**](https://awwesomeman.github.io/factrix/latest/development/contributing/) — contributing, design notes
-- [**Release Notes**](https://awwesomeman.github.io/factrix/latest/development/changelog/) — changelog
+- [**Get started**](https://awwesomeman.github.io/factrix/latest/) — installation and quickstart
+- [**User guide**](https://awwesomeman.github.io/factrix/latest/guides/) — concepts, how-to guides, examples, and reference tables
+- [**API reference**](https://awwesomeman.github.io/factrix/latest/api/) — entry points, result types, and per-metric pages
+- [**Development**](https://awwesomeman.github.io/factrix/latest/development/contributing/) — contribution and design guidance
+- [**Release notes**](https://awwesomeman.github.io/factrix/latest/development/changelog/) — changelog
 
 ## License
 
