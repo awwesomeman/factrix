@@ -135,6 +135,11 @@ class TestOLSAlpha:
         duplicates the intercept still produces an intercept estimate, so
         the alpha survives while the t is withheld; reporting ``t = 0``
         would turn that live estimate into a decisive "not significant".
+
+        REGRESSION: an exactly singular ``X'X`` makes the HAC kernel return a
+        NaN covariance, and a NaN SE fails ``se < EPSILON``; the guard must
+        still fire so ``alpha_dof`` stays at its withheld value of ``0.0``
+        rather than reporting a reference df for a t that was never formed.
         """
         import math
 
@@ -143,6 +148,7 @@ class TestOLSAlpha:
         ols = _ols_alpha(candidate, np.ones((40, 1)))
         assert math.isfinite(ols.alpha) and ols.alpha != 0.0
         assert math.isnan(ols.alpha_t)
+        assert ols.alpha_dof == 0.0
 
     def test_df_resid_excludes_base_regressors(self):
         rng = np.random.default_rng(42)
