@@ -52,7 +52,6 @@ from factrix._stats import (
 )
 from factrix._stats.constants import MIN_PERIODS_WARN, PERSISTENT_SERIES_AUTOCORR
 from factrix._types import (
-    DEFAULT_FORWARD_PERIODS,
     EPSILON,
     MIN_FM_PERIODS_HARD,
     MIN_FM_PERIODS_WARN,
@@ -219,10 +218,11 @@ def fm_beta(
             restatement of the $t$-stat that carries no
             errors-in-variables information about the regressor. When
             $\sigma^2_f$ is below machine epsilon the multiplier is
-            undefined; the correction is skipped, the uncorrected
-            Newey-West $p$ is returned, and
-            ``WarningCode.DEGENERATE_VARIANCE`` is raised alongside
-            ``metadata["shanken_correction"]``.
+            undefined; the mean beta remains available, but the headline
+            statistic and $p$ are withheld. The uncorrected Newey-West test
+            is retained only in ``metadata["stat_uncorrected"]`` and
+            ``metadata["p_value_uncorrected"]``, alongside
+            ``WarningCode.DEGENERATE_VARIANCE``.
 
     Notes:
         Stage 2 of FM:
@@ -366,26 +366,31 @@ def fm_beta(
     if is_estimated_factor:
         sigma2_f = float(factor_return_var)  # type: ignore[arg-type]
         # σ²_f ≈ 0 means the factor premium series is flat; Shanken's
-        # denominator collapses and the correction is undefined. Skip
-        # rather than divide into EPSILON — the uncorrected NW result
-        # is the honest answer in a degenerate regime. A skipped
-        # correction is a regime switch, so it carries a warning code
-        # rather than only a metadata string.
+        # denominator collapses and the requested correction is undefined.
+        # Keep the mean beta and the uncorrected test as named diagnostics,
+        # but do not substitute that test into the headline fields.
         if sigma2_f < EPSILON:
-            metadata["shanken_correction"] = "skipped_zero_factor_variance"
+            metadata.update(
+                {
+                    "shanken_correction": "unavailable_zero_factor_variance",
+                    "p_value_uncorrected": p,
+                    "stat_uncorrected": t,
+                }
+            )
             _emit_warning(
                 WarningCode.DEGENERATE_VARIANCE,
                 f"factor_return_var={sigma2_f!r} is below "
                 f"EPSILON={EPSILON}, so the Shanken (1992) EIV multiplier "
-                f"1 + mean(β)²/σ²_f is undefined. The correction is "
-                f"skipped and the UNCORRECTED Newey-West p-value is "
-                f"returned — read it as un-adjusted for the estimated "
-                f"regressor.",
+                f"1 + mean(β)²/σ²_f is undefined. The mean beta is retained, "
+                f"but headline stat and p_value are withheld; the uncorrected "
+                f"Newey-West test is descriptive metadata only.",
                 label="fm_beta",
                 expected_warnings=expected_warnings,
                 warning_codes=warning_codes,
                 stacklevel=2,
             )
+            t = float("nan")
+            p_final = float("nan")
         else:
             c = 1.0 + (mean_beta**2) / sigma2_f
             sqrt_c = math.sqrt(c)
@@ -491,7 +496,7 @@ def _pooled_beta_driscoll_kraay(
     cluster_col: str,
     two_way_cluster_col: str | None,
     lags: int | None,
-    overlap_periods: int,
+    overlap_periods: int | None,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Driscoll-Kraay (1998) cross-section-robust SE path for ``pooled_beta``.
@@ -584,6 +589,7 @@ def _pooled_beta_driscoll_kraay(
         "hac_scale": hac_scale,
         "hac_dof": hac_dof,
         "overlap_periods": overlap_periods,
+        "overlap_periods_consumed": True,
     }
     stat, p_out, alternative = _degenerate_test_fields(
         t_stat, p, "two-sided", metadata, warning_codes
@@ -644,10 +650,31 @@ def pooled_beta(
     two_way_cluster_col: str | None = None,
     driscoll_kraay: bool = False,
     driscoll_kraay_lags: int | None = None,
-    overlap_periods: int = DEFAULT_FORWARD_PERIODS,
+    overlap_periods: int | None = None,
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Pooled ordinary least squares (OLS) with clustered SE — robustness check against FM.
+
+    Args:
+        data: Panel containing the factor, forward return, and cluster columns.
+        factor_col: Factor column used as the pooled OLS regressor.
+        return_col: Return column used as the pooled OLS response.
+        cluster_col: Primary cluster dimension. It is also the period axis for
+            the Driscoll-Kraay score series.
+        two_way_cluster_col: Optional second cluster dimension for the
+            Cameron-Gelbach-Miller two-way covariance.
+        driscoll_kraay: Use Driscoll-Kraay cross-section-robust HAC inference
+            instead of clustered covariance.
+        driscoll_kraay_lags: Optional Bartlett bandwidth for the
+            Driscoll-Kraay score series.
+        overlap_periods: Forward-return overlap horizon. The
+            Driscoll-Kraay path consumes it as a bandwidth floor and
+            effective-df cap. Clustered covariance does not use it because
+            dependence is defined by the declared cluster dimensions; that
+            path records the value as metadata only. Defaults to ``None`` for
+            standalone calls; ``evaluate`` injects the panel stamp.
+        expected_warnings: Warning codes whose per-run ``UserWarning`` echo
+            should be suppressed while preserving the structured record.
 
     Clustering on date alone catches contemporaneous cross-sectional
     dependence but misses asset-level persistence; on asset alone the
@@ -756,7 +783,14 @@ def pooled_beta(
         estimability cap. ``metadata["driscoll_kraay_lags"]``,
         ``metadata["hac_scale"]`` and ``metadata["hac_dof"]`` report the
         resolved test. ``overlap_periods`` is injected from the panel by
-        ``evaluate``; standalone calls may pass it directly.
+        ``evaluate``; standalone calls may pass it directly. Metadata records
+        it on both paths and sets ``overlap_periods_consumed`` to distinguish
+        the Driscoll-Kraay bandwidth input from the clustered-path audit value.
+
+        A finite-sample two-way covariance can be non-PSD. In that case the
+        pooled OLS slope remains descriptive, but ``stat`` and ``p_value`` are
+        withheld with ``DEGENERATE_VARIANCE``. factrix does not silently
+        replace the requested two-way covariance with one-way inference.
 
         factrix reports ``value = NaN`` and ``stat = None`` (rather than a
         finite slope and zero statistic) when ``G < 3`` because the
@@ -929,19 +963,17 @@ def pooled_beta(
 
     with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
         V = c_obs * xtx_inv @ effective_meat @ xtx_inv
-    v_slope = V[1, 1]
-    non_psd_fallback = False
-    # Two-way V can be numerically non-PSD in small samples (CGM 2011
-    # §2.2). Clipping to 0 would report SE=0 / p=1 — that looks like
-    # "accept null" but is actually "variance undefined", the opposite
-    # of honest. Cameron-Miller (2015, JHR) recommend falling back to
-    # the larger-dimension single-way V, which is always PSD.
+    v_slope = float(V[1, 1])
+    variance_status: str | None = None
+    # A finite-sample two-way covariance need not be PSD (CGM 2011 §2.3).
+    # A one-way replacement answers a different question, while clipping the
+    # negative variance to zero invents infinite evidence. Preserve the OLS
+    # slope and withhold only the unavailable two-way test.
     if v_slope < 0.0 and two_way_cluster_col is not None:
-        v_slope = float(
-            c_obs * (xtx_inv @ ((g_a / (g_a - 1)) * meat_a) @ xtx_inv)[1, 1]
-        )
-        non_psd_fallback = True
-    se_slope = float(np.sqrt(max(v_slope, 0.0)))
+        variance_status = "non_psd_two_way_covariance"
+        se_slope = float("nan")
+    else:
+        se_slope = float(np.sqrt(max(v_slope, 0.0)))
 
     # A zero clustered SE is degeneracy in the MAXIMUM-evidence direction
     # (perfect fit, zero residuals), never the null. The former
@@ -956,10 +988,12 @@ def pooled_beta(
         "stat_type": "t",
         "h0": "β=0",
         "method": method_desc,
+        "overlap_periods": overlap_periods,
+        "overlap_periods_consumed": False,
         **cluster_metadata,
     }
-    if non_psd_fallback:
-        metadata["variance_non_psd_fallback"] = f"one_way_{cluster_col}"
+    if variance_status is not None:
+        metadata["variance_status"] = variance_status
     if n_non_finite_dropped:
         metadata["dropped_pairs"] = n_non_finite_dropped
 

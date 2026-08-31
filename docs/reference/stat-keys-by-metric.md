@@ -119,8 +119,9 @@ is emitted.
 - *primary*: `p_value` — NW HAC `t` on per-period λ. With
   `is_estimated_factor=True` the Shanken EIV correction is applied
   post-hoc and the corrected `p_value` replaces the raw value.
-- *secondary-test* (conditional, Shanken applied):
-  `p_value_uncorrected`, `stat_uncorrected`.
+- *secondary-test* (conditional, `is_estimated_factor=True`):
+  `p_value_uncorrected`, `stat_uncorrected`. These remain descriptive-only
+  diagnostics when the Shanken correction is unavailable.
 - *descriptive*: `n_periods`, `newey_west_lags` (the resolved HAR
   bandwidth), `hac_dof` (the effective degrees of freedom the `t` is read
   against), `overlap_periods`,
@@ -134,9 +135,11 @@ is emitted.
   `p_value` is read against the same `hac_dof` as `p_value_uncorrected`,
   so `p_value >= p_value_uncorrected` always.
 - *descriptive* (conditional, σ²_f ≈ 0): `shanken_correction` =
-  `"skipped_zero_factor_variance"` — the correction is undefined
-  when the factor-return variance collapses; the uncorrected NW
-  result is reported and `WarningCode.DEGENERATE_VARIANCE` is raised.
+  `"unavailable_zero_factor_variance"` — the correction is undefined
+  when the factor-return variance collapses. The mean beta remains the point
+  estimate, but `stat` / `p_value` are withheld and
+  `WarningCode.DEGENERATE_VARIANCE` is raised; the uncorrected test stays in
+  the explicitly named secondary fields only.
 
 #### `pooled_beta` (emits `MetricResult.name = "pooled_beta"`)
 
@@ -147,13 +150,19 @@ is emitted.
   cannot be formed.
 - Sample size: `MetricResult.n_obs` (row count entering the test).
 - *descriptive*: `n_clusters` (one-way) or `n_clusters_a`,
-  `n_clusters_b`, `n_clusters_intersection` (two-way).
+  `n_clusters_b`, `n_clusters_intersection` (two-way), `overlap_periods`, and
+  `overlap_periods_consumed` (`False` on clustered paths, where cluster
+  dimensions define dependence; `True` on Driscoll-Kraay, where the value
+  floors bandwidth and caps effective df).
 - *descriptive* (conditional, short-circuit): `reason =
   "insufficient_clusters"`, `n_clusters` (smallest G — first-class
   `n_obs` carries the row count), `min_required` (always 3), plus
   `metric_unavailable` in `warning_codes`.
-- *descriptive* (conditional): `variance_non_psd_fallback` — names
-  the fallback path when the meat matrix is non-PSD.
+- *descriptive* (conditional): `variance_status` =
+  `"non_psd_two_way_covariance"` when the requested two-way covariance cannot
+  support a slope test. The pooled OLS slope remains available, but `stat` /
+  `p_value` are withheld with `WarningCode.DEGENERATE_VARIANCE`; factrix does
+  not substitute a one-way covariance.
 - *descriptive* (Driscoll-Kraay path, `driscoll_kraay=True`):
   `se_method` (`"driscoll_kraay"`), `n_periods` (length of the
   cross-sectional score-sum series), and `driscoll_kraay_lags` (the
@@ -163,7 +172,9 @@ is emitted.
   `WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED` when `L > T / 5`; below 30
   it emits the binding `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` without a
   redundant bandwidth echo. It short-circuits to `value = NaN` with
-  `reason = "insufficient_periods"` below 3. An explicit
+  `reason = "insufficient_periods"` below 3, or
+  `reason = "singular_pooled_design_matrix"` when a sufficient-period design
+  remains singular. An explicit
   `driscoll_kraay_lags` replaces the automatic base
   but cannot undercut the overlap floor or exceed the estimability cap.
 

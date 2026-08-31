@@ -54,7 +54,7 @@ def _se(result) -> float:
 class TestDriscollKraayPath:
     def test_metadata_marks_se_method(self):
         df = _common_factor_panel(n_dates=60, n_assets=12, rho=0.3)
-        res = pooled_beta(df, driscoll_kraay=True)
+        res = pooled_beta(df, driscoll_kraay=True, overlap_periods=5)
         assert res.metadata["se_method"] == "driscoll_kraay"
         assert "Driscoll-Kraay" in res.metadata["method"]
         assert res.metadata["n_periods"] == 60
@@ -64,6 +64,7 @@ class TestDriscollKraayPath:
         assert res.metadata["hac_scale"] == pytest.approx(scale)
         assert res.metadata["hac_dof"] == pytest.approx(dof)
         assert res.metadata["overlap_periods"] == 5
+        assert res.metadata["overlap_periods_consumed"] is True
 
     def test_point_estimate_matches_clustered_path(self):
         # SE method does not change the OLS slope — only its variance.
@@ -105,6 +106,19 @@ class TestDriscollKraayPath:
         assert res.p_value == 1.0
         assert WarningCode.METRIC_UNAVAILABLE.value in res.warning_codes
 
+    def test_singular_design_has_its_own_reason(self):
+        df = _common_factor_panel(n_dates=12, n_assets=10, rho=0.2).with_columns(
+            pl.lit(1.0).alias("factor")
+        )
+
+        res = pooled_beta(df, driscoll_kraay=True)
+
+        assert np.isnan(res.value)
+        assert res.stat is None
+        assert res.p_value == 1.0
+        assert res.metadata["reason"] == "singular_pooled_design_matrix"
+        assert WarningCode.METRIC_UNAVAILABLE.value in res.warning_codes
+
     def test_mutually_exclusive_with_two_way_cluster(self):
         df = _common_factor_panel(n_dates=40, n_assets=10, rho=0.2)
         with pytest.raises(ValueError, match="mutually exclusive"):
@@ -138,6 +152,15 @@ class TestDriscollKraayPath:
         res = pooled_beta(df)
         assert "se_method" not in res.metadata
         assert "clustered SE" in res.metadata["method"]
+        assert res.metadata["overlap_periods"] is None
+        assert res.metadata["overlap_periods_consumed"] is False
+
+    def test_clustered_path_records_but_does_not_consume_overlap(self):
+        df = _common_factor_panel(n_dates=60, n_assets=12, rho=0.3)
+        res = pooled_beta(df, overlap_periods=21)
+
+        assert res.metadata["overlap_periods"] == 21
+        assert res.metadata["overlap_periods_consumed"] is False
 
     def test_driscoll_kraay_p_value_degrees_of_freedom(self):
         import scipy.stats as sp_stats
