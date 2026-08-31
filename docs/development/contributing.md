@@ -48,6 +48,52 @@ $env:PYTHONUTF8="1"
 changing module imports, dataclasses, or module-level constants; autoreload is
 not sufficient for those changes.
 
+### Environment troubleshooting
+
+Each clone normally owns its `.venv`; another project does not mix packages
+into it. The uv download cache is shared by default, so a reported cache error
+can affect more than one clone without implying that their environments were
+combined.
+
+When several toolchains are needed on a development machine, install them in
+one sync and retain existing extras:
+
+```bash
+uv sync --inexact --extra dev --extra docs
+```
+
+On a centrally managed Windows machine, use the organisation-approved Python
+and certificate profile. A typical invocation with an existing system Python
+is:
+
+```powershell
+py -m uv --system-certs --no-python-downloads sync `
+  --inexact --extra dev --extra docs
+```
+
+Use this diagnostic order instead of repeatedly restarting an installation:
+
+1. Confirm the interpreter and environment with
+   `.\.venv\Scripts\python.exe -c "import sys; print(sys.executable); print(sys.prefix)"`.
+2. Run `py -m uv pip check --python .\.venv\Scripts\python.exe` and inspect
+   `py -m uv cache dir` when uv reports cache or package-metadata errors.
+3. If dependency resolution has finished but the process shows no sustained
+   CPU, disk, or network activity for about a minute, stop it and investigate
+   proxy, certificate, antivirus, or endpoint file-scanning controls. Waiting
+   longer does not repair an idle finalisation step.
+4. When uv names a damaged cache package, remove only that package with
+   `py -m uv cache clean <package>`, then run one sync. Do not clear unrelated
+   caches or run concurrent repair attempts.
+5. If imports succeed but package metadata or plugin discovery is missing,
+   treat `.venv` as incomplete. Recreate only the repository-local environment
+   through the approved setup rather than editing `site-packages` manually.
+
+Do not disable TLS verification or endpoint security to make an install pass.
+Use system certificates, an approved package mirror, or an administrator-
+managed exception for the project environment and cache paths. Clean CI can
+provide an independent verification gate, but it does not make a partially
+installed local environment healthy.
+
 ## Git hooks
 
 `python scripts/setup_dev.py` installs the `pre-commit`, `commit-msg`, and
