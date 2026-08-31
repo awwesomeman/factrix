@@ -34,12 +34,13 @@ title: factrix.metrics.predictive_beta
 
     ---
 
-    The headline bias-corrected slope test uses the project's scalar HAR
-    recipe: bandwidth
-    `min(max(1.3 * sqrt(T), 3 * (overlap_periods - 1)), ceil(T / 3))`,
-    finite-sample variance scale `T / (T - L - 1)`, and effective degrees
-    of freedom. The raw OLS reference retained in metadata stays on the
-    narrower Newey-West bandwidth and is labelled as uncorrected.
+    At `overlap_periods > 1`, the headline bias-corrected slope test uses
+    the project's scalar HAR bandwidth and effective degrees of freedom.
+    Its Amihud-Hurvich generated-regressor covariance does not apply the
+    separate finite-sample variance scale used by scalar Wald consumers.
+    At `overlap_periods = 1` it uses the original homoskedastic covariance.
+    The raw OLS reference retained in metadata stays on the narrower
+    Newey-West bandwidth and is labelled as uncorrected.
 
 -   __Persistent predictor diagnostic__
 

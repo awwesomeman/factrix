@@ -45,7 +45,8 @@ title: factrix.metrics.spanning
     the GRS 1989 $F$). Standard tool for "does this factor add anything
     beyond the existing model?" (Barillas-Shanken 2017). Pass
     `overlap_periods=h` when the spreads are built on $h$-period
-    overlapping returns, so the Bartlett bandwidth is floored at $h-1$.
+    overlapping returns. The resulting rank-one alpha test follows the
+    shared [scalar HAR contract](../../reference/statistical-methods.md#hac-families).
 
 -   __Base factors are required__
 
@@ -175,12 +176,12 @@ title: factrix.metrics.spanning
 
     ---
 
-    Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent
-    (HAC) $t$ on the alpha, with the bandwidth
-    $L=\max(\mathrm{auto\_bartlett}(T), h-1)$ — the same kernel
-    discipline `fm_beta` and `ic` use.
+    The rank-one alpha restriction uses the project's shared scalar HAR
+    bandwidth, finite-sample variance scale, and effective degrees of
+    freedom. The centralized formula also distinguishes this path from
+    multi-restriction Wald tests.
 
-    [reference/statistical-methods →](../../reference/statistical-methods.md)
+    [reference/statistical-methods →](../../reference/statistical-methods.md#hac-families)
 
 -   __Metric applicability reference__
 
