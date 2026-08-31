@@ -439,9 +439,6 @@ def _quantile_spread_from_series(
             expected_warnings=expected_warnings,
         )
     )
-    # Sample the headline stat/p actually ran on: the full overlapping series on
-    # the HAC path, the strided one otherwise. ``value``/``stat``/``p_value``/
-    # ``n_obs`` must all describe it.
     # Long/short decomposition (spread = long_alpha + short_alpha)
     long_arr = _finite_values(
         series["top_return"] - series["universe_return"]
