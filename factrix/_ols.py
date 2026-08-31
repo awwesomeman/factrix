@@ -40,8 +40,8 @@ def ols_alpha(
 
     Point estimates are plain OLS. ``alpha_t`` divides by the Newey-West
     HAC standard error (Bartlett kernel, [Newey-West (1994)][newey-west-1994]
-    automatic bandwidth, floored at ``overlap_periods - 1``) rather than the
-    homoskedastic OLS SE. Spanning alphas are routinely reported with HAC
+    automatic bandwidth, floored at ``3 * (overlap_periods - 1)``) rather than
+    the homoskedastic OLS SE. Spanning alphas are routinely reported with HAC
     t-stats (Barillas-Shanken, Fama-French).
 
     ``overlap_periods`` is the overlap horizon of the spread series being
@@ -56,11 +56,13 @@ def ols_alpha(
     scalar statistic. The default ``1`` (no floor) is the non-overlapping
     case.
 
-    **The trade, measured.** Empirical size at a nominal 5% under a true
-    null (``alpha = 0``, one base factor, 4000 draws, read against
-    ``t(n - k)``):
+    **The trade, measured.** Both columns below predate the current scalar HAR
+    recipe and are retained because they motivated retiring the OLS SE. The
+    current recipe's measurements follow the table. Empirical size at a
+    nominal 5% under a true null (``alpha = 0``, one base factor, 4000 draws,
+    read against ``t(n - k)``):
 
-    | residuals | OLS | HAC (narrow rule) |
+    | residuals | OLS | HAC (narrow rule, superseded) |
     |---|---|---|
     | iid, n=60 | 0.047 | 0.071 |
     | iid, n=120 | 0.052 | 0.065 |
@@ -180,7 +182,8 @@ def ols_alpha(
     # the same degenerate result the OLS path produced.
     lags, hac_scale, hac_dof = _resolve_scalar_wald_hac(n_obs, None, overlap_periods)
     _, v_hac, _ = _ols_nw_multivariate(candidate, X, lags=lags)
-    se_alpha = float(np.sqrt(max(v_hac[0, 0] * hac_scale, 0.0)))
+    v_hac = v_hac * hac_scale
+    se_alpha = float(np.sqrt(max(v_hac[0, 0], 0.0)))
 
     if se_alpha < EPSILON:
         # A collapsed HAC SE -- a perfect fit, or a design so nearly
