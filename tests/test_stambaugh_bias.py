@@ -287,12 +287,19 @@ class TestCorrectedFitDiagnostics:
         rng = np.random.default_rng(31)
         n = 24
         x, y = _stambaugh_draw(n, 0.5, 0.0, 20, rng)
-        with pytest.warns(UserWarning, match="effective sample"):
+        with pytest.warns(UserWarning) as caught:
             result = predictive_beta(
                 _panel(x, y), overlap_periods=20, adf_threshold=None
             )
 
         assert result.metadata["stambaugh_adjusted"] is False
+        overlap_warning = next(
+            str(item.message)
+            for item in caught
+            if WarningCode.OVERLAPPING_PREDICTIVE_INFERENCE.value in str(item.message)
+        )
+        assert "plain OLS-Newey-West fallback" in overlap_warning
+        assert "no fallback-specific null-size band" in overlap_warning
         assert result.n_obs == n
         assert result.metadata["n_periods_finite"] == n
         assert result.metadata["alpha"] == pytest.approx(

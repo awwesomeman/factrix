@@ -361,11 +361,19 @@ def predictive_beta(
 
     warning_codes: list[str] = []
     if overlap_periods > 1:
+        calibration = (
+            "the Amihud-Hurvich-adjusted HAR test is in a known-oversized "
+            "regime (7.5-14.5% measured null rejection at a nominal 5%)"
+            if stambaugh_applied
+            else "the reported model is the plain OLS-Newey-West fallback. "
+            "That path is not covered by the adjusted test's 7.5-14.5% "
+            "calibration band, and no fallback-specific null-size band has "
+            "been established"
+        )
         _emit_warning(
             WarningCode.OVERLAPPING_PREDICTIVE_INFERENCE,
-            f"overlap_periods={overlap_periods} puts the predictive slope "
-            "test in a known-oversized HAC regime (7.5-14.5% measured null "
-            "rejection at a nominal 5%). The estimate and p-value are "
+            f"overlap_periods={overlap_periods}: {calibration}. The estimate "
+            "and p-value are "
             "returned; use a raised hurdle and compare h=1 or a genuinely "
             "non-overlapping design.",
             label="predictive_beta",
