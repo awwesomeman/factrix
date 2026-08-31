@@ -428,7 +428,7 @@ def _quantile_spread_from_series(
     clean_full_series = (
         full_series.filter(_finite_expr("spread")) if full_series is not None else None
     )
-    mean_spread, t, p, sig_method, sig_stat_type, sig_extra, sig_codes = (
+    mean_spread, t, p, sig_method, sig_stat_type, n, sig_extra, sig_codes = (
         _spread_significance_with_inference(
             inference,
             strided_spread=strided_series,
@@ -439,18 +439,6 @@ def _quantile_spread_from_series(
             expected_warnings=expected_warnings,
         )
     )
-    # Sample the headline stat/p actually ran on: the full overlapping series on
-    # the HAC path, the strided one otherwise. ``value``/``stat``/``p_value``/
-    # ``n_obs`` must all describe it.
-    n = int(
-        cast(
-            int,
-            sig_extra.get(
-                "n_periods_tested", sig_extra.get("n_periods_full", n_strided)
-            ),
-        )
-    )
-
     # Long/short decomposition (spread = long_alpha + short_alpha)
     long_arr = _finite_values(
         series["top_return"] - series["universe_return"]
@@ -846,22 +834,23 @@ def quantile_spread_vw(
         ).select("date", pl.col("spread_vw").alias("spread"))
         full_series = full_series.filter(_finite_expr("spread"))
 
-    mean_spread, t, p, sig_method, sig_stat_type, sig_extra, sig_codes = (
-        _spread_significance_with_inference(
-            inference,
-            strided_spread=strided_series,
-            full_spread=full_series,
-            overlap_periods=overlap_periods,
-            n_assets=n_assets,
-            metric_name="quantile_spread_vw",
-            expected_warnings=expected_warnings,
-        )
-    )
-    n_tested = int(
-        cast(
-            int,
-            sig_extra.get("n_periods_tested", sig_extra.get("n_periods_full", n)),
-        )
+    (
+        mean_spread,
+        t,
+        p,
+        sig_method,
+        sig_stat_type,
+        n_tested,
+        sig_extra,
+        sig_codes,
+    ) = _spread_significance_with_inference(
+        inference,
+        strided_spread=strided_series,
+        full_spread=full_series,
+        overlap_periods=overlap_periods,
+        n_assets=n_assets,
+        metric_name="quantile_spread_vw",
+        expected_warnings=expected_warnings,
     )
     metadata: dict[str, object] = {
         "n_periods": n_tested,

@@ -450,7 +450,7 @@ def k_spread(
     # names, not the universe-wide unique asset count (see
     # ``_median_per_date_count``).
     median_xs = _median_per_date_count(clean)
-    mean_spread, t, p, sig_method, sig_stat_type, sig_extra, sig_codes = (
+    mean_spread, t, p, sig_method, sig_stat_type, n, sig_extra, sig_codes = (
         _spread_significance_with_inference(
             inference,
             strided_spread=strided_series,
@@ -461,18 +461,6 @@ def k_spread(
             expected_warnings=expected_warnings,
         )
     )
-    # Sample the headline stat/p actually ran on: full overlapping series under
-    # HAC, strided otherwise. ``value``/``stat``/``p_value``/``n_obs`` all
-    # describe it.
-    n = int(
-        cast(
-            int,
-            sig_extra.get(
-                "n_periods_tested", sig_extra.get("n_periods_full", n_strided)
-            ),
-        )
-    )
-
     mean_dispersion = _finite_mean(series["xs_dispersion"])
     mean_top = _finite_mean(series["top_return"])
     mean_bottom = _finite_mean(series["bottom_return"])

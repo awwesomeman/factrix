@@ -20,6 +20,7 @@ tolerance to loosen.
 from __future__ import annotations
 
 import factrix as fx
+import polars as pl
 import pytest
 from factrix._errors import IncompatibleInferenceError
 from factrix._results import MetricResult
@@ -30,6 +31,7 @@ from factrix.inference import (
     StationaryBootstrap,
 )
 from factrix.inference.series_mean import HANSEN_HODRICK
+from factrix.metrics._helpers import _spread_significance_with_inference
 from factrix.metrics.k_spread import k_spread
 from factrix.metrics.quantile import quantile_spread, quantile_spread_vw
 from factrix.preprocess import compute_forward_return
@@ -104,6 +106,19 @@ def _run(metric_name: str, panel, inference) -> MetricResult:
     return k_spread(panel, overlap_periods=OVERLAP_PERIODS, inference=inference)
 
 
+def test_full_series_member_rejects_missing_full_series():
+    """An internal routing error must not change the requested estimator."""
+    with pytest.raises(RuntimeError, match="requires the full spread series"):
+        _spread_significance_with_inference(
+            NEWEY_WEST,
+            strided_spread=pl.DataFrame({"spread": [0.01, -0.02, 0.03]}),
+            full_spread=None,
+            overlap_periods=5,
+            n_assets=80,
+            metric_name="quantile_spread",
+        )
+
+
 @pytest.mark.parametrize(("metric_name", "inference_name"), sorted(GOLDEN))
 def test_golden_spread_dispatch(panel, metric_name, inference_name):
     """Polymorphic dispatch reproduces the pre-refactor numbers.
@@ -142,14 +157,15 @@ def test_hansen_hodrick_rejected(panel, metric_name):
 @pytest.mark.parametrize(
     "metric_name", ["quantile_spread", "quantile_spread_vw", "k_spread"]
 )
-def test_stat_type_names_the_member_that_ran(
+def test_member_stat_type_and_sample_metadata(
     panel, metric_name, inference_name, expected_stat_type
 ):
-    """``stat_type`` follows the member, as it already does on ``ic``.
+    """Inference identity and the canonical tested-sample count stay aligned.
 
     The bootstrap's ``stat`` is the observed mean under an empirical p, not
     a t-ratio, so reporting ``"t"`` there would invite reading it against a
-    t-distribution.
+    t-distribution. ``n_periods`` is the sole public metadata alias for
+    ``n_obs`` across every spread metric and inference member.
     """
     inference = {
         "NON_OVERLAPPING": NON_OVERLAPPING,
@@ -158,6 +174,7 @@ def test_stat_type_names_the_member_that_ran(
     }[inference_name]
     result = _run(metric_name, panel, inference)
     assert result.metadata["stat_type"] == expected_stat_type
+    assert result.metadata["n_periods"] == result.n_obs
 
 
 @pytest.mark.parametrize(
