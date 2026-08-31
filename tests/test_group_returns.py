@@ -79,3 +79,48 @@ class TestNonFiniteReturns:
         assert out.filter(pl.col("group") == 4)["mean_return"].item() == pytest.approx(
             0.08
         )
+
+
+class TestDateWeighting:
+    def test_unbalanced_dates_receive_equal_weight(self):
+        """A wide date must not dominate a narrow date's bucket return."""
+        first = datetime(2024, 1, 1)
+        rows = [
+            {
+                "date": first,
+                "asset_id": "narrow_bottom",
+                "factor": 0.0,
+                "forward_return": 0.0,
+            },
+            {
+                "date": first,
+                "asset_id": "narrow_top",
+                "factor": 1.0,
+                "forward_return": 1.0,
+            },
+        ]
+        second = first + timedelta(days=1)
+        rows.extend(
+            {
+                "date": second,
+                "asset_id": f"wide_{asset}",
+                "factor": float(asset),
+                "forward_return": 0.0,
+            }
+            for asset in range(20)
+        )
+
+        out = compute_group_returns(_panel(rows), overlap_periods=1, n_groups=2)
+
+        top = out.filter(pl.col("group") == 1)["mean_return"].item()
+        assert top == pytest.approx(0.5)
+
+    def test_balanced_dates_match_the_pooled_mean(self):
+        out = compute_group_returns(
+            _panel(_rows(n_dates=3, n_assets=10)),
+            overlap_periods=1,
+            n_groups=5,
+        )
+        assert out["mean_return"].to_list() == pytest.approx(
+            [0.005, 0.025, 0.045, 0.065, 0.085]
+        )

@@ -268,9 +268,10 @@ def k_spread(
         inference: Headline significance method. ``fx.inference.NON_OVERLAPPING``
             (default) runs the OLS t-test on the non-overlap stride;
             ``fx.inference.NEWEY_WEST`` keeps every date and HAC-corrects the
-            MA(h-1) SE. The small-cross-section block bootstrap still takes
-            precedence over either when it fires (HAC corrects autocorrelation,
-            not heavy tails); the override is flagged in ``metadata``.
+            MA(h-1) SE; ``fx.inference.STATIONARY_BOOTSTRAP`` keeps every date
+            and reports an empirical block-bootstrap p-value. A thin
+            cross-section only attaches ``FEW_ASSETS`` and never changes the
+            requested member.
 
     Returns:
         MetricResult with value = mean spread, ``stat`` = ``t`` on the
@@ -287,9 +288,10 @@ def k_spread(
         - \frac1k \sum_{i \in \mathrm{bot}_k} r_{i,t}.$$
 
         ``value = mean_t spread_t``. The headline test is the non-overlapping
-        ``t`` on the strided spread series (or Newey-West HAC on the full
-        series under ``inference=NEWEY_WEST``); a thin cross-section attaches
-        ``FEW_ASSETS`` and changes nothing else. The contemporaneous
+        ``t`` on the strided spread series, Newey-West HAC on the full series,
+        or the stationary-bootstrap empirical p on the full series, according
+        to ``inference``. A thin cross-section attaches ``FEW_ASSETS`` and
+        changes nothing else. The contemporaneous
         cross-sectional dispersion $\mathrm{std}_i(r_{i,t})$ is averaged
         over dates and reported so the spread can be judged against the
         period's return spread.
@@ -315,12 +317,11 @@ def k_spread(
         **Which sample each count describes.** ``value``, ``stat``,
         ``p_value`` and ``n_obs`` all come from the sample the selected
         inference ran on. ``n_obs`` == ``metadata["n_periods"]`` is the
-        strided count under ``NON_OVERLAPPING`` (and under a bootstrap
-        override) but the *full overlapping* count under ``NEWEY_WEST``,
-        which never touches the strided series;
+        strided count under ``NON_OVERLAPPING`` but the *full overlapping*
+        count under ``NEWEY_WEST`` and ``STATIONARY_BOOTSTRAP``;
         ``metadata["n_periods_strided"]`` always carries the non-overlap
         count and ``metadata["n_periods_full"]`` the overlapping one on
-        the HAC path. The ``n_dropped`` / ``n_periods_in`` /
+        either full-series path. The ``n_dropped`` / ``n_periods_in`` /
         ``n_periods_out`` keys describe the null-drop on the strided
         series.
 
