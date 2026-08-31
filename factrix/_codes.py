@@ -24,6 +24,10 @@ class WarningCode(StrEnum):
     # (Stambaugh-style persistent-regressor flag, section 5.2 / 7.3).
     # Not raised for SPARSE.
     PERSISTENT_REGRESSOR = "persistent_regressor"
+    # Fired by ``predictive_beta`` when overlapping forward-return windows
+    # put its regression HAC test in the measured oversized regime. This is
+    # separate from persistence in either the regressor or residuals.
+    OVERLAPPING_PREDICTIVE_INFERENCE = "overlapping_predictive_inference"
     # Fired by the series-mean inference members and ``fm_beta`` when the
     # tested per-period series — the series the mean test runs on (IC series,
     # per-period betas, spread series), not the raw factor / return columns —
@@ -463,7 +467,8 @@ _WARNING_DESCRIPTIONS.update(
         "the series carries less dependence than overlap_periods implies the "
         "test is conservative rather than oversized (measured 0.2-3.5% against "
         "a nominal 5% on an iid series at h=21).",
-        WarningCode.PERSISTENT_REGRESSOR: "The predictive regressor is in a regime the corrected test is less well sized in: ADF p exceeds the configured threshold (unit-root suspect), or the measured Stambaugh channel |rho_hat * phi_corrected| exceeds 0.7, or the bias-corrected AR(1) coefficient came out at or above one. The Stambaugh (1999) bias itself is CORRECTED via the Amihud-Hurvich (2004) augmented regression, so this is not 'beta may be biased' - at overlap_periods=1 it is 'the strongest Stambaugh cells leave the corrected test at 6-8% against a nominal 5%, where the calibrated cells sit at 4-6%'. Note this code is about the regressor, NOT about overlap: at overlap_periods>1 the test is 7.5-14.5% oversized for every phi INCLUDING rho=0, which is the overlapping-regression HAC problem and fires no code of its own (re-measured on an independent-regressor null, 300 replications, seed 20260830+rep: 9.7-5.3% at phi=0 and 15.0-12.0% at phi=0.9 for h=5, T=60 to 240 - the same band, and unaffected by the single-restriction bandwidth split, since this path already resolved its headline bandwidth through the HAR rule). Read the p against a raised hurdle.",
+        WarningCode.PERSISTENT_REGRESSOR: "The predictive regressor is in a regime the corrected test is less well sized in: ADF p exceeds the configured threshold (unit-root suspect), or the measured Stambaugh channel |rho_hat * phi_corrected| exceeds 0.7, or the bias-corrected AR(1) coefficient came out at or above one. The Stambaugh (1999) bias itself is CORRECTED via the Amihud-Hurvich (2004) augmented regression, so this is not 'beta may be biased' - at overlap_periods=1 it is 'the strongest Stambaugh cells leave the corrected test at 6-8% against a nominal 5%, where the calibrated cells sit at 4-6%'. This code is about the regressor, not overlapping windows; OVERLAPPING_PREDICTIVE_INFERENCE reports the latter separately. Read the p against a raised hurdle.",
+        WarningCode.OVERLAPPING_PREDICTIVE_INFERENCE: "predictive_beta was run with overlap_periods > 1, where its bias-corrected slope HAC test remains 7.5-14.5% oversized at a nominal 5% across the measured null cells, including independent-regressor designs. The Stambaugh correction and HAR bandwidth do not eliminate this overlapping-regression distortion. The estimate and p-value are returned, but use a raised significance hurdle and compare an h=1 or genuinely non-overlapping design. This is distinct from EVENT_WINDOW_OVERLAP, which removes overlapping event-study observations before testing.",
         WarningCode.SERIAL_CORRELATION_DETECTED: "The tested per-period series is "
         "persistent beyond the overlap horizon: lag-1 autocorrelation above "
         "PERSISTENT_SERIES_AUTOCORR (0.3) on the series strided at "

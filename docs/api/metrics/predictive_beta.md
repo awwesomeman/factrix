@@ -34,10 +34,12 @@ title: factrix.metrics.predictive_beta
 
     ---
 
-    The slope test uses Newey-West HAC covariance. The lag defaults to
-    the Newey-West automatic bandwidth, floored at `overlap_periods - 1`
-    so overlapping forward-return windows do not understate standard
-    errors.
+    The headline bias-corrected slope test uses the project's scalar HAR
+    recipe: bandwidth
+    `min(max(1.3 * sqrt(T), 3 * (overlap_periods - 1)), ceil(T / 3))`,
+    finite-sample variance scale `T / (T - L - 1)`, and effective degrees
+    of freedom. The raw OLS reference retained in metadata stays on the
+    narrower Newey-West bandwidth and is labelled as uncorrected.
 
 -   __Persistent predictor diagnostic__
 
@@ -47,8 +49,9 @@ title: factrix.metrics.predictive_beta
     When `adf_p` exceeds `adf_threshold`, metadata sets
     `unit_root_suspected=True` and the result carries
     `WarningCode.PERSISTENT_REGRESSOR`. The beta is still returned; the
-    warning tells you to read the slope as a persistent-regressor risk,
-    not as an automatically corrected estimate.
+    warning tells you to read the slope as a persistent-regressor risk.
+    The Stambaugh bias correction still applies; this diagnostic describes
+    the remaining inference regime, not whether the correction ran.
 
     Read it as a verdict on the **regressor**, not on this test's size.
     Under a classic Stambaugh design (AR(1) `phi = 0.99`,
@@ -65,7 +68,16 @@ title: factrix.metrics.predictive_beta
 
     ---
 
-    Two further screens read the sample the standard error actually has.
+    Three further screens read the sample the standard error actually has.
+    `WarningCode.OVERLAPPING_PREDICTIVE_INFERENCE` is present whenever
+    `overlap_periods > 1`: the corrected test remains 7.5-14.5% oversized
+    across the measured null cells, including independent-regressor designs.
+    The estimate and p-value remain available, but the code makes the need
+    for a raised hurdle and an `h = 1` or genuinely non-overlapping
+    sensitivity check machine-readable. This is separate from
+    `EVENT_WINDOW_OVERLAP`, which belongs to event studies and removes
+    overlapping events before testing.
+
     `WarningCode.SERIAL_CORRELATION_DETECTED` fires when the **reported**
     model's residuals — `y - alpha - value * factor` over the `n_obs` rows,
     so the bias-corrected fit's residuals whenever the correction applies —

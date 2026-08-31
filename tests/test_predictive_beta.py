@@ -298,6 +298,9 @@ class TestPredictiveBetaOverlapAndPersistenceScreens:
         assert result.metadata["n_periods"] == n - 21
         assert result.metadata["n_periods_effective"] == (n - 21) // 21
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value in result.warning_codes
+        assert (
+            WarningCode.OVERLAPPING_PREDICTIVE_INFERENCE.value in result.warning_codes
+        )
 
     def test_same_length_at_horizon_one_stays_clean(self):
         # h = 1 makes the effective and reported counts identical, so the gate
@@ -310,6 +313,21 @@ class TestPredictiveBetaOverlapAndPersistenceScreens:
         )
         assert result.metadata["n_periods_effective"] == n - 1
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value not in result.warning_codes
+        assert (
+            WarningCode.OVERLAPPING_PREDICTIVE_INFERENCE.value
+            not in result.warning_codes
+        )
+
+    def test_overlapping_horizon_echoes_the_known_size_warning(self):
+        rng = np.random.default_rng(41)
+        with pytest.warns(UserWarning, match="known-oversized HAC regime"):
+            result = predictive_beta(
+                _ts_panel(rng.normal(size=240), rng.normal(size=240)),
+                overlap_periods=5,
+            )
+        assert (
+            WarningCode.OVERLAPPING_PREDICTIVE_INFERENCE.value in result.warning_codes
+        )
 
     def test_persistent_residuals_flag_serial_correlation(self):
         # Returns are an AR(1) with phi = 0.8 and the predictor is independent
@@ -362,6 +380,12 @@ class TestPredictiveBetaOverlapAndPersistenceScreens:
             result = predictive_beta(
                 _ts_panel(rng.normal(size=n), rng.normal(size=n)),
                 overlap_periods=21,
-                expected_warnings=("unreliable_se_short_periods",),
+                expected_warnings=(
+                    "overlapping_predictive_inference",
+                    "unreliable_se_short_periods",
+                ),
             )
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value in result.warning_codes
+        assert (
+            WarningCode.OVERLAPPING_PREDICTIVE_INFERENCE.value in result.warning_codes
+        )
