@@ -496,10 +496,12 @@ frequency on the same panels is 5.0% / 5.0% / 4.0% at a nominal 5%.
   `n_periods_short_leg` observations.
 - *descriptive*: `n_periods` (**the sample the headline test ran on**,
   equal to `n_obs`: the strided series under `NON_OVERLAPPING`, the full
-  overlapping series under `NEWEY_WEST`), `n_periods_strided` (the
-  non-overlap count, always present), `median_cross_section` (median
-  per-period count of finite factor values — what the small-N switch
-  reads), `tie_ratio`, `tie_policy`, `stat_type` (the test actually run: `"t"` under `NonOverlapping` / `NeweyWest`, `"bootstrap-mean"` under `StationaryBootstrap`), `method`.
+  overlapping series under `NEWEY_WEST` / `STATIONARY_BOOTSTRAP`),
+  `n_periods_strided` (the non-overlap count, always present),
+  `median_cross_section` (median per-period count of finite factor values
+  behind the `few_assets` diagnostic), `tie_ratio`, `tie_policy`,
+  `stat_type` (the test actually run: `"t"` under `NonOverlapping` /
+  `NeweyWest`, `"bootstrap-mean"` under `StationaryBootstrap`), `method`.
 - *descriptive*: `n_periods_in`, `n_periods_out`, `n_dropped`,
   `drop_rate`, `drop_reason` — the null/NaN-drop bookkeeping on the
   **strided** spread series (`n_periods_in` also appears on the
@@ -552,11 +554,11 @@ Fixed-K (top-K − bottom-K) long-short spread; the small-N sibling of
   (mean per-period cross-sectional return std), `top_return`,
   `bottom_return`, `n_periods` (**the sample the headline test ran on**,
   equal to `n_obs`: strided under `NON_OVERLAPPING`, full overlapping
-  under `NEWEY_WEST`), `n_periods_strided`, `median_cross_section`
-  (median per-period count of usable names — what the small-N switch
-  reads), `method`. The `k`-too-large short-circuit reports
-  `max_assets_per_date`; the no-surviving-periods short-circuit reports
-  `n_periods_in`.
+  under `NEWEY_WEST` / `STATIONARY_BOOTSTRAP`), `n_periods_strided`,
+  `median_cross_section` (median per-period count of usable names behind
+  the `few_assets` diagnostic), `method`. The `k`-too-large short-circuit
+  reports `max_assets_per_date`; the no-surviving-periods short-circuit
+  reports `n_periods_in`.
 - *descriptive* (conditional, no-signal): `signal_status`
   (`"no_signal_zero_variance_factor"`) when the factor has observations
   but no cross-sectional variation. This is a valid `p_value = 1.0`

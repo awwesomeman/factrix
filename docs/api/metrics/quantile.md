@@ -52,9 +52,9 @@ title: factrix.metrics.quantile
 
     ---
 
-    `compute_group_returns` returns the pooled mean forward return per
-    quantile bucket — the chart input that shows whether returns rise
-    monotonically across deciles, before any formal monotonicity test.
+    `compute_group_returns` first computes each date's quantile-bucket mean,
+    then equal-weights those date means — the chart input that shows whether
+    returns rise monotonically across deciles, before any formal test.
 
 </div>
 
@@ -63,7 +63,7 @@ title: factrix.metrics.quantile
 | Goal                                                                            | Function                |
 |---------------------------------------------------------------------------------|-------------------------|
 | Per-date long-short spread table for downstream inspection / slicing            | `compute_spread_series` |
-| Per-bucket pooled mean return (decile-curve chart input)                        | `compute_group_returns` |
+| Per-bucket equal-date mean return (decile-curve chart input)                    | `compute_group_returns` |
 | Mean-spread significance, equal-weighted, non-overlap $t$ (default)             | `quantile_spread`       |
 | Mean-spread significance, value-weighted (capacity / size-concentration check)  | `quantile_spread_vw`    |
 

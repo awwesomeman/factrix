@@ -61,23 +61,20 @@ def compute_group_returns(
         2. Per sampled date, assign each asset to a quantile group
            0..n_groups-1 by ``factor`` (see ``_assign_quantile_groups``
            for tie_policy semantics).
-        3. For each group g:
-              mean_return[g] = mean across (date, asset) where _group=g
-                                of ``return_col``
-        (Equal-weighted across all obs in the bucket, not per-date then
-         averaged — use ``compute_spread_series`` if you want the latter.)
+        3. Compute each ``(date, group)`` mean return.
+        4. For each group g, average those per-date means with equal date
+           weights.
 
     Returns:
         DataFrame with ``group, mean_return`` sorted ascending by group.
         Group 0 = lowest factor rank, n_groups-1 = highest.
 
     Notes:
-        ``mean_return[g] = mean over (date, asset) where _group=g of
-        return_col`` — equal-weighted across all observations in the
-        bucket pooled across dates. Use ``compute_spread_series`` if you
-        want per-date bucket means averaged afterwards (the IC/IR-style
-        aggregation order); the two differ when bucket cardinality moves
-        across dates.
+        ``mean_return[g] = mean_t(mean_i(return_col[i, t] | group=g))``.
+        Dates are equally weighted after each cross-sectional bucket mean is
+        formed. This is the same cross-section-then-time aggregation order as
+        the spread metrics and prevents dates with more usable names from
+        dominating the curve.
 
         **Unbucketed names are excluded.** A name whose factor is null or
         NaN on a date gets no quantile group, and those rows are dropped
@@ -117,8 +114,10 @@ def compute_group_returns(
         .with_columns(
             pl.when(_finite_expr(return_col)).then(pl.col(return_col)).alias(return_col)
         )
+        .group_by("date", "_group")
+        .agg(pl.col(return_col).mean().alias("_date_mean_return"))
         .group_by("_group")
-        .agg(pl.col(return_col).mean().alias("mean_return"))
+        .agg(pl.col("_date_mean_return").mean().alias("mean_return"))
         .sort("_group")
         .rename({"_group": "group"})
     )

@@ -200,9 +200,9 @@ def quantile_spread(
             ``fx.inference.NON_OVERLAPPING`` (default) runs the OLS t-test
             on the non-overlap stride subsample; ``fx.inference.NEWEY_WEST``
             keeps every date and absorbs the MA(h-1) overlap in a HAC SE.
-            On a small cross-section (median per-period finite-factor count
-            ``< 30``) the heavy-tail block bootstrap takes precedence over
-            either (see Notes).
+            ``fx.inference.STATIONARY_BOOTSTRAP`` keeps every date and reports
+            an empirical block-bootstrap p-value. A thin cross-section only
+            attaches ``FEW_ASSETS``; it never changes the requested member.
         _precomputed_series: If provided, skip recomputing ``compute_spread_series``.
         tie_policy: Bucketing tie-break policy, see ``_assign_quantile_groups``.
             Either ``"ordinal"`` or ``"average"``; anything else raises ``UserInputError``.
@@ -235,16 +235,15 @@ def quantile_spread(
         one the selected inference ran on:
 
         - ``n_obs`` == ``metadata["n_periods"]``: the periods the headline
-          test used. Under ``NON_OVERLAPPING`` (and under any bootstrap
-          override) that is the strided series; under ``NEWEY_WEST`` it is
-          the full overlapping series, which is ~``overlap_periods`` times
-          longer — the HAC test never ran on the strided sample, so
-          reporting the strided count beside a HAC p-value would misstate
-          the test's degrees of freedom.
+          test used. Under ``NON_OVERLAPPING`` that is the strided series;
+          under ``NEWEY_WEST`` and ``STATIONARY_BOOTSTRAP`` it is the full
+          overlapping series, which is ~``overlap_periods`` times longer.
+          Reporting the strided count beside a full-series p-value would
+          misstate the sample the selected member consumed.
         - ``metadata["n_periods_strided"]``: the non-overlap sample,
           always present so the two are comparable.
-        - ``metadata["n_periods_full"]``: the overlapping sample (HAC path
-          only).
+        - ``metadata["n_periods_full"]``: the overlapping sample
+          (``NEWEY_WEST`` / ``STATIONARY_BOOTSTRAP`` paths only).
         - ``metadata["n_dropped"]`` / ``n_periods_in`` / ``n_periods_out``:
           the null- and NaN-drop bookkeeping on the **strided** series.
 
@@ -256,10 +255,10 @@ def quantile_spread(
 
         **Thin cross-sections** are judged by the median *per-period* count
         of finite factor values (``metadata["median_cross_section"]``),
-        not by the number of distinct ``asset_id`` values in the panel: the
-        bootstrap fires because a single date's bucket mean rests on few
-        names, which a rotating universe with a large lifetime asset count
-        does not fix.
+        not by the number of distinct ``asset_id`` values in the panel. A
+        single date's bucket mean can rest on few names even when the lifetime
+        universe is large; ``FEW_ASSETS`` reports that fragility without
+        changing the inference member.
 
     References:
         [Hansen-Hodrick 1980][hansen-hodrick-1980]: overlapping-return
