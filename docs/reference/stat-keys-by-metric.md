@@ -812,12 +812,11 @@ which reports `R²` for the OLS regression.
 
 - *primary*: `p_value` — two-sided bias-corrected slope test.
 - *primary sample*: `n_obs` — the rows the headline test ran on, which is
-  `n_periods_finite - overlap_periods` whenever the correction applies. The
-  augmented design spends the first observation on the AR(1) lag and, at
-  `overlap_periods > 1`, the last `overlap_periods - 1` windows on the
-  horizon-summed innovation proxy. When the sample is too short for that
-  design and `value` falls back to the plain OLS slope, `n_obs` is the
-  finite-pair count again — the reported model is then the OLS one.
+  `n_periods_finite - overlap_periods`. The augmented design spends the first
+  observation on the AR(1) lag and, at `overlap_periods > 1`, the last
+  `overlap_periods - 1` windows on the horizon-summed innovation proxy. If
+  that design cannot be formed, the metric short-circuits; its `n_obs` then
+  records the finite-pair count available before bailing.
 - *descriptive*: `n_periods` (= `n_obs`), `n_periods_finite` (the finite
   `(factor, return)` pairs available before the augmented design trimmed its
   rows), `n_periods_effective` (`n_periods // overlap_periods` — the
@@ -829,10 +828,9 @@ which reports `R²` for the OLS regression.
   slope is fitted with), `alpha` (the intercept the corrected slope implies
   on the `n_obs` rows), `r_squared_ols_uncorrected`, `factor_std`,
   `adf_stat`, `adf_p`, `adf_threshold`, `unit_root_suspected`.
-- *descriptive* (Stambaugh correction): `stambaugh_adjusted` (False only
-  when the sample is too short for the augmented design, in which case
-  `value` falls back to the plain OLS slope), `beta_ols_uncorrected`,
-  `stambaugh_bias_estimate` (`beta_ols_uncorrected - value`), `ar1_phi`,
+- *descriptive* (Stambaugh correction): `stambaugh_adjusted` (True on every
+  computed result), `beta_ols_uncorrected`, `stambaugh_bias_estimate`
+  (`beta_ols_uncorrected - value`), `ar1_phi`,
   `ar1_phi_corrected`, `innovation_corr` (`rho_hat`),
   `stambaugh_bias_channel` (`|rho_hat * phi_corrected|`),
   `ar1_phi_corrected_explosive` (`ar1_phi_corrected >= 1` — the corrected
@@ -868,10 +866,13 @@ which reports `R²` for the OLS regression.
   bandwidth satisfies `L > T / 5` on at least 30 finite periods. Below 30,
   `UNRELIABLE_SE_SHORT_PERIODS` owns the regime without a duplicate warning.
 - *short-circuit*: `reason` `insufficient_predictive_periods`,
-  `degenerate_factor_variance`, `no_factor_column`, or
-  `no_return_column`. The `insufficient_predictive_periods` floor is a
-  pre-flight gate on `n_periods_finite`, before the augmented design trims
-  its rows.
+  `degenerate_factor_variance`, `no_amihud_hurvich_fit`,
+  `no_factor_column`, or `no_return_column`. The
+  `insufficient_predictive_periods` floor is a pre-flight gate on
+  `n_periods_finite`, before the augmented design trims its rows.
+  `no_amihud_hurvich_fit` retains `beta_ols_uncorrected` as a descriptive
+  reference but does not substitute its estimate or inference; it also
+  reports `stambaugh_adjusted=False`.
 
 ### `common_beta` (`factrix.metrics.common_beta`)
 
