@@ -9,8 +9,8 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from factrix._stats.hac import _resolve_scalar_wald_hac
-from factrix._stats.ols import _ols_nw_multivariate
+from factrix._stats.core import _degenerate_t_input
+from factrix._stats.ols import _ols_scalar_wald_hac
 from factrix._types import EPSILON
 
 
@@ -28,6 +28,7 @@ class _OLSResult:
     #: well below ``df_resid`` at a research sample size; ``df_resid`` stays
     #: the plain regression residual count for reporting.
     alpha_dof: float = 0.0
+    hac_bandwidth_ill_conditioned: bool = False
 
 
 def ols_alpha(
@@ -176,16 +177,13 @@ def ols_alpha(
             df_resid=dof,
         )
 
-    # HAC covariance of the OLS coefficients; ``_ols_nw_multivariate`` returns
-    # a NaN matrix when X'X is singular. The guard below folds that into the
-    # same degenerate result as a collapsed SE -- NaN fails every ``<``, so
-    # the EPSILON test alone would let it through with ``alpha_dof`` set.
-    lags, hac_scale, hac_dof = _resolve_scalar_wald_hac(n_obs, None, overlap_periods)
-    _, v_hac, _ = _ols_nw_multivariate(candidate, X, lags=lags)
-    v_hac = v_hac * hac_scale
-    se_alpha = float(np.sqrt(max(v_hac[0, 0], 0.0)))
+    # The shared entry point owns bandwidth resolution and the matching
+    # finite-sample scale, so a new rank-one OLS consumer cannot apply only
+    # part of the scalar HAR contract.
+    hac = _ols_scalar_wald_hac(candidate, X, overlap_periods=overlap_periods)
+    se_alpha = float(np.sqrt(max(hac.covariance[0, 0], 0.0)))
 
-    if not np.isfinite(se_alpha) or se_alpha < EPSILON:
+    if _degenerate_t_input(se_alpha, 1):
         # A collapsed HAC SE -- a perfect fit, or a design so nearly
         # rank-deficient that the residuals vanish -- leaves no t. NaN, not
         # 0.0: the alpha itself is real (a duplicated base column still
@@ -197,6 +195,7 @@ def ols_alpha(
             betas=betas,
             r_squared=r_squared,
             df_resid=dof,
+            hac_bandwidth_ill_conditioned=hac.bandwidth_ill_conditioned,
         )
 
     return _OLSResult(
@@ -205,5 +204,6 @@ def ols_alpha(
         betas=betas,
         r_squared=r_squared,
         df_resid=dof,
-        alpha_dof=hac_dof,
+        alpha_dof=hac.dof,
+        hac_bandwidth_ill_conditioned=hac.bandwidth_ill_conditioned,
     )

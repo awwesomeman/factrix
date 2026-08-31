@@ -266,7 +266,10 @@ def spanning_alpha(
         :attr:`~factrix.WarningCode.UNRELIABLE_SE_SHORT_PERIODS` when that
         strided sample falls below ten periods. See
         ``reference/inference-calibration`` for the measured size and firing
-        rates.
+        rates. Separately,
+        :attr:`~factrix.WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED` reports a
+        resolved bandwidth estimated from too few lag products on samples of
+        at least 30 periods.
 
     Notes:
         The [Huberman-Kandel (1987)][huberman-kandel-1987] mean-variance
@@ -417,6 +420,8 @@ def spanning_alpha(
     # variance the standard error is estimating -- and flagged, not tuned.
     if _persistent_array_beyond_horizon(candidate_arr, overlap_periods):
         warning_codes.append(WarningCode.SERIAL_CORRELATION_DETECTED.value)
+    if ols.hac_bandwidth_ill_conditioned:
+        warning_codes.append(WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED.value)
     # Effective sample, not raw periods: h-period overlapping spreads leave
     # about T/h independent observations while the bandwidth grows with h. It
     # is also where the persistence screen withholds itself, so the two codes

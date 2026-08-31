@@ -47,8 +47,7 @@ from factrix._codes import WarningCode
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import (
-    _ols_nw_multivariate,
-    _resolve_scalar_wald_hac,
+    _ols_scalar_wald_hac,
     _wald_p_linear,
 )
 from factrix._types import MIN_PORTFOLIO_PERIODS_HARD, MIN_SERIES_PERIODS_HARD
@@ -134,10 +133,11 @@ def common_asymmetry(
         (:func:`~factrix._stats.hac._resolve_scalar_wald_hac`): bandwidth,
         ``T / (T - L - 1)`` variance scale and fixed-``b`` effective degrees
         of freedom together. See ``inference-calibration`` for the
-        measured size and for the two regimes it does not fix, which this
-        metric reports as ``serial_correlation_detected`` (per-period factor
-        persistent once strided) and ``unreliable_se_short_periods`` (fewer
-        than ten periods after that stride).
+        measured size. The metric also reports a bandwidth estimated from too
+        few lag products as ``hac_bandwidth_ill_conditioned`` from 30 periods;
+        shorter samples follow this metric's effective-sample warning contract.
+        Persistence beyond the overlap horizon remains
+        ``serial_correlation_detected``.
 
         factrix runs both methods under NW HAC + Wald (not Welch t)
         because ``overlap_periods > 1`` breaks the iid assumption Welch
@@ -232,25 +232,26 @@ def common_asymmetry(
     # HAR recipe -- bandwidth, T/(T-L-1) variance scale and fixed-b effective
     # df together. The narrow K-restriction rule left this metric 15.3-34%
     # oversized at h>1; see ``_resolve_scalar_wald_hac`` for the table.
-    lags, hac_scale, hac_dof = _resolve_scalar_wald_hac(
-        n_periods, newey_west_lags, overlap_periods
-    )
-
     # Drop the zero column when n_zero==0 to keep the design matrix full-rank.
     cols = [pos_mask.astype(float), neg_mask.astype(float)]
     if n_zero > 0:
         cols.append(zero_mask.astype(float))
     X_a = np.column_stack(cols)
 
-    beta_a, V_a, _ = _ols_nw_multivariate(r, X_a, lags=lags)
-    V_a = V_a * hac_scale
+    fit_a = _ols_scalar_wald_hac(
+        r,
+        X_a,
+        lags=newey_west_lags,
+        overlap_periods=overlap_periods,
+    )
+    beta_a, V_a = fit_a.beta, fit_a.covariance
 
     R_a = np.zeros((1, X_a.shape[1]))
     R_a[0, 0] = 1.0
     R_a[0, 1] = 1.0
     asym_value = float(beta_a[0] + beta_a[1])
     asym_var = float((R_a @ V_a @ R_a.T)[0, 0])
-    _, p_a = _wald_p_linear(beta_a, V_a, R_a, q=0.0, df_denom=hac_dof)
+    _, p_a = _wald_p_linear(beta_a, V_a, R_a, q=0.0, df_denom=fit_a.dof)
     # A collapsed contrast variance admits no t and no Wald p: NaN here, and
     # the test fields are withheld below rather than reported as t=0 / p=1.
     asym_t = asym_value / float(np.sqrt(asym_var)) if np.isfinite(p_a) else float("nan")
@@ -274,10 +275,15 @@ def common_asymmetry(
         f_pos = np.where(pos_mask, f, 0.0)
         f_neg = np.where(neg_mask, f, 0.0)
         X_b = np.column_stack([np.ones(n_periods), f_pos, f_neg])
-        beta_b, V_b, _ = _ols_nw_multivariate(r, X_b, lags=lags)
-        V_b = V_b * hac_scale
+        fit_b = _ols_scalar_wald_hac(
+            r,
+            X_b,
+            lags=newey_west_lags,
+            overlap_periods=overlap_periods,
+        )
+        beta_b, V_b = fit_b.beta, fit_b.covariance
         R_b = np.array([[0.0, 1.0, -1.0]])
-        _, p_b = _wald_p_linear(beta_b, V_b, R_b, q=0.0, df_denom=hac_dof)
+        _, p_b = _wald_p_linear(beta_b, V_b, R_b, q=0.0, df_denom=fit_b.dof)
         method_b.update(
             method_b="method B: split-slope regression on signed factor",
             stat_type_method_b="wald (HAR HAC)",
@@ -297,6 +303,8 @@ def common_asymmetry(
         if _persistent_array_beyond_horizon(f, overlap_periods)
         else []
     )
+    if fit_a.bandwidth_ill_conditioned:
+        warning_codes.append(WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED.value)
     # Effective sample, not raw periods: h-period overlapping returns leave
     # about T/h independent observations while the bandwidth grows with h. It
     # is also exactly where the persistence screen above withholds itself, so
@@ -315,7 +323,7 @@ def common_asymmetry(
         "n_neg": n_neg,
         "n_zero": n_zero,
         "n_periods": n_periods,
-        "newey_west_lags_used": lags,
+        "newey_west_lags_used": fit_a.lags,
         **method_b,
     }
     stat, p_out, alternative = _degenerate_test_fields(

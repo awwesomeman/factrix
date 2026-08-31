@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from factrix._stats.constants import auto_bartlett, har_bandwidth
+from factrix._stats.constants import MIN_PERIODS_WARN, auto_bartlett, har_bandwidth
 from factrix._stats.core import _p_value_from_t, _significance_marker
 from factrix._types import EPSILON
 
@@ -181,10 +181,10 @@ def _resolve_scalar_wald_hac(
 ) -> tuple[int, float, float]:
     """Bandwidth, variance scale and reference df for a **single-restriction** HAC test.
 
-    Returns ``(lags, variance_scale, df_denom)``: the caller runs
-    ``_ols_nw_multivariate`` at ``lags``, multiplies the HAC covariance by
-    ``variance_scale``, and reads the resulting ``t`` / Wald against
-    ``df_denom`` degrees of freedom.
+    Returns ``(lags, variance_scale, df_denom)`` for covariance estimators
+    that are not ordinary least squares. Regression contrasts use
+    :func:`factrix._stats.ols._ols_scalar_wald_hac`, which owns the fit and
+    applies the scale before returning the covariance.
 
     This is the scalar HAR recipe of :func:`_resolve_har_lags` /
     :func:`_har_dof` — the ``1.3*sqrt(T)`` base, the ``3(h - 1)`` overlap
@@ -241,12 +241,15 @@ _MIN_PERIODS_PER_LAG = 5
 
 
 def _hac_bandwidth_ill_conditioned(n: int, lags: int) -> bool:
-    """True when ``n_periods < 5 * lags`` — the HAC estimate is poorly conditioned.
+    """True when a poorly conditioned HAC bandwidth needs its own warning.
 
-    Callers own the ``MetricResult`` / ``InferenceResult`` and map this to
-    :attr:`factrix._codes.WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED`.
+    The raw condition is ``n_periods < 5 * lags``. Below
+    :data:`~factrix._stats.constants.MIN_PERIODS_WARN`, the bandwidth-specific
+    warning is suppressed and each consumer's existing short-sample contract
+    governs the result. Callers map ``True`` to
+    :attr:`~factrix._codes.WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED`.
     """
-    return lags > 0 and n < _MIN_PERIODS_PER_LAG * lags
+    return n >= MIN_PERIODS_WARN and lags > 0 and n < _MIN_PERIODS_PER_LAG * lags
 
 
 # Andrews-Monahan clip on the AR(1) prewhitening coefficient: at |phi| -> 1 the

@@ -13,7 +13,12 @@ from typing import NamedTuple
 import numpy as np
 from scipy import stats as sp_stats
 
-from factrix._stats.hac import _har_dof, _require_finite
+from factrix._stats.hac import (
+    _hac_bandwidth_ill_conditioned,
+    _har_dof,
+    _require_finite,
+    _resolve_scalar_wald_hac,
+)
 from factrix._types import EPSILON
 
 
@@ -185,6 +190,47 @@ def _ols_nw_multivariate(
 
     V_hac = XtX_inv @ S @ XtX_inv
     return beta, V_hac, resid
+
+
+class _ScalarWaldHacFit(NamedTuple):
+    """OLS fit carrying the complete scalar HAR covariance contract."""
+
+    beta: np.ndarray
+    covariance: np.ndarray
+    resid: np.ndarray
+    lags: int
+    dof: float
+    bandwidth_ill_conditioned: bool
+
+
+def _ols_scalar_wald_hac(
+    y: np.ndarray,
+    X: np.ndarray,
+    *,
+    lags: int | None = None,
+    overlap_periods: int | None = None,
+) -> _ScalarWaldHacFit:
+    """OLS with the complete covariance contract for a rank-one HAC test.
+
+    Resolves the scalar HAR bandwidth, fits the Newey-West covariance, and
+    applies the matching finite-sample variance scale in one entry point.
+    ``dof`` is the effective reference degrees of freedom for the caller's
+    rank-one t or Wald statistic. ``bandwidth_ill_conditioned`` follows the
+    shared warning policy, including suppression below the common warning
+    floor.
+    """
+    resolved_lags, variance_scale, dof = _resolve_scalar_wald_hac(
+        len(y), lags, overlap_periods
+    )
+    beta, covariance, resid = _ols_nw_multivariate(y, X, lags=resolved_lags)
+    return _ScalarWaldHacFit(
+        beta=beta,
+        covariance=covariance * variance_scale,
+        resid=resid,
+        lags=resolved_lags,
+        dof=dof,
+        bandwidth_ill_conditioned=_hac_bandwidth_ill_conditioned(len(y), resolved_lags),
+    )
 
 
 def _ols_homoskedastic(
