@@ -238,11 +238,11 @@ def spanning_alpha(
             so the metric short-circuits (see Returns).
         overlap_periods: Overlap horizon of the spread series. Spreads built
             from ``h``-period overlapping forward returns carry MA(``h-1``)
-            residual autocorrelation, so the HAC bandwidth is floored at
-            ``h - 1``. Leave at ``1`` for genuinely non-overlapping spreads
-            (the output of ``compute_spread_series``, which strides to the
-            rebalance schedule). ``evaluate`` injects the panel's stamped
-            horizon; a standalone call declares it.
+            residual autocorrelation, so this value is passed to the shared
+            scalar rank-one HAC resolver. Leave at ``1`` for genuinely
+            non-overlapping spreads (the output of ``compute_spread_series``,
+            which strides to the rebalance schedule). ``evaluate`` injects
+            the panel's stamped horizon; a standalone call declares it.
         expected_warnings: Warning codes the caller declares; a declared code
             is still recorded, the ``UserWarning`` echo is silenced.
 
@@ -281,33 +281,13 @@ def spanning_alpha(
         \qquad t = 1, \dots, T,
         $$
 
-        and test $H_0: \alpha = 0$ against a two-sided alternative with
-
-        $$
-        t_\alpha = \frac{\hat\alpha}{\mathrm{SE}_{\mathrm{NW}}(\hat\alpha)},
-        \qquad
-        \mathrm{SE}_{\mathrm{NW}}(\hat\alpha) =
-        \sqrt{\bigl[(X'X)^{-1} \hat S_L (X'X)^{-1}\bigr]_{0,0}},
-        $$
-
-        where $X = [\mathbf{1}, f_1, \dots, f_K]$ and $\hat S_L$ is the
-        Bartlett-kernel HAC score covariance
-
-        $$
-        \hat S_L = \hat\Omega_0 + \sum_{j=1}^{L}
-            \Bigl(1 - \tfrac{j}{L+1}\Bigr)(\hat\Omega_j + \hat\Omega_j'),
-        \qquad
-        \hat\Omega_j = \sum_t x_t \hat\varepsilon_t\,
-                       \hat\varepsilon_{t-j} x_{t-j}' .
-        $$
-
-        The bandwidth is
-        $L = \max(\mathrm{auto\_bartlett}(T),\, h - 1)$ with
-        $h = $ ``overlap_periods`` — the [Newey-West (1994)][newey-west-1994]
-        automatic rule floored against the
-        [Hansen-Hodrick (1980)][hansen-hodrick-1980] overlap horizon, the same
-        rule ``fm_beta`` and ``ic`` apply. $p$ is read against
-        $t(T - 1 - K)$.
+        and test $H_0: \alpha = 0$ against a two-sided alternative. Because
+        this is one restriction, its Bartlett bandwidth, finite-sample
+        variance scale, and effective reference degrees of freedom come from
+        :func:`factrix._stats.hac._resolve_scalar_wald_hac`. This scalar HAR
+        contract is distinct from the narrow multi-restriction Wald rule; the
+        centralized formula and path map live in
+        ``reference/statistical-methods``.
 
         A rejection means the candidate's spread carries return the base set
         does not span. $\hat\alpha$ is on the same per-period scale as the
