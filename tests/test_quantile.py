@@ -888,7 +888,7 @@ class TestValueWeightedInference:
         assert hac.metadata["method"] == NEWEY_WEST.summary
         # value is the full-sample mean on the HAC path, the strided mean
         # otherwise — both describe the sample the headline ran on.
-        assert hac.metadata["n_periods_tested"] == hac.n_obs
+        assert hac.metadata["n_periods"] == hac.n_obs
 
     def test_pair_shares_the_inference_allowlist(self):
         panel = self._panel()

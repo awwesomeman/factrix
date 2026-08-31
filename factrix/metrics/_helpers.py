@@ -235,13 +235,25 @@ def _spread_significance_with_inference(
     n_assets: int,
     metric_name: str,
     expected_warnings: tuple[str, ...] = (),
-) -> tuple[float, float, float, str, str, dict[str, object], tuple[str, ...]]:
+) -> tuple[
+    float,
+    float,
+    float,
+    str,
+    str,
+    int,
+    dict[str, object],
+    tuple[str, ...],
+]:
     """Single headline-significance chokepoint shared by every spread metric.
 
-    Returns ``(value, stat, p_value, method, stat_type, extra_metadata,
-    warning_codes)`` where ``value`` is the mean-spread point estimate over
-    the series the chosen member actually tested: the full overlapping series for a member
-    that consumes one, the strided series otherwise.
+    Returns ``(value, stat, p_value, method, stat_type, n_tested,
+    extra_metadata, warning_codes)`` where ``value`` is the mean-spread point
+    estimate over the series the chosen member actually tested: the full
+    overlapping series for a member that consumes one, the strided series
+    otherwise. ``n_tested`` stays an internal routing value so consumers can
+    expose it under their canonical ``n_periods`` key without adding a second
+    public metadata name.
 
     Both ``quantile_spread`` and ``k_spread`` route here so the policy lives
     in one place, and the routing is the member's own declaration rather than
@@ -318,10 +330,6 @@ def _spread_significance_with_inference(
             # strided non-overlap t under the requested method's name.
             extra["inference_requested"] = inference.summary
             extra["inference_overridden"] = True
-    # ``n_periods_tested`` is the sample the stat / p / value describe: the
-    # full overlapping series on one path, the strided series on the other.
-    extra["n_periods_tested"] = n_tested
-
     code_list: list[str] = []
     _emit_inference_warnings(
         res,
@@ -354,6 +362,7 @@ def _spread_significance_with_inference(
         res.p_value,
         member.summary,
         member.test,
+        n_tested,
         extra,
         codes,
     )

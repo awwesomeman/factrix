@@ -142,14 +142,15 @@ def test_hansen_hodrick_rejected(panel, metric_name):
 @pytest.mark.parametrize(
     "metric_name", ["quantile_spread", "quantile_spread_vw", "k_spread"]
 )
-def test_stat_type_names_the_member_that_ran(
+def test_member_stat_type_and_sample_metadata(
     panel, metric_name, inference_name, expected_stat_type
 ):
-    """``stat_type`` follows the member, as it already does on ``ic``.
+    """Inference identity and the canonical tested-sample count stay aligned.
 
     The bootstrap's ``stat`` is the observed mean under an empirical p, not
     a t-ratio, so reporting ``"t"`` there would invite reading it against a
-    t-distribution.
+    t-distribution. ``n_periods`` is the sole public metadata alias for
+    ``n_obs`` across every spread metric and inference member.
     """
     inference = {
         "NON_OVERLAPPING": NON_OVERLAPPING,
@@ -158,6 +159,7 @@ def test_stat_type_names_the_member_that_ran(
     }[inference_name]
     result = _run(metric_name, panel, inference)
     assert result.metadata["stat_type"] == expected_stat_type
+    assert result.metadata["n_periods"] == result.n_obs
 
 
 @pytest.mark.parametrize(
