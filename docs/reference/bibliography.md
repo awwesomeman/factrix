@@ -498,9 +498,10 @@ Clustering-adjustment option on factrix's BMP-style test. K-P scale
 the single-event-day BMP $z$ by
 $\sqrt{(1 - \hat r)/(1 + (N_{\mathrm{eff}}-1)\,\hat r)}$; factrix pools
 SARs across event periods, so it applies only the design-effect part
-$1/\sqrt{1 + (N_{\mathrm{eff}}-1)\,\hat r}$ (see *Statistical methods*
-§6 for why the $(1 - \hat r)$ numerator does not apply to a pooled
-variance). Recommended when factrix's event-period clustering HHI
+$1/\sqrt{1 + (N_{\mathrm{eff}}-1)\,\hat r}$ (see
+[Statistical methods](statistical-methods.md#bmp-standardised-ar) for why the
+$(1 - \hat r)$ numerator does not apply to a pooled variance). Recommended
+when factrix's event-period clustering HHI
 diagnostic flags high concentration.
 
 ### Shrout & Fleiss (1979)

@@ -8,8 +8,7 @@ bandwidth floor and the bootstrap block-length floor absorb, and which an
 unstrided lag-1 read would flag as a calibration failure it is not.
 
 Two nulls pin the two halves of that claim, at cut replication counts
-against the full grids recorded in ``reference/statistical-methods``
-section 6:
+against the full grids recorded in ``reference/inference-calibration``:
 
 * a per-asset AR(0.9) factor with overlapping returns — persistent factor,
   persistent *unstrided* IC series, nothing left after the stride: the

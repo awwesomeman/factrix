@@ -137,15 +137,19 @@ same per-slice per-date series but **do not** inner-join — each slice is
 treated as an independent sample with block-diagonal cross-slice
 covariance. A two-valued `method` flag selects the estimator:
 
-| `method` | Per-slice SE | Pairwise `p_adj` | Best for |
+| `method` | Per-slice SE | Pairwise `p_adj` | Finite-sample note |
 |---|---|---|---|
-| `"bootstrap"` (default) | Independent stationary block bootstrap (Politis-White automatic block length) | Romano-Wolf step-down | Short regimes (T ≈ 30-80); never invalid |
-| `"analytic"` | Per-slice Newey-West HAC, Welch-style pairwise contrast | Holm step-down | Long spans (T ≳ 100); fast, deterministic |
+| `"bootstrap"` (default) | Independent stationary block bootstrap (Politis-White automatic block length) | Romano-Wolf step-down | Avoids a closed-form normal reference, but over-rejects in the measured `K=5` short-slice cells |
+| `"analytic"` | Per-slice Newey-West HAC, Welch-style pairwise contrast | Holm step-down | Fast and deterministic; better calibrated for measured `K=5` pairwise contrasts |
 
 Under `method="bootstrap"` both take `n_resamples=` (default 999, floored
 at 199) and `rng=` — the library-wide resampling knobs, see
 [Resampling knobs](../reference/statistical-methods.md#resampling-knobs).
 `"analytic"` ignores both.
+
+Neither method is uniformly better in small samples. See
+[Joint period tests on short slices](../reference/inference-calibration.md#joint-period-test-on-short-slices-known-over-rejection)
+before interpreting a short-regime omnibus or choosing the pairwise path.
 
 Each slice's per-period series must clear the metric's own sample floor,
 resolved at the panel's stamped or declared `overlap_periods` — the same

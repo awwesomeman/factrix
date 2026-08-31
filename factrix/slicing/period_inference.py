@@ -33,17 +33,15 @@ standard-error / p estimator:
   block-bootstrapped (stationary blocks, Politis-White automatic block
   length); pairwise multiplicity is **Romano-Wolf** step-down
   (bootstrap-native, exploits the joint dependence through shared
-  slices). Never invalid: asymptotically valid *and* small-sample robust
-  (the block length absorbs serial autocorrelation, i.e. built-in HAC).
-  The right default for short regimes (T ≈ 30-80) where HAC asymptotics
-  are unreliable.
+  slices). This avoids a closed-form normal reference but is not uniformly
+  small-sample robust: the measured ``K=5`` short-slice cells over-reject.
 - ``"analytic"`` (opt-in) — each slice mean carries a Newey-West HAC
   variance; pairwise contrasts are Welch-style unequal-variance, the
   omnibus is a block-diagonal Wald χ²; pairwise multiplicity is **Holm**
   (no bootstrap distribution, so Romano-Wolf is unavailable). Faster,
-  deterministic, closed-form — choose it when T is large enough for HAC
-  asymptotics (rule of thumb T ≳ 100): decade sub-samples, pre/post,
-  in/out-of-sample.
+  deterministic, closed-form. It is also the better-calibrated pairwise
+  read at ``K=5`` in the measured short-slice grid; see
+  ``reference/inference-calibration``.
 
 The ``p_adj`` correction family is decided *internally* by ``method``
 (bootstrap → Romano-Wolf, analytic → Holm); there is deliberately no
@@ -386,9 +384,9 @@ def slice_period_pairwise_test(
         method: ``"bootstrap"`` (default) runs an independent stationary
             block bootstrap per slice with Romano-Wolf step-down ``p_adj``;
             ``"analytic"`` runs Newey-West HAC per slice with Welch-style
-            pairwise contrasts and Holm ``p_adj``. Use ``"bootstrap"`` for
-            short regimes (T ≈ 30-80); ``"analytic"`` for long spans
-            (T ≳ 100) when you want speed / determinism.
+            pairwise contrasts and Holm ``p_adj``. Neither dominates every
+            finite sample: at ``K=5`` the measured short-slice grid favours
+            the analytic Holm path. See ``reference/inference-calibration``.
         overlap_periods: The evaluation-grid overlap the sample floor (and,
             under ``method="analytic"``, the per-slice HAC bandwidth) resolve
             at. Normally omitted — :func:`factrix.preprocess.compute_forward_return`
@@ -400,9 +398,9 @@ def slice_period_pairwise_test(
         n_resamples: ``B`` for the ``"bootstrap"`` path (ignored by
             ``"analytic"``). Must be at least ``BOOTSTRAP_RESAMPLES_FLOOR``
             — the shared floor every factrix entry point reporting an
-            inference drawn from resamples enforces. The default 999 is
-            [Politis-White (2004)][politis-white-2004]'s recommendation for
-            two-sided 5% work.
+            inference drawn from resamples enforces. The default 999 gives
+            an empirical p-value grid of roughly 0.001; automatic block-length
+            selection is a separate Politis-White step.
         rng: Reproducibility seed for the ``"bootstrap"`` path
             (ignored by ``"analytic"``). ``None`` draws from system
             entropy and the resolved int is reported in the ``seed``
@@ -802,9 +800,9 @@ def slice_period_joint_test(
     methods share the same Wald quadratic form; they differ in how the null
     is referenced, mirroring the pairwise path: ``"analytic"`` uses an
     ``F_{K-1, ν}`` reference with a Satterthwaite ``ν``, while ``"bootstrap"`` calibrates the
-    statistic against its own block-bootstrap null (so a short-regime
-    omnibus stays small-sample robust instead of leaning on χ²
-    asymptotics). Useful for **regime analysis**: a single test of "does
+    statistic against its own block-bootstrap null. The bootstrap path is
+    still known to over-reject in the measured ``K=5`` short-slice cells.
+    Useful for **regime analysis**: a single test of "does
     this factor's edge differ across regimes at all?" before drilling into
     pairs.
 
@@ -829,9 +827,9 @@ def slice_period_joint_test(
         n_resamples: ``B`` for the ``"bootstrap"`` path (ignored by
             ``"analytic"``). Must be at least ``BOOTSTRAP_RESAMPLES_FLOOR``
             — the shared floor every factrix entry point reporting an
-            inference drawn from resamples enforces. The default 999 is
-            [Politis-White (2004)][politis-white-2004]'s recommendation for
-            two-sided 5% work.
+            inference drawn from resamples enforces. The default 999 gives
+            an empirical p-value grid of roughly 0.001; automatic block-length
+            selection is a separate Politis-White step.
         rng: Reproducibility seed for the ``"bootstrap"`` path
             (ignored by ``"analytic"``). ``None`` draws from system
             entropy and the resolved int is reported in the ``seed``

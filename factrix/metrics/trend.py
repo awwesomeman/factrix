@@ -124,7 +124,8 @@ def ic_trend(
             but significance should be read with scepticism.
 
     Returns:
-        MetricResult with value = slope, t_stat from Theil-Sen confidence interval.
+        MetricResult with the Theil-Sen slope as ``value`` and the
+        Hamed-Rao Mann-Kendall ``tau`` / p-value as ``stat`` / ``p_value``.
 
     Notes:
         Theil-Sen median pairwise slope: ``slope = median{(y_j - y_i) /
@@ -140,7 +141,7 @@ def ic_trend(
         ``WarningCode.PERSISTENT_REGRESSOR`` rather than sitting in
         metadata alone. On a trend-free IC series the Mann-Kendall p
         measures 1.7-5.3% at a nominal 5% over ``T`` in 60/120/240 and
-        ``h`` in 1/5 (``statistical-methods`` section 6).
+        ``h`` in 1/5 (``reference/inference-calibration``).
 
         **Two corrections for serial dependence.** Striding does ~99% of
         the work; Hamed-Rao handles the residual persistence that
@@ -226,9 +227,9 @@ def ic_trend(
         informational and no longer drives the p.
 
         factrix uses Theil-Sen rather than OLS because its 29.3% breakdown
-        point absorbs information coefficient (IC) outliers (e.g. COVID-era spikes) that would
-        dominate an OLS slope; the trade-off is the SE recovered from the
-        rank-CI is approximate, not asymptotically exact.
+        point absorbs information coefficient (IC) outliers (e.g. COVID-era
+        spikes) that would dominate an OLS slope. The confidence interval is
+        descriptive; Mann-Kendall supplies the inferential reference.
 
     References:
         [Sen 1968][sen-1968]: Theil-Sen median pairwise slope.

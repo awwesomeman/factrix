@@ -73,7 +73,7 @@ def ols_alpha(
     On the case the retired assumption was written for — iid, genuinely
     non-overlapping — HAC costs 1–2 points of size, the usual small-sample
     HAC noise every other HAC path in factrix carries and
-    ``statistical-methods`` §6 discloses. On the case the assumption was
+    ``inference-calibration`` discloses. On the case the assumption was
     silently covering, the OLS SE rejects at **33%** and does not improve
     with more data, because it is estimating the wrong quantity: the
     autocorrelation is in the residuals, and more of them does not help.
@@ -92,7 +92,7 @@ def ols_alpha(
     9.0 -> 6.0%, 18.7 -> 9.3% and 46.0 -> 11.7% at ``n = 60`` for
     ``h = 1, 5, 21``, and 50.0 -> 29.3%, 50.3 -> 30.3%, 60.0 -> 21.7% on
     the ``phi = 0.9`` version of the same null. The persistent column stays
-    the uncalibrated regime ``statistical-methods`` section 6 discloses;
+    the uncalibrated regime ``inference-calibration`` discloses;
     spanning has no persistence screen of its own, so read it there.
 
     An earlier version used the OLS SE on the stated assumption that

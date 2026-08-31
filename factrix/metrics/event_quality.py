@@ -855,7 +855,7 @@ def event_skewness(
         descriptive shape of the event return distribution and test
         direction with ``event_hit_rate`` / ``event_ic`` / ``bmp_z``,
         which are calibrated on both. The full size table is in
-        ``docs/reference/statistical-methods.md`` section 6.
+        ``docs/reference/inference-calibration.md``.
 
         Events with a non-finite ``return_col`` / ``factor_col`` are
         dropped before the moments are taken and counted in

@@ -13,7 +13,6 @@ theme:
   features:
     - navigation.tabs
     - navigation.sections
-    - navigation.expand
     - navigation.top
     - navigation.path
     - search.suggest
@@ -147,13 +146,11 @@ nav:
       - Concepts:
           - Overview: getting-started/concepts.md
           - Where factrix fits: where-factrix-fits.md
-          - Statistical methods: reference/statistical-methods.md
-          - Timeseries-mode conventions: reference/ts-mode-conventions.md
+          - Panel vs timeseries: guides/panel-timeseries.md
       - How-to:
           - Overview: guides/index.md
           - Preparing data: guides/preparing-data.md
           - Choosing a metric: guides/choosing-metric.md
-          - Panel vs timeseries: guides/panel-timeseries.md
           - Reading results: guides/reading-results.md
           - Validating allocation signals: guides/validating-allocation-signals.md
           - Observability: guides/observability.md
@@ -165,12 +162,15 @@ nav:
           - Overview: examples/index.md
           - Multi-factor screening: examples/multi_factor_screening.md
           - Stock factor evaluation: examples/stock_factor_evaluation.md
-      - Reference tables:
+      - Methods and reference:
+          - Statistical methods: reference/statistical-methods.md
+          - Inference calibration and limitations: reference/inference-calibration.md
+          - Common-factor regression conventions: reference/ts-mode-conventions.md
           - Glossary: reference/glossary.md
-          - Metrics applicability: reference/metric-applicability.md
-          - Stat keys: reference/stat-keys-by-metric.md
+          - Metric applicability: reference/metric-applicability.md
+          - Stat keys by metric: reference/stat-keys-by-metric.md
           - Warning codes: reference/warning-codes.md
-          - Metrics pipelines: reference/metric-pipelines.md
+          - Metric pipelines: reference/metric-pipelines.md
           - Bibliography: reference/bibliography.md
   - API reference:
       - Overview: api/index.md
@@ -202,7 +202,7 @@ nav:
           - Individual continuous:
               - Overview: api/metrics/individual-continuous.md
               - ic: api/metrics/ic.md
-              - fama_macbeth: api/metrics/fm_beta.md
+              - fm_beta: api/metrics/fm_beta.md
               - quantile: api/metrics/quantile.md
               - k_spread: api/metrics/k_spread.md
               - monotonicity: api/metrics/monotonicity.md
@@ -215,8 +215,8 @@ nav:
               - event_quality: api/metrics/event_quality.md
               - event_horizon: api/metrics/event_horizon.md
               - mfe_mae: api/metrics/mfe_mae.md
-              - clustering: api/metrics/clustering_hhi.md
-              - corrado: api/metrics/corrado_rank.md
+              - clustering_hhi: api/metrics/clustering_hhi.md
+              - corrado_rank: api/metrics/corrado_rank.md
           - Common sparse:
               - Overview: api/metrics/common-sparse.md
           - Common continuous:
@@ -231,7 +231,7 @@ nav:
               - directional_pair_accuracy: api/metrics/directional_pair_accuracy.md
               - predictive_beta: api/metrics/predictive_beta.md
               - trend: api/metrics/trend.md
-              - oos: api/metrics/oos_decay.md
+              - oos_decay: api/metrics/oos_decay.md
       - Supporting modules:
           - stats: api/stats.md
           - datasets: api/datasets.md
@@ -240,5 +240,7 @@ nav:
       - Architecture: development/architecture.md
       - Design notes: development/design-notes.md
       - Contributing: development/contributing.md
+      - Documentation conventions: development/documentation.md
+      - Release process: development/release-process.md
   - Release notes:
       - Changelog: development/changelog.md

@@ -65,7 +65,7 @@ contrasts, not a sidecar to a primary value.
 | [`directional_hit_rate`][factrix.metrics.directional_hit_rate.directional_hit_rate] | Pesaran-Timmermann `z` (one-sided) | `p_value` | directional hit rate ∈ [0, 1] |
 | [`event_hit_rate`][factrix.metrics.event_quality.event_hit_rate] | binomial test (or normal `z`) | `p_value` | hit rate ∈ [0, 1] |
 | [`event_ic`][factrix.metrics.event_quality.event_ic] | Fisher-transformed Spearman `z` | `p_value` | Spearman ρ |
-| [`event_skewness`][factrix.metrics.event_quality.event_skewness] | none — descriptive (the D'Agostino skew test is withdrawn, section 6) | — | Fisher skewness |
+| [`event_skewness`][factrix.metrics.event_quality.event_skewness] | none — descriptive ([the D'Agostino skew test is withdrawn](inference-calibration.md#event-skewness-no-calibrated-test)) | — | Fisher skewness |
 | [`profit_factor`][factrix.metrics.event_quality.profit_factor] | none — descriptive | — | gains / \|losses\| |
 | [`signal_density`][factrix.metrics.event_quality.signal_density] | none — descriptive | — | mean bars per event |
 | [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | none — descriptive | — | mean leakage score |
@@ -396,7 +396,7 @@ event panel carries with no clustering at all (19.0% and 23.3% at a nominal
 shock and a factor sign. The sibling clustering deflation repairs neither —
 it moves the first to 17.7% / 22.7% and over-corrects the second to 0.0%.
 The size table and both null definitions are in
-[statistical-methods section 6](statistical-methods.md#event-skewness-no-calibrated-test).
+[inference calibration](inference-calibration.md#event-skewness-has-no-calibrated-test).
 Test the direction of an event payoff with `event_hit_rate` / `event_ic` /
 `bmp_z`, which stay sized on both.
 
@@ -595,7 +595,7 @@ near it — the null diversification ratio is ~0.91 on a Gaussian factor
 with `abs_factor` weights, and the measured rejection rate is 0 of 300
 draws at a nominal 5% at both 10 and 48 tested periods, so the p could
 not reject at any sample size. See
-[§6 of the statistical-methods reference](statistical-methods.md#6-known-simplifications-deliberately-retained).
+[inference-calibration reference](inference-calibration.md#coverage-contract).
 
 - *descriptive*: `method`, `mean_n_top`, `ratio_eff_to_total`, `tie_ratio`,
   `weight_by`, `q_top` (requested top fraction; per period the bucket is
@@ -786,7 +786,7 @@ calibrated (4.3–5.5% at `rho = 0`, 6.2–8.3% in the strongest Stambaugh
 cells). At `h > 1` it is not — 7.5–14.5%, present at `rho = 0` for every
 `phi`, and plain OLS-NW carries the same excess. That is the
 overlapping-regression HAC problem, not the Stambaugh channel; see the
-[known-oversized regimes table](statistical-methods.md#hac-families).
+[HAC family calibration](inference-calibration.md#hac-family-calibration).
 
 The correction also costs power where OLS's apparent power was partly its
 own bias: at `T = 60, phi = 0.95, rho = -0.9` the corrected test rejects

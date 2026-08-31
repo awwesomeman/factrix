@@ -231,7 +231,7 @@ derivation are automatically resolved at dispatch time.
 
 <div class="grid cards" markdown>
 
--   __Timeseries-mode conventions__
+-   __Common-factor regression conventions__
 
     ---
 

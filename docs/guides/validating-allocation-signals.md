@@ -36,7 +36,7 @@ contract; none of the derivations are restated here.
 
 | Research question / stage | Primary evidence | Supplementary or robustness evidence | Do not infer |
 |---|---|---|---|
-| Cross-sectional asset ranking | [`ic`](../api/metrics/ic.md) or [`fm_beta`](../api/metrics/fm_beta.md) over a [declared hypothesis family](#declare-selection-families), read against the [persistent-series caveat](../reference/statistical-methods.md#persistence-beyond-the-overlap-horizon-no-hac-or-bootstrap-path-is-calibrated) | [`k_spread`](../api/metrics/k_spread.md), [`monotonicity`](../api/metrics/monotonicity.md), [`directional_pair_accuracy`](../api/metrics/directional_pair_accuracy.md), [`ic_ir`](../api/metrics/ic.md) stability | That one diagnostic passing promotes the candidate |
+| Cross-sectional asset ranking | [`ic`](../api/metrics/ic.md) or [`fm_beta`](../api/metrics/fm_beta.md) over a [declared hypothesis family](#declare-selection-families), read against the [persistent-series caveat](../reference/inference-calibration.md#persistence-beyond-the-overlap-horizon) | [`k_spread`](../api/metrics/k_spread.md), [`monotonicity`](../api/metrics/monotonicity.md), [`directional_pair_accuracy`](../api/metrics/directional_pair_accuracy.md), [`ic_ir`](../api/metrics/ic.md) stability | That one diagnostic passing promotes the candidate |
 | Single-asset time-series predictability | [`predictive_beta`](../api/metrics/predictive_beta.md) | [Persistence](../reference/statistical-methods.md#4-persistence-diagnostics-under-near-unit-root-predictors) and sample diagnostics, `PERSISTENT_REGRESSOR` in [warning codes](../reference/warning-codes.md) | That the slope is cross-sectional ranking evidence |
 | Regime robustness | [`by_slice`](../api/by-slice.md), [`slice_period_pairwise_test`](../api/slice-test.md) contrasts, effect sizes | [`slice_period_joint_test`](../api/slice-test.md) where it is calibrated — `K = 2`, or `K >= 3` on longer slices | That a declared `short_slice_joint_test` corrected the p-value, or that a short-slice joint p is an admission gate |
 | Candidate redundancy | Correlation and fixed-base [`spanning_alpha`](../api/metrics/spanning.md) | Economic reading of the residual alpha | That `greedy_forward_selection` t-stats are post-selection inference |
@@ -49,7 +49,7 @@ The boundaries the table compresses, each owned by the page it links to:
   the estimator, the p-value, or the sample requirement
   ([warning contract](../api/slice-test.md#warning-contract-slice_period_joint_test)).
 - A regime joint test on short slices with `K >= 3` carries a
-  [disclosed over-rejection](../reference/statistical-methods.md#joint-period-test-on-short-slices-known-over-rejection),
+  [disclosed over-rejection](../reference/inference-calibration.md#joint-period-test-on-short-slices-known-over-rejection),
   and declaring `short_slice_joint_test` as expected does not calibrate that
   p-value, so it stays robustness evidence rather than an admission gate.
 - `spanning_alpha` is a fixed-base incremental-information / redundancy

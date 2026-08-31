@@ -112,7 +112,7 @@ Note that factrix `TIMESERIES` mode does **not** mean Alphalens'
 "time-series of cross-sectional means" (that is per-date aggregation
 of a `PANEL`); the two collide on the word *time-series* and disagree
 on what is aggregated. See
-[Timeseries-mode conventions](ts-mode-conventions.md) for the
+[Common-factor regression conventions](ts-mode-conventions.md) for the
 specific contracts that apply when factrix routes here.
 
 ## Other terms
@@ -215,7 +215,7 @@ is realised. Aligning `evaluate()`'s `forward_periods` with
 `signal_horizon` is the regime where the synthetic IC / drift is
 calibrated; mismatched horizons induce IC decay (synthetic) and bias
 (in TIMESERIES mode — see
-[Timeseries-mode conventions § Non-overlap](ts-mode-conventions.md#non-overlap-convention)).
+[Common-factor regression conventions § Non-overlap](ts-mode-conventions.md#non-overlap-convention)).
 
 ### `non-overlapping` returns
 

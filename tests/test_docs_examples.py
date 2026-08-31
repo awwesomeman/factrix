@@ -7,7 +7,7 @@ only live symbols and still call them with a keyword that no longer exists,
 and nothing short of executing the block catches that.
 
 Execution contract (matches the "Runnable" / "Illustrative" split in
-``docs/development/contributing.md``):
+``docs/development/documentation.md``):
 
 * Every ``python`` fence on a page runs, in order, in one shared namespace —
   later blocks may build on earlier ones, as the prose reads. Any exception
@@ -130,7 +130,7 @@ def _run_page(text: str) -> list[_BlockFailure]:
     return failures
 
 
-# README.md is the one authored page outside docs/ with a python fence; the
+# README.md is the one authored page outside docs/ with a Python fence; the
 # quickstart it carries is the first snippet any user runs, and it lives under
 # the same rule as the docs pages — including the marker, which GitHub's
 # renderer ignores as trailing info-string text.

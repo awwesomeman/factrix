@@ -17,7 +17,8 @@ Which metrics expose ``inference=``
 -----------------------------------
 A selectable ``inference`` is offered **only** to the metrics whose
 headline test is "average an overlapping per-date series and test
-``mean != 0``" — currently ``ic``, ``quantile_spread`` and ``k_spread``.
+``mean != 0``" — currently ``ic``, ``quantile_spread``,
+``quantile_spread_vw`` and ``k_spread``.
 There the choice between non-overlap sub-sampling and a HAC SE genuinely
 changes the standard error, so it is the caller's to make.
 
@@ -33,9 +34,11 @@ design, not an omission:
 - **Per-asset time-series** (``common_beta``) — its own SE.
 - **Fixed-distribution tests** (``directional_hit_rate`` is
   Pesaran-Timmermann, ``positive_rate`` is a binomial) — no SE to choose.
-- **Descriptive diagnostics** (``oos_decay``, ``concentration``,
-  ``trend`` = Theil-Sen, ``common_asymmetry``) — no single headline H0, or an
-  estimator-specific CI.
+- **Descriptive diagnostics** (``oos_decay``, ``concentration``) — no
+  headline hypothesis test.
+- **Estimator-specific tests** (``trend`` pairs Theil-Sen magnitude with a
+  Mann-Kendall p-value; ``common_asymmetry`` tests a regression contrast) —
+  fixed inference dictated by the metric.
 
 Closed-union policy
 -------------------
@@ -71,7 +74,7 @@ The allowlist is a **vetting record, not a dispatch table**. Every
 could in principle run any series-mean member. What the allowlist says is
 which members have been *measured on that metric's series*: the IC series
 and the long-short spread series have different distributions, so each
-carries its own size table (see ``reference/statistical-methods``) and
+carries its own size table (see ``reference/inference-calibration``) and
 each admits a member only on the strength of it.
 
 ``HansenHodrick`` is research-only
@@ -82,9 +85,10 @@ The reason is statistical, not structural: its rectangular kernel has no
 PSD guarantee and can clamp a negative variance (see
 ``WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE``), so the vetted HAC is
 ``NeweyWest``'s PSD-guaranteed Bartlett kernel. ``StationaryBootstrap``
-*is* admitted everywhere the family is offered — it makes no
-asymptotic-variance assumption at all, so it is the recommended read when
-a series is too short or too heavy-tailed for a HAC member to be trusted.
+*is* admitted everywhere the family is offered. It avoids a parametric-normal
+reference for the series mean, but still depends on stationarity, weak
+dependence, block-length choice, and an adequate sample. Use it as a second
+read on a long series with distributional doubt, not as a short-sample rescue.
 
 Because no metric can accept it, ``HansenHodrick`` / ``HANSEN_HODRICK``
 are **not** re-exported here: a name on ``fx.inference.*`` reads as

@@ -264,8 +264,9 @@ def spanning_alpha(
         :attr:`~factrix.WarningCode.SERIAL_CORRELATION_DETECTED` when it stays
         autocorrelated after the ``overlap_periods`` stride, and
         :attr:`~factrix.WarningCode.UNRELIABLE_SE_SHORT_PERIODS` when that
-        strided sample falls below ten periods. See ``statistical-methods``
-        section 6 for the measured size and firing rates.
+        strided sample falls below ten periods. See
+        ``reference/inference-calibration`` for the measured size and firing
+        rates.
 
     Notes:
         The [Huberman-Kandel (1987)][huberman-kandel-1987] mean-variance

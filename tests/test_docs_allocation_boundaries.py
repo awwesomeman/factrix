@@ -35,10 +35,9 @@ LINK_TARGETS = (
     "../reference/statistical-methods.md#2-multiple-testing-under-dependence",
     "../reference/statistical-methods.md"
     "#4-persistence-diagnostics-under-near-unit-root-predictors",
-    "../reference/statistical-methods.md"
+    "../reference/inference-calibration.md"
     "#joint-period-test-on-short-slices-known-over-rejection",
-    "../reference/statistical-methods.md"
-    "#persistence-beyond-the-overlap-horizon-no-hac-or-bootstrap-path-is-calibrated",
+    "../reference/inference-calibration.md#persistence-beyond-the-overlap-horizon",
     "../api/slice-test.md#warning-contract-slice_period_joint_test",
 )
 

@@ -6,7 +6,7 @@ admitting the member to ``quantile_spread`` / ``quantile_spread_vw`` /
 ``k_spread`` rests on its own measurement. The full 3x3 grid
 (``T`` in {60, 120, 240} x ``h`` in {1, 5, 21}, 500 replications per cell,
 ``n_resamples=499``, base seed 20260830) is recorded in
-``reference/statistical-methods`` section 6; measured there, the bootstrap
+``reference/inference-calibration``; measured there, the bootstrap
 rejects 4.8-9.0% at a nominal 5% across every measurable cell and
 ``NEWEY_WEST`` 2.4-7.6%.
 

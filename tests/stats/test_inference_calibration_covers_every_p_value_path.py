@@ -1,13 +1,13 @@
-"""Coverage guard: every metric that publishes a ``p_value`` is named in §6.
+"""Coverage guard: every p-value metric is named in the calibration reference.
 
-factrix's standing rule is that only *measured* inference paths are
-exposed. §6 of ``docs/reference/statistical-methods.md`` is where a path's
-size measurement — or an explicit statement that it has none yet — lives,
-so a metric that can return a non-``None`` ``p_value`` and is absent from
-§6 is an undocumented inference path, not merely a documentation gap.
+factrix's standing rule is that every exposed inference path is measured or
+explicitly disclosed as unmeasured. ``docs/reference/inference-calibration.md``
+is where that evidence or gap lives, so a metric that can return a non-``None``
+``p_value`` and is absent from the page is an undocumented inference path, not
+merely a documentation gap.
 
 The metric side is derived from source rather than from a hand-kept list,
-so a new p-emitting metric fails this test until §6 accounts for it. For
+so a new p-emitting metric fails this test until the page accounts for it. For
 each registered metric the scan walks its own function body for a
 ``MetricResult(...)`` whose ``p_value`` keyword is anything other than the
 literal ``None``; a metric that constructs no ``MetricResult`` itself
@@ -21,20 +21,12 @@ from __future__ import annotations
 
 import ast
 import pathlib
-import re
 
 import pytest
 from factrix._metric_index import public_specs
 
 METRICS_DIR = pathlib.Path("factrix/metrics")
-DOCS_PAGE = pathlib.Path("docs/reference/statistical-methods.md")
-
-
-def _section_6() -> str:
-    text = DOCS_PAGE.read_text(encoding="utf-8")
-    match = re.search(r"^## 6\..*?(?=^## 7\.)", text, re.M | re.S)
-    assert match, "section 6 not found — has the page been renumbered?"
-    return match.group(0)
+DOCS_PAGE = pathlib.Path("docs/reference/inference-calibration.md")
 
 
 def _module_functions(stem: str) -> dict[str, ast.FunctionDef]:
@@ -110,10 +102,10 @@ def test_the_scan_finds_a_plausible_number_of_p_value_paths():
 
 
 @pytest.mark.parametrize("metric_name", _p_value_metrics())
-def test_section_6_names_every_p_value_metric(metric_name):
-    assert f"`{metric_name}`" in _section_6(), (
-        f"{metric_name} publishes a p_value but §6 of "
+def test_calibration_reference_names_every_p_value_metric(metric_name):
+    text = DOCS_PAGE.read_text(encoding="utf-8")
+    assert f"`{metric_name}`" in text, (
+        f"{metric_name} publishes a p_value but "
         f"{DOCS_PAGE} does not name it. Every exposed inference path needs "
-        "a size measurement there, or an explicit statement that it has "
-        "none yet."
+        "a size measurement there or an explicit unmeasured disclosure."
     )

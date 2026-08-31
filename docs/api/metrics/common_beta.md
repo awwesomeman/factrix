@@ -14,12 +14,12 @@ title: factrix.metrics.common_beta
 
 <hr>
 
-!!! info "Timeseries-mode conventions"
+!!! info "Common-factor regression conventions"
     Stage-1 per-asset ordinary least squares (OLS) uses **plain SE**, not heteroskedasticity-and-autocorrelation-consistent (HAC) — the dominant
     bias under a persistent predictor is Stambaugh coefficient bias,
     which HAC does not address. Non-overlap resampling is **not**
     applied (stage-1 runs on the full overlapping series). See
-    [Timeseries-mode conventions](../../reference/ts-mode-conventions.md)
+    [Common-factor regression conventions](../../reference/ts-mode-conventions.md)
     for the full rationale.
 
 ## Use cases
@@ -213,7 +213,7 @@ allocation rule.
 
     [api/by-slice →](../by-slice.md)
 
--   __Timeseries-mode conventions__
+-   __Common-factor regression conventions__
 
     ---
 

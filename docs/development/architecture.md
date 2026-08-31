@@ -1,24 +1,19 @@
 ---
-title: factrix Architecture
+title: factrix architecture
 ---
 
-Current-state snapshot of the public API surface and internal layout.
+Current-state reference for internal contracts, dispatch, and module layout.
+Use it as a lookup page rather than a start-to-finish guide. User-facing scope
+lives in [Where factrix fits](../where-factrix-fits.md); callable details live
+in the [API reference](../api/index.md).
 
 ---
 
 ## Positioning
 
-**factrix is a factor-signal validator, not a backtest engine.**
-
-The library produces a single canonical p-value (`MetricResult.p_value`) and
-its explicit tested tail (`MetricResult.alternative`) per
-factor per `(scope, density, structure)` cell from the cell's mainstream
-metric (information coefficient (IC) / FM-λ / CAAR / TS-β). Dense
-time-series mainstream metrics use Newey-West (NW)
-heteroskedasticity-and-autocorrelation-consistent (HAC) inference; CAAR uses
-event-period-indexed non-overlap sampling on the event-period series. Realistic execution simulation,
-tradability proxies, and portfolio construction are out of scope — feed
-screened factors into Zipline / Backtrader / `vectorbt` downstream.
+factrix is a factor-inference and screening library, not a backtest engine.
+Each metric keeps its estimate, tested tail, p-value, metadata, and warnings
+explicit; downstream portfolio and execution state stays outside the package.
 
 ---
 
@@ -94,25 +89,18 @@ The dispatch runs through a Directed Acyclic Graph (DAG) executor on a closed `l
 
 ## Public API surface
 
-Primary public entry points:
+The public surface has four layers:
 
-| Symbol | Purpose |
-|--------|---------|
-| `fx.evaluate(panel, metrics=...)` | Dispatch to the metrics applicable to the factor's cell |
-| `fx.multi_factor.bhy(results, *, metrics, expand_over=(), q=0.05)` | Benjamini-Hochberg-Yekutieli (BHY) false discovery rate (FDR) correction; one declared family per call (optionally split per-bucket via `expand_over`) |
-| `fx.multi_factor.bhy_across_metrics(results, *, metrics, expand_over=(), q=0.05)` | One pooled BHY family over factor × metric hypotheses, optionally partitioned by predeclared contexts |
-| `fx.multi_factor.partial_conjunction(results, *, metrics, min_pass, expand_over, ...)` | Factor confirmation in at least `min_pass` predeclared contexts |
-| `fx.multi_factor.partial_conjunction_across_metrics(results, *, metrics, min_pass, q=0.05)` | Factor confirmation on at least `min_pass` predeclared metric endpoints |
-| `fx.multi_factor.bhy_hierarchical(results, *, metrics, group, q=0.05)` | Two-stage FDR screening across and within predeclared groups |
+1. `evaluate` and `evaluate_horizons` build factor results.
+2. `by_slice`, slice tests, and `compare` inspect or contrast those results.
+3. `multi_factor` procedures apply declared-family FDR and partial-conjunction
+   rules.
+4. Result dataclasses, enums, errors, and discovery helpers expose the stable
+   contracts used by all three layers.
 
-Plus introspection / error / enum re-exports:
-
-- `fx.FactorScope`, `fx.FactorDensity` — user-facing axes
-- `fx.WarningCode` — structured result codes
-- `fx.FactrixError`, `fx.IncompatibleAxisError`, `fx.IncompatibleInferenceError`,
-  `fx.InsufficientSampleError`, `fx.UserInputError` — exception hierarchy (see § Error UX contract)
-
-`__version__` is sourced from `pyproject.toml` (Commitizen-managed).
+The [API reference](../api/index.md) is the source for current signatures and
+the complete entry-point list. `__version__` is sourced from
+`pyproject.toml` and managed by Commitizen.
 
 ---
 
@@ -971,7 +959,7 @@ Hard constraints — violating these breaks the API contract:
 4. The DAG executor is the single dispatch path. `DagExecutor` topologically orders specs by `MetricSpec.requires` (raising `CycleError` on cycles), runs `batchable=True` producers once per factor batch and `batchable=False` consumers once per factor, and short-circuits a downstream consumer with a NaN `MetricResult` + `WarningCode.UPSTREAM_UNAVAILABLE` rather than invoking it on missing upstream data.
 5. `MetricResult.p_value` is the single canonical p-value read path — `EvaluationResult.to_frame()` / `to_dict()`, `compare`, and the BHY family resolver all read it; the p-value lives only on the field and is not duplicated into `metadata`. A formal p-value and `alternative` (`two-sided` / `greater` / `less`) must be present together; p-values are finite and in `[0, 1]`. `warnings` flag interpretation risk but never rebind it.
 6. Family declaration is explicit: a screening verb's input list is one family, optionally split per bucket via `expand_over` where the API supports it. Shared resolution enforces (a) the result identity `(factor, forward_periods, *sorted(params.items()))` is unique across the input — every `params` entry joins it automatically, while `metadata` never does, (b) `expand_over` names come only from `EvaluationResult.params` (or the built-in `forward_periods`), never the factor and never a `metadata` key, (c) formal p-values are populated before procedures read them. Cross-metric BHY adds the metric label to the hypothesis identity; cross-metric partial conjunction keeps the predeclared metric count fixed under insufficient endpoints. Mixed horizons warn so the caller confirms whether selection is pooled or predeclared per horizon.
-7. A metric whose effective sample is below its own hard floor raises `InsufficientSampleError` under `strict=True` (per metric, per axis, on the effective post-stride/post-drop sample — not a global `T` rule); metrics never silently produce a result on under-sampled data. NW HAC lag selection on overlapping forward returns floors at `forward_periods - 1` (the Hansen-Hodrick floor) so serial correlation from overlap is not under-counted.
+7. A metric whose effective sample is below its own hard floor raises `InsufficientSampleError` under `strict=True` (per metric, per axis, on the effective post-stride/post-drop sample — not a global `T` rule); metrics never silently produce a result on under-sampled data. NW HAC bandwidths read `overlap_periods` and never fall below `h - 1`; scalar series means and rank-one contrasts use the wider calibrated `3(h - 1)` floor, while multi-restriction Wald paths retain the Hansen-Hodrick floor.
 
 For the user-facing field walk of `EvaluationResult` (and its
 `metrics` mapping), see
@@ -988,49 +976,6 @@ from disk.
 
 Run: `uv run pytest`
 
-### Docs SSOT strategy — MetricSpec drives generated tables
-
-`docs/reference/metric-pipelines.md` does not contain a hand-written
-matrix. The matrix is generated at build time from the same typed
-`MetricSpec` registry that runtime discovery uses.
-
-**How it works:**
-
-- Each public metric callable declares its cell and aggregation through
-  `@metric`, producing a `MetricSpec`.
-- `scripts/mkdocs_hooks/gen_metric_matrix.py` (a MkDocs `hooks:` entry) reads
-  `factrix._metric_index.public_specs()`, groups specs by module / cell /
-  aggregation, and writes
-  `docs/reference/_generated_metric_matrix.md` before each docs build.
-- `scripts/mkdocs_hooks/gen_metric_name_index.py` reads the same spec set and
-  writes `docs/reference/_generated_metric_name_index.md`.
-- `metric-pipelines.md` includes the generated file via
-  `--8<-- "docs/reference/_generated_metric_matrix.md"` (pymdownx.snippets).
-
-**CI coverage (`tests/test_docs_matrix.py`):**
-
-- Every public metric module registers at least one public `MetricSpec`.
-- `_generated_metric_matrix.md` exists and is non-empty (skipped if absent,
-  so CI that only runs pytest without a prior build does not false-positive).
-- The generated matrix and name-index files match the live renderers, catching
-  stale generated docs after registry changes.
-
-**Why the registry rather than hand-written tables:** the same source of truth
-now serves runtime discovery (`list_metrics()` / `metrics_summary()`), dispatch
-validation, and the rendered reference tables. Adding or changing a metric in
-one place updates both the API and the docs on the next build, and CI catches
-generated-file drift.
-
-### Example docs SSOT strategy - notebooks render MkDocs pages
-
-Worked example recipes use the executable notebook as the source of truth:
-`examples/*.ipynb` renders to `docs/examples/*.md` during the docs build via
-`scripts/mkdocs_hooks/render_example_notebooks.py`.
-
-The generated markdown files stay committed so GitHub and local docs reads do
-not require running MkDocs first. Drift is caught in two places:
-
-- `tests/test_example_notebook_docs.py` compares committed example pages with
-  the live notebook renderer.
-- `.github/workflows/docs-deploy-dev.yml` runs `mkdocs build --strict`, then
-  `git diff --exit-code` on the generated example pages.
+Documentation source-of-truth and generation rules live in
+[Documentation conventions](documentation.md#sources-of-truth), so this page
+can remain focused on runtime architecture.
