@@ -12,13 +12,30 @@ from factrix._axis import (
 )
 from factrix._codes import WarningCode, _emit_warning
 from factrix._metric_index import cell
-from factrix._types import DEFAULT_FORWARD_PERIODS
+from factrix._types import DEFAULT_FORWARD_PERIODS, EPSILON
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _attach_abnormal_return,
     _is_sparse_magnitude_weighted,
     _ragged_event_grid_message,
 )
+
+
+def _event_weighting(data: pl.DataFrame, factor_col: str) -> str:
+    """Name the estimand implied by the non-zero factor magnitudes."""
+    has_non_unit_event = bool(
+        data.select(
+            (
+                pl.col(factor_col).is_finite()
+                & (pl.col(factor_col) != 0)
+                & ((pl.col(factor_col).abs() - 1.0).abs() > EPSILON)
+            )
+            .fill_null(False)
+            .any()
+            .alias("has_non_unit_event")
+        ).item()
+    )
+    return "factor_magnitude" if has_non_unit_event else "sign"
 
 
 @metric(
@@ -81,6 +98,12 @@ def compute_caar(
         sparse_magnitude_weighted: whether the input factor is mixed-sign and
             not a clean ``{-1, 0, +1}`` ternary. Broadcast as a constant so
             downstream event tests can attach the structured warning code.
+        event_weighting: ``"sign"`` when every non-zero factor has unit
+            magnitude, otherwise ``"factor_magnitude"``. Unlike the warning
+            above, this also identifies an all-positive graded intensity.
+        return_scale: ``"per_period_simple"`` when the abnormal return is
+            derived from ``return_col``; ``"supplied_abnormal_return"`` when
+            the input's ``abnormal_return`` column is used as-is.
 
     Non-finite handling:
         polars' ``mean`` propagates float ``NaN`` (it only skips nulls), so a
@@ -98,6 +121,7 @@ def compute_caar(
         in polars, so a NaN factor survives the event filter and would make
         ``_signed_car`` NaN.
     """
+    event_weighting = _event_weighting(data, factor_col)
     sparse_magnitude_weighted = _is_sparse_magnitude_weighted(data, factor_col)
     if sparse_magnitude_weighted:
         _emit_warning(
@@ -120,6 +144,11 @@ def compute_caar(
         estimation_window=estimation_window,
         overlap_periods=overlap_periods,
         factor_col=factor_col,
+    )
+    return_scale = (
+        "supplied_abnormal_return"
+        if ar_diagnostics["abnormal_return_model"] == "market_adjusted_supplied"
+        else "per_period_simple"
     )
     events = adjusted.with_columns(
         (pl.col("date").rank(method="dense") - 1).alias("date_ordinal")
@@ -168,6 +197,8 @@ def compute_caar(
         .with_columns(
             pl.lit(n_dropped, dtype=pl.Int64).alias("n_events_dropped_non_finite"),
             pl.lit(sparse_magnitude_weighted).alias("sparse_magnitude_weighted"),
+            pl.lit(event_weighting).alias("event_weighting"),
+            pl.lit(return_scale).alias("return_scale"),
             pl.lit(n_dropped_no_window, dtype=pl.Int64).alias(
                 "n_events_dropped_no_estimation_window"
             ),
