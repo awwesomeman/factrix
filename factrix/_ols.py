@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from factrix._stats.core import _degenerate_t_input
-from factrix._stats.ols import _ols_scalar_wald_hac
+from factrix._stats.ols import _ols_scalar_wald_hac_from_finite
 from factrix._types import EPSILON
 
 
@@ -56,11 +56,10 @@ def ols_alpha(
     scalar statistic. The default ``1`` (no floor) is the non-overlapping
     case.
 
-    **The trade, measured.** Both columns below predate the current scalar HAR
-    recipe and are retained because they motivated retiring the OLS SE. The
-    current recipe's measurements follow the table. Empirical size at a
-    nominal 5% under a true null (``alpha = 0``, one base factor, 4000 draws,
-    read against ``t(n - k)``):
+    **The trade, measured.** The table records why the OLS SE was retired;
+    measurements for the current scalar HAR recipe follow it. Empirical size
+    at a nominal 5% under a true null (``alpha = 0``, one base factor, 4000
+    draws):
 
     | residuals | OLS | HAC (narrow rule, superseded) |
     |---|---|---|
@@ -113,8 +112,10 @@ def ols_alpha(
     version returned, which claimed the factor added exactly nothing.
 
     Raises:
-        ValueError: ``candidate`` or ``base_matrix`` holds a non-finite
-            value. ``np.linalg.lstsq`` does not raise on NaN input — it
+        ValueError: ``base_matrix`` is not a two-dimensional
+            ``(n_obs, n_base_factors)`` array, or ``candidate`` /
+            ``base_matrix`` holds a non-finite value. ``np.linalg.lstsq``
+            does not raise on NaN input — it
             returns a NaN solution, so an unguarded NaN became a NaN alpha
             and a NaN t far from the cause. The guard lives in the kernel
             rather than at the call sites: ``spanning`` filtered before all
@@ -125,6 +126,11 @@ def ols_alpha(
     """
     candidate = np.asarray(candidate, dtype=float)
     base_matrix = np.asarray(base_matrix, dtype=float)
+    if base_matrix.ndim != 2:
+        raise ValueError(
+            "ols_alpha: base_matrix must be 2-D (n_obs, n_base_factors); "
+            "reshape(-1, 1) a single factor."
+        )
     if candidate.size and not np.all(np.isfinite(candidate)):
         raise ValueError("ols_alpha: candidate must be finite (no NaN / inf).")
     if base_matrix.size and not np.all(np.isfinite(base_matrix)):
@@ -137,19 +143,28 @@ def ols_alpha(
     ones = np.ones((n_obs, 1))
     X = np.hstack([ones, base_matrix]) if base_matrix.shape[1] > 0 else ones
 
-    try:
-        beta, _, _, _ = np.linalg.lstsq(X, candidate, rcond=None)
-    except np.linalg.LinAlgError:
-        # Rank-deficient design (collinear base factors, or a base factor
-        # equal to the candidate). The fit does not exist, so neither does
-        # alpha: NaN rather than 0.0, which would read as "this factor adds
-        # exactly nothing" -- a decisive claim from a failed computation.
-        return _OLSResult(alpha=float("nan"), alpha_t=float("nan"))
+    # The HAC kernel already returns the OLS coefficients and residuals. Use
+    # that fit as the common path instead of solving the same design once via
+    # ``lstsq`` and again via ``(X'X)^-1 X'y`` inside the kernel.
+    hac = _ols_scalar_wald_hac_from_finite(
+        candidate, X, overlap_periods=overlap_periods
+    )
+    beta = hac.beta
+    resid = hac.resid
+
+    if not np.all(np.isfinite(beta)):
+        # The inverse-based kernel refuses a singular or saturated design,
+        # while ``lstsq`` can still supply the minimum-norm descriptive fit.
+        # Preserve that long-standing point-estimate contract, but the NaN
+        # HAC covariance below continues to withhold its t-statistic.
+        try:
+            beta, _, _, _ = np.linalg.lstsq(X, candidate, rcond=None)
+        except np.linalg.LinAlgError:
+            return _OLSResult(alpha=float("nan"), alpha_t=float("nan"))
+        resid = candidate - X @ beta
 
     alpha = float(beta[0])
     betas = [float(b) for b in beta[1:]]
-
-    resid = candidate - X @ beta
 
     ss_res = float(np.dot(resid, resid))
     centered = candidate - np.mean(candidate)
@@ -177,10 +192,6 @@ def ols_alpha(
             df_resid=dof,
         )
 
-    # The shared entry point owns bandwidth resolution and the matching
-    # finite-sample scale, so a new rank-one OLS consumer cannot apply only
-    # part of the scalar HAR contract.
-    hac = _ols_scalar_wald_hac(candidate, X, overlap_periods=overlap_periods)
     se_alpha = float(np.sqrt(max(hac.covariance[0, 0], 0.0)))
 
     if _degenerate_t_input(se_alpha, 1):
