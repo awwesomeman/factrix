@@ -533,6 +533,16 @@ Appends `forward_return` to the DataFrame, stamps two reserved columns — `_for
 
 `dates=` evaluates on a coarser grid: the return is still computed on the full grid at `forward_periods`, only rows on those dates are kept (every value must be a member of the panel's distinct-date grid — nothing is snapped), and `overlap_periods` is derived on the full period index as `1 + max_i #{j in dates : 0 < idx(j) - idx(i) < h}` (stride 60 at h=60 → 1; stride 20 → 3; full grid → h; the maximum is taken because the evaluation grid may be spaced unevenly on the period grid — under-counting over-rejects, over-counting only thins the strided sample). Sub-sampling a panel by hand *after* this call leaves a stale `overlap_periods` stamp (still the horizon), so a 60-period return evaluated every 60 periods trips the stride-scaled `insufficient_*_periods` floor; the short-circuit message points at `dates=`. The unit of `forward_return` is unchanged: per period of the horizon, not per evaluation period.
 
+CAAR preserves that unit. On the standard pipeline,
+`caar(...).metadata["return_scale"] == "per_period_simple"`; recover cumulative
+simple CAR with `value * EvaluationResult.forward_periods`, never
+`overlap_periods` (the latter can be smaller on a coarse evaluation grid).
+`metadata["event_weighting"]` is `"sign"` when all non-zero factors have unit
+magnitude and `"factor_magnitude"` otherwise, including all-positive graded
+intensity signals. A hand-built CAAR frame reports `"unspecified"` for either
+missing contract; a supplied `abnormal_return` reports
+`return_scale="supplied_abnormal_return"` because its scale is caller-defined.
+
 ---
 
 ## Result Types

@@ -4,6 +4,7 @@ import math
 import warnings
 from datetime import datetime, timedelta
 
+import factrix as fx
 import numpy as np
 import polars as pl
 import pytest
@@ -15,6 +16,7 @@ from factrix.metrics.caar import (
     compute_caar,
 )
 from factrix.metrics.event_quality import event_hit_rate, event_ic
+from factrix.preprocess import compute_forward_return
 
 from .conftest import with_estimation_window
 
@@ -280,6 +282,8 @@ class TestComputeCaarInputForms:
         df = _two_event_panel(-1.0, 1.0, -0.02, 0.03)
         result = compute_caar(df)
         assert result["caar"].to_list() == pytest.approx([0.02, 0.03])
+        assert result["event_weighting"].unique().to_list() == ["sign"]
+        assert result["return_scale"].unique().to_list() == ["per_period_simple"]
 
     def test_magnitude_weighted_zero_R(self):
         df = _two_event_panel(2.5, -3.0, 0.01, 0.02)
@@ -333,7 +337,22 @@ class TestComputeCaarInputForms:
         df = _two_event_panel(2.5, 3.0, 0.01, 0.02)
         with warnings.catch_warnings():
             warnings.simplefilter("error", UserWarning)
-            compute_caar(df)
+            result = compute_caar(df)
+        assert result["event_weighting"].unique().to_list() == [
+            "factor_magnitude"
+        ]
+
+    def test_supplied_abnormal_return_scale_is_not_inferred(self):
+        df = _two_event_panel(1.0, 1.0, 0.02, -0.01).with_columns(
+            pl.col("forward_return").alias("abnormal_return")
+        )
+        result = compute_caar(df)
+        assert result["return_scale"].unique().to_list() == [
+            "supplied_abnormal_return"
+        ]
+        assert result["abnormal_return_model"].unique().to_list() == [
+            "market_adjusted_supplied"
+        ]
 
     def test_no_warn_on_indicator_zero_one(self):
         df = _two_event_panel(1.0, 1.0, 0.02, -0.01)
@@ -369,6 +388,8 @@ class TestCaar:
         assert result.value > 0
         assert abs(result.stat) > 2.0
         assert result.p_value < 0.05
+        assert result.metadata["return_scale"] == "per_period_simple"
+        assert result.metadata["event_weighting"] == "sign"
 
     def test_noise_not_significant(self, noise_signal):
         caar_df = compute_caar(noise_signal)
@@ -385,6 +406,8 @@ class TestCaar:
         result = caar(df)
         assert math.isnan(result.value)
         assert result.stat is None
+        assert result.metadata["return_scale"] == "unspecified"
+        assert result.metadata["event_weighting"] == "unspecified"
 
     def test_total_events_in_metadata(self, strong_signal):
         # caar reports the underlying event count (across-asset, pre-collapse)
@@ -409,6 +432,33 @@ class TestCaar:
             warnings.simplefilter("ignore", UserWarning)
             result = caar(df, overlap_periods=1)
         assert result.metadata["total_events"] == result.metadata["n_event_periods"]
+        assert result.metadata["return_scale"] == "unspecified"
+        assert result.metadata["event_weighting"] == "unspecified"
+
+    def test_evaluate_keeps_horizon_scale_contract_on_coarse_grid(
+        self, strong_signal
+    ):
+        raw = strong_signal.drop("forward_return").with_columns(
+            pl.when(pl.col("factor") != 0)
+            .then(pl.col("factor").abs() * 2.5)
+            .otherwise(0.0)
+            .alias("factor")
+        )
+        grid = raw["date"].unique().sort().gather_every(5)
+        panel = compute_forward_return(raw, forward_periods=5, dates=grid)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            evaluated = fx.evaluate(
+                panel,
+                metrics={"caar": caar()},
+                factor_cols=["factor"],
+            )["factor"]
+
+        result = evaluated.metrics["caar"]
+        assert (evaluated.forward_periods, evaluated.overlap_periods) == (5, 1)
+        assert result.reason is None
+        assert result.metadata["return_scale"] == "per_period_simple"
+        assert result.metadata["event_weighting"] == "factor_magnitude"
 
 
 class TestCaarEventSpacedSampling:

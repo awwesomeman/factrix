@@ -27,9 +27,29 @@ title: factrix.metrics.caar
     rather than undone here. With μ = 0.0008 per period over `h = 5`, the
     reported value is 0.001056 — the per-period average — not 5× that.
 
-    Multiply by `forward_periods` to recover the cumulative quantity the name
-    and the Brown-Warner / MacKinlay citations promise. Reading `caar.value`
-    directly as a 5-period event CAR is off by 5×.
+    The contract is machine-readable as
+    `result.metadata["return_scale"] == "per_period_simple"`. Multiply by
+    `EvaluationResult.forward_periods` to recover the cumulative quantity the
+    name and the Brown-Warner / MacKinlay citations promise. Do **not** multiply
+    by `overlap_periods`: that field controls inference and can be smaller than
+    the economic horizon on a coarse evaluation grid. Reading `caar.value`
+    directly as a 5-period event CAR is off by 5×. A caller-supplied
+    `abnormal_return` instead reports `"supplied_abnormal_return"`; factrix
+    does not guess that column's scale.
+
+!!! info "Inspect the event-weighting estimand"
+    `compute_caar` multiplies abnormal return by the factor without silently
+    coercing its magnitude. The producer column and downstream
+    `result.metadata["event_weighting"]` therefore report:
+
+    | Value | Factor contract | Estimand |
+    |---|---|---|
+    | `"sign"` | Every non-zero factor has magnitude 1 | Equal-event signed CAAR |
+    | `"factor_magnitude"` | At least one non-zero factor has non-unit magnitude | Factor-magnitude-weighted CAAR |
+
+    Strictly positive graded intensity factors are in the second row even
+    though they do not raise `SPARSE_MAGNITUDE_WEIGHTED`; that warning remains
+    reserved for the ambiguous mixed-sign, non-ternary case.
 
 ## Use cases
 

@@ -152,11 +152,13 @@ def caar(
     Args:
         caar_df: Output of ``compute_caar()`` with columns ``date, caar,
             n_events, date_ordinal, n_events_dropped_non_finite,
-            sparse_magnitude_weighted``. The diagnostic columns are optional
-            (hand-built frames omit them); when present the non-finite count is
-            echoed into ``metadata["n_events_dropped_non_finite"]`` and the
-            sparse-magnitude flag becomes ``WarningCode.SPARSE_MAGNITUDE_WEIGHTED``
-            on ``warning_codes``.
+            sparse_magnitude_weighted, event_weighting, return_scale``. The
+            diagnostic columns are optional (hand-built frames omit them);
+            when present the scale and weighting are copied into metadata, the
+            non-finite count is echoed into
+            ``metadata["n_events_dropped_non_finite"]``, and the
+            sparse-magnitude flag becomes
+            ``WarningCode.SPARSE_MAGNITUDE_WEIGHTED`` on ``warning_codes``.
         overlap_periods: Sampling interval for non-overlapping dates.
             Maps to ``config.overlap_periods`` — the return horizon used
             in ``compute_forward_return``. Distinct from
@@ -242,6 +244,18 @@ def caar(
         2.3 / 5.0% at $h = 1 / 5 / 21$), but a single asset at $h = 21$
         rejects 0.0% of true nulls (nominal 5%).
 
+        **Scale and weighting are explicit.** Standard pipeline output carries
+        ``metadata["return_scale"] == "per_period_simple"`` because
+        :func:`~factrix.preprocess.compute_forward_return` divides the simple
+        horizon return by ``forward_periods``. Recover the cumulative simple
+        CAR with ``value * EvaluationResult.forward_periods``. Do not use
+        ``overlap_periods``: on a coarse evaluation grid it can be smaller than
+        the economic horizon. A supplied ``abnormal_return`` column instead
+        carries ``"supplied_abnormal_return"`` because factrix does not know
+        its scale. ``metadata["event_weighting"]`` is ``"sign"`` for unit
+        non-zero factors and ``"factor_magnitude"`` for graded factors,
+        including strictly positive intensity signals.
+
         The across-events siblings are complementary, not redundant:
         ``bmp_z`` is the across-events standardized-AR z-test with the
         Kolari-Pynnönen clustering correction on by default — use it when
@@ -282,6 +296,16 @@ def caar(
     # the same usable sample. polars' drop_nulls does not remove float NaN,
     # hence the paired drop_nans (project convention for SERIES consumers).
     n_event_periods_full = caar_df.height
+    return_scale = (
+        str(caar_df["return_scale"][0])
+        if caar_df.height and "return_scale" in caar_df.columns
+        else "unspecified"
+    )
+    event_weighting = (
+        str(caar_df["event_weighting"][0])
+        if caar_df.height and "event_weighting" in caar_df.columns
+        else "unspecified"
+    )
     caar_df = caar_df.filter(pl.col("caar").is_not_null() & pl.col("caar").is_not_nan())
     vals = caar_df["caar"]
     n = len(vals)
@@ -311,6 +335,8 @@ def caar(
         "insufficient_event_periods",
         warning_codes=tuple(warning_codes),
         axis="events",
+        return_scale=return_scale,
+        event_weighting=event_weighting,
     )
     if sc is not None:
         return sc
@@ -371,6 +397,8 @@ def caar(
         "stat_type": "t",
         "h0": "mu=0",
         "method": "non-overlapping t-test",
+        "return_scale": return_scale,
+        "event_weighting": event_weighting,
     }
     _warn_event_window_overlap(
         "caar",

@@ -180,7 +180,8 @@ Descriptive; no test.
 - **`value` is per period.** It is `CAR / h`, inherited from
   `compute_forward_return`'s `/ forward_periods` normalisation, not the
   cumulative abnormal return the name suggests. Multiply by
-  `forward_periods` for the cumulative quantity.
+  `EvaluationResult.forward_periods` for the cumulative quantity; do not use
+  `overlap_periods`, which can be smaller on a coarse evaluation grid.
 - *descriptive*: `n_event_periods` (number of periods with an event),
   `total_events` (underlying events behind the portfolio),
   `n_event_periods_sampled`, `mean_caar_full` / `n_event_periods_full`
@@ -191,7 +192,11 @@ Descriptive; no test.
   `n_events_overlapping` / `n_events_sampled` (removed by, and surviving,
   the non-overlap spacing pass; a non-zero removal fires
   `EVENT_WINDOW_OVERLAP`), `n_events_dropped_no_estimation_window`,
-  `abnormal_return_model` and `estimation_window_event_share` (carried up
+  `return_scale` (`per_period_simple` on the standard pipeline,
+  `supplied_abnormal_return` for a caller-supplied abnormal-return column, or
+  `unspecified` for a hand-built CAAR frame), `event_weighting` (`sign`,
+  `factor_magnitude`, or `unspecified`), `abnormal_return_model` and
+  `estimation_window_event_share` (carried up
   from `compute_caar`; the share of each tested event's estimation window
   that lies inside other events' forward windows — above
   `ESTIMATION_WINDOW_EVENT_SHARE_WARN` the mean-adjusted model's abnormal
