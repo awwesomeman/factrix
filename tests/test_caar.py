@@ -338,18 +338,14 @@ class TestComputeCaarInputForms:
         with warnings.catch_warnings():
             warnings.simplefilter("error", UserWarning)
             result = compute_caar(df)
-        assert result["event_weighting"].unique().to_list() == [
-            "factor_magnitude"
-        ]
+        assert result["event_weighting"].unique().to_list() == ["factor_magnitude"]
 
     def test_supplied_abnormal_return_scale_is_not_inferred(self):
         df = _two_event_panel(1.0, 1.0, 0.02, -0.01).with_columns(
             pl.col("forward_return").alias("abnormal_return")
         )
         result = compute_caar(df)
-        assert result["return_scale"].unique().to_list() == [
-            "supplied_abnormal_return"
-        ]
+        assert result["return_scale"].unique().to_list() == ["supplied_abnormal_return"]
         assert result["abnormal_return_model"].unique().to_list() == [
             "market_adjusted_supplied"
         ]
@@ -435,9 +431,7 @@ class TestCaar:
         assert result.metadata["return_scale"] == "unspecified"
         assert result.metadata["event_weighting"] == "unspecified"
 
-    def test_evaluate_keeps_horizon_scale_contract_on_coarse_grid(
-        self, strong_signal
-    ):
+    def test_evaluate_keeps_horizon_scale_contract_on_coarse_grid(self, strong_signal):
         raw = strong_signal.drop("forward_return").with_columns(
             pl.when(pl.col("factor") != 0)
             .then(pl.col("factor").abs() * 2.5)
