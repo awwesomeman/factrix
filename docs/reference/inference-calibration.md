@@ -39,7 +39,7 @@ than repeated throughout the method guide.
 | Rank-one `common_*` contrasts | 3.3–8.0% on non-persistent common-factor nulls; 7.3–16.3% on persistent input | Scalar reference fixes the ordinary overlap case; persistence remains a warning regime |
 | `spanning_alpha` rank-one contrast | 5.7–11.7% on the measured overlapping-sum spread null | Uses the scalar reference, but the upper measured cells remain mildly oversized |
 | Date-aligned multi-restriction slice Wald tests | 8–9% for `K=5` on 50–90 periods per slice | Known short-slice over-rejection; converges near 5.5% around 150 periods |
-| `pooled_beta` Driscoll-Kraay | **1.7–9.1%** on its persistent-regressor, cross-sectionally correlated, overlapping-return panel grid | The scalar HAR reference reduced the former path's 4.9–23.2% range; the low-overlap-dependence cells can be conservative |
+| `pooled_beta` Driscoll-Kraay | **2.6–8.7%** on its persistent-regressor, cross-sectionally correlated, overlapping-return panel grid | The scalar HAR reference reduced the former path's 6.3–22.5% range; the low-overlap-dependence cells can be conservative |
 
 The scalar recipe combines three factrix-specific choices: a `3(h - 1)`
 overlap floor, variance scale `T/(T-L-1)`, and effective degrees of freedom
@@ -50,6 +50,8 @@ measured cells.
 Producing tests include `tests/stats/test_hac_overlap_size.py`,
 `test_overlap_floor_size.py`, `test_scalar_wald_overlap_size.py`,
 `test_driscoll_kraay_size.py`, and `tests/test_stambaugh_bias.py`.
+Run `python tests/stats/test_driscoll_kraay_size.py` from the repository root
+to regenerate the complete 1,000-replication Driscoll-Kraay grid.
 
 ### Single-restriction Wald contrasts
 [](){ #single-restriction-wald }
