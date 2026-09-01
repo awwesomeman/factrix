@@ -128,7 +128,9 @@ is emitted.
 
 - *primary*: `p_value` — NW HAC `t` on per-period λ. With
   `is_estimated_factor=True` the Shanken EIV correction is applied
-  post-hoc and the corrected `p_value` replaces the raw value.
+  post-hoc and the corrected `p_value` replaces the raw value — unless the
+  correction is unavailable, in which case both are withheld (see the
+  σ²_f ≈ 0 entry below).
 - *secondary-test* (conditional, `is_estimated_factor=True`):
   `p_value_uncorrected`, `stat_uncorrected`. These remain descriptive-only
   diagnostics when the Shanken correction is unavailable.
@@ -154,9 +156,11 @@ is emitted.
 
 - *primary*: `p_value` — single- or two-way clustered OLS `t`. When
   the cluster count G < 3 the test is short-circuited with `stat =
-  None`, `value = NaN`, and `p_value = 1.0`; the algebraic slope is not
-  exposed as a usable pooled beta when its declared covariance estimator
-  cannot be formed.
+  None`, `value = NaN`, and `p_value = 1.0`: with two clusters the sample
+  cannot support a clustered estimate, so the algebraic slope is not
+  exposed as a usable pooled beta. A non-PSD two-way covariance is the
+  other withheld-inference regime and keeps `value` — see
+  `variance_status` below.
 - Sample size: `MetricResult.n_obs` (row count entering the test).
 - *descriptive*: `n_clusters` (one-way) or `n_clusters_a`,
   `n_clusters_b`, `n_clusters_intersection` (two-way).

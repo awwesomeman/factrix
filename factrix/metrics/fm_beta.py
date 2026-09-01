@@ -219,8 +219,9 @@ def fm_beta(
             \equiv 1 + t^2_{\mathrm{iid}}/T$ identically — an algebraic
             restatement of the $t$-stat that carries no
             errors-in-variables information about the regressor. When
-            $\sigma^2_f$ is below machine epsilon the multiplier is
-            undefined; the mean beta remains available, but the headline
+            $\sigma^2_f$ is below ``EPSILON`` (``1e-9``, not machine
+            epsilon) the multiplier is undefined; the mean beta remains
+            available, but the headline
             statistic and $p$ are withheld. The uncorrected Newey-West test
             is retained only in ``metadata["stat_uncorrected"]`` and
             ``metadata["p_value_uncorrected"]``, alongside
@@ -290,21 +291,41 @@ def fm_beta(
         >>> result.name == ""
         True
     """
-    if is_estimated_factor and factor_return_var is None:
-        raise UserInputError(
-            func_name="fm_beta",
-            field="factor_return_var",
-            value=factor_return_var,
-            expected=(
-                "the time-series variance of the factor-mimicking portfolio "
-                "return (a float) whenever is_estimated_factor=True. There is "
-                "no usable default: substituting var(β̂_t) makes the Shanken "
-                "multiplier 1 + mean(β)²/var(β̂_t) identically 1 + t²/T, which "
-                "is a restatement of the t-stat and carries no "
-                "errors-in-variables information about the regressor"
-            ),
-            docs_path=_DOCS_FM_BETA,
-        )
+    if is_estimated_factor:
+        if factor_return_var is None:
+            raise UserInputError(
+                func_name="fm_beta",
+                field="factor_return_var",
+                value=factor_return_var,
+                expected=(
+                    "the time-series variance of the factor-mimicking "
+                    "portfolio return (a float) whenever "
+                    "is_estimated_factor=True. There is no usable default: "
+                    "substituting var(β̂_t) makes the Shanken multiplier "
+                    "1 + mean(β)²/var(β̂_t) identically 1 + t²/T, which is a "
+                    "restatement of the t-stat and carries no "
+                    "errors-in-variables information about the regressor"
+                ),
+                docs_path=_DOCS_FM_BETA,
+            )
+        if not math.isfinite(factor_return_var) or factor_return_var < 0.0:
+            # Rejected at the boundary rather than folded into the σ²_f ≈ 0
+            # regime below. NaN fails ``< EPSILON``, so it would reach the
+            # multiplier as ``1 + mean(β)²/NaN`` and withhold the test while
+            # metadata still named Shanken as applied; a negative value is
+            # not a variance at all, and reporting it as "below EPSILON"
+            # would describe an invalid input as a degenerate sample.
+            raise UserInputError(
+                func_name="fm_beta",
+                field="factor_return_var",
+                value=factor_return_var,
+                expected=(
+                    "a finite, non-negative variance. A NaN or negative "
+                    "value is an invalid input, not the flat-premium regime "
+                    "the σ²_f ≈ 0 branch handles"
+                ),
+                docs_path=_DOCS_FM_BETA,
+            )
 
     betas = beta_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
@@ -765,14 +786,17 @@ def pooled_beta(
         resolved test. ``overlap_periods`` is injected from the panel by
         ``evaluate``; standalone calls may pass it directly.
 
-        factrix reports ``value = NaN`` and ``stat = None`` (rather than a
-        finite slope and zero statistic) when ``G < 3`` because the
-        cluster-robust variance is undefined with too few clusters. Retaining
-        the algebraic OLS slope in the headline field would let downstream
-        aggregation treat an inference-unavailable cell as a valid pooled
-        beta; falling back to a homoskedastic SE would silently break the
-        panel-correlation guarantee that motivated using clustered SE in the
-        first place.
+        Two regimes withhold the test, and they differ in what happens to
+        ``value``. Under ``G < 3`` factrix reports ``value = NaN`` and
+        ``stat = None``: with two clusters the *sample* cannot support a
+        clustered estimate at all, so the algebraic slope is not a pooled
+        beta any downstream aggregation should average. A non-PSD two-way
+        covariance is the other case — the OLS slope is estimated exactly as
+        usual and only the finite-sample *variance* estimator failed, so
+        ``value`` stays and just ``stat`` / ``p_value`` are withheld. In
+        neither case does factrix fall back to a homoskedastic or one-way SE,
+        which would silently break the panel-correlation guarantee that
+        motivated clustering in the first place.
 
     References:
         - [Petersen (2009)][petersen-2009]. "Estimating Standard Errors
@@ -969,6 +993,22 @@ def pooled_beta(
         metadata["dropped_pairs"] = n_non_finite_dropped
 
     degenerate_codes: list[str] = []
+    if variance_status is not None:
+        # The sibling withheld-inference path in ``fm_beta`` names its cause
+        # in a message; a p-value that simply disappears should not be the
+        # quieter of the two.
+        _emit_warning(
+            WarningCode.DEGENERATE_VARIANCE,
+            "the requested two-way clustered covariance came out non-PSD in "
+            "this finite sample, so the slope variance is unavailable. The "
+            "pooled OLS slope is returned, but stat and p_value are withheld "
+            "— factrix does not substitute a one-way covariance under a "
+            "two-way method label.",
+            label="pooled_beta",
+            expected_warnings=expected_warnings,
+            warning_codes=degenerate_codes,
+            stacklevel=2,
+        )
     stat, p_out, alternative = _degenerate_test_fields(
         t_stat, p, "two-sided", metadata, degenerate_codes
     )
