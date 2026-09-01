@@ -252,9 +252,7 @@ def _ols_scalar_wald_hac_from_finite(
     resolved_lags, variance_scale, dof = _resolve_scalar_wald_hac(
         len(y), lags, overlap_periods
     )
-    beta, covariance, resid = _ols_nw_multivariate_from_finite(
-        y, X, lags=resolved_lags
-    )
+    beta, covariance, resid = _ols_nw_multivariate_from_finite(y, X, lags=resolved_lags)
     return _ScalarWaldHacFit(
         beta=beta,
         covariance=covariance * variance_scale,
