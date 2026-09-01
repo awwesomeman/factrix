@@ -8,6 +8,7 @@ import polars as pl
 import pytest
 from factrix._codes import WarningCode
 from factrix._errors import IncompatibleInferenceError
+from factrix._stats import _p_value_from_t
 from factrix.inference import NEWEY_WEST
 from factrix.inference.series_mean import HANSEN_HODRICK
 from factrix.metrics.quantile import (
@@ -120,6 +121,24 @@ class TestQuantileSpread:
             assert "long_stat" in result.metadata
             assert "short_stat" in result.metadata
             assert result.p_value is not None
+
+    def test_leg_tests_label_their_two_sided_alternative(self, noisy_panel):
+        result = quantile_spread(
+            noisy_panel,
+            overlap_periods=1,
+            n_groups=5,
+            alternative="greater",
+        )["factor"]
+        metadata = result.metadata
+
+        assert result.alternative == "greater"
+        assert metadata["leg_alternative"] == "two-sided"
+        for leg in ("long", "short"):
+            stat = metadata[f"{leg}_stat"]
+            n_obs = metadata[f"n_periods_{leg}_leg"]
+            assert metadata[f"{leg}_p_value"] == pytest.approx(
+                _p_value_from_t(stat, n_obs, "two-sided")
+            )
 
     def test_constant_factor_returns_explicit_no_signal(self):
         rng = np.random.default_rng(12)

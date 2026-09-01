@@ -231,6 +231,9 @@ def quantile_spread(
         ``top_return - universe_return`` and ``universe_return -
         bottom_return`` regardless of ``inference`` — it attributes the
         spread to long-side vs short-side excess, it is not the headline H0.
+        Leg p-values are always two-sided and metadata records
+        ``leg_alternative="two-sided"``. A directional hypothesis about the
+        sum does not imply that both component means have that direction.
         Each leg is tested on its own finite sample (``n_periods_long_leg``
         / ``n_periods_short_leg``), which can be shorter than the spread
         sample when only one bucket was empty on a date.
@@ -480,6 +483,7 @@ def _quantile_spread_from_series(
         "short_stat": t_short,
         "short_p_value": p_short,
         "short_significance": _significance_marker(p_short),
+        "leg_alternative": "two-sided",
         "tie_ratio": tie_ratio,
         "tie_policy": tie_policy,
         **sig_extra,
