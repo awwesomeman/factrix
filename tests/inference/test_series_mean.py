@@ -18,6 +18,7 @@ import numpy as np
 import polars as pl
 import pytest
 from factrix._codes import WarningCode
+from factrix._errors import UserInputError
 from factrix._stats import (
     _hansen_hodrick_t_test,
     _har_dof,
@@ -143,6 +144,29 @@ def test_series_mean_members_honor_predeclared_tail(member, sign: float) -> None
     favored = "greater" if sign > 0 else "less"
     opposed = "less" if sign > 0 else "greater"
     assert p[favored] < p["two-sided"] < p[opposed]
+
+
+@pytest.mark.parametrize(
+    "member",
+    [
+        NON_OVERLAPPING,
+        NEWEY_WEST,
+        HansenHodrick(),
+        StationaryBootstrap(n_resamples=199, rng=0),
+    ],
+)
+def test_series_mean_members_reject_unknown_alternative(member) -> None:
+    with pytest.raises(UserInputError) as exc_info:
+        member.compute(
+            _series_df(np.arange(20.0)),
+            value_col="ic",
+            overlap_periods=1,
+            alternative="grater",  # type: ignore[arg-type]
+        )
+
+    assert exc_info.value.func_name == type(member).__name__
+    assert exc_info.value.field == "alternative"
+    assert exc_info.value.suggestions == ("greater",)
 
 
 class TestNeweyWest:
