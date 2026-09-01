@@ -61,6 +61,11 @@ title: factrix.metrics.fm_beta
     `two_way_cluster_col`). When pooled $\hat\beta$ and FM
     $\hat\lambda$ disagree in sign, the result's `warnings` flag a
     misspecification red flag.
+    Clustered covariance does not consume the panel's `overlap_periods`;
+    metadata records the horizon with `overlap_adjustment_applied=False`.
+    To cover serial dependence from overlapping returns, cluster on an axis
+    that spans it (for example asset), use two-way clustering, or select
+    Driscoll-Kraay.
     If a finite-sample two-way covariance is non-PSD, the OLS slope remains
     descriptive but its test is withheld rather than replaced by one-way
     inference.
@@ -75,7 +80,7 @@ title: factrix.metrics.fm_beta
     bandwidth, finite-sample variance scale, and effective degrees of freedom
     as other scalar HAC restrictions in factrix. The resolved
     `driscoll_kraay_lags`, `hac_scale`, `hac_dof`, and `overlap_periods` are
-    available in metadata.
+    available in metadata, with `overlap_adjustment_applied=True`.
 
 </div>
 

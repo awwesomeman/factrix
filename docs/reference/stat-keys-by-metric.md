@@ -162,6 +162,9 @@ is emitted.
   other withheld-inference regime and keeps `value` — see
   `variance_status` below.
 - Sample size: `MetricResult.n_obs` (row count entering the test).
+- *descriptive*: `overlap_periods` (the injected evaluation-grid horizon) and
+  `overlap_adjustment_applied`. The latter is `False` for clustered covariance,
+  which does not consume the horizon, and `True` for Driscoll-Kraay HAC.
 - *descriptive*: `n_clusters` (one-way) or `n_clusters_a`,
   `n_clusters_b`, `n_clusters_intersection` (two-way).
 - *descriptive* (conditional, short-circuit): `reason =
@@ -177,8 +180,8 @@ is emitted.
   `se_method` (`"driscoll_kraay"`), `n_periods` (length of the
   cross-sectional score-sum series), and `driscoll_kraay_lags` (the
   resolved Bartlett bandwidth), `hac_scale` (`T / (T - L - 1)`),
-  `hac_dof` (the scalar HAR reference degrees of freedom), and
-  `overlap_periods`. At 30 or more periods the DK path emits
+  and `hac_dof` (the scalar HAR reference degrees of freedom). At 30 or more
+  periods the DK path emits
   `WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED` when `L > T / 5`; below 30
   it emits the binding `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` without a
   redundant bandwidth echo. It short-circuits to `value = NaN` with
