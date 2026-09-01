@@ -417,6 +417,19 @@ def _stationary_block_indices(
     return idx
 
 
+def _count_extreme(
+    draws: np.ndarray,
+    observed: float,
+    alternative: PValueAlternative,
+) -> int:
+    """Count bootstrap draws at least as extreme as the observed statistic."""
+    if alternative == "greater":
+        return int(np.sum(draws >= observed))
+    if alternative == "less":
+        return int(np.sum(draws <= observed))
+    return int(np.sum(np.abs(draws) >= abs(observed)))
+
+
 def _block_bootstrap_diff_p(
     diff: np.ndarray,
     *,
@@ -577,20 +590,10 @@ def _block_bootstrap_diff_p(
         )
         observed_t = observed / se_observed
         roots = boot_t[usable]
-        if alternative == "greater":
-            extreme = int(np.sum(roots >= observed_t))
-        elif alternative == "less":
-            extreme = int(np.sum(roots <= observed_t))
-        else:
-            extreme = int(np.sum(np.abs(roots) >= abs(observed_t)))
+        extreme = _count_extreme(roots, observed_t, alternative)
         n_used = int(usable.sum())
     else:
-        if alternative == "greater":
-            extreme = int(np.sum(boot_means >= observed))
-        elif alternative == "less":
-            extreme = int(np.sum(boot_means <= observed))
-        else:
-            extreme = int(np.sum(np.abs(boot_means) >= abs(observed)))
+        extreme = _count_extreme(boot_means, observed, alternative)
         n_used = int(n_resamples)
 
     p, p_mc_se = _empirical_p(extreme, n_used)

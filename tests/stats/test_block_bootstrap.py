@@ -9,6 +9,7 @@ import pytest
 from factrix._errors import UserInputError
 from factrix._stats.bootstrap import (
     _block_bootstrap_diff_p,
+    _count_extreme,
     _politis_white_block_length,
     _stationary_block_indices,
 )
@@ -123,6 +124,16 @@ class TestStationaryBlockIndices:
         rng = np.random.default_rng()
         with pytest.raises(ValueError, match="invalid block_length"):
             _stationary_block_indices(30, 5, mean_block_length=200.0, rng=rng)
+
+
+class TestTailCount:
+    @pytest.mark.parametrize(
+        ("alternative", "expected"),
+        [("greater", 2), ("less", 2), ("two-sided", 2)],
+    )
+    def test_ties_count_as_extreme(self, alternative, expected):
+        draws = np.array([1.0, 2.0, 3.0])
+        assert _count_extreme(draws, 2.0, alternative) == expected
 
 
 class TestStudentizedDiffP:
@@ -295,6 +306,20 @@ class TestStudentizedRoot:
         """A zero-dispersion series leaves no SE to divide by."""
         _, meta = _block_bootstrap_diff_p(np.full(40, 2.0), n_resamples=99, rng=0)
         assert meta["studentized"] is False
+
+    @pytest.mark.parametrize(
+        ("alternative", "expected_p"),
+        [("greater", 0.01), ("less", 1.0), ("two-sided", 0.01)],
+    )
+    def test_raw_mean_fallback_respects_alternative(self, alternative, expected_p):
+        p, meta = _block_bootstrap_diff_p(
+            np.full(40, 2.0),
+            n_resamples=99,
+            alternative=alternative,
+            rng=0,
+        )
+        assert meta["studentized"] is False
+        assert p == pytest.approx(expected_p)
 
     @pytest.mark.parametrize(("n", "phi"), [(120, 0.5), (500, 0.8)])
     def test_size_beats_the_unstudentized_root(self, n, phi):
