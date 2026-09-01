@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from factrix._stats.core import _degenerate_t_input
-from factrix._stats.ols import _ols_scalar_wald_hac
+from factrix._stats.ols import _ols_scalar_wald_hac_from_finite
 from factrix._types import EPSILON
 
 
@@ -142,19 +142,26 @@ def ols_alpha(
     ones = np.ones((n_obs, 1))
     X = np.hstack([ones, base_matrix]) if base_matrix.shape[1] > 0 else ones
 
-    try:
-        beta, _, _, _ = np.linalg.lstsq(X, candidate, rcond=None)
-    except np.linalg.LinAlgError:
-        # Rank-deficient design (collinear base factors, or a base factor
-        # equal to the candidate). The fit does not exist, so neither does
-        # alpha: NaN rather than 0.0, which would read as "this factor adds
-        # exactly nothing" -- a decisive claim from a failed computation.
-        return _OLSResult(alpha=float("nan"), alpha_t=float("nan"))
+    # Reuse the coefficients and residuals already formed for the HAC
+    # covariance instead of solving the same regular design twice.
+    hac = _ols_scalar_wald_hac_from_finite(
+        candidate, X, overlap_periods=overlap_periods
+    )
+    beta = hac.beta
+    resid = hac.resid
+
+    if not np.all(np.isfinite(beta)):
+        # The inverse-based kernel refuses a singular or saturated design,
+        # while ``lstsq`` can still supply the minimum-norm descriptive fit.
+        # Preserve that point estimate, but keep the formal test withheld.
+        try:
+            beta, _, _, _ = np.linalg.lstsq(X, candidate, rcond=None)
+        except np.linalg.LinAlgError:
+            return _OLSResult(alpha=float("nan"), alpha_t=float("nan"))
+        resid = candidate - X @ beta
 
     alpha = float(beta[0])
     betas = [float(b) for b in beta[1:]]
-
-    resid = candidate - X @ beta
 
     ss_res = float(np.dot(resid, resid))
     centered = candidate - np.mean(candidate)
@@ -182,10 +189,6 @@ def ols_alpha(
             df_resid=dof,
         )
 
-    # The shared entry point owns bandwidth resolution and the matching
-    # finite-sample scale, so a new rank-one OLS consumer cannot apply only
-    # part of the scalar HAR contract.
-    hac = _ols_scalar_wald_hac(candidate, X, overlap_periods=overlap_periods)
     se_alpha = float(np.sqrt(max(hac.covariance[0, 0], 0.0)))
 
     if _degenerate_t_input(se_alpha, 1):
