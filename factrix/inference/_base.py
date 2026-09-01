@@ -30,7 +30,8 @@ class Inference(Protocol):
 
     Implementations are frozen dataclasses that additionally carry a
     ``compute`` whose signature is fixed per target shape (series-mean
-    members share ``compute(data, *, value_col, overlap_periods)``).
+    members share ``compute(data, *, value_col, overlap_periods,
+    alternative="two-sided")``).
     ``compute`` is intentionally absent here — see module docstring.
     """
 
