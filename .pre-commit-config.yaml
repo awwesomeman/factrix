@@ -11,7 +11,7 @@
 # ``tests/test_precommit_ruff_pin.py`` fails when the two diverge.
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.4
+    rev: v0.16.5
     hooks:
       # Both hooks gate rather than rewrite: no ``--fix`` on the check
       # hook and ``--check`` on the formatter, so a hook run never
