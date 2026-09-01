@@ -46,6 +46,14 @@ title: factrix.metrics.event_horizon
     [confounded-event note](../../reference/metric-applicability.md#confounded-event-handling)
     on within-asset event clustering.
 
+!!! warning "Invalid prices withdraw the curve"
+    `event_around_return` needs a finite unconditional bar-return baseline.
+    Any observed non-finite or non-positive `price` invalidates that baseline,
+    so the metric returns `value=NaN`, an empty `per_offset`, and
+    `WarningCode.METRIC_UNAVAILABLE` with `reason="invalid_price_data"`.
+    Missing (`null`) observations remain allowed on ragged panels; fix invalid
+    observed prices rather than interpreting a contaminated finite hit rate.
+
 ## Use cases
 
 <div class="grid cards" markdown>
