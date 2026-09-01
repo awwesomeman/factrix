@@ -48,6 +48,15 @@ def _iid_series(n: int, rep: int) -> pl.DataFrame:
     return pl.DataFrame({"date": _dates(n), "value": rng.standard_normal(n)})
 
 
+def _ar_series(n: int, phi: float, rep: int) -> pl.DataFrame:
+    rng = np.random.default_rng(SEED + rep)
+    values = np.empty(n)
+    values[0] = rng.normal(scale=1.0 / np.sqrt(1.0 - phi * phi))
+    for i in range(1, n):
+        values[i] = phi * values[i - 1] + rng.normal()
+    return pl.DataFrame({"date": _dates(n), "value": values})
+
+
 def _ic_series(n: int, rep: int) -> pl.DataFrame:
     raw = make_cs_panel(n_assets=N_ASSETS, n_dates=n + 2, ic_target=0.0, rng=SEED + rep)
     panel = compute_forward_return(raw, forward_periods=1)
@@ -87,3 +96,18 @@ def test_exact_test_is_conservative_relative_to_the_normal_approximation():
     approx = 2 * (1 - sp_stats.norm.cdf(abs(z)))
     assert approx < 0.05 < exact + 0.01
     assert approx < exact
+
+
+def test_persistent_null_is_flagged_while_iid_null_stays_quiet():
+    """Reduced-replication guard for the persistent regime in the reference."""
+    persistent_fired = iid_fired = 0
+    for rep in range(N_REPS):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            persistent = positive_rate(_ar_series(200, 0.9, rep), overlap_periods=1)
+            iid = positive_rate(_ar_series(200, 0.0, rep), overlap_periods=1)
+        persistent_fired += "serial_correlation_detected" in persistent.warning_codes
+        iid_fired += "serial_correlation_detected" in iid.warning_codes
+
+    assert persistent_fired / N_REPS > 0.80
+    assert iid_fired / N_REPS < 0.15

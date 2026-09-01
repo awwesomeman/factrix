@@ -44,7 +44,10 @@ title: factrix.metrics.positive_rate
     The series is sub-sampled at stride `overlap_periods` before the
     test so the MA dependence induced by overlapping forward returns
     does not leak in; same convention as `quantile_spread` and the
-    other non-overlap inference paths.
+    other non-overlap inference paths. If the surviving hit indicators
+    remain serially persistent, the result carries
+    `serial_correlation_detected`: the exact binomial p-value assumes
+    independent trials and is not calibrated in that regime.
 
 </div>
 

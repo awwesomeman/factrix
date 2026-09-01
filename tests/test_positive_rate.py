@@ -1,6 +1,7 @@
 """Tests for factrix.metrics.positive_rate."""
 
 import math
+import warnings
 from datetime import datetime, timedelta
 
 import polars as pl
@@ -65,6 +66,21 @@ class TestComputePositiveRate:
         result = positive_rate(series, overlap_periods=1)
         assert result.metadata["method"] == "binomial exact test"
         assert result.p_value == pytest.approx(binomtest(115, 200, 0.5).pvalue)
+
+    def test_persistent_hits_warn_and_expected_declaration_only_quiets_echo(self):
+        series = _make_series(([0.01] * 20 + [-0.01] * 20) * 3)
+        with pytest.warns(UserWarning, match="independent Bernoulli trials"):
+            result = positive_rate(series, overlap_periods=1)
+        assert "serial_correlation_detected" in result.warning_codes
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            declared = positive_rate(
+                series,
+                overlap_periods=1,
+                expected_warnings=("serial_correlation_detected",),
+            )
+        assert "serial_correlation_detected" in declared.warning_codes
 
 
 class TestNaNHandling:
