@@ -320,11 +320,18 @@ class TestPredictiveBetaOverlapAndPersistenceScreens:
 
     def test_overlapping_horizon_echoes_the_known_size_warning(self):
         rng = np.random.default_rng(41)
-        with pytest.warns(UserWarning, match="known-oversized HAC regime"):
+        with pytest.warns(UserWarning) as caught:
             result = predictive_beta(
                 _ts_panel(rng.normal(size=240), rng.normal(size=240)),
                 overlap_periods=5,
             )
+        overlap_warning = next(
+            str(item.message)
+            for item in caught
+            if WarningCode.OVERLAPPING_PREDICTIVE_INFERENCE.value in str(item.message)
+        )
+        assert "Amihud-Hurvich-adjusted HAR test" in overlap_warning
+        assert "7.5-14.5%" in overlap_warning
         assert (
             WarningCode.OVERLAPPING_PREDICTIVE_INFERENCE.value in result.warning_codes
         )

@@ -203,15 +203,13 @@ def predictive_beta(
         ``metadata["n_periods_finite"]`` counts those pairs.
 
         ``n_obs`` counts the rows the **headline** test ran on, which is
-        ``n_periods_finite - overlap_periods`` whenever the correction
-        applies: the augmented design spends the first observation on the
-        AR(1) lag and, at ``overlap_periods > 1``, the last
-        ``overlap_periods - 1`` windows on the horizon-summed innovation
-        proxy (a zero-padded truncated sum is a different regressor from the
-        one every other row carries). When the sample is too short for the
-        augmented design and ``value`` falls back to the plain OLS slope,
-        ``n_obs`` is the finite-pair count again — the reported model is then
-        the OLS one.
+        ``n_periods_finite - overlap_periods``: the augmented design spends
+        the first observation on the AR(1) lag and, at
+        ``overlap_periods > 1``, the last ``overlap_periods - 1`` windows on
+        the horizon-summed innovation proxy (a zero-padded truncated sum is a
+        different regressor from the one every other row carries). If that
+        design cannot be formed, the metric short-circuits instead of
+        substituting an uncorrected OLS test.
 
         **What the persistence flags do and do not say.**
         ``PERSISTENT_REGRESSOR`` is an ADF verdict on the *regressor*: the
@@ -229,10 +227,9 @@ def predictive_beta(
         not about whether ``value`` still carries the bias.
 
         ``SERIAL_CORRELATION_DETECTED`` is the complementary screen, on the
-        residuals of the **reported** model — ``y - alpha - value * factor``
-        over the ``n_obs`` rows, so the corrected fit's residuals whenever
-        the correction applies and the plain OLS ones when it falls back —
-        read at stride ``overlap_periods``: above
+        residuals of the **reported** corrected model —
+        ``y - alpha - value * factor`` over the ``n_obs`` rows — read at
+        stride ``overlap_periods``: above
         ``PERSISTENT_SERIES_AUTOCORR`` no HAC or
         bootstrap path in the library is calibrated, which is the same rule
         ``fm_beta`` and the series-mean inference members apply to their own
@@ -297,7 +294,7 @@ def predictive_beta(
         )
 
     lags = _resolve_nw_lags(n, newey_west_lags, overlap_periods)
-    beta_ols, t_ols, p_ols, resid = _ols_nw_slope_t(y, x, lags=lags)
+    beta_ols, _, _, resid = _ols_nw_slope_t(y, x, lags=lags)
     # The headline test is a SINGLE-restriction slope t, so it takes the HAR
     # bandwidth and the fixed-b effective df that the scalar series-mean path
     # uses - the K x K Wald degradation that keeps the multivariate paths on
@@ -314,29 +311,31 @@ def predictive_beta(
     # slope stays in metadata.
     fit = _amihud_hurvich_beta(y, x, lags=har_lags, overlap_periods=overlap_periods)
     if math.isnan(fit.beta):
-        # Too short / degenerate for the augmented design; fall back to the
-        # plain slope so the metric still reports what it can. The reported
-        # model IS the OLS one here, so every diagnostic below stays on its
-        # residuals and on the full finite-pair count.
-        beta, t_stat, p_value = beta_ols, t_ols, p_ols
-        stambaugh_applied = False
-        alpha = float(np.mean(y) - beta * np.mean(x))
-        model_resid = resid
-        n_used = n
-    else:
-        beta, t_stat, p_value = fit.beta, fit.t_stat, fit.p_value
-        stambaugh_applied = True
-        # Diagnostics describe the model that is REPORTED, on the rows that
-        # produced it. The augmented design spends the first observation on
-        # the AR(1) lag and, at h > 1, the last h - 1 windows on the
-        # horizon-summed innovation proxy, so ``alpha``, the residual screen
-        # and every sample count read ``fit``'s own rows - not the n finite
-        # pairs the uncorrected OLS reference was fitted on. Reporting a
-        # corrected slope next to an intercept and a residual autocorrelation
-        # taken off the uncorrected fit described a model no caller was shown.
-        alpha = fit.alpha
-        model_resid = fit.resid
-        n_used = fit.n_used
+        return _short_circuit_output(
+            "predictive_beta",
+            "no_amihud_hurvich_fit",
+            n_obs=n,
+            n_obs_axis="periods",
+            n_periods_finite=n,
+            overlap_periods=overlap_periods,
+            factor_std=x_std,
+            newey_west_lags=lags,
+            har_lags=har_lags,
+            stambaugh_adjusted=False,
+            beta_ols_uncorrected=beta_ols,
+        )
+    beta, t_stat, p_value = fit.beta, fit.t_stat, fit.p_value
+    # Diagnostics describe the model that is REPORTED, on the rows that
+    # produced it. The augmented design spends the first observation on the
+    # AR(1) lag and, at h > 1, the last h - 1 windows on the horizon-summed
+    # innovation proxy, so ``alpha``, the residual screen and every sample
+    # count read ``fit``'s own rows - not the n finite pairs the uncorrected
+    # OLS reference was fitted on. Reporting a corrected slope next to an
+    # intercept and a residual autocorrelation taken off the uncorrected fit
+    # described a model no caller was shown.
+    alpha = fit.alpha
+    model_resid = fit.resid
+    n_used = fit.n_used
     # R-squared stays an OLS quantity and is named for it. A "corrected R²"
     # is not a least-squares object: the AH slope does not minimise the sum
     # of squares on these rows, so 1 - SSR/SST off the corrected residual can
@@ -363,8 +362,8 @@ def predictive_beta(
     if overlap_periods > 1:
         _emit_warning(
             WarningCode.OVERLAPPING_PREDICTIVE_INFERENCE,
-            f"overlap_periods={overlap_periods} puts the predictive slope "
-            "test in a known-oversized HAC regime (7.5-14.5% measured null "
+            f"overlap_periods={overlap_periods}: the Amihud-Hurvich-adjusted "
+            "HAR test is in a known-oversized regime (7.5-14.5% measured null "
             "rejection at a nominal 5%). The estimate and p-value are "
             "returned; use a raised hurdle and compare h=1 or a genuinely "
             "non-overlapping design.",
@@ -384,14 +383,14 @@ def predictive_beta(
     # reported; it just no longer decides the flag on its own.
     bias_channel = (
         abs(fit.innovation_corr * fit.phi_corrected)
-        if stambaugh_applied and not math.isnan(fit.innovation_corr)
+        if not math.isnan(fit.innovation_corr)
         else 0.0
     )
     # The bias-corrected AR(1) coefficient is not clamped (clamping it re-opens
     # the bias the correction exists to close - see _amihud_hurvich_beta), so a
     # phi_c at or above one is a real regime the caller has to see: the
     # innovation proxy is then a non-stationary filter of the predictor.
-    phi_corrected_explosive = stambaugh_applied and fit.phi_corrected >= 1.0
+    phi_corrected_explosive = fit.phi_corrected >= 1.0
     if (
         unit_root_suspected
         or phi_corrected_explosive
@@ -451,9 +450,9 @@ def predictive_beta(
         "alpha": alpha,
         "r_squared_ols_uncorrected": r_squared_ols,
         "factor_std": x_std,
-        "stambaugh_adjusted": stambaugh_applied,
+        "stambaugh_adjusted": True,
         "beta_ols_uncorrected": beta_ols,
-        "stambaugh_bias_estimate": (beta_ols - beta) if stambaugh_applied else 0.0,
+        "stambaugh_bias_estimate": beta_ols - beta,
         "ar1_phi": fit.phi,
         "ar1_phi_corrected": fit.phi_corrected,
         "innovation_corr": fit.innovation_corr,

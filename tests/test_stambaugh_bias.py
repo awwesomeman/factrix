@@ -281,23 +281,23 @@ class TestCorrectedFitDiagnostics:
         assert result.metadata["residual_lag1_autocorr"] <= PERSISTENT_SERIES_AUTOCORR
         assert WarningCode.SERIAL_CORRELATION_DETECTED.value not in result.warning_codes
 
-    def test_fallback_to_plain_ols_keeps_every_diagnostic_on_the_ols_fit(self):
-        """Too short for the augmented design: the reported model IS the OLS
-        one, so ``alpha``, the residual screen and the counts stay on it."""
+    def test_unavailable_adjusted_fit_does_not_fall_back_to_plain_ols(self):
+        """An unavailable adjusted design must not change the estimator."""
         rng = np.random.default_rng(31)
         n = 24
         x, y = _stambaugh_draw(n, 0.5, 0.0, 20, rng)
-        with pytest.warns(UserWarning, match="effective sample"):
-            result = predictive_beta(
-                _panel(x, y), overlap_periods=20, adf_threshold=None
-            )
+        result = predictive_beta(_panel(x, y), overlap_periods=20, adf_threshold=None)
 
+        assert np.isnan(result.value)
+        assert result.stat is None
+        assert result.p_value == 1.0
+        assert result.metadata["reason"] == "no_amihud_hurvich_fit"
         assert result.metadata["stambaugh_adjusted"] is False
+        assert np.isfinite(result.metadata["beta_ols_uncorrected"])
         assert result.n_obs == n
         assert result.metadata["n_periods_finite"] == n
-        assert result.metadata["alpha"] == pytest.approx(
-            float(np.mean(y) - result.value * np.mean(x))
-        )
-        assert result.metadata["residual_lag1_autocorr"] == pytest.approx(
-            _lag1_autocorr(self._ols_residual(x, y, result.value)[::20])
+        assert WarningCode.METRIC_UNAVAILABLE.value in result.warning_codes
+        assert (
+            WarningCode.OVERLAPPING_PREDICTIVE_INFERENCE.value
+            not in result.warning_codes
         )
