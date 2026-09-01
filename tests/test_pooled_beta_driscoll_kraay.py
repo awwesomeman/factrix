@@ -64,6 +64,7 @@ class TestDriscollKraayPath:
         assert res.metadata["hac_scale"] == pytest.approx(scale)
         assert res.metadata["hac_dof"] == pytest.approx(dof)
         assert res.metadata["overlap_periods"] == 5
+        assert res.metadata["overlap_adjustment_applied"] is True
 
     def test_point_estimate_matches_clustered_path(self):
         # SE method does not change the OLS slope — only its variance.
@@ -151,6 +152,8 @@ class TestDriscollKraayPath:
         res = pooled_beta(df)
         assert "se_method" not in res.metadata
         assert "clustered SE" in res.metadata["method"]
+        assert res.metadata["overlap_periods"] == 5
+        assert res.metadata["overlap_adjustment_applied"] is False
 
     def test_driscoll_kraay_p_value_degrees_of_freedom(self):
         import scipy.stats as sp_stats

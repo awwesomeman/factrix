@@ -612,6 +612,7 @@ def _pooled_beta_driscoll_kraay(
         "hac_scale": hac_scale,
         "hac_dof": hac_dof,
         "overlap_periods": overlap_periods,
+        "overlap_adjustment_applied": True,
     }
     stat, p_out, alternative = _degenerate_test_fields(
         t_stat, p, "two-sided", metadata, warning_codes
@@ -708,6 +709,24 @@ def pooled_beta(
     fails is not exposed as the headline value: without a valid covariance
     estimate, downstream aggregation cannot distinguish it from a fully
     inferential pooled beta.
+
+    Args:
+        data: Panel containing the regression columns and cluster keys.
+        factor_col: Signal column used as the pooled OLS regressor.
+        return_col: Return column used as the pooled OLS response.
+        cluster_col: Primary cluster key. Defaults to the period column.
+        two_way_cluster_col: Optional second cluster key for Cameron-Gelbach-
+            Miller two-way covariance.
+        driscoll_kraay: Use cross-section-robust Driscoll-Kraay HAC covariance
+            instead of clustered covariance.
+        driscoll_kraay_lags: Optional base Bartlett bandwidth for the
+            Driscoll-Kraay path.
+        overlap_periods: Evaluation-grid overlap injected by ``evaluate`` or
+            declared on a direct call. Driscoll-Kraay uses it to resolve its
+            bandwidth, variance scale, and reference degrees of freedom.
+            Clustered covariance does not use it and records
+            ``overlap_adjustment_applied=False``.
+        expected_warnings: Warning codes expected by the study design.
 
     Formula:
         Point estimate:
@@ -985,6 +1004,8 @@ def pooled_beta(
         "stat_type": "t",
         "h0": "β=0",
         "method": method_desc,
+        "overlap_periods": overlap_periods,
+        "overlap_adjustment_applied": False,
         **cluster_metadata,
     }
     if variance_status is not None:

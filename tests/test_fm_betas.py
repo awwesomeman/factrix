@@ -447,6 +447,30 @@ class TestPooledClusteredSEAgainstHandComputation:
         assert out.p_value == pytest.approx(float(p_ref))
         assert out.metadata["n_clusters"] == g
 
+    @pytest.mark.parametrize("two_way_cluster_col", [None, "asset_id"])
+    def test_clustered_path_records_but_does_not_apply_overlap_adjustment(
+        self, two_way_cluster_col
+    ):
+        from factrix.metrics.fm_beta import pooled_beta
+
+        panel = self._panel()
+        short = pooled_beta(
+            panel,
+            two_way_cluster_col=two_way_cluster_col,
+            overlap_periods=1,
+        )
+        overlapping = pooled_beta(
+            panel,
+            two_way_cluster_col=two_way_cluster_col,
+            overlap_periods=21,
+        )
+
+        assert overlapping.metadata["overlap_periods"] == 21
+        assert overlapping.metadata["overlap_adjustment_applied"] is False
+        assert overlapping.value == short.value
+        assert overlapping.stat == short.stat
+        assert overlapping.p_value == short.p_value
+
     def test_one_way_too_few_clusters_hides_the_slope(self):
         panel = self._panel(n_dates=2, n_assets=15)
 
