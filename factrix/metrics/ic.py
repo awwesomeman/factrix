@@ -341,7 +341,6 @@ def ic(
                 min_assets_required=MIN_IC_ASSETS_HARD,
                 overlap_periods=overlap_periods,
                 alternative=alternative,
-                alternative_requested=alternative,
                 hint=(
                     "every cross-section has fewer than MIN_IC_ASSETS_HARD valid "
                     "(factor, return) pairs or a degenerate (constant) factor / "
@@ -359,7 +358,6 @@ def ic(
             min_required=raw_min,
             overlap_periods=overlap_periods,
             alternative=alternative,
-            alternative_requested=alternative,
         )
 
     result = inference.compute(
@@ -381,7 +379,6 @@ def ic(
             min_required=MIN_SERIES_PERIODS_HARD,
             overlap_periods=overlap_periods,
             alternative=alternative,
-            alternative_requested=alternative,
         )
 
     # value / stat / p / n_obs must describe the *same* sample. A stride-based
@@ -402,7 +399,6 @@ def ic(
         "h0": "mu=0",
         "method": inference.summary,
         "tie_ratio": median_tie,
-        "alternative_requested": alternative,
     }
     # Surface the resampling knobs the bootstrap path actually ran with —
     # the same helper the spread chokepoint calls, so both report one set of

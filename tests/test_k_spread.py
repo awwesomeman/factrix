@@ -145,6 +145,31 @@ class TestShortCircuits:
         assert result.is_applicable is True
         assert result.metadata["signal_status"] == "no_signal_zero_variance_factor"
 
+    @pytest.mark.parametrize(
+        ("alternative", "expected_p"),
+        [("two-sided", 1.0), ("greater", 0.5), ("less", 0.5)],
+    )
+    def test_no_signal_p_is_read_off_the_requested_tail(self, alternative, expected_p):
+        """``t = 0`` is ``p = 1`` two-sided but ``p = 0.5`` one-sided.
+
+        REGRESSION: the sentinel hard-coded ``p = 1.0`` while reporting the
+        caller's ``alternative``, shipping a ``(stat, p, alternative)`` triple
+        that could not be recomputed from its own parts.
+        """
+        rng = np.random.default_rng(9)
+        factor = np.ones(8, dtype=float)
+        returns = rng.normal(0.0, 0.02, size=(6, 8))
+        result = k_spread(
+            _panel_from_matrix(factor, returns),
+            overlap_periods=1,
+            k=2,
+            alternative=alternative,
+        )
+
+        assert result.stat == 0.0
+        assert result.alternative == alternative
+        assert result.p_value == pytest.approx(expected_p)
+
 
 class TestUnderfilledDatesDropped:
     def test_dates_with_fewer_than_2k_assets_excluded(self):

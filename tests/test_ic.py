@@ -329,10 +329,17 @@ class TestIC:
         assert result.alternative == alternative
 
     def test_shortfall_preserves_requested_alternative(self):
+        """A shortfall keeps the tail on the result, not in ``metadata``.
+
+        ``alternative_requested`` is the degenerate path's record of a tail
+        the top-level field had to withhold. A shortfall still populates
+        ``MetricResult.alternative``, so duplicating it into ``metadata``
+        would let a consumer read the key's presence as degeneracy.
+        """
         df = pl.DataFrame({"date": np.arange(3), "ic": [0.1, 0.2, 0.3]})
         result = ic(df, overlap_periods=1, alternative="greater")
         assert result.alternative == "greater"
-        assert result.metadata["alternative_requested"] == "greater"
+        assert "alternative_requested" not in result.metadata
 
     def test_degenerate_series_preserves_requested_alternative_in_metadata(self):
         df = pl.DataFrame({"date": np.arange(40), "ic": np.full(40, 0.1)})

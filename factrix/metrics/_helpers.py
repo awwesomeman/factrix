@@ -540,14 +540,22 @@ def _no_signal_zero_variance(
     """Explicit no-signal result for a zero cross-sectional variance factor.
 
     A constant factor produces an identically zero long-short spread, so the
-    honest answer is ``value=0`` with ``t=0``, ``p=1`` — a real (if null)
-    finding, not a data shortage. Returned as a normal applicable
-    ``MetricResult`` (no short-circuit ``reason``) so callers do not mis-route
-    it as a shortage. ``extra`` carries metric-specific descriptive metadata.
+    honest answer is ``value=0`` with ``t=0`` — a real (if null) finding, not
+    a data shortage. Returned as a normal applicable ``MetricResult`` (no
+    short-circuit ``reason``) so callers do not mis-route it as a shortage.
+    ``extra`` carries metric-specific descriptive metadata.
+
+    The p is read off ``t = 0`` under the *requested* tail rather than fixed
+    at ``1.0``: two-sided it is ``1.0`` as before, but a one-sided test whose
+    statistic is exactly zero has ``p = 0.5``. Hard-coding ``1.0`` under
+    ``alternative="greater"`` would ship a ``(stat, p, alternative)`` triple
+    that cannot be recomputed from its own parts.
     """
+    from factrix._stats.core import _p_value_from_t
+
     return MetricResult(
         value=0.0,
-        p_value=1.0,
+        p_value=_p_value_from_t(0.0, n_periods, alternative),
         alternative=alternative,
         n_obs=n_periods,
         n_obs_axis="periods",
@@ -584,9 +592,18 @@ def _degenerate_test_fields(
     Pass what ``_calc_t_stat`` (or a HAC t-test) just returned together with
     the p derived from it. When ``stat`` is finite the triple comes back
     unchanged; when it is NaN the caller gets ``(None, None, None)`` and this
-    stamps ``metadata["signal_status"]`` plus a ``DEGENERATE_VARIANCE``
+    stamps ``metadata["signal_status"]`` and
+    ``metadata["alternative_requested"]`` plus a ``DEGENERATE_VARIANCE``
     warning code (both containers are mutated in place, as the
     ``_surface_*`` helpers do).
+
+    ``alternative_requested`` is written **here and only here**: it exists to
+    preserve the requested tail across the one path that withholds the
+    top-level ``alternative`` field. On every other path ``MetricResult.
+    alternative`` already carries it, so a second copy in ``metadata`` would
+    be a duplicate that consumers could read as a degeneracy marker. Metrics
+    that expose no ``alternative`` knob record ``"two-sided"`` here, which is
+    what they ran.
 
     **Why the test dies but the result lives.** A zero-dispersion sample is
     not a null result: every observation identical and non-zero is degeneracy
