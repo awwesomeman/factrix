@@ -139,6 +139,13 @@ class WarningCode(StrEnum):
     # ``factrix.metrics._helpers._degenerate_test_fields``).
     DEGENERATE_VARIANCE = "degenerate_variance"
 
+    # Fired by ``common_beta`` when the caller supplies a hand-built beta
+    # table without the calendar-time portfolio variance produced by
+    # ``compute_common_betas``. The textbook iid cross-asset t remains
+    # available as an explicit reference, but shared residual components can
+    # make it severely oversized, so the estimator switch must be visible.
+    COMMON_BETA_IID_FALLBACK = "common_beta_iid_fallback"
+
     # Fired by ``bmp_z`` when no ``price`` column is present and the
     # estimation-window volatility falls back to the per-asset rolling std of
     # ``forward_return``. Because forward_return[t] looks ahead to [t+1, t+1+h],
@@ -575,6 +582,12 @@ _WARNING_DESCRIPTIONS.update(
         "raw InferenceResult) — an identical, non-zero sample is degenerate in the "
         "maximum-evidence direction, not evidence of a null, so t=0 / p=1 would "
         "invert the reading.",
+        WarningCode.COMMON_BETA_IID_FALLBACK: "common_beta received a hand-built "
+        "beta table without the calendar-time portfolio variance emitted by "
+        "compute_common_betas, so it reports the textbook iid cross-asset t. "
+        "Betas with a shared residual component are not independent draws; "
+        "use compute_common_betas(panel) for the calibrated calendar-time SE "
+        "or treat this p-value as an unadjusted reference.",
         WarningCode.BMP_RETURN_VOL_FALLBACK: "bmp_z ran without a price column: the "
         "estimation-window volatility falls back to the per-asset rolling std of "
         "forward_return, lagged by overlap_periods so it ends before the event's "

@@ -601,7 +601,7 @@ All exceptions inherit from `FactrixError`:
 
 ## WarningCode reference
 
-The canonical glosses live in `factrix._codes.WarningCode.description` and are regenerated into `docs/reference/_generated_warning_codes.md`. The 33 evaluation-side codes (the preprocess and data-shape codes are in that generated reference; of those, `non_finite_input_dropped` is also attached by `caar` when `compute_caar` drops non-finite event rows):
+The canonical glosses live in `factrix._codes.WarningCode.description` and are regenerated into `docs/reference/_generated_warning_codes.md`. The 34 evaluation-side codes (the preprocess and data-shape codes are in that generated reference; of those, `non_finite_input_dropped` is also attached by `caar` when `compute_caar` drops non-finite event rows):
 
 | WarningCode | Description |
 |---|---|
@@ -620,6 +620,7 @@ The canonical glosses live in `factrix._codes.WarningCode.description` and are r
 | `few_directional_pairs` | `directional_hit_rate` with 10..29 pooled non-overlapping (date, asset) pairs; PT normal approximation is power-thin below ~30. |
 | `rect_kernel_negative_variance` | Rectangular-kernel HAC variance came out negative (no PSD guarantee); clamped to 0 → SE=0, so the t-test is not computable (also flagged `degenerate_variance`). |
 | `degenerate_variance` | The sample admits no test statistic: every observation identical (zero dispersion), the HAC SE collapsed to zero, or a Wald restriction's covariance is singular. The metric keeps its `value` but returns `stat=None` / `p_value=None` — an identical, non-zero sample is degenerate in the *maximum*-evidence direction, so `t=0, p=1` would invert the reading. |
+| `common_beta_iid_fallback` | `common_beta` received a hand-built beta table without the calendar-time portfolio variance from `compute_common_betas`, so it reports the textbook iid cross-asset t as an explicitly unadjusted reference. Shared residual components can make that test severely oversized. |
 | `bmp_return_vol_fallback` | `bmp_z` ran without a `price` column; estimation-window vol falls back to lagged rolling std of `forward_return` (coarser proxy). Either path's horizon vol scale is exact only on the unsampled full grid; the p-value does not depend on it (the factor is common to every event and cancels in z), only the descriptive `metadata['std_sar']` and the mean-SAR value shift by a constant. |
 | `upstream_unavailable` | DAG consumer skipped because an upstream producer short-circuited; cause in `metadata['upstream_reason']`. |
 | `metric_unavailable` | Metric short-circuited on its OWN precondition (missing input/config or insufficient sample); cause in `metadata['reason']`. |

@@ -920,9 +920,14 @@ which reports `R²` for the OLS regression.
   `beta_dispersion_excess` (`τ̂²`), `dof` (Welch-Satterthwaite df across the
   two variance components) and `stat_uncorrected` (the iid `t`).
   `calendar_time_se_source` records `unavailable_hand_built_frame` (no
-  panel behind the frame) or `too_few_shared_periods`; the iid `t` is then
-  the reported statistic.
+  panel behind the frame), `shared_period_count_unavailable`,
+  `too_few_shared_periods`, or `invalid_calendar_time_variance`. Only the
+  hand-built-frame case reports the iid `t`; producer failures withhold the
+  test.
 - *warning*: `WarningCode.FEW_ASSETS` below `MIN_ASSETS_WARN`.
+- *warning*: `WarningCode.COMMON_BETA_IID_FALLBACK` when a hand-built beta
+  table has no calendar-time variance; `WarningCode.DEGENERATE_VARIANCE`
+  when producer-supplied calendar-time inference fails.
 
 #### `common_beta_profile`
 

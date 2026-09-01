@@ -114,7 +114,7 @@ correction that has not been calibrated.
 | `positive_rate` exact binomial | 2.3–4.7% in most cells; one IC-pipeline cell measured 8.0% at `n=240` | Exact-binomial discreteness is conservative at short `n`; the 8% cell is within two Monte Carlo SE of the iid cell, not evidence that every cell is at or below nominal |
 | `directional_hit_rate` Pesaran-Timmermann with period deflation | 3.0–7.7% on the measured panel grid | Same-period dependence must remain visible in the event-period metadata |
 | `ic_trend` strided Hamed-Rao Mann-Kendall | 1.7–5.3% over `T ∈ {60,120,240}`, `h ∈ {1,5}` | Strong residual persistence and unit-root input remain warning regimes |
-| `common_beta` calendar-time cross-asset t | 2.0–7.3% on the measured common-factor panel grid | A hand-built beta table cannot recover the calendar-time variance and falls back to the iid cross-asset reference |
+| `common_beta` calendar-time cross-asset t | 2.0–7.3% on the measured common-factor panel grid | A hand-built beta table uses a flagged iid reference; a failed producer estimate withholds inference instead of substituting iid |
 
 Producing tests include `test_spread_bootstrap_size.py`,
 `test_monotonicity_size.py`, `test_positive_rate_size.py`,
