@@ -512,6 +512,80 @@ class TestPooledClusteredSEAgainstHandComputation:
         assert out.metadata["n_clusters_b"] == 2
         assert WarningCode.METRIC_UNAVAILABLE.value in out.warning_codes
 
+    def test_non_psd_two_way_covariance_does_not_fall_back_to_one_way(self):
+        rng = np.random.default_rng(7)
+        n_dates, n_assets = 3, 4
+        date_ids = np.repeat(np.arange(n_dates), n_assets)
+        asset_ids = np.tile(np.arange(n_assets), n_dates)
+        factor = rng.normal(size=n_dates * n_assets)
+        returns = (
+            0.002 * factor
+            + rng.normal(scale=0.02, size=n_dates)[date_ids]
+            + rng.normal(scale=0.02, size=n_assets)[asset_ids]
+            + rng.normal(scale=0.01, size=n_dates * n_assets)
+        )
+        panel = pl.DataFrame(
+            {
+                "date": date_ids,
+                "asset_id": asset_ids,
+                "factor": factor,
+                "forward_return": returns,
+            }
+        )
+
+        out = pooled_beta(panel, two_way_cluster_col="asset_id")
+
+        assert np.isfinite(out.value)
+        assert out.stat is None
+        assert out.p_value is None
+        assert out.alternative is None
+        assert out.metadata["variance_status"] == "non_psd_two_way_covariance"
+        assert "variance_non_psd_fallback" not in out.metadata
+        assert WarningCode.DEGENERATE_VARIANCE.value in out.warning_codes
+
+    def test_the_withheld_two_way_test_names_its_cause(self):
+        """A p-value that disappears should say why, as ``fm_beta`` does."""
+        rng = np.random.default_rng(7)
+        n_dates, n_assets = 3, 4
+        date_ids = np.repeat(np.arange(n_dates), n_assets)
+        asset_ids = np.tile(np.arange(n_assets), n_dates)
+        factor = rng.normal(size=n_dates * n_assets)
+        returns = (
+            0.002 * factor
+            + rng.normal(scale=0.02, size=n_dates)[date_ids]
+            + rng.normal(scale=0.02, size=n_assets)[asset_ids]
+            + rng.normal(scale=0.01, size=n_dates * n_assets)
+        )
+        panel = pl.DataFrame(
+            {
+                "date": date_ids,
+                "asset_id": asset_ids,
+                "factor": factor,
+                "forward_return": returns,
+            }
+        )
+
+        with pytest.warns(UserWarning, match="non-PSD"):
+            pooled_beta(panel, two_way_cluster_col="asset_id")
+
+    def test_a_non_finite_slope_se_is_caught_by_the_guard_not_by_division(self):
+        """The withheld-variance path must not depend on ``slope / nan``.
+
+        REGRESSION: the non-PSD branch hands the SE forward as NaN, and a
+        raw ``se < EPSILON`` test is False for NaN — the withheld test then
+        survived only because dividing by NaN happens to give NaN. The
+        shared ``_degenerate_t_input`` boundary (the one ``_ols.py`` uses)
+        recognises NaN directly, so a later change to the division cannot
+        silently turn a withheld test into a reported one.
+        """
+        from factrix._stats.core import _degenerate_t_input
+        from factrix._types import EPSILON
+
+        assert (float("nan") < EPSILON) is False
+        assert _degenerate_t_input(float("nan"), 1) is True
+        assert _degenerate_t_input(0.0, 1) is True
+        assert _degenerate_t_input(1.0, 1) is False
+
 
 class TestShankenCorrection:
     """The EIV path: mandatory σ²_f, HAR df, and the degenerate regime."""
@@ -580,6 +654,30 @@ class TestShankenCorrection:
         # message has to say so — see the docstring's 1 + t^2/T identity.
         assert "1 + t" in str(err)
 
+    @pytest.mark.parametrize("bad", [float("nan"), -1.0])
+    def test_a_non_variance_factor_return_var_is_refused_at_the_boundary(self, bad):
+        """NaN and negative are invalid input, not the flat-premium regime.
+
+        REGRESSION: NaN failed the ``sigma2_f < EPSILON`` guard, reached the
+        multiplier as ``1 + mean(beta)**2 / NaN`` and withheld the test while
+        metadata still reported ``method`` as Shanken-corrected with
+        ``shanken_c = nan`` and no warning at all. A negative variance was
+        reported as "below EPSILON", describing bad input as a degenerate
+        sample.
+        """
+        from factrix._errors import UserInputError
+
+        betas = self._draw(120, 0.004, 5)
+        with pytest.raises(UserInputError) as excinfo:
+            fm_beta(
+                self._beta_df(betas),
+                is_estimated_factor=True,
+                factor_return_var=bad,
+            )
+        err = excinfo.value
+        assert err.field == "factor_return_var"
+        assert "finite, non-negative" in str(err)
+
     def test_degenerate_factor_variance_raises_a_warning_code(self):
         betas = self._draw(120, 0.004, 7)
         with pytest.warns(UserWarning, match="Shanken"):
@@ -589,11 +687,15 @@ class TestShankenCorrection:
                 factor_return_var=0.0,
             )
         assert WarningCode.DEGENERATE_VARIANCE.value in out.warning_codes
-        assert out.metadata["shanken_correction"] == "skipped_zero_factor_variance"
-        # Skipped, so the uncorrected result stands and no Shanken key appears.
+        assert out.metadata["shanken_correction"] == "unavailable_zero_factor_variance"
         assert "shanken_c" not in out.metadata
         uncorrected = fm_beta(self._beta_df(betas))
-        assert out.p_value == pytest.approx(uncorrected.p_value)
+        assert out.value == pytest.approx(uncorrected.value)
+        assert out.stat is None
+        assert out.p_value is None
+        assert out.alternative is None
+        assert out.metadata["stat_uncorrected"] == pytest.approx(uncorrected.stat)
+        assert out.metadata["p_value_uncorrected"] == pytest.approx(uncorrected.p_value)
 
     def test_expected_warnings_silences_the_degenerate_regime(self):
         betas = self._draw(120, 0.004, 7)

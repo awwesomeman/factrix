@@ -51,6 +51,7 @@ from factrix._stats import (
     _resolve_scalar_wald_hac,
 )
 from factrix._stats.constants import MIN_PERIODS_WARN, PERSISTENT_SERIES_AUTOCORR
+from factrix._stats.core import _degenerate_t_input
 from factrix._types import (
     DEFAULT_FORWARD_PERIODS,
     EPSILON,
@@ -218,11 +219,13 @@ def fm_beta(
             \equiv 1 + t^2_{\mathrm{iid}}/T$ identically — an algebraic
             restatement of the $t$-stat that carries no
             errors-in-variables information about the regressor. When
-            $\sigma^2_f$ is below machine epsilon the multiplier is
-            undefined; the correction is skipped, the uncorrected
-            Newey-West $p$ is returned, and
-            ``WarningCode.DEGENERATE_VARIANCE`` is raised alongside
-            ``metadata["shanken_correction"]``.
+            $\sigma^2_f$ is below ``EPSILON`` (``1e-9``, not machine
+            epsilon) the multiplier is undefined; the mean beta remains
+            available, but the headline
+            statistic and $p$ are withheld. The uncorrected Newey-West test
+            is retained only in ``metadata["stat_uncorrected"]`` and
+            ``metadata["p_value_uncorrected"]``, alongside
+            ``WarningCode.DEGENERATE_VARIANCE``.
 
     Notes:
         Stage 2 of FM:
@@ -288,21 +291,41 @@ def fm_beta(
         >>> result.name == ""
         True
     """
-    if is_estimated_factor and factor_return_var is None:
-        raise UserInputError(
-            func_name="fm_beta",
-            field="factor_return_var",
-            value=factor_return_var,
-            expected=(
-                "the time-series variance of the factor-mimicking portfolio "
-                "return (a float) whenever is_estimated_factor=True. There is "
-                "no usable default: substituting var(β̂_t) makes the Shanken "
-                "multiplier 1 + mean(β)²/var(β̂_t) identically 1 + t²/T, which "
-                "is a restatement of the t-stat and carries no "
-                "errors-in-variables information about the regressor"
-            ),
-            docs_path=_DOCS_FM_BETA,
-        )
+    if is_estimated_factor:
+        if factor_return_var is None:
+            raise UserInputError(
+                func_name="fm_beta",
+                field="factor_return_var",
+                value=factor_return_var,
+                expected=(
+                    "the time-series variance of the factor-mimicking "
+                    "portfolio return (a float) whenever "
+                    "is_estimated_factor=True. There is no usable default: "
+                    "substituting var(β̂_t) makes the Shanken multiplier "
+                    "1 + mean(β)²/var(β̂_t) identically 1 + t²/T, which is a "
+                    "restatement of the t-stat and carries no "
+                    "errors-in-variables information about the regressor"
+                ),
+                docs_path=_DOCS_FM_BETA,
+            )
+        if not math.isfinite(factor_return_var) or factor_return_var < 0.0:
+            # Rejected at the boundary rather than folded into the σ²_f ≈ 0
+            # regime below. NaN fails ``< EPSILON``, so it would reach the
+            # multiplier as ``1 + mean(β)²/NaN`` and withhold the test while
+            # metadata still named Shanken as applied; a negative value is
+            # not a variance at all, and reporting it as "below EPSILON"
+            # would describe an invalid input as a degenerate sample.
+            raise UserInputError(
+                func_name="fm_beta",
+                field="factor_return_var",
+                value=factor_return_var,
+                expected=(
+                    "a finite, non-negative variance. A NaN or negative "
+                    "value is an invalid input, not the flat-premium regime "
+                    "the σ²_f ≈ 0 branch handles"
+                ),
+                docs_path=_DOCS_FM_BETA,
+            )
 
     betas = beta_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
@@ -366,26 +389,31 @@ def fm_beta(
     if is_estimated_factor:
         sigma2_f = float(factor_return_var)  # type: ignore[arg-type]
         # σ²_f ≈ 0 means the factor premium series is flat; Shanken's
-        # denominator collapses and the correction is undefined. Skip
-        # rather than divide into EPSILON — the uncorrected NW result
-        # is the honest answer in a degenerate regime. A skipped
-        # correction is a regime switch, so it carries a warning code
-        # rather than only a metadata string.
+        # denominator collapses and the requested correction is undefined.
+        # Keep the mean beta and the uncorrected test as named diagnostics,
+        # but do not substitute that test into the headline fields.
         if sigma2_f < EPSILON:
-            metadata["shanken_correction"] = "skipped_zero_factor_variance"
+            metadata.update(
+                {
+                    "shanken_correction": "unavailable_zero_factor_variance",
+                    "p_value_uncorrected": p,
+                    "stat_uncorrected": t,
+                }
+            )
             _emit_warning(
                 WarningCode.DEGENERATE_VARIANCE,
                 f"factor_return_var={sigma2_f!r} is below "
                 f"EPSILON={EPSILON}, so the Shanken (1992) EIV multiplier "
-                f"1 + mean(β)²/σ²_f is undefined. The correction is "
-                f"skipped and the UNCORRECTED Newey-West p-value is "
-                f"returned — read it as un-adjusted for the estimated "
-                f"regressor.",
+                f"1 + mean(β)²/σ²_f is undefined. The mean beta is retained, "
+                f"but headline stat and p_value are withheld; the uncorrected "
+                f"Newey-West test is descriptive metadata only.",
                 label="fm_beta",
                 expected_warnings=expected_warnings,
                 warning_codes=warning_codes,
                 stacklevel=2,
             )
+            t = float("nan")
+            p_final = float("nan")
         else:
             c = 1.0 + (mean_beta**2) / sigma2_f
             sqrt_c = math.sqrt(c)
@@ -542,7 +570,7 @@ def _pooled_beta_driscoll_kraay(
     # ``t = 0.0 -> p = 1.0`` reported "no relationship" for a sample that fits
     # exactly, and carried no warning code - pooled_beta was the only metric
     # in the library skipping the repo's own degenerate-sample convention.
-    t_stat = float("nan") if se_slope < EPSILON else slope / se_slope
+    t_stat = float("nan") if _degenerate_t_input(se_slope, 1) else slope / se_slope
     p = _p_value_from_t(t_stat, n_periods, dof=hac_dof)
 
     warning_codes: list[str] = []
@@ -758,14 +786,17 @@ def pooled_beta(
         resolved test. ``overlap_periods`` is injected from the panel by
         ``evaluate``; standalone calls may pass it directly.
 
-        factrix reports ``value = NaN`` and ``stat = None`` (rather than a
-        finite slope and zero statistic) when ``G < 3`` because the
-        cluster-robust variance is undefined with too few clusters. Retaining
-        the algebraic OLS slope in the headline field would let downstream
-        aggregation treat an inference-unavailable cell as a valid pooled
-        beta; falling back to a homoskedastic SE would silently break the
-        panel-correlation guarantee that motivated using clustered SE in the
-        first place.
+        Two regimes withhold the test, and they differ in what happens to
+        ``value``. Under ``G < 3`` factrix reports ``value = NaN`` and
+        ``stat = None``: with two clusters the *sample* cannot support a
+        clustered estimate at all, so the algebraic slope is not a pooled
+        beta any downstream aggregation should average. A non-PSD two-way
+        covariance is the other case — the OLS slope is estimated exactly as
+        usual and only the finite-sample *variance* estimator failed, so
+        ``value`` stays and just ``stat`` / ``p_value`` are withheld. In
+        neither case does factrix fall back to a homoskedastic or one-way SE,
+        which would silently break the panel-correlation guarantee that
+        motivated clustering in the first place.
 
     References:
         - [Petersen (2009)][petersen-2009]. "Estimating Standard Errors
@@ -929,26 +960,24 @@ def pooled_beta(
 
     with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
         V = c_obs * xtx_inv @ effective_meat @ xtx_inv
-    v_slope = V[1, 1]
-    non_psd_fallback = False
-    # Two-way V can be numerically non-PSD in small samples (CGM 2011
-    # §2.2). Clipping to 0 would report SE=0 / p=1 — that looks like
-    # "accept null" but is actually "variance undefined", the opposite
-    # of honest. Cameron-Miller (2015, JHR) recommend falling back to
-    # the larger-dimension single-way V, which is always PSD.
+    v_slope = float(V[1, 1])
+    variance_status: str | None = None
+    # A finite-sample two-way covariance need not be PSD (CGM 2011 §2.3).
+    # A one-way replacement answers a different question, while clipping the
+    # negative variance to zero invents infinite evidence. Preserve the OLS
+    # slope and withhold only the unavailable two-way test.
     if v_slope < 0.0 and two_way_cluster_col is not None:
-        v_slope = float(
-            c_obs * (xtx_inv @ ((g_a / (g_a - 1)) * meat_a) @ xtx_inv)[1, 1]
-        )
-        non_psd_fallback = True
-    se_slope = float(np.sqrt(max(v_slope, 0.0)))
+        variance_status = "non_psd_two_way_covariance"
+        se_slope = float("nan")
+    else:
+        se_slope = float(np.sqrt(max(v_slope, 0.0)))
 
     # A zero clustered SE is degeneracy in the MAXIMUM-evidence direction
     # (perfect fit, zero residuals), never the null. The former
     # ``t = 0.0 -> p = 1.0`` reported "no relationship" for a sample that fits
     # exactly, and carried no warning code - pooled_beta was the only metric
     # in the library skipping the repo's own degenerate-sample convention.
-    t_stat = float("nan") if se_slope < EPSILON else slope / se_slope
+    t_stat = float("nan") if _degenerate_t_input(se_slope, 1) else slope / se_slope
 
     p = _p_value_from_t(t_stat, df_t)
 
@@ -958,12 +987,28 @@ def pooled_beta(
         "method": method_desc,
         **cluster_metadata,
     }
-    if non_psd_fallback:
-        metadata["variance_non_psd_fallback"] = f"one_way_{cluster_col}"
+    if variance_status is not None:
+        metadata["variance_status"] = variance_status
     if n_non_finite_dropped:
         metadata["dropped_pairs"] = n_non_finite_dropped
 
     degenerate_codes: list[str] = []
+    if variance_status is not None:
+        # The sibling withheld-inference path in ``fm_beta`` names its cause
+        # in a message; a p-value that simply disappears should not be the
+        # quieter of the two.
+        _emit_warning(
+            WarningCode.DEGENERATE_VARIANCE,
+            "the requested two-way clustered covariance came out non-PSD in "
+            "this finite sample, so the slope variance is unavailable. The "
+            "pooled OLS slope is returned, but stat and p_value are withheld "
+            "— factrix does not substitute a one-way covariance under a "
+            "two-way method label.",
+            label="pooled_beta",
+            expected_warnings=expected_warnings,
+            warning_codes=degenerate_codes,
+            stacklevel=2,
+        )
     stat, p_out, alternative = _degenerate_test_fields(
         t_stat, p, "two-sided", metadata, degenerate_codes
     )

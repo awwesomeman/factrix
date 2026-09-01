@@ -47,6 +47,10 @@ title: factrix.metrics.fm_beta
     raises `UserInputError`, because the obvious proxy
     $\mathrm{var}(\hat\beta_t)$ makes the multiplier $1 + t^2/T$
     identically and carries no EIV information.
+    If the supplied factor-return variance collapses to zero, the corrected
+    test is unavailable: the mean beta remains visible, while headline
+    `stat` / `p_value` are withheld and the uncorrected test is retained only
+    in explicitly named metadata fields.
 
 -   __Pooled OLS robustness check__
 
@@ -57,6 +61,9 @@ title: factrix.metrics.fm_beta
     `two_way_cluster_col`). When pooled $\hat\beta$ and FM
     $\hat\lambda$ disagree in sign, the result's `warnings` flag a
     misspecification red flag.
+    If a finite-sample two-way covariance is non-PSD, the OLS slope remains
+    descriptive but its test is withheld rather than replaced by one-way
+    inference.
 
 -   __Cross-section-robust pooled inference__
 

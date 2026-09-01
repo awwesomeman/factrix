@@ -128,9 +128,12 @@ is emitted.
 
 - *primary*: `p_value` — NW HAC `t` on per-period λ. With
   `is_estimated_factor=True` the Shanken EIV correction is applied
-  post-hoc and the corrected `p_value` replaces the raw value.
-- *secondary-test* (conditional, Shanken applied):
-  `p_value_uncorrected`, `stat_uncorrected`.
+  post-hoc and the corrected `p_value` replaces the raw value — unless the
+  correction is unavailable, in which case both are withheld (see the
+  σ²_f ≈ 0 entry below).
+- *secondary-test* (conditional, `is_estimated_factor=True`):
+  `p_value_uncorrected`, `stat_uncorrected`. These remain descriptive-only
+  diagnostics when the Shanken correction is unavailable.
 - *descriptive*: `n_periods`, `newey_west_lags` (the resolved HAR
   bandwidth), `hac_dof` (the effective degrees of freedom the `t` is read
   against), `overlap_periods`,
@@ -144,17 +147,20 @@ is emitted.
   `p_value` is read against the same `hac_dof` as `p_value_uncorrected`,
   so `p_value >= p_value_uncorrected` always.
 - *descriptive* (conditional, σ²_f ≈ 0): `shanken_correction` =
-  `"skipped_zero_factor_variance"` — the correction is undefined
-  when the factor-return variance collapses; the uncorrected NW
-  result is reported and `WarningCode.DEGENERATE_VARIANCE` is raised.
+  `"unavailable_zero_factor_variance"` — the correction is undefined when
+  factor-return variance collapses. The mean beta remains, but `stat` /
+  `p_value` are withheld with `WarningCode.DEGENERATE_VARIANCE`; the
+  uncorrected test stays in the explicitly named secondary fields only.
 
 #### `pooled_beta` (emits `MetricResult.name = "pooled_beta"`)
 
 - *primary*: `p_value` — single- or two-way clustered OLS `t`. When
   the cluster count G < 3 the test is short-circuited with `stat =
-  None`, `value = NaN`, and `p_value = 1.0`; the algebraic slope is not
-  exposed as a usable pooled beta when its declared covariance estimator
-  cannot be formed.
+  None`, `value = NaN`, and `p_value = 1.0`: with two clusters the sample
+  cannot support a clustered estimate, so the algebraic slope is not
+  exposed as a usable pooled beta. A non-PSD two-way covariance is the
+  other withheld-inference regime and keeps `value` — see
+  `variance_status` below.
 - Sample size: `MetricResult.n_obs` (row count entering the test).
 - *descriptive*: `n_clusters` (one-way) or `n_clusters_a`,
   `n_clusters_b`, `n_clusters_intersection` (two-way).
@@ -162,8 +168,11 @@ is emitted.
   "insufficient_clusters"`, `n_clusters` (smallest G — first-class
   `n_obs` carries the row count), `min_required` (always 3), plus
   `metric_unavailable` in `warning_codes`.
-- *descriptive* (conditional): `variance_non_psd_fallback` — names
-  the fallback path when the meat matrix is non-PSD.
+- *descriptive* (conditional): `variance_status` =
+  `"non_psd_two_way_covariance"` when the requested two-way covariance cannot
+  support a slope test. The pooled OLS slope remains available, but `stat` /
+  `p_value` are withheld with `WarningCode.DEGENERATE_VARIANCE`; factrix does
+  not substitute a one-way covariance.
 - *descriptive* (Driscoll-Kraay path, `driscoll_kraay=True`):
   `se_method` (`"driscoll_kraay"`), `n_periods` (length of the
   cross-sectional score-sum series), and `driscoll_kraay_lags` (the
