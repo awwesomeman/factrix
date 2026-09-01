@@ -21,6 +21,7 @@ from factrix._axis import (
     FactorScope,
     InputShape,
 )
+from factrix._codes import WarningCode, _emit_warning
 from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._stats import _binomial_two_sided_p
@@ -28,6 +29,7 @@ from factrix._types import (
     DEFAULT_FORWARD_PERIODS,
     MIN_SERIES_PERIODS_HARD,
 )
+from factrix.inference.series_mean import _persistent_beyond_horizon
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _enforce_scaled_floor,
@@ -111,6 +113,9 @@ def positive_rate(
         exact test is negligible in cost at any series length. Non-overlap
         stride mirrors the information coefficient (IC) pipeline so
         autocorrelation from overlapping forward returns does not leak in.
+        If the strided hit indicators remain serially persistent, the exact
+        binomial independence assumption is not calibrated; the result carries
+        ``serial_correlation_detected`` rather than leaving that regime silent.
 
     References:
         [Hansen-Hodrick 1980][hansen-hodrick-1980]: overlapping-return
@@ -186,6 +191,21 @@ def positive_rate(
         warning_codes=warning_codes,
         expected_warnings=expected_warnings,
     )
+    hit_series = sampled.filter(
+        pl.col(value_col).is_not_null() & pl.col(value_col).is_not_nan()
+    ).select("date", (pl.col(value_col) > 0).cast(pl.Float64).alias("_hit"))
+    if _persistent_beyond_horizon(hit_series, "_hit", 1):
+        _emit_warning(
+            WarningCode.SERIAL_CORRELATION_DETECTED,
+            "the non-overlapping hit indicators remain serially persistent. "
+            "The exact binomial test assumes independent Bernoulli trials and "
+            "is not calibrated in this regime; read the p-value against a "
+            "raised hurdle or lengthen the sample.",
+            label="positive_rate",
+            expected_warnings=expected_warnings,
+            warning_codes=warning_codes,
+            stacklevel=2,
+        )
     return MetricResult(
         p_value=p,
         alternative="two-sided",

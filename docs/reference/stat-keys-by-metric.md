@@ -304,6 +304,9 @@ binomial test at every `n`.
   (stride `overlap_periods`).
 - *descriptive*: `n_hits`. The trial count is the period-axis drop-stat
   `n_periods_out` (the surviving non-overlapping observations).
+- *warning code* (conditional): `serial_correlation_detected` when the
+  strided hit indicators remain persistent, violating the independent-trials
+  assumption of the exact binomial reference.
 
 ### `directional_hit_rate` (`factrix.metrics.directional_hit_rate`)
 
