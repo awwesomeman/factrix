@@ -33,7 +33,10 @@ title: factrix.metrics.quantile
     Test $H_0: \mathbb{E}[\text{spread}] = 0$ on the non-overlap
     spread series, with the long-vs-short alpha decomposition
     (`top - universe`, `universe - bottom`) attached so callers can
-    attribute the spread to long-side vs short-side excess.
+    attribute the spread to long-side vs short-side excess. The headline
+    accepts a directional `alternative`; the two leg p-values remain
+    two-sided and report `metadata["leg_alternative"] = "two-sided"` because
+    a directional hypothesis about their sum does not constrain each leg.
 
 -   __Value-weighted spread for capacity diagnostics__
 

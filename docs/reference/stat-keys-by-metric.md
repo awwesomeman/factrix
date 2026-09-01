@@ -514,6 +514,10 @@ frequency on the same panels is 5.0% / 5.0% / 4.0% at a nominal 5%.
 - *secondary-test*: `short_alpha`, `short_stat`, `short_p_value`,
   `short_significance` — short-leg attribution, on
   `n_periods_short_leg` observations.
+- *secondary-test*: `leg_alternative` — always `"two-sided"` for both leg
+  p-values, independent of the headline `alternative`. The headline tests the
+  sum `long_alpha + short_alpha`; a directional hypothesis about that sum does
+  not imply that each component has the same direction.
 - *descriptive*: `n_periods` (**the sample the headline test ran on**,
   equal to `n_obs`: the strided series under `NON_OVERLAPPING`, the full
   overlapping series under `NEWEY_WEST` / `STATIONARY_BOOTSTRAP`),
