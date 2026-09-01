@@ -33,6 +33,12 @@ persistence that remains after the overlap horizon.
 `NON_OVERLAPPING` is the default for the mainstream series-mean metrics. The
 caller can select the other admitted members explicitly; factrix never switches
 the requested method in response to a warning.
+
+These metrics also accept `alternative="two-sided"`, `"greater"`, or `"less"`.
+Keep the default while discovering a factor. Use a one-sided tail only when its
+direction was fixed independently and before inspecting the evaluated sample;
+factrix never infers a tail from the observed sign. Holm and BHY consume the
+resulting calibrated p-values as supplied and do not reinterpret their tails.
 [](){ #non-overlap-default }
 
 ### Newey-West bandwidth families

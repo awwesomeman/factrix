@@ -4,7 +4,7 @@ Each member is a frozen dataclass carrying its whole ``compute`` plus
 identity ClassVars (``test`` / ``se`` / ``summary``). The family shares
 one date-aware input contract::
 
-    compute(data: pl.DataFrame, *, value_col: str, overlap_periods: int) -> InferenceResult
+    compute(data, *, value_col, overlap_periods, alternative="two-sided") -> InferenceResult
 
 ``compute`` owns date-sort + null-drop (callers pass the raw per-period
 DataFrame). ``NonOverlapping`` strides the cleaned series at
@@ -43,7 +43,7 @@ from factrix._stats.constants import (
     PERSISTENT_SERIES_AUTOCORR,
 )
 from factrix._stats.diagnostics import _lag1_autocorr
-from factrix._types import MIN_SERIES_PERIODS_HARD
+from factrix._types import MIN_SERIES_PERIODS_HARD, PValueAlternative
 from factrix.inference._base import InferenceResult
 
 if TYPE_CHECKING:
@@ -156,7 +156,12 @@ class NonOverlapping:
         return MIN_SERIES_PERIODS_HARD * max(overlap_periods, 1)
 
     def compute(
-        self, data: pl.DataFrame, *, value_col: str, overlap_periods: int
+        self,
+        data: pl.DataFrame,
+        *,
+        value_col: str,
+        overlap_periods: int,
+        alternative: PValueAlternative = "two-sided",
     ) -> InferenceResult:
         from factrix._stats import _p_value_from_t, _t_stat_from_array
         from factrix.metrics._helpers import _sample_non_overlapping
@@ -172,7 +177,7 @@ class NonOverlapping:
         n_sampled = len(sampled)
 
         t_stat = _t_stat_from_array(sampled)
-        p_value = _p_value_from_t(t_stat, n_sampled)
+        p_value = _p_value_from_t(t_stat, n_sampled, alternative)
 
         warnings: frozenset[WarningCode] = frozenset()
         # Persistence screen on the STRIDED sample — the series the t-test
@@ -258,7 +263,12 @@ class NeweyWest:
         return MIN_PERIODS_HARD
 
     def compute(
-        self, data: pl.DataFrame, *, value_col: str, overlap_periods: int
+        self,
+        data: pl.DataFrame,
+        *,
+        value_col: str,
+        overlap_periods: int,
+        alternative: PValueAlternative = "two-sided",
     ) -> InferenceResult:
         from factrix._stats import (
             _hac_bandwidth_ill_conditioned,
@@ -271,7 +281,10 @@ class NeweyWest:
         n = len(vals)
         newey_west_lags = _resolve_har_lags(n, None, overlap_periods) if n >= 2 else 0
         t_stat, p_value, _ = _newey_west_t_test(
-            vals, lags=newey_west_lags, overlap_periods=overlap_periods
+            vals,
+            lags=newey_west_lags,
+            overlap_periods=overlap_periods,
+            alternative=alternative,
         )
 
         warnings: frozenset[WarningCode] = frozenset()
@@ -343,14 +356,19 @@ class HansenHodrick:
         return MIN_PERIODS_HARD
 
     def compute(
-        self, data: pl.DataFrame, *, value_col: str, overlap_periods: int
+        self,
+        data: pl.DataFrame,
+        *,
+        value_col: str,
+        overlap_periods: int,
+        alternative: PValueAlternative = "two-sided",
     ) -> InferenceResult:
         from factrix._stats import _hansen_hodrick_t_test
 
         vals = _clean_series(data, value_col).to_numpy()
         n = len(vals)
         t_stat, p_value, _, clamped = _hansen_hodrick_t_test(
-            vals, overlap_periods=overlap_periods
+            vals, overlap_periods=overlap_periods, alternative=alternative
         )
 
         warnings: frozenset[WarningCode] = frozenset()
@@ -389,9 +407,9 @@ class StationaryBootstrap:
 
     Resamples geometric-length blocks ([Politis-Romano 1994][politis-romano-1994])
     from the series, centred under $H_0: \mathbb{E}[x] = 0$, and reports the
-    two-sided empirical p on a **studentized (bootstrap-t) root** — the
-    fraction of resamples whose $|\bar x^*/\widehat{se}^*|$ reaches the
-    observed $|\bar x/\widehat{se}|$, with $\widehat{se}$ the batch-means
+    empirical p on a **studentized (bootstrap-t) root**. The default compares
+    absolute roots; a predeclared one-sided alternative compares signed roots.
+    In either case, $\widehat{se}$ is the batch-means
     block SE at the resolved block length (Davison-Hinkley ``+1``
     smoothing). No normality or asymptotic-variance assumption, unlike
     ``NeweyWest`` / ``HansenHodrick``: appropriate when the series is short
@@ -483,7 +501,12 @@ class StationaryBootstrap:
         return MIN_PERIODS_HARD
 
     def compute(
-        self, data: pl.DataFrame, *, value_col: str, overlap_periods: int
+        self,
+        data: pl.DataFrame,
+        *,
+        value_col: str,
+        overlap_periods: int,
+        alternative: PValueAlternative = "two-sided",
     ) -> InferenceResult:
         from factrix._stats.bootstrap import _block_bootstrap_diff_p
 
@@ -493,6 +516,7 @@ class StationaryBootstrap:
             vals,
             n_resamples=self.n_resamples,
             overlap_periods=overlap_periods,
+            alternative=alternative,
             rng=self.rng,
         )
 

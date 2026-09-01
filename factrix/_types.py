@@ -185,6 +185,10 @@ TiePolicy = Literal["ordinal", "average"]
 # metrics has only ``n_obs_axis`` to tell one from the other.
 SampleAxis = Literal["periods", "events", "pairs", "asset_pairs", "assets"]
 
+# Direction of a scalar hypothesis test. Kept with the shared option aliases so
+# inference kernels can depend on it without importing result containers.
+PValueAlternative = Literal["two-sided", "greater", "less"]
+
 
 # Minimum surplus assets (n_assets - n_base - 1) a per-date cross-sectional OLS
 # must leave before ``orthogonalize_factor`` will fit it. On this axis one

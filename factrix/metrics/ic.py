@@ -35,6 +35,7 @@ from factrix._types import (
     MIN_IC_ASSETS_HARD,
     MIN_IC_ASSETS_WARN,
     MIN_SERIES_PERIODS_HARD,
+    PValueAlternative,
 )
 from factrix.inference import (
     NEWEY_WEST,
@@ -242,6 +243,7 @@ def ic(
     overlap_periods: int = DEFAULT_FORWARD_PERIODS,
     inference: NonOverlapping | NeweyWest | StationaryBootstrap = NON_OVERLAPPING,
     *,
+    alternative: PValueAlternative = "two-sided",
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Information coefficient (IC) mean significance: is mean IC significantly different from zero?
@@ -263,6 +265,9 @@ def ic(
             block-bootstrap empirical p, for a series too short or
             heavy-tailed for either t-test to be trusted. All three test the
             same $H_0: \mathbb{E}[\mathrm{IC}] = 0$.
+        alternative: ``"two-sided"`` (default), ``"greater"``, or ``"less"``.
+            Use a one-sided tail only when the expected IC direction was fixed
+            independently and before inspecting this sample.
 
     Returns:
         MetricResult with value=mean IC and the inference method's t/p.
@@ -335,6 +340,8 @@ def ic(
                 n_obs_axis="periods",
                 min_assets_required=MIN_IC_ASSETS_HARD,
                 overlap_periods=overlap_periods,
+                alternative=alternative,
+                alternative_requested=alternative,
                 hint=(
                     "every cross-section has fewer than MIN_IC_ASSETS_HARD valid "
                     "(factor, return) pairs or a degenerate (constant) factor / "
@@ -351,9 +358,16 @@ def ic(
             n_obs_axis="periods",
             min_required=raw_min,
             overlap_periods=overlap_periods,
+            alternative=alternative,
+            alternative_requested=alternative,
         )
 
-    result = inference.compute(ic_df, value_col="ic", overlap_periods=overlap_periods)
+    result = inference.compute(
+        ic_df,
+        value_col="ic",
+        overlap_periods=overlap_periods,
+        alternative=alternative,
+    )
 
     # Stride-based methods report a post-sampling count; guard on the
     # effective sample so a coarse stride cannot silently test ~nothing.
@@ -366,6 +380,8 @@ def ic(
             n_obs_axis="periods",
             min_required=MIN_SERIES_PERIODS_HARD,
             overlap_periods=overlap_periods,
+            alternative=alternative,
+            alternative_requested=alternative,
         )
 
     # value / stat / p / n_obs must describe the *same* sample. A stride-based
@@ -386,6 +402,7 @@ def ic(
         "h0": "mu=0",
         "method": inference.summary,
         "tie_ratio": median_tie,
+        "alternative_requested": alternative,
     }
     # Surface the resampling knobs the bootstrap path actually ran with —
     # the same helper the spread chokepoint calls, so both report one set of
@@ -410,12 +427,12 @@ def ic(
     # The chosen inference could not form a statistic: a strided subsample or
     # full series with no dispersion, or a HAC SE that collapsed to zero.
     # ``mean_ic`` still describes the sample; the test is withheld.
-    stat, p_out, alternative = _degenerate_test_fields(
-        result.stat, result.p_value, "two-sided", metadata, warning_codes
+    stat, p_out, alternative_out = _degenerate_test_fields(
+        result.stat, result.p_value, alternative, metadata, warning_codes
     )
     return MetricResult(
         p_value=p_out,
-        alternative=alternative,
+        alternative=alternative_out,
         value=mean_ic,
         n_obs=n_tested,
         n_obs_axis="periods",

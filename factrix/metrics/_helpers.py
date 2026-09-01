@@ -41,7 +41,7 @@ if TYPE_CHECKING:
     )
     from factrix.metrics._base import MetricBase
 from factrix._metric_index import SampleThreshold
-from factrix._results import MetricResult, PValueAlternative
+from factrix._results import MetricResult
 from factrix._types import (
     DDOF,
     DEFAULT_FORWARD_PERIODS,
@@ -49,6 +49,7 @@ from factrix._types import (
     EPSILON,
     N_GROUPS_FLOOR,
     KPSource,
+    PValueAlternative,
     SampleAxis,
     TiePolicy,
 )
@@ -234,6 +235,7 @@ def _spread_significance_with_inference(
     overlap_periods: int,
     n_assets: int,
     metric_name: str,
+    alternative: PValueAlternative = "two-sided",
     expected_warnings: tuple[str, ...] = (),
 ) -> tuple[
     float,
@@ -310,7 +312,10 @@ def _spread_significance_with_inference(
     data = full_spread if use_full else strided_spread
     assert data is not None  # full_spread narrowed by the guard above
     res = member.compute(
-        data, value_col="spread", overlap_periods=overlap_periods if use_full else 1
+        data,
+        value_col="spread",
+        overlap_periods=overlap_periods if use_full else 1,
+        alternative=alternative,
     )
     if res.n_obs is None or res.estimate is None:
         raise RuntimeError(
@@ -526,7 +531,12 @@ def _all_dates_degenerate(panel: pl.DataFrame, factor_col: str) -> bool:
     )
 
 
-def _no_signal_zero_variance(n_periods: int, **extra: object) -> MetricResult:
+def _no_signal_zero_variance(
+    n_periods: int,
+    *,
+    alternative: PValueAlternative = "two-sided",
+    **extra: object,
+) -> MetricResult:
     """Explicit no-signal result for a zero cross-sectional variance factor.
 
     A constant factor produces an identically zero long-short spread, so the
@@ -538,7 +548,7 @@ def _no_signal_zero_variance(n_periods: int, **extra: object) -> MetricResult:
     return MetricResult(
         value=0.0,
         p_value=1.0,
-        alternative="two-sided",
+        alternative=alternative,
         n_obs=n_periods,
         n_obs_axis="periods",
         stat=0.0,
@@ -603,6 +613,7 @@ def _degenerate_test_fields(
     if not math.isnan(stat):
         return stat, p_value, alternative
     metadata["signal_status"] = DEGENERATE_SIGNAL_STATUS
+    metadata["alternative_requested"] = alternative
     code = WarningCode.DEGENERATE_VARIANCE.value
     if code not in warning_codes:
         warning_codes.append(code)

@@ -91,10 +91,15 @@ def panel():
     return compute_forward_return(raw, forward_periods=OVERLAP_PERIODS)
 
 
-def _run(metric_name: str, panel, inference) -> MetricResult:
+def _run(
+    metric_name: str, panel, inference, *, alternative="two-sided"
+) -> MetricResult:
     if metric_name == "quantile_spread":
         return quantile_spread(
-            panel, overlap_periods=OVERLAP_PERIODS, inference=inference
+            panel,
+            overlap_periods=OVERLAP_PERIODS,
+            inference=inference,
+            alternative=alternative,
         )["factor"]
     if metric_name == "quantile_spread_vw":
         return quantile_spread_vw(
@@ -102,8 +107,14 @@ def _run(metric_name: str, panel, inference) -> MetricResult:
             overlap_periods=OVERLAP_PERIODS,
             weight_col="price",
             inference=inference,
+            alternative=alternative,
         )
-    return k_spread(panel, overlap_periods=OVERLAP_PERIODS, inference=inference)
+    return k_spread(
+        panel,
+        overlap_periods=OVERLAP_PERIODS,
+        inference=inference,
+        alternative=alternative,
+    )
 
 
 def test_full_series_member_rejects_missing_full_series():
@@ -135,6 +146,16 @@ def test_golden_spread_dispatch(panel, metric_name, inference_name):
     assert result.stat == pytest.approx(stat, rel=1e-12, abs=0)
     assert result.p_value == pytest.approx(p_value, rel=1e-12, abs=0)
     assert result.n_obs == n_obs
+
+
+@pytest.mark.parametrize(
+    "metric_name", ["quantile_spread", "quantile_spread_vw", "k_spread"]
+)
+def test_spread_metrics_honor_predeclared_tail(panel, metric_name):
+    two_sided = _run(metric_name, panel, NEWEY_WEST)
+    greater = _run(metric_name, panel, NEWEY_WEST, alternative="greater")
+    assert greater.alternative == "greater"
+    assert greater.p_value < two_sided.p_value
 
 
 @pytest.mark.parametrize(

@@ -321,6 +321,31 @@ class TestIC:
         assert result.stat > 0
         assert result.p_value < 0.10
 
+    @pytest.mark.parametrize("alternative", ["two-sided", "greater", "less"])
+    def test_records_requested_alternative(self, alternative):
+        values = np.linspace(-0.1, 0.4, 60)
+        df = pl.DataFrame({"date": np.arange(60), "ic": values})
+        result = ic(df, overlap_periods=1, alternative=alternative)
+        assert result.alternative == alternative
+
+    def test_shortfall_preserves_requested_alternative(self):
+        df = pl.DataFrame({"date": np.arange(3), "ic": [0.1, 0.2, 0.3]})
+        result = ic(df, overlap_periods=1, alternative="greater")
+        assert result.alternative == "greater"
+        assert result.metadata["alternative_requested"] == "greater"
+
+    def test_degenerate_series_preserves_requested_alternative_in_metadata(self):
+        df = pl.DataFrame({"date": np.arange(40), "ic": np.full(40, 0.1)})
+        result = ic(
+            df,
+            overlap_periods=1,
+            alternative="less",
+            expected_warnings=("degenerate_variance",),
+        )
+        assert result.p_value is None
+        assert result.alternative is None
+        assert result.metadata["alternative_requested"] == "less"
+
     def test_insufficient_periods(self):
         df = pl.DataFrame(
             {

@@ -16,7 +16,7 @@ import numpy as np
 
 from factrix._stats.constants import MIN_PERIODS_WARN, auto_bartlett, har_bandwidth
 from factrix._stats.core import _p_value_from_t, _significance_marker
-from factrix._types import EPSILON
+from factrix._types import EPSILON, PValueAlternative
 
 # Shared "this sample admits no t-statistic" return for the HAC t-tests:
 # a sample too short for the kernel, or one whose HAC SE collapses to zero.
@@ -380,6 +380,7 @@ def _newey_west_t_test(
     values: np.ndarray,
     lags: int | None = None,
     overlap_periods: int | None = None,
+    alternative: PValueAlternative = "two-sided",
 ) -> tuple[float, float, str]:
     """Newey-West HAR t-test for H₀: mean = 0.
 
@@ -472,7 +473,9 @@ def _newey_west_t_test(
         return _NOT_COMPUTABLE
 
     t = mean / se
-    p = _p_value_from_t(t, n, dof=_har_dof(n, effective_lags, overlap_periods))
+    p = _p_value_from_t(
+        t, n, alternative, dof=_har_dof(n, effective_lags, overlap_periods)
+    )
     return t, p, _significance_marker(p)
 
 
@@ -638,6 +641,7 @@ def _driscoll_kraay_cov(
 def _hansen_hodrick_t_test(
     values: np.ndarray,
     overlap_periods: int,
+    alternative: PValueAlternative = "two-sided",
 ) -> tuple[float, float, str, bool]:
     """Hansen-Hodrick t-test for ``H₀: mean = 0`` on an overlapping series.
 
@@ -659,5 +663,5 @@ def _hansen_hodrick_t_test(
         return (*_NOT_COMPUTABLE, clamped)
 
     t = mean / se
-    p = _p_value_from_t(t, n)
+    p = _p_value_from_t(t, n, alternative)
     return t, p, _significance_marker(p), clamped

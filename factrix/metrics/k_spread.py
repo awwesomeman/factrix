@@ -43,6 +43,7 @@ from factrix._types import (
     DDOF,
     DEFAULT_FORWARD_PERIODS,
     MIN_PORTFOLIO_PERIODS_HARD,
+    PValueAlternative,
     TiePolicy,
 )
 from factrix.inference import (
@@ -226,6 +227,7 @@ def k_spread(
     tie_policy: TiePolicy = "ordinal",
     inference: NonOverlapping | NeweyWest | StationaryBootstrap = NON_OVERLAPPING,
     *,
+    alternative: PValueAlternative = "two-sided",
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Fixed-K Top-K vs Bottom-K long-short spread.
@@ -272,6 +274,8 @@ def k_spread(
             and reports an empirical block-bootstrap p-value. A thin
             cross-section only attaches ``FEW_ASSETS`` and never changes the
             requested member.
+        alternative: Requested tail for the headline mean-spread test. Keep
+            ``"two-sided"`` for discovery; pre-specify a one-sided direction.
 
     Returns:
         MetricResult with value = mean spread, ``stat`` = ``t`` on the
@@ -345,6 +349,7 @@ def k_spread(
         return _short_circuit_output(
             "k_spread",
             "no_return_column",
+            alternative=alternative,
             missing_column=return_col,
         )
 
@@ -377,6 +382,7 @@ def k_spread(
             "insufficient_assets_for_k_legs",
             n_obs=n_assets,
             n_obs_axis="assets",
+            alternative=alternative,
             k=k,
             min_required=2 * k,
             max_assets_per_date=max_per_date,
@@ -390,6 +396,7 @@ def k_spread(
             "insufficient_assets_for_k_legs",
             n_obs=0,
             n_obs_axis="periods",
+            alternative=alternative,
             k=k,
             min_required=2 * k,
             max_assets_per_date=max_per_date,
@@ -405,6 +412,7 @@ def k_spread(
         MIN_PORTFOLIO_PERIODS_HARD,
         overlap_periods,
         "insufficient_portfolio_periods",
+        alternative=alternative,
         k=k,
         tie_ratio=tie_ratio,
         tie_policy=tie_policy,
@@ -416,6 +424,7 @@ def k_spread(
     if _all_dates_degenerate(clean, factor_col):
         return _no_signal_zero_variance(
             n_strided,
+            alternative=alternative,
             k=k,
             cross_sectional_dispersion=_finite_mean(series["xs_dispersion"]),
             top_return=_finite_mean(series["top_return"]),
@@ -427,6 +436,7 @@ def k_spread(
             "insufficient_portfolio_periods",
             n_obs=0,
             n_obs_axis="periods",
+            alternative=alternative,
             k=k,
             n_periods_in=series.height,
             tie_ratio=tie_ratio,
@@ -459,6 +469,7 @@ def k_spread(
             n_assets=median_xs,
             metric_name="k_spread",
             expected_warnings=expected_warnings,
+            alternative=alternative,
         )
     )
     mean_dispersion = _finite_mean(series["xs_dispersion"])
@@ -496,13 +507,13 @@ def k_spread(
     )
     # A NaN headline stat means the tested spread series carries no dispersion
     # (or the HAC SE collapsed): ``mean_spread`` still stands, the t does not.
-    stat, p_out, alternative = _degenerate_test_fields(
-        t, p, "two-sided", metadata, warning_codes
+    stat, p_out, alternative_out = _degenerate_test_fields(
+        t, p, alternative, metadata, warning_codes
     )
     return MetricResult(
         value=mean_spread,
         p_value=p_out,
-        alternative=alternative,
+        alternative=alternative_out,
         n_obs=n,
         n_obs_axis="periods",
         stat=stat,
