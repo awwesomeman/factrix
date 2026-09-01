@@ -34,7 +34,7 @@ from factrix._axis import (
     OutputShape,
     SpecRole,
 )
-from factrix._codes import WarningCode
+from factrix._codes import WarningCode, _emit_warning
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import (
@@ -99,19 +99,34 @@ def _calendar_time_se(
     a dispersion-dominated SE is read against the cross-section and a
     noise-dominated one against the time series.
 
-    Returns ``(se, dof)``, or ``None`` when the frame carries no calendar-time
-    estimate (a hand-built beta table), in which case the caller falls back
-    to the iid cross-asset $t$ and says so.
+    Returns ``(se, dof)``, or ``None`` after recording why calendar-time
+    inference is unavailable. A hand-built beta table is distinct from a
+    producer output whose shared-period variance could not be formed: only
+    the former permits the caller's explicitly labelled iid reference.
     """
-    if "ew_portfolio_beta_var" not in common_betas_df.columns:
+    calendar_columns = {
+        "ew_portfolio_beta",
+        "ew_portfolio_beta_var",
+        "ew_portfolio_periods",
+    }
+    if not calendar_columns.issubset(common_betas_df.columns):
         metadata["calendar_time_se_applied"] = False
         metadata["calendar_time_se_source"] = "unavailable_hand_built_frame"
         return None
     var_ew = common_betas_df["ew_portfolio_beta_var"][0]
     n_periods = common_betas_df["ew_portfolio_periods"][0]
-    if var_ew is None or not math.isfinite(var_ew) or n_periods is None:
+    if n_periods is None:
+        metadata["calendar_time_se_applied"] = False
+        metadata["calendar_time_se_source"] = "shared_period_count_unavailable"
+        return None
+    metadata["ew_portfolio_periods"] = int(n_periods)
+    if int(n_periods) < 3:
         metadata["calendar_time_se_applied"] = False
         metadata["calendar_time_se_source"] = "too_few_shared_periods"
+        return None
+    if var_ew is None or not math.isfinite(var_ew) or var_ew < 0.0:
+        metadata["calendar_time_se_applied"] = False
+        metadata["calendar_time_se_source"] = "invalid_calendar_time_variance"
         return None
     n = len(betas)
     # Estimation-noise variance per asset from the OLS t; assets whose t is
@@ -167,9 +182,13 @@ def common_beta(
         $\overline{\beta} = \mathrm{mean}_i \hat\beta_i$ with
         $H_0: \mathbb{E}[\beta] = 0$ across assets. The textbook form is the
         iid cross-asset $t = \overline{\beta} / (\mathrm{std}(\beta) /
-        \sqrt{N})$; it is kept as ``metadata["stat_uncorrected"]`` and is the
-        statistic reported when the input is a hand-built beta table
-        (``calendar_time_se_applied = False``).
+        \sqrt{N})$; it is kept as ``metadata["stat_uncorrected"]`` when the
+        calendar-time test runs, and is reported as the headline only when
+        the input is a hand-built beta table
+        (``calendar_time_se_source = "unavailable_hand_built_frame"``), with
+        ``WarningCode.COMMON_BETA_IID_FALLBACK``. If producer-supplied
+        calendar-time inference cannot be formed, factrix keeps the mean beta
+        but withholds the headline statistic and p-value.
 
         **What factrix tests with, and why.** $\mathrm{std}(\beta)/\sqrt{N}$
         is the SE of a mean over independent draws. Assets loading on a
@@ -264,12 +283,42 @@ def common_beta(
     # std(beta)/sqrt(N) is the SE of a mean over INDEPENDENT draws, which
     # assets loading on a common component are not. The calendar-time
     # portfolio SE (see _calendar_time_se) is the test's SE whenever the
-    # upstream primitive could measure it; a hand-built beta table falls back
-    # to the iid t and says so.
+    # upstream primitive could measure it. A hand-built beta table may use an
+    # explicitly labelled iid reference; a failed producer estimate may not.
     calendar = _calendar_time_se(common_betas_df, betas, std_b, metadata)
     if calendar is None:
-        t = t_iid
-        p = _p_value_from_t(t, n)
+        source = metadata["calendar_time_se_source"]
+        if source == "unavailable_hand_built_frame":
+            metadata["method"] = (
+                "iid cross-sectional t-test on a hand-built per-asset beta table"
+            )
+            _emit_warning(
+                WarningCode.COMMON_BETA_IID_FALLBACK,
+                "the beta table has no calendar-time portfolio variance. "
+                "The reported iid cross-asset t assumes independent betas; "
+                "shared residual components can make it severely oversized. "
+                "Use compute_common_betas(panel) for calendar-time inference.",
+                label="common_beta",
+                expected_warnings=expected_warnings,
+                warning_codes=warning_codes,
+                stacklevel=2,
+            )
+            t = t_iid
+            p = _p_value_from_t(t, n)
+        else:
+            _emit_warning(
+                WarningCode.DEGENERATE_VARIANCE,
+                f"calendar-time inference failed ({source}) after the "
+                "producer supplied its audit columns. The mean beta is "
+                "retained, but stat and p_value are withheld; the iid "
+                "cross-asset test is not substituted.",
+                label="common_beta",
+                expected_warnings=expected_warnings,
+                warning_codes=warning_codes,
+                stacklevel=2,
+            )
+            t = float("nan")
+            p = float("nan")
     else:
         se, dof = calendar
         metadata["stat_uncorrected"] = t_iid

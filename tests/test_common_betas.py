@@ -380,17 +380,69 @@ class TestCommonBetaFewAssets:
     def test_wide_cross_section_is_clean(self):
         with warnings.catch_warnings():
             warnings.simplefilter("error", UserWarning)
-            result = common_beta(self._betas(40))
+            result = common_beta(
+                self._betas(40),
+                expected_warnings=("common_beta_iid_fallback",),
+            )
         assert WarningCode.FEW_ASSETS.value not in result.warning_codes
+        assert WarningCode.COMMON_BETA_IID_FALLBACK.value in result.warning_codes
+        assert result.metadata["calendar_time_se_source"] == (
+            "unavailable_hand_built_frame"
+        )
+        assert result.metadata["method"] == (
+            "iid cross-sectional t-test on a hand-built per-asset beta table"
+        )
 
     def test_declaring_the_code_stops_the_echo_but_keeps_the_record(self):
         with warnings.catch_warnings():
             warnings.simplefilter("error", UserWarning)
-            result = common_beta(self._betas(12), expected_warnings=("few_assets",))
+            result = common_beta(
+                self._betas(12),
+                expected_warnings=("few_assets", "common_beta_iid_fallback"),
+            )
         assert WarningCode.FEW_ASSETS.value in result.warning_codes
 
     def test_declared_floor_matches_the_emission(self):
         assert common_beta.spec().sample_threshold.warn_assets == MIN_ASSETS_WARN
+
+
+class TestCommonBetaCalendarTimeFailure:
+    def test_producer_failure_withholds_instead_of_substituting_iid(self):
+        n = 120
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n)]
+        factor = np.linspace(-1.0, 1.0, n)
+        residual = np.sin(np.linspace(0.0, 8.0 * np.pi, n))
+        rows = []
+        for date, f, e in zip(dates, factor, residual, strict=True):
+            for asset, beta, shock in (
+                ("A", 0.2, e),
+                ("B", 0.4, -e),
+                ("C", 0.6, 0.0),
+            ):
+                rows.append(
+                    {
+                        "date": date,
+                        "asset_id": asset,
+                        "factor": float(f),
+                        "forward_return": beta * float(f) + float(shock),
+                    }
+                )
+        panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        betas = compute_common_betas(panel, overlap_periods=1)["factor"]
+
+        with pytest.warns(UserWarning, match="calendar-time inference failed"):
+            result = common_beta(betas, expected_warnings=("few_assets",))
+
+        assert result.value == pytest.approx(0.4)
+        assert result.stat is None
+        assert result.p_value is None
+        assert result.metadata["calendar_time_se_applied"] is False
+        assert result.metadata["calendar_time_se_source"] == (
+            "invalid_calendar_time_variance"
+        )
+        assert result.metadata["ew_portfolio_periods"] == n
+        assert WarningCode.DEGENERATE_VARIANCE.value in result.warning_codes
+        assert WarningCode.COMMON_BETA_IID_FALLBACK.value not in result.warning_codes
 
 
 class TestCommonBetasNonFinite:

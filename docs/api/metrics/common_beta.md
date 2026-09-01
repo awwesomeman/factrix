@@ -41,11 +41,18 @@ title: factrix.metrics.common_beta
 
     ---
 
-    Stage 2 of BJS: $t = \overline{\beta} / (\mathrm{std}(\beta) /
-    \sqrt{N})$ with $H_0: \mathbb{E}[\beta] = 0$ across assets.
-    Cross-asset iid $t$ is used because the headline null is over the
-    cross-asset beta distribution, not the per-asset time-series slope SEs. A
-    strong latent common factor can still link betas across assets.
+    Stage 2 of BJS tests $H_0: \mathbb{E}[\beta] = 0$ across assets. The
+    headline standard error combines the Newey-West variance of the
+    equal-weight portfolio slope with cross-asset beta dispersion. This
+    calendar-time term retains shared residual shocks that an iid
+    $\mathrm{std}(\beta)/\sqrt{N}$ reference discards.
+
+    A hand-built beta table has no underlying panel from which to recover the
+    calendar-time term. `common_beta` then reports the iid reference with
+    `COMMON_BETA_IID_FALLBACK`. If a `compute_common_betas` output contains
+    the calendar-time audit columns but its variance cannot be formed, the
+    mean beta is retained while `stat` and `p_value` are withheld with
+    `DEGENERATE_VARIANCE`; iid inference is not silently substituted.
     `metadata["beta_std"]` and `metadata["median_beta"]` are reported so
     asset-allocation users can see whether offsetting positive and negative
     betas are cancelling the average.
