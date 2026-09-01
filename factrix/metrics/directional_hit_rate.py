@@ -42,6 +42,7 @@ from factrix._types import (
 )
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
+    _degenerate_metric_output,
     _enforce_min_floor,
     _estimate_within_date_icc,
     _finite_expr,
@@ -235,12 +236,10 @@ def directional_hit_rate(
     # Degenerate: one-signed predictions or realisations collapse P* to 1
     # and drive var_s to (numerically) zero or below — S_n is undefined.
     if var_s <= 0.0:
-        return _short_circuit_output(
-            "directional_hit_rate",
-            "degenerate_directional_variance",
-            alternative="greater",
+        return _degenerate_metric_output(
             n_obs=n,
             n_obs_axis="pairs",
+            alternative_requested="greater",
             p_correct=p_correct,
             p_up_pred=p_x,
             p_up_real=p_y,

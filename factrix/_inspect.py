@@ -846,8 +846,8 @@ def _evaluate_applicability(
     if spec.name == "directional_hit_rate" and factor_sign_one_sided:
         blockers.append(
             "one-sided directional signal: sign(factor) has only one non-zero "
-            "side, so directional_hit_rate would short-circuit "
-            "degenerate_directional_variance at run time; center, threshold, "
+            "side, so directional_hit_rate would return degenerate_variance "
+            "at run time; center, threshold, "
             "or encode a true two-sided directional signal before using this "
             "metric"
         )

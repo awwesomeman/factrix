@@ -45,6 +45,7 @@ from factrix._types import (
 from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
+    _degenerate_metric_output,
     _degenerate_test_fields,
     _enforce_min_floor,
     _finite_expr,
@@ -285,11 +286,10 @@ def predictive_beta(
     y = paired[return_col].to_numpy().astype(np.float64)
     x_std = float(np.std(x, ddof=DDOF))
     if x_std < EPSILON:
-        return _short_circuit_output(
-            "predictive_beta",
-            "degenerate_factor_variance",
+        return _degenerate_metric_output(
             n_obs=n,
             n_obs_axis="periods",
+            alternative_requested="two-sided",
             factor_std=x_std,
         )
 

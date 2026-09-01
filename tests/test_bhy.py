@@ -3,13 +3,19 @@
 from __future__ import annotations
 
 import warnings
+from datetime import date, timedelta
 
 import numpy as np
 import polars as pl
 import pytest
+from factrix import _enforce_strict
 from factrix._errors import UserInputError
-from factrix._multi_factor import BhyResult, bhy
+from factrix._multi_factor import BhyResult, _is_inactive_hypothesis, bhy
 from factrix._results import MetricResult
+from factrix.metrics.corrado_rank import corrado_rank
+from factrix.metrics.directional_hit_rate import directional_hit_rate
+from factrix.metrics.ic import ic_ir
+from factrix.metrics.predictive_beta import predictive_beta
 
 from .conftest import make_result, make_spec
 
@@ -152,6 +158,69 @@ def test_degenerate_variance_results_are_dropped_from_family():
 
     assert out.n_tests == {(): 1}
     assert [r.factor for r in out.survivors] == ["valid"]
+
+
+def _degenerate_metric_result(metric: str) -> MetricResult:
+    n = 100
+    dates = [date(2020, 1, 1) + timedelta(days=i) for i in range(n)]
+    series = pl.DataFrame({"date": dates, "ic": np.full(n, 0.3)})
+    timeseries = pl.DataFrame(
+        {
+            "date": dates,
+            "asset_id": ["A"] * n,
+            "factor": np.ones(n),
+            "forward_return": np.arange(n, dtype=float),
+        }
+    )
+    directional = timeseries.with_columns(
+        pl.Series("forward_return", np.tile([-1.0, 1.0], n // 2))
+    )
+
+    event_factor = np.zeros(300)
+    event_return = np.zeros(300)
+    event_idx = np.arange(70, 300, 30)
+    event_factor[event_idx] = 1.0
+    event_return[event_idx] = 1.0
+    events = pl.DataFrame(
+        {
+            "date": [date(2020, 1, 1) + timedelta(days=i) for i in range(300)],
+            "asset_id": ["A"] * 300,
+            "factor": event_factor,
+            "forward_return": event_return,
+            "abnormal_return": event_return,
+        }
+    )
+    if metric == "ic_ir":
+        return ic_ir(series)
+    if metric == "corrado_rank":
+        return corrado_rank(events, expected_warnings=("few_events",))
+    if metric == "directional_hit_rate":
+        return directional_hit_rate(directional, overlap_periods=1)
+    return predictive_beta(timeseries, overlap_periods=1, adf_threshold=None)
+
+
+@pytest.mark.parametrize(
+    "metric", ["ic_ir", "corrado_rank", "directional_hit_rate", "predictive_beta"]
+)
+def test_metric_degeneracies_are_inactive_and_strict_safe(metric: str) -> None:
+    """Producer contracts, rather than reason parsing, identify non-tests."""
+    output = _degenerate_metric_result(metric)
+    make_spec(metric)
+    result = make_result(
+        factor="flat",
+        p=output.p_value,
+        metric=metric,
+        value=output.value,
+        metadata=output.metadata,
+        warning_codes=output.warning_codes,
+    )
+
+    assert _is_inactive_hypothesis(result, metric)
+    _enforce_strict({metric: output})
+
+    valid = make_result(factor="valid", p=0.01, metric=metric)
+    screened = bhy([valid, result], metrics=[metric], q=0.05)[metric]
+    assert screened.n_tests == {(): 1}
 
 
 def test_expand_over_forward_periods_partitions_by_horizon():

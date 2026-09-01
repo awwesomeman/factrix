@@ -50,6 +50,7 @@ from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _DROP_STATS_COL,
     TIE_RATIO_WARN_THRESHOLD,
+    _degenerate_metric_output,
     _degenerate_test_fields,
     _emit_inference_warnings,
     _enforce_min_floor,
@@ -509,9 +510,9 @@ def ic_ir(
     std_ic = float(ic_vals.std())  # type: ignore[arg-type]
 
     if std_ic < EPSILON:
-        return _short_circuit_output(
-            "ic_ir",
-            "degenerate_ic_variance",
+        return _degenerate_metric_output(
+            n_obs=n,
+            n_obs_axis="periods",
             std_ic=std_ic,
         )
 
