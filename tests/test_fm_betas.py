@@ -543,6 +543,24 @@ class TestPooledClusteredSEAgainstHandComputation:
         assert "variance_non_psd_fallback" not in out.metadata
         assert WarningCode.DEGENERATE_VARIANCE.value in out.warning_codes
 
+    def test_a_non_finite_slope_se_is_caught_by_the_guard_not_by_division(self):
+        """The withheld-variance path must not depend on ``slope / nan``.
+
+        REGRESSION: the non-PSD branch hands the SE forward as NaN, and a
+        raw ``se < EPSILON`` test is False for NaN — the withheld test then
+        survived only because dividing by NaN happens to give NaN. The
+        shared ``_degenerate_t_input`` boundary (the one ``_ols.py`` uses)
+        recognises NaN directly, so a later change to the division cannot
+        silently turn a withheld test into a reported one.
+        """
+        from factrix._stats.core import _degenerate_t_input
+        from factrix._types import EPSILON
+
+        assert (float("nan") < EPSILON) is False
+        assert _degenerate_t_input(float("nan"), 1) is True
+        assert _degenerate_t_input(0.0, 1) is True
+        assert _degenerate_t_input(1.0, 1) is False
+
 
 class TestShankenCorrection:
     """The EIV path: mandatory σ²_f, HAR df, and the degenerate regime."""

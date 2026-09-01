@@ -51,6 +51,7 @@ from factrix._stats import (
     _resolve_scalar_wald_hac,
 )
 from factrix._stats.constants import MIN_PERIODS_WARN, PERSISTENT_SERIES_AUTOCORR
+from factrix._stats.core import _degenerate_t_input
 from factrix._types import (
     DEFAULT_FORWARD_PERIODS,
     EPSILON,
@@ -548,7 +549,7 @@ def _pooled_beta_driscoll_kraay(
     # ``t = 0.0 -> p = 1.0`` reported "no relationship" for a sample that fits
     # exactly, and carried no warning code - pooled_beta was the only metric
     # in the library skipping the repo's own degenerate-sample convention.
-    t_stat = float("nan") if se_slope < EPSILON else slope / se_slope
+    t_stat = float("nan") if _degenerate_t_input(se_slope, 1) else slope / se_slope
     p = _p_value_from_t(t_stat, n_periods, dof=hac_dof)
 
     warning_codes: list[str] = []
@@ -952,7 +953,7 @@ def pooled_beta(
     # ``t = 0.0 -> p = 1.0`` reported "no relationship" for a sample that fits
     # exactly, and carried no warning code - pooled_beta was the only metric
     # in the library skipping the repo's own degenerate-sample convention.
-    t_stat = float("nan") if se_slope < EPSILON else slope / se_slope
+    t_stat = float("nan") if _degenerate_t_input(se_slope, 1) else slope / se_slope
 
     p = _p_value_from_t(t_stat, df_t)
 
