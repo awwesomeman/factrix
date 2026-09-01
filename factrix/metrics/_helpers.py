@@ -263,8 +263,8 @@ def _spread_significance_with_inference(
     member needs every period (it corrects or resamples the dependence
     itself) or takes the pre-strided series (it sub-samples, and the metric's
     panel-stride already did that). The chosen series then goes through the
-    ordinary ``compute(data, value_col=..., overlap_periods=...)`` call, the
-    same polymorphic path ``ic`` uses.
+    ordinary ``compute(data, value_col=..., overlap_periods=...,
+    alternative=...)`` call, the same polymorphic path ``ic`` uses.
 
     A pre-strided series is handed over with ``overlap_periods=1``: the
     metric's panel-stride already broke the MA(h-1) overlap, and re-striding
