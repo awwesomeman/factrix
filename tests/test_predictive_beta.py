@@ -52,6 +52,31 @@ class TestPredictiveBetaStatistic:
         assert result.metadata["unit_root_suspected"] is False
         assert WarningCode.PERSISTENT_REGRESSOR.value not in result.warning_codes
 
+    def test_metadata_names_the_covariance_that_ran(self) -> None:
+        rng = np.random.default_rng(1009)
+        x = rng.normal(size=240)
+        y = 0.2 * x + rng.normal(size=240)
+        panel = _ts_panel(x, y)
+
+        h1_default = predictive_beta(panel, overlap_periods=1, newey_west_lags=None)
+        h1_explicit = predictive_beta(panel, overlap_periods=1, newey_west_lags=30)
+        h5 = predictive_beta(panel, overlap_periods=5, newey_west_lags=1)
+
+        assert h1_default.stat == h1_explicit.stat
+        assert h1_default.p_value == h1_explicit.p_value
+        assert "homoskedastic" in h1_default.metadata["method"]
+        assert "Newey-West" not in h1_default.metadata["method"]
+        assert h1_default.metadata["hac_applied"] is False
+        assert h1_default.metadata["har_lags"] is None
+        assert (
+            WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED.value
+            not in h1_explicit.warning_codes
+        )
+
+        assert "Newey-West" in h5.metadata["method"]
+        assert h5.metadata["hac_applied"] is True
+        assert isinstance(h5.metadata["har_lags"], int)
+
     def test_persistent_factor_sets_adf_warning(self) -> None:
         rng = np.random.default_rng(42)
         x = np.cumsum(rng.normal(size=240))

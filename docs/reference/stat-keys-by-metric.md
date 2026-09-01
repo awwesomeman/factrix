@@ -864,9 +864,11 @@ which reports `R²` for the OLS regression.
   non-overlapping observations the short-sample gate reads),
   `residual_lag1_autocorr` (lag-1 autocorrelation of the reported model's
   residuals, strided at `overlap_periods`), `newey_west_lags`,
-  `overlap_periods`, `har_lags` (the HAR bandwidth the corrected slope test
-  uses; `newey_west_lags` stays the narrow rule the reported uncorrected OLS
-  slope is fitted with), `alpha` (the intercept the corrected slope implies
+  `overlap_periods`, `hac_applied` (whether the headline corrected test used
+  HAC), `har_lags` (the headline HAR bandwidth at `overlap_periods > 1`;
+  `None` at `h = 1`, where the corrected test is homoskedastic;
+  `newey_west_lags` stays the narrow covariance bandwidth resolved for the
+  uncorrected OLS reference), `alpha` (the intercept the corrected slope implies
   on the `n_obs` rows), `r_squared_ols_uncorrected`, `factor_std`,
   `adf_stat`, `adf_p`, `adf_threshold`, `unit_root_suspected`.
 - *descriptive* (Stambaugh correction): `stambaugh_adjusted` (True on every

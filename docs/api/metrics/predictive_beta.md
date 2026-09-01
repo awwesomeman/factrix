@@ -41,6 +41,10 @@ title: factrix.metrics.predictive_beta
     At `overlap_periods = 1` it uses the original homoskedastic covariance.
     The raw OLS reference retained in metadata stays on the narrower
     Newey-West bandwidth and is labelled as uncorrected.
+    Metadata reports the headline branch directly: `hac_applied=False` and
+    `har_lags=None` at `h = 1`; both switch to the resolved HAR path at
+    `h > 1`. The `method` string names the covariance that produced the
+    headline test.
 
 -   __Persistent predictor diagnostic__
 

@@ -142,6 +142,12 @@ def predictive_beta(
     estimation problem; shorter samples use
     ``WarningCode.UNRELIABLE_SE_SHORT_PERIODS`` instead.
 
+    The covariance follows the same horizon split. At
+    ``overlap_periods = 1`` the corrected test uses Amihud-Hurvich's
+    homoskedastic covariance; only ``overlap_periods > 1`` uses the resolved
+    Newey-West HAR bandwidth. ``metadata["method"]``, ``hac_applied`` and
+    ``har_lags`` report that branch directly.
+
     **The correction costs power** where OLS's apparent power was partly
     its own bias: at $T=60,\ \phi=0.95,\ \rho=-0.9$ the corrected test
     rejects 28.8% of a true alternative against OLS's 88.6%. At $\rho = 0$,
@@ -301,7 +307,8 @@ def predictive_beta(
     # the narrow rule does not apply to one restriction. The uncorrected OLS
     # slope above stays on the narrow rule so it remains the pre-correction
     # reference it is reported as.
-    har_lags = _resolve_har_lags(n, newey_west_lags, overlap_periods)
+    resolved_har_lags = _resolve_har_lags(n, newey_west_lags, overlap_periods)
+    hac_applied = overlap_periods > 1
     # Stambaugh (1999) bias correction via the Amihud-Hurvich (2004)
     # augmented regression. Reported as the headline beta: the uncorrected
     # OLS slope is biased by (sigma_ev/sigma_v^2)(1+3phi)/T whenever the
@@ -309,7 +316,12 @@ def predictive_beta(
     # innovation - the classic dividend-yield artefact, +0.076 against a true
     # 0 at T=60, phi=0.95, rho=-0.9, with a 20.6% rejection rate. The raw OLS
     # slope stays in metadata.
-    fit = _amihud_hurvich_beta(y, x, lags=har_lags, overlap_periods=overlap_periods)
+    fit = _amihud_hurvich_beta(
+        y,
+        x,
+        lags=resolved_har_lags,
+        overlap_periods=overlap_periods,
+    )
     if math.isnan(fit.beta):
         return _short_circuit_output(
             "predictive_beta",
@@ -320,7 +332,8 @@ def predictive_beta(
             overlap_periods=overlap_periods,
             factor_std=x_std,
             newey_west_lags=lags,
-            har_lags=har_lags,
+            har_lags=resolved_har_lags if hac_applied else None,
+            hac_applied=hac_applied,
             stambaugh_adjusted=False,
             beta_ols_uncorrected=beta_ols,
         )
@@ -372,7 +385,7 @@ def predictive_beta(
             warning_codes=warning_codes,
             stacklevel=2,
         )
-    if _hac_bandwidth_ill_conditioned(n, har_lags):
+    if hac_applied and _hac_bandwidth_ill_conditioned(n, resolved_har_lags):
         warning_codes.append(WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED.value)
     # The regime flag fires on the ACTUAL bias channel - the product of
     # persistence and innovation correlation - not on the ADF screen alone.
@@ -416,15 +429,21 @@ def predictive_beta(
     # the short-sample gate has to read the same axis the standard error does.
     # h = 1 leaves this identical to the raw count.
     n_effective = n_used // max(overlap_periods, 1)
+    inference_label = "Newey-West HAC" if hac_applied else "homoskedastic"
+    calibration_note = (
+        "measured 17.5% rejection at a nominal 5% for n=98, h=21"
+        if hac_applied
+        else "no small-sample null calibration is available"
+    )
     warn_code = _warn_below_floor(
         predictive_beta,
         n_effective,
         f"n_periods={n_used} at "
         f"overlap_periods={overlap_periods} "
         f"leaves an effective sample of {n_effective} non-overlapping "
-        f"observations, below MIN_PERIODS_WARN={MIN_PERIODS_WARN}; Newey-West "
-        f"HAC inference is not calibrated there (measured 17.5% rejection at a "
-        f"nominal 5% for n=98, h=21). t-stat is returned but read p-values "
+        f"observations, below MIN_PERIODS_WARN={MIN_PERIODS_WARN}; "
+        f"{inference_label} inference is not calibrated there ("
+        f"{calibration_note}). t-stat is returned but read p-values "
         f"cautiously.",
         WarningCode.UNRELIABLE_SE_SHORT_PERIODS,
         label="predictive_beta",
@@ -433,10 +452,15 @@ def predictive_beta(
     if warn_code is not None:
         warning_codes.append(warn_code)
 
+    method = (
+        "single-asset Amihud-Hurvich regression + Newey-West covariance"
+        if hac_applied
+        else "single-asset Amihud-Hurvich regression + homoskedastic covariance"
+    )
     metadata: dict[str, object] = {
         "stat_type": "t",
         "h0": "beta=0",
-        "method": "single-asset predictive regression + Newey-West",
+        "method": method,
         "n_periods": n_used,
         "n_periods_effective": n_effective,
         # The finite pairs available before the augmented design trimmed its
@@ -445,7 +469,8 @@ def predictive_beta(
         "n_periods_finite": n,
         "residual_lag1_autocorr": resid_autocorr,
         "newey_west_lags": lags,
-        "har_lags": har_lags,
+        "har_lags": resolved_har_lags if hac_applied else None,
+        "hac_applied": hac_applied,
         "overlap_periods": overlap_periods,
         "alpha": alpha,
         "r_squared_ols_uncorrected": r_squared_ols,
