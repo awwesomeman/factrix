@@ -518,6 +518,13 @@ class TestOlsAlphaFiniteContract:
         with pytest.raises(ValueError, match="base_matrix must be finite"):
             ols_alpha(candidate, base)
 
+    def test_one_dimensional_base_matrix_raises(self):
+        from factrix._ols import ols_alpha
+
+        candidate, base = self._design()
+        with pytest.raises(ValueError, match="base_matrix must be 2-D"):
+            ols_alpha(candidate, base[:, 0])
+
     def test_clean_input_is_unaffected(self):
         from factrix._ols import ols_alpha
 
