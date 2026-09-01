@@ -219,10 +219,11 @@ def fm_beta(
             restatement of the $t$-stat that carries no
             errors-in-variables information about the regressor. When
             $\sigma^2_f$ is below machine epsilon the multiplier is
-            undefined; the correction is skipped, the uncorrected
-            Newey-West $p$ is returned, and
-            ``WarningCode.DEGENERATE_VARIANCE`` is raised alongside
-            ``metadata["shanken_correction"]``.
+            undefined; the mean beta remains available, but the headline
+            statistic and $p$ are withheld. The uncorrected Newey-West test
+            is retained only in ``metadata["stat_uncorrected"]`` and
+            ``metadata["p_value_uncorrected"]``, alongside
+            ``WarningCode.DEGENERATE_VARIANCE``.
 
     Notes:
         Stage 2 of FM:
@@ -366,26 +367,31 @@ def fm_beta(
     if is_estimated_factor:
         sigma2_f = float(factor_return_var)  # type: ignore[arg-type]
         # σ²_f ≈ 0 means the factor premium series is flat; Shanken's
-        # denominator collapses and the correction is undefined. Skip
-        # rather than divide into EPSILON — the uncorrected NW result
-        # is the honest answer in a degenerate regime. A skipped
-        # correction is a regime switch, so it carries a warning code
-        # rather than only a metadata string.
+        # denominator collapses and the requested correction is undefined.
+        # Keep the mean beta and the uncorrected test as named diagnostics,
+        # but do not substitute that test into the headline fields.
         if sigma2_f < EPSILON:
-            metadata["shanken_correction"] = "skipped_zero_factor_variance"
+            metadata.update(
+                {
+                    "shanken_correction": "unavailable_zero_factor_variance",
+                    "p_value_uncorrected": p,
+                    "stat_uncorrected": t,
+                }
+            )
             _emit_warning(
                 WarningCode.DEGENERATE_VARIANCE,
                 f"factor_return_var={sigma2_f!r} is below "
                 f"EPSILON={EPSILON}, so the Shanken (1992) EIV multiplier "
-                f"1 + mean(β)²/σ²_f is undefined. The correction is "
-                f"skipped and the UNCORRECTED Newey-West p-value is "
-                f"returned — read it as un-adjusted for the estimated "
-                f"regressor.",
+                f"1 + mean(β)²/σ²_f is undefined. The mean beta is retained, "
+                f"but headline stat and p_value are withheld; the uncorrected "
+                f"Newey-West test is descriptive metadata only.",
                 label="fm_beta",
                 expected_warnings=expected_warnings,
                 warning_codes=warning_codes,
                 stacklevel=2,
             )
+            t = float("nan")
+            p_final = float("nan")
         else:
             c = 1.0 + (mean_beta**2) / sigma2_f
             sqrt_c = math.sqrt(c)
@@ -929,19 +935,17 @@ def pooled_beta(
 
     with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
         V = c_obs * xtx_inv @ effective_meat @ xtx_inv
-    v_slope = V[1, 1]
-    non_psd_fallback = False
-    # Two-way V can be numerically non-PSD in small samples (CGM 2011
-    # §2.2). Clipping to 0 would report SE=0 / p=1 — that looks like
-    # "accept null" but is actually "variance undefined", the opposite
-    # of honest. Cameron-Miller (2015, JHR) recommend falling back to
-    # the larger-dimension single-way V, which is always PSD.
+    v_slope = float(V[1, 1])
+    variance_status: str | None = None
+    # A finite-sample two-way covariance need not be PSD (CGM 2011 §2.3).
+    # A one-way replacement answers a different question, while clipping the
+    # negative variance to zero invents infinite evidence. Preserve the OLS
+    # slope and withhold only the unavailable two-way test.
     if v_slope < 0.0 and two_way_cluster_col is not None:
-        v_slope = float(
-            c_obs * (xtx_inv @ ((g_a / (g_a - 1)) * meat_a) @ xtx_inv)[1, 1]
-        )
-        non_psd_fallback = True
-    se_slope = float(np.sqrt(max(v_slope, 0.0)))
+        variance_status = "non_psd_two_way_covariance"
+        se_slope = float("nan")
+    else:
+        se_slope = float(np.sqrt(max(v_slope, 0.0)))
 
     # A zero clustered SE is degeneracy in the MAXIMUM-evidence direction
     # (perfect fit, zero residuals), never the null. The former
@@ -958,8 +962,8 @@ def pooled_beta(
         "method": method_desc,
         **cluster_metadata,
     }
-    if non_psd_fallback:
-        metadata["variance_non_psd_fallback"] = f"one_way_{cluster_col}"
+    if variance_status is not None:
+        metadata["variance_status"] = variance_status
     if n_non_finite_dropped:
         metadata["dropped_pairs"] = n_non_finite_dropped
 

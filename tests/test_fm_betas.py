@@ -512,6 +512,37 @@ class TestPooledClusteredSEAgainstHandComputation:
         assert out.metadata["n_clusters_b"] == 2
         assert WarningCode.METRIC_UNAVAILABLE.value in out.warning_codes
 
+    def test_non_psd_two_way_covariance_does_not_fall_back_to_one_way(self):
+        rng = np.random.default_rng(7)
+        n_dates, n_assets = 3, 4
+        date_ids = np.repeat(np.arange(n_dates), n_assets)
+        asset_ids = np.tile(np.arange(n_assets), n_dates)
+        factor = rng.normal(size=n_dates * n_assets)
+        returns = (
+            0.002 * factor
+            + rng.normal(scale=0.02, size=n_dates)[date_ids]
+            + rng.normal(scale=0.02, size=n_assets)[asset_ids]
+            + rng.normal(scale=0.01, size=n_dates * n_assets)
+        )
+        panel = pl.DataFrame(
+            {
+                "date": date_ids,
+                "asset_id": asset_ids,
+                "factor": factor,
+                "forward_return": returns,
+            }
+        )
+
+        out = pooled_beta(panel, two_way_cluster_col="asset_id")
+
+        assert np.isfinite(out.value)
+        assert out.stat is None
+        assert out.p_value is None
+        assert out.alternative is None
+        assert out.metadata["variance_status"] == "non_psd_two_way_covariance"
+        assert "variance_non_psd_fallback" not in out.metadata
+        assert WarningCode.DEGENERATE_VARIANCE.value in out.warning_codes
+
 
 class TestShankenCorrection:
     """The EIV path: mandatory σ²_f, HAR df, and the degenerate regime."""
@@ -589,11 +620,15 @@ class TestShankenCorrection:
                 factor_return_var=0.0,
             )
         assert WarningCode.DEGENERATE_VARIANCE.value in out.warning_codes
-        assert out.metadata["shanken_correction"] == "skipped_zero_factor_variance"
-        # Skipped, so the uncorrected result stands and no Shanken key appears.
+        assert out.metadata["shanken_correction"] == "unavailable_zero_factor_variance"
         assert "shanken_c" not in out.metadata
         uncorrected = fm_beta(self._beta_df(betas))
-        assert out.p_value == pytest.approx(uncorrected.p_value)
+        assert out.value == pytest.approx(uncorrected.value)
+        assert out.stat is None
+        assert out.p_value is None
+        assert out.alternative is None
+        assert out.metadata["stat_uncorrected"] == pytest.approx(uncorrected.stat)
+        assert out.metadata["p_value_uncorrected"] == pytest.approx(uncorrected.p_value)
 
     def test_expected_warnings_silences_the_degenerate_regime(self):
         betas = self._draw(120, 0.004, 7)
