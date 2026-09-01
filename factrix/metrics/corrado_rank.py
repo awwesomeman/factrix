@@ -29,6 +29,7 @@ from factrix._types import (
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _attach_abnormal_return,
+    _degenerate_metric_output,
     _enforce_min_floor,
     _event_sample_threshold,
     _is_sparse_magnitude_weighted,
@@ -191,7 +192,8 @@ def corrado_rank(
         sit on them) — the same floor ``caar`` applies to its own event-period
         series, and ``WarningCode.FEW_EVENTS`` fires in
         ``[MIN_EVENTS_HARD, MIN_EVENTS_WARN)``; and
-        ``"degenerate_rank_variance"`` when ``std(U_bar_d) < EPSILON``.
+        a result with ``DEGENERATE_VARIANCE`` and no hypothesis test when
+        ``std(U_bar_d) < EPSILON``.
 
     References:
         - [Corrado (1989)][corrado-1989]. "A Nonparametric Test for
@@ -399,12 +401,10 @@ def corrado_rank(
     std_u = float(np.std(u_bar, ddof=DDOF))
 
     if std_u < EPSILON:
-        return _short_circuit_output(
-            "corrado_rank",
-            "degenerate_rank_variance",
-            alternative="greater",
+        return _degenerate_metric_output(
             n_obs=n_event_periods,
             n_obs_axis="events",
+            alternative_requested="greater",
             std_u=std_u,
             n_events=n_events,
             n_event_periods=n_event_periods,

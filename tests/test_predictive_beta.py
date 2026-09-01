@@ -121,7 +121,10 @@ class TestPredictiveBetaShortCircuits:
         y = np.arange(MIN_PERIODS_HARD, dtype=float)
         result = predictive_beta(_ts_panel(x, y), overlap_periods=1)
         assert math.isnan(result.value)
-        assert result.metadata["reason"] == "degenerate_factor_variance"
+        assert result.p_value is None
+        assert result.metadata["signal_status"] == "degenerate_zero_variance"
+        assert "reason" not in result.metadata
+        assert WarningCode.DEGENERATE_VARIANCE.value in result.warning_codes
         assert result.n_obs == MIN_PERIODS_HARD
 
     def test_missing_return_column(self) -> None:

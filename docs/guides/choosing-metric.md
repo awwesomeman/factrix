@@ -54,8 +54,8 @@ apply unchanged.
 
 An always-positive magnitude target (realised volatility, turnover) is not
 a drop-in replacement: both sign-test metrics assume `return_col` can be
-negative. `directional_hit_rate` short-circuits with
-`degenerate_directional_variance`; `event_hit_rate` has no such guard and
+negative. `directional_hit_rate` returns `NaN` with `DEGENERATE_VARIANCE`;
+`event_hit_rate` has no such guard and
 silently degrades to counting positive-factor events. Use `ic` or
 `monotonicity` instead — both are rank-based and test factor level against
 target magnitude directly, with no sign assumption.

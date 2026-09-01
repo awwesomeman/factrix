@@ -365,7 +365,7 @@ class TestDeclaredPeriodsFloorsVisible:
         assert da.usable is False
         assert da in info.unusable
         assert any("one-sided directional signal" in b for b in da.blockers)
-        assert any("degenerate_directional_variance" in b for b in da.blockers)
+        assert any("degenerate_variance" in b for b in da.blockers)
 
     def test_top_concentration_declares_periods_floors(self):
         from factrix._types import (

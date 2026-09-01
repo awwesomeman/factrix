@@ -580,6 +580,36 @@ def _no_signal_zero_variance(
 DEGENERATE_SIGNAL_STATUS = "degenerate_zero_variance"
 
 
+def _degenerate_metric_output(
+    *,
+    n_obs: int,
+    n_obs_axis: SampleAxis,
+    alternative_requested: PValueAlternative | None = None,
+    **metadata: object,
+) -> MetricResult:
+    """Return the canonical shape for an undefined degenerate metric.
+
+    Use this when zero dispersion makes the point estimate itself undefined.
+    Unlike :func:`_short_circuit_output`, this is not a data or configuration
+    shortage: no ``reason`` or inert p-value is fabricated. The warning code
+    keeps the non-test out of multiple-testing families, while ``strict=True``
+    correctly leaves a data-dependent degeneracy in the returned result.
+    """
+    metadata["signal_status"] = DEGENERATE_SIGNAL_STATUS
+    if alternative_requested is not None:
+        metadata["alternative_requested"] = alternative_requested
+    return MetricResult(
+        value=float("nan"),
+        p_value=None,
+        alternative=None,
+        n_obs=n_obs,
+        n_obs_axis=n_obs_axis,
+        stat=None,
+        metadata=metadata,
+        warning_codes=(WarningCode.DEGENERATE_VARIANCE.value,),
+    )
+
+
 def _degenerate_test_fields(
     stat: float,
     p_value: float,

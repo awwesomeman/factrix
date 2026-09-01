@@ -121,6 +121,9 @@ is emitted.
 
 - *descriptive*: `mean_ic`, `std_ic`, `n_periods`, `tie_ratio`, `min_assets_per_period` / `warn_assets_per_period` when the upstream IC series carries per-period asset counts.
 - *warning*: `WarningCode.FEW_ASSETS` when retained per-period IC cross-sections are below `MIN_IC_ASSETS_WARN`.
+- *degenerate*: a zero IC-series standard deviation returns `value=NaN`
+  with `WarningCode.DEGENERATE_VARIANCE`; it is not a hypothesis and does
+  not enter multiple-testing families.
 
 ### `fm_beta` family (`factrix.metrics.fm_beta`)
 
@@ -291,6 +294,8 @@ Boehmer-Musumeci-Poulsen standardised-abnormal-return cross-sectional
   `overlap_periods` (the spacing stride),
   `n_events_overlapping` / `n_events_sampled` (removed by, and surviving,
   the spacing pass; a non-zero removal fires `EVENT_WINDOW_OVERLAP`).
+- *degenerate*: a zero standard deviation of the event-period mean ranks
+  returns `value=NaN` with `WarningCode.DEGENERATE_VARIANCE` and no test.
 
 ### `positive_rate` (`factrix.metrics.positive_rate`)
 
@@ -323,6 +328,9 @@ Pesaran-Timmermann `z` statistic (`stat_type="z"`), tested one-sided.
   `kolari_pynnonen_applied` (whether the Kolari-Pynnönen deflation fired).
 - *descriptive* (conditional, adjustment applied): `stat_uncorrected`
   (the raw `S_n` before the cross-sectional-correlation deflation).
+- *degenerate*: one-signed predictions or realisations that collapse the
+  Pesaran-Timmermann variance return `value=NaN` with
+  `WarningCode.DEGENERATE_VARIANCE` and no test.
 
 ### `directional_pair_accuracy` (`factrix.metrics.directional_pair_accuracy`)
 
@@ -891,9 +899,10 @@ which reports `R²` for the OLS regression.
 - *warning*: `WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED` when the scalar HAR
   bandwidth satisfies `L > T / 5` on at least 30 finite periods. Below 30,
   `UNRELIABLE_SE_SHORT_PERIODS` owns the regime without a duplicate warning.
+- *degenerate*: zero factor variance returns `value=NaN` with
+  `WarningCode.DEGENERATE_VARIANCE` and no test.
 - *short-circuit*: `reason` `insufficient_predictive_periods`,
-  `degenerate_factor_variance`, `no_amihud_hurvich_fit`,
-  `no_factor_column`, or `no_return_column`. The
+  `no_amihud_hurvich_fit`, `no_factor_column`, or `no_return_column`. The
   `insufficient_predictive_periods` floor is a pre-flight gate on
   `n_periods_finite`, before the augmented design trims its rows.
   `no_amihud_hurvich_fit` retains `beta_ols_uncorrected` as a descriptive
