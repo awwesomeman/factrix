@@ -11,7 +11,7 @@ from __future__ import annotations
 import numpy as np
 from scipy import stats as sp_stats
 
-from factrix._types import DDOF, EPSILON
+from factrix._types import DDOF, EPSILON, PValueAlternative
 
 
 def _degenerate_t_input(std: float, n: int) -> bool:
@@ -84,7 +84,7 @@ def _t_stat_from_array(values: np.ndarray) -> float:
 def _p_value_from_t(
     t_stat: float,
     n: int,
-    alternative: str = "two-sided",
+    alternative: PValueAlternative = "two-sided",
     *,
     dof: float | None = None,
 ) -> float:

@@ -122,6 +122,29 @@ class TestNonOverlapping:
         ) == 5 * NON_OVERLAPPING.min_input_periods(1)
 
 
+@pytest.mark.parametrize(
+    "member",
+    [NON_OVERLAPPING, NEWEY_WEST, StationaryBootstrap(n_resamples=199, rng=0)],
+)
+@pytest.mark.parametrize("sign", [1.0, -1.0])
+def test_series_mean_members_honor_predeclared_tail(member, sign: float) -> None:
+    values = sign * (np.linspace(-0.1, 0.5, 80) + 0.2)
+    data = _series_df(values)
+    p = {
+        alternative: member.compute(
+            data,
+            value_col="ic",
+            overlap_periods=1,
+            alternative=alternative,
+        ).p_value
+        for alternative in ("two-sided", "greater", "less")
+    }
+
+    favored = "greater" if sign > 0 else "less"
+    opposed = "less" if sign > 0 else "greater"
+    assert p[favored] < p["two-sided"] < p[opposed]
+
+
 class TestNeweyWest:
     @pytest.mark.parametrize("overlap_periods", [1, 5, 10])
     def test_bit_equal_to_kernel_nw1994(self, overlap_periods: int) -> None:

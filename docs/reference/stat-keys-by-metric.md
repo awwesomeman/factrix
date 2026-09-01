@@ -91,6 +91,16 @@ contrasts, not a sidecar to a primary value.
 | [`breakeven_cost`][factrix.metrics.tradability.breakeven_cost] | none — descriptive | — | breakeven one-way cost (bps) |
 | [`net_spread`][factrix.metrics.tradability.net_spread] | none — descriptive | — | net spread (per-period return) |
 
+### `alternative_requested` — every metric, degenerate path only
+
+A metric that withholds its test on a degenerate sample returns
+`p_value=None` and `alternative=None`, so the tail it would have run under
+has nowhere left to live on the result. Every such result therefore carries
+`metadata["alternative_requested"]`, and **only** such a result does: on a
+normal path `MetricResult.alternative` already records it, so a second copy
+would read as a degeneracy marker. Metrics that expose no `alternative`
+knob record `"two-sided"` here, which is what they ran.
+
 ## Per-metric schemas
 
 ### `ic` family (`factrix.metrics.ic`)
@@ -98,7 +108,7 @@ contrasts, not a sidecar to a primary value.
 #### `ic`
 
 - *primary*: `p_value` — test on the per-period IC series, from the configured `inference`: a `t`-test on a non-overlapping stride of `overlap_periods` (default), a Newey-West HAC `t`-test, or a stationary-bootstrap empirical `p`.
-- *descriptive*: `n_periods` (the sample the `value` / `stat` / `p_value` describe — the strided subsample under `NonOverlapping`, the full series under `NeweyWest` / `StationaryBootstrap`; equals `n_obs`), `n_periods_full` and `mean_ic_full` (the full per-period series, for reference), `overlap_periods`, `tie_ratio` (median across periods), `min_assets_per_period` / `warn_assets_per_period` when the upstream IC series carries per-period asset counts, `stat_type` (the test actually run: `"t"` under `NonOverlapping` / `NeweyWest`, `"bootstrap-mean"` under `StationaryBootstrap`), `h0` (`"mu=0"`), `method`.
+- *descriptive*: `n_periods` (the sample the `value` / `stat` / `p_value` describe — the strided subsample under `NonOverlapping`, the full series under `NeweyWest` / `StationaryBootstrap`; equals `n_obs`), `n_periods_full` and `mean_ic_full` (the full per-period series, for reference), `overlap_periods`, `tie_ratio` (median across periods), `min_assets_per_period` / `warn_assets_per_period` when the upstream IC series carries per-period asset counts, `stat_type` (the test actually run: `"t"` under `NonOverlapping` / `NeweyWest`, `"bootstrap-mean"` under `StationaryBootstrap`), `h0` (`"mu=0"`), and `method`.
 - *descriptive* (conditional, `NeweyWest`): `newey_west_lags` (resolved Bartlett bandwidth) and `hac_dof` (the effective degrees of freedom the `t` is read against; `None` when the sample is too short to run the kernel).
 - *descriptive* (conditional, `StationaryBootstrap`): `n_resamples` and `seed` (the resolved seed, reported even when not supplied, so an unseeded run stays reproducible; `null` when a `numpy.random.Generator` was supplied — that stream is the caller's to reproduce), `p_value_mc_se` (Monte-Carlo SE of the empirical `p`), `block_length` (the resolved Politis-White mean block length) and `studentized`. See [Resampling knobs](statistical-methods.md#resampling-knobs).
 - *warning*: `WarningCode.FEW_ASSETS` when retained per-period IC cross-sections are below `MIN_IC_ASSETS_WARN`; `WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED` under `NeweyWest` when the resolved bandwidth exceeds `n_periods / 5`.

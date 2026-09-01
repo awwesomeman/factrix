@@ -12,16 +12,14 @@ import html
 import math
 from collections.abc import Hashable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Literal, get_args
+from typing import Any, get_args
 
 import polars as pl
 
 from factrix._axis import DataStructure, FactorDensity, FactorScope
 from factrix._codes import WarningCode
 from factrix._errors import UserInputError
-from factrix._types import SampleAxis
-
-PValueAlternative = Literal["two-sided", "greater", "less"]
+from factrix._types import PValueAlternative, SampleAxis
 
 # Runtime mirror of ``PValueAlternative`` — a Literal is erased at runtime, so
 # a typo'd alternative would otherwise flow through to ``to_frame`` / ``to_dict``

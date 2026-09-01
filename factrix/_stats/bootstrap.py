@@ -38,7 +38,7 @@ from typing import Literal
 
 import numpy as np
 
-from factrix._types import EPSILON
+from factrix._types import EPSILON, PValueAlternative
 
 #: Refusal floor for every entry point that exposes a user-settable resample
 #: count *and* reports an inference drawn from it (``bootstrap_mean_ci``,
@@ -422,9 +422,10 @@ def _block_bootstrap_diff_p(
     block_length: int | Literal["auto"] = "auto",
     n_resamples: int = 999,
     overlap_periods: int | None = None,
+    alternative: PValueAlternative = "two-sided",
     rng: Rng = None,
 ) -> tuple[float, dict[str, float | int | str | None]]:
-    r"""Two-sided empirical p for ``H₀: E[diff] = 0`` on a paired series.
+    r"""Empirical p for ``H₀: E[diff] = 0`` on a paired series.
 
     Resamples ``diff`` under the centring ``diff - mean(diff)`` (the
     null restricts the mean to zero; the bootstrap distribution must be
@@ -486,6 +487,9 @@ def _block_bootstrap_diff_p(
             to rediscover it from a short noisy sample and systematically
             under-shoots (measured mean L of 7.95 against a needed 21 at
             T=60, h=21). Mirrors the HAC paths' bandwidth floor.
+        alternative: Tail fixed before inspecting the evaluated sample.
+            ``"greater"`` and ``"less"`` compare signed roots; the default
+            ``"two-sided"`` compares their absolute magnitude.
         rng: ``None`` draws from system entropy and the resolved int is
             returned in the metadata dict so the caller can record it; an
             ``int`` is reported unchanged; a ``numpy.random.Generator`` is
@@ -570,11 +574,21 @@ def _block_bootstrap_diff_p(
             boot_means, se_boot, out=np.zeros_like(boot_means), where=usable
         )
         observed_t = observed / se_observed
-        extreme = int(np.sum(np.abs(boot_t[usable]) >= abs(observed_t)))
+        roots = boot_t[usable]
+        if alternative == "greater":
+            extreme = int(np.sum(roots >= observed_t))
+        elif alternative == "less":
+            extreme = int(np.sum(roots <= observed_t))
+        else:
+            extreme = int(np.sum(np.abs(roots) >= abs(observed_t)))
         n_used = int(usable.sum())
     else:
-        # Two-sided: count resamples whose |bootstrap mean| ≥ |observed|.
-        extreme = int(np.sum(np.abs(boot_means) >= abs(observed)))
+        if alternative == "greater":
+            extreme = int(np.sum(boot_means >= observed))
+        elif alternative == "less":
+            extreme = int(np.sum(boot_means <= observed))
+        else:
+            extreme = int(np.sum(np.abs(boot_means) >= abs(observed)))
         n_used = int(n_resamples)
 
     p, p_mc_se = _empirical_p(extreme, n_used)

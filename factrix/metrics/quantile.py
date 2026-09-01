@@ -35,6 +35,7 @@ from factrix._types import (
     DEFAULT_FORWARD_PERIODS,
     DEFAULT_N_GROUPS,
     MIN_PORTFOLIO_PERIODS_HARD,
+    PValueAlternative,
     TiePolicy,
 )
 from factrix.inference import (
@@ -190,6 +191,7 @@ def quantile_spread(
     tie_policy: TiePolicy = "ordinal",
     inference: NonOverlapping | NeweyWest | StationaryBootstrap = NON_OVERLAPPING,
     *,
+    alternative: PValueAlternative = "two-sided",
     expected_warnings: tuple[str, ...] = (),
     _precomputed_series: dict[str, pl.DataFrame] | None = None,
 ) -> dict[str, MetricResult]:
@@ -203,6 +205,9 @@ def quantile_spread(
             ``fx.inference.STATIONARY_BOOTSTRAP`` keeps every date and reports
             an empirical block-bootstrap p-value. A thin cross-section only
             attaches ``FEW_ASSETS``; it never changes the requested member.
+        alternative: Requested tail for the headline mean-spread test. Keep
+            ``"two-sided"`` for discovery; use ``"greater"`` or ``"less"``
+            only when that direction was fixed before inspecting the sample.
         _precomputed_series: If provided, skip recomputing ``compute_spread_series``.
         tie_policy: Bucketing tie-break policy, see ``_assign_quantile_groups``.
             Either ``"ordinal"`` or ``"average"``; anything else raises ``UserInputError``.
@@ -328,6 +333,7 @@ def quantile_spread(
             factor_col=f,
             tie_policy=tie_policy,
             inference=inference,
+            alternative=alternative,
             overlap_periods=overlap_periods,
             n_groups=n_groups,
             full_series=(
@@ -347,6 +353,7 @@ def _quantile_spread_from_series(
     factor_col: str,
     tie_policy: TiePolicy,
     inference: NonOverlapping | NeweyWest | StationaryBootstrap,
+    alternative: PValueAlternative,
     overlap_periods: int,
     n_groups: int,
     full_series: pl.DataFrame | None,
@@ -368,6 +375,7 @@ def _quantile_spread_from_series(
         MIN_PORTFOLIO_PERIODS_HARD,
         overlap_periods,
         "insufficient_portfolio_periods",
+        alternative=alternative,
         tie_ratio=tie_ratio,
         tie_policy=tie_policy,
     )
@@ -383,12 +391,14 @@ def _quantile_spread_from_series(
             n_obs=max_assets,
             n_obs_axis="assets",
             n_groups=n_groups,
+            alternative=alternative,
             min_required=n_groups,
             max_assets_per_date=max_assets,
         )
     if bool(series["_zero_variance_factor"].all()):
         return _no_signal_zero_variance(
             series.height,
+            alternative=alternative,
             tie_ratio=tie_ratio,
             tie_policy=tie_policy,
             n_groups=n_groups,
@@ -401,6 +411,7 @@ def _quantile_spread_from_series(
             "insufficient_portfolio_periods",
             n_obs=0,
             n_obs_axis="periods",
+            alternative=alternative,
             n_periods_in=series.height,
             tie_ratio=tie_ratio,
             tie_policy=tie_policy,
@@ -437,6 +448,7 @@ def _quantile_spread_from_series(
             n_assets=n_assets,
             metric_name="quantile_spread",
             expected_warnings=expected_warnings,
+            alternative=alternative,
         )
     )
     # Long/short decomposition (spread = long_alpha + short_alpha)
@@ -492,12 +504,12 @@ def _quantile_spread_from_series(
     )
     # A NaN headline stat means the tested spread series carries no dispersion
     # (or the HAC SE collapsed): ``mean_spread`` still stands, the t does not.
-    stat, p_out, alternative = _degenerate_test_fields(
-        t, p, "two-sided", metadata, warning_codes
+    stat, p_out, alternative_out = _degenerate_test_fields(
+        t, p, alternative, metadata, warning_codes
     )
     return MetricResult(
         p_value=p_out,
-        alternative=alternative,
+        alternative=alternative_out,
         value=mean_spread,
         n_obs=n,
         n_obs_axis="periods",
@@ -605,6 +617,7 @@ def quantile_spread_vw(
     inference: NonOverlapping | NeweyWest | StationaryBootstrap = NON_OVERLAPPING,
     lag_weights: bool = True,
     *,
+    alternative: PValueAlternative = "two-sided",
     expected_warnings: tuple[str, ...] = (),
 ) -> MetricResult:
     r"""Value-weighted long-short spread — alpha concentration diagnostic.
@@ -645,6 +658,8 @@ def quantile_spread_vw(
             the OLS t-test on the non-overlap stride subsample;
             ``fx.inference.NEWEY_WEST`` keeps every date and absorbs the
             MA(h-1) overlap in a HAC SE.
+        alternative: Requested tail for the headline mean-spread test; fix a
+            one-sided direction before inspecting the evaluated sample.
         lag_weights: When True (default), shift ``weight_col`` by 1
             period per asset (on the non-overlap-sampled frame) before
             weighting. When False, use weights as supplied.
@@ -726,6 +741,7 @@ def quantile_spread_vw(
         return _short_circuit_output(
             "quantile_spread_vw",
             "no_weight_column",
+            alternative=alternative,
             missing_column=weight_col,
         )
 
@@ -761,6 +777,7 @@ def quantile_spread_vw(
         MIN_PORTFOLIO_PERIODS_HARD,
         overlap_periods,
         "insufficient_portfolio_periods",
+        alternative=alternative,
         tie_ratio=tie_ratio,
         tie_policy=tie_policy,
     )
@@ -780,12 +797,14 @@ def quantile_spread_vw(
             n_obs=max_assets,
             n_obs_axis="assets",
             n_groups=n_groups,
+            alternative=alternative,
             min_required=n_groups,
             max_assets_per_date=max_assets,
         )
     if _all_dates_degenerate(sampled, factor_col):
         return _no_signal_zero_variance(
             n,
+            alternative=alternative,
             tie_ratio=tie_ratio,
             tie_policy=tie_policy,
             n_groups=n_groups,
@@ -799,6 +818,7 @@ def quantile_spread_vw(
             "insufficient_portfolio_periods",
             n_obs=0,
             n_obs_axis="periods",
+            alternative=alternative,
             n_periods_in=vw_series.height,
             tie_ratio=tie_ratio,
             tie_policy=tie_policy,
@@ -851,6 +871,7 @@ def quantile_spread_vw(
         n_assets=n_assets,
         metric_name="quantile_spread_vw",
         expected_warnings=expected_warnings,
+        alternative=alternative,
     )
     metadata: dict[str, object] = {
         "n_periods": n_tested,
@@ -885,12 +906,12 @@ def quantile_spread_vw(
     )
     # A NaN headline stat means the tested spread series carries no dispersion
     # (or the HAC SE collapsed): ``mean_spread`` still stands, the t does not.
-    stat, p_out, alternative = _degenerate_test_fields(
-        t, p, "two-sided", metadata, warning_codes
+    stat, p_out, alternative_out = _degenerate_test_fields(
+        t, p, alternative, metadata, warning_codes
     )
     return MetricResult(
         p_value=p_out,
-        alternative=alternative,
+        alternative=alternative_out,
         value=mean_spread,
         n_obs=n_tested,
         n_obs_axis="periods",

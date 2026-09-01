@@ -41,7 +41,7 @@ if TYPE_CHECKING:
     )
     from factrix.metrics._base import MetricBase
 from factrix._metric_index import SampleThreshold
-from factrix._results import MetricResult, PValueAlternative
+from factrix._results import MetricResult
 from factrix._types import (
     DDOF,
     DEFAULT_FORWARD_PERIODS,
@@ -49,6 +49,7 @@ from factrix._types import (
     EPSILON,
     N_GROUPS_FLOOR,
     KPSource,
+    PValueAlternative,
     SampleAxis,
     TiePolicy,
 )
@@ -234,6 +235,7 @@ def _spread_significance_with_inference(
     overlap_periods: int,
     n_assets: int,
     metric_name: str,
+    alternative: PValueAlternative = "two-sided",
     expected_warnings: tuple[str, ...] = (),
 ) -> tuple[
     float,
@@ -310,7 +312,10 @@ def _spread_significance_with_inference(
     data = full_spread if use_full else strided_spread
     assert data is not None  # full_spread narrowed by the guard above
     res = member.compute(
-        data, value_col="spread", overlap_periods=overlap_periods if use_full else 1
+        data,
+        value_col="spread",
+        overlap_periods=overlap_periods if use_full else 1,
+        alternative=alternative,
     )
     if res.n_obs is None or res.estimate is None:
         raise RuntimeError(
@@ -526,19 +531,32 @@ def _all_dates_degenerate(panel: pl.DataFrame, factor_col: str) -> bool:
     )
 
 
-def _no_signal_zero_variance(n_periods: int, **extra: object) -> MetricResult:
+def _no_signal_zero_variance(
+    n_periods: int,
+    *,
+    alternative: PValueAlternative = "two-sided",
+    **extra: object,
+) -> MetricResult:
     """Explicit no-signal result for a zero cross-sectional variance factor.
 
     A constant factor produces an identically zero long-short spread, so the
-    honest answer is ``value=0`` with ``t=0``, ``p=1`` — a real (if null)
-    finding, not a data shortage. Returned as a normal applicable
-    ``MetricResult`` (no short-circuit ``reason``) so callers do not mis-route
-    it as a shortage. ``extra`` carries metric-specific descriptive metadata.
+    honest answer is ``value=0`` with ``t=0`` — a real (if null) finding, not
+    a data shortage. Returned as a normal applicable ``MetricResult`` (no
+    short-circuit ``reason``) so callers do not mis-route it as a shortage.
+    ``extra`` carries metric-specific descriptive metadata.
+
+    The p is read off ``t = 0`` under the *requested* tail rather than fixed
+    at ``1.0``: two-sided it is ``1.0`` as before, but a one-sided test whose
+    statistic is exactly zero has ``p = 0.5``. Hard-coding ``1.0`` under
+    ``alternative="greater"`` would ship a ``(stat, p, alternative)`` triple
+    that cannot be recomputed from its own parts.
     """
+    from factrix._stats.core import _p_value_from_t
+
     return MetricResult(
         value=0.0,
-        p_value=1.0,
-        alternative="two-sided",
+        p_value=_p_value_from_t(0.0, n_periods, alternative),
+        alternative=alternative,
         n_obs=n_periods,
         n_obs_axis="periods",
         stat=0.0,
@@ -574,9 +592,18 @@ def _degenerate_test_fields(
     Pass what ``_calc_t_stat`` (or a HAC t-test) just returned together with
     the p derived from it. When ``stat`` is finite the triple comes back
     unchanged; when it is NaN the caller gets ``(None, None, None)`` and this
-    stamps ``metadata["signal_status"]`` plus a ``DEGENERATE_VARIANCE``
+    stamps ``metadata["signal_status"]`` and
+    ``metadata["alternative_requested"]`` plus a ``DEGENERATE_VARIANCE``
     warning code (both containers are mutated in place, as the
     ``_surface_*`` helpers do).
+
+    ``alternative_requested`` is written **here and only here**: it exists to
+    preserve the requested tail across the one path that withholds the
+    top-level ``alternative`` field. On every other path ``MetricResult.
+    alternative`` already carries it, so a second copy in ``metadata`` would
+    be a duplicate that consumers could read as a degeneracy marker. Metrics
+    that expose no ``alternative`` knob record ``"two-sided"`` here, which is
+    what they ran.
 
     **Why the test dies but the result lives.** A zero-dispersion sample is
     not a null result: every observation identical and non-zero is degeneracy
@@ -603,6 +630,7 @@ def _degenerate_test_fields(
     if not math.isnan(stat):
         return stat, p_value, alternative
     metadata["signal_status"] = DEGENERATE_SIGNAL_STATUS
+    metadata["alternative_requested"] = alternative
     code = WarningCode.DEGENERATE_VARIANCE.value
     if code not in warning_codes:
         warning_codes.append(code)
