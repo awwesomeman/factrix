@@ -6,6 +6,7 @@ import math
 
 import numpy as np
 import pytest
+from factrix._errors import UserInputError
 from factrix._stats.bootstrap import (
     _block_bootstrap_diff_p,
     _politis_white_block_length,
@@ -201,6 +202,13 @@ class TestStudentizedDiffP:
         assert math.isnan(meta["block_length"])
         assert meta["n_resamples"] == 0
         assert meta["studentized"] is False
+
+    def test_short_series_still_rejects_unknown_alternative(self):
+        with pytest.raises(UserInputError, match="greater"):
+            _block_bootstrap_diff_p(
+                np.array([0.5]),
+                alternative="grater",  # type: ignore[arg-type]
+            )
 
     def test_p_floor_smoothing(self):
         # p should never be exactly 0 (Davison-Hinkley smoothing).

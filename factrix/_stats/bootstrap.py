@@ -38,6 +38,7 @@ from typing import Literal
 
 import numpy as np
 
+from factrix._stats.core import _validate_p_value_alternative
 from factrix._types import EPSILON, PValueAlternative
 
 #: Refusal floor for every entry point that exposes a user-settable resample
@@ -511,6 +512,7 @@ def _block_bootstrap_diff_p(
         for the null, and the former sentinel also broke the documented
         ``block_length >= 1`` invariant for anyone reading the metadata.
     """
+    _validate_p_value_alternative(alternative, func_name="_block_bootstrap_diff_p")
     diff = np.asarray(diff, dtype=float)
     # A NaN would make ``centred`` all-NaN, every ``|boot| >= |obs|`` test
     # False and the reported p collapse to ``1 / (B + 1)`` — the *strongest*

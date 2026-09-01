@@ -8,10 +8,31 @@ heteroskedasticity-and-autocorrelation-consistent (HAC) t-tests in ``factrix._st
 
 from __future__ import annotations
 
+from typing import get_args
+
 import numpy as np
 from scipy import stats as sp_stats
 
+from factrix._errors import UserInputError
 from factrix._types import DDOF, EPSILON, PValueAlternative
+
+_P_VALUE_ALTERNATIVES: tuple[str, ...] = get_args(PValueAlternative)
+
+
+def _validate_p_value_alternative(
+    alternative: object,
+    *,
+    func_name: str,
+) -> None:
+    """Reject a runtime value outside :class:`PValueAlternative`."""
+    if alternative not in _P_VALUE_ALTERNATIVES:
+        raise UserInputError(
+            func_name=func_name,
+            field="alternative",
+            value=alternative,
+            candidates=_P_VALUE_ALTERNATIVES,
+            docs_path="reference/statistical-methods",
+        )
 
 
 def _degenerate_t_input(std: float, n: int) -> bool:
@@ -99,6 +120,7 @@ def _p_value_from_t(
             (:func:`factrix._stats.hac._har_dof`). Returns 1.0 if the
             resolved ``dof`` is below 1.
     """
+    _validate_p_value_alternative(alternative, func_name="_p_value_from_t")
     dof = n - 1 if dof is None else dof
     if dof < 1:
         return 1.0

@@ -4,6 +4,7 @@ import math
 
 import numpy as np
 import pytest
+from factrix._errors import UserInputError
 from factrix._stats import (
     _calc_t_stat,
     _p_value_from_t,
@@ -56,6 +57,11 @@ class TestTStatFromArray:
     def test_constant_non_zero_array(self):
         # The reported shape: every observation identical and non-zero.
         assert math.isnan(_t_stat_from_array(np.full(10, 0.03)))
+
+
+def test_p_value_rejects_unknown_alternative_before_short_sample_fallback():
+    with pytest.raises(UserInputError, match="greater"):
+        _p_value_from_t(0.0, 1, "grater")  # type: ignore[arg-type]
 
 
 class TestSignificanceMarker:

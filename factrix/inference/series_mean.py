@@ -164,8 +164,10 @@ class NonOverlapping:
         alternative: PValueAlternative = "two-sided",
     ) -> InferenceResult:
         from factrix._stats import _p_value_from_t, _t_stat_from_array
+        from factrix._stats.core import _validate_p_value_alternative
         from factrix.metrics._helpers import _sample_non_overlapping
 
+        _validate_p_value_alternative(alternative, func_name=type(self).__name__)
         # Stride on the *calendar* (every h-th unique date) before dropping
         # non-finite rows, so a dropped observation cannot shift the sampling
         # phase; striding the cleaned row index would silently re-align the
@@ -276,7 +278,9 @@ class NeweyWest:
             _newey_west_t_test,
             _resolve_har_lags,
         )
+        from factrix._stats.core import _validate_p_value_alternative
 
+        _validate_p_value_alternative(alternative, func_name=type(self).__name__)
         vals = _clean_series(data, value_col).to_numpy()
         n = len(vals)
         newey_west_lags = _resolve_har_lags(n, None, overlap_periods) if n >= 2 else 0
@@ -364,7 +368,9 @@ class HansenHodrick:
         alternative: PValueAlternative = "two-sided",
     ) -> InferenceResult:
         from factrix._stats import _hansen_hodrick_t_test
+        from factrix._stats.core import _validate_p_value_alternative
 
+        _validate_p_value_alternative(alternative, func_name=type(self).__name__)
         vals = _clean_series(data, value_col).to_numpy()
         n = len(vals)
         t_stat, p_value, _, clamped = _hansen_hodrick_t_test(
@@ -509,7 +515,9 @@ class StationaryBootstrap:
         alternative: PValueAlternative = "two-sided",
     ) -> InferenceResult:
         from factrix._stats.bootstrap import _block_bootstrap_diff_p
+        from factrix._stats.core import _validate_p_value_alternative
 
+        _validate_p_value_alternative(alternative, func_name=type(self).__name__)
         vals = _clean_series(data, value_col).to_numpy()
         n = len(vals)
         p_value, boot_metadata = _block_bootstrap_diff_p(
