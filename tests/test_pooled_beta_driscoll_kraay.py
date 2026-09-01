@@ -105,6 +105,19 @@ class TestDriscollKraayPath:
         assert res.p_value == 1.0
         assert WarningCode.METRIC_UNAVAILABLE.value in res.warning_codes
 
+    def test_singular_design_has_its_own_reason(self):
+        df = _common_factor_panel(n_dates=12, n_assets=10, rho=0.2).with_columns(
+            pl.lit(1.0).alias("factor")
+        )
+
+        res = pooled_beta(df, driscoll_kraay=True)
+
+        assert np.isnan(res.value)
+        assert res.stat is None
+        assert res.p_value == 1.0
+        assert res.metadata["reason"] == "singular_pooled_design_matrix"
+        assert WarningCode.METRIC_UNAVAILABLE.value in res.warning_codes
+
     def test_mutually_exclusive_with_two_way_cluster(self):
         df = _common_factor_panel(n_dates=40, n_assets=10, rho=0.2)
         with pytest.raises(ValueError, match="mutually exclusive"):
