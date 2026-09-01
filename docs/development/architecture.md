@@ -965,7 +965,13 @@ Hard constraints — violating these breaks the API contract:
    finite and in `[0, 1]`. `warnings` flag interpretation risk but never
    rebind it. A standard error at or below `EPSILON` is degenerate, not null
    evidence: t and Wald consumers withhold the test as NaN and surface
-   `degenerate_variance` while retaining a valid point estimate.
+   `degenerate_variance` while retaining a valid point estimate. The canonical
+   test for that is `factrix._stats.core._degenerate_t_input`, not a bare
+   `x < EPSILON`: NaN is unordered, so a negative-polarity threshold is false
+   for it and lets a non-finite dispersion through. FX007 in
+   `tests/stats/test_degenerate_guard_polarity.py` rejects new bare
+   comparisons and carries the pre-existing sites as a baseline — that
+   baseline is a migration ledger, not a bug list.
 6. Family declaration is explicit: a screening verb's input list is one family, optionally split per bucket via `expand_over` where the API supports it. Shared resolution enforces (a) the result identity `(factor, forward_periods, *sorted(params.items()))` is unique across the input — every `params` entry joins it automatically, while `metadata` never does, (b) `expand_over` names come only from `EvaluationResult.params` (or the built-in `forward_periods`), never the factor and never a `metadata` key, (c) formal p-values are populated before procedures read them. Cross-metric BHY adds the metric label to the hypothesis identity; cross-metric partial conjunction keeps the predeclared metric count fixed under insufficient endpoints. Mixed horizons warn so the caller confirms whether selection is pooled or predeclared per horizon.
 7. A metric whose effective sample is below its own hard floor raises `InsufficientSampleError` under `strict=True` (per metric, per axis, on the effective post-stride/post-drop sample — not a global `T` rule); metrics never silently produce a result on under-sampled data. NW HAC bandwidths read `overlap_periods` and never fall below `h - 1`; scalar series means and rank-one contrasts use the wider calibrated `3(h - 1)` floor, while multi-restriction Wald paths retain the Hansen-Hodrick floor.
 

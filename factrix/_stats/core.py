@@ -38,13 +38,18 @@ def _validate_p_value_alternative(
 def _degenerate_t_input(std: float, n: int) -> bool:
     """True when ``(std, n)`` cannot support a t-statistic.
 
-    Zero (or EPSILON-small) dispersion and a non-positive sample size are
-    the two regimes where ``mean / (std / √n)`` has no finite value.
-    :func:`_calc_t_stat` returns NaN on both; callers that own a
+    This is the canonical guard for scalar standard errors and dispersions
+    used in t-statistic construction. It deliberately uses a positive
+    finite-value test: NaN is unordered, so a bare ``std < EPSILON`` would
+    let it pass, while infinity cannot support meaningful inference either.
+    Callers should use this helper instead of repeating a threshold comparison.
+
+    :func:`_calc_t_stat` returns NaN for non-finite or EPSILON-small
+    dispersion and for a non-positive sample size. Callers that own a
     ``MetricResult`` recognise that NaN afterwards and withhold the test
     (``factrix.metrics._helpers._degenerate_test_fields``).
     """
-    return not (std > EPSILON and n > 0)
+    return not (np.isfinite(std) and std > EPSILON and n > 0)
 
 
 def _calc_t_stat(mean: float, std: float, n: int) -> float:

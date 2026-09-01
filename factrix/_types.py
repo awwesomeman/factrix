@@ -13,7 +13,10 @@ from typing import Literal, NewType
 # Numerical constants
 # ---------------------------------------------------------------------------
 
-# WHY: shared zero-division floor so std ≈ 0 doesn't inflate t-stat to absurd magnitudes.
+# WHY: shared zero-division floor so std ≈ 0 doesn't inflate t-stat to absurd
+# magnitudes. For t-statistic degeneracy checks, use
+# ``factrix._stats.core._degenerate_t_input`` rather than a bare comparison:
+# NaN silently passes ``x < EPSILON`` because it is unordered.
 EPSILON: float = 1e-9
 
 # WHY: ddof=1 is the sample-std convention (industry standard); fixing it project-wide
