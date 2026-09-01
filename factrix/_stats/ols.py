@@ -158,6 +158,16 @@ def _ols_nw_multivariate(
     """
     y = _require_finite(y, "_ols_nw_multivariate")
     X = _require_finite(X, "_ols_nw_multivariate")
+    return _ols_nw_multivariate_from_finite(y, X, lags=lags)
+
+
+def _ols_nw_multivariate_from_finite(
+    y: np.ndarray,
+    X: np.ndarray,
+    *,
+    lags: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Fit :func:`_ols_nw_multivariate` after caller-side validation."""
     n, k = X.shape
     not_computable = (np.full(k, np.nan), np.full((k, k), np.nan), np.zeros(n))
     if len(y) != n or n < k + 1:
@@ -219,10 +229,30 @@ def _ols_scalar_wald_hac(
     shared warning policy, including suppression below the common warning
     floor.
     """
+    # Preserve the kernel's historical error label while allowing a caller
+    # with a more specific validation contract to reuse the finite-input fit.
+    y = _require_finite(y, "_ols_nw_multivariate")
+    X = _require_finite(X, "_ols_nw_multivariate")
+    return _ols_scalar_wald_hac_from_finite(
+        y,
+        X,
+        lags=lags,
+        overlap_periods=overlap_periods,
+    )
+
+
+def _ols_scalar_wald_hac_from_finite(
+    y: np.ndarray,
+    X: np.ndarray,
+    *,
+    lags: int | None = None,
+    overlap_periods: int | None = None,
+) -> _ScalarWaldHacFit:
+    """Fit :func:`_ols_scalar_wald_hac` after caller-side validation."""
     resolved_lags, variance_scale, dof = _resolve_scalar_wald_hac(
         len(y), lags, overlap_periods
     )
-    beta, covariance, resid = _ols_nw_multivariate(y, X, lags=resolved_lags)
+    beta, covariance, resid = _ols_nw_multivariate_from_finite(y, X, lags=resolved_lags)
     return _ScalarWaldHacFit(
         beta=beta,
         covariance=covariance * variance_scale,

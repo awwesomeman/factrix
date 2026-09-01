@@ -541,6 +541,19 @@ class TestOlsAlphaFiniteContract:
         result = ols_alpha(candidate, np.empty((len(candidate), 0)))
         assert result.alpha == pytest.approx(float(np.mean(candidate)))
 
+    def test_regular_fit_reuses_hac_coefficients(self, monkeypatch):
+        from factrix._ols import ols_alpha
+
+        candidate, base = self._design()
+
+        def fail_lstsq(*_args, **_kwargs):
+            raise AssertionError("regular fits must reuse the HAC kernel fit")
+
+        monkeypatch.setattr(np.linalg, "lstsq", fail_lstsq)
+        result = ols_alpha(candidate, base)
+        assert math.isfinite(result.alpha)
+        assert math.isfinite(result.alpha_t)
+
 
 class TestAlphaTIsHac:
     """``alpha_t`` divides by a Newey-West HAC SE, not the homoskedastic OLS SE.
