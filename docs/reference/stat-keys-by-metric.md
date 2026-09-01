@@ -469,7 +469,11 @@ Pre/post-event return profile; descriptive.
   as events accumulate), `interpretation`. `reason` is set to
   `no_pre_event_offset_with_enough_events` and `value` is `NaN` when no
   negative offset cleared the 5-event floor — `0.0` there was the *best*
-  possible score for a quantity never computed.
+  possible score for a quantity never computed. An observed non-finite or
+  non-positive price instead withdraws the entire curve with
+  `reason=invalid_price_data`, `per_offset={}`, and
+  `WarningCode.METRIC_UNAVAILABLE`; `n_invalid_prices` reports the offending
+  row count. Null prices remain valid missing data on a ragged panel.
 - `p_value` is `None` — no hypothesis test runs, and no offset carries a
   `p`: the headline `value` is the pre-event leakage score and per-horizon
   `hit_rate` is a raw fraction of positive signed returns. Offsets overlap

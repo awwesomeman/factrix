@@ -31,6 +31,7 @@ from factrix._types import DDOF, EPSILON
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _densify_on_period_grid,
+    _finite_expr,
     _short_circuit_output,
     _warn_ragged_event_grid,
 )
@@ -46,14 +47,18 @@ __all__ = [
 _EH_CELL = cell(None, FactorDensity.SPARSE, structure=None)
 
 
-def _unconditional_bar_return(data: pl.DataFrame, price_col: str) -> float:
+def _unconditional_bar_return(
+    data: pl.DataFrame, price_col: str
+) -> tuple[float | None, int]:
     """Mean single-bar return across the whole panel, per asset then pooled.
 
     The pre-event offsets are single-bar returns, so an asset that drifts up
     0.1% a bar has pre-event means of 0.1% with no information leakage at all.
     Subtracting this baseline makes the leakage score measure what its name
-    says. Returns ``0.0`` when it cannot be computed, which leaves the score
-    exactly as it was.
+    says. Returns ``None`` when it cannot be computed. A non-finite or
+    non-positive observed price invalidates the baseline rather than being
+    silently dropped: otherwise a contaminated denominator can manufacture
+    an infinite baseline and a finite-looking hit rate.
 
     The bar is one step on the panel's period grid, matching the offsets it is
     subtracted from: on a ragged panel a step across an asset's missing periods
@@ -61,18 +66,23 @@ def _unconditional_bar_return(data: pl.DataFrame, price_col: str) -> float:
     baseline.
     """
     if price_col not in data.columns or "asset_id" not in data.columns:
-        return 0.0
-    dense, _ = _densify_on_period_grid(data)
-    rets = (
-        dense.with_columns(
-            (pl.col(price_col) / pl.col(price_col).shift(1).over("asset_id") - 1).alias(
-                "_bar_ret"
-            )
-        )["_bar_ret"]
-        .drop_nulls()
-        .drop_nans()
+        return None, 0
+
+    price = pl.col(price_col).cast(pl.Float64, strict=False)
+    invalid_price = pl.col(price_col).is_not_null() & (
+        ~_finite_expr(price_col) | (price <= EPSILON).fill_null(False)
     )
-    return float(rets.mean()) if len(rets) else 0.0  # type: ignore[arg-type]
+    n_invalid_prices = data.filter(invalid_price).height
+    if n_invalid_prices:
+        return None, n_invalid_prices
+
+    dense, _ = _densify_on_period_grid(data)
+    rets = dense.with_columns(
+        (pl.col(price_col) / pl.col(price_col).shift(1).over("asset_id") - 1).alias(
+            "_bar_ret"
+        )
+    ).filter(_finite_expr("_bar_ret"))["_bar_ret"]
+    return (float(rets.mean()), 0) if len(rets) else (None, 0)  # type: ignore[arg-type]
 
 
 @metric(
@@ -114,9 +124,9 @@ def event_around_return(
 
     Returns:
         MetricResult with per-offset stats in metadata. When price data is
-        unavailable, returns a short-circuit MetricResult (``value=NaN``,
-        ``metadata["reason"]="no_price_data"``) so all metrics share a
-        single return contract.
+        unavailable or the unconditional baseline cannot be computed from
+        valid positive prices, returns a short-circuit MetricResult
+        (``value=NaN``) so all metrics share a single return contract.
 
     Notes:
         For each offset ``k``: ``mean, median, p25, p75, hit_rate``
@@ -203,12 +213,31 @@ def event_around_return(
             per_offset={},
         )
 
+    n_events = event_rets.select("date", "asset_id").n_unique()
+    # Unconditional mean single-bar return across the whole panel: the baseline
+    # every offset is measured against. A bad observed price invalidates the
+    # whole baseline; dropping only its affected return would silently change
+    # the estimand and still publish a finite-looking hit rate.
+    baseline, n_invalid_prices = _unconditional_bar_return(data, price_col)
+    if baseline is None:
+        reason = (
+            "invalid_price_data" if n_invalid_prices else "no_finite_baseline_returns"
+        )
+        return _short_circuit_output(
+            "event_around_return",
+            reason,
+            descriptive=True,
+            n_obs=n_events,
+            n_obs_axis="events",
+            n_events=n_events,
+            n_invalid_prices=n_invalid_prices,
+            baseline_bar_return=None,
+            per_offset={},
+        )
+
     per_offset: dict[int, dict] = {}
     pre_leakage_vals: list[float] = []
     pre_leakage_se: list[float] = []
-    # Unconditional mean single-bar return across the whole panel: the baseline
-    # every offset is measured against.
-    baseline = _unconditional_bar_return(data, price_col)
 
     for k in offsets:
         subset = event_rets.filter(pl.col("offset") == k)
@@ -261,8 +290,6 @@ def event_around_return(
     # here broke the uniform column in to_frame() for no reason — the count is
     # already in per_offset. One event contributes one row per offset, so the
     # row count is not it; the distinct event count is.
-    n_events = event_rets.select("date", "asset_id").n_unique()
-
     warning_codes: list[str] = []
     _warn_ragged_event_grid(
         "event_around_return", data, warning_codes, expected_warnings=expected_warnings
