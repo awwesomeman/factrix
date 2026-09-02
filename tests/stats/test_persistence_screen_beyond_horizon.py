@@ -169,6 +169,26 @@ def test_fm_beta_screens_the_strided_beta_series() -> None:
     assert WarningCode.SERIAL_CORRELATION_DETECTED.value not in result.warning_codes
 
 
+def test_fm_beta_warning_reports_the_measured_strided_autocorrelation() -> None:
+    rng = np.random.default_rng(1026)
+    betas = np.empty(120)
+    betas[0] = rng.standard_normal()
+    for idx in range(1, len(betas)):
+        betas[idx] = 0.9 * betas[idx - 1] + rng.standard_normal()
+    beta_df = pl.DataFrame({"date": np.arange(len(betas)), "beta": betas})
+    measured = _lag1_autocorr(betas)
+
+    with pytest.warns(UserWarning) as caught:
+        result = fm_beta(beta_df, overlap_periods=1)
+
+    code = WarningCode.SERIAL_CORRELATION_DETECTED.value
+    messages = [str(item.message) for item in caught if code in str(item.message)]
+    assert messages
+    assert f"lag-1 autocorrelation {measured:.2f}" in messages[0]
+    assert f"> {PERSISTENT_SERIES_AUTOCORR}" in messages[0]
+    assert code in result.warning_codes
+
+
 def test_persistent_factor_null_stays_calibrated_without_the_warning():
     """The quiet is honest: size on that null sits near nominal, not above it.
 

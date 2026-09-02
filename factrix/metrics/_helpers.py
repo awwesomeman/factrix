@@ -166,9 +166,10 @@ _INFERENCE_CODE_MESSAGE: dict[WarningCode, str] = {
         "read the p-value against a raised hurdle or lengthen the sample."
     ),
     WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED: (
-        "the resolved Bartlett bandwidth exceeds n_periods / 5 on the {n} "
-        "tested periods, so the long-run variance rests on too few lag "
-        "products to be stable. Read the p-value as indicative only."
+        "the resolved Bartlett bandwidth exceeds n_periods / "
+        "{periods_per_lag} on the {n} tested periods, so the long-run "
+        "variance rests on too few lag products to be stable. Read the "
+        "p-value as indicative only."
     ),
     WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE: (
         "the rectangular-kernel HAC variance-of-mean came out negative on the "
@@ -206,13 +207,17 @@ def _emit_inference_warnings(
         MIN_PERIODS_WARN,
         PERSISTENT_SERIES_AUTOCORR,
     )
+    from factrix._stats.hac import _MIN_PERIODS_PER_LAG
 
     n = res.n_obs if res.n_obs is not None else 0
     for code in sorted(res.warnings, key=lambda c: c.value):
         template = _INFERENCE_CODE_MESSAGE.get(code)
         message = (
             template.format(
-                n=n, warn=MIN_PERIODS_WARN, autocorr=PERSISTENT_SERIES_AUTOCORR
+                n=n,
+                warn=MIN_PERIODS_WARN,
+                autocorr=PERSISTENT_SERIES_AUTOCORR,
+                periods_per_lag=_MIN_PERIODS_PER_LAG,
             )
             if template is not None
             else code.description
@@ -247,6 +252,7 @@ def _emit_scalar_har_warnings(
     thresholds or bypassing the public warning channel.
     """
     from factrix._stats.constants import MIN_PERIODS_WARN
+    from factrix._stats.hac import _MIN_PERIODS_PER_LAG
 
     warning_codes: list[str] = []
     if persistent:
@@ -264,9 +270,9 @@ def _emit_scalar_har_warnings(
     if bandwidth_ill_conditioned:
         _emit_warning(
             WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED,
-            "the resolved Bartlett bandwidth exceeds n_periods / 5 on "
-            f"{n_periods} periods, so the long-run variance rests on too few "
-            "lag products to be stable.",
+            "the resolved Bartlett bandwidth exceeds n_periods / "
+            f"{_MIN_PERIODS_PER_LAG} on {n_periods} periods, so the long-run "
+            "variance rests on too few lag products to be stable.",
             label=metric_name,
             expected_warnings=expected_warnings,
             warning_codes=warning_codes,

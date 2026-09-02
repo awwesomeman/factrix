@@ -294,6 +294,11 @@ def monotonicity(
         (unstudentised) differences, which is what runs here. Their studentised
         variant is not implemented.
 
+        If the post-stride cross-section cannot fill ``n_groups``, the
+        short-circuit result reports ``n_obs`` as the median universe size on
+        that same non-overlapping sample. It does not report the raw-panel
+        median across periods that the buckets never use.
+
     Examples:
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
