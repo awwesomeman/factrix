@@ -308,12 +308,13 @@ def rank_turnover(
     if len(all_dates) < min_required:
         return _short_circuit_output(
             "rank_turnover",
-            "insufficient_dates",
+            "insufficient_rank_turnover_periods",
             n_obs=len(all_dates),
             n_obs_axis="periods",
             min_required=min_required,
             overlap_periods=overlap_periods,
             rebalance_lag=lag,
+            descriptive=True,
         )
 
     # WHY: polars ``rank()`` sorts NaN *last*, i.e. treats it as larger than
@@ -362,13 +363,14 @@ def rank_turnover(
     if rc_per_date.height < 2:
         return _short_circuit_output(
             "rank_turnover",
-            "insufficient_periods",
+            "insufficient_rank_turnover_periods",
             n_obs=rc_per_date.height,
             n_obs_axis="periods",
             min_required=2,
             overlap_periods=overlap_periods,
             rebalance_lag=lag,
             quantile=quantile,
+            descriptive=True,
         )
 
     rc_arr = rc_per_date["rc"].to_numpy()
@@ -568,9 +570,10 @@ def notional_turnover(
         notional_turnover,
         "notional_turnover",
         len(dates),
-        "insufficient_dates",
+        "insufficient_notional_turnover_periods",
         overlap_periods=overlap_periods,
         rebalance_lag=lag,
+        descriptive=True,
     )
     if sc is not None:
         return sc
@@ -656,6 +659,7 @@ def notional_turnover(
             overlap_periods=overlap_periods,
             rebalance_lag=lag,
             n_groups=n_groups,
+            descriptive=True,
         )
 
     turnover_arr = per_date["turnover"].to_numpy()

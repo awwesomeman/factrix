@@ -529,9 +529,9 @@ def _pooled_beta_driscoll_kraay(
     sandwiched with ``(X'X)⁻¹``. The scalar restriction uses the project's
     calibrated HAR bandwidth, finite-sample variance scale and effective
     degrees of freedom. Short-circuits with
-    ``value=NaN`` / ``stat=None`` / ``p=1.0`` below
-    ``_MIN_DK_PERIODS_HARD`` periods (HAC undefined), mirroring the clustered
-    ``G < 3`` guard.
+    ``value=NaN`` / ``stat=None`` / ``p=1.0`` with
+    ``reason="insufficient_pooled_periods"`` below ``_MIN_DK_PERIODS_HARD``
+    periods (HAC undefined), mirroring the clustered ``G < 3`` guard.
     """
     from factrix._stats.hac import _driscoll_kraay_cov as _dk_cov
 
@@ -540,7 +540,7 @@ def _pooled_beta_driscoll_kraay(
     if n_periods < _MIN_DK_PERIODS_HARD:
         return _short_circuit_output(
             "pooled_beta",
-            "insufficient_periods",
+            "insufficient_pooled_periods",
             n_obs=n_obs,
             n_obs_axis="pairs",
             n_periods=n_periods,
@@ -1115,7 +1115,11 @@ def fm_beta_sign_consistency(
     betas = beta_df["beta"].drop_nulls().drop_nans().to_numpy()
     n = len(betas)
     sc = _enforce_min_floor(
-        fm_beta_sign_consistency, "fm_beta_sign_consistency", n, "no_beta_observations"
+        fm_beta_sign_consistency,
+        "fm_beta_sign_consistency",
+        n,
+        "insufficient_fm_beta_observations",
+        descriptive=True,
     )
     if sc is not None:
         return sc

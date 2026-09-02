@@ -288,7 +288,7 @@ class TestStaleStampHintIsTimeAxisOnly:
         )
         out = rank_turnover(panel, overlap_periods=5)
         assert out.n_obs_axis == "periods"
-        assert out.metadata["reason"] == "insufficient_dates"
+        assert out.metadata["reason"] == "insufficient_rank_turnover_periods"
         assert "compute_forward_return(..., dates=" in out.metadata["hint"]
 
     def test_asset_axis_short_circuit_does_not_carry_the_hint(self):

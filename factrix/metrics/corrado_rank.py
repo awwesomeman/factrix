@@ -22,14 +22,13 @@ from factrix._stats import _calc_t_stat
 from factrix._types import (
     DDOF,
     DEFAULT_FORWARD_PERIODS,
-    EPSILON,
     MIN_EVENTS_HARD,
     MIN_EVENTS_WARN,
 )
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _attach_abnormal_return,
-    _degenerate_metric_output,
+    _degenerate_test_fields,
     _enforce_min_floor,
     _event_sample_threshold,
     _is_sparse_magnitude_weighted,
@@ -409,29 +408,24 @@ def corrado_rank(
     mean_u = float(np.mean(u_bar))
     std_u = float(np.std(u_bar, ddof=DDOF))
 
-    if std_u < EPSILON:
-        return _degenerate_metric_output(
-            n_obs=n_event_periods,
-            n_obs_axis="events",
-            alternative_requested="greater",
-            std_u=std_u,
-            n_events=n_events,
-            n_event_periods=n_event_periods,
-        )
-
     z = _calc_t_stat(mean_u, std_u, n_event_periods)
     # One-sided: u_bar is already direction-adjusted by sign(factor), so
     # z > 0 signals genuine directional skill and z < 0 signals a factor that
     # anti-predicts — a two-sided p would read the latter as "significant".
     p = float(sp_stats.norm.sf(z))
+    if np.isnan(z):
+        metadata["std_u"] = std_u
+    stat, p_out, alternative = _degenerate_test_fields(
+        z, p, "greater", metadata, warning_codes
+    )
 
     return MetricResult(
-        p_value=p,
-        alternative="greater",
+        p_value=p_out,
+        alternative=alternative,
         value=mean_u,
         n_obs=n_event_periods,
         n_obs_axis="events",
-        stat=z,
+        stat=stat,
         warning_codes=tuple(warning_codes),
         metadata=metadata,
     )

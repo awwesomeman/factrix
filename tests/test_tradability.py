@@ -55,14 +55,14 @@ class TestComputeRankTurnover:
         ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = rank_turnover(df)
         assert math.isnan(result.value)
-        assert result.metadata["reason"] == "insufficient_dates"
+        assert result.metadata["reason"] == "insufficient_rank_turnover_periods"
 
     def test_insufficient_dates_for_horizon(self):
         """2·h + 1 dates is the minimum for SE to be defined."""
         df = _panel(4, ["A", "B", "C"], lambda t, a: ord(a) + t)
         result = rank_turnover(df, overlap_periods=2)
         assert math.isnan(result.value)
-        assert result.metadata["reason"] == "insufficient_dates"
+        assert result.metadata["reason"] == "insufficient_rank_turnover_periods"
         assert result.metadata["min_required"] == 5
 
     def test_non_overlapping_skips_intermediate_noise(self):
@@ -239,7 +239,7 @@ class TestNotionalTurnover:
         df = _panel(1, self.TEN_ASSETS, lambda t, a: ord(a))
         result = notional_turnover(df, n_groups=5)
         assert math.isnan(result.value)
-        assert result.metadata["reason"] == "insufficient_dates"
+        assert result.metadata["reason"] == "insufficient_notional_turnover_periods"
 
     def test_validation(self):
         df = _panel(3, self.TEN_ASSETS, lambda t, a: ord(a))

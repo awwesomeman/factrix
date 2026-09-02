@@ -95,6 +95,25 @@ class TestOneSidedPValue:
         assert result.p_value == sp_stats.norm.sf(result.stat)
 
 
+class TestDegenerateVariance:
+    def test_keeps_the_defined_mean_rank_when_only_the_test_is_undefined(self):
+        n = 300
+        factor = np.zeros(n)
+        factor[np.arange(70, n, 20)] = 1.0
+        result = corrado_rank(
+            _panel(np.zeros(n), factor),
+            overlap_periods=1,
+            expected_warnings=tuple(code.value for code in WarningCode),
+        )
+
+        assert result.value == pytest.approx(0.0)
+        assert result.stat is None
+        assert result.p_value is None
+        assert result.alternative is None
+        assert result.metadata["signal_status"] == "degenerate_zero_variance"
+        assert WarningCode.DEGENERATE_VARIANCE.value in result.warning_codes
+
+
 class TestNonFiniteReturns:
     """Ranks must be formed over finite returns only."""
 

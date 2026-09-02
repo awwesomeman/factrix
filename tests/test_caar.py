@@ -576,6 +576,7 @@ class TestBmpTest:
         )
         result = bmp_z(df)
         assert math.isnan(result.value)
+        assert result.metadata["reason"] == "insufficient_events"
 
     def test_uses_price_for_vol(self, strong_signal):
         result = bmp_z(strong_signal)

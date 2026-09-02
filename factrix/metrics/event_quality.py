@@ -738,7 +738,12 @@ def profit_factor(
     n = len(events)
 
     sc = _enforce_min_floor(
-        profit_factor, "profit_factor", n, "insufficient_events", axis="events"
+        profit_factor,
+        "profit_factor",
+        n,
+        "insufficient_events",
+        axis="events",
+        descriptive=True,
     )
     if sc is not None:
         return sc
@@ -903,6 +908,7 @@ def event_skewness(
         n,
         "insufficient_events",
         axis="events",
+        descriptive=True,
         overlap_periods=overlap_periods,
     )
     if sc is not None:
@@ -994,6 +1000,7 @@ def signal_density(
             n_obs=n_events,
             n_obs_axis="events",
             min_required=2,
+            descriptive=True,
         )
 
     # Per-asset: count events and date span. Every asset with at least one
