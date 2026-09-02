@@ -78,6 +78,12 @@ def _calendar_time_se(
 ) -> tuple[float, int] | None:
     r"""Standard error and df of the mean beta from the calendar-time portfolio.
 
+    ``Calendar-time`` is the literature's aggregation-order term: form a
+    cross-asset portfolio each panel period, then test that portfolio's time
+    series, rather than align observations in event time. In factrix this is
+    ``CS_THEN_TS`` on the panel's own period grid; no calendar interval enters
+    the calculation ([Fama (1998)][fama-1998]).
+
     Reads ``ew_portfolio_beta_var`` — the Newey-West($h-1$) variance of the
     equal-weight portfolio's slope on the factor, measured by
     :func:`~factrix.metrics._primitives._common_betas.compute_common_betas`
