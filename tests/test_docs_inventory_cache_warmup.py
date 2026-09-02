@@ -15,13 +15,18 @@ import pathlib
 import urllib.error
 
 import pytest
-import yaml
 from scripts.mkdocs_hooks.warm_inventory_cache import (
     _ATTEMPTS,
     _CACHE_DURATION,
     _download_with_retry,
     warm,
 )
+
+# The hook itself needs nothing beyond the standard library, but exercising it
+# needs the docs extras. The dependency-floor CI job installs neither, so skip
+# the module there rather than dragging mkdocs into the declared floor.
+yaml = pytest.importorskip("yaml", reason="docs extra not installed")
+pytest.importorskip("mkdocstrings", reason="docs extra not installed")
 
 MKDOCS_YML = pathlib.Path("mkdocs.yml")
 
