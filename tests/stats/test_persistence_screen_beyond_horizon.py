@@ -27,6 +27,7 @@ import factrix as fx
 import numpy as np
 import polars as pl
 import pytest
+from factrix._codes import WarningCode
 from factrix._stats.constants import PERSISTENT_SERIES_AUTOCORR
 from factrix._stats.diagnostics import _lag1_autocorr
 from factrix._types import MIN_SERIES_PERIODS_HARD
@@ -37,6 +38,7 @@ from factrix.inference.series_mean import (
 )
 from factrix.metrics._helpers import _stride_dates
 from factrix.metrics._primitives import compute_ic
+from factrix.metrics.fm_beta import compute_fm_betas, fm_beta
 from factrix.metrics.ic import ic
 from factrix.preprocess import compute_forward_return
 
@@ -145,6 +147,26 @@ def test_screen_is_quiet_on_the_persistent_factor_null(member_key):
     ]
     fire_rate, _ = _rates(frames, 5, member_key)
     assert fire_rate < 0.10
+
+
+def test_fm_beta_screens_the_strided_beta_series() -> None:
+    """Mechanical overlap persistence no longer triggers the FM warning."""
+    panel = fx.datasets.make_cs_panel(
+        n_assets=N_ASSETS,
+        n_dates=240,
+        ic_target=0.0,
+        signal_horizon=5,
+        factor_persistence=0.6,
+        rng=0,
+    )
+    panel = compute_forward_return(panel, forward_periods=5)
+    beta_df = compute_fm_betas(panel)["factor"]
+    betas = beta_df["beta"].drop_nulls().to_numpy()
+    assert _lag1_autocorr(betas) > PERSISTENT_SERIES_AUTOCORR
+    assert _lag1_autocorr(betas[::5]) < PERSISTENT_SERIES_AUTOCORR
+
+    result = fm_beta(beta_df, overlap_periods=5)
+    assert WarningCode.SERIAL_CORRELATION_DETECTED.value not in result.warning_codes
 
 
 def test_persistent_factor_null_stays_calibrated_without_the_warning():

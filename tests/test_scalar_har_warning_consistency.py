@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import polars as pl
 import pytest
@@ -65,39 +67,41 @@ def test_scalar_har_consumers_share_the_bandwidth_warning_policy(
         WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value,
     )
 
-    base = rng.standard_normal(n)
-    candidate = 0.3 * base + rng.standard_normal(n)
-    spread_dates = np.arange(n)
-    spanning = spanning_alpha(
-        pl.DataFrame({"date": spread_dates, "spread": candidate}),
-        base_spreads={"base": pl.DataFrame({"date": spread_dates, "spread": base})},
-        overlap_periods=overlap_periods,
-        expected_warnings=expected_warnings,
-    )
-    results = (
-        common_asymmetry(
-            panel,
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        base = rng.standard_normal(n)
+        candidate = 0.3 * base + rng.standard_normal(n)
+        spread_dates = np.arange(n)
+        spanning = spanning_alpha(
+            pl.DataFrame({"date": spread_dates, "spread": candidate}),
+            base_spreads={"base": pl.DataFrame({"date": spread_dates, "spread": base})},
             overlap_periods=overlap_periods,
             expected_warnings=expected_warnings,
-        ),
-        common_quantile_spread(
-            panel,
-            overlap_periods=overlap_periods,
-            expected_warnings=expected_warnings,
-        ),
-        predictive_beta(
-            panel,
-            overlap_periods=overlap_periods,
-            expected_warnings=expected_warnings,
-        ),
-        pooled_beta(
-            _pooled_panel(n, rng),
-            driscoll_kraay=True,
-            overlap_periods=overlap_periods,
-            expected_warnings=expected_warnings,
-        ),
-        spanning,
-    )
+        )
+        results = (
+            common_asymmetry(
+                panel,
+                overlap_periods=overlap_periods,
+                expected_warnings=expected_warnings,
+            ),
+            common_quantile_spread(
+                panel,
+                overlap_periods=overlap_periods,
+                expected_warnings=expected_warnings,
+            ),
+            predictive_beta(
+                panel,
+                overlap_periods=overlap_periods,
+                expected_warnings=expected_warnings,
+            ),
+            pooled_beta(
+                _pooled_panel(n, rng),
+                driscoll_kraay=True,
+                overlap_periods=overlap_periods,
+                expected_warnings=expected_warnings,
+            ),
+            spanning,
+        )
 
     assert all(_has_bandwidth_warning(result) is expected for result in results)
 
@@ -109,3 +113,67 @@ def test_scalar_har_consumers_share_the_bandwidth_warning_policy(
     assert (
         WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED in series_result.warnings
     ) is expected
+
+
+@pytest.mark.parametrize(("n", "expected"), [(100, True), (180, False)])
+def test_scalar_har_contrasts_share_the_effective_sample_warning(
+    n: int, expected: bool
+) -> None:
+    rng = np.random.default_rng(1012 + n)
+    factor = rng.standard_normal(n)
+    returns = 0.2 * factor + rng.standard_normal(n)
+    panel = _series_panel(factor, returns)
+    declared = tuple(code.value for code in WarningCode)
+    base = rng.standard_normal(n)
+    candidate = 0.3 * base + rng.standard_normal(n)
+    dates = np.arange(n)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        results = (
+            common_asymmetry(panel, overlap_periods=5, expected_warnings=declared),
+            common_quantile_spread(
+                panel, overlap_periods=5, expected_warnings=declared
+            ),
+            predictive_beta(panel, overlap_periods=5, expected_warnings=declared),
+            spanning_alpha(
+                pl.DataFrame({"date": dates, "spread": candidate}),
+                base_spreads={"base": pl.DataFrame({"date": dates, "spread": base})},
+                overlap_periods=5,
+                expected_warnings=declared,
+            ),
+        )
+
+    code = WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value
+    assert all((code in result.warning_codes) is expected for result in results)
+
+
+def test_scalar_har_persistence_echoes_are_declarable_across_metrics() -> None:
+    rng = np.random.default_rng(1012)
+    n = 180
+    factor = np.empty(n)
+    factor[0] = rng.standard_normal()
+    for idx in range(1, n):
+        factor[idx] = 0.95 * factor[idx - 1] + rng.standard_normal()
+    returns = 0.2 * factor + rng.standard_normal(n)
+    panel = _series_panel(factor, returns)
+    dates = np.arange(n)
+    base = rng.standard_normal(n)
+    declared = (WarningCode.SERIAL_CORRELATION_DETECTED.value,)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        results = (
+            common_asymmetry(panel, overlap_periods=5, expected_warnings=declared),
+            common_quantile_spread(
+                panel, overlap_periods=5, expected_warnings=declared
+            ),
+            spanning_alpha(
+                pl.DataFrame({"date": dates, "spread": factor}),
+                base_spreads={"base": pl.DataFrame({"date": dates, "spread": base})},
+                overlap_periods=5,
+                expected_warnings=declared,
+            ),
+        )
+
+    assert all(declared[0] in result.warning_codes for result in results)

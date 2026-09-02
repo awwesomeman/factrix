@@ -27,7 +27,7 @@ from factrix._axis import (
     FactorDensity,
     FactorScope,
 )
-from factrix._codes import WarningCode
+from factrix._codes import WarningCode, _emit_warning, cross_section_tier
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_t
@@ -37,6 +37,7 @@ from factrix._stats.bootstrap import (
     _empirical_p,
     _resolve_rng,
 )
+from factrix._stats.constants import MIN_ASSETS_WARN
 from factrix._types import (
     DDOF,
     DEFAULT_FORWARD_PERIODS,
@@ -56,6 +57,7 @@ from factrix.metrics._helpers import (
     _validate_factor_cols,
     _validate_n_groups,
     _warn_high_tie_ratio,
+    _warn_thin_quantile_groups,
 )
 
 __all__ = [
@@ -252,6 +254,9 @@ def monotonicity(
             ``metadata["seed"]`` is ``None`` because only its owner can
             reproduce the draw. An unseeded re-run redraws the null, moving
             the p by roughly ``metadata["p_value_mc_se"]``.
+        expected_warnings: Warning codes the caller declares as part of the
+            study design. The structured record is retained; only the
+            per-call ``UserWarning`` echo is suppressed.
 
     Returns:
         MetricResult with ``value`` = ``stat`` = the MR statistic and
@@ -312,6 +317,25 @@ def monotonicity(
     # Sample non-overlapping once — shared across all factors on the
     # same panel (depends only on `date` + `overlap_periods`).
     filtered = _sample_non_overlapping(data, overlap_periods)
+    median_assets = _median_universe_size(filtered)
+    asset_warning = cross_section_tier(median_assets)
+    if asset_warning is not None:
+        _emit_warning(
+            asset_warning,
+            f"the median cross-section holds {median_assets} assets, below "
+            f"MIN_ASSETS_WARN={MIN_ASSETS_WARN}; each quantile bucket mean "
+            "rests on a small number of names.",
+            label="monotonicity",
+            expected_warnings=expected_warnings,
+            stacklevel=2,
+        )
+    thin_groups = _warn_thin_quantile_groups(
+        filtered,
+        n_groups,
+        metric_name="monotonicity",
+        expected_warnings=expected_warnings,
+        stacklevel=2,
+    )
     tie_ratios = _compute_tie_ratios_batch(filtered, cols)
     # Echo per factor (the helper gates on ``expected_warnings``); the
     # predicate is kept so each factor's result carries the structured code.
@@ -400,14 +424,21 @@ def monotonicity(
             # A wide-enough cross-section that still lands here was emptied by
             # nulls (e.g. a sparse column) and reads correctly under the same
             # reason: the buckets could not be filled.
-            median_assets = _median_universe_size(data)
+            short_codes = (
+                (
+                    asset_warning.value,
+                    WarningCode.THIN_QUANTILE_GROUPS.value,
+                )
+                if asset_warning is not None
+                else (WarningCode.THIN_QUANTILE_GROUPS.value,)
+            )
             results[f] = _short_circuit_output(
                 "monotonicity",
                 "insufficient_assets_for_quantile_groups",
                 n_obs=median_assets,
                 n_obs_axis="assets",
                 min_required=n_groups,
-                warning_codes=(WarningCode.THIN_QUANTILE_GROUPS.value,),
+                warning_codes=short_codes,
                 n_groups=n_groups,
                 tie_ratio=tie_ratios[f],
                 tie_policy=tie_policy,
@@ -445,6 +476,13 @@ def monotonicity(
             "tie_policy": tie_policy,
             **mr_metadata,
         }
+        warning_codes: list[str] = []
+        if high_tie_ratio[f]:
+            warning_codes.append(WarningCode.HIGH_TIE_RATIO.value)
+        if asset_warning is not None:
+            warning_codes.append(asset_warning.value)
+        if thin_groups:
+            warning_codes.append(WarningCode.THIN_QUANTILE_GROUPS.value)
         results[f] = MetricResult(
             p_value=p_mr,
             alternative="greater",
@@ -453,9 +491,7 @@ def monotonicity(
             n_obs_axis="periods",
             stat=j_stat,
             metadata=metadata,
-            warning_codes=(
-                (WarningCode.HIGH_TIE_RATIO.value,) if high_tie_ratio[f] else ()
-            ),
+            warning_codes=tuple(warning_codes),
         )
 
     return results

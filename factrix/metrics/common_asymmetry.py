@@ -43,19 +43,19 @@ from factrix._axis import (
     FactorDensity,
     FactorScope,
 )
-from factrix._codes import WarningCode
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import (
     _ols_scalar_wald_hac,
     _wald_p_linear,
 )
-from factrix._types import MIN_PORTFOLIO_PERIODS_HARD, MIN_SERIES_PERIODS_HARD
+from factrix._types import MIN_PORTFOLIO_PERIODS_HARD
 from factrix.inference.series_mean import _persistent_array_beyond_horizon
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _aggregate_to_per_date,
     _degenerate_test_fields,
+    _emit_scalar_har_warnings,
     _enforce_min_floor,
     _short_circuit_output,
 )
@@ -294,23 +294,16 @@ def common_asymmetry(
             h0_method_b="beta_pos = beta_neg",
         )
 
-    # The scalar HAR recipe absorbs the MA(h-1) overlap, but not a common
-    # factor that stays persistent once the overlap is strided away: measured
-    # 13.0% / 16.3% at a nominal 5% on an AR(0.9) common factor at T=60, h=5
-    # (against 5.7-8.0% at phi=0). Flagged, not tuned.
-    warning_codes: list[str] = (
-        [WarningCode.SERIAL_CORRELATION_DETECTED.value]
-        if _persistent_array_beyond_horizon(f, overlap_periods)
-        else []
+    warning_codes = _emit_scalar_har_warnings(
+        metric_name="common_asymmetry",
+        subject="the common-factor series",
+        n_periods=n_periods,
+        overlap_periods=overlap_periods,
+        persistent=_persistent_array_beyond_horizon(f, overlap_periods),
+        bandwidth_ill_conditioned=fit_a.bandwidth_ill_conditioned,
+        expected_warnings=expected_warnings,
+        stacklevel=2,
     )
-    if fit_a.bandwidth_ill_conditioned:
-        warning_codes.append(WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED.value)
-    # Effective sample, not raw periods: h-period overlapping returns leave
-    # about T/h independent observations while the bandwidth grows with h. It
-    # is also exactly where the persistence screen above withholds itself, so
-    # the two codes partition the regime rather than overlap.
-    if n_periods // max(overlap_periods or 1, 1) < MIN_SERIES_PERIODS_HARD:
-        warning_codes.append(WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value)
     metadata: dict[str, object] = {
         "stat_type": "wald (HAR HAC)",
         "h0": "beta_long + beta_short = 0",

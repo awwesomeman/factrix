@@ -473,6 +473,10 @@ class TestThinCommonQuantilePeriods:
             {"cq": common_quantile_spread(n_groups=5)},
             WarningCode.THIN_QUANTILE_PERIODS,
             "cq",
+            also_declare=(
+                WarningCode.SERIAL_CORRELATION_DETECTED.value,
+                WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value,
+            ),
             forward_periods=1,
         )
 
@@ -486,7 +490,7 @@ class TestThinCommonQuantilePeriods:
 
 
 class TestSparseMagnitudeWeighted:
-    """Event-test results record SPARSE_MAGNITUDE_WEIGHTED; CAAR owns the echo."""
+    """Every event test records and echoes SPARSE_MAGNITUDE_WEIGHTED."""
 
     def test_declared_is_quiet_but_recorded_on_each_event_test(self):
         panel = _mixed_magnitude_event_panel()
@@ -515,6 +519,15 @@ class TestSparseMagnitudeWeighted:
             _mixed_magnitude_event_panel(),
             {"caar": caar()},
             "magnitude-weighted CAAR",
+            forward_periods=1,
+        )
+
+    @pytest.mark.parametrize("metric", [bmp_z(), corrado_rank()])
+    def test_undeclared_sibling_event_tests_echo(self, metric):
+        _assert_undeclared_still_echoes(
+            _mixed_magnitude_event_panel(),
+            {"event_test": metric},
+            "uses sign only",
             forward_periods=1,
         )
 

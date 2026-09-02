@@ -37,7 +37,6 @@ from factrix._stats import (
 from factrix._types import (
     DEFAULT_N_GROUPS,
     MIN_PORTFOLIO_PERIODS_HARD,
-    MIN_SERIES_PERIODS_HARD,
 )
 from factrix.inference.series_mean import _persistent_array_beyond_horizon
 from factrix.metrics._base import MetricBase
@@ -45,6 +44,7 @@ from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _aggregate_to_per_date,
     _degenerate_test_fields,
+    _emit_scalar_har_warnings,
     _enforce_min_floor,
     _short_circuit_output,
     _validate_n_groups,
@@ -289,23 +289,28 @@ def common_quantile_spread(
     else:
         rho, rho_p = float("nan"), float("nan")
 
-    # The scalar HAR recipe absorbs the MA(h-1) overlap, but not a common
-    # factor that stays persistent once the overlap is strided away: measured
-    # 13.0% / 16.3% at a nominal 5% on an AR(0.9) common factor at T=60, h=5
-    # (against 5.7-8.0% at phi=0). Flagged, not tuned.
-    warning_codes: list[str] = []
+    warning_codes = _emit_scalar_har_warnings(
+        metric_name="common_quantile_spread",
+        subject="the common-factor series",
+        n_periods=n_periods,
+        overlap_periods=overlap_periods,
+        persistent=_persistent_array_beyond_horizon(
+            per_date["_f"].to_numpy(), overlap_periods
+        ),
+        bandwidth_ill_conditioned=hac.bandwidth_ill_conditioned,
+        expected_warnings=expected_warnings,
+        stacklevel=2,
+    )
     if thin_bucket_periods:
-        warning_codes.append(WarningCode.THIN_QUANTILE_PERIODS.value)
-    if _persistent_array_beyond_horizon(per_date["_f"].to_numpy(), overlap_periods):
-        warning_codes.append(WarningCode.SERIAL_CORRELATION_DETECTED.value)
-    if hac.bandwidth_ill_conditioned:
-        warning_codes.append(WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED.value)
-    # Effective sample, not raw periods: h-period overlapping returns leave
-    # about T/h independent observations while the bandwidth grows with h. It
-    # is also exactly where the persistence screen above withholds itself, so
-    # the two codes partition the regime rather than overlap.
-    if n_periods // max(overlap_periods or 1, 1) < MIN_SERIES_PERIODS_HARD:
-        warning_codes.append(WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value)
+        _emit_warning(
+            WarningCode.THIN_QUANTILE_PERIODS,
+            "one or more time-series quantile buckets has too few periods "
+            "for a stable conditional-mean estimate.",
+            label="common_quantile_spread",
+            expected_warnings=expected_warnings,
+            warning_codes=warning_codes,
+            stacklevel=2,
+        )
     metadata: dict[str, object] = {
         "stat_type": "wald (HAR HAC)",
         "h0": "beta_top = beta_bottom",
