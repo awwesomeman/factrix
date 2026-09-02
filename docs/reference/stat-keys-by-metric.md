@@ -914,10 +914,7 @@ which reports `R²` for the OLS regression.
   kernel **ran at** — the augmented design is `n_periods` rows and a
   Bartlett sum cannot use a lag it has no pair for, so on a long horizon this
   is narrower than the bandwidth resolved from the full series; `None` at
-  `h = 1`, where the corrected test is homoskedastic. One exception: on the
-  `no_amihud_hurvich_fit` short circuit no kernel runs at all, and the value
-  is the bandwidth resolved for the attempt. `None` is not reused there
-  because it already means `h = 1`;
+  `h = 1`, where the corrected test is homoskedastic;
   `newey_west_lags` stays the narrow covariance bandwidth resolved for the
   uncorrected OLS reference), `alpha` (the intercept the corrected slope implies
   on the `n_obs` rows), `r_squared_ols_uncorrected`, `factor_std`,
@@ -930,6 +927,32 @@ which reports `R²` for the OLS regression.
   `ar1_phi_corrected_explosive` (`ar1_phi_corrected >= 1` — the corrected
   AR(1) coefficient is deliberately not clamped, because clamping it
   re-opens the bias the correction exists to close).
+
+!!! note "`no_amihud_hurvich_fit`: the inference keys describe the attempt"
+
+    This metric's headline is the Amihud-Hurvich augmented regression, not
+    plain OLS. When that regression cannot be fitted — most reachably when a
+    long `overlap_periods` leaves the horizon-summed design under five rows —
+    the metric short-circuits rather than substituting the biased OLS slope,
+    and `metadata["reason"]` is `no_amihud_hurvich_fit`.
+
+    Each key on that payload is judged on its own side of the
+    [short-circuit envelope](#which-auxiliary-keys-a-short-circuit-may-carry),
+    not as one "inference" bundle:
+
+    | key | side | value |
+    |---|---|---|
+    | `har_lags`, `newey_west_lags` | resolved for the attempt | the resolved bandwidth |
+    | `beta_ols_uncorrected`, `factor_std` | measured before the bail | the measurement |
+    | `hac_applied`, `stambaugh_adjusted` | claims a stage ran | `False` |
+
+    `beta_ols_uncorrected` is the uncorrected slope the metric declined to
+    publish as the headline. The `(hac_applied=False, har_lags=<int>)` pair
+    that results is unreachable on any computed result — an impossible
+    combination a consumer can detect, rather than a plausible one that reads
+    as a completed fit.
+
+    As the envelope says, branch on `reason` before reading these keys.
 - *warning*: `WarningCode.PERSISTENT_REGRESSOR` when the ADF p-value exceeds
   `adf_threshold`, **or** `stambaugh_bias_channel` exceeds `0.7`, **or**
   `ar1_phi_corrected_explosive`. The channel trigger is the one that
@@ -1153,5 +1176,43 @@ hypothesis test degenerates keeps its `value` and instead withholds only
   descriptive — emitted only on the short-circuit branch that
   needed it; consumers should branch on `reason` before reading.
 
-The auxiliary `metadata` keys listed in the per-metric subsections
-above are *not* present on the short-circuit path.
+### Which auxiliary keys a short circuit may carry
+
+A short circuit runs no kernel, so the contract is about what a key can
+truthfully *say*, not about which keys appear. Auxiliary keys are common on
+these payloads: a branch usually bails partway, and what it established up to
+that point is worth reporting.
+
+- **Keys describing the input, the configuration, or the attempt** carry their
+  real values. Configuration echoes (`n_groups`, `tie_policy`,
+  `rebalance_lag`, `overlap_periods`, `weights_lagged`), settings resolved for
+  the attempt (`newey_west_lags`), and measurements taken before the bail
+  (`factor_std`, `tie_ratio`, `n_events`, `beta_ols_uncorrected`) are all true
+  statements about work that actually happened.
+- **Keys that would describe the withheld result** are neutralised — `NaN`
+  (`mfe_mae`'s `mfe_mae_ratio`), `None` (`event_around_return`'s
+  `baseline_bar_return`), empty (`per_offset`), `False` (`predictive_beta`'s
+  `hac_applied` and `stambaugh_adjusted`, `oos_decay`'s `sign_flipped`), or an
+  explicit failure state (`oos_decay`'s `status = "VETOED"`).
+
+The two sides are judged **per key, never per branch**.
+`predictive_beta`'s `no_amihud_hurvich_fit` is the worked example: `har_lags`
+stays affirmative because resolving the bandwidth really happened, while
+`hac_applied` — a past-tense claim that the HAC covariance was computed — goes
+to `False`. The resulting `(hac_applied=False, har_lags=<int>)` pair is
+unreachable on any computed result, and that is the point: an impossible
+combination is detectable, where a plausible one reads as a completed fit.
+
+A branch may instead document that a withheld-result key describes the
+attempt, but only where neutralising is **impossible or destroys
+information** — not where it is merely less convenient — and the branch must
+say which applies. No metric currently needs this; the bar is written down so
+a future case is argued rather than assumed.
+
+The mechanically decidable half is linted: FX008 in
+`tests/stats/test_short_circuit_flag_polarity.py` rejects a
+`*_applied` / `*_adjusted` / `*_flipped` key that reports a
+stage as having run on a short-circuit payload. Its baseline of documented
+exceptions is empty, so the rule holds without carve-outs. Whether a
+value-bearing key was neutralised is a
+semantic question no lint settles; this section is the contract for it.

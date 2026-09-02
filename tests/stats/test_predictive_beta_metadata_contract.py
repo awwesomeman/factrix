@@ -6,11 +6,11 @@ Two contracts, both split out of the review of #1034:
   up (#1035). ``predictive_beta`` is the only metric whose ``n_periods`` is the
   truncated augmented-design row count rather than the count the screen reads,
   so the bare token sends a reader to the wrong number;
-- the ``no_amihud_hurvich_fit`` short circuit runs no kernel, so its
-  ``har_lags`` is the bandwidth resolved for the *attempt*. #1034 tightened the
-  documented contract to "the bandwidth the kernel ran at", which that branch
-  cannot satisfy; the value is kept and the exception is documented instead of
-  overloading the ``None``-means-``h = 1`` sentinel (#1036).
+- the ``no_amihud_hurvich_fit`` short circuit runs no kernel, so each of its
+  keys is judged on its own side of the envelope (#1036, #1039). ``har_lags``
+  is attempt-side and keeps the resolved bandwidth — ``None`` there would
+  overload the ``h = 1`` sentinel — while ``hac_applied`` claims a stage ran
+  and neutralises to ``False``.
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ import pytest
 from factrix.metrics.predictive_beta import predictive_beta
 
 STAT_KEYS_DOCS = Path("docs/reference/stat-keys-by-metric.md")
+_MISSING = object()
 
 
 def _ts_panel(x: np.ndarray, y: np.ndarray) -> pl.DataFrame:
@@ -75,8 +76,8 @@ class TestIllConditionedMessageNamesALookupableKey:
         assert "n_periods /" not in message
 
 
-class TestShortCircuitBandwidthIsTheAttemptedOne:
-    """#1036: no kernel runs there, so the contract states the exception."""
+class TestShortCircuitKeysAreJudgedPerSide:
+    """#1036 / #1039: attempt-side keys stay, stage claims neutralise."""
 
     @pytest.mark.parametrize(("n", "h"), [(20, 19), (20, 16), (22, 18)])
     def test_short_circuit_keeps_the_resolved_bandwidth(self, n: int, h: int) -> None:
@@ -87,17 +88,69 @@ class TestShortCircuitBandwidthIsTheAttemptedOne:
         assert result.metadata["reason"] == "no_amihud_hurvich_fit"
         assert isinstance(result.metadata["har_lags"], int)
 
+    @pytest.mark.parametrize(("n", "h"), [(20, 19), (20, 16), (22, 18)])
+    def test_short_circuit_pair_is_unreachable_on_a_computed_result(
+        self, n: int, h: int
+    ) -> None:
+        """#1039: each key judged on its own side, and the pair is impossible.
+
+        ``har_lags`` is attempt-side — resolving the bandwidth really
+        happened — so it stays. ``hac_applied`` claims a stage ran, and none
+        did, so it neutralises. The resulting pair cannot occur on a computed
+        result, which is what makes it detectable rather than plausible.
+        """
+        short_circuit, _ = _run(n, h, seed=n * 10 + h)
+        h1, _ = _run(240, 1, seed=11)
+        computed, _ = _run(240, 5, seed=7)
+
+        assert short_circuit.metadata["hac_applied"] is False
+        assert isinstance(short_circuit.metadata["har_lags"], int)
+
+        # Every computed result pairs hac_applied=False with har_lags=None,
+        # so (False, <int>) names this branch and nothing else.
+        assert h1.metadata["hac_applied"] is False
+        assert h1.metadata["har_lags"] is None
+        assert computed.metadata["hac_applied"] is True
+        assert isinstance(computed.metadata["har_lags"], int)
+
+    def test_short_circuit_stays_distinguishable_from_an_h1_success(self) -> None:
+        """The collision the first design feared does not exist.
+
+        Neutralising ``hac_applied`` was rejected on the grounds that it would
+        make this branch read as an ``h = 1`` success. It does not:
+        ``stambaugh_adjusted`` is neutralised one keyword earlier in the same
+        call and is ``True`` on every computed result, so it separates the two
+        on its own — before ``reason``, ``value`` and the absent keys are even
+        consulted.
+        """
+        short_circuit, _ = _run(20, 19, seed=190)
+        h1, _ = _run(240, 1, seed=11)
+
+        assert short_circuit.metadata["stambaugh_adjusted"] is False
+        assert h1.metadata["stambaugh_adjusted"] is True
+
+        differing = {
+            key
+            for key in set(short_circuit.metadata) | set(h1.metadata)
+            if short_circuit.metadata.get(key, _MISSING)
+            != h1.metadata.get(key, _MISSING)
+        }
+        assert "stambaugh_adjusted" in differing
+        assert "reason" in differing
+        assert math.isnan(short_circuit.value) and not math.isnan(h1.value)
+
     def test_h1_still_reports_no_bandwidth(self) -> None:
         result, _ = _run(240, 1, seed=11)
 
         assert not math.isnan(result.value)
         assert result.metadata["har_lags"] is None
 
-    def test_docs_state_the_short_circuit_exception(self) -> None:
-        """The tightened ``har_lags`` contract must carry its one exception."""
+    def test_docs_state_the_per_key_rule(self) -> None:
+        """The envelope states the rule; the branch is its worked example."""
         docs = STAT_KEYS_DOCS.read_text(encoding="utf-8")
+        assert "Which auxiliary keys a short circuit may carry" in docs
+        assert "per key, never per branch" in docs
         assert "no_amihud_hurvich_fit" in docs
-        assert "the bandwidth resolved for the attempt" in docs
 
     def test_docs_do_not_repeat_at_at(self) -> None:
         """Typo introduced by #1034's wording; folded in here per review.
