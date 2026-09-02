@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 
 import factrix as fx
+import numpy as np
 import polars as pl
 import pytest
 from factrix import slice_period_joint_test, slice_period_pairwise_test
@@ -157,6 +158,21 @@ def test_bootstrap_reproducible_under_seed() -> None:
     a = slice_period_joint_test(df, ic(), by="regime", factor_col="factor", rng=42)
     b = slice_period_joint_test(df, ic(), by="regime", factor_col="factor", rng=42)
     assert a["stat"][0] == b["stat"][0]
+
+
+def test_bootstrap_omnibus_withholds_nonfinite_input() -> None:
+    """An undefined Wald matrix cannot become the minimum empirical p."""
+    from factrix.slicing.period_inference import _wald_bootstrap_omnibus
+
+    stat, p_value = _wald_bootstrap_omnibus(
+        np.array([0.1, -0.1]),
+        np.array([[0.0, 0.1, -0.1], [0.0, -0.1, 0.1]]),
+        np.array([1e-4, np.nan]),
+        np.array([[1.0, -1.0]]),
+    )
+
+    assert math.isnan(stat)
+    assert math.isnan(p_value)
 
 
 def test_rejects_bare_class() -> None:

@@ -811,10 +811,16 @@ def _wald_bootstrap_omnibus(
     mean, so the contrasts are null). Keeps the ``"bootstrap"`` omnibus
     bootstrap-native — consistent with the pairwise path — rather than
     falling back to the χ² asymptotics the ``"analytic"`` path uses.
-    Returns ``(W, p)``; ``(nan, nan)`` on a singular middle matrix (no
-    test — see ``_stats.wald._NOT_COMPUTABLE``).
+    Returns ``(W, p)``; ``(nan, nan)`` on non-finite inputs or a singular
+    middle matrix (no test — see ``_stats.wald._NOT_COMPUTABLE``).
     """
     middle = restriction @ np.diag(variances) @ restriction.T
+    if (
+        not np.all(np.isfinite(obs_means))
+        or not np.all(np.isfinite(boot))
+        or not np.all(np.isfinite(middle))
+    ):
+        return float("nan"), float("nan")
     try:
         middle_inv = np.linalg.inv(middle)
     except np.linalg.LinAlgError:

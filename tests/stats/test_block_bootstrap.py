@@ -159,6 +159,7 @@ class TestStudentizedDiffP:
         assert isinstance(meta["seed"], int)
         assert meta["seed"] >= 0
         assert meta["n_resamples"] == 199
+        assert 0 < meta["n_resamples_used"] <= 199
 
     def test_explicit_seed_reproducible(self):
         diff = np.array([0.3, -0.1, 0.4, -0.2, 0.1, 0.05, -0.15, 0.2, 0.0, 0.1])
@@ -166,6 +167,39 @@ class TestStudentizedDiffP:
         p2, m2 = _block_bootstrap_diff_p(diff, n_resamples=199, rng=123)
         assert p1 == p2
         assert m1["seed"] == m2["seed"] == 123
+
+    def test_metadata_counts_only_resamples_used_by_p(self):
+        """A normal finite sample can drop roots; metadata exposes that denominator."""
+        diff = np.array([0.1, -0.2, 0.3, -0.1, 0.2, 0.0, -0.05, 0.15])
+        p_value, metadata = _block_bootstrap_diff_p(diff, n_resamples=199, rng=0)
+
+        assert metadata["n_resamples"] == 199
+        n_used = metadata["n_resamples_used"]
+        assert 0 < n_used < 199
+        smoothed_extreme = p_value * (n_used + 1) - 1
+        assert smoothed_extreme == pytest.approx(round(smoothed_extreme))
+        assert metadata["p_value_mc_se"] == pytest.approx(
+            np.sqrt(p_value * (1.0 - p_value) / n_used)
+        )
+
+    def test_zero_usable_resamples_withholds_p(self, monkeypatch):
+        """Zero valid bootstrap-t roots admit no inference, not p=1."""
+        import factrix._stats.bootstrap as bootstrap
+
+        def fake_batch_means_se(values, _block_length):
+            if values.ndim == 1:
+                return np.array([1.0])
+            return np.full(values.shape[0], np.nan)
+
+        monkeypatch.setattr(bootstrap, "_batch_means_se", fake_batch_means_se)
+        p_value, metadata = _block_bootstrap_diff_p(
+            np.arange(10.0), n_resamples=3, rng=0
+        )
+
+        assert math.isnan(p_value)
+        assert metadata["n_resamples"] == 3
+        assert metadata["n_resamples_used"] == 0
+        assert math.isnan(metadata["p_value_mc_se"])
 
     def test_stationary_auto_block_length_is_not_discretized(self):
         """The stationary L is a geometric MEAN, so it must stay fractional.
@@ -212,6 +246,7 @@ class TestStudentizedDiffP:
         assert math.isnan(p)
         assert math.isnan(meta["block_length"])
         assert meta["n_resamples"] == 0
+        assert meta["n_resamples_used"] == 0
         assert meta["studentized"] is False
 
     def test_short_series_still_rejects_unknown_alternative(self):

@@ -166,10 +166,9 @@ def _empirical_p(n_extreme: int, n_resamples: int) -> tuple[float, float]:
         n_resamples: ``B``, the number of resamples the count is out of.
 
     Returns:
-        ``(p_value, p_value_mc_se)``. Callers are gated entry points, so
-        ``B >= BOOTSTRAP_RESAMPLES_FLOOR`` and ``p`` is confined to
-        ``[1/(B+1), 1]``; no clamping or zero-guard is needed, and none is
-        done.
+        ``(p_value, p_value_mc_se)``. For a positive resample count, ``p``
+        is confined to ``[1/(B+1), 1]``; callers handle an empty usable
+        set before entering this helper.
     """
     p = (n_extreme + 1.0) / (n_resamples + 1.0)
     return float(p), float(np.sqrt(p * (1.0 - p) / n_resamples))
@@ -512,12 +511,13 @@ def _block_bootstrap_diff_p(
 
     Returns:
         ``(p_value, metadata)`` — p in ``[1/(B+1), 1]``; metadata
-        records the resolved (fractional) block length, ``n_resamples``,
-        whether the root was studentized, the Monte-Carlo SE of the
-        reported p (``p_value_mc_se``), and the resolved seed (so the run
-        is reproducible from the logged metadata even when the caller
-        passed ``rng=None``) — ``None`` when the caller supplied a
-        ``Generator``.
+        records the resolved (fractional) block length, requested draw count
+        (``n_resamples``), count entering the reported p
+        (``n_resamples_used``), whether the root was studentized, the
+        Monte-Carlo SE of the reported p (``p_value_mc_se``), and the
+        resolved seed (so the run is reproducible from the logged metadata
+        even when the caller passed ``rng=None``) — ``None`` when the caller
+        supplied a ``Generator``.
 
         A series too short to test (``n < 2``) returns ``p = nan`` with
         ``block_length = nan`` and ``n_resamples = 0``. NaN rather than
@@ -542,6 +542,7 @@ def _block_bootstrap_diff_p(
         return float("nan"), {
             "block_length": float("nan"),
             "n_resamples": 0,
+            "n_resamples_used": 0,
             "studentized": False,
             "p_value_mc_se": float("nan"),
             "seed": seed_used,
@@ -596,10 +597,14 @@ def _block_bootstrap_diff_p(
         extreme = _count_extreme(boot_means, observed, alternative)
         n_used = int(n_resamples)
 
-    p, p_mc_se = _empirical_p(extreme, n_used)
+    if n_used == 0:
+        p = p_mc_se = float("nan")
+    else:
+        p, p_mc_se = _empirical_p(extreme, n_used)
     metadata: dict[str, float | int | str | None] = {
         "block_length": L,
         "n_resamples": int(n_resamples),
+        "n_resamples_used": n_used,
         "studentized": studentized,
         "p_value_mc_se": p_mc_se,
         "seed": seed_used,

@@ -262,6 +262,7 @@ class TestStationaryBootstrap:
         assert set(result.metadata) == {
             "block_length",
             "n_resamples",
+            "n_resamples_used",
             "p_value_mc_se",
             "seed",
             "studentized",
@@ -270,7 +271,10 @@ class TestStationaryBootstrap:
         # resolved block length at the overlap horizon, so a replay without
         # it reproduces a different (shorter-block) bootstrap.
         p_replay, _ = _block_bootstrap_diff_p(
-            series, overlap_periods=5, rng=result.metadata["seed"]
+            series,
+            overlap_periods=5,
+            n_resamples=result.metadata["n_resamples"],
+            rng=result.metadata["seed"],
         )
         assert result.p_value == p_replay
         assert result.metadata["block_length"] >= 5
