@@ -526,6 +526,9 @@ frequency on the same panels is 5.0% / 5.0% / 4.0% at a nominal 5%.
   `tie_policy="ordinal"`, `FEW_ASSETS` when the median per-period
   cross-section is below `MIN_ASSETS_WARN`, and `THIN_QUANTILE_GROUPS` when
   fewer than `MIN_GROUP_ASSETS` names back each requested bucket.
+- *short-circuit*: `reason` `insufficient_assets_for_quantile_groups` reports
+  `n_obs` as the median asset count on the post-stride sample where buckets
+  are actually formed, not the raw panel universe.
 
 ### `quantile` (`factrix.metrics.quantile`)
 - `warning_codes` (conditional): `HIGH_TIE_RATIO` under `tie_policy="ordinal"`

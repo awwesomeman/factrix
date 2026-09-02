@@ -8,7 +8,12 @@ import numpy as np
 import polars as pl
 import pytest
 from factrix._codes import WarningCode
+from factrix._stats import _MIN_PERIODS_PER_LAG
 from factrix.inference.series_mean import NeweyWest
+from factrix.metrics._helpers import (
+    _INFERENCE_CODE_MESSAGE,
+    _emit_scalar_har_warnings,
+)
 from factrix.metrics.common_asymmetry import common_asymmetry
 from factrix.metrics.common_quantile import common_quantile_spread
 from factrix.metrics.fm_beta import pooled_beta
@@ -48,6 +53,46 @@ def _pooled_panel(n: int, rng: np.random.Generator) -> pl.DataFrame:
 def _has_bandwidth_warning(result: object) -> bool:
     warning_codes = getattr(result, "warning_codes", ())
     return WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED.value in warning_codes
+
+
+def _bandwidth_messages(caught: list[warnings.WarningMessage]) -> list[str]:
+    code = WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED.value
+    return [str(item.message) for item in caught if code in str(item.message)]
+
+
+def test_bandwidth_warning_text_uses_the_policy_constant() -> None:
+    token = f"n_periods / {_MIN_PERIODS_PER_LAG}"
+    template = _INFERENCE_CODE_MESSAGE[WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED]
+    rendered = template.format(
+        n=120,
+        warn=30,
+        autocorr=0.3,
+        periods_per_lag=_MIN_PERIODS_PER_LAG,
+    )
+    assert token in rendered
+
+    with warnings.catch_warnings(record=True) as scalar_caught:
+        warnings.simplefilter("always")
+        _emit_scalar_har_warnings(
+            metric_name="test_metric",
+            subject="the test series",
+            n_periods=120,
+            overlap_periods=21,
+            persistent=False,
+            bandwidth_ill_conditioned=True,
+        )
+    scalar_messages = _bandwidth_messages(scalar_caught)
+    assert scalar_messages
+    assert all(token in message for message in scalar_messages)
+
+    rng = np.random.default_rng(1026)
+    panel = _series_panel(rng.standard_normal(120), rng.standard_normal(120))
+    with warnings.catch_warnings(record=True) as predictive_caught:
+        warnings.simplefilter("always")
+        predictive_beta(panel, overlap_periods=21)
+    predictive_messages = _bandwidth_messages(predictive_caught)
+    assert predictive_messages
+    assert all(token in message for message in predictive_messages)
 
 
 @pytest.mark.parametrize(

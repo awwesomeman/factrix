@@ -45,11 +45,12 @@ from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import (
     _hac_bandwidth_ill_conditioned,
+    _lag1_autocorr,
     _newey_west_t_test,
     _p_value_from_t,
     _resolve_scalar_wald_hac,
 )
-from factrix._stats.constants import MIN_PERIODS_WARN
+from factrix._stats.constants import MIN_PERIODS_WARN, PERSISTENT_SERIES_AUTOCORR
 from factrix._stats.core import _degenerate_t_input
 from factrix._types import (
     DEFAULT_FORWARD_PERIODS,
@@ -358,12 +359,14 @@ def fm_beta(
         overlap_periods=overlap_periods,
     )
     actual_lags = _resolve_har_lags(n, newey_west_lags, overlap_periods)
+    beta_autocorr = _lag1_autocorr(betas[:: max(overlap_periods or 1, 1)])
     if _persistent_array_beyond_horizon(betas, overlap_periods):
         _emit_warning(
             WarningCode.SERIAL_CORRELATION_DETECTED,
-            "the per-period beta series' lag-1 autocorrelation remains above "
-            f"0.3 after striding at overlap_periods={overlap_periods}. No HAC "
-            "path is calibrated "
+            "the per-period beta series has lag-1 autocorrelation "
+            f"{beta_autocorr:.2f} (> {PERSISTENT_SERIES_AUTOCORR}) after "
+            f"striding at overlap_periods={overlap_periods}. No HAC path is "
+            "calibrated "
             "in this regime — Newey-West rejects 13–17% at a nominal 5% for "
             "phi=0.6 and ~30% at 0.85 — so read the p-value against a raised "
             "hurdle (t > 3) or lengthen the sample.",

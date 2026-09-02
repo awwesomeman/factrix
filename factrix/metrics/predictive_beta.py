@@ -24,6 +24,7 @@ from factrix._codes import WarningCode, _emit_warning
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import (
+    _MIN_PERIODS_PER_LAG,
     _adf,
     _hac_bandwidth_ill_conditioned,
     _lag1_autocorr,
@@ -389,8 +390,8 @@ def predictive_beta(
         _emit_warning(
             WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED,
             f"the resolved Bartlett bandwidth L={resolved_har_lags} exceeds "
-            f"n_periods / 5 on {n} periods, so the long-run variance rests "
-            "on too few lag products to be stable.",
+            f"n_periods / {_MIN_PERIODS_PER_LAG} on {n} periods, so the "
+            "long-run variance rests on too few lag products to be stable.",
             label="predictive_beta",
             expected_warnings=expected_warnings,
             warning_codes=warning_codes,

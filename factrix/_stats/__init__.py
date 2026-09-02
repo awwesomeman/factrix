@@ -48,6 +48,7 @@ from factrix._stats.core import (
 )
 from factrix._stats.diagnostics import _lag1_autocorr, _ljung_box
 from factrix._stats.hac import (
+    _MIN_PERIODS_PER_LAG,
     _bartlett_lrcov,
     _driscoll_kraay_cov,
     _hac_bandwidth_ill_conditioned,
@@ -70,6 +71,7 @@ from factrix._stats.wald import _wald_p_linear
 
 __all__ = [
     "_ADF_CRITS_CONSTANT",
+    "_MIN_PERIODS_PER_LAG",
     "_adf",
     "_adf_pvalue_interp",
     "_bartlett_lrcov",
