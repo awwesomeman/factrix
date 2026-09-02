@@ -37,6 +37,9 @@ theme:
         name: Switch to light mode
 
 hooks:
+  # pre-warms the intersphinx inventory cache mkdocstrings reads, with
+  # retries, so a transient fetch failure cannot fail a --strict build
+  - scripts/mkdocs_hooks/warm_inventory_cache.py
   # examples/*.ipynb -> docs/examples/*.md
   - scripts/mkdocs_hooks/render_example_notebooks.py
   # factrix._metric_index.public_specs() -> docs/reference/_generated_metric_matrix.md
