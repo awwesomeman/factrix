@@ -101,16 +101,31 @@ normal path `MetricResult.alternative` already records it, so a second copy
 would read as a degeneracy marker. Metrics that expose no `alternative`
 knob record `"two-sided"` here, which is what they ran.
 
+### Drop-stat schema — metrics that filter an upstream sample
+
+Metrics that discard unusable observations expose the same five descriptive
+keys for the affected axis:
+
+- Period axis: `n_periods_in`, `n_periods_out`, `dropped_periods`,
+  `drop_rate`, `drop_reason`.
+- Asset axis: `n_assets_in`, `n_assets_out`, `dropped_assets`, `drop_rate`,
+  `drop_reason`.
+
+The `*_in` and `*_out` counts describe the sample before and after filtering;
+`dropped_*` is their difference. `drop_reason` is `None` when nothing was
+dropped. `WarningCode.EXCESSIVE_PERIOD_DROPS` and
+`WarningCode.EXCESSIVE_ASSET_DROPS` direct users to these fields.
+
 ## Per-metric schemas
 
 ### `ic` family (`factrix.metrics.ic`)
 
 #### `ic`
 
-- *primary*: `p_value` — test on the per-period IC series, from the configured `inference`: a `t`-test on a non-overlapping stride of `overlap_periods` (default), a Newey-West HAC `t`-test, or a stationary-bootstrap empirical `p`.
+- *primary*: `p_value` — test on the per-period IC series, from the configured `inference`: a `t`-test on a non-overlapping stride of `overlap_periods` (default), a Newey-West HAC `t`-test, or a stationary-bootstrap empirical *p*.
 - *descriptive*: `n_periods` (the sample the `value` / `stat` / `p_value` describe — the strided subsample under `NonOverlapping`, the full series under `NeweyWest` / `StationaryBootstrap`; equals `n_obs`), `n_periods_full` and `mean_ic_full` (the full per-period series, for reference), `overlap_periods`, `tie_ratio` (median across periods), `min_assets_per_period` / `warn_assets_per_period` when the upstream IC series carries per-period asset counts, `stat_type` (the test actually run: `"t"` under `NonOverlapping` / `NeweyWest`, `"bootstrap-mean"` under `StationaryBootstrap`), `h0` (`"mu=0"`), and `method`.
 - *descriptive* (conditional, `NeweyWest`): `newey_west_lags` (resolved Bartlett bandwidth) and `hac_dof` (the effective degrees of freedom the `t` is read against; `None` when the sample is too short to run the kernel).
-- *descriptive* (conditional, `StationaryBootstrap`): `n_resamples` and `seed` (the resolved seed, reported even when not supplied, so an unseeded run stays reproducible; `null` when a `numpy.random.Generator` was supplied — that stream is the caller's to reproduce), `p_value_mc_se` (Monte-Carlo SE of the empirical `p`), `block_length` (the resolved Politis-White mean block length) and `studentized`. See [Resampling knobs](statistical-methods.md#resampling-knobs).
+- *descriptive* (conditional, `StationaryBootstrap`): `n_resamples` and `seed` (the resolved seed, reported even when not supplied, so an unseeded run stays reproducible; `null` when a `numpy.random.Generator` was supplied — that stream is the caller's to reproduce), `p_value_mc_se` (Monte-Carlo SE of the empirical *p*), `block_length` (the resolved Politis-White mean block length) and `studentized`. See [Resampling knobs](statistical-methods.md#resampling-knobs).
 - *warning*: `WarningCode.FEW_ASSETS` when retained per-period IC cross-sections are below `MIN_IC_ASSETS_WARN`; `WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED` under `NeweyWest` when the resolved bandwidth exceeds `n_periods / 5`.
 - *short-circuit*: `reason` `insufficient_ic_periods` (too few periods) carries `min_required`; `insufficient_ic_assets` (every cross-section below `MIN_IC_ASSETS_HARD`, so no per-period IC survived — common on one-valid-pair panels) carries `min_assets_required`.
 
@@ -375,9 +390,8 @@ Same shape as `positive_rate` (exact binomial, `stat` = hit count).
   `sign_base_rate_source` (`non_event_rows`, or `assumed_symmetric` when
   there are too few non-event rows to estimate it), `n_base_rate_rows`.
 - *descriptive*: `kolari_pynnonen_r` / `kolari_pynnonen_n_eff` /
-  `kolari_pynnonen_r_source` / `kolari_pynnonen_applied` /
-  `kolari_pynnonen_scaling` / `stat_uncorrected` (the within-period clustering
-  estimate and the deflator),
+  `kolari_pynnonen_r_source` / `kolari_pynnonen_applied` (the within-period
+  clustering estimate and whether the deflator ran),
   `n_events` (events surviving the non-overlap spacing pass —
   the binomial `n`), `n_hits`, `n_events_dropped_non_finite`
   (events with a non-finite return / factor, excluded from `n`),
@@ -390,6 +404,8 @@ Same shape as `positive_rate` (exact binomial, `stat` = hit count).
   size at h = 1 / 5 / 21 on 20 assets, nominal 5%),
   `n_events_overlapping` / `n_events_sampled` (removed by, and surviving,
   the spacing pass; a non-zero removal fires `EVENT_WINDOW_OVERLAP`).
+- *descriptive* (conditional, clustering adjustment applied):
+  `kolari_pynnonen_scaling`, `stat_uncorrected`.
 
 #### `event_ic`
 
@@ -474,7 +490,7 @@ Pre/post-event return profile; descriptive.
   unconditional mean single-bar return, subtracted so a trending asset does
   not read as leaky), `leakage_null_scale` (`≈ 0.8 × mean se` — what the
   headline is worth under *no* leakage, since `E|x̄| > 0` always and shrinks
-  as events accumulate), `interpretation`. `reason` is set to
+  as events accumulate). `reason` is set to
   `no_pre_event_offset_with_enough_events` and `value` is `NaN` when no
   negative offset cleared the 5-event floor — `0.0` there was the *best*
   possible score for a quantity never computed. An observed non-finite or
@@ -488,6 +504,9 @@ Pre/post-event return profile; descriptive.
   each other within an event and, unlike the event significance tests, this
   metric applies no non-overlap sampling across events, so the curve is a
   shape to read rather than a test to interpret.
+- Interpret a larger headline value as more potential pre-event leakage. It
+  is the mean absolute single-bar excess return across eligible pre-event
+  offsets, not a cumulative pre-event CAR.
 
 ### `monotonicity` (`factrix.metrics.monotonicity`)
 
@@ -557,7 +576,7 @@ frequency on the same panels is 5.0% / 5.0% / 4.0% at a nominal 5%.
   behind the `few_assets` diagnostic), `tie_ratio`, `tie_policy`,
   `stat_type` (the test actually run: `"t"` under `NonOverlapping` /
   `NeweyWest`, `"bootstrap-mean"` under `StationaryBootstrap`), `method`.
-- *descriptive*: `n_periods_in`, `n_periods_out`, `n_dropped`,
+- *descriptive*: `n_periods_in`, `n_periods_out`, `dropped_periods`,
   `drop_rate`, `drop_reason` — the null/NaN-drop bookkeeping on the
   **strided** spread series (`n_periods_in` also appears on the
   no-surviving-periods short-circuit).
@@ -572,14 +591,24 @@ frequency on the same panels is 5.0% / 5.0% / 4.0% at a nominal 5%.
 
 #### `quantile_spread_vw`
 
-Value-weighted variant. Same metadata shape as `quantile_spread` —
-including `median_cross_section`, `n_periods_strided`, `stat_type` (the test actually run: `"t"` under `NonOverlapping` / `NeweyWest`, `"bootstrap-mean"` under `StationaryBootstrap`)
-and whatever the selected inference member contributes — plus a `weights_lagged` flag
-indicating whether the weighting input was lagged before the join
-(descriptive). It takes the same `inference=` knob off the same
+Value-weighted variant. It takes the same `inference=` knob off the same
 allowlist as `quantile_spread`, so the equal-weighted / value-weighted
 pair is tested the same way on the same date set; under `NEWEY_WEST` the
 VW leg gives up the first date, whose lagged weight does not exist.
+
+- *descriptive*: `n_periods`, `n_periods_strided`, `median_cross_section`,
+  `n_groups`, `overlap_periods`, `method`, `stat_type`, `h0`, `tie_ratio`,
+  `tie_policy`, `weights_lagged`, `n_periods_in`, `n_periods_out`,
+  `dropped_periods`, `drop_rate`, `drop_reason`.
+- *descriptive* (conditional, full-series inference): `n_periods_full` plus
+  the selected inference member's metadata (`newey_west_lags` / `hac_dof`,
+  or `n_resamples` / `seed` / `p_value_mc_se` / `block_length` /
+  `studentized`).
+
+`weights_lagged` records whether the weighting input was lagged before the
+join. Unlike `quantile_spread`, the value-weighted metric does not emit
+long/short attribution tests.
+
 It also carries the same thin-cross-section diagnostics — `few_assets`
 on the median per-period finite-factor count and `thin_quantile_groups`
 off the shared bucket threshold. Both were previously absent: the metric
@@ -654,6 +683,8 @@ not reject at any sample size. See
   pairs the cutoff selected, and how many of those were excluded from
   both the HHI and `n_top` for a non-finite weight),
   `warning_codes` (conditional).
+- *descriptive* (conditional, one-signed `abs_factor` input):
+  `n_positive_factor_values`, `n_negative_factor_values`.
 
 ### `clustering` (`factrix.metrics.clustering_hhi`)
 
@@ -664,12 +695,12 @@ is invariant to how many assets fire per date and is bounded below by `1/D`,
 so it cannot answer "do my events cluster?" on its own — read it with the two
 companions.
 
-- *descriptive*: `n_events`, `n_event_periods`, `effective_n_periods`
+- *descriptive*: `n_events`, `n_event_periods`, `n_periods_effective`
   (`1/HHI`), `hhi_normalized` (`(HHI - 1/D)/(1 - 1/D)`; `0` when every event
   date carries the same count, **including** under perfect cross-sectional
   clustering), `events_per_period_mean` (Kish effective cluster size — the
-  cross-sectional axis, and the same `n_eff` the Kolari-Pynnönen deflator
-  consumes), `max_events_per_period`, `share_events_in_bursts` (share of
+  cross-sectional axis, and the same $n_{\mathrm{eff}}$ the Kolari-Pynnönen deflator
+  consumes), `events_per_period_max`, `share_events_in_bursts` (share of
   events whose same-asset predecessor sits within `cluster_window` periods on
   the full panel calendar — the temporal axis), `cluster_window`.
 
@@ -878,8 +909,8 @@ which reports `R²` for the OLS regression.
 - *descriptive* (Stambaugh correction): `stambaugh_adjusted` (True on every
   computed result), `beta_ols_uncorrected`, `stambaugh_bias_estimate`
   (`beta_ols_uncorrected - value`), `ar1_phi`,
-  `ar1_phi_corrected`, `innovation_corr` (`rho_hat`),
-  `stambaugh_bias_channel` (`|rho_hat * phi_corrected|`),
+  `ar1_phi_corrected`, `innovation_corr` ($\hat\rho$),
+  `stambaugh_bias_channel` ($|\hat\rho \phi_{corrected}|$),
   `ar1_phi_corrected_explosive` (`ar1_phi_corrected >= 1` — the corrected
   AR(1) coefficient is deliberately not clamped, because clamping it
   re-opens the bias the correction exists to close).
@@ -996,7 +1027,7 @@ scale and the kernel's fixed-`b` effective `ν`.
   a constant return); `value` is kept.
 - *secondary-test* (conditional, Method B ran):
   `method_b`, `stat_type_method_b`, `beta_pos`, `beta_neg`,
-  `p_wald_slopes`.
+  `p_wald_slopes`, `h0_method_b` (`"beta_pos = beta_neg"`).
 - *warning codes* (conditional): `serial_correlation_detected` (per-period
   factor persistent once strided at `overlap_periods`),
   `unreliable_se_short_periods` (fewer than 30 periods after that stride),
@@ -1013,7 +1044,7 @@ scale and the kernel's fixed-`b` effective `ν`.
 - *primary*: `p_value` — Wald F on `H₀: β_top = β_bottom` from an OLS fit
   on bucket dummies. A single restriction, so it takes the scalar HAR
   reference (`_resolve_scalar_wald_hac`): finite-sample `F_{1, ν}` at the
-  kernel's fixed-`b` effective `ν`. `stat` /
+  kernel's fixed-$b$ effective `ν`. `stat` /
   `p_value` are `None` with `degenerate_variance` when the contrast's HAC
   variance collapses (e.g. identical bucket means every period); `value`
   is kept.

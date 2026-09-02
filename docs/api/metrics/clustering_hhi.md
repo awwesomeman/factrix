@@ -19,7 +19,7 @@ title: factrix.metrics.clustering_hhi
     ---
 
     Read `value` (Herfindahl-Hirschman index (HHI) on the event-period histogram) and
-    `metadata["effective_n_periods"]` $= 1 / \mathrm{HHI}$. High HHI →
+    `metadata["n_periods_effective"]` $= 1 / \mathrm{HHI}$. High HHI →
     the events that exist are concentrated on few of the dates that have
     events. **This is one axis of three, and not the one the
     Kolari-Pynnönen adjustment acts on**: HHI is invariant to how many assets
@@ -60,7 +60,7 @@ title: factrix.metrics.clustering_hhi
 
     diag = clustering_hhi(panel)
     print(diag.value,
-          diag.metadata["effective_n_periods"],
+          diag.metadata["n_periods_effective"],
           diag.metadata["hhi_normalized"],
           diag.metadata["events_per_period_mean"],
           diag.metadata["share_events_in_bursts"])

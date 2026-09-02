@@ -314,10 +314,5 @@ def event_around_return(
                 else None
             ),
             **({"reason": leakage_reason} if leakage_reason else {}),
-            "interpretation": (
-                "value = mean over pre-event offsets of |mean single-bar "
-                "signed return| (not a cumulative pre-event CAR); "
-                "high = potential leakage"
-            ),
         },
     )
