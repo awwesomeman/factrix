@@ -24,12 +24,12 @@ from factrix._axis import (
 from factrix._codes import WarningCode, _emit_warning
 from factrix._metric_index import cell
 from factrix._results import MetricResult
-from factrix._stats import _binomial_two_sided_p
+from factrix._stats import _binomial_two_sided_p, _lag1_autocorr
+from factrix._stats.constants import POSITIVE_RATE_HIT_AUTOCORR
 from factrix._types import (
     DEFAULT_FORWARD_PERIODS,
     MIN_SERIES_PERIODS_HARD,
 )
-from factrix.inference.series_mean import _persistent_beyond_horizon
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _enforce_scaled_floor,
@@ -116,10 +116,16 @@ def positive_rate(
         If the strided hit indicators remain serially persistent, the exact
         binomial independence assumption is not calibrated; the result carries
         ``serial_correlation_detected`` rather than leaving that regime silent.
+        Its warning threshold maps the project-wide persistence boundary
+        through the Gaussian sign-correlation identity; this is a calibration
+        anchor, not a latent-correlation model for arbitrary inputs.
 
     References:
         [Hansen-Hodrick 1980][hansen-hodrick-1980]: overlapping-return
         autocorrelation horizon motivating the non-overlap stride.
+
+        [Hurt 1973][hurt-1973]: sign correlation of a zero-mean stationary
+        Gaussian sequence.
 
     Examples:
         Hit rate of a per-date IC series produced by
@@ -194,10 +200,12 @@ def positive_rate(
     hit_series = sampled.filter(
         pl.col(value_col).is_not_null() & pl.col(value_col).is_not_nan()
     ).select("date", (pl.col(value_col) > 0).cast(pl.Float64).alias("_hit"))
-    if _persistent_beyond_horizon(hit_series, "_hit", 1):
+    hit_autocorr = _lag1_autocorr(hit_series["_hit"].to_numpy())
+    if hit_autocorr > POSITIVE_RATE_HIT_AUTOCORR:
         _emit_warning(
             WarningCode.SERIAL_CORRELATION_DETECTED,
-            "the non-overlapping hit indicators remain serially persistent. "
+            "the non-overlapping hit indicators have lag-1 autocorrelation "
+            f"{hit_autocorr:.2f} (> {POSITIVE_RATE_HIT_AUTOCORR:.3f}). "
             "The exact binomial test assumes independent Bernoulli trials and "
             "is not calibrated in this regime; read the p-value against a "
             "raised hurdle or lengthen the sample.",

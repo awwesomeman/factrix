@@ -181,6 +181,18 @@ distortion. See
 [Statistical methods § HAC SE](statistical-methods.md#1-hac-se-under-overlapping-returns)
 for the comparison among NW / HH-1980 / Hodrick-1992.
 
+### Hurt (1973)
+[](){ #hurt-1973 }
+
+Hurt, J. (1973). "On a Simple Estimate of Correlations of Stationary
+Random Sequences." *Aplikace matematiky* 18(3), 176–187.
+[DOI](https://doi.org/10.21136/AM.1973.103468).
+
+For a zero-mean stationary Gaussian sequence, the correlation of its signs is
+`2 arcsin(rho) / pi`. This identity anchors the metric-specific persistence
+warning threshold used by `positive_rate`; it is not assumed for arbitrary
+non-Gaussian input.
+
 ### White (1980)
 [](){ #white-1980 }
 

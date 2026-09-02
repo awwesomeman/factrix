@@ -33,7 +33,10 @@ class WarningCode(StrEnum):
     # per-period betas, spread series), not the raw factor / return columns —
     # is persistent BEYOND the overlap horizon: lag-1 autocorrelation above
     # ``PERSISTENT_SERIES_AUTOCORR`` (0.3) on the series strided at
-    # ``overlap_periods``. The stride matters: overlapping h-period forward
+    # ``overlap_periods``. ``positive_rate`` instead screens its dichotomised
+    # hit indicators at ``POSITIVE_RATE_HIT_AUTOCORR`` (~0.194), the Gaussian
+    # sign-process equivalent of the same calibrated boundary. The stride
+    # matters: overlapping h-period forward
     # returns carry an MA(h-1) structure whose lag-1 is near 1 - 1/h by
     # construction, and that is exactly what the HAC bandwidth floor and the
     # bootstrap block-length floor absorb — reading lag-1 on the unstrided
@@ -486,7 +489,11 @@ _WARNING_DESCRIPTIONS.update(
         "(10) observations — below that the screen is withheld, because a "
         "lag-1 autocorrelation estimated from three to nine points is noise "
         "and the shortage of periods is what UNRELIABLE_SE_SHORT_PERIODS "
-        "reports. The MA(h-1) autocorrelation that overlapping "
+        "reports. positive_rate screens its dichotomised hit indicators at "
+        "POSITIVE_RATE_HIT_AUTOCORR (~0.194), the Gaussian sign-process "
+        "equivalent of the same calibrated boundary; this is a warning "
+        "threshold, not a universal latent-correlation estimate. The MA(h-1) "
+        "autocorrelation that overlapping "
         "h-period forward returns induce is absorbed by the HAC bandwidth "
         "floor and the bootstrap block-length floor and does not fire this "
         "code; what does is persistence the stride cannot remove. No HAC or "
