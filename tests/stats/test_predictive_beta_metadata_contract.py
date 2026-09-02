@@ -16,6 +16,7 @@ Two contracts, both split out of the review of #1034:
 from __future__ import annotations
 
 import math
+import re
 import warnings
 from pathlib import Path
 
@@ -99,6 +100,15 @@ class TestShortCircuitBandwidthIsTheAttemptedOne:
         assert "the bandwidth resolved for the attempt" in docs
 
     def test_docs_do_not_repeat_at_at(self) -> None:
-        """Typo introduced by #1034's wording; folded in here per review."""
+        """Typo introduced by #1034's wording; folded in here per review.
+
+        The literal ``"ran at at"`` never appeared: #1034 shipped
+        ``the kernel **ran at** at``, with the emphasis markers between the
+        two words. A bare-substring guard passed while the typo was live, so
+        match across the markup instead.
+        """
         docs = STAT_KEYS_DOCS.read_text(encoding="utf-8")
-        assert "ran at at" not in docs
+        doubled = re.compile(r"\bat(?:\*+|_+|`+|\s)*\s+at\b")
+        assert not doubled.search(docs), (
+            f"doubled 'at' in {STAT_KEYS_DOCS}: {doubled.search(docs).group()!r}"
+        )

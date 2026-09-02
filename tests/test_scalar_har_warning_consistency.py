@@ -96,11 +96,12 @@ def test_bandwidth_warning_text_uses_the_policy_constant() -> None:
     # the one metric whose ``metadata["n_periods"]`` is the truncated
     # augmented-design row count rather than the count this screen reads, so
     # the shared token would send a reader to the wrong key (see the metadata
-    # contract tests in ``tests/stats``). What has to hold everywhere is that
-    # the policy constant is interpolated rather than written out by hand.
-    policy_token = f"/ {_MIN_PERIODS_PER_LAG}"
-    assert all(policy_token in message for message in predictive_messages)
-    assert all("n_periods_finite /" in message for message in predictive_messages)
+    # contract tests in ``tests/stats``). Keep it as ONE token rather than two
+    # ``in`` checks: split checks no longer verify that the constant is the
+    # divisor *of that key*, and would pass a message carrying the two halves
+    # in unrelated places.
+    predictive_token = f"n_periods_finite / {_MIN_PERIODS_PER_LAG}"
+    assert all(predictive_token in message for message in predictive_messages)
 
 
 @pytest.mark.parametrize(
