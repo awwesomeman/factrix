@@ -35,7 +35,7 @@ _SHORT_CIRCUIT_HELPERS = frozenset(
 
 #: Keys whose name asserts that a stage of the *inference* ran. Deliberately a
 #: suffix grammar rather than a hand-list: a new ``*_applied`` flag is exactly
-#: the case this lint exists to catch. It matches nine names across the
+#: the case this lint exists to catch. It matches eight names across the
 #: package today — ``hac_applied``, ``stambaugh_adjusted``,
 #: ``kolari_pynnonen_applied``, ``calendar_time_se_applied``,
 #: ``overlap_adjustment_applied``, ``event_clustering_adjusted``,
@@ -114,6 +114,45 @@ def test_fx008_baseline_is_current() -> None:
         f"FX008: baseline entries no longer present in the source: {sorted(stale)}. "
         "Remove them so the ledger keeps describing the code."
     )
+
+
+def test_fx008_docstring_count_matches_the_grammar() -> None:
+    """The stated reach must equal the measured one.
+
+    This shipped wrong once: the count stayed at ``nine`` after ``*_corrected``
+    left the grammar, contradicting the list beside it. Measuring it here is
+    the same rule this lint exists to enforce, one layer up — a stated number
+    has to be the number the code produces.
+    """
+    matched = {
+        node.value if isinstance(node, ast.Constant) else node.arg
+        for path in sorted(PACKAGE_DIR.rglob("*.py"))
+        if not path.stem.startswith("llms")
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+        if (
+            isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and _STAGE_FLAG.match(node.value)
+        )
+        or (
+            isinstance(node, ast.keyword)
+            and node.arg is not None
+            and _STAGE_FLAG.match(node.arg)
+        )
+    }
+    words = {8: "eight", 9: "nine", 10: "ten", 11: "eleven", 12: "twelve"}
+    stated = words.get(len(matched))
+    assert stated is not None, (
+        f"grammar now matches {len(matched)} names; extend the word map."
+    )
+    own_source = pathlib.Path(__file__).read_text(encoding="utf-8")
+    assert f"matches {stated} names" in own_source, (
+        f"the grammar matches {len(matched)} names ({stated}); the comment on "
+        f"_STAGE_FLAG states a different count."
+    )
+    # ...and every name the comment lists is one the grammar really matches.
+    for name in matched:
+        assert name in own_source, f"{name} matches but is not listed"
 
 
 def test_fx008_detects_a_planted_violation(tmp_path: pathlib.Path) -> None:
