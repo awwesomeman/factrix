@@ -151,9 +151,19 @@ def predictive_beta(
     the kernel ran at: the augmented design is ``n_periods`` rows and a
     Bartlett sum cannot use a lag it has no observation pair for, so a long
     horizon leaves it narrower than the bandwidth resolved from the full
-    series. The one exception is the ``no_amihud_hurvich_fit`` short circuit,
-    where no kernel runs and the value is the bandwidth resolved for the
-    attempt; ``None`` is not reused there because it already means ``h = 1``.
+    series.
+
+    **On the ``no_amihud_hurvich_fit`` short circuit the inference keys
+    describe the attempt, not a result.** No kernel runs there, so
+    ``hac_applied`` and ``har_lags`` report the covariance branch and
+    bandwidth *resolved for* the attempt, and ``beta_ols_uncorrected`` is the
+    slope the metric declined to publish as a headline. This is the exception
+    the short-circuit envelope permits in place of neutralising:
+    ``hac_applied = False`` implies ``har_lags = None`` on every computed
+    result, so neutralising the pair would make the branch indistinguishable
+    from an ``h = 1`` success rather than merely uninformative.
+    ``stambaugh_adjusted`` stays ``False`` — it describes the headline value,
+    and there is none. Branch on ``metadata["reason"]`` before reading them.
 
     The ``HAC_BANDWIDTH_ILL_CONDITIONED`` message names
     ``n_periods_finite``, not ``n_periods``. This metric is the one place the

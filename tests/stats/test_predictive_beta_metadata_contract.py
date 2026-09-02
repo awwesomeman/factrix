@@ -87,17 +87,44 @@ class TestShortCircuitBandwidthIsTheAttemptedOne:
         assert result.metadata["reason"] == "no_amihud_hurvich_fit"
         assert isinstance(result.metadata["har_lags"], int)
 
+    @pytest.mark.parametrize(("n", "h"), [(20, 19), (20, 16), (22, 18)])
+    def test_short_circuit_pair_is_unreachable_on_a_computed_result(
+        self, n: int, h: int
+    ) -> None:
+        """#1039: why the attempt keys are not neutralised here.
+
+        On every computed result ``hac_applied = False`` implies
+        ``har_lags = None``. Keeping both affirmative leaves the branch
+        distinguishable; neutralising only ``hac_applied`` would produce a
+        pair no computed result can, and neutralising both would reproduce an
+        ``h = 1`` success exactly.
+        """
+        short_circuit, _ = _run(n, h, seed=n * 10 + h)
+        h1, _ = _run(240, 1, seed=11)
+        computed, _ = _run(240, 5, seed=7)
+
+        assert short_circuit.metadata["hac_applied"] is True
+        assert isinstance(short_circuit.metadata["har_lags"], int)
+
+        # The success-path invariant this branch must not collide with.
+        assert h1.metadata["hac_applied"] is False
+        assert h1.metadata["har_lags"] is None
+        assert computed.metadata["hac_applied"] is True
+        assert isinstance(computed.metadata["har_lags"], int)
+
     def test_h1_still_reports_no_bandwidth(self) -> None:
         result, _ = _run(240, 1, seed=11)
 
         assert not math.isnan(result.value)
         assert result.metadata["har_lags"] is None
 
-    def test_docs_state_the_short_circuit_exception(self) -> None:
-        """The tightened ``har_lags`` contract must carry its one exception."""
+    def test_docs_state_the_branch_contract(self) -> None:
+        """The exception is stated once for the branch, not per key."""
         docs = STAT_KEYS_DOCS.read_text(encoding="utf-8")
         assert "no_amihud_hurvich_fit" in docs
-        assert "the bandwidth resolved for the attempt" in docs
+        assert "the inference keys describe the attempt" in docs
+        # ...and the envelope it is an exception to states the general rule.
+        assert "Which auxiliary keys a short circuit may carry" in docs
 
     def test_docs_do_not_repeat_at_at(self) -> None:
         """Typo introduced by #1034's wording; folded in here per review.
