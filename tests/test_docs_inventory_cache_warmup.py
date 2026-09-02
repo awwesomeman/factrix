@@ -12,6 +12,7 @@ non-fatal so ``mkdocstrings`` reports whatever it finds in its own terms.
 from __future__ import annotations
 
 import pathlib
+import re
 import urllib.error
 
 import pytest
@@ -258,23 +259,40 @@ def test_cache_duration_matches_what_mkdocstrings_asks_for() -> None:
 def test_ci_cache_path_is_the_one_mkdocs_writes_to() -> None:
     """#1042: the workflows hard-code a path; pin it to the library's own.
 
-    The YAML cannot be executed here, but the assumption it encodes can:
-    ``download_and_cache_url`` writes under
-    ``platformdirs.user_cache_dir("mkdocs")``, so if mkdocs changes the
-    appname the cache step silently stops covering anything and every CI
-    build quietly goes back to fetching.
+    The chain is ``mkdocs.utils.cache.download_and_cache_url`` ->
+    ``mkdocs_get_deps.cache.download_and_cache_url`` ->
+    ``platformdirs.user_cache_dir(<appname>)``. Both halves have to come from
+    the library: writing the appname here would pin ``platformdirs``' layout
+    for a literal string, and a rename to ``"mkdocs-get-deps"`` upstream would
+    leave this passing while the CI cache covered nothing — the exact failure
+    this exists to prevent.
     """
-    platformdirs = pytest.importorskip("platformdirs")
+    import inspect
+
+    pytest.importorskip("platformdirs")
+    import mkdocs.utils.cache
+    import mkdocs_get_deps.cache
     from platformdirs.unix import Unix
 
-    # The runners are ubuntu-latest, so the Unix implementation is the one
-    # that decides. Asserted rather than assumed, because this host is not it.
-    linux_path = Unix(appname="mkdocs").user_cache_dir
-    assert linux_path.replace("\\", "/").endswith("/.cache/mkdocs"), (
-        f"platformdirs now resolves mkdocs' cache to {linux_path}; the "
-        f"workflows cache {_CI_CACHE_PATH} and would cover nothing."
+    assert "mkdocs_get_deps" in inspect.getsource(mkdocs.utils.cache), (
+        "mkdocs no longer delegates its URL cache to mkdocs_get_deps; "
+        "re-derive where the inventories are written."
     )
-    assert platformdirs.user_cache_dir("mkdocs")
+    source = inspect.getsource(mkdocs_get_deps.cache)
+    appnames = re.findall(r"user_cache_dir\(\s*[\"']([^\"']+)[\"']", source)
+    assert len(appnames) == 1, (
+        f"expected exactly one user_cache_dir appname in mkdocs_get_deps."
+        f"cache; found {appnames}. The cache location has been restructured."
+    )
+
+    # The runners are ubuntu-latest, so the Unix implementation is the one
+    # that decides. Asserted rather than assumed: this host is Windows and
+    # resolves the same appname somewhere else entirely.
+    linux_path = Unix(appname=appnames[0]).user_cache_dir
+    assert linux_path.replace("\\", "/").endswith(_CI_CACHE_PATH.lstrip("~")), (
+        f"mkdocs_get_deps caches under {linux_path!r} on Linux; the workflows "
+        f"cache {_CI_CACHE_PATH} and would cover nothing."
+    )
 
 
 @pytest.mark.parametrize("workflow", _WORKFLOWS, ids=lambda p: p.name)
@@ -294,6 +312,17 @@ def test_every_mkdocs_build_job_caches_the_inventories(workflow: pathlib.Path) -
 
     for name, spec in building.items():
         steps = spec["steps"]
+
+        # ``~/.cache/mkdocs`` is the Linux layout. On macOS the same appname
+        # resolves to ``~/Library/Caches/mkdocs``, so a job moved to a macOS
+        # runner would cache a directory nothing writes to — the step would
+        # still be there, still green, and cover nothing.
+        assert "ubuntu" in str(spec.get("runs-on", "")), (
+            f"{workflow}::{name} runs on {spec.get('runs-on')!r}; "
+            f"{_CI_CACHE_PATH} is the Linux cache layout and would not be the "
+            "directory mkdocs writes to there."
+        )
+
         cache = [
             i
             for i, step in enumerate(steps)
