@@ -153,17 +153,22 @@ def predictive_beta(
     horizon leaves it narrower than the bandwidth resolved from the full
     series.
 
-    **On the ``no_amihud_hurvich_fit`` short circuit the inference keys
-    describe the attempt, not a result.** No kernel runs there, so
-    ``hac_applied`` and ``har_lags`` report the covariance branch and
-    bandwidth *resolved for* the attempt, and ``beta_ols_uncorrected`` is the
-    slope the metric declined to publish as a headline. This is the exception
-    the short-circuit envelope permits in place of neutralising:
-    ``hac_applied = False`` implies ``har_lags = None`` on every computed
-    result, so neutralising the pair would make the branch indistinguishable
-    from an ``h = 1`` success rather than merely uninformative.
-    ``stambaugh_adjusted`` stays ``False`` — it describes the headline value,
-    and there is none. Branch on ``metadata["reason"]`` before reading them.
+    **On the ``no_amihud_hurvich_fit`` short circuit each key is judged on
+    its own side of the envelope**, not as one "inference" bundle:
+
+    - ``har_lags`` and ``newey_west_lags`` are *resolved quantities*. The
+      resolution really ran, so the bandwidth reported is the one the kernel
+      would have used — attempt side, kept.
+    - ``beta_ols_uncorrected`` and ``factor_std`` were *measured before the
+      bail* — kept, and the former is the slope the metric declined to
+      publish as a headline.
+    - ``hac_applied`` and ``stambaugh_adjusted`` are past-tense claims that a
+      stage of the inference ran. Neither did, so both are ``False``. The
+      resulting ``(hac_applied=False, har_lags=<int>)`` pair is unreachable
+      on any computed result — an impossible combination a consumer can
+      detect, rather than a plausible one that reads as a completed fit.
+
+    Branch on ``metadata["reason"]`` before reading any of them.
 
     The ``HAC_BANDWIDTH_ILL_CONDITIONED`` message names
     ``n_periods_finite``, not ``n_periods``. This metric is the one place the
@@ -354,8 +359,16 @@ def predictive_beta(
             overlap_periods=overlap_periods,
             factor_std=x_std,
             newey_west_lags=lags,
+            # ``har_lags`` is attempt-side: the resolution really ran, and the
+            # bandwidth it produced is what the kernel would have used.
+            # ``hac_applied`` is a past-tense claim that the HAC covariance
+            # was computed, and no kernel ran here at all, so it neutralises
+            # alongside ``stambaugh_adjusted`` below. The resulting
+            # ``(False, <int>)`` pair is unreachable on any computed result -
+            # an impossible combination a consumer can detect, rather than the
+            # plausible ``(True, <int>)`` that reads as a completed fit.
             har_lags=resolved_har_lags if hac_applied else None,
-            hac_applied=hac_applied,
+            hac_applied=False,
             stambaugh_adjusted=False,
             beta_ols_uncorrected=beta_ols,
         )

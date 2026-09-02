@@ -1,18 +1,21 @@
 """Regression lint for did-this-stage-run flags on short-circuit payloads.
 
 A short circuit runs no kernel, so a flag reporting that a stage of the
-inference *was applied* cannot be affirmative there without a documented
-exception. ``predictive_beta``'s own short circuit is the illustration: it
-neutralises ``stambaugh_adjusted`` to ``False`` and, one keyword later,
-reports ``hac_applied`` as ``True``.
+inference *was applied* cannot be affirmative there. ``predictive_beta`` is
+what prompted this: its short circuit neutralised ``stambaugh_adjusted`` to
+``False`` and, one keyword later, reported ``hac_applied`` as ``True`` — the
+same claim about a different stage, decided two different ways inside one
+call.
 
-FX008 records the sites that legitimately stay affirmative — each with the
-reason it does — and rejects any new one, the same migration-ledger shape as
-FX007 in ``test_degenerate_guard_polarity``. It deliberately checks only the
-mechanically decidable half of the short-circuit envelope: a key whose *name*
-says a stage ran. Whether a value-bearing key such as ``mfe_mae_ratio`` was
-neutralised is a semantic question the envelope documents but no lint can
-settle.
+FX008 carries a baseline of documented exceptions in the migration-ledger
+shape of FX007 in ``test_degenerate_guard_polarity``. The baseline is empty,
+so the rule currently holds without carve-outs; the mechanism stays for a
+future case that clears the envelope's bar.
+
+It deliberately checks only the mechanically decidable half of the
+short-circuit envelope: a key whose *name* says a stage ran. Whether a
+value-bearing key such as ``mfe_mae_ratio`` was neutralised is a semantic
+question the envelope documents and no lint can settle.
 """
 
 from __future__ import annotations
@@ -32,28 +35,34 @@ _SHORT_CIRCUIT_HELPERS = frozenset(
 
 #: Keys whose name asserts that a stage of the *inference* ran. Deliberately a
 #: suffix grammar rather than a hand-list: a new ``*_applied`` flag is exactly
-#: the case this lint exists to catch. Data-preparation verbs (``*_lagged``)
-#: stay out — ``quantile_spread_vw``'s ``weights_lagged`` echoes the
-#: ``lag_weights`` parameter, so it describes the caller's configuration
-#: rather than a stage of the withheld inference, and is affirmative on every
-#: branch by design.
-_STAGE_FLAG = re.compile(r"^[a-z0-9_]*_(applied|adjusted|corrected|flipped)$")
+#: the case this lint exists to catch. It matches nine names across the
+#: package today — ``hac_applied``, ``stambaugh_adjusted``,
+#: ``kolari_pynnonen_applied``, ``calendar_time_se_applied``,
+#: ``overlap_adjustment_applied``, ``event_clustering_adjusted``,
+#: ``mean_adjusted``, ``sign_flipped`` — so the grammar has real reach beyond
+#: the site that prompted it.
+#:
+#: Two verb families are excluded on purpose:
+#:
+#: - ``*_lagged`` is data preparation, not inference. ``quantile_spread_vw``'s
+#:   ``weights_lagged`` echoes the ``lag_weights`` parameter, so it describes
+#:   the caller's configuration and is affirmative on every branch by design.
+#: - ``*_corrected`` matches ``ar1_phi_corrected``, which is a float — the
+#:   bias-corrected AR(1) coefficient — not a did-this-run flag, and is
+#:   legitimately attempt-side because the AR(1) fit precedes the bail.
+#:   Including it would force a baseline entry for something that is not a
+#:   flag the first time a short circuit reports it.
+_STAGE_FLAG = re.compile(r"^[a-z0-9_]*_(applied|adjusted|flipped)$")
 
 #: Sites that stay affirmative on purpose, with the reason each is sound.
 #: A migration ledger, not a bug list — an entry leaves when the branch stops
 #: needing it, and ``test_fx008_baseline_is_current`` fails if one goes stale.
-_FX008_BASELINE: dict[tuple[str, str], str] = {
-    (
-        "factrix/metrics/predictive_beta.py",
-        "hac_applied",
-    ): (
-        "no_amihud_hurvich_fit documents its inference keys as describing the "
-        "attempt, not a result: har_lags is the bandwidth resolved for it and "
-        "hac_applied the covariance branch it would have taken. Neutralising "
-        "to False would make the pair identical to an h = 1 success, reusing "
-        "a sentinel that already means something else."
-    ),
-}
+#:
+#: **Currently empty**, and that is the point: the rule holds everywhere
+#: without a carve-out. Adding an entry needs the envelope's bar — that
+#: neutralising the key is impossible or destroys information, not merely
+#: less convenient — argued at the branch that adds it.
+_FX008_BASELINE: dict[tuple[str, str], str] = {}
 
 
 def _flag_kwargs(path: pathlib.Path) -> list[tuple[str, str]]:

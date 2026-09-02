@@ -978,7 +978,7 @@ Hard constraints — violating these breaks the API contract:
    `False` / an explicit failure state) unless the metric documents, at that
    branch, that the key describes the attempt instead. FX008 in
    `tests/stats/test_short_circuit_flag_polarity.py` lints the decidable
-   half — a `*_applied` / `*_adjusted` / `*_corrected` / `*_flipped` key
+   half — a `*_applied` / `*_adjusted` / `*_flipped` key
    reporting a stage as having run — on the same baseline shape as FX007.
    The contract itself is
    [Which auxiliary keys a short circuit may carry](../reference/stat-keys-by-metric.md#which-auxiliary-keys-a-short-circuit-may-carry).

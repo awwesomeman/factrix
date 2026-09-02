@@ -936,16 +936,21 @@ which reports `R²` for the OLS regression.
     the metric short-circuits rather than substituting the biased OLS slope,
     and `metadata["reason"]` is `no_amihud_hurvich_fit`.
 
-    On that branch `hac_applied` and `har_lags` describe the covariance
-    branch and bandwidth **resolved for the attempt**, not a kernel that ran;
+    Each key on that payload is judged on its own side of the
+    [short-circuit envelope](#which-auxiliary-keys-a-short-circuit-may-carry),
+    not as one "inference" bundle:
+
+    | key | side | value |
+    |---|---|---|
+    | `har_lags`, `newey_west_lags` | resolved for the attempt | the resolved bandwidth |
+    | `beta_ols_uncorrected`, `factor_std` | measured before the bail | the measurement |
+    | `hac_applied`, `stambaugh_adjusted` | claims a stage ran | `False` |
+
     `beta_ols_uncorrected` is the uncorrected slope the metric declined to
-    publish as the headline. This is the documented exception the
-    [short-circuit envelope](#which-auxiliary-keys-a-short-circuit-may-carry)
-    allows, taken instead of neutralising: `hac_applied = False` implies
-    `har_lags = None` on every computed result, so neutralising the pair here
-    would make the branch indistinguishable from an `h = 1` success rather
-    than merely uninformative. `stambaugh_adjusted` stays `False` because it
-    describes the headline value, and there is none.
+    publish as the headline. The `(hac_applied=False, har_lags=<int>)` pair
+    that results is unreachable on any computed result — an impossible
+    combination a consumer can detect, rather than a plausible one that reads
+    as a completed fit.
 
     As the envelope says, branch on `reason` before reading these keys.
 - *warning*: `WarningCode.PERSISTENT_REGRESSOR` when the ADF p-value exceeds
@@ -1187,16 +1192,27 @@ that point is worth reporting.
 - **Keys that would describe the withheld result** are neutralised — `NaN`
   (`mfe_mae`'s `mfe_mae_ratio`), `None` (`event_around_return`'s
   `baseline_bar_return`), empty (`per_offset`), `False` (`predictive_beta`'s
-  `stambaugh_adjusted`, `oos_decay`'s `sign_flipped`), or an explicit failure
-  state (`oos_decay`'s `status = "VETOED"`) — **or** the metric documents, at
-  that branch, that they describe the attempt rather than a result.
-  `predictive_beta`'s `no_amihud_hurvich_fit` is the one branch that takes the
-  second route, because neutralising its pair would reuse a sentinel that
-  already means `h = 1`.
+  `hac_applied` and `stambaugh_adjusted`, `oos_decay`'s `sign_flipped`), or an
+  explicit failure state (`oos_decay`'s `status = "VETOED"`).
+
+The two sides are judged **per key, never per branch**.
+`predictive_beta`'s `no_amihud_hurvich_fit` is the worked example: `har_lags`
+stays affirmative because resolving the bandwidth really happened, while
+`hac_applied` — a past-tense claim that the HAC covariance was computed — goes
+to `False`. The resulting `(hac_applied=False, har_lags=<int>)` pair is
+unreachable on any computed result, and that is the point: an impossible
+combination is detectable, where a plausible one reads as a completed fit.
+
+A branch may instead document that a withheld-result key describes the
+attempt, but only where neutralising is **impossible or destroys
+information** — not where it is merely less convenient — and the branch must
+say which applies. No metric currently needs this; the bar is written down so
+a future case is argued rather than assumed.
 
 The mechanically decidable half is linted: FX008 in
-`tests/stats/test_short_circuit_flag_polarity.py` rejects a new
-`*_applied` / `*_adjusted` / `*_corrected` / `*_flipped` key that reports a
-stage as having run on a short-circuit payload, and carries the documented
-exception as a baseline. Whether a value-bearing key was neutralised is a
+`tests/stats/test_short_circuit_flag_polarity.py` rejects a
+`*_applied` / `*_adjusted` / `*_flipped` key that reports a
+stage as having run on a short-circuit payload. Its baseline of documented
+exceptions is empty, so the rule holds without carve-outs. Whether a
+value-bearing key was neutralised is a
 semantic question no lint settles; this section is the contract for it.
