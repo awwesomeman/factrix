@@ -46,7 +46,6 @@ _FX007_BASELINE = Counter(
         ("factrix/metrics/fm_beta.py", "sigma2_f < EPSILON"): 1,
         ("factrix/metrics/ic.py", "std_ic < EPSILON"): 1,
         ("factrix/metrics/predictive_beta.py", "x_std < EPSILON"): 1,
-        ("factrix/slicing/period_inference.py", "se < EPSILON"): 1,
         ("factrix/slicing/period_inference.py", "se2 <= EPSILON"): 1,
     }
 )

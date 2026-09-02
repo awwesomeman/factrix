@@ -8,6 +8,7 @@ import polars as pl
 import pytest
 from factrix import slice_period_pairwise_test
 from factrix._errors import UserInputError
+from factrix._types import EPSILON
 from factrix.metrics import caar, fm_beta, ic, monotonicity
 
 from tests._slice_panel import build_disjoint_period_panel, build_labelled_raw_panel
@@ -207,6 +208,71 @@ def test_bootstrap_reproducible_under_seed() -> None:
     b = slice_period_pairwise_test(df, ic(), by="regime", factor_col="factor", rng=99)
     assert a["stat"].to_list() == b["stat"].to_list()
     assert a["p_adj"].to_list() == b["p_adj"].to_list()
+
+
+def test_bootstrap_raw_p_uses_resample_specific_standard_errors() -> None:
+    """The bootstrap-t denominator must vary by draw, not cancel from p_raw."""
+    from factrix.slicing.period_inference import (
+        _bootstrap_slice_means,
+        _pairwise_contrasts,
+    )
+
+    data_rng = np.random.default_rng(0)
+    a = data_rng.lognormal(0.0, 1.0, 80) - np.exp(0.5)
+    b = data_rng.normal(0.0, 1.0, 80)
+    bootstrap = _bootstrap_slice_means(
+        [a, b],
+        overlap_periods=1,
+        n_resamples=199,
+        rng=np.random.default_rng(77),
+    )
+    diff_obs = float(bootstrap.observed_means[0] - bootstrap.observed_means[1])
+    differences = bootstrap.resampled_means[0] - bootstrap.resampled_means[1]
+    se_observed = float(np.hypot(*bootstrap.observed_ses))
+    se_resampled = np.hypot(*bootstrap.resampled_ses)
+    usable = np.isfinite(se_resampled) & (se_resampled > EPSILON)
+    roots = (differences[usable] - diff_obs) / se_resampled[usable]
+    expected = (np.sum(np.abs(roots) >= abs(diff_obs / se_observed)) + 1) / (
+        len(roots) + 1
+    )
+    percentile = (np.sum(np.abs(differences - diff_obs) >= abs(diff_obs)) + 1) / (
+        len(differences) + 1
+    )
+
+    result = _pairwise_contrasts(
+        [a, b],
+        [80, 80],
+        [(0, 1)],
+        method="bootstrap",
+        overlap_periods=1,
+        n_resamples=199,
+        rng=np.random.default_rng(77),
+    )[0]
+
+    assert result[2] == pytest.approx(expected)
+    assert result[2] != pytest.approx(percentile)
+
+
+def test_bootstrap_block_length_is_floored_at_overlap_horizon() -> None:
+    from factrix.slicing.period_inference import _bootstrap_slice_means
+
+    rng = np.random.default_rng(1011)
+    series = [rng.normal(size=240), rng.normal(size=240)]
+    plain = _bootstrap_slice_means(
+        series,
+        overlap_periods=1,
+        n_resamples=199,
+        rng=np.random.default_rng(1),
+    )
+    overlapping = _bootstrap_slice_means(
+        series,
+        overlap_periods=21,
+        n_resamples=199,
+        rng=np.random.default_rng(1),
+    )
+
+    assert np.all(plain.block_lengths < 21)
+    assert np.all(overlapping.block_lengths >= 21)
 
 
 def test_fama_macbeth_metric_accepted() -> None:

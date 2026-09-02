@@ -38,7 +38,8 @@ than repeated throughout the method guide.
 | `predictive_beta`, `h>1` | **7.5–14.5%** | Known oversized overlapping-regression HAC regime |
 | Rank-one `common_*` contrasts | 3.3–8.0% on non-persistent common-factor nulls; 7.3–16.3% on persistent input | Scalar reference fixes the ordinary overlap case; persistence remains a warning regime |
 | `spanning_alpha` rank-one contrast | 5.7–11.7% on the measured overlapping-sum spread null | Uses the scalar reference, but the upper measured cells remain mildly oversized |
-| Date-aligned multi-restriction slice Wald tests | 8–9% for `K=5` on 50–90 periods per slice | Known short-slice over-rejection; converges near 5.5% around 150 periods |
+| Date-disjoint joint period slice tests | 8–9% analytic and 10–15% bootstrap for `K=5` on 50–90 periods per slice | Known short-slice over-rejection; prefer pairwise contrasts |
+| Date-disjoint pairwise period bootstrap | 4.0–7.0% on the MA(`h-1`) grid; 5.5–6.5% family-wise rejection on iid `K=3,5` panels | Uses overlap-floored blocks and a genuine two-sample bootstrap-t root |
 | `pooled_beta` Driscoll-Kraay | **2.6–8.7%** on its persistent-regressor, cross-sectionally correlated, overlapping-return panel grid | The scalar HAR reference reduced the former path's 6.3–22.5% range; the low-overlap-dependence cells can be conservative |
 
 The scalar recipe combines three factrix-specific choices: a `3(h - 1)`
@@ -151,16 +152,24 @@ calibrated both. `event_skewness` is descriptive and publishes no p-value.
 
 For date-disjoint slices, `slice_period_joint_test` with `K ≥ 3` and fewer
 than roughly 150 periods per slice is not a reliably sized omnibus test. At
-`K=5`, measured size is 8–9% for the analytic path and about 12% for the
+`K=5`, measured size is 8–9% for the analytic path and 10–15% for the
 bootstrap path at the short end. The bootstrap inherits noisy per-slice
 variance estimates; it is not automatically safer because the sample is
 short.
 
-For pairwise contrasts, both methods were near nominal at `K=3, T=60`
-(5.8% bootstrap, 5.4% analytic Holm). At `K=5`, analytic Holm measured
-5.7–6.7% versus 7.4–8.5% for the bootstrap/Romano-Wolf path. Prefer analytic
-pairwise contrasts or longer slices in that regime. The default remains a
-compatibility choice, not a claim that bootstrap dominates finite samples.
+The pairwise bootstrap uses a genuine two-sample bootstrap-t root: observed
+and resampled contrasts each use their own block-based SE, and the same joint
+studentized draws feed raw p-values and Romano-Wolf. On iid per-period IC at
+`T=60`, `B=499`, 200 replications, family-wise rejection measured 5.5% at
+`K=3` and 6.5% at `K=5` (raw-pair rejection 6.2% and 6.5%).
+
+The overlap floor matters separately. On two independent MA(`h-1`) null
+series with `T=240`, `B=499`, 200 replications, rejection measured 4.0%,
+4.5%, and 7.0% for `h=1, 5, 21`; the pre-fix h=21 route measured 15% because
+its Politis-White block could be shorter than the known horizon. The analytic
+Welch-HAC path was not changed by this bootstrap fix: its narrow bandwidth
+remains uncalibrated on that MA(`h-1`) regime (16.7% at h=21 in the review
+grid), so it is not a substitute for the corrected default there.
 
 ## Uneven evaluation grids
 

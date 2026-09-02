@@ -139,7 +139,7 @@ covariance. A two-valued `method` flag selects the estimator:
 
 | `method` | Per-slice SE | Pairwise `p_adj` | Finite-sample note |
 |---|---|---|---|
-| `"bootstrap"` (default) | Independent stationary block bootstrap (Politis-White automatic block length) | Romano-Wolf step-down | Avoids a closed-form normal reference, but over-rejects in the measured `K=5` short-slice cells |
+| `"bootstrap"` (default) | Independent stationary block bootstrap (Politis-White block length, floored at `overlap_periods`); pairwise bootstrap-t uses a per-draw block SE | Romano-Wolf step-down on the same joint studentized roots | Pairwise overlap cells are near nominal; the omnibus still over-rejects in measured `K=5` short-slice cells |
 | `"analytic"` | Per-slice Newey-West HAC, Welch-style pairwise contrast | Holm step-down | Fast and deterministic; better calibrated for measured `K=5` pairwise contrasts |
 
 Under `method="bootstrap"` both take `n_resamples=` (default 999, floored
@@ -153,7 +153,8 @@ before interpreting a short-regime omnibus or choosing the pairwise path.
 
 Each slice's per-period series must clear the metric's own sample floor,
 resolved at the panel's stamped or declared `overlap_periods` — the same
-floor `by_slice` short-circuits on — otherwise the test raises
+floor `by_slice` short-circuits on. The bootstrap block length is also never
+shorter than that known dependence horizon. Otherwise the test raises
 `UserInputError` on `by`
 rather than return an uncalibrated contrast. Plan the partition against
 [`sample_requirements`](inspect-data.md#resolved-floor-for-a-configured-metric)
@@ -200,7 +201,8 @@ The slicing functions follow the same *marked, never dropped* contract as
 `evaluate(..., expected_warnings=)`. The omnibus has one advisory —
 `short_slice_joint_test`, fired when `K >= 3` and the shortest slice has
 fewer than 150 periods, the regime where the joint Wald over-rejects
-(8–9% at a nominal 5% for `K=5` with 50–90-period slices; see the
+(8–9% analytic and 10–15% bootstrap at a nominal 5% for `K=5` with
+50–90-period slices; see the
 function's `Warns:` block for the measured grid). It is delivered on the
 row, not only on stderr:
 
