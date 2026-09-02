@@ -92,7 +92,15 @@ def test_bandwidth_warning_text_uses_the_policy_constant() -> None:
         predictive_beta(panel, overlap_periods=21)
     predictive_messages = _bandwidth_messages(predictive_caught)
     assert predictive_messages
-    assert all(token in message for message in predictive_messages)
+    # ``predictive_beta`` names ``n_periods_finite``, not ``n_periods``: it is
+    # the one metric whose ``metadata["n_periods"]`` is the truncated
+    # augmented-design row count rather than the count this screen reads, so
+    # the shared token would send a reader to the wrong key (see the metadata
+    # contract tests in ``tests/stats``). What has to hold everywhere is that
+    # the policy constant is interpolated rather than written out by hand.
+    policy_token = f"/ {_MIN_PERIODS_PER_LAG}"
+    assert all(policy_token in message for message in predictive_messages)
+    assert all("n_periods_finite /" in message for message in predictive_messages)
 
 
 @pytest.mark.parametrize(

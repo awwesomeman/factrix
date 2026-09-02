@@ -910,11 +910,14 @@ which reports `R²` for the OLS regression.
   `residual_lag1_autocorr` (lag-1 autocorrelation of the reported model's
   residuals, strided at `overlap_periods`), `newey_west_lags`,
   `overlap_periods`, `hac_applied` (whether the headline corrected test used
-  HAC), `har_lags` (the headline HAR bandwidth the kernel **ran at** at
-  `overlap_periods > 1` — the augmented design is `n_periods` rows and a
+  HAC), `har_lags` (at `overlap_periods > 1`, the headline HAR bandwidth the
+  kernel **ran at** — the augmented design is `n_periods` rows and a
   Bartlett sum cannot use a lag it has no pair for, so on a long horizon this
   is narrower than the bandwidth resolved from the full series; `None` at
-  `h = 1`, where the corrected test is homoskedastic;
+  `h = 1`, where the corrected test is homoskedastic. One exception: on the
+  `no_amihud_hurvich_fit` short circuit no kernel runs at all, and the value
+  is the bandwidth resolved for the attempt. `None` is not reused there
+  because it already means `h = 1`;
   `newey_west_lags` stays the narrow covariance bandwidth resolved for the
   uncorrected OLS reference), `alpha` (the intercept the corrected slope implies
   on the `n_obs` rows), `r_squared_ols_uncorrected`, `factor_std`,

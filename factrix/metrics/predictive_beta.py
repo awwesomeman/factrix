@@ -151,7 +151,14 @@ def predictive_beta(
     the kernel ran at: the augmented design is ``n_periods`` rows and a
     Bartlett sum cannot use a lag it has no observation pair for, so a long
     horizon leaves it narrower than the bandwidth resolved from the full
-    series.
+    series. The one exception is the ``no_amihud_hurvich_fit`` short circuit,
+    where no kernel runs and the value is the bandwidth resolved for the
+    attempt; ``None`` is not reused there because it already means ``h = 1``.
+
+    The ``HAC_BANDWIDTH_ILL_CONDITIONED`` message names
+    ``n_periods_finite``, not ``n_periods``. This metric is the one place the
+    two diverge — the screen is calibrated on the finite pairs, while
+    ``n_periods`` counts the truncated augmented design.
 
     **The correction costs power** where OLS's apparent power was partly
     its own bias: at $T=60,\ \phi=0.95,\ \rho=-0.9$ the corrected test
@@ -405,10 +412,15 @@ def predictive_beta(
         )
         _emit_warning(
             WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED,
+            # Name ``n_periods_finite``, not ``n_periods``. This metric is the
+            # one place the two diverge: ``n_periods`` is the truncated
+            # augmented design's row count, while the screen reads the finite
+            # pairs. A bare "n_periods" sends a reader to a number that cannot
+            # reproduce the comparison the message states.
             f"the resolved Bartlett bandwidth L={resolved_har_lags} exceeds "
-            f"n_periods / {_MIN_PERIODS_PER_LAG} on {n} periods, so the "
-            f"long-run variance rests on too few lag products to be "
-            f"stable.{narrowed}",
+            f"n_periods_finite / {_MIN_PERIODS_PER_LAG} on the {n} finite "
+            f"pairs, so the long-run variance rests on too few lag products "
+            f"to be stable.{narrowed}",
             label="predictive_beta",
             expected_warnings=expected_warnings,
             warning_codes=warning_codes,
