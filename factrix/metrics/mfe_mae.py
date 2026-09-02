@@ -164,6 +164,7 @@ def mfe_mae(
         return _short_circuit_output(
             "mfe_mae",
             "no_price_data",
+            descriptive=True,
             mfe_mae_ratio=float("nan"),
             n_events=0,
         )
@@ -190,6 +191,7 @@ def mfe_mae(
         n_events,
         "insufficient_events",
         axis="events",
+        descriptive=True,
         warning_codes=tuple(warning_codes),
         mfe_mae_ratio=float("nan"),
         n_events=n_events,

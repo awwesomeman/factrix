@@ -137,7 +137,12 @@ def clustering_hhi(
     n_events = len(events)
 
     sc = _enforce_min_floor(
-        clustering_hhi, "clustering_hhi", n_events, "insufficient_events", axis="events"
+        clustering_hhi,
+        "clustering_hhi",
+        n_events,
+        "insufficient_events",
+        axis="events",
+        descriptive=True,
     )
     if sc is not None:
         return sc

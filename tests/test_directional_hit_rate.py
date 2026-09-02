@@ -126,7 +126,7 @@ class TestShortCircuits:
         x = np.abs(rng.normal(size=100)) + 0.1  # all positive
         y = rng.normal(size=100)
         result = directional_hit_rate(_ts_panel(x, y), overlap_periods=1)
-        assert math.isnan(result.value)
+        assert result.value == pytest.approx(float(np.mean(y > 0)))
         assert result.p_value is None
         assert result.metadata["signal_status"] == "degenerate_zero_variance"
         assert "reason" not in result.metadata

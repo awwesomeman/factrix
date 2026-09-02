@@ -188,7 +188,7 @@ is emitted.
   `WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED` when `L > T / 5`; below 30
   it emits the binding `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` without a
   redundant bandwidth echo. It short-circuits to `value = NaN` with
-  `reason = "insufficient_periods"` below 3. An explicit
+  `reason = "insufficient_pooled_periods"` below 3. An explicit
   `driscoll_kraay_lags` replaces the automatic base
   but cannot undercut the overlap floor or exceed the estimability cap.
 
@@ -1080,8 +1080,10 @@ producing `MetricResult`s rather than bare floats.
 ## Short-circuit envelope
 
 Every metric falls back to a uniform short-circuit `MetricResult`
-when input data fails the metric's preconditions (insufficient
-sample, no events, degenerate signal, …). The fallback shape is:
+when input data fails the metric's preconditions (for example, an
+insufficient sample or missing input). A defined point estimate whose
+hypothesis test degenerates keeps its `value` and instead withholds only
+`stat`, `p_value`, and `alternative`. The short-circuit shape is:
 
 - `value = float("nan")`, `stat = None`, `significance = ""`.
 - `MetricResult.n_obs: int | None` — first-class sample size the
@@ -1089,7 +1091,7 @@ sample, no events, degenerate signal, …). The fallback shape is:
   actually available). Populated when the short-circuit knows the
   number; `None` otherwise.
 - `metadata["reason"]: str` names the short-circuit branch (e.g.
-  `"insufficient_periods"`, `"no_events"`,
+  `"insufficient_ic_periods"`, `"no_return_column"`,
   `"not_applicable_discrete_signal"`, `"insufficient_clusters"`).
 - `MetricResult.p_value = 1.0` — conservative scalar default for callers
   reading the field directly (descriptive short-circuits use `None`).

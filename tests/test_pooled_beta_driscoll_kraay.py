@@ -101,7 +101,7 @@ class TestDriscollKraayPath:
         res = pooled_beta(df, driscoll_kraay=True)
         assert np.isnan(res.value)
         assert res.stat is None
-        assert res.metadata["reason"] == "insufficient_periods"
+        assert res.metadata["reason"] == "insufficient_pooled_periods"
         assert res.metadata["n_periods"] == 2
         assert res.p_value == 1.0
         assert WarningCode.METRIC_UNAVAILABLE.value in res.warning_codes

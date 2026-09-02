@@ -340,7 +340,7 @@ class TestCommonBetaProfile:
         result = common_beta_profile(betas)
         assert np.isnan(result.value)
         assert result.p_value is None
-        assert result.metadata["reason"] == "no_asset_beta_observations"
+        assert result.metadata["reason"] == "insufficient_asset_beta_observations"
 
     def test_negative_neutral_epsilon_rejected(self):
         with pytest.raises(ValueError, match="neutral_epsilon"):

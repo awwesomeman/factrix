@@ -444,7 +444,7 @@ def common_beta_profile(
         common_beta_profile,
         "common_beta_profile",
         n,
-        "no_asset_beta_observations",
+        "insufficient_asset_beta_observations",
         axis="assets",
         descriptive=True,
     )
@@ -565,8 +565,9 @@ def common_beta_r_squared(
         common_beta_r_squared,
         "common_beta_r_squared",
         n,
-        "no_asset_r_squared_observations",
+        "insufficient_asset_r_squared_observations",
         axis="assets",
+        descriptive=True,
     )
     if sc is not None:
         return sc
@@ -828,6 +829,7 @@ def common_beta_sign_consistency(
         n,
         "insufficient_assets_for_sign_consistency",
         axis="assets",
+        descriptive=True,
     )
     if sc is not None:
         return sc

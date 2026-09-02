@@ -42,7 +42,6 @@ _FX007_BASELINE = Counter(
         ("factrix/metrics/_helpers.py", "denom < EPSILON"): 1,
         ("factrix/metrics/common_beta.py", "float(np.std(x)) < EPSILON"): 1,
         ("factrix/metrics/common_beta.py", "var_total <= EPSILON * EPSILON"): 1,
-        ("factrix/metrics/corrado_rank.py", "std_u < EPSILON"): 1,
         ("factrix/metrics/fm_beta.py", "sigma2_f < EPSILON"): 1,
         ("factrix/metrics/ic.py", "std_ic < EPSILON"): 1,
         ("factrix/metrics/predictive_beta.py", "x_std < EPSILON"): 1,

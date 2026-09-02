@@ -42,7 +42,7 @@ from factrix._types import (
 )
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
-    _degenerate_metric_output,
+    _degenerate_test_fields,
     _enforce_min_floor,
     _estimate_within_date_icc,
     _finite_expr,
@@ -233,40 +233,6 @@ def directional_hit_rate(
     )
     var_s = var_p_hat - var_p_star
 
-    # Degenerate: one-signed predictions or realisations collapse P* to 1
-    # and drive var_s to (numerically) zero or below — S_n is undefined.
-    if var_s <= 0.0:
-        return _degenerate_metric_output(
-            n_obs=n,
-            n_obs_axis="pairs",
-            alternative_requested="greater",
-            p_correct=p_correct,
-            p_up_pred=p_x,
-            p_up_real=p_y,
-        )
-
-    s_n = (p_correct - p_star) / np.sqrt(var_s)
-
-    # Cross-sectional correlation: pooling every (date, asset) trial as
-    # independent over-states the effective sample because same-date returns
-    # share shocks. Deflate S_n by the Kolari-Pynnönen (2010) factor built from
-    # the within-date ICC of the sign-hit indicator — the same correction
-    # bmp_z applies to clustered SARs. A single-asset series has no within-date
-    # cross-section (one trial per date), so r̂ is undefined and S_n is left
-    # exact (the canonical PT setting).
-    hit_by_date = paired.select(
-        pl.col("date"),
-        (pl.col("_x_sign") == pl.col("_y_sign")).cast(pl.Float64).alias("_hit"),
-    )
-    r_hat, n_eff, _ = _estimate_within_date_icc(hit_by_date, "_hit")
-    if r_hat is not None and n_eff > 1.0:
-        s_stat = s_n * _kp_cluster_scale(r_hat, n_eff)
-        kolari_pynnonen_applied = True
-    else:
-        s_stat = s_n
-        kolari_pynnonen_applied = False
-    p = float(sp_stats.norm.sf(s_stat))
-
     warning_codes: list[str] = []
     warn_code = _warn_below_floor(
         directional_hit_rate,
@@ -293,10 +259,52 @@ def directional_hit_rate(
         "p_expected": p_star,
         "p_up_pred": p_x,
         "p_up_real": p_y,
-        "kolari_pynnonen_r": r_hat,
-        "kolari_pynnonen_n_eff": n_eff,
-        "kolari_pynnonen_applied": kolari_pynnonen_applied,
     }
+
+    # Degenerate: one-signed predictions or realisations collapse P* to 1
+    # and drive var_s to (numerically) zero or below — S_n is undefined.
+    if var_s <= 0.0:
+        stat, p, alternative = _degenerate_test_fields(
+            float("nan"), float("nan"), "greater", metadata, warning_codes
+        )
+        return MetricResult(
+            value=p_correct,
+            p_value=p,
+            alternative=alternative,
+            n_obs=n,
+            n_obs_axis="pairs",
+            stat=stat,
+            metadata=metadata,
+            warning_codes=tuple(warning_codes),
+        )
+
+    s_n = (p_correct - p_star) / np.sqrt(var_s)
+
+    # Cross-sectional correlation: pooling every (date, asset) trial as
+    # independent over-states the effective sample because same-date returns
+    # share shocks. Deflate S_n by the Kolari-Pynnönen (2010) factor built from
+    # the within-date ICC of the sign-hit indicator — the same correction
+    # bmp_z applies to clustered SARs. A single-asset series has no within-date
+    # cross-section (one trial per date), so r̂ is undefined and S_n is left
+    # exact (the canonical PT setting).
+    hit_by_date = paired.select(
+        pl.col("date"),
+        (pl.col("_x_sign") == pl.col("_y_sign")).cast(pl.Float64).alias("_hit"),
+    )
+    r_hat, n_eff, _ = _estimate_within_date_icc(hit_by_date, "_hit")
+    if r_hat is not None and n_eff > 1.0:
+        s_stat = s_n * _kp_cluster_scale(r_hat, n_eff)
+        kolari_pynnonen_applied = True
+    else:
+        s_stat = s_n
+        kolari_pynnonen_applied = False
+    p = float(sp_stats.norm.sf(s_stat))
+
+    metadata.update(
+        kolari_pynnonen_r=r_hat,
+        kolari_pynnonen_n_eff=n_eff,
+        kolari_pynnonen_applied=kolari_pynnonen_applied,
+    )
     if kolari_pynnonen_applied:
         metadata["stat_uncorrected"] = float(s_n)
         metadata["method"] = (

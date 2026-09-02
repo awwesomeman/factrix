@@ -820,7 +820,7 @@ def bmp_z(
     if len(events) == 0:
         return _short_circuit_output(
             "bmp_z",
-            "no_events",
+            "insufficient_events",
             n_obs=0,
             n_obs_axis="events",
             min_required=1,
