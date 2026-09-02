@@ -116,6 +116,33 @@ def test_fx008_baseline_is_current() -> None:
     )
 
 
+def _stage_flag_list_sentence() -> str:
+    """The one sentence of the ``_STAGE_FLAG`` comment that states the reach.
+
+    Scoped deliberately. Searching the whole file would let a name deleted
+    from the list keep passing because it also appears in the planted-module
+    string further down — the same drift from the other side.
+    """
+    own_source = pathlib.Path(__file__).read_text(encoding="utf-8")
+    block = own_source.rsplit("_STAGE_FLAG = ", 1)[0]
+    comment = " ".join(
+        line.removeprefix("#:").strip()
+        for line in block.splitlines()
+        if line.startswith("#:")
+    )
+    match = re.search(r"(It matches \w+ names.*?)\s+—\s+so the grammar", comment)
+    assert match is not None, (
+        "could not find the 'It matches N names ... — so the grammar' sentence "
+        "in the _STAGE_FLAG comment; keep it in a form this guard can read."
+    )
+    return match.group(1)
+
+
+def _listed_names(sentence: str) -> set[str]:
+    """Double-backticked names inside that sentence."""
+    return set(re.findall(r"``([a-z0-9_]+)``", sentence))
+
+
 def test_fx008_docstring_count_matches_the_grammar() -> None:
     """The stated reach must equal the measured one.
 
@@ -145,14 +172,18 @@ def test_fx008_docstring_count_matches_the_grammar() -> None:
     assert stated is not None, (
         f"grammar now matches {len(matched)} names; extend the word map."
     )
-    own_source = pathlib.Path(__file__).read_text(encoding="utf-8")
-    assert f"matches {stated} names" in own_source, (
+    sentence = _stage_flag_list_sentence()
+    assert f"matches {stated} names" in sentence, (
         f"the grammar matches {len(matched)} names ({stated}); the comment on "
         f"_STAGE_FLAG states a different count."
     )
-    # ...and every name the comment lists is one the grammar really matches.
-    for name in matched:
-        assert name in own_source, f"{name} matches but is not listed"
+    # Set equality, both directions: a matched name missing from the list and
+    # a listed name the grammar no longer matches are the same defect from
+    # opposite sides, and each produces a list contradicting its own count.
+    assert _listed_names(sentence) == matched, (
+        f"listed but not matched: {sorted(_listed_names(sentence) - matched)}; "
+        f"matched but not listed: {sorted(matched - _listed_names(sentence))}"
+    )
 
 
 def test_fx008_detects_a_planted_violation(tmp_path: pathlib.Path) -> None:
