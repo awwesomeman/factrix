@@ -29,6 +29,10 @@ import warnings
 import numpy as np
 import polars as pl
 import pytest
+from factrix._stats.constants import (
+    PERSISTENT_SERIES_AUTOCORR,
+    POSITIVE_RATE_HIT_AUTOCORR,
+)
 from factrix.datasets import make_cs_panel
 from factrix.metrics.ic import compute_ic
 from factrix.metrics.positive_rate import positive_rate
@@ -98,16 +102,29 @@ def test_exact_test_is_conservative_relative_to_the_normal_approximation():
     assert approx < exact
 
 
-def test_persistent_null_is_flagged_while_iid_null_stays_quiet():
-    """Reduced-replication guard for the persistent regime in the reference."""
-    persistent_fired = iid_fired = 0
+def test_hit_threshold_is_the_gaussian_sign_equivalent() -> None:
+    assert (
+        pytest.approx(2.0 / np.pi * np.arcsin(PERSISTENT_SERIES_AUTOCORR))
+        == POSITIVE_RATE_HIT_AUTOCORR
+    )
+
+
+@pytest.mark.parametrize(
+    ("phi", "low", "high"),
+    [
+        (0.0, 0.0, 0.15),
+        (0.3, 0.30, 0.70),
+        (0.4, 0.65, 0.95),
+        (0.9, 0.80, 1.00),
+    ],
+)
+def test_persistence_screen_trigger_rate(phi: float, low: float, high: float) -> None:
+    """The binary-series threshold closes the measured phi=0.3-0.4 dead zone."""
+    fired = 0
     for rep in range(N_REPS):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            persistent = positive_rate(_ar_series(200, 0.9, rep), overlap_periods=1)
-            iid = positive_rate(_ar_series(200, 0.0, rep), overlap_periods=1)
-        persistent_fired += "serial_correlation_detected" in persistent.warning_codes
-        iid_fired += "serial_correlation_detected" in iid.warning_codes
+            result = positive_rate(_ar_series(200, phi, rep), overlap_periods=1)
+        fired += "serial_correlation_detected" in result.warning_codes
 
-    assert persistent_fired / N_REPS > 0.80
-    assert iid_fired / N_REPS < 0.15
+    assert low <= fired / N_REPS <= high

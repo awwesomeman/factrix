@@ -90,6 +90,17 @@ def har_bandwidth(T: int) -> int:
 # RECT_KERNEL_NEGATIVE_VARIANCE) and is deliberately not covered here.
 PERSISTENT_SERIES_AUTOCORR: float = 0.3
 
+# ``positive_rate`` tests the dichotomised hit sequence, not its continuous
+# input. For a zero-mean stationary Gaussian process, sign correlation is
+# ``2 / pi * asin(rho)``; applying that map to the calibrated continuous-series
+# threshold restores the warning boundary to latent AR(phi) ≈ 0.3 instead of
+# the phi ≈ 0.454 produced by comparing binary hits directly with 0.3. This is
+# a calibration anchor for the warning, not a universal inversion of a
+# non-Gaussian factor's latent correlation.
+POSITIVE_RATE_HIT_AUTOCORR: float = (
+    2.0 / math.pi * math.asin(PERSISTENT_SERIES_AUTOCORR)
+)
+
 
 # Minimum number of period returns inside the pre-event estimation window
 # before ``compute_mfe_mae`` will report ``est_sigma`` (and with it the
