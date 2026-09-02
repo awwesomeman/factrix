@@ -130,6 +130,12 @@ procedures.
 Entry points that turn resamples into a p-value or interval use
 `n_resamples` and `rng` consistently.
 
+For `STATIONARY_BOOTSTRAP`, result metadata keeps the requested draw count in
+`n_resamples` so `seed` can reproduce the run. `n_resamples_used` reports the
+finite studentized roots that actually enter the empirical p-value; invalid
+roots are excluded from both its denominator and `p_value_mc_se`. If none are
+usable, the p-value is unavailable rather than `1.0`.
+
 | Entry point | Default `n_resamples` | Enforces the 199 floor | Reports resolved seed |
 |---|---:|---:|---:|
 | `STATIONARY_BOOTSTRAP` on admitted metrics | 999 | Yes | In metric metadata |

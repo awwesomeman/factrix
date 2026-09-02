@@ -91,6 +91,13 @@ contrasts, not a sidecar to a primary value.
 | [`breakeven_cost`][factrix.metrics.tradability.breakeven_cost] | none — descriptive | — | breakeven one-way cost (bps) |
 | [`net_spread`][factrix.metrics.tradability.net_spread] | none — descriptive | — | net spread (per-period return) |
 
+### Bootstrap resample counts — `StationaryBootstrap` metrics
+
+`n_resamples` is the requested draw count retained for exact replay with
+`seed`. `n_resamples_used` is the number of finite studentized roots that
+enter the empirical p-value. It can be smaller than `n_resamples`; keeping
+both preserves reproducibility while exposing the p-value denominator.
+
 ### `alternative_requested` — every metric, degenerate path only
 
 A metric that withholds its test on a degenerate sample returns
