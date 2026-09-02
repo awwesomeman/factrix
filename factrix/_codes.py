@@ -237,7 +237,8 @@ class WarningCode(StrEnum):
     # Fired by ``slice_period_joint_test`` when K >= 3 slices are tested and
     # the shortest one has fewer than ``_JOINT_SHORT_SLICE_PERIODS`` (150)
     # periods. On a true null the omnibus over-rejects there — measured 8–9%
-    # at a nominal 5% for K=5 with 50–90-period slices, under both methods —
+    # for the analytic path and 10–15% for the bootstrap path at a nominal 5%
+    # for K=5 with 50–90-period slices —
     # because each slice's small-sample HAC variance is a noisy estimate
     # inverted across K-1 restrictions. The test still runs; read the p as
     # indicative and prefer the pairwise contrasts on the same slices. The
@@ -693,8 +694,8 @@ _WARNING_DESCRIPTIONS.update(
         "are unaffected and do not trigger.",
         WarningCode.SHORT_SLICE_JOINT_TEST: "slice_period_joint_test ran on "
         "K >= 3 slices with the shortest below 150 periods. On a true null "
-        "the omnibus over-rejects there (measured 8–9% at a nominal 5% for "
-        "K=5 with 50–90-period slices, under both methods) because each "
+        "the omnibus over-rejects there (measured 8–9% analytic and 10–15% "
+        "bootstrap at a nominal 5% for K=5 with 50–90-period slices) because each "
         "slice's small-sample HAC variance is a noisy estimate inverted "
         "across K-1 restrictions. The test still runs — read the p-value as "
         "indicative and prefer the pairwise contrasts on the same slices. The "

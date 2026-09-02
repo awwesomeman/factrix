@@ -31,7 +31,9 @@ standard-error / p estimator:
 
 - ``"bootstrap"`` (default) — each slice's series is **independently**
   block-bootstrapped (stationary blocks, Politis-White automatic block
-  length); pairwise multiplicity is **Romano-Wolf** step-down
+  length floored at ``overlap_periods``); pairwise raw p-values use a true
+  bootstrap-t root with a per-resample block SE, and multiplicity is
+  **Romano-Wolf** step-down
   (bootstrap-native, exploits the joint dependence through shared
   slices). This avoids a closed-form normal reference but is not uniformly
   small-sample robust: the measured ``K=5`` short-slice cells over-reject.
@@ -70,8 +72,10 @@ from factrix._data_input import _resolve_overlap_periods
 from factrix._errors import UserInputError
 from factrix._stats.bootstrap import (
     Rng,
+    _batch_means_se,
     _check_n_resamples,
     _empirical_p,
+    _max_block_length,
     _politis_white_block_length,
     _resolve_rng,
     _stationary_block_indices,
@@ -99,7 +103,7 @@ Method = Literal["bootstrap", "analytic"]
 # 250, while K=2 stays within 4.6–5.8% throughout. The excess is the
 # per-slice Bartlett HAC variance estimate's small-sample noise (effective
 # df ≈ 21 at T=50, not T-1) inverted across K-1 restrictions; the bootstrap
-# path shows the same 12% at K=5, T=50, so it is not a routing fix.
+# path measures 10–15% at K=5, T=50–90, so it is not a routing fix.
 _JOINT_SHORT_SLICE_PERIODS = 150
 
 
@@ -125,6 +129,16 @@ class _SliceSeries(NamedTuple):
     series: list[np.ndarray]
     min_periods: int | None
     thin: frozenset[str]
+
+
+class _SliceBootstrap(NamedTuple):
+    """Observed and resampled slice means with matching block SEs."""
+
+    observed_means: np.ndarray
+    resampled_means: np.ndarray
+    observed_ses: np.ndarray
+    resampled_ses: np.ndarray
+    block_lengths: np.ndarray
 
 
 def _require_slice_floor(
@@ -324,27 +338,40 @@ def _build_per_slice_series(
 def _bootstrap_slice_means(
     series_list: list[np.ndarray],
     *,
+    overlap_periods: int | None,
     n_resamples: int,
     rng: np.random.Generator,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Independent stationary-block bootstrap of each slice's mean.
+) -> _SliceBootstrap:
+    """Independent stationary-block bootstrap means and block-based SEs.
 
     Each slice is resampled **on its own** (disjoint ⇒ independent), with
-    a per-slice Politis-White automatic block length that absorbs the
-    series' serial autocorrelation. Returns ``(obs_means[K],
-    boot_means[K, B])`` — the same ``B`` draws per slice so every pairwise
-    difference is formed from one shared set, preserving the joint
-    dependence (through shared slices) that Romano-Wolf exploits.
+    a per-slice Politis-White automatic block length floored at the known
+    overlap horizon. Observed and resampled SEs use the same batch-means
+    estimator at that block length, so pairwise roots can be genuinely
+    studentized. The same ``B`` draws per slice preserve the joint dependence
+    through shared slices that Romano-Wolf exploits.
     """
     k = len(series_list)
     obs_means = np.empty(k)
     boot = np.empty((k, n_resamples))
+    obs_ses = np.empty(k)
+    boot_ses = np.empty((k, n_resamples))
+    block_lengths = np.empty(k)
     for i, s in enumerate(series_list):
         obs_means[i] = float(s.mean())
         block_len = _politis_white_block_length(s)
+        if overlap_periods is not None and overlap_periods > 1:
+            block_len = max(
+                block_len,
+                float(min(overlap_periods, _max_block_length(len(s)))),
+            )
         idx = _stationary_block_indices(len(s), n_resamples, float(block_len), rng)
-        boot[i] = s[idx].mean(axis=1)
-    return obs_means, boot
+        resamples = s[idx]
+        boot[i] = resamples.mean(axis=1)
+        obs_ses[i] = float(_batch_means_se(s, block_len)[0])
+        boot_ses[i] = _batch_means_se(resamples, block_len)
+        block_lengths[i] = block_len
+    return _SliceBootstrap(obs_means, boot, obs_ses, boot_ses, block_lengths)
 
 
 def slice_period_pairwise_test(
@@ -387,9 +414,9 @@ def slice_period_pairwise_test(
             pairwise contrasts and Holm ``p_adj``. Neither dominates every
             finite sample: at ``K=5`` the measured short-slice grid favours
             the analytic Holm path. See ``reference/inference-calibration``.
-        overlap_periods: The evaluation-grid overlap the sample floor (and,
-            under ``method="analytic"``, the per-slice HAC bandwidth) resolve
-            at. Normally omitted — :func:`factrix.preprocess.compute_forward_return`
+        overlap_periods: The evaluation-grid overlap the sample floor,
+            bootstrap block-length floor, and analytic per-slice HAC bandwidth
+            resolve at. Normally omitted — :func:`factrix.preprocess.compute_forward_return`
             stamps it on the panel and it is read from there. Declare it for a
             self-attached ``forward_return`` panel that carries no stamp; the
             contract is :func:`factrix.evaluate`'s — a value disagreeing with
@@ -400,7 +427,8 @@ def slice_period_pairwise_test(
             — the shared floor every factrix entry point reporting an
             inference drawn from resamples enforces. The default 999 gives
             an empirical p-value grid of roughly 0.001; automatic block-length
-            selection is a separate Politis-White step.
+            selection is a separate Politis-White step, floored at the known
+            ``overlap_periods`` horizon.
         rng: Reproducibility seed for the ``"bootstrap"`` path
             (ignored by ``"analytic"``). ``None`` draws from system
             entropy and the resolved int is reported in the ``seed``
@@ -581,56 +609,79 @@ def _pairwise_contrasts(
     A pair whose contrast variance collapses carries NaN in ``stat`` /
     ``p_raw`` / ``p_adj`` (no test, not a non-rejection — see
     ``_stats.wald._NOT_COMPUTABLE``) and is left out of the multiplicity
-    family, which runs over the computable pairs only.
+    family, which runs over the computable pairs only. The bootstrap path
+    uses the two-sample root ``(diff* - diff) / sqrt(se_a*² + se_b*²)``;
+    observed and resampled SEs use the same block estimator.
     """
     if method == "bootstrap":
-        obs_means, boot = _bootstrap_slice_means(
-            series_list, n_resamples=n_resamples, rng=rng
+        bootstrap = _bootstrap_slice_means(
+            series_list,
+            overlap_periods=overlap_periods,
+            n_resamples=n_resamples,
+            rng=rng,
         )
         t_obs: list[float] = []
         boot_cols: list[np.ndarray] = []
         mean_diffs: list[float] = []
-        p_raw: list[float] = []
         for i, j in pairs:
-            diff_obs = float(obs_means[i] - obs_means[j])
-            d = boot[i] - boot[j]
-            se = float(d.std(ddof=1))
-            if se < EPSILON:
+            diff_obs = float(bootstrap.observed_means[i] - bootstrap.observed_means[j])
+            d = bootstrap.resampled_means[i] - bootstrap.resampled_means[j]
+            se_observed = float(
+                np.hypot(bootstrap.observed_ses[i], bootstrap.observed_ses[j])
+            )
+            se_resampled = np.hypot(
+                bootstrap.resampled_ses[i], bootstrap.resampled_ses[j]
+            )
+            usable = np.isfinite(se_resampled) & (se_resampled > EPSILON)
+            if (
+                not np.isfinite(se_observed)
+                or se_observed < EPSILON
+                or not usable.any()
+            ):
                 # No resampling dispersion in the contrast: no test. NaN,
                 # not t = 0 / p = 1 — see ``_stats.wald._NOT_COMPUTABLE``.
                 t = float("nan")
                 col = np.full(n_resamples, float("nan"))
             else:
-                t = diff_obs / se
-                # Centre on the OBSERVED difference, not the bootstrap mean:
-                # the studentised null draw is (θ* − θ̂) / se* (Efron-Tibshirani
-                # §16), and it is what ``_wald_bootstrap_omnibus`` already does
-                # via ``boot - obs_means``. Centring on ``d.mean()`` was an
-                # implicit bias correction the omnibus path did not apply.
-                col = (d - diff_obs) / se
+                t = diff_obs / se_observed
+                # Bootstrap-t: every null draw uses its OWN block SE. A fixed
+                # denominator on both sides cancels algebraically and reduces
+                # p_raw to the unstudentized percentile root. Independent
+                # slices combine as a Welch contrast, sqrt(se_i² + se_j²).
+                col = np.full(n_resamples, float("nan"))
+                col[usable] = (d[usable] - diff_obs) / se_resampled[usable]
             t_obs.append(t)
             boot_cols.append(col)
             mean_diffs.append(diff_obs)
-            if np.isnan(t):
-                p_raw.append(float("nan"))
-            else:
-                extreme = int(np.sum(np.abs(col) >= abs(t)))
-                # Raw p only; the Romano-Wolf step-down p_adj below is not a
-                # single binomial draw, so no MC SE is reported here.
-                p_raw.append(_empirical_p(extreme, n_resamples)[0])
-        # Romano-Wolf runs over the computable pairs; a collapsed pair stays
-        # NaN in stat / p_raw / p_adj.
+
+        # Raw and Romano-Wolf p-values use the same complete joint draws.
+        # This keeps each bootstrap row a coherent draw across the family and
+        # prevents a pair-specific missing SE from changing only one column's
+        # empirical denominator.
         t_arr = np.asarray(t_obs, dtype=float)
         computable = np.isfinite(t_arr)
+        p_raw_arr = np.full(len(pairs), float("nan"))
         p_adj = np.full(len(pairs), float("nan"))
         if computable.any():
-            boot_matrix = np.column_stack(
-                [boot_cols[k] for k in np.flatnonzero(computable)]
-            )
-            p_adj[computable] = romano_wolf_adjusted_p(
-                t_arr[computable], boot_matrix, one_sided=False
-            )
-        stats = [float(t * t) for t in t_obs]
+            computable_idx = np.flatnonzero(computable)
+            boot_matrix = np.column_stack([boot_cols[k] for k in computable_idx])
+            joint_usable = np.isfinite(boot_matrix).all(axis=1)
+            if joint_usable.any():
+                boot_matrix = boot_matrix[joint_usable]
+                for local_idx, pair_idx in enumerate(computable_idx):
+                    extreme = int(
+                        np.sum(
+                            np.abs(boot_matrix[:, local_idx]) >= abs(t_arr[pair_idx])
+                        )
+                    )
+                    p_raw_arr[pair_idx] = _empirical_p(extreme, boot_matrix.shape[0])[0]
+                p_adj[computable] = romano_wolf_adjusted_p(
+                    t_arr[computable], boot_matrix, one_sided=False
+                )
+            else:
+                t_arr[computable] = float("nan")
+        p_raw = [float(x) for x in p_raw_arr]
+        stats = [float(t * t) for t in t_arr]
         df_denoms: list[float | None] = [None] * len(pairs)
     else:
         means, variances = _analytic_slice_moments(series_list, overlap_periods)
@@ -816,9 +867,9 @@ def slice_period_joint_test(
             independent stationary block bootstrap; ``"analytic"`` from a
             per-slice Newey-West HAC. See
             :func:`slice_period_pairwise_test`.
-        overlap_periods: The evaluation-grid overlap the sample floor (and,
-            under ``method="analytic"``, the per-slice HAC bandwidth) resolve
-            at. Normally omitted — :func:`factrix.preprocess.compute_forward_return`
+        overlap_periods: The evaluation-grid overlap the sample floor,
+            bootstrap block-length floor, and analytic per-slice HAC bandwidth
+            resolve at. Normally omitted — :func:`factrix.preprocess.compute_forward_return`
             stamps it on the panel and it is read from there. Declare it for a
             self-attached ``forward_return`` panel that carries no stamp; the
             contract is :func:`factrix.evaluate`'s — a value disagreeing with
@@ -829,7 +880,8 @@ def slice_period_joint_test(
             — the shared floor every factrix entry point reporting an
             inference drawn from resamples enforces. The default 999 gives
             an empirical p-value grid of roughly 0.001; automatic block-length
-            selection is a separate Politis-White step.
+            selection is a separate Politis-White step, floored at the known
+            ``overlap_periods`` horizon.
         rng: Reproducibility seed for the ``"bootstrap"`` path
             (ignored by ``"analytic"``). ``None`` draws from system
             entropy and the resolved int is reported in the ``seed``
@@ -915,7 +967,7 @@ def slice_period_joint_test(
             Bartlett HAC variance is a noisy small-sample estimate —
             effective df ≈ 21 at ``T = 50`` rather than ``T - 1`` — and
             inverting K-1 of them inflates the Wald. The bootstrap path
-            carries the same noise (12% at ``K=5, T=50``), so switching
+            carries the same noise (10–15% at ``K=5, T=50–90``), so switching
             method does not help; a longer slice does. Prewhitening,
             plug-in bandwidths and finite-sample F references were each
             measured and none calibrates this case. Pairwise contrasts on
@@ -1001,8 +1053,9 @@ def slice_period_joint_test(
             f"{len(series_list)} slices with the "
             f"shortest at {shortest} periods "
             f"(< {_JOINT_SHORT_SLICE_PERIODS}). On a true null the joint "
-            f"test over-rejects here — measured 8–9% at a nominal 5% for "
-            f"K=5 with 50–90-period slices, under both methods — because "
+            f"test over-rejects here — measured 8–9% (analytic) and "
+            f"10–15% (bootstrap) at a nominal 5% for K=5 with "
+            f"50–90-period slices — because "
             f"each slice's HAC variance is a noisy small-sample estimate "
             f"inverted across K-1 restrictions. Read the p-value as "
             f"indicative; pairwise contrasts on the same slices are "
@@ -1015,11 +1068,19 @@ def slice_period_joint_test(
     restriction = _equality_restriction(k)
 
     if method == "bootstrap":
-        obs_means, boot = _bootstrap_slice_means(
-            series_list, n_resamples=n_resamples, rng=rng
+        bootstrap = _bootstrap_slice_means(
+            series_list,
+            overlap_periods=op,
+            n_resamples=n_resamples,
+            rng=rng,
         )
-        variances = boot.var(axis=1, ddof=1)
-        stat, p = _wald_bootstrap_omnibus(obs_means, boot, variances, restriction)
+        variances = bootstrap.resampled_means.var(axis=1, ddof=1)
+        stat, p = _wald_bootstrap_omnibus(
+            bootstrap.observed_means,
+            bootstrap.resampled_means,
+            variances,
+            restriction,
+        )
         df_denom = None
     else:
         means, variances = _analytic_slice_moments(series_list, op)
