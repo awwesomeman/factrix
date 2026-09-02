@@ -33,6 +33,22 @@ jobs:
           version: "0.8.x"
           enable-cache: true
 
+      # mkdocstrings caches each intersphinx inventory for one day, but at
+      # platformdirs.user_cache_dir("mkdocs") rather than the mkdocs cache_dir
+      # setting, so setup-uv's enable-cache does not cover it and every run
+      # would otherwise fetch (#1042). The key rotates daily to match that TTL:
+      # a fixed key would be restored past its expiry, re-downloaded anyway,
+      # and never re-saved, which is the same as having no cache from day two.
+      - name: Inventory cache key
+        id: inventory-cache-key
+        run: echo "day=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore mkdocs inventory cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/mkdocs
+          key: mkdocs-inventories-${{ runner.os }}-${{ steps.inventory-cache-key.outputs.day }}
+
       - name: Install docs dependencies
         run: uv sync --frozen --python 3.12 --extra docs
 
@@ -76,6 +92,22 @@ jobs:
         with:
           version: "0.8.x"
           enable-cache: true
+
+      # mkdocstrings caches each intersphinx inventory for one day, but at
+      # platformdirs.user_cache_dir("mkdocs") rather than the mkdocs cache_dir
+      # setting, so setup-uv's enable-cache does not cover it and every run
+      # would otherwise fetch (#1042). The key rotates daily to match that TTL:
+      # a fixed key would be restored past its expiry, re-downloaded anyway,
+      # and never re-saved, which is the same as having no cache from day two.
+      - name: Inventory cache key
+        id: inventory-cache-key
+        run: echo "day=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore mkdocs inventory cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/mkdocs
+          key: mkdocs-inventories-${{ runner.os }}-${{ steps.inventory-cache-key.outputs.day }}
 
       - name: Install docs dependencies
         run: uv sync --frozen --python 3.12 --extra docs

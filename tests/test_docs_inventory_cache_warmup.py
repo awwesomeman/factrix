@@ -12,6 +12,7 @@ non-fatal so ``mkdocstrings`` reports whatever it finds in its own terms.
 from __future__ import annotations
 
 import pathlib
+import re
 import urllib.error
 
 import pytest
@@ -29,6 +30,17 @@ yaml = pytest.importorskip("yaml", reason="docs extra not installed")
 pytest.importorskip("mkdocstrings", reason="docs extra not installed")
 
 MKDOCS_YML = pathlib.Path("mkdocs.yml")
+
+#: Workflows whose jobs run ``mkdocs build`` and therefore need the cache.
+_WORKFLOWS = (
+    pathlib.Path(".github/workflows/docs-deploy-dev.yml"),
+    pathlib.Path(".github/workflows/link-check.yml"),
+)
+
+#: The path the CI cache step declares. It has to be the directory
+#: ``download_and_cache_url`` actually writes to on the runner, which is
+#: ``platformdirs.user_cache_dir("mkdocs")`` — Linux ``~/.cache/mkdocs``.
+_CI_CACHE_PATH = "~/.cache/mkdocs"
 
 
 @pytest.fixture
@@ -242,6 +254,91 @@ def test_cache_duration_matches_what_mkdocstrings_asks_for() -> None:
         "or the warmed entry will be considered stale."
     )
     assert datetime.timedelta(days=1) == _CACHE_DURATION
+
+
+def test_ci_cache_path_is_the_one_mkdocs_writes_to() -> None:
+    """#1042: the workflows hard-code a path; pin it to the library's own.
+
+    The chain is ``mkdocs.utils.cache.download_and_cache_url`` ->
+    ``mkdocs_get_deps.cache.download_and_cache_url`` ->
+    ``platformdirs.user_cache_dir(<appname>)``. Both halves have to come from
+    the library: writing the appname here would pin ``platformdirs``' layout
+    for a literal string, and a rename to ``"mkdocs-get-deps"`` upstream would
+    leave this passing while the CI cache covered nothing — the exact failure
+    this exists to prevent.
+    """
+    import inspect
+
+    pytest.importorskip("platformdirs")
+    import mkdocs.utils.cache
+    import mkdocs_get_deps.cache
+    from platformdirs.unix import Unix
+
+    assert "mkdocs_get_deps" in inspect.getsource(mkdocs.utils.cache), (
+        "mkdocs no longer delegates its URL cache to mkdocs_get_deps; "
+        "re-derive where the inventories are written."
+    )
+    source = inspect.getsource(mkdocs_get_deps.cache)
+    appnames = re.findall(r"user_cache_dir\(\s*[\"']([^\"']+)[\"']", source)
+    assert len(appnames) == 1, (
+        f"expected exactly one user_cache_dir appname in mkdocs_get_deps."
+        f"cache; found {appnames}. The cache location has been restructured."
+    )
+
+    # The runners are ubuntu-latest, so the Unix implementation is the one
+    # that decides. Asserted rather than assumed: this host is Windows and
+    # resolves the same appname somewhere else entirely.
+    linux_path = Unix(appname=appnames[0]).user_cache_dir
+    assert linux_path.replace("\\", "/").endswith(_CI_CACHE_PATH.lstrip("~")), (
+        f"mkdocs_get_deps caches under {linux_path!r} on Linux; the workflows "
+        f"cache {_CI_CACHE_PATH} and would cover nothing."
+    )
+
+
+@pytest.mark.parametrize("workflow", _WORKFLOWS, ids=lambda p: p.name)
+def test_every_mkdocs_build_job_caches_the_inventories(workflow: pathlib.Path) -> None:
+    """A job that builds without the cache fetches on every run.
+
+    Checks position too: restoring after the build would cache nothing the
+    build could have used.
+    """
+    jobs = (yaml.safe_load(workflow.read_text(encoding="utf-8")) or {})["jobs"]
+    building = {
+        name: spec
+        for name, spec in jobs.items()
+        if any("mkdocs build" in str(step.get("run", "")) for step in spec["steps"])
+    }
+    assert building, f"{workflow} no longer runs mkdocs build; drop this check"
+
+    for name, spec in building.items():
+        steps = spec["steps"]
+
+        # ``~/.cache/mkdocs`` is the Linux layout. On macOS the same appname
+        # resolves to ``~/Library/Caches/mkdocs``, so a job moved to a macOS
+        # runner would cache a directory nothing writes to — the step would
+        # still be there, still green, and cover nothing.
+        assert "ubuntu" in str(spec.get("runs-on", "")), (
+            f"{workflow}::{name} runs on {spec.get('runs-on')!r}; "
+            f"{_CI_CACHE_PATH} is the Linux cache layout and would not be the "
+            "directory mkdocs writes to there."
+        )
+
+        cache = [
+            i
+            for i, step in enumerate(steps)
+            if step.get("uses", "").startswith("actions/cache")
+            and str(step.get("with", {}).get("path", "")) == _CI_CACHE_PATH
+        ]
+        assert cache, f"{workflow}::{name} builds docs without the inventory cache"
+
+        build = next(
+            i
+            for i, step in enumerate(steps)
+            if "mkdocs build" in str(step.get("run", ""))
+        )
+        assert cache[0] < build, (
+            f"{workflow}::{name} restores the cache after the build that needs it"
+        )
 
 
 def test_hook_is_registered_before_the_generators() -> None:
