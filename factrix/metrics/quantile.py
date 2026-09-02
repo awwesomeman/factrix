@@ -252,7 +252,8 @@ def quantile_spread(
           always present so the two are comparable.
         - ``metadata["n_periods_full"]``: the overlapping sample
           (``NEWEY_WEST`` / ``STATIONARY_BOOTSTRAP`` paths only).
-        - ``metadata["n_dropped"]`` / ``n_periods_in`` / ``n_periods_out``:
+        - ``metadata["dropped_periods"]`` / ``n_periods_in`` /
+          ``n_periods_out``:
           the null- and NaN-drop bookkeeping on the **strided** series.
 
         **Non-finite observations.** Every series column consumed here is

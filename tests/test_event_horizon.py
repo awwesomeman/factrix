@@ -141,6 +141,7 @@ class TestEventAroundReturn:
         result = event_around_return(event_data)
         assert result is not None
         assert "per_offset" in result.metadata
+        assert "interpretation" not in result.metadata
 
     def test_descriptive_no_p_value(self, event_data):
         # Descriptive multi-horizon summary: no hypothesis test runs, so the

@@ -35,6 +35,7 @@ class TestEventSelection:
         result = clustering_hhi(_panel(_event_rows(20, 2)))
         assert result.metadata["n_events"] == 40
         assert result.metadata["n_event_periods"] == 20
+        assert result.metadata["n_periods_effective"] == pytest.approx(20.0)
         assert result.value == pytest.approx(1 / 20)
 
     def test_nan_factor_is_not_an_event(self):
@@ -107,7 +108,7 @@ class TestTheAxesHhiCannotSee:
         # The companion measure is not blind.
         assert one.metadata["events_per_period_mean"] == pytest.approx(1.0)
         assert many.metadata["events_per_period_mean"] == pytest.approx(20.0)
-        assert many.metadata["max_events_per_period"] == 20
+        assert many.metadata["events_per_period_max"] == 20
 
     def test_events_per_period_mean_feeds_the_kp_adjustment(self):
         # It is the same n_eff the deflator consumes, so the diagnostic and the

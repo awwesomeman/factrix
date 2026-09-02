@@ -325,9 +325,9 @@ def k_spread(
         count under ``NEWEY_WEST`` and ``STATIONARY_BOOTSTRAP``;
         ``metadata["n_periods_strided"]`` always carries the non-overlap
         count and ``metadata["n_periods_full"]`` the overlapping one on
-        either full-series path. The ``n_dropped`` / ``n_periods_in`` /
-        ``n_periods_out`` keys describe the null-drop on the strided
-        series.
+        either full-series path. The ``dropped_periods`` /
+        ``n_periods_in`` / ``n_periods_out`` keys describe the null-drop
+        on the strided series.
 
     References:
         [Hansen-Hodrick 1980][hansen-hodrick-1980]: overlapping-return

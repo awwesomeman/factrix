@@ -103,7 +103,7 @@ def clustering_hhi(
         observation: null and NaN factors are excluded rather than counted
         as events (a bare ``factor != 0`` predicate is True for NaN in
         polars as in numpy).
-        ``effective_n_periods`` $= 1 / \mathrm{HHI}$;
+        ``n_periods_effective`` $= 1 / \mathrm{HHI}$;
         ``hhi_normalized`` $= (\mathrm{HHI} - 1/D) / (1 - 1/D)$ rescales
         to $[0, 1]$ — 0 when every event date carries the same number of
         events, including under perfect cross-sectional clustering.
@@ -202,10 +202,10 @@ def clustering_hhi(
         metadata={
             "n_events": n_events,
             "n_event_periods": n_dates,
-            "effective_n_periods": effective_n,
+            "n_periods_effective": effective_n,
             "hhi_normalized": hhi_normalized,
             "events_per_period_mean": events_per_period_mean,
-            "max_events_per_period": int(counts.max()),
+            "events_per_period_max": int(counts.max()),
             "share_events_in_bursts": share_events_in_bursts,
             "cluster_window": cluster_window,
         },
