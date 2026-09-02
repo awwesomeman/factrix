@@ -59,27 +59,40 @@ def _inventory_urls(config: Any) -> list[str]:
     ]
 
 
-def _download_with_retry(url: str) -> bytes:
-    """``mkdocs``' downloader, retried on a connection-level failure.
+def _is_transient(error: Exception) -> bool:
+    """Whether the failure is worth another attempt.
 
-    Only ``URLError`` is retried. An ``HTTPError`` — 404 on a mistyped URL,
-    403, 500 — is a server verdict rather than a blip, and is raised on the
-    first attempt so a wrong URL is not hidden behind three slow tries.
+    The split is 4xx against everything else, and it is a split between two
+    kinds of statement:
+
+    - a ``4xx`` other than ``429`` is a verdict about *the URL* — ``404`` and
+      ``410`` on a mistyped or moved inventory, ``403`` on one that needs
+      credentials. Retrying only hides a wrong URL behind three slow tries;
+    - a ``5xx`` is a verdict about *the server's state*, and ``429`` asks for
+      exactly one thing, which is to come back later. A docs CDN answering
+      ``502`` or ``503`` is the third-party host being unreachable — the
+      condition #1037 is about — and cannot conceal a typo, because a typo
+      does not produce a ``5xx``.
+
+    ``HTTPError`` subclasses ``URLError``, so it is checked first.
     """
+    if isinstance(error, urllib.error.HTTPError):
+        return error.code >= 500 or error.code == 429
+    return isinstance(error, (urllib.error.URLError, OSError))
+
+
+def _download_with_retry(url: str) -> bytes:
+    """``mkdocs``' downloader, retried while the failure looks transient."""
     from mkdocstrings._internal.handlers.base import _download_url_with_gz
 
-    last: Exception | None = None
     for attempt in range(_ATTEMPTS):
         try:
             return _download_url_with_gz(url)
-        except urllib.error.HTTPError:
-            raise
         except (urllib.error.URLError, OSError) as error:
-            last = error
-            if attempt < _ATTEMPTS - 1:
-                time.sleep(_BACKOFF_SECONDS[attempt])
-    assert last is not None
-    raise last
+            if not _is_transient(error) or attempt == _ATTEMPTS - 1:
+                raise
+            time.sleep(_BACKOFF_SECONDS[attempt])
+    raise AssertionError("unreachable: the loop returns or raises")
 
 
 def warm(urls: list[str]) -> None:

@@ -50,6 +50,25 @@ def downloader(monkeypatch):
     return install
 
 
+def _mkdocs_yml() -> dict:
+    return (
+        yaml.safe_load(MKDOCS_YML.read_text(encoding="utf-8").replace("!!python/", "#"))
+        or {}
+    )
+
+
+def _declared_inventories() -> list[str]:
+    """Inventory URLs as written in ``mkdocs.yml``."""
+    handler = next(
+        entry["mkdocstrings"]["handlers"]["python"]
+        for entry in _mkdocs_yml().get("plugins") or []
+        if isinstance(entry, dict) and "mkdocstrings" in entry
+    )
+    declared = handler["inventories"]
+    assert declared, "mkdocs.yml should declare at least one inventory"
+    return declared
+
+
 def _reset_error(_attempt: int) -> bytes:
     """The exact failure #1037 observed."""
     raise urllib.error.URLError(ConnectionResetError(104, "Connection reset by peer"))
@@ -73,18 +92,66 @@ def test_recovers_from_a_transient_reset(downloader) -> None:
     assert len(calls) == 2
 
 
-def test_does_not_retry_a_server_verdict(downloader) -> None:
-    """A 404 is a mistyped URL, not a blip; retrying would only hide it slowly."""
-
+def _http_error(code: int, reason: str):
     def behaviour(_attempt: int) -> bytes:
         raise urllib.error.HTTPError(
-            "https://example.invalid/typo.inv", 404, "Not Found", {}, None
+            "https://example.invalid/objects.inv", code, reason, {}, None
         )
 
-    calls = downloader(behaviour)
+    return behaviour
+
+
+@pytest.mark.parametrize(
+    ("code", "reason"),
+    [(404, "Not Found"), (403, "Forbidden"), (410, "Gone"), (400, "Bad Request")],
+)
+def test_does_not_retry_a_verdict_about_the_url(downloader, code, reason) -> None:
+    """A 4xx names the URL as wrong; retrying only hides a typo more slowly."""
+    calls = downloader(_http_error(code, reason))
     with pytest.raises(urllib.error.HTTPError):
-        _download_with_retry("https://example.invalid/typo.inv")
+        _download_with_retry("https://example.invalid/objects.inv")
     assert len(calls) == 1
+
+
+@pytest.mark.parametrize(
+    ("code", "reason"),
+    [
+        (429, "Too Many Requests"),
+        (500, "Internal Server Error"),
+        (502, "Bad Gateway"),
+        (503, "Service Unavailable"),
+        (504, "Gateway Timeout"),
+    ],
+)
+def test_retries_a_verdict_about_the_server(downloader, code, reason) -> None:
+    """A docs CDN answering 5xx is the unreachable host #1037 is about.
+
+    It cannot conceal a mistyped URL — a typo produces 404/410, not 502 — so
+    the concern that keeps 4xx on one attempt does not apply here.
+    """
+    calls = downloader(_http_error(code, reason))
+    with pytest.raises(urllib.error.HTTPError):
+        _download_with_retry("https://example.invalid/objects.inv")
+    assert len(calls) == _ATTEMPTS
+
+
+def test_recovers_from_a_transient_gateway_error(downloader) -> None:
+    """The 5xx equivalent of the reset: one bad response, then success."""
+
+    def behaviour(attempt: int) -> bytes:
+        if attempt == 1:
+            raise urllib.error.HTTPError(
+                "https://example.invalid/objects.inv",
+                503,
+                "Service Unavailable",
+                {},
+                None,
+            )
+        return b"inventory"
+
+    calls = downloader(behaviour)
+    assert _download_with_retry("https://example.invalid/objects.inv") == b"inventory"
+    assert len(calls) == 2
 
 
 def test_gives_up_after_the_declared_attempts(downloader) -> None:
@@ -106,21 +173,48 @@ def test_warm_up_is_not_itself_fatal(downloader, capsys) -> None:
     assert "unavailable" in capsys.readouterr().out
 
 
+def test_config_walk_finds_the_urls_mkdocs_actually_resolves() -> None:
+    """The walk must fail loudly, not return ``[]``.
+
+    ``_inventory_urls`` reads ``plugins.mkdocstrings.handlers.python
+    .inventories``. mkdocstrings has renamed that key once already — ``import``
+    became ``inventories`` — and if it moves again the walk returns an empty
+    list, the hook warms nothing, every other test still passes and the build
+    silently loses this protection. Assert against the real resolved config,
+    the way ``test_cache_duration_matches_what_mkdocstrings_asks_for`` asserts
+    against mkdocstrings' own source.
+    """
+    from mkdocs.config import load_config
+    from scripts.mkdocs_hooks.warm_inventory_cache import _inventory_urls
+
+    declared = _declared_inventories()
+    found = _inventory_urls(load_config(str(MKDOCS_YML)))
+
+    assert found, (
+        "_inventory_urls found no inventories in the resolved config — the "
+        "handler config key has moved and the hook is warming nothing."
+    )
+    assert set(found) == set(declared)
+
+
+def test_config_walk_is_not_silently_empty_on_a_renamed_key() -> None:
+    """Renaming the key must change the result, so the pin above has teeth."""
+    from mkdocs.config import load_config
+    from scripts.mkdocs_hooks.warm_inventory_cache import _inventory_urls
+
+    config = load_config(str(MKDOCS_YML))
+    handler = config.plugins["mkdocstrings"].config["handlers"]["python"]
+    handler["import"] = handler.pop("inventories")
+
+    assert _inventory_urls(config) == [], (
+        "the walk no longer keys off 'inventories'; update it and the pin "
+        "above together."
+    )
+
+
 def test_urls_come_from_mkdocs_yml_not_a_second_list() -> None:
     """A new inventory in mkdocs.yml is warmed without editing the hook."""
-    configured = (
-        yaml.safe_load(MKDOCS_YML.read_text(encoding="utf-8").replace("!!python/", "#"))
-        or {}
-    )
-    plugins = configured.get("plugins") or []
-    handler = next(
-        entry["mkdocstrings"]["handlers"]["python"]
-        for entry in plugins
-        if isinstance(entry, dict) and "mkdocstrings" in entry
-    )
-    declared = handler["inventories"]
-    assert declared, "mkdocs.yml should declare at least one inventory"
-
+    declared = _declared_inventories()
     hook_source = pathlib.Path(
         "scripts/mkdocs_hooks/warm_inventory_cache.py"
     ).read_text(encoding="utf-8")
@@ -151,9 +245,18 @@ def test_cache_duration_matches_what_mkdocstrings_asks_for() -> None:
 
 
 def test_hook_is_registered_before_the_generators() -> None:
-    """It must run in the build, and first — the others do not need the network."""
-    hooks = (
-        yaml.safe_load(MKDOCS_YML.read_text(encoding="utf-8").replace("!!python/", "#"))
-        or {}
-    ).get("hooks") or []
-    assert "scripts/mkdocs_hooks/warm_inventory_cache.py" in hooks
+    """It must run in the build, and first.
+
+    The position is the assertion, not decoration: warming after a generator
+    has already failed is warming after the build is lost. An earlier version
+    checked membership only while the name promised order — the shape closed
+    twice in #1040.
+    """
+    hooks = _mkdocs_yml().get("hooks") or []
+    warm_up = "scripts/mkdocs_hooks/warm_inventory_cache.py"
+
+    assert warm_up in hooks
+    assert hooks.index(warm_up) == 0, (
+        f"the warm-up must be the first hook; it is at index "
+        f"{hooks.index(warm_up)} of {hooks}"
+    )
