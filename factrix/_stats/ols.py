@@ -300,8 +300,17 @@ class AmihudHurvichFit(NamedTuple):
     the augmented regression's intercept: that one absorbs the innovation
     proxy and is not the intercept implied by ``beta``.
 
-    A not-computable fit fills every float with NaN, ``n_used`` with ``0``
-    and ``resid`` with an empty array.
+    ``lags_used`` is the Bartlett bandwidth the covariance was **actually**
+    computed at, which is not always the ``lags`` the caller asked for: the
+    augmented design runs on ``n_used`` rows and a kernel cannot use a lag it
+    has no observation pair for. Callers report this rather than their own
+    request, the way :func:`_ols_scalar_wald_hac` and
+    :func:`~factrix._stats.hac._driscoll_kraay_cov` already report the
+    bandwidth they ran at. It is ``0`` at ``overlap_periods = 1``, where the
+    covariance is homoskedastic and no kernel runs.
+
+    A not-computable fit fills every float with NaN, ``n_used`` and
+    ``lags_used`` with ``0`` and ``resid`` with an empty array.
     """
 
     beta: float
@@ -315,6 +324,7 @@ class AmihudHurvichFit(NamedTuple):
     alpha: float
     n_used: int
     resid: np.ndarray
+    lags_used: int
 
 
 def _amihud_hurvich_beta(
@@ -454,15 +464,20 @@ def _amihud_hurvich_beta(
         lag and the last ``h - 1`` windows to the horizon-summed proxy — and
         ``alpha`` / ``resid`` are the intercept and residual of the reported
         structural model ``y = alpha + beta·x + e`` on exactly those rows.
-        Every field is NaN (``n_used = 0``, ``resid`` empty) when the sample
-        is too short (``n < 5``) or the predictor is degenerate.
+        ``lags_used`` is the bandwidth the kernel ran at: ``lags`` is resolved
+        by the caller against the *full* series, so on a long horizon it can
+        exceed the ``n_used - 1`` lags the truncated design admits, and the
+        Bartlett sum stops there. Report ``lags_used``, not the request.
+        Every field is NaN (``n_used = 0``, ``lags_used = 0``, ``resid``
+        empty) when the sample is too short (``n < 5``) or the predictor is
+        degenerate.
     """
     y = _require_finite(y, "_amihud_hurvich_beta")
     x = _require_finite(x, "_amihud_hurvich_beta")
     n = len(y)
     nan = float("nan")
     not_computable = AmihudHurvichFit(
-        nan, nan, nan, nan, nan, nan, nan, nan, nan, 0, np.empty(0)
+        nan, nan, nan, nan, nan, nan, nan, nan, nan, 0, np.empty(0), 0
     )
     if n < 5 or len(x) != n:
         return not_computable
@@ -513,10 +528,16 @@ def _amihud_hurvich_beta(
     # the zero-lag sandwich is the HC0 form, whose own small-sample
     # under-coverage costs another 1-2pp at T = 60. HAC is kept for h > 1,
     # where the overlap is real.
+    # ``lags`` is resolved by the caller against the FULL series; the design
+    # here is ``m = n - h`` rows, so on a long horizon the request can exceed
+    # the lags this design admits. ``_ols_nw_multivariate`` clips internally;
+    # bind the same bound here so the fit can report the bandwidth that ran
+    # instead of the one that was asked for.
+    lags_used = 0 if h == 1 else max(0, min(lags, m - 1))
     if h == 1:
         beta_vec, cov, _ = _ols_homoskedastic(y[:m], design)
     else:
-        beta_vec, cov, _ = _ols_nw_multivariate(y[:m], design, lags=lags)
+        beta_vec, cov, _ = _ols_nw_multivariate(y[:m], design, lags=lags_used)
     if not np.all(np.isfinite(beta_vec)):
         return not_computable
     se_aug = float(np.sqrt(max(float(cov[1, 1]), 0.0)))
@@ -552,7 +573,7 @@ def _amihud_hurvich_beta(
     rho = float(corr_matrix[0, 1]) if np.isfinite(corr_matrix[0, 1]) else nan
     if se < EPSILON:
         return AmihudHurvichFit(
-            beta, nan, nan, se, gamma, phi, phi_c, rho, alpha, m, resid_e
+            beta, nan, nan, se, gamma, phi, phi_c, rho, alpha, m, resid_e, lags_used
         )
 
     t_stat = beta / se
@@ -560,9 +581,10 @@ def _amihud_hurvich_beta(
     # augmented SE is a Bartlett HAC one, so the t is read against the same
     # fixed-b effective df the scalar HAR path uses (``_har_dof``). This is a
     # single-restriction slope test, so the K x K Wald argument that keeps the
-    # multivariate paths on the narrow rule does not apply to it.
-    dof = float(max(m - 3, 1)) if h == 1 else _har_dof(m, lags, h)
+    # multivariate paths on the narrow rule does not apply to it. The df must
+    # read the bandwidth the kernel ran at, not the wider one requested.
+    dof = float(max(m - 3, 1)) if h == 1 else _har_dof(m, lags_used, h)
     p_value = float(2 * sp_stats.t.sf(abs(t_stat), df=dof))
     return AmihudHurvichFit(
-        beta, t_stat, p_value, se, gamma, phi, phi_c, rho, alpha, m, resid_e
+        beta, t_stat, p_value, se, gamma, phi, phi_c, rho, alpha, m, resid_e, lags_used
     )
