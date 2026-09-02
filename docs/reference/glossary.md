@@ -117,6 +117,27 @@ specific contracts that apply when factrix routes here.
 
 ## Other terms
 
+### calendar-time portfolio
+
+An aggregation order from the event-study literature: form a cross-asset
+portfolio in each observed period, then test the portfolio's time series. It
+contrasts with event-time alignment. For `common_beta`, this is factrix's
+`CS_THEN_TS` order: the equal-weight portfolio slope is estimated on the
+panel's own distinct-period grid before cross-asset beta dispersion is added.
+
+"Calendar-time" is a literature label, not a time unit. The implementation
+does not inspect calendar intervals, assume a cadence, or perform date
+arithmetic. See [Fama (1998)][fama-1998] for the portfolio convention and
+[Period grid, not calendar](../development/architecture.md#period-grid-not-calendar)
+for factrix's time-axis contract.
+
+### event-time
+
+An alignment order: observations are indexed by their offset from an event
+rather than first being pooled into a portfolio for each observed panel
+period. "Event-time" likewise names a design, not a time unit; offsets and
+windows in factrix still count periods on the panel's own grid.
+
 ### mainstream metric
 
 The headline mean-significance test conventionally used for a

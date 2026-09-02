@@ -161,13 +161,14 @@ def compute_common_betas(
     Returns:
         Dict mapping each factor name to a DataFrame with columns
         ``asset_id, beta, alpha, t_stat, r_squared, n_periods`` sorted by
-        ``asset_id``, three broadcast calendar-time columns —
+        ``asset_id``, three broadcast calendar-time columns (the literature's
+        per-period portfolio aggregation term, not a calendar interval) —
         ``ew_portfolio_beta`` / ``ew_portfolio_beta_var`` (the equal-weight
         portfolio's slope on the factor and its Newey-West variance, the
         sampling variance ``common_beta`` tests the mean beta with — see
         :func:`_ew_portfolio_slope`; ``null`` when they cannot be estimated)
-        and ``ew_portfolio_periods`` (dates behind them) — plus a broadcast
-        ``_drop_stats`` carrier column on the
+        and ``ew_portfolio_periods`` (shared panel periods behind them) — plus
+        a broadcast ``_drop_stats`` carrier column on the
         assets axis (see :func:`_attach_drop_stats`) so cross-asset consumers
         can surface how much of the universe was silently dropped. An asset is
         emitted only with at least ``MIN_COMMON_BETA_PERIODS_HARD`` **finite**

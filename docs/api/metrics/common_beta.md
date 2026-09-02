@@ -44,7 +44,9 @@ title: factrix.metrics.common_beta
     Stage 2 of BJS tests $H_0: \mathbb{E}[\beta] = 0$ across assets. The
     headline standard error combines the Newey-West variance of the
     equal-weight portfolio slope with cross-asset beta dispersion. This
-    calendar-time term retains shared residual shocks that an iid
+    [calendar-time](../../reference/glossary.md#calendar-time-portfolio) term
+    names the `CS_THEN_TS` aggregation order, not a calendar interval; it
+    retains shared residual shocks that an iid
     $\mathrm{std}(\beta)/\sqrt{N}$ reference discards.
 
     A hand-built beta table has no underlying panel from which to recover the

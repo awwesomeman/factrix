@@ -965,18 +965,21 @@ which reports `R²` for the OLS regression.
 #### `common_beta`
 
 - *primary*: `p_value` — `t` on the cross-asset mean of the per-asset OLS
-  β, with the calendar-time SE: `SE² = V_EW + τ̂²/N`, where `V_EW` is the
+  β, with the [calendar-time SE](glossary.md#calendar-time-portfolio):
+  `SE² = V_EW + τ̂²/N`, where `V_EW` is the
   Newey-West(`h−1`) variance of the equal-weight portfolio's slope on the
   factor (the mean beta is that slope on a rectangular panel) and `τ̂²` is
   the cross-sectional beta variance in excess of the per-asset estimation
   noise. The textbook iid `std(β)/√N` understates the SE without bound when
   assets share a residual component (44.8% size at N=8, ρ=0.5); the
   Kolari-Pynnönen factor it briefly used instead had zero power once the
-  true betas were dispersed.
+  true betas were dispersed. Here calendar-time names the `CS_THEN_TS`
+  aggregation order; the calculation reads only the panel's period grid.
 - *descriptive*: `n_assets`, `beta_std`, `median_beta`,
   `calendar_time_se_applied`, and — when it applied — `ew_portfolio_beta`
   (the equal-weight portfolio slope, equal to `value` on a rectangular
-  panel), `ew_portfolio_beta_se`, `ew_portfolio_periods` (dates behind it),
+  panel), `ew_portfolio_beta_se`, `ew_portfolio_periods` (shared panel
+  periods),
   `beta_dispersion_excess` (`τ̂²`), `dof` (Welch-Satterthwaite df across the
   two variance components) and `stat_uncorrected` (the iid `t`).
   `calendar_time_se_source` records `unavailable_hand_built_frame` (no
