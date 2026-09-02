@@ -235,6 +235,8 @@ class TestOverlapCorrection:
 
     def test_residual_persistence_is_flagged(self):
         """Striding cannot fix an AR(1) at h=1, so the regime carries a code."""
+        import warnings
+
         import numpy as np
         from factrix._codes import WarningCode
 
@@ -242,18 +244,34 @@ class TestOverlapCorrection:
         x = np.zeros(400)
         for t in range(1, 400):
             x[t] = 0.9 * x[t - 1] + rng.standard_normal()
-        result = ic_trend(
-            _make_series(x.tolist()), overlap_periods=1, adf_threshold=None
-        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            result = ic_trend(
+                _make_series(x.tolist()),
+                overlap_periods=1,
+                adf_threshold=None,
+                expected_warnings=("serial_correlation_detected",),
+            )
         assert WarningCode.SERIAL_CORRELATION_DETECTED.value in result.warning_codes
         assert result.metadata["variance_inflation"] > 1.0
 
     def test_unit_root_flag_now_carries_a_warning_code(self):
+        import warnings
+
         import numpy as np
         from factrix._codes import WarningCode
 
         rng = np.random.default_rng(0)
         walk = np.cumsum(rng.standard_normal(60))
-        result = ic_trend(_make_series(walk.tolist()), overlap_periods=1)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            result = ic_trend(
+                _make_series(walk.tolist()),
+                overlap_periods=1,
+                expected_warnings=(
+                    "persistent_regressor",
+                    "serial_correlation_detected",
+                ),
+            )
         assert result.metadata["unit_root_suspected"] is True
         assert WarningCode.PERSISTENT_REGRESSOR.value in result.warning_codes

@@ -4,6 +4,7 @@ import math
 
 import factrix as fx
 import pytest
+from factrix._codes import WarningCode
 from factrix.metrics.monotonicity import monotonicity
 
 
@@ -163,10 +164,9 @@ class TestSmallUniverse:
         assert result.metadata["min_required"] == 10
 
     def test_carries_a_warning_code(self):
-        from factrix._codes import WarningCode
-
         result = monotonicity(self._panel(8), overlap_periods=5)["factor"]
         assert WarningCode.METRIC_UNAVAILABLE.value in result.warning_codes
+        assert WarningCode.FEW_ASSETS.value in result.warning_codes
         assert WarningCode.THIN_QUANTILE_GROUPS.value in result.warning_codes
 
     def test_declared_assets_floor_tracks_n_groups(self):
@@ -180,9 +180,32 @@ class TestSmallUniverse:
         assert cls._resolve_sample_threshold(monotonicity_metric()).min_assets == 10
 
     def test_downscaled_n_groups_runs_on_the_same_panel(self):
-        result = monotonicity(self._panel(8), overlap_periods=5, n_groups=3)["factor"]
+        result = monotonicity(
+            self._panel(8),
+            overlap_periods=5,
+            n_groups=3,
+            expected_warnings=("few_assets", "thin_quantile_groups"),
+        )["factor"]
         assert not math.isnan(result.value)
         assert result.n_obs_axis == "periods"
+        assert WarningCode.FEW_ASSETS.value in result.warning_codes
+        assert WarningCode.THIN_QUANTILE_GROUPS.value in result.warning_codes
+
+    @pytest.mark.parametrize(("n_assets", "thin_groups"), [(12, True), (25, False)])
+    def test_success_path_matches_quantile_cross_section_warnings(
+        self, n_assets: int, thin_groups: bool
+    ):
+        result = monotonicity(
+            self._panel(n_assets),
+            overlap_periods=5,
+            n_groups=3,
+            expected_warnings=("few_assets", "thin_quantile_groups"),
+        )["factor"]
+        assert not math.isnan(result.value)
+        assert WarningCode.FEW_ASSETS.value in result.warning_codes
+        assert (
+            WarningCode.THIN_QUANTILE_GROUPS.value in result.warning_codes
+        ) is thin_groups
 
 
 class TestMonotonicityBatch:

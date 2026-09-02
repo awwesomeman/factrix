@@ -522,6 +522,10 @@ frequency on the same panels is 5.0% / 5.0% / 4.0% at a nominal 5%.
   `signed_spearman_p_value`. A high magnitude with a near-zero signed mean
   still says the factor sorts returns but flips sign across dates.
 - *descriptive*: `n_valid_periods`, `n_groups`, `tie_ratio`, `tie_policy`.
+- `warning_codes` (conditional): `HIGH_TIE_RATIO` under
+  `tie_policy="ordinal"`, `FEW_ASSETS` when the median per-period
+  cross-section is below `MIN_ASSETS_WARN`, and `THIN_QUANTILE_GROUPS` when
+  fewer than `MIN_GROUP_ASSETS` names back each requested bucket.
 
 ### `quantile` (`factrix.metrics.quantile`)
 - `warning_codes` (conditional): `HIGH_TIE_RATIO` under `tie_policy="ordinal"`
@@ -709,7 +713,7 @@ hypothesis test.
   candidate-series).
 - *warning codes* (conditional): `serial_correlation_detected` (candidate
   spread persistent once strided at `overlap_periods`),
-  `unreliable_se_short_periods` (fewer than 10 periods after that stride),
+  `unreliable_se_short_periods` (fewer than 30 periods after that stride),
   `hac_bandwidth_ill_conditioned` when `n_periods >= 30` and `L > T / 5`.
 - *descriptive*: `n_base_factors`, `base_factors` (list of base-factor
   names), `betas` (per-base OLS slope dict), `r_squared`.
@@ -995,7 +999,7 @@ scale and the kernel's fixed-`b` effective `ν`.
   `p_wald_slopes`.
 - *warning codes* (conditional): `serial_correlation_detected` (per-period
   factor persistent once strided at `overlap_periods`),
-  `unreliable_se_short_periods` (fewer than 10 periods after that stride),
+  `unreliable_se_short_periods` (fewer than 30 periods after that stride),
   `hac_bandwidth_ill_conditioned` when `n_periods >= 30` and `L > T / 5`.
 - *descriptive*: `beta_long`, `beta_short`, `abs_short_over_long`,
   `n_pos`, `n_neg`, `n_zero`, `n_periods`, `newey_west_lags_used`,
@@ -1017,7 +1021,7 @@ scale and the kernel's fixed-`b` effective `ν`.
   Spearman of (bucket-idx, mean-return) for monotonicity diagnostic.
 - *warning codes* (conditional): `thin_quantile_periods`,
   `serial_correlation_detected` (per-period factor persistent once strided
-  at `overlap_periods`), `unreliable_se_short_periods` (fewer than 10
+  at `overlap_periods`), `unreliable_se_short_periods` (fewer than 30
   periods after that stride), `hac_bandwidth_ill_conditioned` when
   `n_periods >= 30` and `L > T / 5`.
 - *descriptive*: `n_groups`, `n_periods`, `n_distinct_factor`,

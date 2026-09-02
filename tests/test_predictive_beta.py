@@ -78,11 +78,19 @@ class TestPredictiveBetaStatistic:
         assert isinstance(h5.metadata["har_lags"], int)
 
     def test_persistent_factor_sets_adf_warning(self) -> None:
+        import warnings
+
         rng = np.random.default_rng(42)
         x = np.cumsum(rng.normal(size=240))
         y = 0.05 * x + rng.normal(size=240)
 
-        result = predictive_beta(_ts_panel(x, y), overlap_periods=1)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            result = predictive_beta(
+                _ts_panel(x, y),
+                overlap_periods=1,
+                expected_warnings=("persistent_regressor",),
+            )
 
         assert result.metadata["adf_p"] > 0.10
         assert result.metadata["unit_root_suspected"] is True
@@ -365,6 +373,8 @@ class TestPredictiveBetaOverlapAndPersistenceScreens:
         )
 
     def test_persistent_residuals_flag_serial_correlation(self):
+        import warnings
+
         # Returns are an AR(1) with phi = 0.8 and the predictor is independent
         # noise, so the regression residuals inherit the persistence.
         rng = np.random.default_rng(5)
@@ -374,7 +384,13 @@ class TestPredictiveBetaOverlapAndPersistenceScreens:
         for i in range(1, n):
             y[i] = 0.8 * y[i - 1] + eps[i]
         x = rng.normal(size=n)
-        result = predictive_beta(_ts_panel(x, y), overlap_periods=1)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            result = predictive_beta(
+                _ts_panel(x, y),
+                overlap_periods=1,
+                expected_warnings=("serial_correlation_detected",),
+            )
         assert result.metadata["residual_lag1_autocorr"] > 0.3
         assert WarningCode.SERIAL_CORRELATION_DETECTED.value in result.warning_codes
 
@@ -416,6 +432,7 @@ class TestPredictiveBetaOverlapAndPersistenceScreens:
                 _ts_panel(rng.normal(size=n), rng.normal(size=n)),
                 overlap_periods=21,
                 expected_warnings=(
+                    "hac_bandwidth_ill_conditioned",
                     "overlapping_predictive_inference",
                     "unreliable_se_short_periods",
                 ),

@@ -386,7 +386,16 @@ def predictive_beta(
             stacklevel=2,
         )
     if hac_applied and _hac_bandwidth_ill_conditioned(n, resolved_har_lags):
-        warning_codes.append(WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED.value)
+        _emit_warning(
+            WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED,
+            f"the resolved Bartlett bandwidth L={resolved_har_lags} exceeds "
+            f"n_periods / 5 on {n} periods, so the long-run variance rests "
+            "on too few lag products to be stable.",
+            label="predictive_beta",
+            expected_warnings=expected_warnings,
+            warning_codes=warning_codes,
+            stacklevel=2,
+        )
     # The regime flag fires on the ACTUAL bias channel - the product of
     # persistence and innovation correlation - not on the ADF screen alone.
     # ADF proxies phi only, carries no information about rho, and has low
@@ -409,7 +418,17 @@ def predictive_beta(
         or phi_corrected_explosive
         or bias_channel > _STAMBAUGH_CHANNEL_WARN
     ):
-        warning_codes.append(WarningCode.PERSISTENT_REGRESSOR.value)
+        _emit_warning(
+            WarningCode.PERSISTENT_REGRESSOR,
+            "the predictor is in a regime where the corrected test remains "
+            "less well sized: ADF indicates a unit-root risk, the corrected "
+            "AR coefficient is explosive, or the measured Stambaugh channel "
+            "is large. Read the p-value against a raised hurdle.",
+            label="predictive_beta",
+            expected_warnings=expected_warnings,
+            warning_codes=warning_codes,
+            stacklevel=2,
+        )
     # Persistence screen on this regression's own residuals, taken at stride
     # overlap_periods — exactly what inference.NonOverlapping does to its
     # tested series, and for the same reason. Overlapping forward returns give
@@ -423,7 +442,16 @@ def predictive_beta(
     # estimator.
     resid_autocorr = _lag1_autocorr(model_resid[:: max(overlap_periods, 1)])
     if resid_autocorr > PERSISTENT_SERIES_AUTOCORR:
-        warning_codes.append(WarningCode.SERIAL_CORRELATION_DETECTED.value)
+        _emit_warning(
+            WarningCode.SERIAL_CORRELATION_DETECTED,
+            f"the regression residual remains persistent after striding at "
+            f"overlap_periods={overlap_periods} (lag-1 autocorrelation "
+            f"{resid_autocorr:.2f}); no HAC path is calibrated in this regime.",
+            label="predictive_beta",
+            expected_warnings=expected_warnings,
+            warning_codes=warning_codes,
+            stacklevel=2,
+        )
     # Effective sample, not raw rows: overlapping forward returns leave about
     # n / h independent observations while the HAC lag floor grows with h, so
     # the short-sample gate has to read the same axis the standard error does.

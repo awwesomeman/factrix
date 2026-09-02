@@ -227,6 +227,68 @@ def _emit_inference_warnings(
         )
 
 
+def _emit_scalar_har_warnings(
+    *,
+    metric_name: str,
+    subject: str,
+    n_periods: int,
+    overlap_periods: int | None,
+    persistent: bool,
+    bandwidth_ill_conditioned: bool,
+    expected_warnings: tuple[str, ...] = (),
+    stacklevel: int = 3,
+) -> list[str]:
+    """Emit the shared reliability warnings for scalar HAR regressions.
+
+    The hard 10-period floor controls whether the persistence diagnostic can
+    be evaluated.  The public 30-period WARN floor separately describes HAC
+    precision, using the overlap-adjusted effective sample.  Keeping the
+    policy here prevents scalar-HAR metrics from drifting between those two
+    thresholds or bypassing the public warning channel.
+    """
+    from factrix._stats.constants import MIN_PERIODS_WARN
+
+    warning_codes: list[str] = []
+    if persistent:
+        _emit_warning(
+            WarningCode.SERIAL_CORRELATION_DETECTED,
+            f"{subject} remains persistent after striding at "
+            f"overlap_periods={overlap_periods}; the scalar HAR reference is "
+            "not calibrated in this regime. Read the p-value against a "
+            "raised hurdle or lengthen the sample.",
+            label=metric_name,
+            expected_warnings=expected_warnings,
+            warning_codes=warning_codes,
+            stacklevel=stacklevel,
+        )
+    if bandwidth_ill_conditioned:
+        _emit_warning(
+            WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED,
+            "the resolved Bartlett bandwidth exceeds n_periods / 5 on "
+            f"{n_periods} periods, so the long-run variance rests on too few "
+            "lag products to be stable.",
+            label=metric_name,
+            expected_warnings=expected_warnings,
+            warning_codes=warning_codes,
+            stacklevel=stacklevel,
+        )
+
+    n_effective = n_periods // max(overlap_periods or 1, 1)
+    if n_effective < MIN_PERIODS_WARN:
+        _emit_warning(
+            WarningCode.UNRELIABLE_SE_SHORT_PERIODS,
+            f"n_periods={n_periods} at overlap_periods={overlap_periods} "
+            f"leaves an effective sample of {n_effective}, below "
+            f"MIN_PERIODS_WARN={MIN_PERIODS_WARN}; HAC inference is not "
+            "calibrated on a sample this short.",
+            label=metric_name,
+            expected_warnings=expected_warnings,
+            warning_codes=warning_codes,
+            stacklevel=stacklevel,
+        )
+    return warning_codes
+
+
 def _spread_significance_with_inference(
     inference: NonOverlapping | NeweyWest | StationaryBootstrap,
     *,

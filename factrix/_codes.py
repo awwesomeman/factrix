@@ -508,11 +508,13 @@ _WARNING_DESCRIPTIONS.update(
         "study declares the regime once via "
         "evaluate(..., expected_warnings=('few_assets',)): the record is kept "
         "and marked expected=True, and the per-run UserWarning echo stops.",
-        WarningCode.THIN_QUANTILE_GROUPS: "quantile_spread with the median "
-        "cross-section split into n_groups buckets leaving < MIN_GROUP_ASSETS "
-        "(5) assets per bucket; each bucket mean rests on a handful of names so "
-        "the spread can be dominated by individual assets. Advisory only — "
-        "reduce n_groups (the warning suggests a value) or treat the spread as a "
+        WarningCode.THIN_QUANTILE_GROUPS: "A quantile-bucketing metric split "
+        "the median cross-section into n_groups buckets leaving fewer than "
+        "MIN_GROUP_ASSETS (5) assets per bucket; each bucket mean rests on a "
+        "handful of names, so the result can be dominated by individual assets. "
+        "Applies to quantile_spread, quantile_spread_vw, k_spread, monotonicity, "
+        "and turnover metrics that reuse those buckets. Advisory only — reduce "
+        "n_groups (the warning suggests a value) or treat the result as a "
         "fragile small-cross-section diagnostic. Distinct from few_assets, which "
         "keys off the absolute cross-section size.",
         WarningCode.THIN_QUANTILE_PERIODS: "common_quantile_spread leaves fewer "

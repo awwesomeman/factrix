@@ -15,7 +15,7 @@ from factrix._axis import (
     Aggregation,
     FactorDensity,
 )
-from factrix._codes import WarningCode
+from factrix._codes import WarningCode, _emit_warning
 from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat
@@ -346,7 +346,16 @@ def corrado_rank(
 
     warning_codes: list[str] = []
     if sparse_magnitude_weighted:
-        warning_codes.append(WarningCode.SPARSE_MAGNITUDE_WEIGHTED.value)
+        _emit_warning(
+            WarningCode.SPARSE_MAGNITUDE_WEIGHTED,
+            "the factor is mixed-sign and not a clean ±1 ternary. "
+            "corrado_rank uses sign only; apply .sign() before evaluation "
+            "when sign-flip semantics are intended.",
+            label="corrado_rank",
+            expected_warnings=expected_warnings,
+            warning_codes=warning_codes,
+            stacklevel=2,
+        )
     metadata: dict = {
         "n_event_periods": n_event_periods,
         "n_events": n_events,

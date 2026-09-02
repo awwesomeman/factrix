@@ -25,7 +25,7 @@ from factrix._axis import (
     FactorScope,
     InputShape,
 )
-from factrix._codes import WarningCode
+from factrix._codes import WarningCode, _emit_warning
 from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._stats import _adf, _mann_kendall_hamed_rao
@@ -357,12 +357,30 @@ def ic_trend(
     residual_autocorr = _lag1_autocorr(vals)
     metadata["residual_autocorr"] = residual_autocorr
     if residual_autocorr > PERSISTENT_SERIES_AUTOCORR:
-        warning_codes.append(WarningCode.SERIAL_CORRELATION_DETECTED.value)
+        _emit_warning(
+            WarningCode.SERIAL_CORRELATION_DETECTED,
+            f"the strided trend series has lag-1 autocorrelation "
+            f"{residual_autocorr:.2f} (> {PERSISTENT_SERIES_AUTOCORR}); the "
+            "Hamed-Rao correction remains oversized in this regime.",
+            label=name,
+            expected_warnings=expected_warnings,
+            warning_codes=warning_codes,
+            stacklevel=2,
+        )
     # The ADF flag was metadata-only; a suspected unit root is a regime the
     # trend null is not calibrated in, so it carries a code like every other
     # regime switch in the library.
     if metadata.get("unit_root_suspected"):
-        warning_codes.append(WarningCode.PERSISTENT_REGRESSOR.value)
+        _emit_warning(
+            WarningCode.PERSISTENT_REGRESSOR,
+            "the ADF diagnostic indicates a possible unit root, a regime "
+            "where the trend null is not calibrated. Read the p-value "
+            "against a raised hurdle.",
+            label=name,
+            expected_warnings=expected_warnings,
+            warning_codes=warning_codes,
+            stacklevel=2,
+        )
     _surface_null_drop(
         n_periods_in=n_raw_in,
         n_periods_out=n_raw,

@@ -888,7 +888,16 @@ def bmp_z(
 
     warning_codes: list[str] = []
     if _is_sparse_magnitude_weighted(data, factor_col):
-        warning_codes.append(WarningCode.SPARSE_MAGNITUDE_WEIGHTED.value)
+        _emit_warning(
+            WarningCode.SPARSE_MAGNITUDE_WEIGHTED,
+            "the factor is mixed-sign and not a clean ±1 ternary. bmp_z "
+            "uses sign only; apply .sign() before evaluation when sign-flip "
+            "semantics are intended.",
+            label="bmp_z",
+            expected_warnings=expected_warnings,
+            warning_codes=warning_codes,
+            stacklevel=2,
+        )
     metadata: dict = {
         "n_events": n_valid,
         "n_event_periods": n_event_periods,
