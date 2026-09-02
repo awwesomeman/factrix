@@ -147,7 +147,11 @@ def predictive_beta(
     ``overlap_periods = 1`` the corrected test uses Amihud-Hurvich's
     homoskedastic covariance; only ``overlap_periods > 1`` uses the resolved
     Newey-West HAR bandwidth. ``metadata["method"]``, ``hac_applied`` and
-    ``har_lags`` report that branch directly.
+    ``har_lags`` report that branch directly. ``har_lags`` is the bandwidth
+    the kernel ran at: the augmented design is ``n_periods`` rows and a
+    Bartlett sum cannot use a lag it has no observation pair for, so a long
+    horizon leaves it narrower than the bandwidth resolved from the full
+    series.
 
     **The correction costs power** where OLS's apparent power was partly
     its own bias: at $T=60,\ \phi=0.95,\ \rho=-0.9$ the corrected test
@@ -387,11 +391,24 @@ def predictive_beta(
             stacklevel=2,
         )
     if hac_applied and _hac_bandwidth_ill_conditioned(n, resolved_har_lags):
+        # The screen reads the RESOLVED bandwidth against the finite-pair
+        # count, which is the quantity it was calibrated on. Where the
+        # augmented design is shorter still, the kernel ran narrower than
+        # that; say so, so the text cannot contradict metadata["har_lags"].
+        narrowed = (
+            ""
+            if fit.lags_used == resolved_har_lags
+            else (
+                f" The augmented design admits only {fit.n_used - 1} lags, "
+                f"so the kernel ran at L={fit.lags_used}."
+            )
+        )
         _emit_warning(
             WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED,
             f"the resolved Bartlett bandwidth L={resolved_har_lags} exceeds "
             f"n_periods / {_MIN_PERIODS_PER_LAG} on {n} periods, so the "
-            "long-run variance rests on too few lag products to be stable.",
+            f"long-run variance rests on too few lag products to be "
+            f"stable.{narrowed}",
             label="predictive_beta",
             expected_warnings=expected_warnings,
             warning_codes=warning_codes,
@@ -498,7 +515,10 @@ def predictive_beta(
         "n_periods_finite": n,
         "residual_lag1_autocorr": resid_autocorr,
         "newey_west_lags": lags,
-        "har_lags": resolved_har_lags if hac_applied else None,
+        # The bandwidth the kernel RAN at, not the one resolved from the full
+        # series: the augmented design is ``n_periods`` rows and the Bartlett
+        # sum stops at the lags that design admits.
+        "har_lags": fit.lags_used if hac_applied else None,
         "hac_applied": hac_applied,
         "overlap_periods": overlap_periods,
         "alpha": alpha,

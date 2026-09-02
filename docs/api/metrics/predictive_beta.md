@@ -42,9 +42,11 @@ title: factrix.metrics.predictive_beta
     The raw OLS reference retained in metadata stays on the narrower
     Newey-West bandwidth and is labelled as uncorrected.
     Metadata reports the headline branch directly: `hac_applied=False` and
-    `har_lags=None` at `h = 1`; both switch to the resolved HAR path at
-    `h > 1`. The `method` string names the covariance that produced the
-    headline test.
+    `har_lags=None` at `h = 1`; both switch to the HAR path at `h > 1`. The
+    `method` string names the covariance that produced the headline test, and
+    `har_lags` is the bandwidth the kernel ran at — the augmented design is
+    `n_periods` rows, so a long horizon can leave it narrower than the
+    bandwidth resolved from the full series.
 
 -   __Persistent predictor diagnostic__
 
