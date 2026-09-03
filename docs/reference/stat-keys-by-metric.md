@@ -979,9 +979,17 @@ which reports `R²` for the OLS regression.
   flipped the verdict on draws where the two slopes are far apart.
 - *warning*: `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` when
   `n_periods_effective` is below `MIN_PERIODS_WARN`.
-- *warning*: `WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED` when the scalar HAR
-  bandwidth satisfies `L > T / 5` on at least 30 finite periods. Below 30,
-  `UNRELIABLE_SE_SHORT_PERIODS` owns the regime without a duplicate warning.
+- *warning*: `WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED` when **either** the
+  resolved bandwidth satisfies `L > n_periods_finite / 5` on at least 30 finite
+  pairs, **or** the applied bandwidth satisfies `L > n_periods / 5` on at least
+  30 rows of the augmented design. The second pair is the one the Bartlett sum
+  formed its lag products from: an explicit `newey_west_lags` can leave the
+  design thin while the finite pairs are not, and 4,252 of the 757,735
+  reachable `(n_periods_finite, overlap_periods, newey_west_lags)` cells carry
+  no other warning when it does. The message runs one clause per comparison
+  that fired, each naming the metadata key whose value it prints. This screen
+  and `UNRELIABLE_SE_SHORT_PERIODS` are not a partition — both fire wherever
+  both hold.
 - *degenerate*: zero factor variance returns `value=NaN` with
   `WarningCode.DEGENERATE_VARIANCE` and no test.
 - *short-circuit*: `reason` `insufficient_predictive_periods`,

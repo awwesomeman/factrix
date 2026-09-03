@@ -581,8 +581,20 @@ def _amihud_hurvich_beta(
     # augmented SE is a Bartlett HAC one, so the t is read against the same
     # fixed-b effective df the scalar HAR path uses (``_har_dof``). This is a
     # single-restriction slope test, so the K x K Wald argument that keeps the
-    # multivariate paths on the narrow rule does not apply to it. The df must
-    # read the bandwidth the kernel ran at, not the wider one requested.
+    # multivariate paths on the narrow rule does not apply to it. The df reads
+    # the bandwidth the kernel ran at, not the wider one requested - though
+    # under today's calibration that moves no p-value at all, and the comment
+    # says so rather than implying a fix. Measured over every reachable
+    # (n, h, lags) triple (205026 enumerated, 13968 clipped): 0 cells where the
+    # df differs, because TWO guards independently equalise them.
+    #   - A clip needs L > m - 1, which only happens at h/n around 2/3 and up,
+    #     and there the T/h - 1 overlap cap is at most -0.375 - negative, so it
+    #     wins the min() and the floor returns 1.0 on both sides.
+    #   - Even without the cap, 1.5m/L - 1 is at most 0.5 requested and 0.875
+    #     applied, both under the same floor.
+    # So the line only starts to matter if the cap and the floor are BOTH
+    # loosened; tests/stats/test_amihud_hurvich_bandwidth_report.py pins the
+    # invariant against exactly that (#1046).
     dof = float(max(m - 3, 1)) if h == 1 else _har_dof(m, lags_used, h)
     p_value = float(2 * sp_stats.t.sf(abs(t_stat), df=dof))
     return AmihudHurvichFit(

@@ -23,6 +23,7 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 import pytest
+from factrix._stats.hac import MIN_PERIODS_WARN
 from factrix.metrics.predictive_beta import predictive_beta
 
 STAT_KEYS_DOCS = Path("docs/reference/stat-keys-by-metric.md")
@@ -68,11 +69,18 @@ class TestIllConditionedMessageNamesALookupableKey:
         assert f"on the {result.metadata['n_periods_finite']} finite pairs" in message
 
     def test_message_does_not_send_a_reader_to_the_truncated_row_count(self) -> None:
-        """``n_periods`` is the augmented design's rows; the screen reads neither."""
+        """A clause names the key it printed — and only the key it printed.
+
+        The screen reads the augmented design too (#1045), but only where that
+        design can be thin. Here it holds 27 rows, below ``MIN_PERIODS_WARN``,
+        so the applied clause cannot fire and a bare ``n_periods`` in the text
+        would send a reader to a count that does not reproduce the comparison.
+        """
         result, messages = _run(90, 63, seed=9063)
         message = next(m for m in messages if "hac_bandwidth_ill_conditioned" in m)
 
         assert result.metadata["n_periods"] != result.metadata["n_periods_finite"]
+        assert result.metadata["n_periods"] < MIN_PERIODS_WARN
         assert "n_periods /" not in message
 
 
