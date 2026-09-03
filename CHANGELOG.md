@@ -10,6 +10,7 @@ maintenance starts at `v1.0.0`, when the public API is expected to be stable.
 
 ## Historical pre-1.0 GitHub releases
 
+- `v0.32.0`
 - `v0.31.0`
 - `v0.30.0`
 - `v0.29.0`
