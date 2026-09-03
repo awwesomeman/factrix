@@ -137,11 +137,16 @@ def predictive_beta(
     bandwidth and fixed-$b$ effective df this test now uses. Read an
     ``h > 1`` predictive $p$ against a raised hurdle regardless of the
     correction. ``WarningCode.OVERLAPPING_PREDICTIVE_INFERENCE`` makes that
-    known regime explicit on every such result. When the resolved bandwidth
-    also exceeds one fifth of a sample of at least 30 periods,
+    known regime explicit on every such result.
     ``WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED`` records the separate kernel
-    estimation problem; shorter samples use
-    ``WarningCode.UNRELIABLE_SE_SHORT_PERIODS`` instead.
+    estimation problem, and it reads **both** pairs: the resolved bandwidth
+    against the finite pairs, which is the quantity it was calibrated on, and
+    the applied bandwidth against the augmented design's rows, which is where
+    the Bartlett sum actually formed its lag products. The two are not
+    interchangeable — an explicit ``newey_west_lags`` can leave the design thin
+    while the finite pairs are not — and they are not a partition with
+    ``WarningCode.UNRELIABLE_SE_SHORT_PERIODS`` either: both fire together
+    wherever both hold.
 
     The covariance follows the same horizon split. At
     ``overlap_periods = 1`` the corrected test uses Amihud-Hurvich's
@@ -170,10 +175,11 @@ def predictive_beta(
 
     Branch on ``metadata["reason"]`` before reading any of them.
 
-    The ``HAC_BANDWIDTH_ILL_CONDITIONED`` message names
-    ``n_periods_finite``, not ``n_periods``. This metric is the one place the
-    two diverge — the screen is calibrated on the finite pairs, while
-    ``n_periods`` counts the truncated augmented design.
+    Each clause of the ``HAC_BANDWIDTH_ILL_CONDITIONED`` message names the key
+    whose value it prints — ``n_periods_finite`` for the finite pairs,
+    ``n_periods`` for the augmented design's rows. This metric is the one place
+    the two diverge, which is why it cannot borrow the single ``n_periods``
+    token the other HAR consumers share.
 
     **The correction costs power** where OLS's apparent power was partly
     its own bias: at $T=60,\ \phi=0.95,\ \rho=-0.9$ the corrected test
@@ -420,14 +426,47 @@ def predictive_beta(
             warning_codes=warning_codes,
             stacklevel=2,
         )
-    if hac_applied and _hac_bandwidth_ill_conditioned(n, resolved_har_lags):
-        # The screen reads the RESOLVED bandwidth against the finite-pair
-        # count, which is the quantity it was calibrated on. Where the
-        # augmented design is shorter still, the kernel ran narrower than
-        # that; say so, so the text cannot contradict metadata["har_lags"].
+    # Two pairs, not one. The RESOLVED bandwidth against the finite pairs is
+    # the quantity the screen was calibrated on. The APPLIED bandwidth against
+    # the augmented design's rows is the pair the Bartlett sum actually formed
+    # its lag products from, and the two are not the same screen: on an
+    # explicit ``newey_west_lags`` the design can be thin while the finite
+    # pairs are not, and the effective-sample screen below can be satisfied at
+    # the same time (measured: 4,252 of 757,735 reachable (n, h, lags) cells
+    # carry no warning at all today, #1045). On the DEFAULT bandwidth the 562
+    # thin-design cells all already carry UNRELIABLE_SE_SHORT_PERIODS, so this
+    # clause adds a second warning there rather than breaking a silence.
+    resolved_thin = _hac_bandwidth_ill_conditioned(n, resolved_har_lags)
+    applied_thin = _hac_bandwidth_ill_conditioned(fit.n_used, fit.lags_used)
+    if hac_applied and (resolved_thin or applied_thin):
+        # Each clause names the key whose value it prints, so a reader can
+        # reproduce the comparison the message states: ``n_periods_finite`` is
+        # the finite pairs, ``n_periods`` the truncated augmented design. This
+        # metric is the one place the two diverge, which is why the shared
+        # ``n_periods`` token of the other HAR consumers cannot be used for
+        # both.
+        clauses = []
+        if resolved_thin:
+            clauses.append(
+                f"the resolved Bartlett bandwidth L={resolved_har_lags} exceeds "
+                f"n_periods_finite / {_MIN_PERIODS_PER_LAG} on the {n} finite "
+                "pairs"
+            )
+        if applied_thin:
+            clauses.append(
+                f"the applied Bartlett bandwidth L={fit.lags_used} exceeds "
+                f"n_periods / {_MIN_PERIODS_PER_LAG} on the {fit.n_used} rows "
+                "of the augmented design"
+            )
+        # Where the kernel ran narrower than the resolved bandwidth, say so,
+        # so the text cannot contradict metadata["har_lags"] (#1038). The
+        # applied clause already prints ``fit.lags_used``, which IS
+        # ``har_lags``, so when it fires the contradiction this tail guards
+        # cannot arise and the tail would only repeat two facts already in
+        # the sentence.
         narrowed = (
             ""
-            if fit.lags_used == resolved_har_lags
+            if fit.lags_used == resolved_har_lags or applied_thin
             else (
                 f" The augmented design admits only {fit.n_used - 1} lags, "
                 f"so the kernel ran at L={fit.lags_used}."
@@ -435,15 +474,8 @@ def predictive_beta(
         )
         _emit_warning(
             WarningCode.HAC_BANDWIDTH_ILL_CONDITIONED,
-            # Name ``n_periods_finite``, not ``n_periods``. This metric is the
-            # one place the two diverge: ``n_periods`` is the truncated
-            # augmented design's row count, while the screen reads the finite
-            # pairs. A bare "n_periods" sends a reader to a number that cannot
-            # reproduce the comparison the message states.
-            f"the resolved Bartlett bandwidth L={resolved_har_lags} exceeds "
-            f"n_periods_finite / {_MIN_PERIODS_PER_LAG} on the {n} finite "
-            f"pairs, so the long-run variance rests on too few lag products "
-            f"to be stable.{narrowed}",
+            f"{' and '.join(clauses)}, so the long-run variance rests on too "
+            f"few lag products to be stable.{narrowed}",
             label="predictive_beta",
             expected_warnings=expected_warnings,
             warning_codes=warning_codes,
