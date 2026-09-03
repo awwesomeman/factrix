@@ -45,6 +45,49 @@ MYPY_PATH_RE='^factrix/.*\.py$'
 needs_mkdocs=0
 needs_mypy=0
 
+# Resolve a command that can actually START a gate tool, printing its words
+# separated by ``|``; return 1 when no environment here can.
+#
+# WHY resolve before running: ``uv run`` resolves the environment of the
+# directory it is invoked from, and a git worktree has none - it exits
+# ``Failed to spawn: mkdocs / program not found`` without mkdocs ever
+# starting. Reporting that as "mkdocs build --strict failed" sends the reader
+# hunting a docs defect that does not exist, and the way out of it is
+# ``--no-verify``, which drops every other gate along with the one that could
+# not run (#1048). The probe costs one ``uv run`` spawn per gate (about 2.7s
+# once the environment is synced); that is the price of the two outcomes
+# staying distinguishable.
+_gate_command() {
+    tool=$1
+    if command -v uv >/dev/null 2>&1 &&
+        uv run --quiet -- "$tool" --version >/dev/null 2>&1; then
+        printf 'uv|run|--quiet|--|%s' "$tool"
+        return 0
+    fi
+    # A worktree shares the main checkout's ``.git``, so the environment the
+    # gate would have used over there is the one to fall back to.
+    common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+    root=${common%/.git}
+    for py in "$root/.venv/bin/python" "$root/.venv/Scripts/python.exe"; do
+        if [ -x "$py" ] && "$py" -c "import $tool" >/dev/null 2>&1; then
+            printf '%s|-m|%s' "$py" "$tool"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Say that the gate DID NOT RUN, which is not the statement that the gate
+# failed, and do not block on it: nothing was measured, so there is no finding
+# to act on, and CI runs the same check on the pull request.
+_gate_unavailable() {
+    printf '\n' >&2
+    printf 'pre-push: %s did not run - no environment here can start it.\n' "$1" >&2
+    printf 'Nothing was measured, so this is not a gate failure. CI still checks it\n' >&2
+    printf 'on the pull request.\n' >&2
+    printf 'From a git worktree: uv sync --extra docs, or push from the main checkout.\n\n' >&2
+}
+
 # Emit ``<local_ref> <local_sha> <remote_ref> <remote_sha>`` lines in
 # Git's pre-push stdin format. Only the two SHA fields are read below,
 # so the ref fields are placeholders when synthesised.
@@ -124,28 +167,38 @@ while read -r local_ref local_sha remote_ref remote_sha; do
 done < <(_ref_lines)
 
 if [ "$needs_mkdocs" -eq 1 ]; then
-    tmp=$(mktemp -d)
-    # WHY: ``--site-dir`` to a tempdir keeps the working tree clean
-    # and avoids any race with a running ``mkdocs serve``.
-    trap 'rm -rf "$tmp"' EXIT
-    printf 'pre-push: running mkdocs build --strict (docs-relevant paths touched)...\n' >&2
-    if ! uv run mkdocs build --strict --site-dir "$tmp" >/dev/null 2>&1; then
-        printf '\n' >&2
-        printf 'pre-push blocked: mkdocs build --strict failed.\n' >&2
-        printf 'Re-run for the full error: uv run mkdocs build --strict\n' >&2
-        printf 'Bypass: git push --no-verify\n\n' >&2
-        exit 1
+    if ! gate=$(_gate_command mkdocs); then
+        _gate_unavailable "mkdocs build --strict"
+    else
+        IFS='|' read -r -a mkdocs_cmd <<<"$gate"
+        tmp=$(mktemp -d)
+        # WHY: ``--site-dir`` to a tempdir keeps the working tree clean
+        # and avoids any race with a running ``mkdocs serve``.
+        trap 'rm -rf "$tmp"' EXIT
+        printf 'pre-push: running mkdocs build --strict (docs-relevant paths touched)...\n' >&2
+        if ! "${mkdocs_cmd[@]}" build --strict --site-dir "$tmp" >/dev/null 2>&1; then
+            printf '\n' >&2
+            printf 'pre-push blocked: mkdocs build --strict failed.\n' >&2
+            printf 'Re-run for the full error: %s build --strict\n' "${mkdocs_cmd[*]}" >&2
+            printf 'Bypass: git push --no-verify\n\n' >&2
+            exit 1
+        fi
     fi
 fi
 
 if [ "$needs_mypy" -eq 1 ]; then
-    printf 'pre-push: running mypy factrix (factrix/*.py touched)...\n' >&2
-    if ! uv run mypy factrix >/dev/null 2>&1; then
-        printf '\n' >&2
-        printf 'pre-push blocked: mypy factrix failed.\n' >&2
-        printf 'Re-run for the full error: uv run mypy factrix\n' >&2
-        printf 'Bypass: git push --no-verify\n\n' >&2
-        exit 1
+    if ! gate=$(_gate_command mypy); then
+        _gate_unavailable "mypy factrix"
+    else
+        IFS='|' read -r -a mypy_cmd <<<"$gate"
+        printf 'pre-push: running mypy factrix (factrix/*.py touched)...\n' >&2
+        if ! "${mypy_cmd[@]}" factrix >/dev/null 2>&1; then
+            printf '\n' >&2
+            printf 'pre-push blocked: mypy factrix failed.\n' >&2
+            printf 'Re-run for the full error: %s factrix\n' "${mypy_cmd[*]}" >&2
+            printf 'Bypass: git push --no-verify\n\n' >&2
+            exit 1
+        fi
     fi
 fi
 
