@@ -459,10 +459,14 @@ def predictive_beta(
                 "of the augmented design"
             )
         # Where the kernel ran narrower than the resolved bandwidth, say so,
-        # so the text cannot contradict metadata["har_lags"].
+        # so the text cannot contradict metadata["har_lags"] (#1038). The
+        # applied clause already prints ``fit.lags_used``, which IS
+        # ``har_lags``, so when it fires the contradiction this tail guards
+        # cannot arise and the tail would only repeat two facts already in
+        # the sentence.
         narrowed = (
             ""
-            if fit.lags_used == resolved_har_lags
+            if fit.lags_used == resolved_har_lags or applied_thin
             else (
                 f" The augmented design admits only {fit.n_used - 1} lags, "
                 f"so the kernel ran at L={fit.lags_used}."

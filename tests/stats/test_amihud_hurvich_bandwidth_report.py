@@ -211,3 +211,38 @@ def test_pinning_the_clip_moves_no_effective_degrees_of_freedom() -> None:
                     f"L={resolved} -> {used}"
                 )
     assert clipped > 1000, "the enumeration must actually reach clipped cells"
+
+
+def test_the_clip_tail_drops_where_the_applied_clause_already_said_it() -> None:
+    """#1047 review: the tail must not repeat what the applied clause printed.
+
+    The tail exists (#1038) so the text cannot contradict
+    ``metadata["har_lags"]`` when only the resolved clause prints a bandwidth.
+    Where the applied clause fires it prints ``har_lags`` itself, so the
+    contradiction cannot arise and the tail would restate the design's row
+    count and applied bandwidth a second time.
+    """
+    rng = np.random.default_rng(9060)
+    n, h = 90, 60
+    x = rng.standard_normal(n)
+    y = 0.1 * x + rng.standard_normal(n)
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", UserWarning)
+        result = predictive_beta(_ts_panel(x, y), overlap_periods=h)
+    message = next(
+        str(item.message)
+        for item in caught
+        if "hac_bandwidth_ill_conditioned" in str(item.message)
+    )
+    metadata = result.metadata
+
+    # The cell: the bandwidth was clipped AND the applied clause fires, which
+    # is the only combination the tail is dropped for.
+    assert metadata["har_lags"] == metadata["n_periods"] - 1
+    assert (
+        f"the applied Bartlett bandwidth L={metadata['har_lags']} exceeds "
+        f"n_periods / {_MIN_PERIODS_PER_LAG} on the {metadata['n_periods']} rows "
+        "of the augmented design"
+    ) in message
+    assert "admits only" not in message
