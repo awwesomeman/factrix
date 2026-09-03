@@ -106,6 +106,16 @@ to each clone.
 | `commit-msg` | Commit-message and contributor-trailer policy |
 | `pre-push` | Strict docs build for docs-relevant paths, mypy for package paths, and release-note checks where applicable |
 
+The `pre-push` gates run through `uv run`, which resolves the environment of
+the directory the push is issued from. A **git worktree** has no environment of
+its own, so the gates fall back to the main checkout's `.venv`; where neither
+can start a tool the hook says the gate *did not run* and lets the push
+through, rather than reporting it as a gate failure. Nothing was measured in
+that case, and CI still runs the same check on the pull request — but if you
+want the local feedback back, `uv sync --extra docs` inside the worktree gives
+it one of its own. Reach for `git push --no-verify` only when you mean to skip
+gates that *can* run; it drops all of them, including the release-note check.
+
 Run the lint stage directly with:
 
 ```bash
