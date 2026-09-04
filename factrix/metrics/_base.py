@@ -13,7 +13,7 @@ from factrix._axis import (
     SpecRole,
 )
 from factrix._data_input import (
-    _OVERLAP_PERIODS_COL,
+    _read_overlap_periods_stamp,
     _validate_named_columns,
     _validate_overlap_periods,
     _validate_panel_key_columns,
@@ -329,8 +329,7 @@ class MetricBase(metaclass=MetricMeta):
             object.__setattr__(inst, "overlap_periods", overlap_periods)
         return type(self)._resolve_sample_threshold(inst)
 
-    @staticmethod
-    def _stamped_overlap_periods(data: Any) -> int | None:
+    def _stamped_overlap_periods(self, data: Any) -> int | None:
         """Read the panel's overlap horizon from the reserved stamp column.
 
         ``compute_forward_return`` stamps the horizon it built ``forward_return``
@@ -341,14 +340,7 @@ class MetricBase(metaclass=MetricMeta):
         unstamped panel (the caller's explicit argument, then the signature
         default, still applies) and for a non-frame input (series consumers).
         """
-        columns = getattr(data, "columns", None)
-        if columns is None or _OVERLAP_PERIODS_COL not in columns:
-            return None
-        stamp = data[_OVERLAP_PERIODS_COL]
-        if len(stamp) == 0:
-            return None
-        value = stamp[0]
-        return None if value is None else int(value)
+        return _read_overlap_periods_stamp(data, func_name=self.__class__.__name__)
 
     def _inject(
         self,

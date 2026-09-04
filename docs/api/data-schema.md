@@ -130,6 +130,14 @@ metadata does not. A self-attached `forward_return` panel carries neither
 stamp and declares `forward_periods=` (and, on a coarser grid,
 `overlap_periods=`) on `evaluate`.
 
+Every present stamp must remain a non-null positive integer with one value
+over the complete panel. Public entry points reject mixed or invalid stamp
+columns before dispatch (and before `by_slice` partitions the frame), because
+otherwise row or slice order could select a different hypothesis and inference
+configuration. Evaluate different return horizons as separate panels with
+[`evaluate_horizons`](multi-horizon.md); do not concatenate their stamped rows
+into one panel.
+
 ---
 
 ## Common errors

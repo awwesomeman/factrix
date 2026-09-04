@@ -82,8 +82,7 @@ from factrix._data_input import (
     _STAMP_COLUMNS,
     DataInput,
     _coerce_data,
-    _read_forward_periods_stamp,
-    _resolve_forward_periods,
+    _resolve_horizons,
     _resolve_overlap_periods,
     _validate_overlap_periods,
 )
@@ -277,8 +276,7 @@ def evaluate(
     # projection, or to_frame. A self-attached forward_return panel (no stamp)
     # must declare its horizon once via forward_periods= (path B); its
     # overlap defaults to the horizon unless declared via overlap_periods=.
-    fp = _resolve_forward_periods(data, forward_periods)
-    op = _resolve_overlap_periods(data, overlap_periods, horizon=fp)
+    fp, op = _resolve_horizons(data, forward_periods, overlap_periods)
     data = data.drop([c for c in _STAMP_COLUMNS if c in data.columns])
 
     from factrix.metrics._base import MetricBase
@@ -747,7 +745,7 @@ def sample_requirements(
         op = _resolve_overlap_periods(
             data,
             overlap_periods,
-            horizon=_read_forward_periods_stamp(data),
+            horizon=None,
             func_name="sample_requirements",
         )
     elif overlap_periods is not None:
