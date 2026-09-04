@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 import polars as pl
 
 from factrix._codes import WarningCode, _emit_warning, _validate_expected_warnings_arg
+from factrix._data_input import _read_horizon_stamps
 from factrix._results import Warning
 from factrix.slicing._primitive import _slice_by
 
@@ -151,6 +152,10 @@ def by_slice(
     expected = _validate_expected_warnings_arg(
         expected_warnings, func_name="by_slice", docs_path=_DOCS_BY_SLICE
     )
+    # Validate the data-level horizon contract before partitioning. Otherwise
+    # each slice can carry one internally constant but mutually different stamp,
+    # hiding a mixed-horizon input from the per-slice evaluate calls.
+    _read_horizon_stamps(data, func_name="by_slice")
     sliced = _slice_by(data, by)
     label = _metric_label(metric)
     truncation = _warn_date_axis_truncation(
