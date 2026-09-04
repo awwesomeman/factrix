@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from typing import TypedDict
+
 import numpy as np
 import numpy.typing as npt
 import polars as pl
-from typing_extensions import TypedDict
 
 from factrix._axis import (
     Aggregation,
