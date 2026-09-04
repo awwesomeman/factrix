@@ -17,6 +17,50 @@ title: factrix.evaluate
 
 <hr>
 
+## Full price data for event paths
+
+`compute_forward_return` returns the evaluation panel: it removes rows whose
+forward return cannot be formed and, with `dates=`, keeps only the chosen
+evaluation dates. Those rows are the correct sample for return metrics, but
+they are not a complete price path. A later event offset or MFE/MAE window can
+need prices from the removed tail or from dates between evaluations.
+
+Keep the three grids separate by passing the original panel as `price_data`:
+
+```python
+import factrix as fx
+
+raw = fx.datasets.make_event_panel(n_assets=50, n_dates=400, rng=7)
+panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
+
+result = fx.evaluate(
+    panel,
+    price_data=raw,
+    metrics={
+        "path": fx.metrics.event_around_return(offsets=[-1, 6, 12, 24]),
+        "excursion": fx.metrics.mfe_mae(),
+    },
+    factor_cols=["factor"],
+    strict=False,
+)["factor"]
+```
+
+| Input/grid | Owns | Never contributes to |
+|---|---|---|
+| `price_data` price grid | Complete per-asset prices used by offsets, excursion windows, and the event baseline | Forward-return samples, sample floors, or factor routing |
+| `data` evaluation grid | Eligible event dates and the rows selected by `dates=` | Prices outside the returned panel |
+| Finite `data.forward_return` rows | Return estimates and their effective sample | Extending an event price path |
+
+`price_data` must contain unique `(date, asset_id)` keys plus `price`; its key
+dtypes must exactly match `data`. Extra columns are ignored, so the event and
+factor authority cannot silently move to the side panel. If `price_data` is
+omitted, event paths continue to use `data.price` for backward compatibility.
+`evaluate_horizons` already owns the raw panel and forwards it automatically.
+
+This is an additive API in the pre-1.0 line: existing calls keep their prior
+behavior. Migrate event-path calls that preprocess returns by retaining `raw`
+and adding `price_data=raw`; no change is needed for return-only metrics.
+
 ## `forward_periods=` and `overlap_periods=`
 
 Both are properties of the data, normally read from the stamps

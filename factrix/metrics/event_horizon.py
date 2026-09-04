@@ -25,6 +25,7 @@ from factrix._axis import (
     Aggregation,
     FactorDensity,
 )
+from factrix._data_input import DataInput, _coerce_price_data
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._types import DDOF, EPSILON
@@ -35,7 +36,10 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
     _warn_ragged_event_grid,
 )
-from factrix.metrics._primitives import compute_event_returns
+from factrix.metrics._primitives import compute_event_returns as compute_event_returns
+from factrix.metrics._primitives._event_returns import (
+    _compute_event_returns_with_audit,
+)
 
 __all__ = [
     "event_around_return",
@@ -94,6 +98,7 @@ def _unconditional_bar_return(
 def event_around_return(
     data: pl.DataFrame,
     *,
+    price_data: DataInput | None = None,
     offsets: list[int] | None = None,
     factor_col: str = "factor",
     price_col: str = "price",
@@ -120,10 +125,17 @@ def event_around_return(
 
     Args:
         data: Panel with ``date, asset_id, factor, price``.
+        price_data: Optional complete ``date, asset_id, price`` panel. Events
+            come from ``data``; offsets and the unconditional bar-return
+            baseline use this full price grid. Pass the raw panel when
+            ``data`` came from ``compute_forward_return``.
         offsets: Defaults to ``[-6, -3, -1, 1, 6, 12, 24]``.
 
     Returns:
-        MetricResult with per-offset stats in metadata. When price data is
+        MetricResult with per-offset stats and audit counts in metadata.
+        Every ``per_offset[k]`` includes ``eligible``, ``computed``,
+        ``censored``, and ``censor_reasons``; ``n`` remains an alias for the
+        computed count. When price data is
         unavailable or the unconditional baseline cannot be computed from
         valid positive prices, returns a short-circuit MetricResult
         (``value=NaN``) so all metrics share a single return contract.
@@ -193,24 +205,42 @@ def event_around_return(
         >>> result.name == ""
         True
     """
-    if offsets is None:
-        offsets = [-6, -3, -1, 1, 6, 12, 24]
-
-    event_rets = compute_event_returns(
+    resolved_offsets = [-6, -3, -1, 1, 6, 12, 24] if offsets is None else offsets
+    resolved_prices = _coerce_price_data(
+        price_data,
+        data=data,
+        func_name="event_around_return",
+        price_col=price_col,
+    )
+    event_rets, offset_audit = _compute_event_returns_with_audit(
         data,
-        offsets=offsets,
+        price_data=resolved_prices,
+        offsets=resolved_offsets,
         factor_col=factor_col,
         price_col=price_col,
     )
+    per_offset: dict[int, dict[str, object]] = {
+        offset: {**audit, "mean": None, "n": int(audit["computed"])}
+        for offset, audit in offset_audit.items()
+    }
+    n_events_eligible = (
+        int(next(iter(offset_audit.values()))["eligible"]) if offset_audit else 0
+    )
 
     if event_rets.is_empty():
+        only_missing_price = bool(offset_audit) and all(
+            audit["censor_reasons"] == {"missing_price_column": n_events_eligible}
+            for audit in offset_audit.values()
+        )
         return _short_circuit_output(
             "event_around_return",
-            "no_price_data",
+            "no_price_data" if only_missing_price else "no_computed_event_offsets",
             descriptive=True,
             n_obs=0,
             n_obs_axis="events",
-            per_offset={},
+            n_events=0,
+            n_events_eligible=n_events_eligible,
+            per_offset=per_offset,
         )
 
     n_events = event_rets.select("date", "asset_id").n_unique()
@@ -218,7 +248,8 @@ def event_around_return(
     # every offset is measured against. A bad observed price invalidates the
     # whole baseline; dropping only its affected return would silently change
     # the estimand and still publish a finite-looking hit rate.
-    baseline, n_invalid_prices = _unconditional_bar_return(data, price_col)
+    path_data = data if resolved_prices is None else resolved_prices
+    baseline, n_invalid_prices = _unconditional_bar_return(path_data, price_col)
     if baseline is None:
         reason = (
             "invalid_price_data" if n_invalid_prices else "no_finite_baseline_returns"
@@ -230,20 +261,19 @@ def event_around_return(
             n_obs=n_events,
             n_obs_axis="events",
             n_events=n_events,
+            n_events_eligible=n_events_eligible,
             n_invalid_prices=n_invalid_prices,
             baseline_bar_return=None,
-            per_offset={},
+            per_offset=per_offset,
         )
 
-    per_offset: dict[int, dict] = {}
     pre_leakage_vals: list[float] = []
     pre_leakage_se: list[float] = []
 
-    for k in offsets:
+    for k in resolved_offsets:
         subset = event_rets.filter(pl.col("offset") == k)
         n = len(subset)
         if n < 5:
-            per_offset[k] = {"mean": None, "n": n}
             continue
 
         arr = subset["signed_return"].to_numpy()
@@ -256,6 +286,7 @@ def event_around_return(
         mean_v = float(np.mean(excess))
         se = float(np.std(excess, ddof=DDOF) / np.sqrt(n)) if n > 1 else float("nan")
         per_offset[k] = {
+            **offset_audit[k],
             "mean": mean_v,
             "se": se,
             # The scale the score has to be read against: |mean| of a true null
@@ -292,7 +323,10 @@ def event_around_return(
     # row count is not it; the distinct event count is.
     warning_codes: list[str] = []
     _warn_ragged_event_grid(
-        "event_around_return", data, warning_codes, expected_warnings=expected_warnings
+        "event_around_return",
+        path_data,
+        warning_codes,
+        expected_warnings=expected_warnings,
     )
 
     return MetricResult(
@@ -303,6 +337,7 @@ def event_around_return(
         warning_codes=tuple(warning_codes),
         metadata={
             "n_events": n_events,
+            "n_events_eligible": n_events_eligible,
             "per_offset": per_offset,
             "baseline_bar_return": baseline,
             # The null scale of the headline: E|x̄| ≈ 0.8 σ/√n > 0 under no

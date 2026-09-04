@@ -49,10 +49,36 @@ title: factrix.metrics.event_horizon
 !!! warning "Invalid prices withdraw the curve"
     `event_around_return` needs a finite unconditional bar-return baseline.
     Any observed non-finite or non-positive `price` invalidates that baseline,
-    so the metric returns `value=NaN`, an empty `per_offset`, and
+    so the metric returns `value=NaN`, audited `per_offset` entries, and
     `WarningCode.METRIC_UNAVAILABLE` with `reason="invalid_price_data"`.
     Missing (`null`) observations remain allowed on ragged panels; fix invalid
     observed prices rather than interpreting a contaminated finite hit rate.
+
+## Complete price paths and censoring audit
+
+An evaluation panel produced by `compute_forward_return` has a shorter tail
+than its raw price input. Pass that raw panel as `price_data` so an event that
+remains eligible can still reach every available offset:
+
+```python
+import factrix as fx
+from factrix.metrics.event_horizon import event_around_return
+
+raw = fx.datasets.make_event_panel(n_assets=50, n_dates=400, rng=7)
+panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
+out = fx.evaluate(
+    panel,
+    price_data=raw,
+    metrics={"path": event_around_return(offsets=[-1, 6, 12, 24])},
+    factor_cols=["factor"],
+    strict=False,
+)["factor"].metrics["path"]
+```
+
+Each `per_offset[k]` reports `eligible`, `computed`, `censored`, and a
+`censor_reasons` count mapping. Reasons distinguish an out-of-grid offset,
+missing entry/exit price, invalid denominator, missing asset, and missing price
+column. `n` remains the computed count used for the summary statistic.
 
 ## Use cases
 

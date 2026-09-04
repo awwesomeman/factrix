@@ -101,6 +101,9 @@ def mfe_mae(
         data (empty input or fewer than ``MIN_EVENTS_HARD`` rows), returns a
         short-circuit MetricResult (``value=NaN``, ``metadata["reason"]``
         set) so all metrics share a single return contract.
+        ``metadata`` always reports ``n_events_eligible``,
+        ``n_events_computed``, ``n_events_censored``, and
+        ``censor_reasons`` when the producer output is non-empty.
 
     Notes:
         Headline ``ratio = MFE_p50 / |MAE_p25|`` =
@@ -167,6 +170,10 @@ def mfe_mae(
             descriptive=True,
             mfe_mae_ratio=float("nan"),
             n_events=0,
+            n_events_eligible=0,
+            n_events_computed=0,
+            n_events_censored=0,
+            censor_reasons={},
         )
 
     # The panel itself is one DAG node upstream, so compute_mfe_mae measures
@@ -181,10 +188,53 @@ def mfe_mae(
             expected_warnings=expected_warnings,
         )
 
-    mfe = mfe_mae_df["mfe"].drop_nulls().drop_nans()
-    mae = mfe_mae_df["mae"].drop_nulls().drop_nans()
+    valid = mfe_mae_df.filter(pl.col("mfe").is_finite() & pl.col("mae").is_finite())
+    n_events_eligible = mfe_mae_df.height
+    n_events = valid.height
+    n_events_censored = n_events_eligible - n_events
+    if "censor_reason" in mfe_mae_df.columns:
+        reason_rows = (
+            mfe_mae_df.filter(pl.col("censor_reason") != "")
+            .group_by("censor_reason")
+            .len()
+        )
+        censor_reasons = {
+            str(reason): int(count) for reason, count in reason_rows.iter_rows()
+        }
+    elif n_events_censored:
+        censor_reasons = {"non_finite_excursion": n_events_censored}
+    else:
+        censor_reasons = {}
 
-    n_events = min(len(mfe), len(mae))
+    audit = {
+        "n_events": n_events,
+        "n_events_eligible": n_events_eligible,
+        "n_events_computed": n_events,
+        "n_events_censored": n_events_censored,
+        "censor_reasons": censor_reasons,
+    }
+    if n_events == 0:
+        reason = (
+            "no_price_data"
+            if censor_reasons == {"missing_price_column": n_events_eligible}
+            else "no_complete_event_paths"
+        )
+        return _short_circuit_output(
+            "mfe_mae",
+            reason,
+            descriptive=True,
+            n_obs=0,
+            n_obs_axis="events",
+            mfe_mae_ratio=float("nan"),
+            n_events=n_events,
+            n_events_eligible=n_events_eligible,
+            n_events_computed=n_events,
+            n_events_censored=n_events_censored,
+            censor_reasons=censor_reasons,
+        )
+
+    mfe = valid["mfe"]
+    mae = valid["mae"]
     sc = _enforce_min_floor(
         mfe_mae,
         "mfe_mae",
@@ -195,6 +245,10 @@ def mfe_mae(
         warning_codes=tuple(warning_codes),
         mfe_mae_ratio=float("nan"),
         n_events=n_events,
+        n_events_eligible=n_events_eligible,
+        n_events_computed=n_events,
+        n_events_censored=n_events_censored,
+        censor_reasons=censor_reasons,
     )
     if sc is not None:
         return sc
@@ -211,13 +265,16 @@ def mfe_mae(
         "mae_p25": mae_p25,
         "mfe_mae_ratio": ratio,
         "mfe_mae_ratio_status": status,
-        "n_events": n_events,
+        **audit,
     }
 
     # Normalized quantiles (apples-to-apples across horizons / vol regimes).
     if "mfe_z" in mfe_mae_df.columns:
-        mfe_z = mfe_mae_df["mfe_z"].drop_nulls().drop_nans()
-        mae_z = mfe_mae_df["mae_z"].drop_nulls().drop_nans()
+        z_valid = valid.filter(
+            pl.col("mfe_z").is_finite() & pl.col("mae_z").is_finite()
+        )
+        mfe_z = z_valid["mfe_z"]
+        mae_z = z_valid["mae_z"]
         if len(mfe_z) >= MIN_EVENTS_HARD and len(mae_z) >= MIN_EVENTS_HARD:
             mfe_z_p50 = float(mfe_z.quantile(0.50))  # type: ignore[arg-type]
             mae_z_p25 = float(mae_z.quantile(0.25))  # type: ignore[arg-type]

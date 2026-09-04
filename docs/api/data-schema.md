@@ -110,6 +110,13 @@ projected per factor before a metric's keyword arguments are known, so a
 `inspect_data` reports `quantile_spread_vw` as unusable, with a blocker naming
 the column, on a panel that has no `market_cap`.
 
+For event paths, a `price` column on the evaluation panel can only cover that
+panel's retained rows. Pass the original full panel separately as
+[`evaluate(..., price_data=raw)`](evaluate.md#full-price-data-for-event-paths)
+when preprocessing removed the forward-return tail or selected a coarser
+evaluation grid. `data` owns events and return samples; `price_data` owns only
+the complete price grid.
+
 ## Reserved columns
 
 [`compute_forward_return`](preprocess.md) stamps two constant `Int32`
@@ -158,10 +165,10 @@ Full error taxonomy and recovery patterns: [Errors](errors.md).
 The canonical pipeline from raw price/event data to evaluate-ready panel:
 
 ```
-raw price panel  ──compute_forward_return(h)──▶  (date, asset_id, factor, forward_return)
-                                                           │
-                                                           ▼
-                                                        evaluate / by_slice / ...
+raw panel ──compute_forward_return(h)──▶ evaluation + forward-return sample
+    └──────────────── price_data ────────────────┐
+                                                 ▼
+                                           evaluate(...)
 ```
 
 Pre-attachment helpers live in [`factrix.preprocess`](preprocess.md); synthetic panels in [`factrix.datasets`](datasets.md). Wide-format multi-factor inputs are handled by passing the column names through `factor_cols=` on a single `evaluate` call rather than by reshaping the panel.

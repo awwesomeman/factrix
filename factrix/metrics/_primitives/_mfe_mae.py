@@ -11,6 +11,7 @@ from factrix._axis import (
     OutputShape,
     SpecRole,
 )
+from factrix._data_input import DataInput, _coerce_price_data
 from factrix._metric_index import cell
 from factrix._stats.constants import DEFAULT_MIN_ESTIMATION_PERIODS
 from factrix._types import EPSILON
@@ -39,7 +40,28 @@ def _empty_mfe_mae_schema(date_dtype: pl.DataType) -> dict[str, pl.DataType]:
         "est_sigma": pl.Float64(),
         "bars_to_mfe": pl.Int32(),
         "bars_to_mae": pl.Int32(),
+        "path_status": pl.String(),
+        "censor_reason": pl.String(),
         "ragged_period_grid_note": pl.String(),
+    }
+
+
+def _censored_mfe_mae_row(
+    event_date: object, asset_id: object, reason: str
+) -> dict[str, object]:
+    """One auditable event whose requested excursion path was unavailable."""
+    return {
+        "date": event_date,
+        "asset_id": asset_id,
+        "mfe": None,
+        "mae": None,
+        "mfe_z": None,
+        "mae_z": None,
+        "est_sigma": None,
+        "bars_to_mfe": None,
+        "bars_to_mae": None,
+        "path_status": "censored",
+        "censor_reason": reason,
     }
 
 
@@ -75,6 +97,7 @@ def _validate_compute_mfe_mae(m: MetricBase) -> None:
 def compute_mfe_mae(
     data: pl.DataFrame,
     *,
+    price_data: DataInput | None = None,
     window: int = 20,
     estimation_window: int = 60,
     min_estimation_periods: int = DEFAULT_MIN_ESTIMATION_PERIODS,
@@ -145,18 +168,51 @@ def compute_mfe_mae(
         ``bars_to_mfe`` / ``bars_to_mae`` are ``0`` when the floor binds —
         the excursion is attained at entry, before any path bar — and
         otherwise stay 1-based offsets into the post-event window.
+
+    Args:
+        data: Evaluation panel owning event dates and factor values.
+        price_data: Optional complete ``date, asset_id, price`` panel. When
+            supplied, excursion and estimation windows walk this price grid
+            while events still come only from ``data``.
+
+    Returns:
+        One row per eligible event. A complete path has
+        ``path_status="computed"``; an event with no computable path is
+        retained with null excursion fields, ``path_status="censored"``, and
+        a machine-readable ``censor_reason``.
     """
     date_dtype = data.schema["date"]
     empty_schema = _empty_mfe_mae_schema(date_dtype)
-
-    if price_col not in data.columns:
-        return pl.DataFrame(schema=empty_schema)
 
     sorted_df = data.sort(["asset_id", "date"])
     events = sorted_df.filter(pl.col(factor_col) != 0)
 
     if len(events) == 0:
         return pl.DataFrame(schema=empty_schema)
+
+    resolved_prices = _coerce_price_data(
+        price_data,
+        data=data,
+        func_name="compute_mfe_mae",
+        price_col=price_col,
+    )
+    paths = data if resolved_prices is None else resolved_prices
+    ragged_note = _ragged_event_grid_message(paths) or ""
+    if price_col not in paths.columns:
+        return pl.DataFrame(
+            [
+                _censored_mfe_mae_row(
+                    row["date"], row["asset_id"], "missing_price_column"
+                )
+                for row in events.iter_rows(named=True)
+            ]
+        ).with_columns(
+            pl.col("date").cast(date_dtype),
+            pl.col("mfe", "mae", "mfe_z", "mae_z", "est_sigma").cast(pl.Float64),
+            pl.col("bars_to_mfe").cast(pl.Int32),
+            pl.col("bars_to_mae").cast(pl.Int32),
+            pl.lit(ragged_note, dtype=pl.String).alias("ragged_period_grid_note"),
+        )
 
     # One partition pass over the event-bearing assets instead of an
     # ``asset_id == a`` filter per asset (which re-scanned the whole panel N
@@ -169,7 +225,7 @@ def compute_mfe_mae(
     # excursion rather than a period that is stepped over (which stretched a
     # ``window``-period excursion across more grid periods on a ragged name).
     # The grid is the whole panel's, so non-event assets still define it.
-    dense, _ = _densify_on_period_grid(sorted_df)
+    dense, _ = _densify_on_period_grid(paths.sort(["asset_id", "date"]))
     asset_groups: dict[str, tuple[dict, np.ndarray]] = {}
     for key, asset_data in (
         dense.filter(pl.col("asset_id").is_in(list(event_assets)))
@@ -187,19 +243,41 @@ def compute_mfe_mae(
         event_date = row["date"]
         direction = 1.0 if row[factor_col] > 0 else -1.0
 
-        date_to_idx, prices = asset_groups[asset_id]
+        group = asset_groups.get(asset_id)
+        if group is None:
+            rows.append(
+                _censored_mfe_mae_row(event_date, asset_id, "asset_not_in_price_data")
+            )
+            continue
+        date_to_idx, prices = group
         idx = date_to_idx.get(event_date)
         if idx is None:
+            rows.append(
+                _censored_mfe_mae_row(
+                    event_date, asset_id, "event_date_not_on_price_grid"
+                )
+            )
             continue
 
         entry_price = prices[idx]
-        if not np.isfinite(entry_price) or entry_price < EPSILON:
+        if not np.isfinite(entry_price):
+            rows.append(
+                _censored_mfe_mae_row(event_date, asset_id, "missing_entry_price")
+            )
+            continue
+        if entry_price < EPSILON:
+            rows.append(
+                _censored_mfe_mae_row(event_date, asset_id, "invalid_entry_price")
+            )
             continue
 
         # ``window`` grid periods after the event bar, whether or not this
         # asset trades on all of them.
         end_idx = min(idx + window + 1, len(prices))
         if idx + 1 >= end_idx:
+            rows.append(
+                _censored_mfe_mae_row(event_date, asset_id, "window_out_of_bounds")
+            )
             continue
 
         future_prices = prices[idx + 1 : end_idx]
@@ -209,6 +287,9 @@ def compute_mfe_mae(
         # poisons the extremes with NaN nor pulls a later period into the
         # window to replace itself.
         if not np.isfinite(signed_returns).any():
+            rows.append(
+                _censored_mfe_mae_row(event_date, asset_id, "missing_path_prices")
+            )
             continue
         signed_returns = np.where(np.isfinite(signed_returns), signed_returns, np.nan)
 
@@ -261,6 +342,8 @@ def compute_mfe_mae(
                 "est_sigma": est_sigma,
                 "bars_to_mfe": bars_to_mfe,
                 "bars_to_mae": bars_to_mae,
+                "path_status": "computed",
+                "censor_reason": "",
             }
         )
 
@@ -269,13 +352,12 @@ def compute_mfe_mae(
 
     return pl.DataFrame(rows).with_columns(
         pl.col("date").cast(date_dtype),
+        pl.col("mfe", "mae", "mfe_z", "mae_z", "est_sigma").cast(pl.Float64),
         pl.col("bars_to_mfe").cast(pl.Int32),
         pl.col("bars_to_mae").cast(pl.Int32),
         # Raggedness is a property of the panel, which only this node sees;
         # ``mfe_mae`` reads the note off the frame and records the code there.
         # Empty rather than null on a dense panel, so a caller's ``drop_nulls``
         # over the per-event table does not empty it.
-        pl.lit(_ragged_event_grid_message(data) or "", dtype=pl.String).alias(
-            "ragged_period_grid_note"
-        ),
+        pl.lit(ragged_note, dtype=pl.String).alias("ragged_period_grid_note"),
     )
