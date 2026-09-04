@@ -97,24 +97,26 @@ class TestComputeForwardReturn:
     def test_stamps_overlap_horizon(self):
         from factrix._data_input import (
             _FORWARD_PERIODS_COL,
-            _read_forward_periods_stamp,
+            _read_horizon_stamps,
         )
 
         result = compute_forward_return(_make_price_data(), forward_periods=3)
         assert _FORWARD_PERIODS_COL in result.columns
-        assert _read_forward_periods_stamp(result) == 3
+        forward, _ = _read_horizon_stamps(result, func_name="compute_forward_return")
+        assert forward == 3
         # one constant value across all rows
         assert result[_FORWARD_PERIODS_COL].n_unique() == 1
 
     def test_overwrite_restamps_new_horizon(self):
         import factrix as fx
-        from factrix._data_input import _read_forward_periods_stamp
+        from factrix._data_input import _read_horizon_stamps
 
         raw = fx.datasets.make_cs_panel(n_assets=10, n_dates=60, rng=0)
         once = compute_forward_return(raw, forward_periods=1)
         changed = compute_forward_return(once, forward_periods=2, overwrite=True)
         assert changed.height > 0
-        assert _read_forward_periods_stamp(changed) == 2
+        forward, _ = _read_horizon_stamps(changed, func_name="compute_forward_return")
+        assert forward == 2
 
     def test_drops_nan_and_inf_forward_returns(self):
         dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(6)]

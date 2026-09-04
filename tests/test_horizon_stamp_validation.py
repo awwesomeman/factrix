@@ -62,6 +62,10 @@ def test_evaluate_rejects_mixed_stamps_regardless_of_row_order(
     assert excinfo.value.func_name == "evaluate"
     assert excinfo.value.field == column
     assert "constant" in str(excinfo.value)
+    # The rejection prints the values the column actually carries, and links to
+    # the page that states the complete-panel contract.
+    assert excinfo.value.value == [1, 5]
+    assert excinfo.value.docs_url.endswith("/api/data-schema")
 
 
 @pytest.mark.parametrize("column", _STAMP_COLUMNS)
@@ -91,6 +95,26 @@ def test_evaluate_rejects_invalid_stamp_columns(
     assert excinfo.value.func_name == "evaluate"
     assert excinfo.value.field == column
     assert "positive integer" in str(excinfo.value)
+
+
+@pytest.mark.parametrize("column", _STAMP_COLUMNS)
+def test_mixed_stamp_message_caps_the_enumerated_values(
+    stamped_panel: pl.DataFrame,
+    column: str,
+) -> None:
+    """More distinct values than the preview are summarised, not dumped."""
+    values = [i % 9 + 1 for i in range(stamped_panel.height)]
+    panel = _replace_stamp(stamped_panel, column, values, dtype=pl.Int32)
+
+    with pytest.raises(UserInputError) as excinfo:
+        fx.evaluate(
+            panel,
+            metrics={"ic": ic()},
+            factor_cols=["factor"],
+            strict=False,
+        )
+
+    assert excinfo.value.value == "[1, 2, 3, 4, 5] (5 of 9)"
 
 
 @pytest.mark.parametrize("column", _STAMP_COLUMNS)
@@ -155,6 +179,13 @@ def test_slice_inference_validates_both_stamp_columns(
 def test_valid_constant_stamps_preserve_existing_results(
     stamped_panel: pl.DataFrame,
 ) -> None:
+    """Pinning guard, not regression proof.
+
+    Unlike every other test here, this one passes on the unvalidated code as
+    well: it exists to pin that adding the complete-panel screen leaves a
+    valid single-horizon panel resolving exactly as it did before, on both the
+    ``evaluate`` and the standalone path.
+    """
     standalone = quantile_spread(stamped_panel, n_groups=3)["factor"]
     evaluated = fx.evaluate(
         stamped_panel,

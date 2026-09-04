@@ -91,6 +91,11 @@ _OVERLAP_PERIODS_COL: str = "_overlap_periods"
 # the rejected set and the stripped set can never drift apart.
 _STAMP_COLUMNS: tuple[str, ...] = (_FORWARD_PERIODS_COL, _OVERLAP_PERIODS_COL)
 
+# How many distinct stamp values a rejection message enumerates. Mirrors the
+# "N of M" idiom :class:`UserInputError` already uses for candidate lists, and
+# caps what a pathological column materialises into the message.
+_STAMP_VALUE_PREVIEW: int = 5
+
 
 def _stamp_horizons(
     data: pl.DataFrame, *, forward_periods: int, overlap_periods: int
@@ -121,15 +126,15 @@ def _read_int_stamp(
         return None
 
     stamp = data.get_column(column)
-    docs_path = (
-        _DOCS_FORWARD_PERIODS
-        if column == _FORWARD_PERIODS_COL
-        else _DOCS_OVERLAP_PERIODS
-    )
+    # The complete-panel contract is stated on the data-schema page, so every
+    # rejection here links there rather than to the evaluate() argument pair a
+    # caller is not using.
+    docs_path = _DOCS_DATA_SCHEMA
     expected = (
         "one constant, non-null positive integer on every row. Reserved "
-        "horizon stamps describe the complete panel; rebuild or de-duplicate "
-        "the panel before evaluation"
+        "horizon stamps describe the complete panel; evaluate a different "
+        "return horizon as its own panel (see evaluate_horizons) rather than "
+        "concatenating stamped rows from several horizons"
     )
 
     if not stamp.dtype.is_integer():
@@ -153,11 +158,18 @@ def _read_int_stamp(
 
     n_unique = stamp.n_unique()
     if n_unique != 1:
-        preview = stamp.unique().sort().head(5).to_list()
+        # Print the values the column actually carries: the rendered line reads
+        # ``invalid _forward_periods=[1, 5]``, which is the fact the reader has
+        # to act on. Only a tail longer than the preview needs the count.
+        preview = stamp.unique().sort().head(_STAMP_VALUE_PREVIEW).to_list()
         raise UserInputError(
             func_name=func_name,
             field=column,
-            value={"n_unique": n_unique, "values_preview": preview},
+            value=(
+                preview
+                if n_unique <= _STAMP_VALUE_PREVIEW
+                else f"{preview!r} ({_STAMP_VALUE_PREVIEW} of {n_unique})"
+            ),
             expected=expected,
             docs_path=docs_path,
         )
@@ -184,18 +196,13 @@ def _read_horizon_stamps(
     )
 
 
-def _read_forward_periods_stamp(
-    data: object, *, func_name: str = "_read_forward_periods_stamp"
-) -> int | None:
-    """Read the stamped return horizon, or ``None`` when the panel carries none."""
-    forward_periods, _ = _read_horizon_stamps(data, func_name=func_name)
-    return forward_periods
+def _read_overlap_periods_stamp(data: object, *, func_name: str) -> int | None:
+    """Read the stamped evaluation-grid overlap, or ``None`` when absent.
 
-
-def _read_overlap_periods_stamp(
-    data: object, *, func_name: str = "_read_overlap_periods_stamp"
-) -> int | None:
-    """Read the stamped evaluation-grid overlap, or ``None`` when absent."""
+    Validates both stamp columns, not just the one it returns: the horizon pair
+    is one data contract, and ``func_name`` names the caller a rejection is
+    reported against, so it is required rather than defaulted to this helper.
+    """
     _, overlap_periods = _read_horizon_stamps(data, func_name=func_name)
     return overlap_periods
 
@@ -278,14 +285,6 @@ def _resolve_forward_periods_from_stamp(
     )
 
 
-def _resolve_forward_periods(
-    data: pl.DataFrame, declared: int | None, *, func_name: str = "evaluate"
-) -> int:
-    """Validate both stamps and resolve the panel's economic return horizon."""
-    stamp, _ = _read_horizon_stamps(data, func_name=func_name)
-    return _resolve_forward_periods_from_stamp(stamp, declared, func_name=func_name)
-
-
 def _resolve_overlap_periods_from_stamp(
     stamp: int | None,
     declared: int | None,
@@ -295,12 +294,13 @@ def _resolve_overlap_periods_from_stamp(
 ) -> int:
     """Resolve a validated overlap-periods stamp against a declaration.
 
-    Same contract as :func:`_resolve_forward_periods`: the stamp left by
-    ``compute_forward_return`` is the truth and a disagreeing declaration is
-    rejected. Callers that also resolve a horizon (``evaluate``) pass it as
-    ``horizon``: an unstamped panel then defaults to it, because a
-    self-attached ``forward_return`` on the full grid overlaps by exactly its
-    horizon and only a coarser grid needs ``overlap_periods=`` spelled out.
+    Same contract as :func:`_resolve_forward_periods_from_stamp`: the stamp
+    left by ``compute_forward_return`` is the truth and a disagreeing
+    declaration is rejected. Callers that also resolve a horizon
+    (``evaluate``) pass it as ``horizon``: an unstamped panel then defaults to
+    it, because a self-attached ``forward_return`` on the full grid overlaps by
+    exactly its horizon and only a coarser grid needs ``overlap_periods=``
+    spelled out.
     Callers with no horizon of their own (the ``slice_period_*`` tests) pass
     ``horizon=None``, so an unstamped panel must declare the overlap.
     """
