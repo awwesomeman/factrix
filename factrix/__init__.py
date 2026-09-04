@@ -82,6 +82,7 @@ from factrix._data_input import (
     _STAMP_COLUMNS,
     DataInput,
     _coerce_data,
+    _coerce_price_data,
     _resolve_horizons,
     _resolve_overlap_periods,
     _validate_overlap_periods,
@@ -131,6 +132,7 @@ from factrix.slicing import (
 def evaluate(
     data: DataInput,
     *,
+    price_data: DataInput | None = None,
     metrics: "dict[str, MetricBase]",
     factor_cols: list[str],
     forward_periods: int | None = None,
@@ -153,6 +155,14 @@ def evaluate(
             attached via :func:`factrix.preprocess.compute_forward_return`.
             ``price`` is optional — consumed by event-study metrics which
             short-circuit to NaN when it is absent.
+        price_data: Optional complete price panel containing exactly alignable
+            ``date``, ``asset_id``, and ``price`` columns. Use the raw panel
+            here when event path metrics must reach prices that
+            :func:`factrix.preprocess.compute_forward_return` dropped from
+            ``data`` (its forward-return tail, or dates outside a coarser
+            evaluation grid). ``data`` remains the sole owner of events and
+            the forward-return sample; extra columns on ``price_data`` are
+            ignored. Key dtypes must match ``data`` exactly.
         metrics: ``dict[str, Metric]`` mapping a caller-chosen label to a
             metric **instance** from :mod:`factrix.metrics` (e.g.
             ``{"ic_5d": ic(), "spread": quantile_spread(n_groups=5)}``).
@@ -268,6 +278,7 @@ def evaluate(
     _validate_factor_cols_not_stamps(cols)
     data = _coerce_data(data)
     _validate_baseline_columns(data)
+    price_data = _coerce_price_data(price_data, data=data)
     _validate_factor_cols_on_data(data, cols)
     _validate_factor_cols_numeric(data, cols)
 
@@ -368,6 +379,7 @@ def evaluate(
             density=density,
             forward_periods=fp,
             overlap_periods=op,
+            price_data=price_data,
             expected_warnings=expected,
             kwargs_by_metric=node_kwargs,
         )
@@ -410,6 +422,11 @@ def evaluate_horizons(
     ``forward_periods + 1`` rows per asset and stamps the horizon), so a
     horizon cannot be re-derived from an already-attached panel. This
     wrapper exists to make that rebuild-per-horizon loop hard to get wrong.
+
+    The raw panel is also forwarded to each inner :func:`evaluate` call as
+    ``price_data``. Event offsets and MFE/MAE windows therefore retain the
+    complete price grid even though each horizon's forward-return panel has a
+    shorter tail (and may use a coarser evaluation grid via ``dates=``).
 
     Identity of a swept result is the composite ``(factor, forward_periods)``,
     not a unique scalar factor key — so the return is a flat
@@ -494,6 +511,7 @@ def evaluate_horizons(
         )
         per_factor = evaluate(
             panel,
+            price_data=raw,
             metrics=metrics,
             factor_cols=factor_cols,
             strict=strict,

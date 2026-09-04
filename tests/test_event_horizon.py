@@ -167,7 +167,12 @@ class TestEventAroundReturn:
         result = event_around_return(no_price_data)
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "no_price_data"
-        assert result.metadata["per_offset"] == {}
+        assert result.metadata["per_offset"]
+        eligible = result.metadata["n_events_eligible"]
+        assert all(
+            audit["censor_reasons"] == {"missing_price_column": eligible}
+            for audit in result.metadata["per_offset"].values()
+        )
 
     def test_reports_its_sample_size_on_the_event_axis(self, event_data):
         # n_obs is the library's single source of truth for sample size, and
@@ -206,7 +211,7 @@ class TestEventAroundReturn:
         assert result.metadata["reason"] == "invalid_price_data"
         assert result.metadata["n_invalid_prices"] == 1
         assert result.metadata["baseline_bar_return"] is None
-        assert result.metadata["per_offset"] == {}
+        assert result.metadata["per_offset"]
         assert fx.WarningCode.METRIC_UNAVAILABLE.value in result.warning_codes
 
 

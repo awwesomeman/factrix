@@ -180,6 +180,7 @@ class DagExecutor:
         density: FactorDensity,
         forward_periods: int,
         overlap_periods: int,
+        price_data: pl.DataFrame | None = None,
         expected_warnings: tuple[str, ...] = (),
         kwargs_by_metric: Mapping[str, Mapping[str, Any]] | None = None,
     ) -> dict[str, EvaluationResult]:
@@ -233,6 +234,7 @@ class DagExecutor:
                 node.spec,
                 kwargs_by_metric.get(nid, {}),
                 overlap_periods,
+                price_data=price_data,
                 expected_warnings=expected_warnings,
             )
 
@@ -298,6 +300,7 @@ class DagExecutor:
         kwargs: Mapping[str, Any],
         overlap_periods: int,
         *,
+        price_data: pl.DataFrame | None = None,
         expected_warnings: tuple[str, ...] = (),
     ) -> Callable[..., dict[str, Any]]:
         """Return the spec's unified batch dispatcher.
@@ -305,10 +308,10 @@ class DagExecutor:
         Registry ``MetricBase`` classes expose ``__call_batch__`` directly
         (bound to a configured instance); bare ``fn_resolver`` callables are
         wrapped through the same :func:`_dispatch_batch` so both paths share
-        one dispatch body. ``overlap_periods`` (the data's stamped evaluation-grid overlap
-        horizon) and ``expected_warnings`` (the caller's study-level
-        declaration, consumed by bodies that echo a ``UserWarning``) are
-        injected into whichever callables declare them.
+        one dispatch body. ``overlap_periods`` (the data's stamped
+        evaluation-grid overlap horizon), ``expected_warnings`` (the caller's
+        study-level declaration), and the optional complete ``price_data``
+        panel are injected into whichever callables declare them.
         """
         import functools
 
@@ -321,6 +324,7 @@ class DagExecutor:
                 fn(**kw).__call_batch__,
                 overlap_periods=overlap_periods,
                 expected_warnings=expected_warnings,
+                price_data=price_data,
             )
 
         bare: Callable[..., Any] = fn
@@ -330,6 +334,8 @@ class DagExecutor:
             inj["overlap_periods"] = overlap_periods
         if "expected_warnings" in bare_params:
             inj["expected_warnings"] = expected_warnings
+        if "price_data" in bare_params:
+            inj["price_data"] = price_data
 
         def handle(
             data: pl.DataFrame,

@@ -63,6 +63,26 @@ with `evaluate(..., expected_warnings=("ragged_period_grid",))` to silence the
 echo — the code is still recorded — or reindex the panel onto a common grid
 before calling.
 
+## Complete price paths and censored events
+
+When the evaluation panel came from `compute_forward_return`, pass the raw
+panel as `evaluate(..., price_data=raw)` (or as `price_data=` on the direct
+`compute_mfe_mae` call). Event eligibility stays on the evaluation panel;
+excursion and estimation windows walk the full price grid.
+
+`compute_mfe_mae` now retains one row per eligible event. Computable rows carry
+`path_status="computed"`; rows with no usable path carry null excursions,
+`path_status="censored"`, and a `censor_reason`. The aggregate metadata reports
+`n_events_eligible`, `n_events_computed`, `n_events_censored`, and reason
+counts. To reproduce the pre-0.33 valid-only table, filter explicitly:
+
+```python title="Illustrative"
+computed = per_event.filter(pl.col("path_status") == "computed")
+```
+
+This row-retention change is a pre-1.0 MINOR-level contract change; pin 0.32.x
+if downstream code assumes every producer row has finite excursions.
+
 ## Choosing a function
 
 | Goal                                                                | Function           |

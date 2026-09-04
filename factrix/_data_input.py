@@ -562,3 +562,56 @@ def _coerce_data(data: DataInput, *, func_name: str = "evaluate") -> pl.DataFram
     raise TypeError(
         f"data must be pl.DataFrame or pl.LazyFrame; got {type(data).__name__}."
     )
+
+
+def _coerce_price_data(
+    price_data: DataInput | None,
+    *,
+    data: pl.DataFrame,
+    func_name: str = "evaluate",
+    price_col: str = "price",
+) -> pl.DataFrame | None:
+    """Validate an optional full price panel against an evaluation panel.
+
+    ``data`` owns events and the forward-return sample; ``price_data`` owns
+    only the complete price grid used by path metrics. Keeping the inputs
+    separate prevents price-only tail rows from entering return metrics while
+    still making those rows available to event offsets and excursion windows.
+    """
+    if price_data is None:
+        return None
+
+    prices = _coerce_data(price_data, func_name=func_name)
+    required = ("date", "asset_id", price_col)
+    missing = [column for column in required if column not in prices.columns]
+    if missing:
+        raise UserInputError(
+            func_name=func_name,
+            field="price_data",
+            value=list(prices.columns),
+            expected=(
+                "a full price panel containing date, asset_id, and "
+                f"{price_col!r}; "
+                f"missing {missing!r}"
+            ),
+            docs_path=_DOCS_DATA_SCHEMA,
+        )
+
+    for column in ("date", "asset_id"):
+        data_dtype = data.schema[column]
+        price_dtype = prices.schema[column]
+        if price_dtype != data_dtype:
+            raise UserInputError(
+                func_name=func_name,
+                field=f"price_data.{column}",
+                value=str(price_dtype),
+                expected=(
+                    f"the same dtype as data.{column} ({data_dtype}) so event "
+                    "keys align exactly; cast the price panel explicitly"
+                ),
+                docs_path=_DOCS_DATA_SCHEMA,
+            )
+
+    # Extra columns, including factor values, have no authority on this path.
+    # Projecting here makes that ownership structural rather than conventional.
+    return prices.select(required)

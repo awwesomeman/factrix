@@ -111,9 +111,11 @@ class TestComputeMfeMae:
             (finite["mae"] / scale).to_numpy(),
         )
 
-    def test_no_price_returns_empty(self, no_price_data):
+    def test_no_price_returns_censored_events(self, no_price_data):
         result = compute_mfe_mae(no_price_data, window=10)
-        assert result.is_empty()
+        assert result.height == no_price_data.filter(pl.col("factor") != 0).height
+        assert result["path_status"].unique().to_list() == ["censored"]
+        assert result["censor_reason"].unique().to_list() == ["missing_price_column"]
 
     def test_no_events_returns_empty(self):
         df = pl.DataFrame(

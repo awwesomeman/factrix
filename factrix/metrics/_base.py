@@ -23,10 +23,13 @@ from factrix._metric_index import Cell, MetricSpec, SampleThreshold
 # Parameters that ``evaluate`` injects at dispatch rather than the user
 # configuring per metric: ``overlap_periods`` comes from the data's overlap
 # stamp, ``expected_warnings`` from the caller's study-level declaration on
-# ``evaluate``. On metrics whose body declares them they remain dataclass
+# ``evaluate``, and ``price_data`` from its optional full price panel. On
+# metrics whose body declares them they remain dataclass
 # fields, kept out of the user-facing ``_param_names`` so neither shows up as
 # a configured knob on ``spec()`` / ``_params()``.
-_INJECTED_PARAMS: frozenset[str] = frozenset({"overlap_periods", "expected_warnings"})
+_INJECTED_PARAMS: frozenset[str] = frozenset(
+    {"overlap_periods", "expected_warnings", "price_data"}
+)
 
 # The injected param the public constructor refuses. ``overlap_periods`` is a
 # property of the *data* — the panel's own overlap horizon — so a per-metric
@@ -36,7 +39,7 @@ _INJECTED_PARAMS: frozenset[str] = frozenset({"overlap_periods", "expected_warni
 # :ref:`the contract <expected-warnings-contract>` in the module docstring of
 # ``factrix.metrics``), and both the constructor and the direct-call form take
 # it, with ``evaluate`` overriding it at dispatch with the study-level value.
-_REJECTED_PARAMS: frozenset[str] = frozenset({"overlap_periods"})
+_REJECTED_PARAMS: frozenset[str] = frozenset({"overlap_periods", "price_data"})
 
 
 def _log_exception_once(
@@ -136,6 +139,18 @@ class MetricMeta(type):
             from factrix._errors import UserInputError
 
             name = offending[0]
+            if name == "price_data":
+                raise UserInputError(
+                    func_name=cls.__name__,
+                    field=name,
+                    value=type(supplied[name]).__name__,
+                    expected=(
+                        "run-level price data passed to evaluate(), or to the "
+                        "direct-call form with the event panel as its first "
+                        "argument"
+                    ),
+                    docs_path="api/evaluate#full-price-data-for-event-paths",
+                )
             raise UserInputError(
                 func_name=cls.__name__,
                 field=name,
@@ -211,7 +226,8 @@ class MetricBase(metaclass=MetricMeta):
     # Params dispatch injects rather than the user configuring per metric:
     # ``overlap_periods`` (read from the data, rejected at the constructor) and
     # ``expected_warnings`` (the study-level declaration; the constructor and
-    # the direct call both take it, ``evaluate`` overrides it). Both are kept
+    # direct call both take it, ``evaluate`` overrides it), and ``price_data``
+    # (the complete path panel). All are kept
     # out of ``_param_names`` and injected at dispatch into the metrics whose
     # ``_impl`` declares them. Empty for a metric that takes neither.
     _injected_param_names: ClassVar[tuple[str, ...]] = ()
@@ -346,6 +362,7 @@ class MetricBase(metaclass=MetricMeta):
         self,
         overlap_periods: int | None,
         expected_warnings: tuple[str, ...] | None = None,
+        price_data: Any | None = None,
     ) -> dict[str, Any]:
         """Dispatch-time injected kwargs for ``_impl``.
 
@@ -360,6 +377,7 @@ class MetricBase(metaclass=MetricMeta):
         supplied = {
             "overlap_periods": overlap_periods,
             "expected_warnings": expected_warnings,
+            "price_data": price_data,
         }
         return {
             name: (
@@ -406,6 +424,7 @@ class MetricBase(metaclass=MetricMeta):
         *args: Any,
         overlap_periods: int | None = None,
         expected_warnings: tuple[str, ...] | None = None,
+        price_data: Any | None = None,
         **kwargs: Any,
     ) -> Any:
         """Evaluate the metric on a single input (one factor's view / upstream)."""
@@ -434,9 +453,19 @@ class MetricBase(metaclass=MetricMeta):
             # class of mistake as a mis-typed ``asset_id`` and fails the same
             # way, instead of reaching a polars expression or being answered
             # with a NaN "insufficient data" envelope.
+            named_columns = self._named_column_params()
+            price_columns: dict[str, Any] = {}
+            if price_data is not None and "price_col" in named_columns:
+                price_columns["price_col"] = named_columns.pop("price_col")
             _validate_named_columns(
                 args[0],
-                self._named_column_params(),
+                named_columns,
+                func_name=self.__class__.__name__,
+                docs_path=self._docs_path(),
+            )
+            _validate_named_columns(
+                price_data,
+                price_columns,
                 func_name=self.__class__.__name__,
                 docs_path=self._docs_path(),
             )
@@ -451,7 +480,7 @@ class MetricBase(metaclass=MetricMeta):
                 *args,
                 **{
                     **self._params(),
-                    **self._inject(overlap_periods, expected_warnings),
+                    **self._inject(overlap_periods, expected_warnings, price_data),
                     **kwargs,
                 },
             )
@@ -474,6 +503,7 @@ class MetricBase(metaclass=MetricMeta):
         upstream: dict[str, dict[str, Any]],
         overlap_periods: int | None = None,
         expected_warnings: tuple[str, ...] | None = None,
+        price_data: Any | None = None,
     ) -> dict[str, Any]:
         """Run this metric across a factor batch; return ``{factor: output}``.
 
@@ -484,7 +514,7 @@ class MetricBase(metaclass=MetricMeta):
         ``batchable`` (whole panel), ``requires`` (consume upstream), plain
         (thin view) — are unified in :func:`_dispatch_batch`.
         """
-        inj = self._inject(overlap_periods, expected_warnings)
+        inj = self._inject(overlap_periods, expected_warnings, price_data)
         if self.requires:
 
             def run_batch() -> dict[str, Any]:
