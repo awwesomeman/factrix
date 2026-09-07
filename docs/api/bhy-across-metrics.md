@@ -21,7 +21,7 @@ screen = fx.multi_factor.bhy_across_metrics(
 )
 
 screen.family_size   # {(): n_results * 2} under the default policy
-screen.family        # declared / computed / inactive / adjusted counts + policy
+screen.family        # declared / computed / inactive / unsubmitted / adjusted + policy
 screen.to_frame()    # factor | metric | p_value | adj_p | survived | active
 ```
 
@@ -54,8 +54,8 @@ For the claim that a factor works on at least `k` predeclared endpoints, use
 | `survivors` / `adj_p` | Passing cell hypotheses and their adjusted p-values |
 | `metrics` | Metric labels in declared order |
 | `expand_over` | Keys partitioning separately reported families |
-| `family_size` | Factor × metric family size per bucket — the `m` each step-up ran on |
-| `family` | Declared / computed / inactive / adjusted counts and the `inactive_policy` used |
+| `family_size` | Factor × metric family size per bucket — the `m` each step-up ran on, including declared-unsubmitted cells |
+| `family` | Declared / computed / inactive / unsubmitted / adjusted counts and the `inactive_policy` used |
 
 ::: factrix.multi_factor.CrossMetricBhyResult
     options:

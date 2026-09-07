@@ -115,8 +115,8 @@ metric — the `_FdrResultBase` shape (`entries` / `survivors` / `adj_p` /
 | `adj_p` | Max-of-layers $\text{adj}_p$ for the survivors; survivor iff `adj_p <= q` |
 | `q` | The `q` you passed (single target, both layers) |
 | `group` | Context key naming the group axis (a single `str`) |
-| `family_size` | Mapping `(group_value,) -> m_group` for **every** group that entered the outer layer (covers dead families too, so "N of M families survived" claims are computable directly), so `G = len(family_size)`. Under the default `inactive_policy="count"` that is every declared group — an all-inactive group enters the outer layer at a Simes p of 1.0. Under `"exclude"` inactive members leave their inner family and a group with none left leaves `G` — see [inactive candidates](multi-factor.md#inactive-candidates). |
-| `family` | Declared / computed / inactive / adjusted member counts and the `inactive_policy` used |
+| `family_size` | Mapping `(group_value,) -> m_group` for **every observed group** that entered the outer layer, so `G = len(family_size)`. Each `m_group` includes declared-unsubmitted members. Under the default `inactive_policy="count"`, an all-inactive group enters at a Simes p of 1.0; under `"exclude"`, submitted inactive members leave but declared-unsubmitted members remain. See [declared family size](multi-factor.md#declared-family-size). |
+| `family` | Declared / computed / inactive / unsubmitted / adjusted member counts and the `inactive_policy` used |
 
 Per-survivor group label: `survivor.params[result.group]`.
 

@@ -312,6 +312,7 @@ def bhy(
     *,
     metrics: list[str],
     expand_over: tuple[str, ...] = (),
+    family_size: int | Mapping[tuple[Any, ...], int] | None = None,
     q: float = 0.05,
     inactive_policy: Literal["count", "exclude"] = "count",
 ) -> dict[str, BhyResult]:
@@ -329,10 +330,17 @@ buckets do not control later horizon shopping.
 `insufficient_*` short-circuit or a `degenerate_variance` result) still counts
 toward `m`. `"count"` (default) keeps it in the family at an inert `p = 1`, so
 `m` is the declared candidate count and the FDR statement needs no assumption
-about why the candidate came back inactive. `"exclude"` drops it from `m`,
-which is valid only if the activity filter is independent of the p-values or
-was pre-specified. Every screening verb in this module takes the same kwarg
-with the same default.
+about why the candidate came back inactive. `"exclude"` drops submitted
+inactive candidates from `m`, which is valid only if the activity filter is
+independent of the p-values or was pre-specified; declared-unsubmitted
+candidates still count. Every screening verb in this module takes the same
+kwarg with the same default.
+
+`family_size` declares a plan-level family larger than the submitted results.
+A scalar applies per bucket / identity / group; a mapping keyed like the
+returned `family_size` declares heterogeneous sizes. Unsubmitted candidates
+are inert non-rejections under either inactive policy and are reported
+separately from submitted inactive candidates.
 
 `BhyResult` contains:
 - `metric_name`: Metric label under test.
@@ -341,7 +349,8 @@ with the same default.
 - `q`: Target FDR.
 - `family_size`: Per-bucket family size — the `m` each step-up ran on.
 - `family`: `FamilyAccounting` with `n_candidates_declared`,
-  `n_tests_computed`, `n_inactive`, `n_tests_adjusted` and `policy`.
+  `n_tests_computed`, `n_inactive`, `n_unsubmitted`, `n_tests_adjusted` and
+  `policy`.
 
 ### `multi_factor.bhy_across_metrics`
 
@@ -351,6 +360,7 @@ def bhy_across_metrics(
     *,
     metrics: list[str],
     expand_over: tuple[str, ...] = (),
+    family_size: int | Mapping[tuple[Any, ...], int] | None = None,
     q: float = 0.05,
     inactive_policy: Literal["count", "exclude"] = "count",
 ) -> CrossMetricBhyResult:
@@ -403,6 +413,7 @@ def bhy_hierarchical(
     *,
     metrics: list[str],
     group: str,
+    family_size: int | Mapping[tuple[Any, ...], int] | None = None,
     q: float = 0.05,
     inactive_policy: Literal["count", "exclude"] = "count",
 ) -> dict[str, HierarchicalBhyResult]:
@@ -422,6 +433,7 @@ def partial_conjunction(
     min_pass: int,
     expand_over: tuple[str, ...],
     n_conditions: int | None = None,
+    family_size: int | Mapping[tuple[Any, ...], int] | None = None,
     q: float = 0.05,
     inactive_policy: Literal["count", "exclude"] = "count",
 ) -> dict[str, PartialConjunctionResult]:
@@ -437,6 +449,7 @@ def partial_conjunction_across_metrics(
     *,
     metrics: list[str],
     min_pass: int,
+    family_size: int | Mapping[tuple[Any, ...], int] | None = None,
     q: float = 0.05,
     inactive_policy: Literal["count", "exclude"] = "count",
 ) -> CrossMetricPartialConjunctionResult:

@@ -92,7 +92,7 @@ FDR screening functions under `fx.multi_factor` (like `bhy()`) return a dictiona
 | `q` | `float` | Nominal FDR target passed (`0 < q < 1`). |
 | `expand_over` | `tuple[str, ...]` | Keys used to partition the input into independent step-ups. |
 | `family_size` | `Mapping[tuple, int]` | Family size per bucket — the `m` each step-up ran on. |
-| `family` | `FamilyAccounting` | Declared / computed / inactive / adjusted candidate counts and the `inactive_policy` used. |
+| `family` | `FamilyAccounting` | Declared / computed / inactive / unsubmitted / adjusted candidate counts and the `inactive_policy` used. |
 
 ---
 

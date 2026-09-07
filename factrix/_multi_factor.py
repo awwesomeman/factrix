@@ -6,8 +6,9 @@ procedures run one independent screen per metric and return a
 ``list[EvaluationResult]`` input but return one result with an explicit
 cell-level or factor-level survivor unit.
 
-Family declaration is explicit: the input list *is* the family,
-optionally split per-bucket via ``expand_over``. The base hypothesis
+Family declaration is explicit: by default the input list *is* the family,
+optionally split per-bucket via ``expand_over``; ``family_size`` can declare
+the larger plan-level size of each sub-family. The base hypothesis
 identifier is ``(factor, forward_periods, *params)`` — every swept knob on
 ``EvaluationResult.params`` joins it automatically. ``expand_over`` only
 partitions the family; ``metadata`` never touches either.
@@ -70,9 +71,12 @@ statistic exists). See :func:`_is_inactive_hypothesis`.
     came back inactive.
 
 ``"exclude"``
-    Inactive candidates leave the family before adjustment, so ``m``
-    (and ``G``, and a ``k``-of-``m`` denominator) counts only candidates
-    that produced a statistic. This is the sharper screen, and it is
+    Submitted inactive candidates leave the family before adjustment, so
+    without a larger ``family_size`` declaration, ``m`` (and ``G``, and a
+    ``k``-of-``m`` denominator) counts only candidates that produced a
+    statistic. Declared-unsubmitted candidates still count as inert
+    non-rejections because their activity is unknown. This is the sharper
+    screen, and it is
     valid **only if the caller can assert the activity filter is
     independent of the p-values or was pre-specified** — that whether a
     candidate had enough observations, or any dispersion, does not depend
@@ -94,7 +98,7 @@ def _validate_inactive_policy(value: Any, *, func_name: str) -> InactivePolicy:
             expected=(
                 "'count' (default — every declared candidate stays in m, "
                 "inactive ones participate as an inert p = 1) or 'exclude' "
-                "(inactive candidates leave m; valid only when the activity "
+                "(submitted inactive candidates leave m; valid only when the activity "
                 "filter is independent of the p-values or pre-specified)"
             ),
             candidates=list(_INACTIVE_POLICIES),
@@ -107,8 +111,9 @@ def _validate_inactive_policy(value: Any, *, func_name: str) -> InactivePolicy:
 class FamilyAccounting:
     """Candidate-to-family bookkeeping for one screening call.
 
-    Reports what the call actually did, not what it was asked for: the four
-    counts below are read off the family the adjustment ran on. They are
+    Reports what the call actually did, including any plan-level candidates
+    that were declared but never submitted. The five counts below are read off
+    the family the adjustment ran on. They are
     call-wide totals — when ``expand_over`` splits the input into several
     step-ups, or a partial conjunction runs per identity, the counts sum
     across those sub-families.
@@ -116,16 +121,18 @@ class FamilyAccounting:
     Attributes:
         policy: The ``inactive_policy`` the call ran under. See
             :data:`InactivePolicy`.
-        n_candidates_declared: Candidate cells submitted to this screen —
-            the declared family before any activity filtering.
+        n_candidates_declared: Candidate cells in the declared research-plan
+            family, including candidates that were never submitted.
         n_tests_computed: Candidates that produced a test statistic
-            (``n_candidates_declared - n_inactive``).
+            among the submitted results.
         n_inactive: Candidates that never ran a test (data-shortage
-            short-circuit or ``degenerate_variance``).
+            short-circuit or ``degenerate_variance``) but were submitted.
+        n_unsubmitted: Declared candidates for which no result was submitted.
         n_tests_adjusted: Candidates that actually entered an adjustment.
-            Equals ``n_candidates_declared`` under ``policy="count"`` and
-            ``n_tests_computed`` under ``policy="exclude"``, except where a
-            verb drops a whole sub-family for a reason of its own — a
+            Equals ``n_candidates_declared`` under ``policy="count"``. Under
+            ``policy="exclude"`` it excludes submitted inactive candidates
+            but still includes declared-unsubmitted candidates, except where
+            a verb drops a whole sub-family for a reason of its own — a
             partial-conjunction identity left with fewer than ``min_pass``
             conditions contributes none of its cells.
     """
@@ -134,12 +141,14 @@ class FamilyAccounting:
     n_candidates_declared: int
     n_tests_computed: int
     n_inactive: int
+    n_unsubmitted: int
     n_tests_adjusted: int
 
     def __str__(self) -> str:
         return (
             f"family(declared={self.n_candidates_declared}, "
             f"computed={self.n_tests_computed}, inactive={self.n_inactive}, "
+            f"unsubmitted={self.n_unsubmitted}, "
             f"adjusted={self.n_tests_adjusted}, policy={self.policy!r})"
         )
 
@@ -148,20 +157,108 @@ def _family_accounting(
     *,
     policy: InactivePolicy,
     declared: int,
+    submitted: int,
     computed: int,
     adjusted: int,
 ) -> FamilyAccounting:
-    """Build one :class:`FamilyAccounting`, deriving ``n_inactive``.
+    """Build one :class:`FamilyAccounting`, deriving both missing counts.
 
-    Every verb goes through here so the four counts cannot disagree:
-    ``n_inactive`` is ``declared - computed`` by construction rather than
-    a separately maintained tally. Fields are passed positionally on
+    Every verb goes through here so the five counts cannot disagree:
+    ``n_inactive`` is ``submitted - computed`` and ``n_unsubmitted`` is
+    ``declared - submitted`` by construction rather than separately
+    maintained tallies. Fields are passed positionally on
     purpose — spelling ``n_tests_adjusted=`` as a keyword would collide
     with the ``*_adjusted`` stage-flag grammar that
     ``tests/stats/test_short_circuit_flag_polarity.py`` audits, and this
     is a count, not a boolean stage flag.
     """
-    return FamilyAccounting(policy, declared, computed, declared - computed, adjusted)
+    return FamilyAccounting(
+        policy,
+        declared,
+        computed,
+        submitted - computed,
+        declared - submitted,
+        adjusted,
+    )
+
+
+def _declared_family_sizes(
+    submitted: Mapping[tuple[Any, ...], int],
+    family_size: int | Mapping[tuple[Any, ...], int] | None,
+    *,
+    func_name: str,
+) -> dict[tuple[Any, ...], int]:
+    """Resolve a plan-level size for each adjustment sub-family.
+
+    A scalar applies independently to every key. A mapping is strict so a
+    bucket cannot silently fall back to its submitted count. Values count the
+    complete research-plan family and therefore cannot be smaller than the
+    submitted subset.
+    """
+    if family_size is None:
+        return dict(submitted)
+
+    if isinstance(family_size, Mapping):
+        expected_keys = set(submitted)
+        actual_keys = set(family_size)
+        if actual_keys != expected_keys:
+            missing = sorted(expected_keys - actual_keys, key=repr)
+            extra = sorted(actual_keys - expected_keys, key=repr)
+            raise UserInputError(
+                func_name=func_name,
+                field="family_size",
+                value=family_size,
+                expected=(
+                    "a mapping with exactly the submitted family keys; "
+                    f"missing={missing!r}, unexpected={extra!r}"
+                ),
+                docs_path="api/multi-factor#declared-family-size",
+            )
+        declared = dict(family_size)
+    else:
+        declared = {key: family_size for key in submitted}
+
+    out: dict[tuple[Any, ...], int] = {}
+    for key, n_submitted in submitted.items():
+        value = declared[key]
+        if isinstance(value, bool) or not isinstance(value, Integral):
+            raise UserInputError(
+                func_name=func_name,
+                field="family_size",
+                value=value,
+                expected=(
+                    "an integer per family key, or None to use the submitted "
+                    "family size"
+                ),
+                docs_path="api/multi-factor#declared-family-size",
+            )
+        if value < n_submitted:
+            raise UserInputError(
+                func_name=func_name,
+                field="family_size",
+                value=value,
+                expected=(
+                    f"at least the {n_submitted} submitted candidate(s) in "
+                    f"family {key!r}; a declared family cannot be smaller "
+                    "than its submitted subset"
+                ),
+                docs_path="api/multi-factor#declared-family-size",
+            )
+        out[key] = int(value)
+    return out
+
+
+def _adjustment_family_sizes(
+    declared: Mapping[tuple[Any, ...], int],
+    inactive: Mapping[tuple[Any, ...], int],
+    *,
+    policy: InactivePolicy,
+) -> dict[tuple[Any, ...], int]:
+    """Return each effective denominator; unsubmitted candidates always count."""
+    return {
+        key: n_declared - (inactive[key] if policy == "exclude" else 0)
+        for key, n_declared in declared.items()
+    }
 
 
 def _validate_metric_list(value: Any, *, func_name: str, field: str) -> list[str]:
@@ -412,11 +509,12 @@ class _FdrResultBase(_ScreenResultMixin):
             adjustment ran on, keyed by tuple — ``m``. Under
             ``inactive_policy="count"`` that includes the inactive
             candidates participating at ``p = 1``; under
-            ``"exclude"`` it counts computed tests only. Named for the
-            quantity it is: not every member is a test that ran.
-        family: :class:`FamilyAccounting` — declared / computed / inactive
-            / adjusted counts and the ``inactive_policy`` the call ran
-            under. Reported by every screening verb under this one key.
+            ``"exclude"`` it drops submitted inactive candidates. Under both
+            policies it includes declared-unsubmitted candidates. Named for
+            the quantity it is: not every member is a test that ran.
+        family: :class:`FamilyAccounting` — declared / computed / inactive /
+            unsubmitted / adjusted counts and the ``inactive_policy`` the
+            call ran under. Reported by every screening verb under this key.
     """
 
     metric_name: str
@@ -724,8 +822,9 @@ class HierarchicalBhyResult(_FdrResultBase):
     ``(group_value,)`` — covering every group that entered the outer
     layer, not just the survivors, so ``G`` is ``len(family_size)``.
     Under ``inactive_policy="count"`` that is every declared group; under
-    ``"exclude"`` inactive members leave their inner family and a group
-    with none left is absent from ``family_size`` and carries ``NaN``.
+    ``"exclude"`` submitted inactive members leave their inner family and a
+    group with neither a computed nor declared-unsubmitted member is absent
+    from ``family_size`` and carries ``NaN``.
 
     Attributes:
         group: ``params`` key naming the group axis.
@@ -771,6 +870,7 @@ def bhy(
     *,
     metrics: list[str],
     expand_over: tuple[str, ...] = (),
+    family_size: int | Mapping[tuple[Any, ...], int] | None = None,
     q: float = 0.05,
     inactive_policy: InactivePolicy = "count",
 ) -> dict[str, BhyResult]:
@@ -796,6 +896,12 @@ def bhy(
             the input into independent BHY step-up buckets. Built-in
             field ``"forward_periods"`` is read off the result;
             other keys are looked up on ``result.params``.
+        family_size: Complete research-plan family size. A scalar applies to
+            every ``expand_over`` bucket; a mapping declares heterogeneous
+            sizes keyed by the bucket tuples exposed on the result. Each size
+            must be at least that bucket's submitted candidate count. Missing
+            candidates are inert non-rejections and always remain in ``m``.
+            ``None`` (default) uses the submitted count.
         q: Nominal FDR target. Must satisfy ``0 < q < 1``.
             Default ``0.05``.
         inactive_policy: Whether an inactive candidate — a data-shortage
@@ -803,7 +909,8 @@ def bhy(
             the family. ``"count"`` (default) keeps it at an inert
             ``p = 1``, so ``m`` is the declared candidate count and the
             FDR statement needs no assumption about why the candidate
-            came back inactive. ``"exclude"`` drops it from ``m``; that
+            came back inactive. ``"exclude"`` drops a submitted inactive
+            candidate from ``m``; declared-unsubmitted candidates remain. That
             is valid only if the activity filter is independent of the
             p-values or was pre-specified. See :data:`InactivePolicy`.
 
@@ -836,6 +943,10 @@ def bhy(
     buckets: dict[tuple[Any, ...], list[int]] = defaultdict(list)
     for idx, p_entry in enumerate(partition):
         buckets[p_entry.expand_over_values].append(idx)
+    submitted_sizes = {key: len(ix) for key, ix in buckets.items()}
+    declared_sizes = _declared_family_sizes(
+        submitted_sizes, family_size, func_name="bhy"
+    )
 
     out: dict[str, BhyResult] = {}
     for spec in metric_list:
@@ -847,20 +958,29 @@ def bhy(
             bucket_key: [i for i in ix if i in family_idx]
             for bucket_key, ix in buckets.items()
         }
-        family_buckets = {k: ix for k, ix in family_buckets.items() if ix}
-        family_size = {bucket_key: len(ix) for bucket_key, ix in family_buckets.items()}
-        singleton = sum(1 for ix in family_buckets.values() if len(ix) == 1)
-        if singleton and len(family_buckets) > 1:
+        inactive_sizes = {
+            key: sum(i in inactive_set for i in ix) for key, ix in buckets.items()
+        }
+        adjusted_sizes = _adjustment_family_sizes(
+            declared_sizes, inactive_sizes, policy=policy
+        )
+        result_family_size = {key: size for key, size in adjusted_sizes.items() if size}
+        singleton = sum(size == 1 for size in result_family_size.values())
+        if singleton and len(result_family_size) > 1:
             warnings.warn(
-                f"bhy: {singleton} of {len(family_buckets)} expand_over buckets "
-                "contain a single result — BHY on n=1 is identical to a "
+                f"bhy: {singleton} of {len(result_family_size)} expand_over "
+                "buckets have family size 1 — BHY on n=1 is identical to a "
                 "raw threshold and provides no FDR correction.",
                 RuntimeWarning,
                 stacklevel=2,
             )
         adj_p_all = np.full(len(entries), np.nan, dtype=np.float64)
-        for ix in family_buckets.values():
-            adj_p_all[ix] = bhy_adjusted_p(_family_p_values(entries, ix, inactive_set))
+        for bucket_key, ix in family_buckets.items():
+            if adjusted_sizes[bucket_key]:
+                adj_p_all[ix] = bhy_adjusted_p(
+                    _family_p_values(entries, ix, inactive_set),
+                    n_tests=adjusted_sizes[bucket_key],
+                )
 
         out[spec] = BhyResult(
             metric_name=spec,
@@ -868,12 +988,13 @@ def bhy(
             adj_p_all=adj_p_all,
             q=q_target,
             expand_over=expand_over_tuple,
-            family_size=family_size,
+            family_size=result_family_size,
             family=_family_accounting(
                 policy=policy,
-                declared=len(entries),
+                declared=sum(declared_sizes.values()),
+                submitted=len(entries),
                 computed=len(split.active),
-                adjusted=sum(family_size.values()),
+                adjusted=sum(result_family_size.values()),
             ),
         )
     return out
@@ -893,7 +1014,8 @@ def _is_inactive_hypothesis(result: EvaluationResult, metric: str) -> bool:
     this predicate's: see :data:`InactivePolicy`. Under the default
     ``"count"`` an inactive candidate stays in ``m`` at ``p = 1``, which
     can only raise the other candidates' adjusted p-values; under
-    ``"exclude"`` it leaves ``m`` entirely, which is sharper but assumes
+    ``"exclude"`` it leaves ``m`` entirely; declared-unsubmitted candidates
+    remain. This is sharper but assumes
     the activity filter is independent of the p-values or pre-specified.
     """
     out = result.metrics[metric]
@@ -934,10 +1056,11 @@ def _split_family(
     way whichever verb screens it. Under ``policy="count"`` (the default)
     every declared candidate stays in the family and an inactive one
     participates as an inert ``p = 1`` — see :func:`_family_p_values`. Under
-    ``policy="exclude"`` an inactive candidate leaves the family before any
-    adjustment, so it never enters ``m`` (or ``G``, or a ``k``-of-``m``
-    denominator); that is the sharper screen and is valid only under an
-    independent or pre-specified activity filter.
+    ``policy="exclude"`` a submitted inactive candidate leaves the family
+    before any adjustment, so it never enters ``m`` (or ``G``, or a
+    ``k``-of-``m`` denominator); declared-unsubmitted candidates are outside
+    this split and remain in the declared denominator. Exclusion is valid only
+    under an independent or pre-specified activity filter.
 
     Args:
         entries: Family entries. Each exposes ``result``; a
@@ -1018,6 +1141,7 @@ def bhy_across_metrics(
     *,
     metrics: list[str],
     expand_over: tuple[str, ...] = (),
+    family_size: int | Mapping[tuple[Any, ...], int] | None = None,
     q: float = 0.05,
     inactive_policy: InactivePolicy = "count",
 ) -> CrossMetricBhyResult:
@@ -1034,6 +1158,10 @@ def bhy_across_metrics(
         expand_over: Result fields or ``params`` keys that partition the input
             into separately reported families. Metrics stay pooled inside each
             bucket.
+        family_size: Complete factor-by-metric family size. A scalar applies
+            to every ``expand_over`` bucket; a mapping declares heterogeneous
+            bucket sizes. Missing cells are inert non-rejections and always
+            remain in ``m``. ``None`` uses the submitted cell count.
         q: Nominal FDR target in the open interval ``(0, 1)``.
         inactive_policy: ``"count"`` (default) keeps an inactive cell in
             the pooled family at an inert ``p = 1``; ``"exclude"`` drops
@@ -1066,25 +1194,41 @@ def bhy_across_metrics(
         expand_over=expand_over_tuple,
     )
     split = _split_family(entries, policy=policy)
+    submitted_buckets: dict[tuple[Any, ...], list[int]] = defaultdict(list)
+    for idx, entry in enumerate(entries):
+        submitted_buckets[entry.expand_over_values].append(idx)
+    submitted_sizes = {key: len(ix) for key, ix in submitted_buckets.items()}
+    declared_sizes = _declared_family_sizes(
+        submitted_sizes, family_size, func_name="bhy_across_metrics"
+    )
     buckets: dict[tuple[Any, ...], list[int]] = defaultdict(list)
     for idx in split.family:
         buckets[entries[idx].expand_over_values].append(idx)
 
-    family_size = {bucket_key: len(ix) for bucket_key, ix in buckets.items()}
-    singleton = sum(1 for ix in buckets.values() if len(ix) == 1)
-    if singleton and len(buckets) > 1:
+    inactive_set = split.inactive_set
+    inactive_sizes = {
+        key: sum(i in inactive_set for i in ix) for key, ix in submitted_buckets.items()
+    }
+    adjusted_sizes = _adjustment_family_sizes(
+        declared_sizes, inactive_sizes, policy=policy
+    )
+    result_family_size = {key: size for key, size in adjusted_sizes.items() if size}
+    singleton = sum(size == 1 for size in result_family_size.values())
+    if singleton and len(result_family_size) > 1:
         warnings.warn(
-            f"bhy_across_metrics: {singleton} of {len(buckets)} expand_over "
-            "buckets contain a single active hypothesis; BHY on n=1 is "
+            f"bhy_across_metrics: {singleton} of {len(result_family_size)} "
+            "expand_over buckets have family size 1; BHY on n=1 is "
             "identical to a raw threshold and provides no FDR correction.",
             RuntimeWarning,
             stacklevel=2,
         )
 
-    inactive_set = split.inactive_set
     adj_p_all = np.full(len(entries), np.nan, dtype=np.float64)
-    for ix in buckets.values():
-        adj_p_all[ix] = bhy_adjusted_p(_family_p_values(entries, ix, inactive_set))
+    for bucket_key, ix in buckets.items():
+        adj_p_all[ix] = bhy_adjusted_p(
+            _family_p_values(entries, ix, inactive_set),
+            n_tests=adjusted_sizes[bucket_key],
+        )
 
     return CrossMetricBhyResult(
         entries=entries,
@@ -1092,12 +1236,13 @@ def bhy_across_metrics(
         q=q_target,
         metrics=tuple(metric_list),
         expand_over=expand_over_tuple,
-        family_size=family_size,
+        family_size=result_family_size,
         family=_family_accounting(
             policy=policy,
-            declared=len(entries),
+            declared=sum(declared_sizes.values()),
+            submitted=len(entries),
             computed=len(split.active),
-            adjusted=sum(family_size.values()),
+            adjusted=sum(result_family_size.values()),
         ),
     )
 
@@ -1109,6 +1254,7 @@ def partial_conjunction(
     min_pass: int,
     expand_over: tuple[str, ...],
     n_conditions: int | None = None,
+    family_size: int | Mapping[tuple[Any, ...], int] | None = None,
     q: float = 0.05,
     inactive_policy: InactivePolicy = "count",
 ) -> dict[str, PartialConjunctionResult]:
@@ -1136,8 +1282,9 @@ def partial_conjunction(
     Inactive conditions (a data-shortage short-circuit or a
     ``degenerate_variance`` result) are governed by ``inactive_policy``,
     exactly as in :func:`bhy`. Under the default ``"count"`` they stay in
-    ``m`` at an inert ``p = 1``; under ``"exclude"`` they leave ``m``, and
-    an identity left with fewer than ``min_pass`` real conditions stays in
+    ``m`` at an inert ``p = 1``; under ``"exclude"`` submitted inactive
+    conditions leave ``m``. An identity whose remaining computed plus
+    declared-unsubmitted conditions number fewer than ``min_pass`` stays in
     the audit output with ``NaN`` and never enters the outer BHY family.
 
     Args:
@@ -1153,9 +1300,14 @@ def partial_conjunction(
         min_pass: ``k`` in "k of m". Must be ``>= 2``.
         expand_over: Non-empty tuple of ``params`` keys (or
             ``"forward_periods"``) defining the condition axis.
-        n_conditions: Strict condition-count declaration. ``None`` lets ``m`` be
-            inferred per identity; an ``int`` requires every identity
-            to have exactly that many conditions.
+        n_conditions: Strict condition-count declaration. ``None`` lets ``m``
+            be inferred per identity; an ``int`` requires every identity's
+            declared ``family_size`` to have exactly that many conditions.
+        family_size: Complete condition-family size per identity. A scalar
+            applies to every identity; a mapping declares heterogeneous sizes
+            keyed like the returned ``family_size``. Declared-but-unsubmitted
+            conditions enter k-of-m as inert non-rejections. ``None`` uses the
+            submitted condition count.
         q: Nominal FDR target for the BHY step-up over PC p-values. Must
             satisfy ``0 < q < 1``.
         inactive_policy: ``"count"`` (default) keeps an inactive condition
@@ -1238,6 +1390,7 @@ def partial_conjunction(
             min_pass=min_pass,
             expand_over=expand_over_tuple,
             n_conditions=n_conditions,
+            family_size=family_size,
             q=q_target,
             policy=policy,
         )
@@ -1251,6 +1404,7 @@ def _partial_conjunction_one(
     min_pass: int,
     expand_over: tuple[str, ...],
     n_conditions: int | None,
+    family_size: int | Mapping[tuple[Any, ...], int] | None,
     q: float,
     policy: InactivePolicy,
 ) -> PartialConjunctionResult:
@@ -1269,41 +1423,48 @@ def _partial_conjunction_one(
             identities_ordered.append(identity)
         entries_by_identity[identity].append(entry)
 
+    submitted_sizes = {
+        identity: len(group) for identity, group in entries_by_identity.items()
+    }
+    declared_sizes = _declared_family_sizes(
+        submitted_sizes, family_size, func_name="partial_conjunction"
+    )
+
     pc_p_arr = np.full(len(identities_ordered), np.nan, dtype=np.float64)
     n_passed_arr = np.zeros(len(identities_ordered), dtype=np.int64)
     n_tests_per_id: dict[tuple[Any, ...], int] = {}
     rep_results: list[EvaluationResult] = []
     eligible: list[int] = []
     n_computed = 0
-    n_declared = 0
     n_adjusted = 0
 
     for i, identity in enumerate(identities_ordered):
         group = entries_by_identity[identity]
-        m = len(group)
+        n_declared_identity = declared_sizes[identity]
 
-        if n_conditions is not None and m != n_conditions:
+        if n_conditions is not None and n_declared_identity != n_conditions:
             raise UserInputError(
                 func_name="partial_conjunction",
                 field="n_conditions",
                 value=n_conditions,
                 expected=(
-                    f"identity {identity!r} has {m} condition(s) in data but "
+                    f"identity {identity!r} has {n_declared_identity} declared "
+                    "condition(s) but "
                     f"n_conditions={n_conditions} declared. "
-                    "Pass n_conditions=None for inferred condition counts, or fix the "
-                    f"input so every identity has exactly {n_conditions} "
-                    "conditions"
+                    "Pass n_conditions=None for per-identity declared counts, "
+                    f"or make family_size exactly {n_conditions} for every identity"
                 ),
                 docs_path="api/partial-conjunction#strict-vs-lenient-mode",
             )
 
-        if m < min_pass:
+        if n_declared_identity < min_pass:
             raise UserInputError(
                 func_name="partial_conjunction",
                 field="results",
                 value=identity,
                 expected=(
-                    f"identity {identity!r} has only {m} condition(s) but "
+                    f"identity {identity!r} has only {n_declared_identity} "
+                    "declared condition(s) but "
                     f"min_pass={min_pass} requires at least that many. "
                     "Either drop this identity from the input or lower min_pass"
                 ),
@@ -1313,18 +1474,25 @@ def _partial_conjunction_one(
         # One inactive policy, shared with bhy(): under "count" an inactive
         # condition stays in the k-of-m denominator at an inert p = 1 (it can
         # never be one of the k passes); under "exclude" it leaves m, and an
-        # identity left with fewer than ``min_pass`` real conditions cannot
-        # support the claim and stays out of the outer BHY family.
+        # identity left with fewer than ``min_pass`` total remaining conditions
+        # cannot support the claim and stays out of the outer BHY family.
         split = _split_family(group, policy=policy, metric=metric)
         n_computed += len(split.active)
-        n_declared += len(group)
-        ps = _family_p_values(group, split.family, split.inactive_set)
-        n_tests_per_id[identity] = len(split.family)
+        adjusted_size = n_declared_identity - (
+            len(split.inactive) if policy == "exclude" else 0
+        )
+        submitted_ps = _family_p_values(group, split.family, split.inactive_set)
+        ps = np.pad(
+            submitted_ps,
+            (0, adjusted_size - len(submitted_ps)),
+            constant_values=1.0,
+        )
+        n_tests_per_id[identity] = adjusted_size
         n_passed_arr[i] = int(np.sum(ps <= q))
-        if len(split.family) >= min_pass:
+        if adjusted_size >= min_pass:
             pc_p_arr[i] = partial_conjunction_p(ps, min_pass=min_pass)
             eligible.append(i)
-            n_adjusted += len(split.family)
+            n_adjusted += adjusted_size
         rep_results.append(group[0].result)
 
     if n_conditions is None:
@@ -1356,7 +1524,8 @@ def _partial_conjunction_one(
         n_passed_uncorr_all=n_passed_arr,
         family=_family_accounting(
             policy=policy,
-            declared=n_declared,
+            declared=sum(declared_sizes.values()),
+            submitted=len(entries),
             computed=n_computed,
             adjusted=n_adjusted,
         ),
@@ -1368,6 +1537,7 @@ def partial_conjunction_across_metrics(
     *,
     metrics: list[str],
     min_pass: int,
+    family_size: int | Mapping[tuple[Any, ...], int] | None = None,
     q: float = 0.05,
     inactive_policy: InactivePolicy = "count",
 ) -> CrossMetricPartialConjunctionResult:
@@ -1379,9 +1549,10 @@ def partial_conjunction_across_metrics(
     endpoints (a data-shortage short-circuit or a ``degenerate_variance``
     result) are governed by ``inactive_policy``: under the default
     ``"count"`` they stay in ``m`` at an inert ``p = 1``; under
-    ``"exclude"`` they leave ``m``, and identities with fewer than
-    ``min_pass`` real endpoints remain in the audit output but do not enter
-    the outer BHY family. ``min_pass`` must be declared before the p-values
+    ``"exclude"`` submitted inactive endpoints leave ``m``. Identities with
+    fewer than ``min_pass`` computed plus declared-unsubmitted endpoints remain
+    in the audit output but do not enter the outer BHY family. ``min_pass``
+    must be declared before the p-values
     are seen — ``(m - k + 1) * p_((k))`` is not monotone in ``k``.
 
     Args:
@@ -1391,6 +1562,11 @@ def partial_conjunction_across_metrics(
         min_pass: ``k`` in the claim "at least k of m metrics carry signal".
             Must satisfy ``2 <= min_pass <= len(metrics)``. Declared before
             the p-values are seen.
+        family_size: Complete metric-endpoint family size per factor identity.
+            A scalar applies to every identity; a mapping declares
+            heterogeneous sizes keyed like the returned ``family_size``.
+            Declared-but-unsubmitted endpoints enter k-of-m as inert
+            non-rejections. ``None`` uses ``len(metrics)``.
         q: Nominal FDR target for BHY across factor identities.
         inactive_policy: ``"count"`` (default) keeps an inactive endpoint
             in the ``k``-of-``m`` denominator at an inert ``p = 1``;
@@ -1453,7 +1629,13 @@ def partial_conjunction_across_metrics(
 
     m = len(metric_list)
     identifiers = [_hypothesis_identity(result) for result in results]
-    family_size: dict[tuple[Any, ...], int] = {}
+    submitted_sizes = dict.fromkeys(identifiers, m)
+    declared_sizes = _declared_family_sizes(
+        submitted_sizes,
+        family_size,
+        func_name="partial_conjunction_across_metrics",
+    )
+    result_family_size: dict[tuple[Any, ...], int] = {}
     pc_p_all = np.full(len(results), np.nan, dtype=np.float64)
     n_passed = np.zeros(len(results), dtype=np.int64)
     eligible: list[int] = []
@@ -1466,14 +1648,24 @@ def partial_conjunction_across_metrics(
         # the same here as it does under a flat screen.
         split = _split_family(conditions, policy=policy)
         n_computed += len(split.active)
-        family_size[identity] = len(split.family)
-        p_values = _family_p_values(conditions, split.family, split.inactive_set)
+        adjusted_size = declared_sizes[identity] - (
+            len(split.inactive) if policy == "exclude" else 0
+        )
+        result_family_size[identity] = adjusted_size
+        submitted_p_values = _family_p_values(
+            conditions, split.family, split.inactive_set
+        )
+        p_values = np.pad(
+            submitted_p_values,
+            (0, adjusted_size - len(submitted_p_values)),
+            constant_values=1.0,
+        )
         n_passed[idx] = int(np.sum(p_values <= q_target))
-        if len(split.family) < min_pass_int:
+        if adjusted_size < min_pass_int:
             continue
         pc_p_all[idx] = partial_conjunction_p(p_values, min_pass=min_pass_int)
         eligible.append(idx)
-        n_adjusted += len(split.family)
+        n_adjusted += adjusted_size
 
     adj_p_all = np.full(len(results), np.nan, dtype=np.float64)
     if eligible:
@@ -1487,12 +1679,13 @@ def partial_conjunction_across_metrics(
         q=q_target,
         metrics=tuple(metric_list),
         min_pass=min_pass_int,
-        family_size=family_size,
+        family_size=result_family_size,
         n_identities=len(eligible),
         n_passed_uncorr_all=n_passed,
         family=_family_accounting(
             policy=policy,
-            declared=len(hypotheses),
+            declared=sum(declared_sizes.values()),
+            submitted=len(hypotheses),
             computed=n_computed,
             adjusted=n_adjusted,
         ),
@@ -1504,6 +1697,7 @@ def bhy_hierarchical(
     *,
     metrics: list[str],
     group: str,
+    family_size: int | Mapping[tuple[Any, ...], int] | None = None,
     q: float = 0.05,
     inactive_policy: InactivePolicy = "count",
 ) -> dict[str, HierarchicalBhyResult]:
@@ -1573,6 +1767,11 @@ def bhy_hierarchical(
         metrics: ``list[str]`` — one hierarchical screen per
             metric; return dict keyed by ``label``.
         group: Single key naming the group axis.
+        family_size: Complete inner-family size per group. A scalar applies to
+            every group; a mapping declares heterogeneous sizes keyed like the
+            returned ``family_size``. Declared-but-unsubmitted members are
+            inert non-rejections in both the inner BHY and group Simes value.
+            ``None`` uses the submitted member count.
         q: Nominal FDR target. The outer layer runs at ``q``; the inner
             layer at the selective ``q · R / G``. Must satisfy
             ``0 < q < 1``.
@@ -1582,8 +1781,9 @@ def bhy_hierarchical(
             ``p = 1``, and a group made up entirely of inactive members
             enters the outer layer at a Simes p of 1.0, so ``G`` is the
             declared group count. Under ``"exclude"`` inactive members
-            leave their inner family and a group with none left leaves
-            ``G``; valid only under an independent or pre-specified
+            leave their inner family and a group with neither computed nor
+            declared-unsubmitted members leaves ``G``; valid only under an
+            independent or pre-specified
             activity filter. See :data:`InactivePolicy`.
 
     Returns:
@@ -1612,7 +1812,12 @@ def bhy_hierarchical(
     out: dict[str, HierarchicalBhyResult] = {}
     for spec in metric_list:
         out[spec] = _bhy_hierarchical_one(
-            results, metric=spec, group=group, q=q_target, policy=policy
+            results,
+            metric=spec,
+            group=group,
+            family_size=family_size,
+            q=q_target,
+            policy=policy,
         )
     return out
 
@@ -1622,6 +1827,7 @@ def _bhy_hierarchical_one(
     *,
     metric: str,
     group: str,
+    family_size: int | Mapping[tuple[Any, ...], int] | None,
     q: float,
     policy: InactivePolicy,
 ) -> HierarchicalBhyResult:
@@ -1638,6 +1844,10 @@ def _bhy_hierarchical_one(
         submitted[entry.expand_over_values[0]].append(idx)
     declared_keys = list(
         dict.fromkeys(entry.expand_over_values[0] for entry in entries)
+    )
+    submitted_sizes = {(key,): len(submitted[key]) for key in declared_keys}
+    declared_sizes = _declared_family_sizes(
+        submitted_sizes, family_size, func_name="bhy_hierarchical"
     )
 
     # The group-axis validations below judge the declared design, so they read
@@ -1656,7 +1866,7 @@ def _bhy_hierarchical_one(
             ),
             docs_path="api/bhy-hierarchical#validation-summary",
         )
-    if n_declared == len(entries) and len(entries) >= 3:
+    if all(size == 1 for size in declared_sizes.values()) and len(entries) >= 3:
         raise UserInputError(
             func_name="bhy_hierarchical",
             field="group",
@@ -1674,14 +1884,23 @@ def _bhy_hierarchical_one(
     # One inactive policy, shared with bhy(). Under "count" every declared
     # group stays in G and an all-inactive group enters the outer layer at a
     # Simes p of 1.0; under "exclude" inactive members leave their inner
-    # family and a group with none left drops out of G entirely.
+    # family and a group with no computed or unsubmitted member drops out of G.
     split = _split_family(entries, policy=policy, metric=metric)
     inactive_set = split.inactive_set
     family_idx = set(split.family)
     buckets = {
         gkey: [i for i in ix if i in family_idx] for gkey, ix in submitted.items()
     }
-    group_keys_ordered = [gkey for gkey in declared_keys if buckets[gkey]]
+    adjusted_sizes = {
+        (gkey,): declared_sizes[(gkey,)]
+        - (
+            sum(i in inactive_set for i in submitted[gkey])
+            if policy == "exclude"
+            else 0
+        )
+        for gkey in declared_keys
+    }
+    group_keys_ordered = [gkey for gkey in declared_keys if adjusted_sizes[(gkey,)] > 0]
     n_groups = len(group_keys_ordered)
 
     adj_p_all = np.full(len(entries), np.nan, dtype=np.float64)
@@ -1696,17 +1915,18 @@ def _bhy_hierarchical_one(
             family_size={},
             family=_family_accounting(
                 policy=policy,
-                declared=len(entries),
+                declared=sum(declared_sizes.values()),
+                submitted=len(entries),
                 computed=len(split.active),
                 adjusted=0,
             ),
         )
 
-    singletons = sum(1 for gkey in group_keys_ordered if len(buckets[gkey]) == 1)
+    singletons = sum(adjusted_sizes[(gkey,)] == 1 for gkey in group_keys_ordered)
     if singletons * 2 > n_groups:
         warnings.warn(
             f"bhy_hierarchical: {singletons} of {n_groups} groups "
-            "contain a single result — inner BHY on n=1 is a raw cutoff "
+            "have inner family size 1 — inner BHY on n=1 is a raw cutoff "
             "and the outer Simes representative equals that single "
             "p-value, so those groups get no FDR correction at either "
             "layer.",
@@ -1716,13 +1936,23 @@ def _bhy_hierarchical_one(
 
     group_simes = np.empty(n_groups, dtype=np.float64)
     inner_adjs: list[np.ndarray] = []
-    family_size: dict[tuple[Any, ...], int] = {}
+    result_family_size: dict[tuple[Any, ...], int] = {}
     for g_idx, gkey in enumerate(group_keys_ordered):
         member_idxs = buckets[gkey]
-        member_p = _family_p_values(entries, member_idxs, inactive_set)
+        submitted_p = _family_p_values(entries, member_idxs, inactive_set)
+        member_p = np.pad(
+            submitted_p,
+            (0, adjusted_sizes[(gkey,)] - len(submitted_p)),
+            constant_values=1.0,
+        )
         group_simes[g_idx] = simes_p(member_p)
-        inner_adjs.append(bhy_adjusted_p(member_p))
-        family_size[(gkey,)] = len(member_idxs)
+        inner_adjs.append(
+            bhy_adjusted_p(
+                submitted_p,
+                n_tests=adjusted_sizes[(gkey,)],
+            )
+        )
+        result_family_size[(gkey,)] = adjusted_sizes[(gkey,)]
 
     outer_adj = bhy_adjusted_p(group_simes)
 
@@ -1747,12 +1977,13 @@ def _bhy_hierarchical_one(
         adj_p_all=adj_p_all,
         q=q,
         group=group,
-        family_size=family_size,
+        family_size=result_family_size,
         family=_family_accounting(
             policy=policy,
-            declared=len(entries),
+            declared=sum(declared_sizes.values()),
+            submitted=len(entries),
             computed=len(split.active),
-            adjusted=sum(family_size.values()),
+            adjusted=sum(result_family_size.values()),
         ),
     )
 

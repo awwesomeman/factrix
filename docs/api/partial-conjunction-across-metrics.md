@@ -63,8 +63,8 @@ not implement `min_pass=1` any-metric promotion.
 | `adj_p_all` | BHY-adjusted PC p-value per identity |
 | `survivors` / `adj_p` | Passing factor identities and their adjusted p-values |
 | `metrics` / `min_pass` | Declared m endpoints and required k |
-| `family_size` | The k-of-m denominator `m` per identity |
-| `family` | Declared / computed / inactive / adjusted endpoint counts and the `inactive_policy` used |
+| `family_size` | The k-of-m denominator `m` per identity, including declared-unsubmitted endpoints |
+| `family` | Declared / computed / inactive / unsubmitted / adjusted endpoint counts and the `inactive_policy` used |
 | `n_identities` | Identities entering the outer BHY family |
 
 ::: factrix.multi_factor.CrossMetricPartialConjunctionResult

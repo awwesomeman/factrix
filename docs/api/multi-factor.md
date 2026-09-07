@@ -30,6 +30,35 @@ only when the predeclared selection rule may choose among metric labels or
 requires confirmation on at least `k` endpoints; use the hierarchical function
 only for a predeclared group structure.
 
+## Declared family size
+
+By default, the submitted results define every family size. If a pre-registered
+research plan contained candidates that never produced an `EvaluationResult`,
+pass `family_size=` to any of the five screening functions. A scalar declares
+the complete size of **each** bucket, identity, or group handled by that verb;
+use a mapping keyed like the returned `family_size` when those sizes differ.
+Every declared size must be at least its submitted count, and a mapping must
+name every submitted sub-family exactly.
+
+An unsubmitted candidate has no result from which factrix could infer a
+p-value or an activity state. It therefore enters the relevant denominator as
+an inert non-rejection and always counts, under both `inactive_policy` values.
+For example, one submitted hypothesis at $p = 0.01$ with `family_size=10`
+produces the same adjusted $p = 0.293$ as one active plus nine submitted
+inactive candidates under `"count"`. The accounting differs deliberately:
+
+| Input shape | `declared` | `computed` | `inactive` | `unsubmitted` | `adjusted` |
+|---|---:|---:|---:|---:|---:|
+| 1 active + 9 submitted inactive | 10 | 1 | 9 | 0 | 10 |
+| 1 active, `family_size=10` | 10 | 1 | 0 | 9 | 10 |
+
+For `expand_over`, a mapping such as
+`{("US",): 100, ("EU",): 80}` declares sizes per independent bucket; a
+single total is never guessed or proportionally allocated. On the two
+partial-conjunction verbs the same input declares the k-of-m condition size
+per identity. On `bhy_hierarchical` it declares the inner member count per
+observed group; it does not invent the identity of a wholly absent group.
+
 ## Inactive candidates
 
 A metric output that never ran a test is *inactive*. Two shapes qualify: a
@@ -43,8 +72,8 @@ Every function on this page answers that with the same explicit kwarg,
 
 | `inactive_policy` | What `m` (and `G`, and a k-of-m denominator) counts | What it assumes |
 |---|---|---|
-| `"count"` (default) | Every declared candidate. The inactive ones participate at an inert `p = 1`. | Nothing beyond the family declaration itself. |
-| `"exclude"` | Only the candidates that produced a statistic. | That the activity filter is **independent of the p-values or pre-specified** — an assertion you make, not one factrix can check. |
+| `"count"` (default) | Every declared candidate. The submitted inactive and unsubmitted ones participate as inert non-rejections. | Nothing beyond the family declaration itself. |
+| `"exclude"` | Computed submitted candidates plus declared-unsubmitted candidates; only submitted inactive candidates leave. | That the activity filter is **independent of the p-values or pre-specified** — an assertion you make, not one factrix can check. |
 
 ### Why `"count"` is the default
 
@@ -78,13 +107,14 @@ in `tests/test_inactive_policy.py`.
 Under either policy the inactive candidates stay in `entries` for audit, and
 every screening result carries a `family`
 ([`FamilyAccounting`][factrix.multi_factor.FamilyAccounting]) reporting the
-four counts and the policy that produced them:
+five counts and the policy that produced them:
 
 | Field | Meaning |
 |---|---|
-| `n_candidates_declared` | Candidate cells submitted — the declared family. |
+| `n_candidates_declared` | Candidate cells in the full research-plan family. |
 | `n_tests_computed` | Candidates that produced a test statistic. |
-| `n_inactive` | Candidates that never ran a test. |
+| `n_inactive` | Submitted candidates that never ran a test. |
+| `n_unsubmitted` | Declared candidates for which no result was submitted. |
 | `n_tests_adjusted` | Candidates that actually entered an adjustment. |
 | `policy` | The `inactive_policy` the call ran under. |
 
@@ -92,7 +122,7 @@ They also appear in the `repr` / notebook rendering, so a screen never hides
 the gap between the family you declared and the family that was adjusted:
 
 ```text title="Illustrative"
-BhyResult(metric=ic, n=0, q=0.05, family(declared=10, computed=1, inactive=9, adjusted=10, policy='count'))
+BhyResult(metric=ic, n=0, q=0.05, family(declared=10, computed=1, inactive=9, unsubmitted=0, adjusted=10, policy='count'))
 ```
 
 The per-bucket / per-identity mapping beside it is named `family_size`, not
