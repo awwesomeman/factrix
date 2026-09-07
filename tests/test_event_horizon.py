@@ -196,7 +196,7 @@ class TestEventAroundReturn:
         assert result.n_obs == 0
         assert result.n_obs_axis == "events"
 
-    def test_zero_price_withholds_contaminated_baseline(self, event_data):
+    def test_zero_price_withholds_curve_and_its_per_offset_audit(self, event_data):
         poisoned = event_data.with_row_index("_row").with_columns(
             pl.when(pl.col("_row") == 0)
             .then(0.0)
@@ -211,7 +211,9 @@ class TestEventAroundReturn:
         assert result.metadata["reason"] == "invalid_price_data"
         assert result.metadata["n_invalid_prices"] == 1
         assert result.metadata["baseline_bar_return"] is None
-        assert result.metadata["per_offset"]
+        assert result.metadata["per_offset"] == {}
+        assert result.n_obs > 0
+        assert result.metadata["n_events"] == result.n_obs
         assert fx.WarningCode.METRIC_UNAVAILABLE.value in result.warning_codes
 
 

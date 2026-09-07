@@ -510,9 +510,11 @@ Pre/post-event return profile; descriptive.
   negative offset cleared the 5-event floor — `0.0` there was the *best*
   possible score for a quantity never computed. An observed non-finite or
   non-positive price instead withdraws the entire curve with
-  `reason=invalid_price_data`, audited `per_offset` entries, and
+  `reason=invalid_price_data`, an empty `per_offset` mapping, and
   `WarningCode.METRIC_UNAVAILABLE`; `n_invalid_prices` reports the offending
-  row count. Null prices remain valid missing data on a ragged panel.
+  row count. `n_events` / `n_obs` still report the events used by the raw-path
+  computation, but its per-offset counts are withheld because that curve was
+  discarded. Null prices remain valid missing data on a ragged panel.
 
 - *benchmark horizon*: offset `k > 0` is a simple return from `t+1` to
   `t+1+k`, so its `benchmark` is `(1 + baseline_bar_return)**k - 1` — the
