@@ -984,3 +984,63 @@ class TestCostAlgebraDomain:
         out = net_spread(0.001, turnover=turnover, estimated_cost_bps=cost)
         assert out.value <= 0.001
         assert out.metadata["cost_drag"] >= 0.0
+
+
+class TestRankTurnoverPairsOnThePeriodGrid:
+    """``rebalance_lag`` is a count of periods, for every asset alike."""
+
+    @staticmethod
+    def _panel(*, strides: list[int], drop: set[tuple[str, int]] | None = None):
+        dates: list[datetime] = []
+        cursor = datetime(2020, 1, 1)
+        for index in range(12):
+            dates.append(cursor)
+            cursor += timedelta(days=strides[index % len(strides)])
+        rows: list[dict[str, object]] = []
+        for asset in range(6):
+            for index, current in enumerate(dates):
+                if drop and (f"A{asset}", index) in drop:
+                    continue
+                rows.append(
+                    {
+                        "date": current,
+                        "asset_id": f"A{asset}",
+                        # sign flips every period, so a pair one period apart
+                        # is a full rank reversal and a pair two periods apart
+                        # is no change at all
+                        "factor": (1 if index % 2 == 0 else -1) * (asset + 1),
+                        "forward_return": 0.01,
+                    }
+                )
+        return pl.DataFrame(rows)
+
+    def test_a_missing_period_does_not_pair_across_the_gap(self) -> None:
+        """One absent cell must not silently widen that asset's lag.
+
+        Pairing on each asset's own surviving rows reaches back to the
+        previous *row*, which on a ragged panel is two periods away. The
+        factor flips sign every period, so the fabricated pair reads as
+        no turnover at all and drags the headline down — with ``n_obs``
+        unchanged, so nothing announces it.
+        """
+        dense = rank_turnover(rebalance_lag=1)(
+            self._panel(strides=[1]), overlap_periods=1
+        )
+        ragged = rank_turnover(rebalance_lag=1)(
+            self._panel(strides=[1], drop={("A5", 4)}), overlap_periods=1
+        )
+
+        assert dense.value == pytest.approx(2.0)
+        # The one unpairable rebalance drops out; it is not paired across
+        # the hole and read as a name that did not move.
+        assert ragged.value == pytest.approx(2.0, abs=0.005)
+
+    def test_pairing_is_invariant_to_the_calendar(self) -> None:
+        """The grid is a period count; the dates' spacing is not read."""
+        even = rank_turnover(rebalance_lag=1)(
+            self._panel(strides=[1], drop={("A5", 4)}), overlap_periods=1
+        )
+        uneven = rank_turnover(rebalance_lag=1)(
+            self._panel(strides=[1, 17], drop={("A5", 4)}), overlap_periods=1
+        )
+        assert even.value == pytest.approx(uneven.value, rel=1e-12)
