@@ -1145,6 +1145,11 @@ Scalar-input metric (consumes pre-aggregated scalars rather than a
 date-keyed DataFrame).
 
 - *descriptive*: `gross_spread`, `turnover`, `holding_periods`.
+- *short circuit*: `reason` = `no_gross_spread` / `no_turnover` when an input
+  `MetricResult` was itself unavailable, with `upstream_metric` and
+  `upstream_reason`; `reason` = `no_unique_breakeven_cost` when turnover and
+  gross spread are both zero, where `net` is zero at every cost and no single
+  cost is the boundary.
 
 #### `net_spread`
 
@@ -1152,6 +1157,8 @@ Scalar-input metric.
 
 - *descriptive*: `gross_spread`, `cost_drag`, `estimated_cost_bps`,
   `turnover`, `holding_periods`.
+- *short circuit*: `reason` = `no_gross_spread` / `no_turnover`, with
+  `upstream_metric` and `upstream_reason`, as for `breakeven_cost`.
 
 `holding_periods` is the cost-amortisation interval: the number of
 **underlying return periods** between rebalances, the same unit
