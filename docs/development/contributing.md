@@ -17,6 +17,11 @@ python scripts/setup_dev.py
 uv run pytest
 ```
 
+`uv sync --extra dev` is sufficient for `uv run pytest` to finish green: the
+tests that build or resolve the MkDocs site skip themselves, with a reason, when
+the `docs` extra is absent. Add `--extra docs` (or `--all-extras`) to make those
+checks run instead of skip; `uv run pytest -rs` lists the skip reasons.
+
 `pyproject.toml` and `uv.lock` define the environment. Do not install packages
 directly into `.venv`; use `uv add`, update the project metadata, and commit the
 lockfile change together.
@@ -179,7 +184,11 @@ uv run mkdocs build --strict
 ```
 
 Use `uv sync --frozen --all-extras` before the complete run so optional adapter
-tests do not execute against a partially installed pandas/pyarrow environment.
+tests do not execute against a partially installed pandas/pyarrow environment,
+and so the docs-site tests run rather than skip — `uv sync --extra dev` alone
+leaves both the pandas adapter and the docs checks unexercised. `uv run pytest
+-rs` prints the reason for every skip, so a missing extra is visible rather than
+silent.
 
 ## Python and API changes
 

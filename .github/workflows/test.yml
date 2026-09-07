@@ -68,6 +68,33 @@ jobs:
       - name: Run pytest
         run: uv run --python ${{ matrix.python }} pytest
 
+  dev-extra:
+    name: pytest (documented contributor setup, --extra dev)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.8.x"
+          enable-cache: true
+
+      # The contributing guides tell a new contributor to install exactly this
+      # and then run the complete suite. #1061: the docs-site tests need the
+      # separate ``docs`` extra, so this job proves they skip with a reason
+      # instead of failing the advertised command. ``-rs`` puts each reason in
+      # the log, so an extra that quietly stopped being installed is visible.
+      # This job passes on the tree as it stands: it pins the documented
+      # setup against drift — a newly collected test importing a docs-only
+      # dependency — rather than proving a fix.
+      - name: Install the documented contributor environment
+        run: uv sync --frozen --python 3.12 --extra dev
+
+      - name: Run pytest
+        run: uv run --python 3.12 pytest -rs
+
   floor:
     name: pytest (declared dependency floor, no pandas, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
