@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 import polars as pl
 
 from factrix._codes import WarningCode, _emit_warning, _validate_expected_warnings_arg
-from factrix._data_input import DataInput, _read_horizon_stamps
+from factrix._data_input import DataInput, _coerce_data, _read_horizon_stamps
 from factrix._results import Warning
 from factrix.slicing._primitive import _slice_by
 
@@ -83,13 +83,22 @@ def by_slice(
             design — multi-factor / multi-metric batching is the job of
             :func:`factrix.evaluate`.
         price_data: Optional complete ``date, asset_id, price`` panel,
-            forwarded unchanged to every per-slice ``evaluate`` call. The
-            slice's ``data`` rows remain the sole owner of event eligibility
-            and the forward-return sample; this side panel only supplies the
-            complete price grid for event offsets and excursion windows.
-            Consequently, ``offsets=`` and ``window=`` count periods on this
-            price grid when it is supplied, just as under
-            :func:`factrix.evaluate`.
+            forwarded to every per-slice ``evaluate`` call **restricted to
+            that slice's own assets**. The slice's ``data`` rows remain the
+            sole owner of event eligibility and the forward-return sample;
+            this side panel only supplies the complete price grid for event
+            offsets and excursion windows. Consequently, ``offsets=`` and
+            ``window=`` count periods on this price grid when it is
+            supplied, just as under :func:`factrix.evaluate`.
+
+            The restriction is by asset, never by date: an asset keeps its
+            whole price history in every slice it appears in, so a path that
+            crosses a slice boundary in time is still walked. Forwarding the
+            panel whole instead would hand each slice quantities formed from
+            assets it does not contain — the unconditional baseline
+            ``event_around_return`` subtracts, and the raggedness verdict
+            its warning reports — so passing prices would silently change
+            what a slice is measured against.
         forward_periods: The data's return horizon, forwarded to
             ``evaluate`` on every per-slice call. Normally omitted — it is
             read from the panel's ``compute_forward_return`` stamp (which
@@ -165,6 +174,15 @@ def by_slice(
     # each slice can carry one internally constant but mutually different stamp,
     # hiding a mixed-horizon input from the per-slice evaluate calls.
     _read_horizon_stamps(data, func_name="by_slice")
+    # Coerce once here rather than per slice: the structural gate is the same
+    # for every slice, and the frame has to be eager to be restricted below.
+    # Column and dtype validation stays with ``evaluate``, which owns the
+    # price-panel contract and reports it against the slice it applies to.
+    prices = (
+        None
+        if price_data is None
+        else _coerce_data(price_data, func_name="by_slice", role="price_data")
+    )
     sliced = _slice_by(data, by)
     label = _metric_label(metric)
     truncation = _warn_date_axis_truncation(
@@ -175,7 +193,7 @@ def by_slice(
     for key, sub_df in sliced.items():
         bundle = factrix.evaluate(
             sub_df,
-            price_data=price_data,
+            price_data=_slice_price_data(prices, sub_df),
             metrics={label: metric},
             factor_cols=[factor_col],
             forward_periods=forward_periods,
@@ -190,6 +208,33 @@ def by_slice(
             )
         results[key] = result
     return results
+
+
+def _slice_price_data(
+    prices: pl.DataFrame | None, sub_df: pl.DataFrame
+) -> pl.DataFrame | None:
+    """Restrict a price panel to the assets present in one slice.
+
+    ``price_data`` exists to complete the *price grid* — the periods an
+    evaluation panel dropped. It is not a second source of assets. Every
+    quantity a metric forms from the price panel rather than from the events
+    (the unconditional baseline in ``event_around_return``, the raggedness
+    the grid warning reports) would otherwise be formed from assets this
+    slice does not contain, and passing prices would change what the slice is
+    measured against without saying so.
+
+    Restriction is by asset only. Dropping periods as well would put back the
+    truncation the panel was passed to repair.
+
+    A panel with no ``asset_id`` column is forwarded unchanged so that
+    ``evaluate`` raises the one canonical price-panel error against the slice
+    it applies to, rather than this helper failing first with a polars error.
+    """
+    if prices is None or "asset_id" not in prices.columns:
+        return prices
+    return prices.filter(
+        pl.col("asset_id").is_in(sub_df["asset_id"].unique().implode())
+    )
 
 
 def _metric_label(metric: MetricBase) -> str:

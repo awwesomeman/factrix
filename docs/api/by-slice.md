@@ -30,14 +30,26 @@ market-cap tier, ADV bucket all share the same dispatcher.
 - `factor_col` — the single factor to evaluate (multi-factor batching is
   the job of `evaluate`).
 - `price_data` — an optional complete `(date, asset_id, price)` panel,
-  forwarded to every slice for event offsets and excursion windows. The
-  sliced `data` panel still owns event eligibility and the forward-return
-  sample, so price-only rows never enter return metrics or sample floors.
+  forwarded to every slice for event offsets and excursion windows,
+  **restricted to that slice's own assets**. The sliced `data` panel still
+  owns event eligibility and the forward-return sample, so price-only rows
+  never enter return metrics or sample floors.
 
 When `price_data` is supplied, `offsets=` and `window=` count periods on its
 price grid, not on the (possibly coarser or tail-truncated) evaluation grid.
 This is the same period-unit contract as
 [`evaluate`](evaluate.md#offsets-and-windows-are-counted-on-the-grid-that-supplies-them).
+
+The restriction to the slice's assets is by asset, never by date: an asset
+keeps its whole price history in every slice it appears in, so a path that
+crosses a slice boundary in time is still walked, while the panel-level
+quantities a metric forms from prices stay inside the slice. Those quantities
+are not hypothetical — `event_around_return` subtracts an unconditional
+baseline read off the price panel, and the ragged-grid warning describes it.
+Forwarding the panel whole would benchmark each slice against assets it does
+not contain, so passing prices would silently change what the slice is
+measured against.
+
 For example, preserve a tail needed by an event offset without putting that
 tail back into the return sample:
 
