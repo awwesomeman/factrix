@@ -716,9 +716,12 @@ _WARNING_DESCRIPTIONS.update(
         "on its own rows, so a rolling window / per-asset time-series "
         "regression / event window sees truncated history at the slice "
         "boundary — the per-slice value differs from the full-sample value "
-        "decomposed by period. Metrics that don't declare the flag and "
-        "cross-sectional partitions (constant within an asset, e.g. sector) "
-        "are unaffected and do not trigger.",
+        "decomposed by period. A price_data= panel does not widen that history: "
+        "on a date-axis partition it is restricted to the slice's own period "
+        "range, so the baseline and raggedness a metric reads off it describe "
+        "the slice rather than the full span. Metrics that don't declare the "
+        "flag and cross-sectional partitions (constant within an asset, e.g. "
+        "sector) are unaffected and do not trigger.",
         WarningCode.SHORT_SLICE_JOINT_TEST: "slice_period_joint_test ran on "
         "K >= 3 slices with the shortest below 150 periods. On a true null "
         "the omnibus over-rejects there (measured 8–9% analytic and 10–15% "

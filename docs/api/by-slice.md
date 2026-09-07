@@ -40,15 +40,28 @@ price grid, not on the (possibly coarser or tail-truncated) evaluation grid.
 This is the same period-unit contract as
 [`evaluate`](evaluate.md#offsets-and-windows-are-counted-on-the-grid-that-supplies-them).
 
-The restriction to the slice's assets is by asset, never by date: an asset
-keeps its whole price history in every slice it appears in, so a path that
-crosses a slice boundary in time is still walked, while the panel-level
-quantities a metric forms from prices stay inside the slice. Those quantities
-are not hypothetical — `event_around_return` subtracts an unconditional
-baseline read off the price panel, and the ragged-grid warning describes it.
-Forwarding the panel whole would benchmark each slice against assets it does
-not contain, so passing prices would silently change what the slice is
-measured against.
+The forwarded panel is restricted to the sample the slice is drawn from,
+because the quantities a metric forms from prices are formed over whatever
+that panel spans. They are not hypothetical: `event_around_return` subtracts
+an unconditional baseline read off the price panel, and the ragged-grid
+warning describes it. Forwarding the panel whole would form both outside the
+slice, so passing prices would silently change what the slice is measured
+against.
+
+The restriction is always by asset, and on a **date-axis** partition also by
+the slice's own period range:
+
+| Partition | Example `by` | What is restricted | Effect |
+|---|---|---|---|
+| Cross-sectional (constant within an asset) | `sector`, `size_bucket` | Assets only — every slice spans the whole period range anyway | A path crossing a slice boundary in time is still walked, and the tail `compute_forward_return` dropped stays reachable |
+| Date-axis (varies within an asset over time) | `regime`, `calendar_year` | Assets *and* the slice's first-to-last period | A regime is benchmarked against its own drift, not its neighbours' |
+
+The asset restriction alone is a no-op on a date-axis partition — every slice
+holds every asset — so without the period range a regime would read the rest
+of the span's trend as event alpha. The period restriction is the same
+own-periods contract `slice_boundary_truncation` already declares for these
+partitions. The range is first-to-last, not the exact period set, so periods
+the evaluation grid skipped inside the slice still complete the price grid.
 
 For example, preserve a tail needed by an event offset without putting that
 tail back into the return sample:

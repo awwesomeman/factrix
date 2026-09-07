@@ -449,3 +449,96 @@ def test_by_slice_raggedness_is_measured_on_the_slice_not_the_price_panel() -> N
     assert bundle["fast"].metrics["event_around_return"].warning_codes == (
         "ragged_period_grid",
     )
+
+
+def _regime_panel(
+    *,
+    n_assets: int = 8,
+    n_dates: int = 100,
+    switch_at: int = 50,
+    calm_growth: float = 1.0002,
+    hot_growth: float = 1.010,
+) -> pl.DataFrame:
+    """One panel, two regimes on the date axis, no event information.
+
+    Every asset compounds at the regime's own rate, so within each regime
+    the correct excess return is zero at every offset. A residue is the
+    benchmark being formed from the other regime's drift.
+    """
+    dates = [date(2020, 1, 1) + timedelta(days=index) for index in range(n_dates)]
+    rows: list[dict[str, object]] = []
+    for asset_index in range(n_assets):
+        price = 100.0
+        for index, current_date in enumerate(dates):
+            price *= calm_growth if index < switch_at else hot_growth
+            rows.append(
+                {
+                    "date": current_date,
+                    "asset_id": f"A{asset_index}",
+                    "regime": "calm" if index < switch_at else "hot",
+                    "factor": 1.0 if index in (20, 70) else 0.0,
+                    "price": price,
+                }
+            )
+    return pl.DataFrame(rows)
+
+
+def test_by_slice_date_axis_baseline_stays_inside_the_slice() -> None:
+    """A regime is benchmarked against its own drift, not the whole span.
+
+    Restricting the forwarded price panel by asset is a no-op on a
+    date-axis partition: every slice holds every asset. The price panel
+    then supplies periods belonging to the *other* regimes, and the
+    unconditional baseline is pooled across all of them.
+    """
+    raw = _regime_panel()
+    panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
+
+    bundle = fx.by_slice(
+        panel,
+        event_around_return(offsets=[6]),
+        by="regime",
+        factor_col="factor",
+        price_data=raw,
+        expected_warnings=("slice_boundary_truncation",),
+        strict=False,
+    )
+
+    for regime, drift in (("calm", 0.0002), ("hot", 0.010)):
+        metadata = bundle[regime].metrics["event_around_return"].metadata
+        assert metadata["baseline_bar_return"] == pytest.approx(drift, rel=1e-9), (
+            f"{regime} was benchmarked against {metadata['baseline_bar_return']}"
+        )
+        assert metadata["per_offset"][6]["mean"] == pytest.approx(0.0, abs=1e-12), (
+            f"{regime} prices its own drift as event alpha"
+        )
+
+
+def test_by_slice_cross_sectional_keeps_the_price_tail() -> None:
+    """The date restriction must not fire on a cross-sectional partition.
+
+    A sector slice spans every period, so its price panel keeps the tail
+    `compute_forward_return` dropped — the offset that tail restores is
+    the whole point of forwarding prices at all.
+    """
+    raw = _event_panel(n_assets=12, n_dates=100)
+    raw = raw.with_columns(
+        pl.when(pl.col("asset_id").is_in(pl.Series([f"A{i}" for i in range(6)])))
+        .then(pl.lit("first"))
+        .otherwise(pl.lit("second"))
+        .alias("cohort")
+    )
+    panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
+
+    bundle = fx.by_slice(
+        panel,
+        event_around_return(offsets=[24]),
+        by="cohort",
+        factor_col="factor",
+        price_data=raw,
+        strict=False,
+    )
+
+    for cohort in ("first", "second"):
+        audit = bundle[cohort].metrics["event_around_return"].metadata["per_offset"][24]
+        assert (audit["computed"], audit["censored"]) == (6, 0)

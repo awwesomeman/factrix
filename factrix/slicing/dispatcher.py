@@ -84,21 +84,30 @@ def by_slice(
             :func:`factrix.evaluate`.
         price_data: Optional complete ``date, asset_id, price`` panel,
             forwarded to every per-slice ``evaluate`` call **restricted to
-            that slice's own assets**. The slice's ``data`` rows remain the
-            sole owner of event eligibility and the forward-return sample;
-            this side panel only supplies the complete price grid for event
-            offsets and excursion windows. Consequently, ``offsets=`` and
-            ``window=`` count periods on this price grid when it is
-            supplied, just as under :func:`factrix.evaluate`.
+            the sample that slice is drawn from**. The slice's ``data`` rows
+            remain the sole owner of event eligibility and the
+            forward-return sample; this side panel only supplies the
+            complete price grid for event offsets and excursion windows.
+            Consequently, ``offsets=`` and ``window=`` count periods on this
+            price grid when it is supplied, just as under
+            :func:`factrix.evaluate`.
 
-            The restriction is by asset, never by date: an asset keeps its
-            whole price history in every slice it appears in, so a path that
-            crosses a slice boundary in time is still walked. Forwarding the
-            panel whole instead would hand each slice quantities formed from
-            assets it does not contain — the unconditional baseline
-            ``event_around_return`` subtracts, and the raggedness verdict
-            its warning reports — so passing prices would silently change
-            what a slice is measured against.
+            The restriction is always by asset, and on a **date-axis**
+            partition also by the slice's own period range. Forwarding the
+            panel whole would hand each slice quantities formed outside it —
+            the unconditional baseline ``event_around_return`` subtracts,
+            and the raggedness verdict its warning reports — so passing
+            prices would silently change what the slice is measured against.
+            On a cross-sectional partition (sector, size bucket) the period
+            range is the whole panel's, so only the asset restriction bites
+            and the tail ``compute_forward_return`` dropped stays reachable:
+            a path crossing a slice boundary in time is still walked. On a
+            date-axis partition (regime, calendar period) every slice holds
+            every asset, so the period restriction is what keeps a regime
+            from being benchmarked against its neighbours' drift — the same
+            own-periods contract
+            :data:`~factrix._codes.WarningCode.SLICE_BOUNDARY_TRUNCATION`
+            already declares there.
         forward_periods: The data's return horizon, forwarded to
             ``evaluate`` on every per-slice call. Normally omitted — it is
             read from the panel's ``compute_forward_return`` stamp (which
@@ -183,6 +192,9 @@ def by_slice(
         if price_data is None
         else _coerce_data(price_data, func_name="by_slice", role="price_data")
     )
+    # Whether a slice's periods are the whole panel's or only its own share
+    # decides how far its price panel may reach; see ``_slice_price_data``.
+    date_axis = prices is not None and _is_date_axis_partition(data, by)
     sliced = _slice_by(data, by)
     label = _metric_label(metric)
     truncation = _warn_date_axis_truncation(
@@ -193,7 +205,7 @@ def by_slice(
     for key, sub_df in sliced.items():
         bundle = factrix.evaluate(
             sub_df,
-            price_data=_slice_price_data(prices, sub_df),
+            price_data=_slice_price_data(prices, sub_df, date_axis=date_axis),
             metrics={label: metric},
             factor_cols=[factor_col],
             forward_periods=forward_periods,
@@ -211,20 +223,39 @@ def by_slice(
 
 
 def _slice_price_data(
-    prices: pl.DataFrame | None, sub_df: pl.DataFrame
+    prices: pl.DataFrame | None, sub_df: pl.DataFrame, *, date_axis: bool
 ) -> pl.DataFrame | None:
-    """Restrict a price panel to the assets present in one slice.
+    """Restrict a price panel to the sample one slice is drawn from.
 
     ``price_data`` exists to complete the *price grid* — the periods an
-    evaluation panel dropped. It is not a second source of assets. Every
+    evaluation panel dropped. It is not a second source of sample. Every
     quantity a metric forms from the price panel rather than from the events
     (the unconditional baseline in ``event_around_return``, the raggedness
-    the grid warning reports) would otherwise be formed from assets this
-    slice does not contain, and passing prices would change what the slice is
-    measured against without saying so.
+    the grid warning reports) is formed over whatever this panel spans, so
+    anything reaching outside the slice changes what the slice is measured
+    against without saying so.
 
-    Restriction is by asset only. Dropping periods as well would put back the
-    truncation the panel was passed to repair.
+    What "outside" means depends on the partition, which is why ``date_axis``
+    has to be passed in:
+
+    - **Always, by asset.** A cross-sectional slice holds only its own names;
+      the panel's other assets are a different cross-section.
+    - **On a date-axis partition, also by period range.** There the asset
+      restriction is a no-op — every slice holds every asset — and the
+      periods outside the slice's own span belong to *other* slices. A regime
+      benchmarked against the whole panel's drift reads its neighbours'
+      trend as event alpha. This is the same truncation
+      :data:`~factrix._codes.WarningCode.SLICE_BOUNDARY_TRUNCATION` already
+      declares for these partitions: the slice is evaluated on its own
+      periods, and the price panel now honours that rather than quietly
+      widening it.
+
+    The range is the slice's first-to-last period, not its exact period set,
+    so periods the evaluation grid skipped inside the slice still complete
+    the price grid. On a cross-sectional partition no date restriction is
+    applied at all, which is what keeps the tail
+    ``compute_forward_return`` dropped available to event offsets — the
+    reason the panel is forwarded in the first place.
 
     A panel with no ``asset_id`` column is forwarded unchanged so that
     ``evaluate`` raises the one canonical price-panel error against the slice
@@ -232,8 +263,13 @@ def _slice_price_data(
     """
     if prices is None or "asset_id" not in prices.columns:
         return prices
-    return prices.filter(
+    scoped = prices.filter(
         pl.col("asset_id").is_in(sub_df["asset_id"].unique().implode())
+    )
+    if not date_axis:
+        return scoped
+    return scoped.filter(
+        pl.col("date").is_between(sub_df["date"].min(), sub_df["date"].max())
     )
 
 
@@ -252,6 +288,28 @@ def _metric_label(metric: MetricBase) -> str:
         # Not a metric instance — ``evaluate`` raises the canonical error below;
         # the placeholder only has to survive until then.
         return "metric"
+
+
+def _is_date_axis_partition(data: pl.DataFrame, by: str) -> bool:
+    """True when ``by`` varies within an asset over time.
+
+    A cross-sectional key (sector, size bucket) is constant within an
+    asset, so every slice still spans the panel's whole period range. A
+    date-axis key (regime, calendar period, in/out-of-sample) splits each
+    asset's own history, so a slice covers only part of that range and the
+    periods outside it belong to a different slice.
+
+    The classification is a property of the ``(data, by)`` pair alone, not
+    of the metric: it decides both whether a boundary-sensitive metric is
+    warned and how far the forwarded price panel may reach.
+
+    Returns ``False`` when the panel carries no ``asset_id`` column, where
+    the axis cannot be classified.
+    """
+    if "asset_id" not in data.columns:
+        return False
+    n_assets = data.select("asset_id").n_unique()
+    return data.select("asset_id", by).n_unique() > n_assets
 
 
 def _warn_date_axis_truncation(
@@ -287,12 +345,8 @@ def _warn_date_axis_truncation(
         return None  # not a metric instance; evaluate raises the canonical error
     if not spec.slice_boundary_sensitive:
         return None
-    if "asset_id" not in data.columns:
-        return None  # cannot classify the axis without an asset dimension
-    n_assets = data.select("asset_id").n_unique()
-    n_asset_by_pairs = data.select("asset_id", by).n_unique()
-    if n_asset_by_pairs <= n_assets:
-        return None  # by is constant within each asset → cross-sectional
+    if not _is_date_axis_partition(data, by):
+        return None
     name = spec.name
     message = (
         f"{name!r} depends on intact date ordering, "
