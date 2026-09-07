@@ -267,29 +267,39 @@ def _rank(
     data: pl.DataFrame, *, sort_by: str, descending: bool, rank_method: RankMethod
 ) -> pl.DataFrame:
     """Sort ``data`` on ``sort_by`` and attach the ``rank`` column."""
+    sort_key_name = _unused_column_name(data.columns, _SORT_KEY)
     key = pl.col(sort_by)
     if data.schema[sort_by] in (pl.Float32, pl.Float64):
         # Fold NaN into null so "missing last" holds in both directions.
         key = pl.when(key.is_nan()).then(None).otherwise(key)
-    data = data.with_columns(key.alias(_SORT_KEY))
-    tiebreaks = _sortable_tiebreaks(data.drop(_SORT_KEY), sort_by)
+    data = data.with_columns(key.alias(sort_key_name))
+    tiebreaks = _sortable_tiebreaks(data.drop(sort_key_name), sort_by)
     data = data.sort(
-        [_SORT_KEY, *tiebreaks],
+        [sort_key_name, *tiebreaks],
         descending=[descending, *[False] * len(tiebreaks)],
         nulls_last=True,
     )
     if rank_method == "ordinal":
         ranks = pl.int_range(1, data.height + 1, dtype=pl.Int64)
     else:
-        ranks = pl.col(_SORT_KEY).rank(method=rank_method, descending=descending)
+        ranks = pl.col(sort_key_name).rank(method=rank_method, descending=descending)
     data = data.with_columns(
-        pl.when(pl.col(_SORT_KEY).is_null())
+        pl.when(pl.col(sort_key_name).is_null())
         .then(None)
         .otherwise(ranks)
         .cast(pl.Int64)
         .alias("rank")
     )
-    return data.drop(_SORT_KEY)
+    return data.drop(sort_key_name)
+
+
+def _unused_column_name(columns: Iterable[str], preferred: str) -> str:
+    """Return an internal column name that cannot shadow caller data."""
+    occupied = set(columns)
+    candidate = preferred
+    while candidate in occupied:
+        candidate = f"_{candidate}"
+    return candidate
 
 
 def _ordered_keys(maps: Iterable[Mapping[str, Any]]) -> list[str]:

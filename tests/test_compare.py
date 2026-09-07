@@ -144,6 +144,22 @@ def test_param_keys_propagate_with_null_fill():
     assert b_row["sector"] == "tech" and b_row["region"] is None
 
 
+def test_internal_sort_key_name_cannot_drop_a_params_column():
+    make_spec("ic")
+    key = "__factrix_sort_key"
+    results = [
+        make_result(factor="same", p=0.1, metric="ic", params={key: 2}),
+        make_result(factor="same", p=0.1, metric="ic", params={key: 1}),
+    ]
+
+    ranked = compare(results, metrics=["ic"], sort_by="ic_p_value")
+    sorted_by_param = compare(results, metrics=["ic"], sort_by=key)
+
+    assert ranked[key].to_list() == [1, 2]
+    assert sorted_by_param[key].to_list() == [1, 2]
+    assert key in ranked.columns
+
+
 def test_p_column_populated_when_metadata_present():
     make_spec("ic")
     results = [make_result(factor="f1", p=0.042, metric="ic", value=0.05)]
