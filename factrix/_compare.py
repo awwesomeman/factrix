@@ -11,7 +11,7 @@ union + null-fill — so a result missing ``region`` surfaces as a
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from typing import Any
+from typing import Any, Literal
 
 import polars as pl
 
@@ -19,13 +19,46 @@ from factrix._errors import UserInputError
 from factrix._multi_factor import _require_non_empty_results, _validate_metric_list
 from factrix._results import EvaluationResult, _float_or_none
 
+RankMethod = Literal["min", "dense", "ordinal"]
+
+_RANK_METHODS: tuple[RankMethod, ...] = ("min", "dense", "ordinal")
+
+# Sort direction for metric columns whose direction follows from the
+# metric's own definition: a return-like or evidence-like quantity that
+# is better when larger, or a cost driver that is better when smaller.
+# Signed metrics (``predictive_beta``, ``fm_beta``, ``spanning_alpha``,
+# ``caar``, ``ic_trend`` …) are deliberately absent — "largest positive
+# value" is not the same question as "strongest effect", so those keys
+# require an explicit ``descending``.
+_HIGHER_IS_BETTER: frozenset[str] = frozenset(
+    {
+        "ic",
+        "ic_ir",
+        "quantile_spread",
+        "quantile_spread_vw",
+        "common_quantile_spread",
+        "net_spread",
+        "breakeven_cost",
+    }
+)
+_LOWER_IS_BETTER: frozenset[str] = frozenset({"rank_turnover", "notional_turnover"})
+
+# Identity columns that also serve as deterministic tiebreakers.
+_IDENTITY_COLS: tuple[str, ...] = ("factor", "forward_periods")
+
+# Hidden ordering key: the sort column with NaN folded into null so that
+# "missing last" holds in both directions (polars orders NaN as the
+# largest float, which would otherwise put it first under descending).
+_SORT_KEY = "__factrix_sort_key"
+
 
 def compare(
     results: list[EvaluationResult],
     *,
     metrics: list[str],
     sort_by: str | None = None,
-    descending: bool = True,
+    descending: bool | None = None,
+    rank_method: RankMethod = "min",
 ) -> pl.DataFrame:
     """Render a wide leaderboard ``pl.DataFrame`` for multiple metrics.
 
@@ -47,15 +80,43 @@ def compare(
             before ranking: identity columns, params keys, metric value
             columns, or ``<metric_label>_p_value`` columns. ``None`` keeps
             input order and omits the ``rank`` column.
-        descending: Sort direction applied to ``sort_by``. Default
-            ``True`` (higher-is-better, the common case for ``ic`` /
-            ``alpha`` / information ratio). Pass ``descending=False``
-            for lower-is-better metrics such as ``rank_turnover`` or any
-            cost / drag metric. :class:`str` deliberately does
-            not carry a ``higher_is_better`` flag — encoding sort
-            direction in the type system bakes in a default that
-            silently mis-ranks when wrong. No-op when ``sort_by`` is
-            ``None``.
+        descending: Sort direction applied to ``sort_by``. ``None`` (the
+            default) resolves the direction from the column itself, under
+            the rule below; pass ``True`` / ``False`` to state it
+            outright, which always wins over the rule. There is no global
+            direction default — a lower-is-better key must never inherit
+            a higher-is-better sort. No-op when ``sort_by`` is ``None``.
+        rank_method: How equal ``sort_by`` values are numbered in the
+            ``rank`` column. ``"min"`` (default) gives tied rows the same,
+            best rank and leaves a gap (``1, 1, 3``); ``"dense"`` gives the
+            same rank without a gap (``1, 1, 2``); ``"ordinal"`` numbers
+            every row ``1..N``, ties broken by the row order described
+            below. Names and semantics are Polars'
+            ``Expr.rank`` methods.
+
+    Direction rule (``descending=None``):
+
+    - a ``<metric_label>_p_value`` column sorts **ascending** — a smaller
+      p-value is stronger evidence;
+    - ``factor``, ``forward_periods`` and params keys sort **ascending**;
+      they label a row rather than score it, so natural order applies;
+    - a metric value column sorts by the direction its metric is defined
+      with: ``ic``, ``ic_ir``, ``quantile_spread``, ``quantile_spread_vw``,
+      ``common_quantile_spread``, ``net_spread`` and ``breakeven_cost``
+      descending; ``rank_turnover`` and ``notional_turnover`` ascending;
+    - any other metric label — a custom evaluation label such as
+      ``ic_nw``, or a signed metric such as ``predictive_beta`` — raises
+      :class:`UserInputError`. Pass ``descending`` explicitly there.
+
+    Row order and ties: rows are sorted on ``sort_by``, then on ``factor``
+    and ``forward_periods`` ascending, then on any params column of a
+    sortable dtype. The output therefore does not depend on the order of
+    ``results``. Rows equal on every one of those columns are
+    indistinguishable and keep input order among themselves.
+
+    Missing values: a ``null`` or ``NaN`` ``sort_by`` value sorts **last**
+    in both directions and carries a ``null`` rank under every
+    ``rank_method`` — a row with no value has no place in the ranking.
 
     Returns:
         ``pl.DataFrame`` with column order ``factor``,
@@ -67,23 +128,47 @@ def compare(
     Raises:
         UserInputError: Empty ``results``; ``metrics`` not a non-empty
             ``list[str]``; any metric absent from any result's
-            outputs; ``sort_by`` not present in the output columns.
+            outputs; ``rank_method`` not one of ``min`` / ``dense`` /
+            ``ordinal``; ``sort_by`` not present in the output columns;
+            ``sort_by`` naming a metric column of unknown direction while
+            ``descending`` is ``None``.
 
     Examples:
-        Multi-metric wide leaderboard sorted on IC:
+        Alpha / information-ratio style metric — higher is better, and
+        the direction rule knows it:
 
         >>> board = fx.compare(  # doctest: +SKIP
-        ...     results, metrics=["ic", "sharpe"], sort_by="ic"
+        ...     results, metrics=["ic", "ic_ir"], sort_by="ic_ir"
         ... )
 
-        Lower-is-better metric (``descending=False``):
+        Turnover — lower is better, resolved the same way:
 
         >>> board = fx.compare(  # doctest: +SKIP
-        ...     results, metrics=["rank_turnover"], sort_by="rank_turnover", descending=False
+        ...     results, metrics=["rank_turnover"], sort_by="rank_turnover"
+        ... )
+
+        Significance screen on a p-value column, ties sharing one rank:
+
+        >>> board = fx.compare(  # doctest: +SKIP
+        ...     results, metrics=["ic"], sort_by="ic_p_value", rank_method="min"
+        ... )
+
+        A custom label carries no direction, so state one:
+
+        >>> board = fx.compare(  # doctest: +SKIP
+        ...     results, metrics=["ic_nw"], sort_by="ic_nw", descending=True
         ... )
     """
     metric_list = _validate_metric_list(metrics, func_name="compare", field="metrics")
     _require_non_empty_results(results, func_name="compare")
+    if rank_method not in _RANK_METHODS:
+        raise UserInputError(
+            func_name="compare",
+            field="rank_method",
+            value=rank_method,
+            candidates=_RANK_METHODS,
+            docs_path="api/compare#parameter-details",
+        )
     param_keys = _ordered_keys(r.params for r in results)
     rows: list[dict[str, Any]] = []
     for r in results:
@@ -112,22 +197,99 @@ def compare(
         rows.append(row)
 
     data = pl.DataFrame(rows)
-    if sort_by is not None:
-        sort_candidates = list(data.columns)
-        if sort_by not in sort_candidates:
-            raise UserInputError(
-                func_name="compare",
-                field="sort_by",
-                value=sort_by,
-                expected="one of the columns produced by compare()",
-                candidates=sort_candidates,
-                docs_path="api/compare#parameter-details",
-            )
-        data = data.sort(sort_by, descending=descending, nulls_last=True)
-        data = data.with_columns(
-            pl.int_range(1, data.height + 1, dtype=pl.Int64).alias("rank")
+    if sort_by is None:
+        return data
+
+    sort_candidates = list(data.columns)
+    if sort_by not in sort_candidates:
+        raise UserInputError(
+            func_name="compare",
+            field="sort_by",
+            value=sort_by,
+            expected="one of the columns produced by compare()",
+            candidates=sort_candidates,
+            docs_path="api/compare#parameter-details",
         )
-    return data
+    resolved = _resolve_descending(sort_by, descending, metric_list=metric_list)
+    return _rank(data, sort_by=sort_by, descending=resolved, rank_method=rank_method)
+
+
+def _resolve_descending(
+    sort_by: str, descending: bool | None, *, metric_list: list[str]
+) -> bool:
+    """Return the sort direction actually applied to ``sort_by``.
+
+    An explicit ``descending`` is used as given. Otherwise the direction
+    comes from the column's kind — p-value column, identity/params
+    column, or a metric label of known direction — and an unknown metric
+    label is an error rather than a silent default.
+    """
+    if descending is not None:
+        return descending
+    if sort_by in metric_list:
+        if sort_by in _HIGHER_IS_BETTER:
+            return True
+        if sort_by in _LOWER_IS_BETTER:
+            return False
+        raise UserInputError(
+            func_name="compare",
+            field="descending",
+            value=descending,
+            expected=(
+                f"an explicit True / False for sort_by={sort_by!r}: compare() "
+                "resolves a direction only for p-value columns, identity and "
+                "params columns, and metric labels of known direction "
+                f"(higher is better: {sorted(_HIGHER_IS_BETTER)}; lower is "
+                f"better: {sorted(_LOWER_IS_BETTER)})"
+            ),
+            docs_path="api/compare#parameter-details",
+        )
+    # p-value columns, identity columns and params keys all sort ascending.
+    return False
+
+
+def _sortable_tiebreaks(data: pl.DataFrame, sort_by: str) -> list[str]:
+    """Return the deterministic secondary sort keys, in application order."""
+    keys = [c for c in _IDENTITY_COLS if c != sort_by]
+    for name, dtype in data.schema.items():
+        if name in _IDENTITY_COLS or name == sort_by:
+            continue
+        if (
+            dtype.is_numeric()
+            or dtype.is_temporal()
+            or dtype in (pl.Boolean, pl.String)
+        ):
+            keys.append(name)
+    return keys
+
+
+def _rank(
+    data: pl.DataFrame, *, sort_by: str, descending: bool, rank_method: RankMethod
+) -> pl.DataFrame:
+    """Sort ``data`` on ``sort_by`` and attach the ``rank`` column."""
+    key = pl.col(sort_by)
+    if data.schema[sort_by] in (pl.Float32, pl.Float64):
+        # Fold NaN into null so "missing last" holds in both directions.
+        key = pl.when(key.is_nan()).then(None).otherwise(key)
+    data = data.with_columns(key.alias(_SORT_KEY))
+    tiebreaks = _sortable_tiebreaks(data.drop(_SORT_KEY), sort_by)
+    data = data.sort(
+        [_SORT_KEY, *tiebreaks],
+        descending=[descending, *[False] * len(tiebreaks)],
+        nulls_last=True,
+    )
+    if rank_method == "ordinal":
+        ranks = pl.int_range(1, data.height + 1, dtype=pl.Int64)
+    else:
+        ranks = pl.col(_SORT_KEY).rank(method=rank_method, descending=descending)
+    data = data.with_columns(
+        pl.when(pl.col(_SORT_KEY).is_null())
+        .then(None)
+        .otherwise(ranks)
+        .cast(pl.Int64)
+        .alias("rank")
+    )
+    return data.drop(_SORT_KEY)
 
 
 def _ordered_keys(maps: Iterable[Mapping[str, Any]]) -> list[str]:
