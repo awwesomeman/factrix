@@ -94,6 +94,69 @@ def test_evaluate_routes_full_price_data_and_reports_offset_audit() -> None:
     assert result.n_obs == 6
 
 
+def test_by_slice_routes_full_price_data_without_expanding_event_sample() -> None:
+    n_dates = 100
+    raw = _event_panel(n_assets=12, n_dates=n_dates)
+    raw = raw.hstack(
+        pl.DataFrame(
+            {
+                "cohort": [
+                    cohort for cohort in ("first", "second") for _ in range(6 * n_dates)
+                ]
+            }
+        )
+    )
+    panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
+
+    truncated = fx.by_slice(
+        panel,
+        event_around_return(offsets=[24]),
+        by="cohort",
+        factor_col="factor",
+        strict=False,
+    )
+    restored = fx.by_slice(
+        panel,
+        event_around_return(offsets=[24]),
+        by="cohort",
+        factor_col="factor",
+        price_data=raw,
+        strict=False,
+    )
+
+    for cohort in ("first", "second"):
+        truncated_audit = (
+            truncated[cohort].metrics["event_around_return"].metadata["per_offset"][24]
+        )
+        restored_metric = restored[cohort].metrics["event_around_return"]
+        restored_audit = restored_metric.metadata["per_offset"][24]
+        # by_slice restricts price_data to the slice's own assets, so the
+        # reference call is the one a caller would write by hand for this
+        # cohort: the same evaluation rows against the same price scope.
+        # Comparing against the whole raw panel instead would agree only
+        # because both sides read a baseline formed from the other cohort.
+        cohort_panel = panel.filter(pl.col("cohort") == cohort).drop("cohort")
+        cohort_prices = raw.filter(
+            pl.col("asset_id").is_in(cohort_panel["asset_id"].unique().implode())
+        )
+        direct_metric = fx.evaluate(
+            cohort_panel,
+            price_data=cohort_prices,
+            metrics={"path": event_around_return(offsets=[24])},
+            factor_cols=["factor"],
+            strict=False,
+        )["factor"].metrics["path"]
+
+        assert truncated_audit["computed"] == 0
+        assert restored_audit == direct_metric.metadata["per_offset"][24]
+        assert restored_audit["eligible"] == 6
+        assert restored_audit["computed"] == 6
+        assert restored_audit["censored"] == 0
+        assert restored_metric.n_obs == 6
+        assert restored[cohort].n_assets == 6
+        assert restored[cohort].n_periods == panel["date"].n_unique()
+
+
 def test_mfe_mae_uses_full_price_data_without_entering_return_sample() -> None:
     raw = _event_panel()
     panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
@@ -282,3 +345,107 @@ def test_duplicate_price_rows_are_explained_as_a_price_grid_defect() -> None:
     message = str(excinfo.value)
     assert "price_data" in message
     assert "The forward return shifts by row position" not in message
+
+
+def _two_cohort_panel(
+    *,
+    slow_growth: float = 1.0005,
+    fast_growth: float = 1.008,
+    n_dates: int = 120,
+    event_at: int = 60,
+) -> pl.DataFrame:
+    """Two cohorts drifting at very different rates, no event information.
+
+    Every price path is pure drift, so the correct excess return is zero at
+    every offset in both cohorts. Any residue is a benchmark formed from
+    the wrong sample.
+    """
+    dates = [date(2020, 1, 1) + timedelta(days=index) for index in range(n_dates)]
+    rows: list[dict[str, object]] = []
+    for cohort, growth, assets in (
+        ("slow", slow_growth, range(0, 6)),
+        ("fast", fast_growth, range(6, 12)),
+    ):
+        for asset_index in assets:
+            for index, current_date in enumerate(dates):
+                rows.append(
+                    {
+                        "date": current_date,
+                        "asset_id": f"A{asset_index}",
+                        "cohort": cohort,
+                        "factor": 1.0 if index == event_at else 0.0,
+                        "price": 100.0 * growth**index,
+                    }
+                )
+    return pl.DataFrame(rows)
+
+
+def test_by_slice_baseline_is_formed_from_the_slice_not_the_price_panel() -> None:
+    """A slice is benchmarked against its own drift, with or without prices.
+
+    ``price_data`` supplies the price grid; it must not also decide which
+    assets the unconditional baseline is formed from. Forwarding the whole
+    panel hands every slice the pooled drift of assets it does not contain,
+    which prices a pure-drift panel as event alpha.
+    """
+    raw = _two_cohort_panel()
+    panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
+
+    without = fx.by_slice(
+        panel,
+        event_around_return(offsets=[6]),
+        by="cohort",
+        factor_col="factor",
+        strict=False,
+    )
+    with_prices = fx.by_slice(
+        panel,
+        event_around_return(offsets=[6]),
+        by="cohort",
+        factor_col="factor",
+        price_data=raw,
+        strict=False,
+    )
+
+    for cohort, drift in (("slow", 0.0005), ("fast", 0.008)):
+        for label, bundle in (("without", without), ("with", with_prices)):
+            metadata = bundle[cohort].metrics["event_around_return"].metadata
+            assert (
+                metadata["baseline_bar_return"],
+                metadata["n_assets_in_baseline"],
+            ) == pytest.approx((drift, 6)), f"{cohort} {label} price_data"
+            assert metadata["per_offset"][6]["mean"] == pytest.approx(0.0, abs=1e-12), (
+                f"{cohort} {label} price_data prices pure drift as event alpha"
+            )
+
+
+def test_by_slice_raggedness_is_measured_on_the_slice_not_the_price_panel() -> None:
+    """One ragged asset does not make every other slice ragged.
+
+    The warning describes the sample the metric ran on. A dense slice that
+    is told its grid is ragged sends the reader to reindex a panel that is
+    already dense.
+    """
+    raw = _two_cohort_panel(slow_growth=1.002, fast_growth=1.002)
+    ragged_raw = raw.filter(
+        ~(
+            (pl.col("asset_id") == "A11")
+            & (pl.col("date") == raw["date"].unique().sort()[30])
+        )
+    )
+    panel = fx.preprocess.compute_forward_return(ragged_raw, forward_periods=5)
+
+    bundle = fx.by_slice(
+        panel,
+        event_around_return(offsets=[6]),
+        by="cohort",
+        factor_col="factor",
+        price_data=ragged_raw,
+        expected_warnings=("ragged_period_grid",),
+        strict=False,
+    )
+
+    assert bundle["slow"].metrics["event_around_return"].warning_codes == ()
+    assert bundle["fast"].metrics["event_around_return"].warning_codes == (
+        "ragged_period_grid",
+    )
