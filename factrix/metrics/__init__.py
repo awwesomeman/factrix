@@ -35,7 +35,7 @@ Single-asset x Continuous:
     predictive_beta -- TIMESERIES dense predictive regression with NW HAC
 
 Series diagnostics -- axis-agnostic on ``(date, value)``:
-    positive_rate, ic_trend, oos_decay
+    positive_rate, ic_trend, oos_decay, oos_decay_splits
 
 Scope-agnostic (run in either scope; ``cell`` scope is ``None``):
     directional_hit_rate -- small-N robust, Pesaran-Timmermann directional
@@ -91,7 +91,7 @@ from factrix.metrics.mfe_mae import (
     mfe_mae,
 )
 from factrix.metrics.monotonicity import monotonicity
-from factrix.metrics.oos_decay import oos_decay
+from factrix.metrics.oos_decay import oos_decay, oos_decay_splits
 from factrix.metrics.positive_rate import positive_rate
 from factrix.metrics.predictive_beta import predictive_beta
 from factrix.metrics.quantile import (
@@ -132,6 +132,7 @@ __all__ = [
     "mfe_mae",
     "monotonicity",
     "oos_decay",
+    "oos_decay_splits",
     "net_spread",
     "notional_turnover",
     "pooled_beta",

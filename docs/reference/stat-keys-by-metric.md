@@ -77,6 +77,7 @@ contrasts, not a sidecar to a primary value.
 | [`clustering_hhi`][factrix.metrics.clustering_hhi.clustering_hhi] | none — descriptive | — | event-period Herfindahl-Hirschman index (HHI) |
 | [`mfe_mae`][factrix.metrics.mfe_mae.mfe_mae] | none — descriptive | — | MFE_p50 / \|MAE_p75\| |
 | [`oos_decay`][factrix.metrics.oos_decay.oos_decay] | none — descriptive | — | survival = \|mean_oos\| / \|mean_is\| |
+| [`oos_decay_splits`][factrix.metrics.oos_decay.oos_decay_splits] | none — descriptive | — | median survival across the declared splits |
 | [`spanning_alpha`][factrix.metrics.spanning.spanning_alpha] | HAR HAC `t` on α | `p_value` | spanning α |
 | [`greedy_forward_selection`][factrix.metrics.spanning.greedy_forward_selection] | none — selection meta | — | (NaN; results in metadata) |
 | [`ic_trend`][factrix.metrics.trend.ic_trend] | Mann-Kendall `tau` on the index | `p_value` | Theil-Sen slope |
@@ -757,6 +758,35 @@ hypothesis test.
 
 - *descriptive*: `status` (`"PASS"` / `"VETOED"`), `sign_flipped`,
   `is_ratio`, `mean_is`, `mean_oos`, `survival_threshold`.
+
+##### `oos_decay_splits` — robustness sweep over the primitive
+
+Not a registered metric: a plain workflow function over `oos_decay`, so it
+carries no `MetricSpec` and does not route through `evaluate`. Documented
+here because its `MetricResult` shares this page's schema.
+
+`MetricResult.stat = None`; the same PASS/VETO gate as the primitive, read
+off a pre-declared set of split fractions rather than one. `value` is the
+median survival ratio across those splits, and is `NaN` when any declared
+split could not be assessed.
+
+- *descriptive*: `status` (`"PASS"` / `"VETOED"`), `splits` (one record per
+  declared fraction, ascending — each carrying `split_fraction`, `n_is`,
+  `n_oos`, `purge_periods`, `survival`, `sign_flipped`, `status`, and where
+  the primitive emitted them `mean_is`, `mean_oos`, `reason`,
+  `signal_status`), `split_fractions`, `n_splits`, `n_assessable`,
+  `n_sign_flips`, `aggregate` (`"median"`), `sign_flip_policy`
+  (`"any_flip_vetoes"`), `forward_periods`, `purge_periods`,
+  `survival_threshold`.
+- *descriptive* (conditional, withheld aggregate): `reason` —
+  `"unassessable_splits"` when at least one declared split produced no
+  finite ratio. The aggregate is defined over the declared set, so it is
+  withheld rather than recomputed over whichever subset survived.
+- `forward_periods` and `purge_periods` carry the same number by
+  construction: the purge gap applied is the forward-return window declared.
+  Both are emitted because the first names what the caller declared and the
+  second names what the split actually removed; they would part company if a
+  future variant ever clipped the gap.
 
 ### `spanning` (`factrix.metrics.spanning`)
 
