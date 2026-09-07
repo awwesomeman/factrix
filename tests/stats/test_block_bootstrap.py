@@ -10,6 +10,7 @@ from factrix._errors import UserInputError
 from factrix._stats.bootstrap import (
     _block_bootstrap_diff_p,
     _count_extreme,
+    _max_block_length,
     _politis_white_block_length,
     _stationary_block_indices,
 )
@@ -38,13 +39,19 @@ class TestPolitisWhiteBlockLength:
         assert L_persist > L_iid
 
     def test_fallback_on_short_series(self):
-        # n=3 < 4 → fallback to 1.75 * n^(1/3).
+        # n=3 < 4 → practical fallback, capped at the admissible maximum.
         L = _politis_white_block_length(np.array([1.0, 2.0, 3.0]))
-        assert pytest.approx(max(1.0, 1.75 * 3 ** (1.0 / 3.0))) == L
+        expected = min(max(1.0, 1.75 * 3 ** (1.0 / 3.0)), _max_block_length(3))
+        assert L == pytest.approx(expected)
 
     def test_fallback_on_zero_variance(self):
         L = _politis_white_block_length(np.zeros(100))
         assert pytest.approx(max(1.0, 1.75 * 100 ** (1.0 / 3.0))) == L
+
+    @pytest.mark.parametrize("n", [2, 4, 8, 9, 12, 13, 30])
+    def test_every_fallback_respects_the_kernel_bound(self, n):
+        length = _politis_white_block_length(np.ones(n))
+        assert 1.0 <= length <= _max_block_length(n)
 
 
 class TestPolitisWhiteUpperBound:
@@ -274,7 +281,8 @@ class TestRejectsNonFinite:
 
     def test_politis_white_falls_back_on_nan(self):
         x = np.array([0.1, float("nan"), 0.2, 0.3, 0.4, 0.5, 0.6, 0.7])
-        assert _politis_white_block_length(x) == pytest.approx(1.75 * 8 ** (1 / 3))
+        expected = min(1.75 * 8 ** (1 / 3), _max_block_length(8))
+        assert _politis_white_block_length(x) == pytest.approx(expected)
 
 
 class TestStudentizedRoot:

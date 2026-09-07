@@ -202,12 +202,18 @@ def _politis_white_block_length(values: np.ndarray) -> float:
     Falls back to ``max(1, 1.75 · T^(1/3))`` (the widely-cited practical
     PW approximation, also used by ``factrix.stats.bootstrap``) when
     the series is too short, autocovariance is degenerate, or the
-    spectral estimate yields a non-finite ratio. Returns a ``float``;
-    callers that need an integer block size round at the call site.
+    spectral estimate yields a non-finite ratio. The fallback is capped at
+    :func:`_max_block_length`, exactly like the plug-in path, so an automatic
+    resolver never returns a value its own kernel rejects. Returns a
+    ``float``; callers that need an integer block size round at the call site.
     """
     x = np.asarray(values, dtype=float)
     n = len(x)
-    fallback = max(1.0, 1.75 * n ** (1.0 / 3.0)) if n >= 1 else 1.0
+    fallback = (
+        min(max(1.0, 1.75 * n ** (1.0 / 3.0)), float(_max_block_length(n)))
+        if n >= 1
+        else 1.0
+    )
     if n < 4 or not np.all(np.isfinite(x)):
         return fallback
 
