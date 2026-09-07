@@ -163,10 +163,15 @@ def mfe_mae(
         >>> result.name == ""
         True
     """
+    # An absent price column no longer empties the frame: the producer keeps
+    # one ``missing_price_column`` row per event, and the count-zero branch
+    # below names that case. What is left here is a panel that carried no
+    # event at all, which is its own reason - ``no_price_data`` would send a
+    # reader hunting for a price column this branch never inspected.
     if mfe_mae_df.is_empty():
         return _short_circuit_output(
             "mfe_mae",
-            "no_price_data",
+            "no_events",
             descriptive=True,
             mfe_mae_ratio=float("nan"),
             n_events=0,
@@ -202,6 +207,8 @@ def mfe_mae(
             str(reason): int(count) for reason, count in reason_rows.iter_rows()
         }
     elif n_events_censored:
+        # Every in-tree producer path stamps ``censor_reason``; this attributes
+        # the censored count for a frame a caller assembled by hand.
         censor_reasons = {"non_finite_excursion": n_events_censored}
     else:
         censor_reasons = {}

@@ -36,6 +36,13 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
     _warn_ragged_event_grid,
 )
+
+# Re-exported so the primitive and its metric verb share one import path, the
+# way ``mfe_mae`` re-exports ``compute_mfe_mae``. The redundant alias is the
+# explicit re-export form: nothing in this module body calls it, so a plain
+# import would read as dead. It stays out of ``__all__`` on purpose — the
+# module's declared surface is the metric verb, and the docs page documents the
+# primitive in prose rather than rendering its API a second time.
 from factrix.metrics._primitives import compute_event_returns as compute_event_returns
 from factrix.metrics._primitives._event_returns import (
     _compute_event_returns_with_audit,

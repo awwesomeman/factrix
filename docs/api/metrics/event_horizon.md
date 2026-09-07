@@ -75,6 +75,14 @@ out = fx.evaluate(
 )["factor"].metrics["path"]
 ```
 
+`offsets=` are counts of periods on the grid the walk reads: the evaluation
+panel's own distinct dates without `price_data`, the price panel's grid with
+it. Passing `price_data` therefore re-bases every offset, and an offset chosen
+for a coarse evaluation grid reaches a different distance on the raw grid. See
+[Offsets and windows are counted on the grid that supplies them](../evaluate.md#offsets-and-windows-are-counted-on-the-grid-that-supplies-them);
+`evaluate_horizons` forwards its raw panel automatically, so its existing
+`event_around_return` results change accordingly.
+
 Each `per_offset[k]` reports `eligible`, `computed`, `censored`, and a
 `censor_reasons` count mapping. Reasons distinguish an out-of-grid offset,
 missing entry/exit price, invalid denominator, missing asset, and missing price

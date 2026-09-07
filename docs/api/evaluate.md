@@ -54,12 +54,46 @@ result = fx.evaluate(
 `price_data` must contain unique `(date, asset_id)` keys plus `price`; its key
 dtypes must exactly match `data`. Extra columns are ignored, so the event and
 factor authority cannot silently move to the side panel. If `price_data` is
-omitted, event paths continue to use `data.price` for backward compatibility.
-`evaluate_horizons` already owns the raw panel and forwards it automatically.
+omitted, event paths continue to use `data.price`.
 
-This is an additive API in the pre-1.0 line: existing calls keep their prior
-behavior. Migrate event-path calls that preprocess returns by retaining `raw`
-and adding `price_data=raw`; no change is needed for return-only metrics.
+### Offsets and windows are counted on the grid that supplies them
+
+`offsets=` and `window=` are counts of periods on the price grid the path walk
+reads. Without `price_data` that grid is `data`'s own distinct dates; with
+`price_data` it is the price panel's. When the two grids differ, the same
+argument therefore spans a different amount of the sample, and the excursion or
+offset it measures changes with it.
+
+Measured on a panel whose evaluation grid keeps every tenth period of the price
+grid, `mfe_mae(window=3)`:
+
+| Grid the walk read | Median MFE |
+|---|---|
+| `data` evaluation grid (no `price_data`) | 0.1272 |
+| `price_data` price grid | 0.0120 |
+
+Three evaluation periods reach ten times further than three price periods, so
+the coarser grid reports the larger excursion. Neither number is wrong; they
+answer different questions. State the grid you mean, and scale `window=` and
+`offsets=` to it.
+
+### Behaviour change (pre-1.0)
+
+This is **not** an additive API. `evaluate_horizons` owns the raw panel and now
+forwards it as `price_data` on every call, so an existing `evaluate_horizons`
+run that includes `event_around_return` or `mfe_mae` changes value: event paths
+gain the tail and the between-evaluation periods that were previously
+unreachable, and offsets and windows are re-based onto the raw grid as above.
+Return-only metrics are unaffected.
+
+Migrate by deciding which grid each event-path argument counts on:
+
+- `evaluate_horizons` callers: re-read `offsets=` and `window=` against the raw
+  panel's grid. Where the evaluation grid was the intended unit, pass the
+  already-preprocessed panel to `evaluate` instead.
+- `evaluate` callers who preprocess returns themselves: retain `raw` and add
+  `price_data=raw` to get the complete paths; no change is needed for
+  return-only metrics.
 
 ## `forward_periods=` and `overlap_periods=`
 

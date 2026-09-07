@@ -262,3 +262,23 @@ def test_evaluate_horizons_automatically_preserves_full_price_grid() -> None:
         assert audit["eligible"] == 6
         assert audit["computed"] == 6
         assert audit["censored"] == 0
+
+
+def test_duplicate_price_rows_are_explained_as_a_price_grid_defect() -> None:
+    """A duplicated price row is not a fabricated forward return.
+
+    ``price_data`` never feeds the forward-return shift, so the panel
+    validator's explanation of a duplicate key names the wrong quantity
+    on this path. The price grid's own failure is that one period holds
+    two prices, and the excursion walk cannot say which one it entered
+    at.
+    """
+    raw = _event_panel(n_assets=1)
+    duplicated = pl.concat([raw, raw.head(1)])
+
+    with pytest.raises(UserInputError) as excinfo:
+        compute_event_returns(raw, price_data=duplicated, offsets=[1])
+
+    message = str(excinfo.value)
+    assert "price_data" in message
+    assert "The forward return shifts by row position" not in message
