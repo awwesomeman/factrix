@@ -41,6 +41,13 @@ The named `all` extra is the optional runtime bundle; it does not include the
 development and docs toolchains. Use `--all-extras` when every declared extra
 is required.
 
+CI exercises both sides of the docs-theme boundary. The all-extras test matrix
+runs the two tests that resolve `mkdocs.yml`. A separate `docs-no-theme` cell
+installs `mkdocstrings` without `mkdocs-material` and asserts that exactly those
+two tests skip for the `requires_theme` reason while the other 19 module tests
+run. This is distinct from `dev-extra`, where the module skips during
+collection because the complete docs machinery is absent.
+
 On Windows, enable UTF-8 for Markdown and diagnostic tests if the console does
 not already do so:
 
