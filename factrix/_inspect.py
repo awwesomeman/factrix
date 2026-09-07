@@ -20,6 +20,12 @@ exposing ``usable`` / ``warnings`` / ``blockers``. The flat
 the single source of truth; the ``usable`` / ``degraded`` /
 ``unusable`` properties expose it as a mutually exclusive partition.
 
+Inspection runs per factor column — the granularity ``evaluate``
+dispatches at. :class:`DataInspection.factors` maps each inspected column
+to its own :class:`FactorInspection` (axes, counts, stage-one profiles,
+warnings, verdicts), while ``properties`` / ``metrics`` stay the concise
+aggregate and describe the first inspected column.
+
 Sparse detection is zero-value based. Null factor cells mean "missing
 factor value" and are excluded from the sparse-ratio denominator; they
 are not imputed to non-events. Callers that want missing upstream rows
@@ -380,30 +386,20 @@ class MetricApplicabilityGroup(list["MetricApplicability"]):
         return {m.name: m.metric() for m in self if _default_constructible(m.metric)}
 
 
-@dataclass(frozen=True, slots=True)
-class DataInspection:
-    """Result of :func:`inspect_data`.
+class _MetricPartitionView:
+    """Shared tier partition over a ``metrics`` list.
 
-    Pure data — no execution methods.
-
-    Attributes:
-        properties: :class:`DataProperties` with typed enum axes, the
-            per-axis rationale strings, and shape numerics.
-        metrics: Flat ``list[MetricApplicability]`` — one verdict
-            per ``visibility=PUBLIC`` spec the inspector considered.
-            Single source of truth; the :attr:`usable` /
-            :attr:`degraded` / :attr:`unusable` properties expose it
-            as a mutually exclusive partition.
-        warnings: Data-level sample-shape diagnostics (NW HAC SE
-            unreliable, cross-asset df low). ``source=None`` on
-            every entry because these are data-level, not
-            per-metric. Per-metric degraded warnings live inside
-            each :class:`MetricApplicability`.
+    :class:`DataInspection` and :class:`FactorInspection` answer the same
+    question at two granularities — the panel's first column and one named
+    column — so they expose one partition implementation rather than two that
+    can drift apart.
     """
 
+    # Declared for the subclasses' benefit only: the mixin is not a dataclass,
+    # so these are annotations, not fields.
     properties: DataProperties
     metrics: list[MetricApplicability]
-    warnings: list[Warning] = field(default_factory=list)
+    warnings: list[Warning]
 
     @property
     def usable(self) -> MetricApplicabilityGroup:
@@ -452,24 +448,11 @@ class DataInspection:
         """
         return MetricApplicabilityGroup(m for m in self.metrics if not m.usable)
 
-    def to_dict(self) -> dict[str, Any]:
-        """JSON-friendly nested dict view.
+    def _core_dict(self) -> dict[str, Any]:
+        """The ``properties`` / ``reasoning`` / ``metrics`` / ``warnings`` view.
 
-        Layout (top-level keys, stable order):
-
-        - ``properties``: ``{scope, density, structure, n_assets, n_periods,
-          n_pairs, sparse_ratio}`` — enum fields rendered as their
-          ``.value`` string; ``sparse_ratio`` ``NaN`` emitted as
-          ``None``.
-        - ``reasoning``: ``{scope, density, structure}``.
-        - ``metrics``: list of per-spec dicts
-          ``{name, cell, usable, warnings, blockers}`` — same row
-          shape suits ``pl.from_dicts`` for cross-data audit.
-        - ``warnings``: data-level ``[{code, source, message}, ...]``.
-
-        Mirrors :meth:`factrix.EvaluationResult.to_dict` shape — single
-        ``to_dict`` convention across the public result-type group so
-        log / parquet sinks treat them uniformly.
+        One renderer for both granularities, so a per-factor row and the
+        aggregate row cannot drift into different shapes.
         """
         d = self.properties
         return {
@@ -514,6 +497,118 @@ class DataInspection:
                 }
                 for w in self.warnings
             ],
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class FactorInspection(_MetricPartitionView):
+    """Pre-flight result for **one** factor column.
+
+    ``evaluate`` dispatches every factor column independently, so inspection
+    reports at the same granularity: one of these per inspected column, keyed
+    by column name on :attr:`DataInspection.factors`. Every axis, count,
+    stage-one profile, advisory warning and metric verdict here is computed
+    from :attr:`factor` alone — nothing is inherited from a sibling column.
+
+    Attributes:
+        factor: The inspected column's name.
+        properties: :class:`DataProperties` detected on this column. The
+            panel-level fields (``structure`` / ``n_assets`` / ``n_periods``)
+            are properties of the data and are therefore shared with every
+            sibling; the factor-level fields (``scope`` / ``density`` /
+            ``n_pairs`` / ``n_events`` / ``sparse_ratio``) are this column's.
+        metrics: One :class:`MetricApplicability` per public spec, judged
+            against this column. Partitioned by :attr:`usable` /
+            :attr:`degraded` / :attr:`unusable`.
+        warnings: Data-level diagnostics raised by this column (sample shape,
+            scope unidentifiable, low-cardinality / frequent-event advisories,
+            single-asset event data).
+    """
+
+    factor: str
+    properties: DataProperties
+    metrics: list[MetricApplicability]
+    warnings: list[Warning] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        """JSON-friendly view: ``{factor, properties, reasoning, metrics, warnings}``.
+
+        Same row shape as :meth:`DataInspection.to_dict` minus ``factors``,
+        plus the column name, so a multi-factor audit flattens straight into
+        ``pl.from_dicts``.
+        """
+        return {"factor": self.factor, **self._core_dict()}
+
+
+@dataclass(frozen=True, slots=True)
+class DataInspection(_MetricPartitionView):
+    """Result of :func:`inspect_data`.
+
+    Pure data — no execution methods.
+
+    Two granularities travel together. :attr:`factors` carries one
+    :class:`FactorInspection` per inspected column — the granularity
+    ``evaluate`` dispatches at. :attr:`properties` / :attr:`metrics` and the
+    :attr:`usable` / :attr:`degraded` / :attr:`unusable` partitions are the
+    concise aggregate view and describe the **first** inspected column, which
+    is the whole panel when there is only one; they are exactly
+    ``factors[<first column>]``, so a single-factor caller never has to reach
+    into the mapping.
+
+    Attributes:
+        properties: :class:`DataProperties` with typed enum axes, the
+            per-axis rationale strings, and shape numerics — for the
+            first inspected column.
+        metrics: Flat ``list[MetricApplicability]`` — one verdict
+            per ``visibility=PUBLIC`` spec the inspector considered,
+            for the first inspected column. Single source of truth for
+            the aggregate view; the :attr:`usable` / :attr:`degraded` /
+            :attr:`unusable` properties expose it as a mutually
+            exclusive partition.
+        warnings: Data-level sample-shape diagnostics (NW HAC SE
+            unreliable, cross-asset df low). ``source=None`` on
+            every entry because these are data-level, not
+            per-metric. Per-metric degraded warnings live inside
+            each :class:`MetricApplicability`. Carries the first column's
+            warnings plus the cross-factor mismatch warnings, which name
+            the disagreeing columns; a later column's own advisories live
+            on ``factors[col].warnings``.
+        factors: ``{column name: FactorInspection}`` in inspected order —
+            per-column scope, density, counts, stage-one profiles,
+            warnings and metric verdicts. Always populated, including for
+            single-factor input.
+    """
+
+    properties: DataProperties
+    metrics: list[MetricApplicability]
+    warnings: list[Warning] = field(default_factory=list)
+    factors: dict[str, FactorInspection] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        """JSON-friendly nested dict view.
+
+        Layout (top-level keys, stable order):
+
+        - ``properties``: ``{scope, density, structure, n_assets, n_periods,
+          n_pairs, sparse_ratio}`` — enum fields rendered as their
+          ``.value`` string; ``sparse_ratio`` ``NaN`` emitted as
+          ``None``.
+        - ``reasoning``: ``{scope, density, structure}``.
+        - ``metrics``: list of per-spec dicts
+          ``{name, cell, usable, warnings, blockers}`` — same row
+          shape suits ``pl.from_dicts`` for cross-data audit.
+        - ``warnings``: data-level ``[{code, source, message}, ...]``.
+        - ``factors``: ``{column name: FactorInspection.to_dict()}`` in
+          inspected order — the same four keys per column, plus ``factor``.
+          ``factors[<first column>]`` restates the four keys above.
+
+        Mirrors :meth:`factrix.EvaluationResult.to_dict` shape — single
+        ``to_dict`` convention across the public result-type group so
+        log / parquet sinks treat them uniformly.
+        """
+        return {
+            **self._core_dict(),
+            "factors": {name: f.to_dict() for name, f in self.factors.items()},
         }
 
     def _repr_html_(self) -> str:
@@ -578,13 +673,34 @@ class DataInspection:
                 f"<tbody>{w_rows}</tbody></table></details>"
             )
 
+        factor_block = ""
+        if len(self.factors) > 1:
+            factor_rows = "".join(
+                f"<tr><td>{html.escape(name)}</td>"
+                f"<td>{html.escape(f.properties.scope.value)}</td>"
+                f"<td>{html.escape(f.properties.density.value)}</td>"
+                f"<td>{f.properties.n_pairs}</td>"
+                f"<td>{f.properties.n_events}</td>"
+                f"<td>{len(f.usable)}/{len(f.metrics)}</td>"
+                f"<td>{len(f.warnings)}</td></tr>"
+                for name, f in self.factors.items()
+            )
+            factor_block = (
+                f"<table><caption>per-factor ({len(self.factors)} columns; the "
+                "tables above describe the first)</caption>"
+                "<thead><tr><th>factor</th><th>scope</th><th>density</th>"
+                "<th>n_pairs</th><th>n_events</th><th>usable</th>"
+                "<th>warnings</th></tr></thead>"
+                f"<tbody>{factor_rows}</tbody></table>"
+            )
+
         return (
             "<div class='factrix-data-inspection'>"
             "<table><caption>DataInspection — properties</caption>"
             f"<tbody>{header_html}</tbody></table>"
             "<table><caption>reasoning</caption>"
             f"<tbody>{reasoning_rows}</tbody></table>"
-            f"{metric_table}{warnings_block}"
+            f"{factor_block}{metric_table}{warnings_block}"
             "</div>"
         )
 
@@ -621,15 +737,35 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
     such as a ternary ``{-1, 0, +1}`` indicator), matching its run-time
     ``not_applicable_discrete_signal`` short-circuit.
 
-    Multi-factor input: the inspected :class:`DataProperties` and every
-    per-metric verdict are computed from the **first** factor column only
-    (deterministic first-detected). When columns disagree on
-    ``FactorDensity`` or ``FactorScope`` a ``CROSS_FACTOR_*_MISMATCH``
-    data-level warning is emitted directing the caller to re-run
-    ``inspect_data(data, factor_cols=[col])`` for a column-specific verdict.
-    Other per-column properties (e.g. signal magnitude, ``n_events``) are
-    likewise first-column-based; for a heterogeneous panel prefer the
-    per-column call.
+    Multi-factor input is inspected **per column**, the granularity
+    :func:`factrix.evaluate` dispatches at: :attr:`DataInspection.factors`
+    maps each inspected column to a :class:`FactorInspection` carrying that
+    column's scope, density, counts, stage-one profiles, warnings and full
+    metric verdicts — nothing there is inherited from a sibling column.
+
+    Two granularities rather than one, deliberately: a screen over dozens of
+    candidate columns still wants a single answer to "what is this panel", so
+    :attr:`~DataInspection.properties`, :attr:`~DataInspection.metrics` and the
+    ``usable`` / ``degraded`` / ``unusable`` partitions remain the concise
+    aggregate and describe the **first** inspected column (the whole panel
+    when there is only one). They are exactly ``factors[<first column>]``, so
+    single-factor callers never touch the mapping and multi-factor callers
+    never have to guess which column an aggregate refers to. When columns
+    disagree on ``FactorDensity`` or ``FactorScope``, a
+    ``CROSS_FACTOR_*_MISMATCH`` data-level warning names the basis column, the
+    columns that disagree with it and the value each carries.
+
+    ``warnings`` on the result is the first column's warnings plus those
+    cross-factor mismatches; a later column's own advisories live on
+    ``factors[col].warnings`` rather than being merged into one stream where
+    the column they belong to would be lost.
+
+    One panel-level caveat: ``n_periods`` and ``n_assets`` are properties of
+    the data, so every :class:`FactorInspection` reports the panel's counts,
+    not the periods that column happens to cover. Where a column's own
+    coverage gates a metric it does so through the stage-one profile, which
+    is computed per column (a column whose IC cross-sections survive on 20
+    periods is blocked at ``ic``'s 50-period floor while its sibling is not).
 
     Args:
         data: Long-format factor data with the canonical columns.
@@ -645,9 +781,21 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
 
     Examples:
         >>> import factrix as fx
+        >>> import polars as pl
         >>> raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
         >>> info = fx.inspect_data(raw)
         >>> all(m.spec.cell.matches(info.properties.scope, info.properties.density, info.properties.structure) for m in info.usable)
+        True
+
+        Per-column verdicts for a heterogeneous panel:
+
+        >>> data = raw.with_columns(pl.col("factor").mean().over("date").alias("macro"))
+        >>> info = fx.inspect_data(data, factor_cols=["factor", "macro"])
+        >>> info.factors["factor"].properties.scope.value
+        'individual'
+        >>> info.factors["macro"].properties.scope.value
+        'common'
+        >>> "ic" in info.factors["macro"].unusable.names
         True
     """
     if isinstance(factor_cols, str):
@@ -671,37 +819,81 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
         )
 
     first_col = cols[0]
-
-    # Project raw data to "factor" column name to reuse standard detectors
-    def _detect_col_density(col: str) -> tuple[FactorDensity, str, float]:
-        temp = data.select("date", "asset_id", pl.col(col).alias("factor"))
-        return _detect_density(temp)
-
-    def _detect_col_scope(col: str) -> tuple[FactorScope, str, int]:
-        temp = data.select("date", "asset_id", pl.col(col).alias("factor"))
-        return _detect_scope(temp)
-
-    # First factor column drives the returned properties (deterministic first-detected)
-    density, density_reason, sparse_ratio = _detect_col_density(first_col)
-    scope, scope_reason, scope_periods = _detect_col_scope(first_col)
     structure = _detect_structure(data)
     n_assets = int(data["asset_id"].n_unique())
     n_periods = int(data["date"].n_unique())
-    # Finite, not merely non-null: polars counts a float NaN as a present value,
-    # so ``drop_nulls`` alone would report NaN factor cells as usable pairs.
-    n_pairs = int(data.filter(_finite_expr(first_col)).height)
-    # Event sample: non-zero factor cells (nulls compare false, so excluded),
-    # matching the ``factor != 0`` filter the event-driven metrics apply.
-    n_events = int(data.filter(pl.col(first_col) != 0).height)
-    n_unique_factor = int(data.filter(_finite_expr(first_col))[first_col].n_unique())
-    factor_sign_one_sided = _factor_sign_is_one_sided(data, first_col)
-    ic_stage1_profile = _compute_ic_stage1_profile(data, first_col)
-    fm_stage1_profile = _compute_fm_stage1_profile(data, first_col)
-
     structure_reason = (
         f"n_assets={n_assets} → "
         f"{'TIMESERIES (single-asset data)' if structure is DataStructure.TIMESERIES else 'PANEL'}"
     )
+    available_columns = frozenset(data.columns)
+
+    # ``evaluate`` dispatches every factor column independently, so inspection
+    # reports at the same granularity: one FactorInspection per column. The
+    # aggregate view (properties / metrics / the tier partitions) is the first
+    # column's, which is the whole panel for single-factor input.
+    factors = {
+        col: _inspect_factor(
+            data,
+            col,
+            structure=structure,
+            structure_reason=structure_reason,
+            n_assets=n_assets,
+            n_periods=n_periods,
+            available_columns=available_columns,
+        )
+        for col in cols
+    }
+    first = factors[first_col]
+
+    data_warnings = list(first.warnings)
+    data_warnings.extend(_cross_factor_warnings(factors, first_col=first_col))
+
+    return DataInspection(
+        properties=first.properties,
+        metrics=first.metrics,
+        warnings=data_warnings,
+        factors=factors,
+    )
+
+
+def _inspect_factor(
+    data: Any,
+    col: str,
+    *,
+    structure: DataStructure,
+    structure_reason: str,
+    n_assets: int,
+    n_periods: int,
+    available_columns: frozenset[str],
+) -> FactorInspection:
+    """Pre-flight one factor column.
+
+    Every factor-level quantity — axes, counts, cardinality, stage-one
+    profiles, advisory warnings, metric verdicts — is read from ``col`` alone.
+    The panel-level facts (``structure`` / ``n_assets`` / ``n_periods``) are
+    passed in because they are properties of the data, identical for every
+    column, and computing them once keeps a wide screen linear in the number
+    of columns rather than re-deriving the panel per column.
+    """
+    # Content gate beyond cell / sample shape: a discrete ±k factor (e.g. a
+    # ternary {-1, 0, +1}) makes magnitude-dependent metrics (event_ic)
+    # undefined. Imported here to keep the metrics package out of this
+    # module's import cycle.
+    from factrix.metrics._helpers import _event_signal_is_discrete
+
+    # Project to the canonical "factor" name so the standard detectors apply.
+    temp = data.select("date", "asset_id", pl.col(col).alias("factor"))
+    density, density_reason, sparse_ratio = _detect_density(temp)
+    scope, scope_reason, scope_periods = _detect_scope(temp)
+
+    # Finite, not merely non-null: polars counts a float NaN as a present value,
+    # so ``drop_nulls`` alone would report NaN factor cells as usable pairs.
+    n_pairs = int(data.filter(_finite_expr(col)).height)
+    # Event sample: non-zero factor cells (nulls compare false, so excluded),
+    # matching the ``factor != 0`` filter the event-driven metrics apply.
+    n_events = int(data.filter(pl.col(col) != 0).height)
+    n_unique_factor = int(data.filter(_finite_expr(col))[col].n_unique())
 
     properties = DataProperties(
         scope=scope,
@@ -717,92 +909,106 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
         sparse_ratio=sparse_ratio,
     )
 
-    data_warnings = _data_level_warnings(properties)
-    data_warnings.extend(
+    warnings = _data_level_warnings(properties)
+    warnings.extend(
         _scope_unidentifiable_warning(
             properties,
-            factor_col=first_col,
+            factor_col=col,
             n_identified_periods=scope_periods,
         )
     )
-    data_warnings.extend(
+    warnings.extend(
         _dense_factor_advisory_warnings(
             properties,
-            factor_col=first_col,
+            factor_col=col,
             n_unique_factor=n_unique_factor,
         )
     )
 
-    # Cross-factor consistency checks
-    if len(cols) > 1:
-        densities = [density] + [_detect_col_density(c)[0] for c in cols[1:]]
-        scopes = [scope] + [_detect_col_scope(c)[0] for c in cols[1:]]
-
-        if len(set(densities)) > 1:
-            detail = ", ".join(
-                f"'{c}': {d.value}" for c, d in zip(cols, densities, strict=True)
-            )
-            data_warnings.append(
-                Warning(
-                    code=WarningCode.CROSS_FACTOR_DENSITY_MISMATCH,
-                    source=None,
-                    message=(
-                        f"Factor columns carry inconsistent FactorDensity: {{{detail}}}. "
-                        f"Metric applicability is based on '{first_col}'; call "
-                        f"inspect_data(data, factor_cols=[<col>]) for a verdict "
-                        f"specific to that column. Split heterogeneous factor "
-                        f"columns into separate inspect_data/evaluate batches."
-                    ),
-                )
-            )
-
-        if len(set(scopes)) > 1:
-            detail = ", ".join(
-                f"'{c}': {s.value}" for c, s in zip(cols, scopes, strict=True)
-            )
-            data_warnings.append(
-                Warning(
-                    code=WarningCode.CROSS_FACTOR_SCOPE_MISMATCH,
-                    source=None,
-                    message=(
-                        f"Factor columns carry inconsistent FactorScope: {{{detail}}}. "
-                        f"Metric applicability is based on '{first_col}'; call "
-                        f"inspect_data(data, factor_cols=[<col>]) for a verdict "
-                        f"specific to that column. Split asset-specific and "
-                        f"common macro factors into separate inspect_data/evaluate "
-                        f"batches."
-                    ),
-                )
-            )
-
-    # Signal magnitude is a content gate beyond cell/sample shape: a discrete
-    # ±k factor (e.g. ternary {-1, 0, +1}) makes magnitude-dependent metrics
-    # (event_ic) undefined. Computed on the first column — the verdict basis
-    # for multi-factor input (see docstring) — using the same predicate the
-    # metric short-circuits on at run time.
-    from factrix.metrics._helpers import _event_signal_is_discrete
-
-    signal_discrete = _event_signal_is_discrete(data, first_col)
+    # Hoisted out of the comprehension: each of these scans the panel once, and
+    # the verdict list runs over every public spec.
+    signal_discrete = _event_signal_is_discrete(data, col)
+    sign_one_sided = _factor_sign_is_one_sided(data, col)
+    ic_stage1_profile = _compute_ic_stage1_profile(data, col)
+    fm_stage1_profile = _compute_fm_stage1_profile(data, col)
 
     metrics = [
         _evaluate_applicability(
             spec,
             properties,
             signal_discrete,
-            factor_sign_one_sided,
+            sign_one_sided,
             ic_stage1_profile=ic_stage1_profile,
             fm_stage1_profile=fm_stage1_profile,
-            available_columns=frozenset(data.columns),
+            available_columns=available_columns,
         )
         for _, spec in public_specs()
     ]
-    data_warnings.extend(_single_asset_event_warning(properties, metrics))
+    warnings.extend(_single_asset_event_warning(properties, metrics))
 
-    return DataInspection(
+    return FactorInspection(
+        factor=col,
         properties=properties,
         metrics=metrics,
-        warnings=data_warnings,
+        warnings=warnings,
     )
+
+
+def _cross_factor_warnings(
+    factors: dict[str, FactorInspection], *, first_col: str
+) -> list[Warning]:
+    """Name the columns that disagree with the aggregate basis, and on what.
+
+    The aggregate ``properties`` / ``metrics`` describe ``first_col`` only, so
+    a mismatch warning has to say which other columns it does *not* describe.
+    Listing the disagreeing columns (rather than every column and its value)
+    keeps the reader from having to re-derive the comparison the message
+    states.
+    """
+    if len(factors) <= 1:
+        return []
+
+    basis = factors[first_col]
+    out: list[Warning] = []
+    for code, axis_name, label, guidance in (
+        (
+            WarningCode.CROSS_FACTOR_DENSITY_MISMATCH,
+            "density",
+            "FactorDensity",
+            "Split heterogeneous factor columns into separate evaluate batches.",
+        ),
+        (
+            WarningCode.CROSS_FACTOR_SCOPE_MISMATCH,
+            "scope",
+            "FactorScope",
+            "Split asset-specific and common macro factors into separate "
+            "evaluate batches.",
+        ),
+    ):
+        basis_value = getattr(basis.properties, axis_name).value
+        disagreeing = [
+            (name, getattr(f.properties, axis_name).value)
+            for name, f in factors.items()
+            if getattr(f.properties, axis_name).value != basis_value
+        ]
+        if not disagreeing:
+            continue
+        detail = ", ".join(f"'{name}' ({value})" for name, value in disagreeing)
+        out.append(
+            Warning(
+                code=code,
+                source=None,
+                message=(
+                    f"Factor columns disagree on {label}. Basis '{first_col}' "
+                    f"({basis_value}); disagreeing columns: {detail}. Per-column "
+                    f"scope, density, counts, profiles, warnings and metric "
+                    f"verdicts are in DataInspection.factors[<col>]; "
+                    f"DataInspection.properties and .metrics describe "
+                    f"'{first_col}' only. {guidance}"
+                ),
+            )
+        )
+    return out
 
 
 def _single_asset_event_warning(

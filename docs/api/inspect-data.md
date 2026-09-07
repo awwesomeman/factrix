@@ -84,7 +84,76 @@ The tier groups are `MetricApplicabilityGroup` objects: they expose `.names`
 and `.to_metrics_dict()`, and slicing or concatenating them with `+` preserves
 those helpers.
 
+<hr>
+
+## Multi-factor input: per-factor results
+
+`evaluate` dispatches each factor column independently — one
+`EvaluationResult` per column, each routed to its own `(scope, density,
+structure)` cell. Inspection reports at the same granularity, so a preflight
+verdict maps one-to-one onto the `evaluate` output it predicts:
+
+| `inspect_data(data, factor_cols=cols)` | `evaluate(data, ..., factor_cols=cols)` |
+|---|---|
+| `info.factors[col].properties` | the cell `results[col]` was dispatched to |
+| `info.factors[col].usable` / `.degraded` / `.unusable` | which entries of `results[col].metrics` return a value, a degraded value, or a `metric_unavailable` NaN |
+| `info.factors[col].warnings` | the data-level warnings that column raises |
+| `info.factors[col].usable.to_metrics_dict()` | the `metrics=` argument to run that column safely |
+
+```python
+import factrix as fx
+import polars as pl
+from factrix.preprocess import compute_forward_return
+
+raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
+data = compute_forward_return(
+    raw.with_columns(pl.col("factor").mean().over("date").alias("macro")),
+    forward_periods=5,
+)
+info = fx.inspect_data(data, factor_cols=["factor", "macro"])
+
+for col, f in info.factors.items():
+    print(col, f.properties.scope.value, f.properties.density.value, f.usable.names)
+
+# Run each column with the metrics its own verdict cleared. strict=False keeps
+# a metric whose run-time floor binds tighter than the pre-flight one as a NaN
+# placeholder with a reason, rather than raising for the whole batch.
+for col, f in info.factors.items():
+    results = fx.evaluate(
+        data,
+        metrics=f.usable.to_metrics_dict(),
+        factor_cols=[col],
+        forward_periods=5,
+        strict=False,
+    )
+```
+
+Two granularities travel together on purpose. A screen over dozens of
+candidate columns still wants one answer to "what is this panel", so
+`properties`, `metrics` and the tier partitions remain a concise aggregate and
+describe the **first** inspected column — exactly `factors[<first column>]`.
+Single-factor callers therefore never touch the mapping; multi-factor callers
+never have to guess which column an aggregate refers to.
+
+When columns disagree on `FactorScope` or `FactorDensity`, the aggregate
+`warnings` carry a `cross_factor_*_mismatch` naming the basis column, the
+columns that disagree with it, and the value each one carries. A later
+column's own advisories (low cardinality, frequent events, scope
+unidentifiable, sample shape) live on `factors[col].warnings` rather than
+being merged into one stream where the column they belong to would be lost.
+
+One panel-level caveat: `n_periods` and `n_assets` are properties of the data,
+so every `FactorInspection` reports the panel's counts rather than the periods
+that column happens to cover. Where a column's own coverage gates a metric it
+does so through the stage-one profile, which *is* per column — a column whose
+IC cross-sections survive on 20 periods is blocked at `ic`'s 50-period floor
+while its sibling in the same panel is not.
+
 ::: factrix.DataInspection
+
+---
+
+::: factrix.FactorInspection
 
 ---
 

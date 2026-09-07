@@ -96,6 +96,7 @@ from factrix._errors import (
 from factrix._inspect import (
     DataInspection,
     DataProperties,
+    FactorInspection,
     MetricApplicability,
     MetricApplicabilityGroup,
     _allows_sparse_event_override,
@@ -1335,6 +1336,7 @@ __all__ = [
     "MetricApplicabilityGroup",
     "DataInspection",
     "DataProperties",
+    "FactorInspection",
     "SampleThreshold",
     "inspect_data",
     "list_metrics",
