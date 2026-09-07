@@ -7,6 +7,7 @@ title: factrix.metrics.oos_decay
       show_root_members_full_path: true
       members:
         - oos_decay
+        - oos_decay_splits
 
 <hr>
 
@@ -68,22 +69,77 @@ title: factrix.metrics.oos_decay
     decay around 32 %; factrix's default `survival_threshold = 0.5`
     sits inside that window.
 
--   __Sweep the split fraction caller-side__
+-   __Sweep the split fraction with `oos_decay_splits`__
 
     ---
 
-    One call is one `is_ratio`. To read survival across several
-    fractions, call `oos_decay` per fraction and aggregate yourself —
-    the median absorbs a regime change that lands inside one split,
-    where the mean would not.
+    One `oos_decay` call is one `is_ratio`, and a regime change landing
+    near that cut point can reverse the gate.
+    `oos_decay_splits` runs the same primitive over a set of fractions
+    the caller declares up front (default `(0.6, 0.7, 0.8)`), purges the
+    overlapping in-sample tail, and reports one aggregate verdict plus
+    every individual split.
 
 </div>
+
+## Robustness sweep — `oos_decay_splits`
+
+!!! warning "Robustness validation, not another model search"
+    The split set is declared **before** the sweep runs, every split is
+    reported, the aggregate rule is fixed, and no $p$-value is emitted
+    anywhere — so there is nothing to correct for and no best split to
+    select. Re-running with different fraction sets until one passes turns
+    it back into an uncorrected search. The pre-declaration is the only
+    thing preventing that, and the library cannot enforce it for you.
+
+**Aggregate rule.** `status = "PASS"` requires all three of:
+
+1. every declared split assessable (a split that could not be computed
+   withholds the aggregate: `value` is NaN, `reason = "unassessable_splits"`
+   — "cannot assess" must not read as "passed");
+2. **no** split sign-flipped;
+3. the **median** survival ratio at or above `survival_threshold`.
+
+Direction and magnitude are aggregated differently on purpose. A sign flip
+says the factor predicts the wrong way over some contiguous tail, which the
+single-split primitive already treats as a hard veto — a majority vote over
+splits would launder it. A magnitude below the bar at one cut point is
+exactly the arbitrariness the median is there to absorb (50 % breakdown
+point, and order-invariant, so the declaration order cannot move the
+verdict). The median is fixed rather than exposed as a knob: choosing an
+aggregate after seeing the per-split ratios is the search this closes off.
+When the gate vetoes on a sign flip, `value` still carries the median that
+ran — the veto lives in `status` and `n_sign_flips`, not in a corrupted
+number.
+
+**Purge gap.** A value stamped at period $t$ built from a
+`forward_periods`-period forward return is realised over
+$(t,\, t + \texttt{forward\_periods}]$, so the last in-sample observations
+are partly realised inside the out-of-sample window. `oos_decay_splits`
+drops `forward_periods` periods off the end of each in-sample window —
+counted on the panel's distinct-date grid, never calendar time — which is
+the purge of Lopez de Prado (2018). The gap comes off the **in-sample** side
+only: the out-of-sample window is the thing being validated and is never
+shortened to protect the window it is validated against.
+
+```python title="Illustrative"
+from factrix.metrics import oos_decay_splits
+
+out = oos_decay_splits(
+    ic_df, value_col="ic", split_fractions=(0.6, 0.7, 0.8), forward_periods=5,
+)
+print(out.value, out.metadata["status"])           # median ratio, aggregate gate
+for split in out.metadata["splits"]:               # provenance, ascending
+    print(split["split_fraction"], split["n_is"], split["n_oos"],
+          split["survival"], split["sign_flipped"], split["status"])
+```
 
 ## Choosing a function
 
 | Goal                                                                          | Function                |
 |-------------------------------------------------------------------------------|-------------------------|
 | Single-split OOS survival + sign-flip gate on a `(date, value)` series        | `oos_decay` |
+| Purged survival across a pre-declared set of splits, with provenance          | `oos_decay_splits` |
 
 ## Worked example — IC series fed into oos_decay
 
@@ -110,12 +166,12 @@ title: factrix.metrics.oos_decay
           out.metadata["mean_is"], out.metadata["mean_oos"])
     # 0.7   0.0771   0.0719   (approximate)
 
-    # One call is one split; sweep the fraction caller-side when you want
-    # a fraction-robust read.
-    import statistics
-    sweep = {f: oos_decay(ic_df, value_col="ic", is_ratio=f)
-             for f in (0.6, 0.7, 0.8)}
-    print(statistics.median(r.value for r in sweep.values()))
+    # One call is one split. For a fraction-robust read, declare the split
+    # set up front and let oos_decay_splits purge and aggregate it.
+    from factrix.metrics import oos_decay_splits
+
+    swept = oos_decay_splits(ic_df, value_col="ic", forward_periods=5)
+    print(swept.value, swept.metadata["status"], swept.metadata["n_sign_flips"])
     ```
 
 ## See also
