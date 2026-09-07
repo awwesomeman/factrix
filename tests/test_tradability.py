@@ -10,6 +10,7 @@ import polars as pl
 import pytest
 from factrix._codes import WarningCode
 from factrix._errors import UserInputError
+from factrix._results import MetricResult
 from factrix._types import DEFAULT_FORWARD_PERIODS, DEFAULT_N_GROUPS
 from factrix.metrics.tradability import (
     breakeven_cost,
@@ -849,3 +850,137 @@ class TestChangingUniverseNotionalTurnover:
             sum(bot_ref) / len(bot_ref)
         )
         assert 0.0 <= out.value <= 1.0
+
+
+class TestCostAlgebraDomain:
+    """#1054 — the cost helpers police their own economic domain.
+
+    ``turnover`` is the one-way per-leg replaced fraction #1053 documents, so
+    it lives in ``[0, 1]``; ``estimated_cost_bps`` is a non-negative one-way
+    cost; ``gross_spread`` is a finite per-period return. Anything else is a
+    caller mistake, not a number to push through the algebra.
+    """
+
+    @staticmethod
+    def _unavailable(reason: str = "insufficient_periods") -> MetricResult:
+        """A producer short circuit, as ``_short_circuit_output`` builds it."""
+        return MetricResult(
+            value=float("nan"),
+            metadata={"reason": reason, "n_groups": 5},
+            warning_codes=(
+                WarningCode.METRIC_UNAVAILABLE.value,
+                WarningCode.THIN_QUANTILE_GROUPS.value,
+            ),
+        )
+
+    # --- domain of the bare scalars -------------------------------------
+
+    @pytest.mark.parametrize("bad", [-0.2, 1.5, float("nan"), float("inf")])
+    def test_turnover_outside_the_unit_interval_is_rejected(self, bad):
+        with pytest.raises(UserInputError, match="turnover"):
+            breakeven_cost(0.001, turnover=bad, holding_periods=1)
+        with pytest.raises(UserInputError, match="turnover"):
+            net_spread(0.001, turnover=bad, estimated_cost_bps=30.0)
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+    def test_non_finite_gross_spread_is_rejected(self, bad):
+        with pytest.raises(UserInputError, match="gross_spread"):
+            breakeven_cost(bad, turnover=0.2, holding_periods=1)
+        with pytest.raises(UserInputError, match="gross_spread"):
+            net_spread(bad, turnover=0.2, estimated_cost_bps=30.0)
+
+    @pytest.mark.parametrize("bad", [-5.0, float("nan"), float("inf")])
+    def test_negative_or_non_finite_cost_is_rejected(self, bad):
+        with pytest.raises(UserInputError, match="estimated_cost_bps"):
+            net_spread(0.001, turnover=0.2, estimated_cost_bps=bad)
+
+    def test_a_metric_result_carrying_an_out_of_domain_value_is_rejected(self):
+        """An *available* result is held to the same domain as a bare float."""
+        turnover = MetricResult(value=1.4, metadata={"n_groups": 5})
+        with pytest.raises(UserInputError, match="turnover"):
+            breakeven_cost(0.001, turnover=turnover, holding_periods=1)
+
+    @pytest.mark.parametrize("edge", [0.0, 1.0])
+    def test_unit_interval_endpoints_are_inside_the_domain(self, edge):
+        assert not math.isnan(
+            net_spread(0.001, turnover=edge, estimated_cost_bps=0.0).value
+        )
+
+    def test_the_documented_regression_no_longer_manufactures_alpha(self):
+        """``turnover=-0.2`` used to give ``inf`` breakeven and *raise* net."""
+        with pytest.raises(UserInputError):
+            breakeven_cost(0.001, turnover=-0.2, holding_periods=1)
+        with pytest.raises(UserInputError):
+            net_spread(0.001, turnover=-0.2, estimated_cost_bps=30.0)
+
+    # --- unavailable upstream results -----------------------------------
+
+    def test_unavailable_gross_spread_propagates_rather_than_computing(self):
+        out = breakeven_cost(self._unavailable(), turnover=0.2, holding_periods=1)
+        assert math.isnan(out.value)
+        assert out.metadata["reason"] == "no_gross_spread"
+        assert out.metadata["upstream_reason"] == "insufficient_periods"
+        assert WarningCode.METRIC_UNAVAILABLE.value in out.warning_codes
+        assert WarningCode.THIN_QUANTILE_GROUPS.value in out.warning_codes
+
+    def test_unavailable_turnover_propagates_through_both_helpers(self):
+        for out in (
+            breakeven_cost(0.001, turnover=self._unavailable(), holding_periods=1),
+            net_spread(0.001, turnover=self._unavailable(), estimated_cost_bps=30.0),
+        ):
+            assert math.isnan(out.value)
+            assert out.metadata["reason"] == "no_turnover"
+            assert out.metadata["upstream_reason"] == "insufficient_periods"
+            assert WarningCode.METRIC_UNAVAILABLE.value in out.warning_codes
+
+    def test_a_bare_nan_metric_result_is_unavailable_not_applicable(self):
+        """No ``reason``, no code — a NaN value alone still is not a number."""
+        out = net_spread(
+            0.001, turnover=MetricResult(value=float("nan")), estimated_cost_bps=30.0
+        )
+        assert math.isnan(out.value)
+        assert out.metadata["reason"] == "no_turnover"
+        assert WarningCode.METRIC_UNAVAILABLE.value in out.warning_codes
+
+    def test_unavailable_results_are_descriptive_short_circuits(self):
+        """The cost helpers publish no test, so neither may the short circuit."""
+        out = breakeven_cost(self._unavailable(), turnover=0.2, holding_periods=1)
+        assert out.p_value is None
+        assert out.alternative is None
+
+    # --- zero turnover, by the sign of the gross spread -------------------
+
+    def test_zero_turnover_with_a_positive_spread_is_plus_infinity(self):
+        out = breakeven_cost(0.10, turnover=0.0, holding_periods=1)
+        assert out.value == float("inf")
+
+    def test_zero_turnover_with_a_negative_spread_is_minus_infinity(self):
+        """A book that loses before costs never breaks even at any cost >= 0."""
+        out = breakeven_cost(-0.10, turnover=0.0, holding_periods=1)
+        assert out.value == float("-inf")
+
+    def test_zero_turnover_with_a_zero_spread_has_no_unique_breakeven(self):
+        """``net`` is 0 at every cost, so no single cost is the boundary."""
+        out = breakeven_cost(0.0, turnover=0.0, holding_periods=1)
+        assert math.isnan(out.value)
+        assert out.metadata["reason"] == "no_unique_breakeven_cost"
+        assert WarningCode.METRIC_UNAVAILABLE.value in out.warning_codes
+
+    def test_zero_spread_with_positive_turnover_breaks_even_at_zero_cost(self):
+        assert breakeven_cost(0.0, turnover=0.2, holding_periods=1).value == 0.0
+
+    @pytest.mark.parametrize("spread", [-0.05, -0.001, 0.001, 0.05])
+    @pytest.mark.parametrize("turnover", [0.05, 0.5, 1.0])
+    def test_breakeven_sign_tracks_the_gross_spread(self, spread, turnover):
+        """Property: over the documented domain the sign never flips."""
+        out = breakeven_cost(spread, turnover=turnover, holding_periods=3)
+        assert math.isfinite(out.value)
+        assert (out.value > 0) == (spread > 0)
+
+    @pytest.mark.parametrize("turnover", [0.0, 0.25, 1.0])
+    @pytest.mark.parametrize("cost", [0.0, 30.0, 250.0])
+    def test_cost_never_increases_the_net_spread(self, turnover, cost):
+        """Property: a non-negative cost is a drag, never a boost."""
+        out = net_spread(0.001, turnover=turnover, estimated_cost_bps=cost)
+        assert out.value <= 0.001
+        assert out.metadata["cost_drag"] >= 0.0

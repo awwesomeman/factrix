@@ -28,6 +28,9 @@ Notes:
 
 from __future__ import annotations
 
+import math
+from typing import Any
+
 import numpy as np
 import polars as pl
 
@@ -755,14 +758,109 @@ def notional_turnover(
     )
 
 
+def _is_unavailable(result: MetricResult) -> bool:
+    """Did the producer of this result decline to publish a number?
+
+    Two markers, either of which is decisive: the canonical
+    :attr:`WarningCode.METRIC_UNAVAILABLE` every ``_short_circuit_output``
+    carries, and a non-finite ``value``. The second is not redundant — a
+    hand-built or hand-edited ``MetricResult(value=NaN)`` carries no codes,
+    and the cost algebra would otherwise turn it into an applicable-looking
+    NaN breakeven or net spread that reads as a computed answer.
+    """
+    return (
+        WarningCode.METRIC_UNAVAILABLE.value in result.warning_codes
+        or not math.isfinite(result.value)
+    )
+
+
+def _propagate_unavailable(
+    source: MetricResult,
+    *,
+    func_name: str,
+    field: str,
+    holding_periods: int,
+) -> MetricResult:
+    """Re-emit an unavailable input as this metric's own short circuit.
+
+    The reason is ``no_<field>`` — a missing input, in the vocabulary
+    :func:`_short_circuit_output` documents — and the producer's own
+    ``reason`` and advisory codes travel with it, so a caller holding only
+    the consumer's result can still see *why* nothing was computed.
+    """
+    return _short_circuit_output(
+        func_name,
+        f"no_{field}",
+        descriptive=True,
+        warning_codes=source.warning_codes,
+        upstream_metric=source.name or None,
+        upstream_reason=source.metadata.get("reason"),
+        holding_periods=holding_periods,
+    )
+
+
+def _validate_finite(value: float, *, func_name: str, field: str, detail: str) -> None:
+    """Reject a non-finite scalar before it reaches the cost algebra."""
+    if not math.isfinite(value):
+        raise UserInputError(
+            func_name=func_name,
+            field=field,
+            value=value,
+            expected=f"a finite float. {detail}",
+            docs_path=_DOCS_TRADABILITY,
+        )
+
+
+def _validate_turnover(value: float, *, func_name: str) -> None:
+    """``turnover`` is the one-way per-leg replaced fraction, so it is in [0, 1].
+
+    ``notional_turnover`` reports ``0.5 * sum |w_t - w_{t-1}|`` averaged over
+    the two equal-weight legs: 0 is an unchanged book and 1 a full rotation,
+    with nothing outside. A negative value flips the sign of the ``4 tau``
+    coefficient — ``breakeven_cost(0.001, turnover=-0.2)`` used to return
+    ``+inf`` and ``net_spread`` used to *raise* the alpha it was meant to
+    charge — and a value above 1 prices trades the book cannot make.
+    """
+    if not math.isfinite(value) or not 0.0 <= value <= 1.0:
+        raise UserInputError(
+            func_name=func_name,
+            field="turnover",
+            value=value,
+            expected=(
+                "a finite fraction inside [0, 1]. It is the one-way per-leg "
+                "notional replaced per rebalance (0.5 * sum |dw|, top/bottom "
+                "averaged) that notional_turnover reports; rank_turnover's "
+                "value lives in [0, 2] and does not belong here."
+            ),
+            docs_path=_DOCS_TRADABILITY,
+        )
+
+
+def _validate_estimated_cost_bps(value: float, *, func_name: str) -> None:
+    """``estimated_cost_bps`` is a one-way cost, so it is finite and >= 0."""
+    if not math.isfinite(value) or value < 0.0:
+        raise UserInputError(
+            func_name=func_name,
+            field="estimated_cost_bps",
+            value=value,
+            expected=(
+                "a finite bps cost >= 0. It is the one-way (per-trade) cost "
+                "of a single buy or sell; a negative cost would make trading "
+                "a source of return."
+            ),
+            docs_path=_DOCS_TRADABILITY,
+        )
+
+
 def _unpack_cost_inputs(
     gross_spread: float | MetricResult,
     turnover: float | MetricResult,
     holding_periods: int,
     *,
     func_name: str,
-) -> tuple[float, float, dict[str, object]]:
-    """Resolve the two cost inputs and cross-check that they describe one book.
+    estimated_cost_bps: float | None = None,
+) -> tuple[float, float, dict[str, Any]] | MetricResult:
+    """Resolve the two cost inputs, police their domain, and pair-check them.
 
     ``breakeven_cost`` / ``net_spread`` take a spread and a turnover and solve
     a single portfolio's cost algebra. That algebra is only meaningful when the
@@ -772,10 +870,64 @@ def _unpack_cost_inputs(
     producing ``MetricResult``s instead, the bucketing is verified here and
     recorded in the consumer's metadata.
 
+    Three things happen, in this order, and the order is the contract:
+
+    1. **Unavailable inputs short-circuit.** A ``MetricResult`` whose producer
+       declined to publish a number (see :func:`_is_unavailable`) is re-emitted
+       as this metric's own ``no_gross_spread`` / ``no_turnover`` short
+       circuit, carrying the producer's reason and codes. ``gross_spread`` is
+       inspected first, so when both are unavailable the spread's reason is
+       the one reported.
+    2. **Domain validation.** Whatever survives — a bare scalar or an
+       *available* result's ``value``, held to the same bounds either way —
+       must be a finite spread, a turnover inside ``[0, 1]``, and a finite
+       non-negative ``estimated_cost_bps``.
+    3. **Pairing check.** The ``n_groups`` cross-check.
+
+    Returns:
+        ``(gross_spread, turnover, checked_metadata)`` when the algebra can
+        run, or the short-circuit ``MetricResult`` to return unchanged.
+
     Raises:
-        UserInputError: the two results disagree on ``n_groups``.
+        UserInputError: an input is outside its economic domain, or the two
+            results disagree on ``n_groups``.
     """
-    checked: dict[str, object] = {}
+    if isinstance(gross_spread, MetricResult) and _is_unavailable(gross_spread):
+        return _propagate_unavailable(
+            gross_spread,
+            func_name=func_name,
+            field="gross_spread",
+            holding_periods=holding_periods,
+        )
+    if isinstance(turnover, MetricResult) and _is_unavailable(turnover):
+        return _propagate_unavailable(
+            turnover,
+            func_name=func_name,
+            field="turnover",
+            holding_periods=holding_periods,
+        )
+
+    spread_value = float(
+        gross_spread.value if isinstance(gross_spread, MetricResult) else gross_spread
+    )
+    turnover_value = float(
+        turnover.value if isinstance(turnover, MetricResult) else turnover
+    )
+    _validate_finite(
+        spread_value,
+        func_name=func_name,
+        field="gross_spread",
+        detail=(
+            "It is the mean long-short spread per underlying return period; "
+            "an unavailable producer result is propagated rather than "
+            "priced, but a non-finite bare scalar has no reading."
+        ),
+    )
+    _validate_turnover(turnover_value, func_name=func_name)
+    if estimated_cost_bps is not None:
+        _validate_estimated_cost_bps(estimated_cost_bps, func_name=func_name)
+
+    checked: dict[str, Any] = {}
     spread_meta = (
         gross_spread.metadata if isinstance(gross_spread, MetricResult) else {}
     )
@@ -825,15 +977,7 @@ def _unpack_cost_inputs(
         checked["holding_periods"] = holding_periods
         checked["pairing_checked"] = True
 
-    spread_value = (
-        gross_spread.value
-        if isinstance(gross_spread, MetricResult)
-        else float(gross_spread)
-    )
-    turnover_value = (
-        turnover.value if isinstance(turnover, MetricResult) else float(turnover)
-    )
-    return float(spread_value), float(turnover_value), checked
+    return spread_value, turnover_value, checked
 
 
 def _validate_breakeven_cost(m: MetricBase) -> None:
@@ -887,7 +1031,10 @@ def breakeven_cost(
             is ``breakeven_cost(gross_spread, turnover=...,
             holding_periods=...)`` and a second positional argument raises
             ``TypeError``.
-        turnover: Notional turnover ∈ [0, 1] from ``notional_turnover()``.
+        turnover: Notional turnover from ``notional_turnover()``. Must be a
+            finite fraction in ``[0, 1]`` — the one-way per-leg replaced
+            fraction, top/bottom averaged. ``rank_turnover``'s value lives in
+            ``[0, 2]`` and is rejected as often as it is merely wrong.
         holding_periods: Number of **underlying return periods** between
             rebalances — the same unit ``gross_spread`` is normalised to. Must
             be ≥ 1. On the full grid this equals the ``forward_periods`` the
@@ -897,6 +1044,26 @@ def breakeven_cost(
             turnover metrics' ``rebalance_lag``.
         expected_warnings: Warning codes the caller declares; a declared code
             is still recorded, the ``UserWarning`` echo is silenced.
+
+    Raises:
+        UserInputError: ``gross_spread`` is not finite, ``turnover`` is not a
+            finite fraction in ``[0, 1]``, ``holding_periods`` is not an
+            integer ≥ 1, or two ``MetricResult`` inputs disagree on
+            ``n_groups``. The domain applies to a bare scalar and to an
+            *available* ``MetricResult``'s ``value`` alike; only an
+            **unavailable** result takes the short-circuit path below.
+
+    Note:
+        **Unavailable inputs propagate, they do not price.** A
+        ``MetricResult`` whose producer short-circuited — it carries
+        :attr:`~factrix.WarningCode.METRIC_UNAVAILABLE`, or simply a
+        non-finite ``value`` — comes back as this metric's own short circuit
+        with ``reason`` ``no_gross_spread`` / ``no_turnover``, the producer's
+        ``reason`` under ``upstream_reason`` and its advisory codes carried
+        along. ``gross_spread`` is inspected first, so when both are
+        unavailable the spread's reason is reported. The alternative — running
+        the algebra on a NaN — produces a NaN breakeven that reads exactly
+        like a computed one.
 
     Note:
         **Pass the ``MetricResult``s, not their ``.value``.** Both data
@@ -922,6 +1089,21 @@ def breakeven_cost(
         (4 × turnover) × 1e4``. Multiplying spread by ``holding_periods``
         lifts the per-underlying-period spread to the per-rebalance scale
         matching ``turnover``; ``× 1e4`` converts to bps.
+
+        **Zero turnover — three different questions.** A book that trades
+        nothing pays nothing, so the ratio is read off the sign of its
+        numerator, not evaluated:
+
+        - ``gross_spread > 0`` → ``+inf``. The alpha is free to keep; no
+          finite one-way cost can take it to zero.
+        - ``gross_spread < 0`` → ``-inf``. The book already loses money
+          before costs, and no cost ``≥ 0`` makes it break even. Reporting
+          ``+inf`` here — as this function did before #1054 — says a losing
+          book can bear an unlimited cost.
+        - ``gross_spread == 0`` → short circuit,
+          ``reason="no_unique_breakeven_cost"``. ``net`` is already zero at
+          *every* cost, so no single cost is the boundary; a number here
+          would be a choice, not a measurement.
 
         **Example — the unit error this parameter name prevents.** A signal
         evaluated on a coarse grid, holding 20 underlying return periods per
@@ -971,12 +1153,29 @@ def breakeven_cost(
         >>> result.name == ""
         True
     """
-    gross_spread, turnover, checked = _unpack_cost_inputs(
+    resolved = _unpack_cost_inputs(
         gross_spread, turnover, holding_periods, func_name="breakeven_cost"
     )
+    if isinstance(resolved, MetricResult):
+        return resolved
+    gross_spread, turnover, checked = resolved
+
     if turnover < EPSILON:
+        # A book that trades nothing pays nothing, so the limit is read off
+        # the sign of the numerator rather than off the ratio. The three
+        # cases are genuinely different questions; see the Notes.
+        if gross_spread == 0.0:
+            return _short_circuit_output(
+                "breakeven_cost",
+                "no_unique_breakeven_cost",
+                descriptive=True,
+                gross_spread=gross_spread,
+                turnover=turnover,
+                holding_periods=holding_periods,
+                **checked,
+            )
         return MetricResult(
-            value=float("inf"),
+            value=math.inf if gross_spread > 0 else -math.inf,
             metadata={
                 "gross_spread": gross_spread,
                 "turnover": turnover,
@@ -1058,11 +1257,14 @@ def net_spread(
             is ``net_spread(gross_spread, turnover=...,
             estimated_cost_bps=..., holding_periods=...)`` and a second
             positional argument raises ``TypeError``.
-        turnover: Notional turnover ∈ [0, 1] from ``notional_turnover()``.
+        turnover: Notional turnover from ``notional_turnover()``. Must be a
+            finite fraction in ``[0, 1]`` — the one-way per-leg replaced
+            fraction, top/bottom averaged.
         estimated_cost_bps: Estimated **one-way** (per-trade) trading cost
             in bps — what a single buy or a single sell costs, e.g.
             half-spread + impact. Halve a round-trip quote before passing
-            it here.
+            it here. Must be finite and ``≥ 0``: a negative cost would make
+            trading a source of return.
         holding_periods: Number of **underlying return periods** between
             rebalances — the same unit ``gross_spread`` is normalised to. Must
             be ≥ 1. On the full grid this equals the ``forward_periods`` the
@@ -1073,13 +1275,25 @@ def net_spread(
         expected_warnings: Warning codes the caller declares; a declared code
             is still recorded, the ``UserWarning`` echo is silenced.
 
+    Raises:
+        UserInputError: ``gross_spread`` is not finite, ``turnover`` is not a
+            finite fraction in ``[0, 1]``, ``estimated_cost_bps`` is not a
+            finite value ``≥ 0``, ``holding_periods`` is not an integer ``≥
+            1``, or two ``MetricResult`` inputs disagree on ``n_groups``. The
+            domain applies to a bare scalar and to an *available*
+            ``MetricResult``'s ``value`` alike. Without it a negative
+            ``turnover`` turned the ``4 τ c`` drag into a subsidy and the
+            function *raised* the alpha it was meant to charge.
+
     Note:
         ``gross_spread`` and ``turnover`` accept the producing
         ``MetricResult``s as well as bare floats; passing the results lets this
         function verify that the two were bucketed the same way.
         ``holding_periods`` is not cross-checked against them — it describes
-        the trading schedule, which no upstream metadata records. See
-        :func:`breakeven_cost`.
+        the trading schedule, which no upstream metadata records. An
+        **unavailable** producer result short-circuits with
+        ``reason="no_gross_spread"`` / ``"no_turnover"`` instead of being
+        priced. See :func:`breakeven_cost`.
 
     Returns:
         MetricResult with value = net spread per underlying return period.
@@ -1149,9 +1363,17 @@ def net_spread(
         >>> result.name == ""
         True
     """
-    gross_spread, turnover, checked = _unpack_cost_inputs(
-        gross_spread, turnover, holding_periods, func_name="net_spread"
+    resolved = _unpack_cost_inputs(
+        gross_spread,
+        turnover,
+        holding_periods,
+        func_name="net_spread",
+        estimated_cost_bps=estimated_cost_bps,
     )
+    if isinstance(resolved, MetricResult):
+        return resolved
+    gross_spread, turnover, checked = resolved
+
     # 4 × τ × c: τ is the mean per-leg replaced fraction, each replacement is a
     # sell plus a buy (2τ traded notional per leg) and the $1/$1 long-short
     # holds two legs. See Notes for the derivation.
