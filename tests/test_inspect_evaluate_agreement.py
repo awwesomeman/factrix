@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import math
 import warnings
+from typing import Literal
 
 import factrix as fx
 import polars as pl
@@ -36,6 +37,15 @@ from factrix.preprocess import compute_forward_return
 _N_ASSETS = (5, 8, 12, 20, 40)
 _N_PERIODS = (60, 120, 240)
 _HORIZONS = (1, 5)
+
+_FactorShape = Literal[
+    "individual", "common_time_varying", "common_zero_variance"
+]
+_FACTOR_SHAPES: tuple[_FactorShape, ...] = (
+    "individual",
+    "common_time_varying",
+    "common_zero_variance",
+)
 
 # Metrics whose default constructor needs a positional argument (scalar
 # helpers such as breakeven_cost / net_spread take an upstream value, not a
@@ -56,19 +66,23 @@ def _panel(
     n_periods: int,
     forward_periods: int,
     *,
-    common_factor: bool = False,
+    factor_shape: _FactorShape = "individual",
 ) -> pl.DataFrame:
-    """Dense individual- or common-factor panel with optional schema columns.
+    """Dense panel spanning individual and both common-factor regressions.
 
     ``market_cap`` is present so a weight-consuming metric fails (or not) on
     sample shape rather than on a missing column — the sweep tests the shape
-    gate.
+    gate. The time-varying common control keeps stage-1 factor variation; the
+    zero-variance shape forces every per-asset regression to drop, which is
+    the producer/pre-flight disagreement the COMMON sweep must detect.
     """
     raw = fx.datasets.make_cs_panel(
         n_assets=n_assets, n_dates=n_periods, rng=17
     ).with_columns(pl.lit(1.0e9).alias("market_cap"))
-    if common_factor:
+    if factor_shape == "common_time_varying":
         raw = raw.with_columns(pl.col("factor").first().over("date"))
+    elif factor_shape == "common_zero_variance":
+        raw = raw.with_columns(pl.lit(1.0).alias("factor"))
     return compute_forward_return(raw, forward_periods=forward_periods)
 
 
@@ -113,14 +127,14 @@ def _is_out_of_scope(reason: object) -> bool:
 
 
 @pytest.mark.parametrize("n_assets,n_periods,forward_periods", _shapes())
-@pytest.mark.parametrize("common_factor", [False, True], ids=["individual", "common"])
+@pytest.mark.parametrize("factor_shape", _FACTOR_SHAPES)
 def test_inspect_verdict_matches_evaluate_outcome(
     n_assets: int,
     n_periods: int,
     forward_periods: int,
-    common_factor: bool,
+    factor_shape: _FactorShape,
 ) -> None:
-    panel = _panel(n_assets, n_periods, forward_periods, common_factor=common_factor)
+    panel = _panel(n_assets, n_periods, forward_periods, factor_shape=factor_shape)
     usable = _verdicts(panel)
 
     disagreements: list[str] = []
@@ -140,23 +154,23 @@ def test_inspect_verdict_matches_evaluate_outcome(
                 f"reason={out.metadata.get('reason')!r}"
             )
     assert not disagreements, (
-        f"scope={'common' if common_factor else 'individual'} "
+        f"shape={factor_shape} "
         f"N={n_assets} T={n_periods} h={forward_periods}: " + "; ".join(disagreements)
     )
 
 
 @pytest.mark.parametrize("n_assets,n_periods,forward_periods", _shapes())
-@pytest.mark.parametrize("common_factor", [False, True], ids=["individual", "common"])
+@pytest.mark.parametrize("factor_shape", _FACTOR_SHAPES)
 def test_strict_raises_exactly_when_inspect_says_unusable(
     n_assets: int,
     n_periods: int,
     forward_periods: int,
-    common_factor: bool,
+    factor_shape: _FactorShape,
 ) -> None:
     """``strict=True`` must refuse precisely the shapes pre-flight calls
     unusable, and the refusal must be the documented exception type carrying a
     legal axis token."""
-    panel = _panel(n_assets, n_periods, forward_periods, common_factor=common_factor)
+    panel = _panel(n_assets, n_periods, forward_periods, factor_shape=factor_shape)
     usable = _verdicts(panel)
     legal_axes = {"periods", "assets", "events", "pairs", "asset_pairs"}
 
@@ -183,7 +197,7 @@ def test_strict_raises_exactly_when_inspect_says_unusable(
         if raised is None and not usable[name]:
             disagreements.append(f"{name}: pre-flight unusable but strict ran")
     assert not disagreements, (
-        f"scope={'common' if common_factor else 'individual'} "
+        f"shape={factor_shape} "
         f"N={n_assets} T={n_periods} h={forward_periods}: " + "; ".join(disagreements)
     )
 
@@ -221,8 +235,12 @@ def test_common_beta_preflight_uses_assets_surviving_the_producer() -> None:
 
 
 def test_common_beta_preflight_keeps_time_varying_broadcast_factor() -> None:
-    """COMMON broadcasting alone must not make per-asset regressions unusable."""
-    panel = _panel(20, 120, 5, common_factor=True)
+    """Control: COMMON broadcasting alone keeps regressions usable.
+
+    This passes before the #1074 fix by design; it pins the valid neighbouring
+    regime while the zero-variance sweep cells provide regression force.
+    """
+    panel = _panel(20, 120, 5, factor_shape="common_time_varying")
     info = fx.inspect_data(panel, factor_cols=["factor"])
     beta_consumers = {
         "common_beta_profile",
