@@ -286,6 +286,7 @@ def common_beta(
         "median_beta": float(np.median(betas)),
     }
     warning_codes: list[str] = []
+    inference_dof = n - 1
     # std(beta)/sqrt(N) is the SE of a mean over INDEPENDENT draws, which
     # assets loading on a common component are not. The calendar-time
     # portfolio SE (see _calendar_time_se) is the test's SE whenever the
@@ -327,6 +328,7 @@ def common_beta(
             p = float("nan")
     else:
         se, dof = calendar
+        inference_dof = dof
         metadata["stat_uncorrected"] = t_iid
         metadata["dof"] = dof
         metadata["method"] = (
@@ -338,14 +340,16 @@ def common_beta(
         p = _p_value_from_t(t, n, dof=dof) if math.isfinite(t) else float("nan")
     # The headline is a cross-asset t-test on E[beta], so its critical value
     # inflates as the cross-section thins — the regime FEW_ASSETS exists for.
-    # The estimator does not change; the code is the record that df = n - 1 was
-    # small. Same floor and same helper ic / fm_beta use, so a thin panel reads
-    # the same across the cross-asset family.
+    # The estimator does not change; the code records that the active
+    # inference branch has a small cross-section.  Its displayed df must match
+    # the Welch-Satterthwaite reference used by calendar-time inference, while
+    # the explicitly labelled iid fallback continues to use n - 1.
     warn_code = _warn_below_floor(
         common_beta,
         n,
         f"n_assets={n} below MIN_ASSETS_WARN={MIN_ASSETS_WARN}; "
-        f"the cross-asset t-test on the mean per-asset beta runs on df={n - 1}, "
+        f"the cross-asset t-test on the mean per-asset beta runs on "
+        f"df={inference_dof}, "
         f"so its critical value is well above the asymptotic one. mean(beta) is "
         f"returned but read borderline p-values cautiously.",
         WarningCode.FEW_ASSETS,
