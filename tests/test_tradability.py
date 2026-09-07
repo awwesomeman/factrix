@@ -894,6 +894,24 @@ class TestCostAlgebraDomain:
         with pytest.raises(UserInputError, match="estimated_cost_bps"):
             net_spread(0.001, turnover=0.2, estimated_cost_bps=bad)
 
+    def test_none_cost_is_rejected_at_the_public_boundary(self):
+        """A user's ``None`` is an invalid cost, not an internal sentinel."""
+        with pytest.raises(UserInputError, match="estimated_cost_bps"):
+            net_spread(  # type: ignore[arg-type]
+                0.001,
+                turnover=0.2,
+                estimated_cost_bps=None,
+            )
+
+    def test_breakeven_cost_has_no_estimated_cost_input(self):
+        """The sibling without a cost argument keeps that API boundary."""
+        with pytest.raises(TypeError, match="estimated_cost_bps"):
+            breakeven_cost(  # type: ignore[call-arg]
+                0.001,
+                turnover=0.2,
+                estimated_cost_bps=30.0,
+            )
+
     def test_a_metric_result_carrying_an_out_of_domain_value_is_rejected(self):
         """An *available* result is held to the same domain as a bare float."""
         turnover = MetricResult(value=1.4, metadata={"n_groups": 5})

@@ -1388,6 +1388,17 @@ def net_spread(
         >>> result.name == ""
         True
     """
+    if estimated_cost_bps is None:
+        raise UserInputError(
+            func_name="net_spread",
+            field="estimated_cost_bps",
+            value=None,
+            expected=(
+                "a finite bps cost >= 0. None is not a default sentinel; "
+                "omit the argument to use the 30 bps default."
+            ),
+            docs_path=_DOCS_TRADABILITY,
+        )
     resolved = _unpack_cost_inputs(
         gross_spread,
         turnover,

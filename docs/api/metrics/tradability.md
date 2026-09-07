@@ -131,7 +131,7 @@ float through the formula.
 |---|---|---|
 | `gross_spread` | finite | A non-finite spread has no reading as a per-period return. |
 | `turnover` | finite, $0 \le \tau \le 1$ | The one-way per-leg replaced fraction above. `rank_turnover` lives in $[0, 2]$ and does not belong here. |
-| `estimated_cost_bps` | finite, $\ge 0$ | A one-way per-trade cost. A negative cost would make trading a source of return. |
+| `estimated_cost_bps` | finite, $\ge 0$; `None` is invalid | A one-way per-trade cost. Omit the argument to use `net_spread`'s 30 bps default; `None` is not a default sentinel. A negative cost would make trading a source of return. |
 | `holding_periods` | integer $\ge 1$ | A rebalance interval in underlying return periods. |
 
 A violation raises `UserInputError`, with the same bounds applied to a bare
