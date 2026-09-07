@@ -897,15 +897,17 @@ class TestCrossFactorConsistency:
         density_warning = next(
             w for w in info.warnings if w.code.value == "cross_factor_density_mismatch"
         )
-        assert "'factor': dense" in density_warning.message
-        assert "'factor3': sparse" in density_warning.message
-        assert "separate inspect_data/evaluate batches" in density_warning.message
+        assert "Basis 'factor' (dense)" in density_warning.message
+        assert "disagreeing columns: 'factor3' (sparse)" in density_warning.message
+        assert "DataInspection.factors[<col>]" in density_warning.message
+        assert "separate evaluate batches" in density_warning.message
 
         scope_warning = next(
             w for w in info.warnings if w.code.value == "cross_factor_scope_mismatch"
         )
-        assert "'factor': individual" in scope_warning.message
-        assert "'factor2': common" in scope_warning.message
+        assert "Basis 'factor' (individual)" in scope_warning.message
+        assert "disagreeing columns: 'factor2' (common)" in scope_warning.message
+        assert "DataInspection.factors[<col>]" in scope_warning.message
         assert "asset-specific and common macro factors" in scope_warning.message
 
     def test_factor_cols_restricts_scope(self):
@@ -1052,3 +1054,171 @@ class TestScopeIgnoresMissingCells:
     def test_scope_reason_reports_the_periods_actually_read(self):
         info = inspect_data(_blank_first_period(_common_factor_panel()))
         assert "29 of 30 periods" in info.properties.scope_reason
+
+
+def _heterogeneous_panel(n_assets: int = 12, n_dates: int = 120) -> pl.DataFrame:
+    """One panel carrying four deliberately different factor columns.
+
+    ``factor`` individual dense; ``common`` broadcast dense; ``sparse``
+    individual zero-encoded event; ``ternary`` individual dense {-1, +1} with
+    a hole, so the columns differ on scope, density, missingness, cardinality
+    and event count at once.
+    """
+    raw = fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=n_dates, rng=11)
+    one_per_period = raw.group_by("date").agg(pl.col("factor").first().alias("common"))
+    data = (
+        raw.join(one_per_period, on="date")
+        .with_columns(
+            pl.when(pl.int_range(0, pl.len()) % 4 == 0)
+            .then(pl.col("factor"))
+            .otherwise(0.0)
+            .alias("sparse"),
+            pl.when(pl.int_range(0, pl.len()) % 10 == 0)
+            .then(pl.lit(None, dtype=pl.Float64))
+            .when(pl.col("factor") >= 0)
+            .then(1.0)
+            .otherwise(-1.0)
+            .alias("ternary"),
+        )
+        .sort("date", "asset_id")
+    )
+    return data
+
+
+_HETEROGENEOUS_COLS = ["factor", "common", "sparse", "ternary"]
+
+
+class TestPerFactorInspection:
+    """Multi-factor input gets an auditable per-column result (#1056)."""
+
+    def test_factors_covers_every_inspected_column_in_order(self):
+        info = inspect_data(_heterogeneous_panel(), factor_cols=_HETEROGENEOUS_COLS)
+        assert list(info.factors) == _HETEROGENEOUS_COLS
+        assert all(info.factors[c].factor == c for c in _HETEROGENEOUS_COLS)
+
+    def test_single_factor_path_stays_simple(self):
+        data = fx.datasets.make_cs_panel(n_assets=12, n_dates=120, rng=11)
+        info = inspect_data(data)
+        assert list(info.factors) == ["factor"]
+        only = info.factors["factor"]
+        assert only.properties == info.properties
+        assert only.metrics == info.metrics
+        assert only.warnings == info.warnings
+
+    def test_aggregate_still_describes_the_first_column(self):
+        info = inspect_data(_heterogeneous_panel(), factor_cols=_HETEROGENEOUS_COLS)
+        assert info.properties == info.factors["factor"].properties
+        assert info.metrics == info.factors["factor"].metrics
+
+    def test_scope_is_reported_per_factor(self):
+        info = inspect_data(_heterogeneous_panel(), factor_cols=_HETEROGENEOUS_COLS)
+        assert info.factors["factor"].properties.scope is fx.FactorScope.INDIVIDUAL
+        assert info.factors["common"].properties.scope is fx.FactorScope.COMMON
+
+    def test_density_is_reported_per_factor(self):
+        info = inspect_data(_heterogeneous_panel(), factor_cols=_HETEROGENEOUS_COLS)
+        assert info.factors["factor"].properties.density is fx.FactorDensity.DENSE
+        assert info.factors["sparse"].properties.density is fx.FactorDensity.SPARSE
+        assert info.factors["sparse"].properties.sparse_ratio >= 0.5
+
+    def test_missingness_is_reported_per_factor(self):
+        info = inspect_data(_heterogeneous_panel(), factor_cols=_HETEROGENEOUS_COLS)
+        assert (
+            info.factors["ternary"].properties.n_pairs
+            < info.factors["factor"].properties.n_pairs
+        )
+
+    def test_event_count_is_reported_per_factor(self):
+        info = inspect_data(_heterogeneous_panel(), factor_cols=_HETEROGENEOUS_COLS)
+        assert (
+            info.factors["sparse"].properties.n_events
+            < info.factors["factor"].properties.n_events
+        )
+
+    def test_cardinality_verdict_is_reported_per_factor(self):
+        """A low-cardinality column's advisory rides on that column, not the first."""
+        info = inspect_data(_heterogeneous_panel(), factor_cols=_HETEROGENEOUS_COLS)
+        codes = {w.code for w in info.factors["ternary"].warnings}
+        assert fx.WarningCode.LOW_CARDINALITY_DENSE_SIGNAL in codes
+        assert fx.WarningCode.LOW_CARDINALITY_DENSE_SIGNAL not in {
+            w.code for w in info.factors["factor"].warnings
+        }
+
+    def test_metric_verdicts_differ_per_factor(self):
+        info = inspect_data(_heterogeneous_panel(), factor_cols=_HETEROGENEOUS_COLS)
+        individual = info.factors["factor"]
+        common = info.factors["common"]
+        assert "ic" in (individual.usable + individual.degraded).names
+        assert "ic" in common.unusable.names
+        assert "common_beta" in common.usable.names + common.degraded.names
+        assert "common_beta" in individual.unusable.names
+
+    def test_per_factor_stage_one_profile_gates_its_own_column(self):
+        """A column whose IC stage-one profile is thin blocks `ic` on itself only.
+
+        ``thin`` carries a usable cross-section on 20 periods and a single
+        asset on the rest, so ``compute_ic`` would keep 20 periods — below
+        ``ic``'s 50-period floor — while the sibling column keeps 118. The
+        panel-level ``n_periods`` is identical for both, so only a per-column
+        stage-one profile can separate them.
+        """
+        raw = compute_forward_return(
+            fx.datasets.make_cs_panel(n_assets=12, n_dates=120, rng=11),
+            forward_periods=1,
+        )
+        early = raw["date"].unique().sort()[:20]
+        lone_asset = raw["asset_id"].unique().sort()[0]
+        thin = raw.with_columns(
+            pl.when(
+                pl.col("date").is_in(early.implode())
+                | (pl.col("asset_id") == lone_asset)
+            )
+            .then(pl.col("factor"))
+            .otherwise(pl.lit(None, dtype=pl.Float64))
+            .alias("thin")
+        )
+        info = inspect_data(thin, factor_cols=["factor", "thin"])
+
+        assert info.factors["thin"].properties.n_periods == (
+            info.factors["factor"].properties.n_periods
+        )
+        assert "ic" in info.factors["thin"].unusable.names
+        assert "ic" not in info.factors["factor"].unusable.names
+        thin_ic = next(m for m in info.factors["thin"].metrics if m.name == "ic")
+        assert "n_periods=20 < min_periods=50" in thin_ic.blockers
+
+    def test_aggregate_warning_names_the_disagreeing_columns(self):
+        info = inspect_data(_heterogeneous_panel(), factor_cols=_HETEROGENEOUS_COLS)
+        scope_warning = next(
+            w
+            for w in info.warnings
+            if w.code is fx.WarningCode.CROSS_FACTOR_SCOPE_MISMATCH
+        )
+        assert "'common' (common)" in scope_warning.message
+        assert "'factor' (individual)" in scope_warning.message
+        assert "DataInspection.factors" in scope_warning.message
+
+        density_warning = next(
+            w
+            for w in info.warnings
+            if w.code is fx.WarningCode.CROSS_FACTOR_DENSITY_MISMATCH
+        )
+        assert "'sparse' (sparse)" in density_warning.message
+        assert "'factor' (dense)" in density_warning.message
+
+    def test_to_dict_carries_every_factor(self):
+        info = inspect_data(_heterogeneous_panel(), factor_cols=_HETEROGENEOUS_COLS)
+        back = info.to_dict()
+        assert list(back["factors"]) == _HETEROGENEOUS_COLS
+        assert back["factors"]["common"]["properties"]["scope"] == "common"
+        assert back["factors"]["sparse"]["properties"]["density"] == "sparse"
+        assert back["factors"]["factor"]["properties"] == back["properties"]
+
+    def test_repr_html_lists_each_factor_with_its_own_axes(self):
+        info = inspect_data(_heterogeneous_panel(), factor_cols=_HETEROGENEOUS_COLS)
+        html_out = info._repr_html_()
+        assert "per-factor" in html_out
+        # Whole rows, not loose substrings: the column name must travel with the
+        # axes detected for that column.
+        assert "<td>common</td><td>common</td><td>dense</td>" in html_out
+        assert "<td>sparse</td><td>individual</td><td>sparse</td>" in html_out
