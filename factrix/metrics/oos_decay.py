@@ -36,9 +36,11 @@ from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     DEGENERATE_SIGNAL_STATUS,
     _enforce_min_floor,
+    _finite_values,
     _resolve_series_value_col,
     _short_circuit_output,
     _surface_null_drop,
+    _validate_half_open_unit_interval,
     _validate_open_unit_interval,
 )
 from factrix.metrics.ic import compute_ic
@@ -55,7 +57,12 @@ _MIN_SPLIT_OBS = 2
 
 
 def _validate_oos_decay(m: MetricBase) -> None:
-    """``is_ratio`` splits the series, so it is a fraction strictly inside (0, 1)."""
+    """Both gate knobs are fractions, checked before any data work.
+
+    ``is_ratio`` splits the series, so it is strictly inside ``(0, 1)``;
+    ``survival_threshold`` is the share of in-sample magnitude the factor must
+    retain, so it is inside ``(0, 1]``.
+    """
     _validate_open_unit_interval(
         m.is_ratio,  # type: ignore[attr-defined]
         func_name="oos_decay",
@@ -63,6 +70,57 @@ def _validate_oos_decay(m: MetricBase) -> None:
         detail=(
             "0 leaves no in-sample window and 1 leaves no out-of-sample "
             "window, so no survival ratio is defined."
+        ),
+        docs_path="api/metrics/oos_decay",
+    )
+    # WHY: an unvalidated threshold silently forces the gate rather than
+    # failing. The survival ratio is a non-negative magnitude ratio, so any
+    # value <= 0 PASSes every series a ratio can be computed for (a gate that
+    # cannot veto is not a gate), NaN fails every comparison and so VETOES
+    # every series, and ``True`` is 1.0 to Python. ``> 1`` asks for
+    # out-of-sample *amplification*, which is not the decay this diagnostic
+    # gates on; ask for it with an explicit read of ``value`` instead.
+    _validate_half_open_unit_interval(
+        m.survival_threshold,  # type: ignore[attr-defined]
+        func_name="oos_decay",
+        field="survival_threshold",
+        detail=(
+            "It is the share of the in-sample mean magnitude the factor must "
+            "retain out of sample; 0 passes every series and a value above 1 "
+            "demands out-of-sample amplification rather than survival."
+        ),
+        docs_path="api/metrics/oos_decay",
+    )
+
+
+def _require_one_row_per_period(series: pl.DataFrame) -> None:
+    """Reject a series carrying more than one observation per distinct date.
+
+    The split is a *period* count on the series' own distinct-date grid, taken
+    positionally after sorting. A duplicated date has no defined position in
+    that sort, so the cut can fall between two observations of the same period
+    and put one chronological period on both sides of the IS/OOS boundary —
+    the leakage the split exists to prevent. Rejected rather than aggregated:
+    the DAG producers (``compute_ic``, ``compute_spread_series``) emit exactly
+    one row per period, so no aggregation rule is needed to match them, and
+    picking one silently (mean? last?) would apply a statistic the caller
+    never asked for. Follows ``spanning``'s treatment of the same input shape.
+    """
+    n_periods = series["date"].n_unique()
+    if n_periods == series.height:
+        return
+    from factrix._errors import UserInputError
+
+    raise UserInputError(
+        func_name="oos_decay",
+        field="series",
+        value=f"{series.height} rows for {n_periods} distinct periods",
+        expected=(
+            "one row per period on the series' distinct-date grid. A "
+            "duplicated date makes the IS/OOS cut ambiguous, so the same "
+            "period can land on both sides of the split. Aggregate to one "
+            "observation per period first, e.g. "
+            'series.group_by("date").mean().sort("date")'
         ),
         docs_path="api/metrics/oos_decay",
     )
@@ -94,16 +152,27 @@ def oos_decay(
     survival ratio), and checks for an IS/OOS sign flip.
 
     Args:
-        series: DataFrame with ``date`` and ``value_col``, sorted by date.
-        value_col: Numeric column to evaluate.
-        is_ratio: Fraction of the series allocated to IS (default ``0.7``).
-            Must lie strictly inside ``(0, 1)``.
+        series: DataFrame with ``date`` and ``value_col``, carrying exactly
+            **one row per period** on its own distinct-date grid (what every
+            producer in the DAG emits). Row order is irrelevant — the series
+            is sorted by date here.
+        value_col: Numeric column to evaluate. Null, NaN and ±inf
+            observations are dropped and the drop is recorded in
+            ``metadata``; the periods that remain are the split's grid.
+        is_ratio: Fraction of the retained periods allocated to IS (default
+            ``0.7``). Must lie strictly inside ``(0, 1)``.
         survival_threshold: Minimum survival ratio for ``status="PASS"``
-            (default ``0.5``).
+            (default ``0.5``). It is the share of the in-sample mean
+            magnitude the factor must retain out of sample, so its domain is
+            the finite half-open interval ``(0, 1]``.
 
     Raises:
-        UserInputError: ``is_ratio`` is not strictly inside ``(0, 1)``.
-            Raised at construction, before any data work.
+        UserInputError: ``is_ratio`` is not strictly inside ``(0, 1)``, or
+            ``survival_threshold`` is not inside ``(0, 1]`` (bool, NaN, ±inf
+            and non-numeric included). Raised at construction, before any
+            data work.
+        UserInputError: ``series`` carries more than one row for some date.
+            Raised at call time, before the split.
 
     Returns:
         MetricResult with:
@@ -150,6 +219,23 @@ def oos_decay(
         ``reason="insufficient_oos_periods"`` rather than reporting a
         survival ratio computed from a single point.
 
+        **Input contract.** The split is a count of periods on the series'
+        own distinct-date grid, taken positionally after sorting by date, so
+        the series must carry one row per period. A duplicated date has no
+        defined position in that sort and can put the same chronological
+        period on both sides of the boundary; it is rejected rather than
+        aggregated under a guessed rule (see :class:`UserInputError` above).
+        Non-finite observations are dropped first, so ``n_obs`` and the split
+        index both count the periods that actually reached the means.
+
+        **Threshold domain.** ``survival_threshold`` is validated as a finite
+        fraction inside ``(0, 1]``. Outside that range the knob stops gating
+        and starts forcing: ``<= 0`` PASSes every series a ratio exists for,
+        ``float("nan")`` VETOES every one of them, and ``True`` silently
+        reads as ``1.0``. A threshold above 1 would demand out-of-sample
+        amplification rather than survival — read ``value`` directly for
+        that question.
+
     References:
         - [McLean-Pontiff (2016)][mclean-pontiff-2016]: post-publication
           returns ~58% lower than in-sample, with ~32% of that drop
@@ -176,8 +262,12 @@ def oos_decay(
         True
     """
     value_col = _resolve_series_value_col(series, value_col)
+    _require_one_row_per_period(series)
     sorted_series = series.sort("date")
-    vals = sorted_series[value_col].drop_nulls().drop_nans()
+    # One row per period, so dropping the non-finite observations leaves one
+    # value per surviving period: `n` counts periods on the series' own
+    # distinct-date grid and the split index below is a period count.
+    vals = _finite_values(sorted_series[value_col])
     n = len(vals)
 
     sc = _enforce_min_floor(
@@ -260,7 +350,7 @@ def oos_decay(
     _surface_null_drop(
         n_periods_in=sorted_series.height,
         n_periods_out=n,
-        drop_reason="null / NaN value observations in the series",
+        drop_reason="null / NaN / +-inf value observations in the series",
         metric_name="oos_decay",
         metadata=metadata,
         warning_codes=warning_codes,

@@ -72,6 +72,7 @@ BOUNDED_KNOBS: list[tuple[str, dict[str, Any], str]] = [
     ("breakeven_cost", {"turnover": 0.2, "holding_periods": 0}, "holding_periods"),
     ("net_spread", {"turnover": 0.2, "holding_periods": 0}, "holding_periods"),
     ("oos_decay", {"is_ratio": 1.0}, "is_ratio"),
+    ("oos_decay", {"survival_threshold": 1.5}, "survival_threshold"),
     ("ic_trend", {"adf_threshold": 1.5}, "adf_threshold"),
     ("predictive_beta", {"adf_threshold": 0.0}, "adf_threshold"),
     ("common_beta_profile", {"neutral_epsilon": -1.0}, "neutral_epsilon"),

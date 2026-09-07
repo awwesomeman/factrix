@@ -33,6 +33,30 @@ title: factrix.metrics.oos_decay
     $|\mathrm{mean}_{\text{OOS}}| / |\mathrm{mean}_{\text{IS}}|$ on a
     single `is_ratio` split.
 
+-   __One row per period, finite values only__
+
+    ---
+
+    The split is a count of periods on the series' own distinct-date
+    grid, taken positionally after a sort by date. A duplicated date has
+    no defined position in that sort, so it could put the same
+    chronological period on both sides of the boundary; it raises
+    `UserInputError` rather than being aggregated under a rule the
+    caller never chose. Null / NaN / $\pm\infty$ observations are
+    dropped first and recorded in `metadata`, so `n_obs` and the split
+    index count the same periods.
+
+-   __`survival_threshold` is a retention fraction__
+
+    ---
+
+    Its domain is the finite half-open interval $(0, 1]$, validated at
+    construction. Outside it the knob stops gating and starts forcing:
+    $\le 0$ passes every series a ratio exists for, `float("nan")`
+    vetoes every one of them, and `True` reads as `1.0`. A threshold
+    above 1 would demand out-of-sample *amplification* rather than
+    survival — read `value` directly for that question.
+
 -   __Sign-flip veto__
 
     ---
