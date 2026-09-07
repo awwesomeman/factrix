@@ -184,9 +184,10 @@ is emitted.
   the cluster count G < 3 the test is short-circuited with `stat =
   None`, `value = NaN`, and `p_value = 1.0`: with two clusters the sample
   cannot support a clustered estimate, so the algebraic slope is not
-  exposed as a usable pooled beta. A non-PSD two-way covariance is the
-  other withheld-inference regime and keeps `value` — see
-  `variance_status` below.
+  exposed as a usable pooled beta. Rank-deficient designs withhold the
+  unidentified slope and all test fields without fabricating a conservative
+  p-value. Covariance failures after a full-rank fit keep the identified
+  `value` but withhold the test — see `variance_status` below.
 - Sample size: `MetricResult.n_obs` (row count entering the test).
 - *descriptive*: `overlap_periods` (the injected evaluation-grid horizon) and
   `overlap_adjustment_applied`. The latter is `False` for clustered covariance,
@@ -202,6 +203,13 @@ is emitted.
   support a slope test. The pooled OLS slope remains available, but `stat` /
   `p_value` are withheld with `WarningCode.DEGENERATE_VARIANCE`; factrix does
   not substitute a one-way covariance.
+- *descriptive* (conditional): `variance_status` =
+  `"singular_pooled_design_matrix"` for a rank-deficient design or a covariance
+  inversion failure. A rank-deficient design also carries `design_rank` and
+  `n_parameters` and has no identified `value`; if OLS was full rank and only
+  covariance inversion failed, its identified slope remains available. Both
+  shapes withhold `stat` / `p_value` / `alternative` and carry
+  `WarningCode.DEGENERATE_VARIANCE`.
 - *descriptive* (Driscoll-Kraay path, `driscoll_kraay=True`):
   `se_method` (`"driscoll_kraay"`), `n_periods` (length of the
   cross-sectional score-sum series), and `driscoll_kraay_lags` (the

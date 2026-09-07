@@ -69,6 +69,12 @@ title: factrix.metrics.fm_beta
     If a finite-sample two-way covariance is non-PSD, the OLS slope remains
     descriptive but its test is withheld rather than replaced by one-way
     inference.
+    A rank-deficient pooled design does not identify a slope: factrix returns
+    `value=NaN`, withholds `stat` / `p_value` / `alternative`, and records
+    `variance_status="singular_pooled_design_matrix"` plus
+    `degenerate_variance`. This differs from a covariance failure after a
+    full-rank fit, where the identified slope remains available and only the
+    test fields are withheld.
 
 -   __Cross-section-robust pooled inference__
 

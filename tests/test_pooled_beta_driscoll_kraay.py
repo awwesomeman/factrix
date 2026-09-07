@@ -10,11 +10,16 @@ divergence case), short period series short-circuit / warn, and
 from __future__ import annotations
 
 import warnings
+from datetime import datetime, timedelta
 
+import factrix as fx
 import numpy as np
 import polars as pl
 import pytest
+from factrix._axis import DataStructure, FactorDensity, FactorScope
 from factrix._codes import WarningCode
+from factrix._multi_factor import _is_inactive_hypothesis
+from factrix._results import EvaluationResult
 from factrix._stats import _resolve_scalar_wald_hac
 from factrix.metrics.fm_beta import pooled_beta
 
@@ -106,18 +111,96 @@ class TestDriscollKraayPath:
         assert res.p_value == 1.0
         assert WarningCode.METRIC_UNAVAILABLE.value in res.warning_codes
 
-    def test_singular_design_has_its_own_reason(self):
-        df = _common_factor_panel(n_dates=12, n_assets=10, rho=0.2).with_columns(
-            pl.lit(1.0).alias("factor")
+    def test_singular_design_withholds_unidentified_slope_and_test(self):
+        rng = np.random.default_rng(7)
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(40)]
+        df = pl.DataFrame(
+            [
+                {
+                    "date": date,
+                    "asset_id": f"A{asset}",
+                    "factor": 1.0,
+                    "forward_return": float(rng.normal(0, 0.01)),
+                }
+                for asset in range(5)
+                for date in dates
+            ]
         )
 
-        res = pooled_beta(df, driscoll_kraay=True)
+        clustered = pooled_beta(df, overlap_periods=1)
+        dk = pooled_beta(df, driscoll_kraay=True, overlap_periods=1)
 
-        assert np.isnan(res.value)
-        assert res.stat is None
-        assert res.p_value == 1.0
-        assert res.metadata["reason"] == "singular_pooled_design_matrix"
-        assert WarningCode.METRIC_UNAVAILABLE.value in res.warning_codes
+        for result in (clustered, dk):
+            assert np.isnan(result.value)
+            assert result.stat is None
+            assert result.p_value is None
+            assert result.alternative is None
+            assert result.metadata["signal_status"] == "degenerate_zero_variance"
+            assert result.metadata["alternative_requested"] == "two-sided"
+            assert result.metadata["variance_status"] == "singular_pooled_design_matrix"
+            assert result.metadata["design_rank"] == 1
+            assert result.metadata["n_parameters"] == 2
+            assert result.is_applicable
+            assert WarningCode.DEGENERATE_VARIANCE.value in result.warning_codes
+            fx._enforce_strict({"pb": result})
+
+        evaluation = EvaluationResult(
+            factor="factor",
+            cell=(
+                FactorScope.INDIVIDUAL,
+                FactorDensity.DENSE,
+                DataStructure.PANEL,
+            ),
+            forward_periods=1,
+            overlap_periods=1,
+            n_periods=40,
+            n_pairs=200,
+            n_assets=5,
+            metrics={"pb": dk},
+            plan="",
+        )
+        assert _is_inactive_hypothesis(evaluation, "pb")
+
+    def test_dk_covariance_failure_keeps_identified_slope(self, monkeypatch):
+        df = _common_factor_panel(n_dates=40, n_assets=5, rho=0.2)
+        clustered = pooled_beta(df, overlap_periods=1)
+
+        def _raise_singular(*args, **kwargs):
+            raise np.linalg.LinAlgError("test covariance failure")
+
+        monkeypatch.setattr("factrix._stats.hac._driscoll_kraay_cov", _raise_singular)
+        dk = pooled_beta(df, driscoll_kraay=True, overlap_periods=1)
+
+        assert dk.value == pytest.approx(clustered.value)
+        assert dk.stat is None
+        assert dk.p_value is None
+        assert dk.alternative is None
+        assert dk.metadata["signal_status"] == "degenerate_zero_variance"
+        assert dk.metadata["alternative_requested"] == "two-sided"
+        assert dk.metadata["variance_status"] == "singular_pooled_design_matrix"
+        assert dk.is_applicable
+        assert WarningCode.DEGENERATE_VARIANCE.value in dk.warning_codes
+        fx._enforce_strict({"pb": dk})
+
+    def test_lstsq_failure_uses_degenerate_non_test_contract(self, monkeypatch):
+        df = _common_factor_panel(n_dates=40, n_assets=5, rho=0.2)
+
+        def _raise_solver_failure(*args, **kwargs):
+            raise np.linalg.LinAlgError("test solver failure")
+
+        monkeypatch.setattr(np.linalg, "lstsq", _raise_solver_failure)
+        result = pooled_beta(df, overlap_periods=1)
+
+        assert np.isnan(result.value)
+        assert result.stat is None
+        assert result.p_value is None
+        assert result.alternative is None
+        assert result.metadata["signal_status"] == "degenerate_zero_variance"
+        assert result.metadata["alternative_requested"] == "two-sided"
+        assert result.metadata["variance_status"] == "pooled_design_solver_failure"
+        assert result.is_applicable
+        assert WarningCode.DEGENERATE_VARIANCE.value in result.warning_codes
+        fx._enforce_strict({"pb": result})
 
     def test_mutually_exclusive_with_two_way_cluster(self):
         df = _common_factor_panel(n_dates=40, n_assets=10, rho=0.2)
