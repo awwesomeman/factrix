@@ -403,6 +403,12 @@ class TestLeakageHeadline:
             for k, stats in result.metadata["per_offset"].items():
                 if k < 0 and stats.get("t") is not None:
                     assert abs(stats["t"]) < 3
+        assert long.metadata["per_offset"][-1]["benchmark"] == pytest.approx(
+            long.metadata["baseline_bar_return"]
+        )
+        assert short.metadata["per_offset"][-1]["benchmark"] == pytest.approx(
+            -short.metadata["baseline_bar_return"]
+        )
 
     def test_score_is_reported_with_its_null_scale(self):
         result = event_around_return(self._panel(0.0))

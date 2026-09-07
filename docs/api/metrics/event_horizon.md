@@ -34,26 +34,32 @@ title: factrix.metrics.event_horizon
 
     | Quantity | What it is | Where it appears |
     |---|---|---|
-    | Raw cumulative return | The formula in the table above, sign-adjusted, with nothing subtracted | Not published; recover it as `mean + benchmark` |
-    | Abnormal (excess) return | Raw return minus that offset's `benchmark` | `per_offset[k]["mean"]`, and every dispersion key beside it |
+    | Raw signed mean return | The formula in the table above, sign-adjusted, with nothing subtracted | Not published; recover its mean as `mean + benchmark` |
+    | Abnormal (excess) return | Each event's raw return minus its own asset's signed benchmark | `per_offset[k]["mean"]`, and every dispersion key beside it |
     | Leakage score | Mean of the absolute abnormal returns over the *negative* offsets | the metric's `value` |
 
-    The `benchmark` is the panel's unconditional return **over the same
-    horizon as the offset it is subtracted from**: `baseline_bar_return` for
-    offsets at or below zero, and `(1 + baseline_bar_return)**k - 1` for
-    offset $k > 0$, which is a $k$-period return. Subtracting one period of
-    drift from a $k$-period return leaves roughly $k - 1$ periods of it in
-    the answer, and on a panel that merely trends that residue reads as event
-    alpha. On a pure-drift panel every offset now prices to zero.
+    Each event uses its own asset's unconditional return **over the same
+    horizon as the offset it is subtracted from**: that asset's single-period
+    mean for offsets at or below zero, and `(1 + asset_mean)**k - 1` for
+    offset $k > 0$. The benchmark is also multiplied by `sign(factor)` before
+    subtraction. Pooling asset drifts first would leave an event-composition
+    residue at one-bar offsets and a Jensen gap after compounding; both would
+    read as event alpha on a panel that merely trends.
 
-    `baseline_bar_return` is formed as one mean per asset, pooled with equal
-    weight, and `n_assets_in_baseline` reports how many assets entered it.
-    Pooling every period observation instead would let a long-history name
-    outvote a short one on a ragged panel.
+    Because the summary contains many events, `per_offset[k]["benchmark"]`
+    is the **event-weighted mean signed benchmark actually subtracted**. It is
+    the exact amount needed to recover the raw signed mean as
+    `mean + benchmark`; no one scalar can undo the event-specific subtraction
+    from the median or quantiles. `benchmark_weighting` names this contract.
+    `baseline_bar_return_by_asset` publishes the underlying single-period
+    mapping. `baseline_bar_return` remains a compact equal-asset-weighted panel
+    diagnostic, and `n_assets_in_baseline` reports how many assets entered it;
+    the pooled diagnostic is not used to price events.
 
 !!! warning "Descriptive only — no p-value is produced"
     `event_around_return` runs no hypothesis test: `p_value` is `None`, and
-    `per_offset[k]` carries `{mean, median, p25, p75, hit_rate, n}` — the
+    `per_offset[k]` carries
+    `{benchmark, mean, median, p25, p75, hit_rate, n}` — the
     `hit_rate` is a raw fraction of positive signed returns, not a binomial
     test, and no offset carries a `p`.
 
@@ -72,7 +78,7 @@ title: factrix.metrics.event_horizon
     on within-asset event clustering.
 
 !!! warning "Invalid prices withdraw the curve"
-    `event_around_return` needs a finite unconditional bar-return baseline.
+    `event_around_return` needs finite per-asset unconditional bar-return baselines.
     Any observed non-finite or non-positive `price` invalidates that baseline,
     so the metric returns `value=NaN`, an empty `per_offset` mapping, and
     `WarningCode.METRIC_UNAVAILABLE` with `reason="invalid_price_data"`.
@@ -86,8 +92,13 @@ title: factrix.metrics.event_horizon
     actually used. Their per-offset computed/censored counts are deliberately
     withheld because the curve they would describe was discarded. This is the
     explicit short-circuit exception to the censor-audit contract below.
-    Missing (`null`) observations remain allowed on ragged panels; fix invalid
-    observed prices rather than interpreting a contaminated finite hit rate.
+    Missing (`null`) observations remain allowed on ragged panels. If an asset
+    can form an event path but has no adjacent-period returns from which to
+    estimate its own baseline, its affected event-offset rows are censored as
+    `missing_asset_baseline` rather than priced from another asset's drift. If
+    no event row has an asset baseline, the metric short-circuits with
+    `reason="no_event_asset_baselines"`. Fix invalid observed prices rather
+    than interpreting a contaminated finite hit rate.
 
 ## Complete price paths and censoring audit
 

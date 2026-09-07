@@ -247,9 +247,10 @@ def compute_event_returns(
 
     The ``sign`` column carries ``sign(factor)`` for every row, so a consumer
     that measures the signed return against an *unsigned* baseline (the
-    panel's drift, in :func:`~factrix.metrics.event_horizon.event_around_return`)
-    can sign the baseline the same way instead of subtracting ``+mu`` from a
-    return that carries ``-mu``.
+    matching asset's drift, in
+    :func:`~factrix.metrics.event_horizon.event_around_return`) can sign the
+    baseline the same way instead of subtracting ``+mu`` from a return that
+    carries ``-mu``.
 
     Args:
         data: Evaluation panel owning event dates and factor values.
