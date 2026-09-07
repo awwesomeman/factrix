@@ -20,7 +20,8 @@ screen = fx.multi_factor.bhy_across_metrics(
     q=0.05,
 )
 
-screen.n_tests       # {(): n_results * 2}, less data-shortage cells
+screen.family_size   # {(): n_results * 2} under the default policy
+screen.family        # declared / computed / inactive / adjusted counts + policy
 screen.to_frame()    # factor | metric | p_value | adj_p | survived | active
 ```
 
@@ -36,9 +37,11 @@ For the claim that a factor works on at least `k` predeclared endpoints, use
 - Entry order is result-major, then caller-supplied metric order.
 - `expand_over` retains the existing `bhy` meaning: it partitions by a result
   field or `params` key; metric labels remain pooled inside each bucket.
-- A placeholder cell (`insufficient_*` or `degenerate_variance`) stays in
-  `entries` with `active=False` and `adj_p=NaN`, but does not enter the family
-  or `n_tests` — see [the module-level policy](multi-factor.md#placeholder-hypotheses).
+- An inactive cell (`insufficient_*` or `degenerate_variance`) stays in
+  `entries` with `active=False`. Under the default `inactive_policy="count"`
+  it stays in `family_size` at an inert `p = 1`; under `"exclude"` it leaves
+  the family and carries `adj_p=NaN` — see [inactive
+  candidates](multi-factor.md#inactive-candidates).
 - Other missing or invalid p-values raise rather than silently changing the
   family.
 
@@ -47,12 +50,12 @@ For the claim that a factor works on at least `k` predeclared endpoints, use
 | Field | Meaning |
 |---|---|
 | `entries` | Every traceable `MetricHypothesis`, including inactive and eliminated cells |
-| `adj_p_all` | BHY-adjusted p-values aligned with `entries`; NaN for inactive cells |
+| `adj_p_all` | BHY-adjusted p-values aligned with `entries`; NaN for a cell that entered no family |
 | `survivors` / `adj_p` | Passing cell hypotheses and their adjusted p-values |
 | `metrics` | Metric labels in declared order |
 | `expand_over` | Keys partitioning separately reported families |
-| `n_tests` | Active factor × metric family size per bucket |
-| `n_hypotheses_inactive` | Placeholder cells excluded before adjustment |
+| `family_size` | Factor × metric family size per bucket — the `m` each step-up ran on |
+| `family` | Declared / computed / inactive / adjusted counts and the `inactive_policy` used |
 
 ::: factrix.multi_factor.CrossMetricBhyResult
     options:

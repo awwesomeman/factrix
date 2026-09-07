@@ -123,17 +123,17 @@ outer BHY step-up does not correct — it is the same shopping this function
 exists to prevent, one level up. The "$k$ of $m$" claim is part of the
 hypothesis: fix it with the design.
 
-### Placeholder conditions leave $m$
+### Inactive conditions and $m$
 
 A condition whose metric never ran a test (`insufficient_*` short-circuit or
-`degenerate_variance`) is not a condition. It is dropped before the PC
-combination rather than entering it at $p = 1$, so `n_tests` is the count of
-*real* conditions per identity and the same degenerate cell costs the same here
-as under [`bhy`](bhy.md) — see [the module-level
-policy](multi-factor.md#placeholder-hypotheses).
-An identity left with fewer than `min_pass` real conditions cannot support the
-claim: it stays in `entries` for audit with `pc_p` / `adj_p` of `NaN` and never
-enters the outer BHY family.
+`degenerate_variance`) is governed by `inactive_policy`, the same declaration
+every other verb takes — see [inactive
+candidates](multi-factor.md#inactive-candidates). Under the default `"count"`
+it stays in the k-of-m denominator at an inert $p = 1$ (it can never be one of
+the $k$ passes, so it can only make the claim harder). Under `"exclude"` it
+leaves $m$, and an identity left with fewer than `min_pass` conditions cannot
+support the claim: it stays in `entries` for audit with `pc_p` / `adj_p` of
+`NaN` and never enters the outer BHY family.
 
 The PC $p$-values are then fed to a standard Benjamini-Hochberg-Yekutieli (BHY) step-up across
 identities, controlling group-level FDR ≤ `q`. The harmonic dependence
@@ -152,7 +152,7 @@ be added later if a use case demands it.
 [`PartialConjunctionResult`][factrix.multi_factor.PartialConjunctionResult]
 per metric — the same `_FdrResultBase` shape as `bhy`'s
 [`BhyResult`][factrix.multi_factor.BhyResult] (`entries` / `survivors` /
-`adj_p` / `q` / `n_tests`), plus PC-specific fields:
+`adj_p` / `q` / `family_size`), plus PC-specific fields:
 
 | Field | Meaning |
 |---|---|
@@ -161,9 +161,9 @@ per metric — the same `_FdrResultBase` shape as `bhy`'s
 | `pc_p_all` | Raw PC $p$-value (pre-BHY), aligned with `entries` |
 | `survivors` / `adj_p` | Surviving subset and its adjusted p-value (derived from `adj_p_all <= q`) |
 | `min_pass` | The $k$ you passed |
-| `n_tests` | Keyed by the identity tuple — `factor`, then `forward_periods` and `params` items not named by `expand_over` → count of *real* conditions $m$ for that identity |
-| `n_hypotheses_inactive` | Placeholder conditions excluded before adjustment |
-| `n_passed_uncorr_all` | Per-identity count of real conditions with raw $p \le q$ — the same `<=` rejection rule every screen uses — aligned with `entries`. Descriptive — flags borderline (`n_passed_uncorr_all == min_pass`) and data-gap cases at a glance. **Cutoff is your `q`**, so the count moves with `q` — using it to override `adj_p` survivor selection is the anti-shopping failure mode this function exists to prevent. |
+| `family_size` | Keyed by the identity tuple — `factor`, then `forward_periods` and `params` items not named by `expand_over` → the k-of-m denominator $m$ for that identity |
+| `family` | Declared / computed / inactive / adjusted condition counts and the `inactive_policy` used |
+| `n_passed_uncorr_all` | Per-identity count of family conditions with raw $p \le q$ (an inert condition enters at $p = 1$ and never counts as a pass) — the same `<=` rejection rule every screen uses — aligned with `entries`. Descriptive — flags borderline (`n_passed_uncorr_all == min_pass`) and data-gap cases at a glance. **Cutoff is your `q`**, so the count moves with `q` — using it to override `adj_p` survivor selection is the anti-shopping failure mode this function exists to prevent. |
 
 `to_frame()` gives a `factor | adj_p | survived` DataFrame over every tested
 identity, eliminated ones included.

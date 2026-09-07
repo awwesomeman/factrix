@@ -107,7 +107,7 @@ Per group $g$ with $m_g$ member p-values:
 `bhy_hierarchical` returns a
 [`HierarchicalBhyResult`][factrix.multi_factor.HierarchicalBhyResult] per
 metric — the `_FdrResultBase` shape (`entries` / `survivors` / `adj_p` /
-`q` / `n_tests`) plus a hierarchy-specific field:
+`q` / `family_size`) plus a hierarchy-specific field:
 
 | Field | Meaning |
 |---|---|
@@ -115,8 +115,8 @@ metric — the `_FdrResultBase` shape (`entries` / `survivors` / `adj_p` /
 | `adj_p` | Max-of-layers $\text{adj}_p$ for the survivors; survivor iff `adj_p <= q` |
 | `q` | The `q` you passed (single target, both layers) |
 | `group` | Context key naming the group axis (a single `str`) |
-| `n_tests` | Mapping `(group_value,) -> m_group` for **every** group holding a real hypothesis (covers dead families too, so "N of M families survived" claims are computable directly), so `G = len(n_tests)`. Placeholder members leave their inner family, and a group made up entirely of them leaves `G` rather than entering the outer layer at a Simes p of 1.0 — see [the module-level policy](multi-factor.md#placeholder-hypotheses). |
-| `n_hypotheses_inactive` | Placeholder members excluded before adjustment |
+| `family_size` | Mapping `(group_value,) -> m_group` for **every** group that entered the outer layer (covers dead families too, so "N of M families survived" claims are computable directly), so `G = len(family_size)`. Under the default `inactive_policy="count"` that is every declared group — an all-inactive group enters the outer layer at a Simes p of 1.0. Under `"exclude"` inactive members leave their inner family and a group with none left leaves `G` — see [inactive candidates](multi-factor.md#inactive-candidates). |
+| `family` | Declared / computed / inactive / adjusted member counts and the `inactive_policy` used |
 
 Per-survivor group label: `survivor.params[result.group]`.
 

@@ -119,7 +119,7 @@ class TestFeedsAggregationLayer:
         )
         with pytest.warns(RuntimeWarning, match="pooled"):
             screen = fx.multi_factor.bhy(results, metrics=["ic"])["ic"]
-        assert screen.n_tests == {(): 2}
+        assert screen.family_size == {(): 2}
 
 
 class TestStrictForwarded:

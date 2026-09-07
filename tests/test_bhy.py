@@ -118,7 +118,7 @@ def test_to_frame_keeps_eliminated_factors_adj_p():
     assert len(out.adj_p) == 2
 
 
-def test_insufficient_short_circuits_are_dropped_from_family():
+def test_insufficient_short_circuits_are_dropped_under_exclude():
     make_spec("ic")
     valid = make_result(factor="valid", p=0.01, metric="ic")
     insufficient = make_result(
@@ -128,19 +128,24 @@ def test_insufficient_short_circuits_are_dropped_from_family():
         value=float("nan"),
         metadata={"reason": "insufficient_ic_periods"},
     )
-    out = bhy([valid, insufficient], metrics=["ic"], q=0.05)["ic"]
+    out = bhy(
+        [valid, insufficient],
+        metrics=["ic"],
+        q=0.05,
+        inactive_policy="exclude",
+    )["ic"]
 
-    assert out.n_tests == {(): 1}
+    assert out.family_size == {(): 1}
     assert [r.factor for r in out.survivors] == ["valid"]
 
 
-def test_degenerate_variance_results_are_dropped_from_family():
-    """A dispersion-free result carries no hypothesis, so it must not count.
+def test_degenerate_variance_results_are_dropped_under_exclude():
+    """A dispersion-free result carries no hypothesis, so it can never reject.
 
     Its ``p_value`` is None (no test exists), which would otherwise abort the
     whole call in ``_resolve_p_value``. Treated like a data shortage instead:
-    substituted with an inert 1.0 and left out of the BHY denominator, so a
-    degenerate factor cannot dilute the others' adjusted p-values.
+    substituted with an inert 1.0. Under the opt-in ``inactive_policy=
+    "exclude"`` it also leaves the BHY denominator.
     """
     from factrix._codes import WarningCode
 
@@ -154,9 +159,14 @@ def test_degenerate_variance_results_are_dropped_from_family():
         metadata={"signal_status": "degenerate_zero_variance"},
         warning_codes=(WarningCode.DEGENERATE_VARIANCE.value,),
     )
-    out = bhy([valid, degenerate], metrics=["ic"], q=0.05)["ic"]
+    out = bhy(
+        [valid, degenerate],
+        metrics=["ic"],
+        q=0.05,
+        inactive_policy="exclude",
+    )["ic"]
 
-    assert out.n_tests == {(): 1}
+    assert out.family_size == {(): 1}
     assert [r.factor for r in out.survivors] == ["valid"]
 
 
@@ -219,8 +229,13 @@ def test_metric_degeneracies_are_inactive_and_strict_safe(metric: str) -> None:
     _enforce_strict({metric: output})
 
     valid = make_result(factor="valid", p=0.01, metric=metric)
-    screened = bhy([valid, result], metrics=[metric], q=0.05)[metric]
-    assert screened.n_tests == {(): 1}
+    # The default keeps the inactive cell in m at an inert p = 1; the opt-in
+    # filter removes it. Either way it is identified as inactive.
+    assert bhy([valid, result], metrics=[metric], q=0.05)[metric].family_size == {(): 2}
+    screened = bhy(
+        [valid, result], metrics=[metric], q=0.05, inactive_policy="exclude"
+    )[metric]
+    assert screened.family_size == {(): 1}
 
 
 def test_expand_over_forward_periods_partitions_by_horizon():
@@ -234,7 +249,7 @@ def test_expand_over_forward_periods_partitions_by_horizon():
     ]
     out = bhy(results, metrics=["ic"], expand_over=("forward_periods",), q=0.05)
     assert out["ic"].expand_over == ("forward_periods",)
-    assert set(out["ic"].n_tests) == {(1,), (5,)}
+    assert set(out["ic"].family_size) == {(1,), (5,)}
     survivor_factors = {r.factor for r in out["ic"].survivors}
     assert survivor_factors == {"f0", "f1", "f2"}
 
@@ -249,7 +264,7 @@ def test_expand_over_param_key():
         for i in range(3)
     ]
     out = bhy(results, metrics=["ic"], expand_over=("region",), q=0.05)
-    assert set(out["ic"].n_tests) == {("US",), ("EU",)}
+    assert set(out["ic"].family_size) == {("US",), ("EU",)}
 
 
 def test_mixed_horizons_without_expand_over_warns():
@@ -270,7 +285,7 @@ def test_same_factor_at_different_horizons_is_two_hypotheses():
     ]
     with pytest.warns(RuntimeWarning, match="pooled"):
         out = bhy(results, metrics=["ic"], q=0.5)["ic"]
-    assert out.n_tests == {(): 2}
+    assert out.family_size == {(): 2}
     assert [(r.factor, r.forward_periods) for r in out.survivors] == [
         ("f1", 1),
         ("f1", 5),
@@ -428,7 +443,7 @@ def test_params_join_identity_so_swept_knob_pools_in_one_family():
 
     # One family of three — not three families, and not a duplicate-id raise.
     assert out["ic"].expand_over == ()
-    assert out["ic"].n_tests == {(): 3}
+    assert out["ic"].family_size == {(): 3}
 
 
 def test_metadata_does_not_disambiguate_a_duplicate_hypothesis():
@@ -466,4 +481,4 @@ def test_params_keys_ride_along_so_distinct_axes_do_not_collide():
         make_result(factor="mom", p=0.002, metric="ic", params={"universe": "1h"}),
     ]
     out = bhy(results, metrics=["ic"], q=0.05)
-    assert out["ic"].n_tests[()] == 2
+    assert out["ic"].family_size[()] == 2

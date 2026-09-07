@@ -182,8 +182,8 @@ def test_pc_non_condition_param_separates_identities():
     out = partial_conjunction(
         results, metrics=["ic"], min_pass=2, expand_over=("region",), q=0.05
     )
-    assert len(out["ic"].n_tests) == 2
-    assert set(out["ic"].n_tests.values()) == {2}
+    assert len(out["ic"].family_size) == 2
+    assert set(out["ic"].family_size.values()) == {2}
 
 
 def test_pc_mixed_horizons_outside_condition_axis_stay_distinct():
@@ -203,5 +203,5 @@ def test_pc_mixed_horizons_outside_condition_axis_stay_distinct():
     out = partial_conjunction(
         results, metrics=["ic"], min_pass=2, expand_over=("region",), q=0.05
     )
-    assert len(out["ic"].n_tests) == 2
-    assert set(out["ic"].n_tests.values()) == {2}
+    assert len(out["ic"].family_size) == 2
+    assert set(out["ic"].family_size.values()) == {2}

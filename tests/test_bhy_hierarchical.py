@@ -34,7 +34,7 @@ def test_n_tests_covers_all_input_groups():
         {"c": 0.5, "d": 0.5}, "g2", "ic"
     )
     out = bhy_hierarchical(results, metrics=["ic"], group="family", q=0.05)
-    assert set(out["ic"].n_tests) == {("g1",), ("g2",)}
+    assert set(out["ic"].family_size) == {("g1",), ("g2",)}
 
 
 def test_single_group_raises():
@@ -361,7 +361,7 @@ class TestSelectedGroupCount:
         groups = [[0.0001, 0.30], [0.60, 0.80], [0.70, 0.90]]
         outer = bhy_adjusted_p(np.array([simes_p(g) for g in groups]))
         assert out.n_selected_groups == int((outer <= q).sum())
-        assert len(out.n_tests) == 3
+        assert len(out.family_size) == 3
 
         scale = 3 / out.n_selected_groups
         expected = [

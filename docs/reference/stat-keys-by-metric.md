@@ -1186,8 +1186,9 @@ hypothesis test degenerates keeps its `value` and instead withholds only
   `"not_applicable_discrete_signal"`, `"insufficient_clusters"`).
 - `MetricResult.p_value = 1.0` — conservative scalar default for callers
   reading the field directly (descriptive short-circuits use `None`).
-  `multi_factor.bhy` drops `insufficient_*` placeholders from the test
-  family rather than carrying them as rejected.
+  `multi_factor.bhy` keeps `insufficient_*` placeholders in the test
+  family at that inert 1.0 by default; `inactive_policy="exclude"` drops
+  them instead.
 - Optional diagnostic keys naming what was missing or under-spec:
   `min_required`, `min_required_per_asset`, `min_required_per_regime`,
   `missing_column`, `std_u`, `hint`, `n_distinct`. Each is

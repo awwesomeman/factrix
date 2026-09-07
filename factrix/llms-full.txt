@@ -312,6 +312,7 @@ def bhy(
     metrics: list[str],
     expand_over: tuple[str, ...] = (),
     q: float = 0.05,
+    inactive_policy: Literal["count", "exclude"] = "count",
 ) -> dict[str, BhyResult]:
 ```
 
@@ -323,12 +324,23 @@ when the research process may select the best horizon. Partition by
 `forward_periods` only for predeclared horizon-specific screens; separate
 buckets do not control later horizon shopping.
 
+`inactive_policy` declares whether a candidate that never ran a test (an
+`insufficient_*` short-circuit or a `degenerate_variance` result) still counts
+toward `m`. `"count"` (default) keeps it in the family at an inert `p = 1`, so
+`m` is the declared candidate count and the FDR statement needs no assumption
+about why the candidate came back inactive. `"exclude"` drops it from `m`,
+which is valid only if the activity filter is independent of the p-values or
+was pre-specified. Every screening verb in this module takes the same kwarg
+with the same default.
+
 `BhyResult` contains:
 - `metric_name`: Metric label under test.
 - `survivors`: Surviving `EvaluationResult` records.
 - `adj_p`: Adjusted p-values aligned with `survivors`.
 - `q`: Target FDR.
-- `n_tests`: Partition sizes.
+- `family_size`: Per-bucket family size — the `m` each step-up ran on.
+- `family`: `FamilyAccounting` with `n_candidates_declared`,
+  `n_tests_computed`, `n_inactive`, `n_tests_adjusted` and `policy`.
 
 ### `multi_factor.bhy_across_metrics`
 
@@ -339,13 +351,16 @@ def bhy_across_metrics(
     metrics: list[str],
     expand_over: tuple[str, ...] = (),
     q: float = 0.05,
+    inactive_policy: Literal["count", "exclude"] = "count",
 ) -> CrossMetricBhyResult:
 ```
 
 Pools all declared factor × metric cells into one BHY family. The survivor unit
 is a `MetricHypothesis`, not a factor; deduplicating survivors by factor does
 not provide factor-level FDR control. `insufficient_*` cells remain auditable
-with `active=False` and empty adjusted p-values but do not enter `n_tests`.
+with `active=False`; under the default `inactive_policy="count"` they stay in
+`family_size` at an inert `p = 1`, under `"exclude"` they leave the family and
+carry an empty adjusted p-value.
 Other missing or invalid p-values fail loudly.
 
 For lower-level multiplicity adjustment, `factrix.stats.bhy_adjusted_p`
@@ -388,6 +403,7 @@ def bhy_hierarchical(
     metrics: list[str],
     group: str,
     q: float = 0.05,
+    inactive_policy: Literal["count", "exclude"] = "count",
 ) -> dict[str, HierarchicalBhyResult]:
 ```
 
@@ -406,6 +422,7 @@ def partial_conjunction(
     expand_over: tuple[str, ...],
     n_conditions: int | None = None,
     q: float = 0.05,
+    inactive_policy: Literal["count", "exclude"] = "count",
 ) -> dict[str, PartialConjunctionResult]:
 ```
 
@@ -420,14 +437,17 @@ def partial_conjunction_across_metrics(
     metrics: list[str],
     min_pass: int,
     q: float = 0.05,
+    inactive_policy: Literal["count", "exclude"] = "count",
 ) -> CrossMetricPartialConjunctionResult:
 ```
 
 Treats the predeclared metric list as the fixed condition axis, computes one
-k-of-m p-value per factor identity, then runs BHY across identities. An
-`insufficient_*` endpoint is conservatively assigned p=1 rather than lowering
-m; an identity with fewer than k active endpoints stays in the audit output but
-does not enter the outer BHY family. Descriptive endpoints fail loudly.
+k-of-m p-value per factor identity, then runs BHY across identities. Under the
+default `inactive_policy="count"` an `insufficient_*` endpoint is
+conservatively assigned p=1 rather than lowering m; under `"exclude"` it leaves
+m, and an identity with fewer than k remaining endpoints stays in the audit
+output but does not enter the outer BHY family. Descriptive endpoints fail
+loudly.
 
 ---
 

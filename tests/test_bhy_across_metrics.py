@@ -48,7 +48,7 @@ def test_pools_factor_by_metric_cells_into_one_family():
     out = bhy_across_metrics(results, metrics=["ic", "spread"], q=0.05)
 
     assert isinstance(out, CrossMetricBhyResult)
-    assert out.n_tests == {(): 4}
+    assert out.family_size == {(): 4}
     assert [(e.result.factor, e.metric_name) for e in out.entries] == [
         ("f1", "ic"),
         ("f1", "spread"),
@@ -96,11 +96,16 @@ def test_insufficient_cell_stays_auditable_but_not_active():
         extra_outputs={"spread": _output("spread", 1.0, reason="insufficient_assets")},
     )
 
-    out = bhy_across_metrics([valid, thin], metrics=["ic", "spread"], q=0.5)
+    out = bhy_across_metrics(
+        [valid, thin],
+        metrics=["ic", "spread"],
+        q=0.5,
+        inactive_policy="exclude",
+    )
     frame = out.to_frame()
     inactive = frame.filter(~frame["active"])
 
-    assert out.n_tests == {(): 3}
+    assert out.family_size == {(): 3}
     assert inactive.height == 1
     assert inactive["factor"].item() == "thin"
     assert inactive["metric"].item() == "spread"
@@ -120,7 +125,7 @@ def test_expand_over_partitions_after_metric_flattening():
         q=0.5,
     )
 
-    assert out.n_tests == {("US",): 2, ("EU",): 2}
+    assert out.family_size == {("US",): 2, ("EU",): 2}
     assert out.expand_over == ("region",)
 
 
