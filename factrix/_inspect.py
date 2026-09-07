@@ -144,25 +144,60 @@ def _frequent_event_signal_message(sparse_ratio: float) -> str:
     )
 
 
-def _detect_scope(raw: Any) -> tuple[FactorScope, str]:
-    """COMMON if factor is constant per date across assets, else INDIVIDUAL."""
+def _detect_scope(raw: Any) -> tuple[FactorScope, str, int]:
+    """COMMON if the factor's finite cells are constant per period, else INDIVIDUAL.
+
+    Uniqueness is counted over **finite** cells only: null, NaN and ±inf are
+    missing observations, not distinct factor values, so a broadcast common
+    factor keeps its COMMON scope when one asset has a gap. A period left with
+    a single finite cell cannot contradict a broadcast structure either, so it
+    stays compatible with COMMON.
+
+    A period with no finite cell carries no evidence either way and is ignored.
+    When *every* period is unidentifiable the broadcast property cannot be
+    established at all, and the scope falls back to ``INDIVIDUAL`` — the
+    unrestricted case, of which COMMON is the special one; claiming COMMON
+    there would assert a structure no observation supports.
+    :func:`inspect_data` reports that fallback as a
+    :attr:`~factrix.WarningCode.FACTOR_SCOPE_UNIDENTIFIABLE` data-level warning.
+
+    Returns:
+        ``(scope, reason, n_identified_periods)`` where ``n_identified_periods``
+        is the number of periods that carried a finite cell — the sample the
+        decision was actually read from, not the panel's period count.
+    """
     n_assets = int(raw["asset_id"].n_unique())
+    n_periods = int(raw["date"].n_unique())
     if n_assets <= 1:
         return (
             FactorScope.COMMON,
             f"n_assets = {n_assets}: scope axis trivially COMMON at n_assets == 1",
+            n_periods,
         )
-    per_date_unique = raw.group_by("date").agg(
-        pl.col("factor").n_unique().alias("n_unique_per_date")
+    per_date_unique = (
+        raw.filter(_finite_expr("factor"))
+        .group_by("date")
+        .agg(pl.col("factor").n_unique().alias("n_unique_per_date"))
     )
+    n_identified = int(per_date_unique.height)
+    if n_identified == 0:
+        return (
+            FactorScope.INDIVIDUAL,
+            f"no finite factor cell on any period "
+            f"(0 of {n_periods} periods read): scope unidentifiable, "
+            f"falling back to INDIVIDUAL",
+            0,
+        )
     is_broadcast = bool(
         (per_date_unique["n_unique_per_date"] == 1).all(),
     )
     decision = "COMMON" if is_broadcast else "INDIVIDUAL"
     return (
         FactorScope.COMMON if is_broadcast else FactorScope.INDIVIDUAL,
-        f"factor varies across assets at given date: "
-        f"{'NO' if is_broadcast else 'YES'} → {decision}",
+        f"factor varies across assets at a given period: "
+        f"{'NO' if is_broadcast else 'YES'} → {decision} "
+        f"(finite cells only; {n_identified} of {n_periods} periods read)",
+        n_identified,
     )
 
 
@@ -193,8 +228,15 @@ class DataProperties:
     verdict and rationale travel together as one value.
 
     Attributes:
-        scope: Detected :class:`FactorScope`.
-        scope_reason: Human-readable rationale for ``scope``.
+        scope: Detected :class:`FactorScope`. Read from **finite** factor
+            cells only: null / NaN / ±inf are missing observations, not
+            distinct factor values, so a gap in a broadcast factor cannot
+            manufacture cross-sectional variation. A period with no finite
+            cell is ignored; when no period has one the axis is
+            unidentifiable and falls back to ``INDIVIDUAL`` under a
+            ``FACTOR_SCOPE_UNIDENTIFIABLE`` warning.
+        scope_reason: Human-readable rationale for ``scope``, including how
+            many of the panel's periods the decision was actually read from.
         density: Detected :class:`FactorDensity`.
         density_reason: Human-readable rationale for ``density``.
         structure: Detected :class:`DataStructure` — ``TIMESERIES`` iff
@@ -562,6 +604,17 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
     (``caar``) is pre-flighted at its default config, and its in-body
     short-circuit on the actual run-time params stays authoritative.
 
+    Missing cells never move an axis. Scope is read from finite factor
+    cells only — a broadcast common factor with a gap on one asset stays
+    ``COMMON``, and a period left with a single finite cell is still
+    compatible with ``COMMON``. A period with no finite cell carries no
+    evidence and is ignored; if *every* period is missing, the axis is
+    unidentifiable, routing falls back to the unrestricted
+    ``FactorScope.INDIVIDUAL``, and a ``FACTOR_SCOPE_UNIDENTIFIABLE``
+    data-level warning names the count the fallback was taken on.
+    ``evaluate`` dispatches through the same detector, so pre-flight scope
+    and the cell a run is routed to cannot disagree.
+
     A third, content-based gate beyond cell and sample shape: a metric
     declaring ``requires_continuous_magnitude`` (e.g. ``event_ic``) is
     blocked on a discrete ±k signal (``|factor|`` constant across events,
@@ -624,13 +677,13 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
         temp = data.select("date", "asset_id", pl.col(col).alias("factor"))
         return _detect_density(temp)
 
-    def _detect_col_scope(col: str) -> tuple[FactorScope, str]:
+    def _detect_col_scope(col: str) -> tuple[FactorScope, str, int]:
         temp = data.select("date", "asset_id", pl.col(col).alias("factor"))
         return _detect_scope(temp)
 
     # First factor column drives the returned properties (deterministic first-detected)
     density, density_reason, sparse_ratio = _detect_col_density(first_col)
-    scope, scope_reason = _detect_col_scope(first_col)
+    scope, scope_reason, scope_periods = _detect_col_scope(first_col)
     structure = _detect_structure(data)
     n_assets = int(data["asset_id"].n_unique())
     n_periods = int(data["date"].n_unique())
@@ -665,6 +718,13 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
     )
 
     data_warnings = _data_level_warnings(properties)
+    data_warnings.extend(
+        _scope_unidentifiable_warning(
+            properties,
+            factor_col=first_col,
+            n_identified_periods=scope_periods,
+        )
+    )
     data_warnings.extend(
         _dense_factor_advisory_warnings(
             properties,
@@ -1093,6 +1153,41 @@ def _data_level_warnings(properties: DataProperties) -> list[Warning]:
         if tier is not None:
             warnings.append(Warning(code=tier, source=None, message=tier.description))
     return warnings
+
+
+def _scope_unidentifiable_warning(
+    properties: DataProperties,
+    *,
+    factor_col: str,
+    n_identified_periods: int,
+) -> list[Warning]:
+    """Report a scope axis no observation could support.
+
+    Fires only when **every** period is missing its factor entirely (no finite
+    cell anywhere): a partly missing panel still identifies the axis from the
+    periods that carry finite cells, and those are silently ignored by design.
+    The reported ``scope`` is the ``INDIVIDUAL`` fallback the routing actually
+    used, not a detected property — the message names the count the screen
+    read (periods carrying a finite cell) rather than ``n_periods``.
+    """
+    if n_identified_periods > 0 or properties.n_assets <= 1:
+        return []
+    return [
+        Warning(
+            code=WarningCode.FACTOR_SCOPE_UNIDENTIFIABLE,
+            source=None,
+            message=(
+                f"factor column {factor_col!r} has no finite cell on any period "
+                f"({n_identified_periods} of {properties.n_periods} periods "
+                f"carry one), so FactorScope is unidentifiable. Routing used "
+                f"the unrestricted fallback scope="
+                f"{FactorScope.INDIVIDUAL.value}; common-factor cells are not "
+                f"reachable on this column. Every sample floor is violated at "
+                f"n_pairs={properties.n_pairs}, so read this as a missing "
+                f"factor column rather than a scope verdict."
+            ),
+        )
+    ]
 
 
 def _dense_factor_advisory_warnings(

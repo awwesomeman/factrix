@@ -40,6 +40,38 @@ and attaches the axis' degraded-tier warning code.
 
 <hr>
 
+## Scope detection and missing cells
+
+`FactorScope` asks one question: does the factor take the same value across
+every asset at a given period (`COMMON`, a broadcast macro series) or vary
+across the cross-section (`INDIVIDUAL`)?
+
+The question is answered from **finite** cells only. A `null`, `NaN` or `±inf`
+factor cell is a missing observation, not a distinct factor value, so it cannot
+manufacture cross-sectional variation:
+
+- A broadcast factor with a gap on one asset stays `COMMON`.
+- A period left with a single finite cell is still compatible with `COMMON` —
+  one observation cannot contradict a broadcast structure.
+- An asset with no row at all on a period is likewise not variation.
+- A period with **no** finite cell carries no evidence either way and is
+  ignored. `properties.scope_reason` reports how many of the panel's periods
+  the decision was read from, so an ignored period is visible rather than
+  silent.
+
+If *every* period is unidentifiable — the column has no finite cell anywhere —
+the broadcast property cannot be established at all. Routing then falls back to
+the unrestricted `FactorScope.INDIVIDUAL` (`COMMON` is its special case, and
+claiming it would assert a structure no observation supports) and a
+`factor_scope_unidentifiable` data-level warning is emitted. Every sample floor
+is violated at `n_pairs = 0` in that state, so read the warning as a missing
+factor column rather than as a scope verdict.
+
+`evaluate` dispatches each factor column through the same detector, so the
+pre-flight `scope` and the cell a run is routed to cannot disagree.
+
+<hr>
+
 ## Result structure
 
 `inspect_data` returns a `DataInspection` carrying the detected data
