@@ -498,12 +498,15 @@ Pre/post-event return profile; descriptive.
 - *descriptive*: `n_events` (distinct `(date, asset)` events behind the
   curve — also `n_obs`, axis `events`; one event contributes one row per
   offset, so this is not the row count), `per_offset` (dict
-  `offset → {benchmark, mean, se, t, median, p25, p75, hit_rate, n}`, all
-  measured as **excess over that offset's own** `benchmark`),
-  `baseline_bar_return` (the panel's unconditional mean single-*period*
-  return, subtracted so a trending asset does not read as leaky),
-  `n_assets_in_baseline` (assets behind that mean — one mean per asset,
-  pooled with equal weight), `leakage_null_scale` (`≈ 0.8 × mean se` — what the
+  `offset → {benchmark, mean, se, t, median, p25, p75, hit_rate, n}`; the
+  summary statistics are measured after subtracting each event asset's own
+  horizon-matched baseline),
+  `baseline_bar_return_by_asset` (the unconditional mean single-*period*
+  return for every asset that can form one), `baseline_bar_return` (the
+  equal-asset-weighted mean of that mapping, published only as a compact panel
+  diagnostic), `n_assets_in_baseline` (assets behind that mapping),
+  `benchmark_weighting` (`"event_weighted_mean_signed_per_asset"`, the contract
+  for each per-offset `benchmark`), `leakage_null_scale` (`≈ 0.8 × mean se` — what the
   headline is worth under *no* leakage, since `E|x̄| > 0` always and shrinks
   as events accumulate). `reason` is set to
   `no_pre_event_offset_with_enough_events` and `value` is `NaN` when no
@@ -517,14 +520,19 @@ Pre/post-event return profile; descriptive.
   `reason=no_finite_baseline_returns` with `n_invalid_prices=0`. `n_events` /
   `n_obs` still report the events used by the raw-path
   computation, but its per-offset counts are withheld because that curve was
-  discarded. Null prices remain valid missing data on a ragged panel.
+  discarded. Null prices remain valid missing data on a ragged panel. An event
+  asset with no adjacent-period return is censored under
+  `missing_asset_baseline`; if none of the computed event paths has an asset
+  baseline, the metric short-circuits under `no_event_asset_baselines`.
 
-- *benchmark horizon*: offset `k > 0` is a simple return from `t+1` to
-  `t+1+k`, so its `benchmark` is `(1 + baseline_bar_return)**k - 1` — the
-  baseline compounded over the periods that offset actually spans. Offsets at
-  or below zero are single-period returns and keep `baseline_bar_return`
-  itself. Each `per_offset` member publishes the `benchmark` subtracted from
-  it, so the arithmetic can be reproduced from the metadata alone.
+- *benchmark horizon and unit*: offset `k > 0` is a simple return from `t+1`
+  to `t+1+k`, so each event's benchmark is
+  `(1 + baseline_bar_return_by_asset[asset_id])**k - 1`; offsets at or below
+  zero use that asset's single-period baseline. It is multiplied by
+  `sign(factor)` before subtraction. Each per-offset `benchmark` is the
+  event-weighted mean of those signed values, so the raw signed mean is exactly
+  `mean + benchmark`; the scalar does not undo the event-specific subtraction
+  from quantiles.
 - `p_value` is `None` — no hypothesis test runs, and no offset carries a
   `p`: the headline `value` is the pre-event leakage score and per-horizon
   `hit_rate` is a raw fraction of positive signed returns. Offsets overlap

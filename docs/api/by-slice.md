@@ -43,7 +43,7 @@ This is the same period-unit contract as
 The forwarded panel is restricted to the sample the slice is drawn from,
 because the quantities a metric forms from prices are formed over whatever
 that panel spans. They are not hypothetical: `event_around_return` subtracts
-an unconditional baseline read off the price panel, and the ragged-grid
+per-asset unconditional baselines read off the price panel, and the ragged-grid
 warning describes it. Forwarding the panel whole would form both outside the
 slice, so passing prices would silently change what the slice is measured
 against.
