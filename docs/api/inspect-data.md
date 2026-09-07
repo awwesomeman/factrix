@@ -147,7 +147,10 @@ so every `FactorInspection` reports the panel's counts rather than the periods
 that column happens to cover. Where a column's own coverage gates a metric it
 does so through the stage-one profile, which *is* per column — a column whose
 IC cross-sections survive on 20 periods is blocked at `ic`'s 50-period floor
-while its sibling in the same panel is not.
+while its sibling in the same panel is not. The same rule applies to
+time-series-first common betas: their `n_assets` floors use only the per-asset
+regressions that survive `compute_common_betas`' complete-pair, minimum-history,
+and factor-variation filters, rather than the raw panel universe.
 
 ::: factrix.DataInspection
 

@@ -26,8 +26,9 @@ factrix expresses sample-size gates on five sample axes (see
 [Architecture](../development/architecture.md#sample-guards) for the naming
 grammar):
 
-- `assets` / `n_assets` — assets in the panel (`asset_id` unique count), or
-  the pairwise-complete per-period asset count for IC / FM primitives.
+- `assets` / `n_assets` — assets in the panel (`asset_id` unique count), the
+  pairwise-complete per-period asset count for IC / FM primitives, or the
+  per-asset regressions surviving `compute_common_betas` for TS-β consumers.
 - `periods` / `T` — period count (`date` unique count), reported in runtime
   metadata as `n_periods`.
 - `pairs` / `n_pairs` — pooled complete `(date, asset)` observations
@@ -109,9 +110,10 @@ Min sample*. `MIN_*` constants resolve to values in the
 
 | Metric | Sample axis | Min sample |
 |---|---|---|
-| [`common_beta_profile`][factrix.metrics.common_beta.common_beta_profile] | `n_assets` | `n_assets >= 1` |
-| [`common_beta_r_squared`][factrix.metrics.common_beta.common_beta_r_squared] | `n_assets` | `n_assets >= 1` |
-| [`common_beta_sign_consistency`][factrix.metrics.common_beta.common_beta_sign_consistency] | `n_assets` | `n_assets >= 2` |
+| [`common_beta`][factrix.metrics.common_beta.common_beta] | surviving `n_assets` | `n_assets >= 3` after `compute_common_betas` filters; warn below 30 |
+| [`common_beta_profile`][factrix.metrics.common_beta.common_beta_profile] | surviving `n_assets` | `n_assets >= 1` after `compute_common_betas` filters |
+| [`common_beta_r_squared`][factrix.metrics.common_beta.common_beta_r_squared] | surviving `n_assets` | `n_assets >= 1` after `compute_common_betas` filters |
+| [`common_beta_sign_consistency`][factrix.metrics.common_beta.common_beta_sign_consistency] | surviving `n_assets` | `n_assets >= 2` after `compute_common_betas` filters |
 | [`common_quantile_spread`][factrix.metrics.common_quantile.common_quantile_spread] | `T` | `T ≥ MIN_PORTFOLIO_PERIODS_HARD`; factor `n_unique ≥ n_groups × 2` |
 | [`common_asymmetry`][factrix.metrics.common_asymmetry.common_asymmetry] | `T` | factor has both signs; each side `n_unique ≥ 2` for method B |
 
