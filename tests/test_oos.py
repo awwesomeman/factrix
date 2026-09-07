@@ -4,7 +4,7 @@ import math
 
 import pytest
 from factrix._results import MetricResult
-from factrix.metrics.oos_decay import oos_decay
+from factrix.metrics.oos_decay import oos_decay, oos_decay_splits
 
 
 class TestOOSDecay:
@@ -318,3 +318,212 @@ class TestOneRowPerPeriod:
         )["factor"].metrics["oos_decay"]
         assert direct.value == pytest.approx(routed.value)
         assert direct.metadata["status"] == routed.metadata["status"]
+
+
+#: A structural break parked just before the default 0.7 cut point. The last
+#: 30 periods sum to exactly zero, so the 0.7 split reads an out-of-sample
+#: mean of 0 and VETOES; the 0.6 and 0.8 splits both survive comfortably.
+_BREAK_AT_070 = [1.0] * 60 + [4.0] * 10 + [-4.0] * 10 + [2.0] * 20
+
+#: Same shape, but the last 30 periods sum to ``-1`` instead of ``0``: the
+#: 0.7 split now reads a *negative* out-of-sample mean against a positive
+#: in-sample mean, so exactly one of the three splits sign-flips while the
+#: median survival ratio stays well above the threshold.
+_FLIP_AT_070 = [1.0] * 60 + [4.0] * 10 + [-4.0] * 10 + [1.95] * 20
+
+
+class TestSplitSweepContract:
+    """The declared split set, its aggregate rule, and its provenance."""
+
+    def test_every_declared_split_is_returned(self):
+        result = oos_decay_splits(_series(_BREAK_AT_070), forward_periods=1)
+        splits = result.metadata["splits"]
+        assert [s["split_fraction"] for s in splits] == [0.6, 0.7, 0.8]
+        for split in splits:
+            assert set(split) >= {
+                "split_fraction",
+                "n_is",
+                "n_oos",
+                "purge_periods",
+                "survival",
+                "sign_flipped",
+                "status",
+            }
+
+    def test_provenance_records_what_ran(self):
+        result = oos_decay_splits(
+            _series(_BREAK_AT_070), split_fractions=(0.5, 0.75), forward_periods=3
+        )
+        assert result.metadata["split_fractions"] == (0.5, 0.75)
+        assert result.metadata["n_splits"] == 2
+        assert result.metadata["aggregate"] == "median"
+        assert result.metadata["sign_flip_policy"] == "any_flip_vetoes"
+        assert result.metadata["forward_periods"] == 3
+        assert result.metadata["purge_periods"] == 3
+        assert result.metadata["survival_threshold"] == 0.5
+        assert result.n_obs == 100
+        assert result.n_obs_axis == "periods"
+        assert result.stat is None
+
+    def test_aggregation_is_order_invariant(self):
+        series = _series(_BREAK_AT_070)
+        forward = dict(split_fractions=(0.6, 0.7, 0.8), forward_periods=1)
+        reverse = dict(split_fractions=(0.8, 0.7, 0.6), forward_periods=1)
+        shuffled = dict(split_fractions=(0.7, 0.6, 0.8), forward_periods=1)
+        a = oos_decay_splits(series, **forward)
+        b = oos_decay_splits(series, **reverse)
+        c = oos_decay_splits(series, **shuffled)
+        assert a.value == b.value == c.value
+        assert a.metadata == b.metadata == c.metadata
+
+    def test_structural_break_near_one_cut_point_does_not_decide_the_gate(self):
+        """The whole point of the sweep: one arbitrary cut reverses the
+        single-split gate, the pre-declared set does not follow it."""
+        series = _series(_BREAK_AT_070)
+        single = oos_decay(series, is_ratio=0.7)
+        assert single.metadata["status"] == "VETOED"
+        assert single.value < 0.5
+
+        swept = oos_decay_splits(series, forward_periods=1)
+        per_split = {s["split_fraction"]: s["status"] for s in swept.metadata["splits"]}
+        assert per_split == {0.6: "PASS", 0.7: "VETOED", 0.8: "PASS"}
+        assert swept.metadata["status"] == "PASS"
+        assert swept.value == pytest.approx(1.0, rel=1e-6)
+
+    def test_any_sign_flip_vetoes_even_when_the_median_survives(self):
+        """Direction is a unanimity requirement, magnitude is a median."""
+        result = oos_decay_splits(_series(_FLIP_AT_070), forward_periods=1)
+        assert result.metadata["n_sign_flips"] == 1
+        assert result.metadata["status"] == "VETOED"
+        # The aggregate ratio is still reported — it is what ran; the veto
+        # comes from the flip policy, not from the magnitude.
+        assert result.value == pytest.approx(0.975, rel=1e-6)
+        assert result.value > result.metadata["survival_threshold"]
+
+
+#: Flat probe for the purge tests: every period carries the same value, so
+#: anything that leaks out of the purge gap moves the answer loudly instead
+#: of cancelling against the rest of the window.
+_PURGE_PROBE = [1.0] * 100
+
+
+class TestSplitSweepPurge:
+    """Overlapping forward-return windows are purged off the IS tail."""
+
+    def test_purge_shortens_is_only(self):
+        result = oos_decay_splits(
+            _series(_PURGE_PROBE), split_fractions=(0.7,), forward_periods=5
+        )
+        (split,) = result.metadata["splits"]
+        assert split["purge_periods"] == 5
+        assert split["n_is"] == 65  # int(100 * 0.7) - 5
+        assert split["n_oos"] == 30  # the validated window is never shortened
+
+    def test_purged_periods_cannot_reach_the_statistic(self):
+        """The leakage guard: values inside the purge gap are not read.
+
+        Both halves are asserted. Poisoning periods 65-69 has to *move* the
+        un-purged single-split answer — otherwise the second half of this
+        test would pass on any implementation, purge or no purge.
+        """
+        base = list(_PURGE_PROBE)
+        poisoned = list(base)
+        poisoned[65:70] = [1000.0] * 5  # the 5 periods the purge removes at 0.7
+
+        unpurged_clean = oos_decay(_series(base), is_ratio=0.7)
+        unpurged_dirty = oos_decay(_series(poisoned), is_ratio=0.7)
+        assert unpurged_clean.value == pytest.approx(1.0)
+        assert unpurged_clean.metadata["status"] == "PASS"
+        assert unpurged_dirty.value < 0.02
+        assert unpurged_dirty.metadata["status"] == "VETOED"
+
+        kwargs = dict(split_fractions=(0.7,), forward_periods=5)
+        clean = oos_decay_splits(_series(base), **kwargs)
+        dirty = oos_decay_splits(_series(poisoned), **kwargs)
+        assert clean.value == pytest.approx(1.0)
+        assert dirty.value == pytest.approx(clean.value)
+        assert dirty.metadata["splits"] == clean.metadata["splits"]
+        assert dirty.metadata["status"] == "PASS"
+
+    def test_a_one_period_purge_still_drops_a_period(self):
+        """``forward_periods=1`` on a contemporaneous series still drops the
+        single overlapping period; the split index itself is unchanged."""
+        result = oos_decay_splits(
+            _series(_PURGE_PROBE), split_fractions=(0.7,), forward_periods=1
+        )
+        (split,) = result.metadata["splits"]
+        assert (split["n_is"], split["n_oos"]) == (69, 30)
+
+
+class TestSplitSweepValidation:
+    def test_empty_split_set_rejected(self):
+        from factrix import UserInputError
+
+        with pytest.raises(UserInputError, match="split_fractions"):
+            oos_decay_splits(_series(_BREAK_AT_070), split_fractions=())
+
+    def test_duplicate_fractions_rejected(self):
+        """A repeated fraction would double-weight the median."""
+        from factrix import UserInputError
+
+        with pytest.raises(UserInputError, match="split_fractions"):
+            oos_decay_splits(_series(_BREAK_AT_070), split_fractions=(0.6, 0.6, 0.8))
+
+    @pytest.mark.parametrize("bad", [1.0, 0.0, -0.2, float("nan"), True, "0.7"])
+    def test_out_of_range_fraction_rejected(self, bad):
+        from factrix import UserInputError
+
+        with pytest.raises(UserInputError, match="split_fractions"):
+            oos_decay_splits(_series(_BREAK_AT_070), split_fractions=(0.6, bad))
+
+    @pytest.mark.parametrize("bad", [0, -1, True, 2.5])
+    def test_non_count_forward_periods_rejected(self, bad):
+        from factrix import UserInputError
+
+        with pytest.raises(UserInputError, match="forward_periods"):
+            oos_decay_splits(_series(_BREAK_AT_070), forward_periods=bad)
+
+    @pytest.mark.parametrize("bad", [0.0, 1.5, float("nan"), True])
+    def test_threshold_domain_matches_the_primitive(self, bad):
+        from factrix import UserInputError
+
+        with pytest.raises(UserInputError, match="survival_threshold"):
+            oos_decay_splits(_series(_BREAK_AT_070), survival_threshold=bad)
+
+    def test_duplicate_dates_rejected_like_the_primitive(self):
+        from datetime import datetime, timedelta
+
+        import polars as pl
+        from factrix import UserInputError
+
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(40)]
+        series = pl.DataFrame(
+            {"date": [*dates, dates[9]], "value": [1.0] * 41}
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        with pytest.raises(UserInputError, match="one row per period"):
+            oos_decay_splits(series)
+
+
+class TestSplitSweepUnassessable:
+    """A withheld split is not a passing one, and the aggregate is over the
+    *declared* set, not over whichever subset happened to work."""
+
+    def test_a_short_circuited_split_withholds_the_aggregate(self):
+        # 18 periods, purge 8: the 0.5 cut leaves a 1-period in-sample
+        # window, the 0.9 cut is still assessable.
+        result = oos_decay_splits(
+            _series([1.0] * 12 + [0.9] * 6),
+            split_fractions=(0.5, 0.9),
+            forward_periods=8,
+        )
+        assert math.isnan(result.value)
+        assert result.metadata["status"] == "VETOED"
+        assert result.metadata["reason"] == "unassessable_splits"
+        assert result.metadata["n_assessable"] == 1
+        assert result.metadata["n_splits"] == 2
+        # Every declared split is still reported, for diagnosis — and the
+        # purge-emptied one says so, rather than borrowing the primitive's
+        # "the series is too short" sentinel.
+        first, second = result.metadata["splits"]
+        assert first["reason"] == "purged_split_too_short"
+        assert math.isfinite(second["survival"])
