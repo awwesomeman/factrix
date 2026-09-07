@@ -121,6 +121,49 @@ not two approximations of each other.
     sizes at $t$ — they equal the turnover denominator only while the legs do
     not shrink.
 
+## The cost algebra's domain
+
+`breakeven_cost` and `net_spread` solve one portfolio's arithmetic, so they
+police the economic domain of what they are handed rather than pushing any
+float through the formula.
+
+| Input | Domain | Why |
+|---|---|---|
+| `gross_spread` | finite | A non-finite spread has no reading as a per-period return. |
+| `turnover` | finite, $0 \le \tau \le 1$ | The one-way per-leg replaced fraction above. `rank_turnover` lives in $[0, 2]$ and does not belong here. |
+| `estimated_cost_bps` | finite, $\ge 0$ | A one-way per-trade cost. A negative cost would make trading a source of return. |
+| `holding_periods` | integer $\ge 1$ | A rebalance interval in underlying return periods. |
+
+A violation raises `UserInputError`, with the same bounds applied to a bare
+scalar and to an *available* `MetricResult`'s `value`. Before this was
+enforced, `breakeven_cost(0.001, turnover=-0.2, holding_periods=1)` returned
+$+\infty$ and `net_spread(..., turnover=-0.2, estimated_cost_bps=30)`
+*increased* the alpha it was meant to charge.
+
+!!! note "Unavailable inputs propagate; they are not priced"
+    A `MetricResult` whose producer short-circuited — it carries
+    `METRIC_UNAVAILABLE`, or simply a non-finite `value` — comes back as the
+    consumer's own short circuit: `reason` is `no_gross_spread` or
+    `no_turnover`, the producer's `reason` travels under `upstream_reason`,
+    and its advisory codes are carried along. `gross_spread` is inspected
+    first, so when both are unavailable the spread's reason is the one
+    reported. Running the algebra on a NaN instead yields a NaN breakeven that
+    reads exactly like a computed one.
+
+### Zero turnover — three different questions
+
+A book that trades nothing pays nothing, so `breakeven_cost` reads the limit
+off the sign of the numerator rather than evaluating the ratio.
+
+| `gross_spread` | Result | Reading |
+|---|---|---|
+| $> 0$ | $+\infty$ | The alpha is free to keep; no finite one-way cost takes it to zero. |
+| $< 0$ | $-\infty$ | The book already loses before costs; no cost $\ge 0$ makes it break even. |
+| $= 0$ | short circuit, `reason="no_unique_breakeven_cost"` | `net` is zero at *every* cost, so no single cost is the boundary. |
+
+Returning $+\infty$ for all three — as this function did before — says a
+losing book can bear an unlimited cost.
+
 ## Four period counts, four questions
 
 The tradability surface touches all four of the period counts factrix keeps
