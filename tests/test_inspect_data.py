@@ -944,3 +944,111 @@ class TestCrossFactorConsistency:
             w.code.value for w in info.warnings if "cross_factor" in str(w.code.value)
         }
         assert mismatch_codes == set()
+
+
+def _common_factor_panel(n_assets: int = 6, n_dates: int = 30) -> pl.DataFrame:
+    """Panel whose factor is broadcast: one value per period, shared by every asset."""
+    raw = fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=n_dates, rng=7)
+    one_per_date = raw.group_by("date").agg(pl.col("factor").first())
+    return raw.drop("factor").join(one_per_date, on="date").sort("date", "asset_id")
+
+
+def _hole_on_first_period(data: pl.DataFrame, value: float | None) -> pl.DataFrame:
+    """Replace one asset's factor cell on the first period with ``value``."""
+    first_date = data["date"].min()
+    first_asset = data["asset_id"].min()
+    return data.with_columns(
+        pl.when((pl.col("date") == first_date) & (pl.col("asset_id") == first_asset))
+        .then(pl.lit(value, dtype=pl.Float64))
+        .otherwise(pl.col("factor"))
+        .alias("factor")
+    )
+
+
+def _blank_first_period(data: pl.DataFrame) -> pl.DataFrame:
+    first_date = data["date"].min()
+    return data.with_columns(
+        pl.when(pl.col("date") == first_date)
+        .then(pl.lit(None, dtype=pl.Float64))
+        .otherwise(pl.col("factor"))
+        .alias("factor")
+    )
+
+
+class TestScopeIgnoresMissingCells:
+    """Missing cells must not manufacture cross-sectional variation (#1055)."""
+
+    def test_dense_common_factor_is_common(self):
+        info = inspect_data(_common_factor_panel())
+        assert info.properties.scope is fx.FactorScope.COMMON
+
+    def test_common_factor_with_one_null_cell_stays_common(self):
+        info = inspect_data(_hole_on_first_period(_common_factor_panel(), None))
+        assert info.properties.scope is fx.FactorScope.COMMON
+
+    def test_common_factor_with_one_nan_cell_stays_common(self):
+        info = inspect_data(_hole_on_first_period(_common_factor_panel(), math.nan))
+        assert info.properties.scope is fx.FactorScope.COMMON
+
+    def test_common_factor_with_one_infinite_cell_stays_common(self):
+        info = inspect_data(_hole_on_first_period(_common_factor_panel(), math.inf))
+        assert info.properties.scope is fx.FactorScope.COMMON
+
+    def test_ragged_common_factor_stays_common(self):
+        """An asset with no row at all on a period is not variation either."""
+        data = _common_factor_panel()
+        first_date = data["date"].min()
+        first_asset = data["asset_id"].min()
+        ragged = data.filter(
+            ~((pl.col("date") == first_date) & (pl.col("asset_id") == first_asset))
+        )
+        info = inspect_data(ragged)
+        assert info.properties.scope is fx.FactorScope.COMMON
+
+    def test_period_with_a_single_finite_cell_stays_common(self):
+        """One finite observation cannot contradict a broadcast structure."""
+        data = _common_factor_panel()
+        first_date = data["date"].min()
+        keep = data["asset_id"].min()
+        one_finite = data.with_columns(
+            pl.when((pl.col("date") == first_date) & (pl.col("asset_id") != keep))
+            .then(pl.lit(None, dtype=pl.Float64))
+            .otherwise(pl.col("factor"))
+            .alias("factor")
+        )
+        info = inspect_data(one_finite)
+        assert info.properties.scope is fx.FactorScope.COMMON
+
+    def test_fully_missing_period_is_ignored(self):
+        """A period with no finite cell carries no scope evidence either way."""
+        info = inspect_data(_blank_first_period(_common_factor_panel()))
+        assert info.properties.scope is fx.FactorScope.COMMON
+        assert not [
+            w
+            for w in info.warnings
+            if w.code is fx.WarningCode.FACTOR_SCOPE_UNIDENTIFIABLE
+        ]
+
+    def test_all_periods_missing_is_unidentifiable_and_warns(self):
+        data = _common_factor_panel().with_columns(
+            pl.lit(None, dtype=pl.Float64).alias("factor")
+        )
+        info = inspect_data(data)
+        assert info.properties.scope is fx.FactorScope.INDIVIDUAL
+        warns = [
+            w
+            for w in info.warnings
+            if w.code is fx.WarningCode.FACTOR_SCOPE_UNIDENTIFIABLE
+        ]
+        assert len(warns) == 1
+        assert "0 of 30 periods" in warns[0].message
+        assert "individual" in warns[0].message
+
+    def test_genuinely_varying_factor_stays_individual_despite_missing_cells(self):
+        raw = fx.datasets.make_cs_panel(n_assets=6, n_dates=30, rng=7)
+        info = inspect_data(_hole_on_first_period(raw, None))
+        assert info.properties.scope is fx.FactorScope.INDIVIDUAL
+
+    def test_scope_reason_reports_the_periods_actually_read(self):
+        info = inspect_data(_blank_first_period(_common_factor_panel()))
+        assert "29 of 30 periods" in info.properties.scope_reason

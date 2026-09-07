@@ -25,6 +25,7 @@ import warnings
 import factrix as fx
 import polars as pl
 import pytest
+from factrix import _detect_factor_cell
 from factrix._metric_index import public_specs
 from factrix.metrics._registry import REGISTRY
 from factrix.preprocess import compute_forward_return
@@ -204,3 +205,46 @@ def test_no_silent_nan_and_p_value_is_never_a_sentinel(
                     f"{where}: finite value carrying short-circuit reason "
                     f"{out.reason!r}"
                 )
+
+
+def _broadcast_panel_with_gap(
+    n_assets: int = 20, n_periods: int = 120, forward_periods: int = 1
+) -> pl.DataFrame:
+    """Broadcast common factor with one asset's cell missing on one period.
+
+    The gap is the #1055 shape: null is a missing observation, not a distinct
+    factor value, so the panel is still common by period.
+    """
+    raw = fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=n_periods, rng=17)
+    one_per_period = raw.group_by("date").agg(pl.col("factor").first())
+    data = raw.drop("factor").join(one_per_period, on="date").sort("date", "asset_id")
+    gap_period = data["date"].min()
+    gap_asset = data["asset_id"].min()
+    data = data.with_columns(
+        pl.when((pl.col("date") == gap_period) & (pl.col("asset_id") == gap_asset))
+        .then(pl.lit(None, dtype=pl.Float64))
+        .otherwise(pl.col("factor"))
+        .alias("factor")
+    )
+    return compute_forward_return(data, forward_periods=forward_periods)
+
+
+def test_scope_routing_agrees_on_a_partly_missing_common_factor() -> None:
+    """Pre-flight scope and the cell ``evaluate`` dispatches on are one verdict.
+
+    Both read :func:`factrix._inspect._detect_scope`; this pins that they stay
+    one detector *and* that the shared verdict is the correct one — a
+    common-cell metric must actually run on a broadcast factor with a gap
+    rather than be refused for a cell mismatch (#1055).
+    """
+    panel = _broadcast_panel_with_gap()
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        inspected = fx.inspect_data(panel, factor_cols=["factor"]).properties.scope
+        dispatched, _, _ = _detect_factor_cell(panel, "factor")
+
+    assert inspected is dispatched is fx.FactorScope.COMMON
+
+    out = _run(panel, "common_beta", strict=False)
+    assert out.is_applicable and not math.isnan(out.value)

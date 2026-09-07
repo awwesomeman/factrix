@@ -193,6 +193,16 @@ class WarningCode(StrEnum):
     # confirm that the zero values encode the intended event contract.
     FREQUENT_EVENT_SIGNAL = "frequent_event_signal"
 
+    # Fired by inspect_data when a factor column has no finite cell on any
+    # period, so the broadcast property FactorScope encodes cannot be observed
+    # at all. Scope detection ignores null / NaN / +-inf cells (they are
+    # missing observations, not distinct factor values); when that leaves no
+    # period identified, routing falls back to the unrestricted
+    # FactorScope.INDIVIDUAL rather than claiming a COMMON structure nothing
+    # supports. A partly missing panel does not fire this: the periods that do
+    # carry finite cells identify the axis.
+    FACTOR_SCOPE_UNIDENTIFIABLE = "factor_scope_unidentifiable"
+
     # Fired by inspect_data when factor columns carry inconsistent axes.
     CROSS_FACTOR_DENSITY_MISMATCH = "cross_factor_density_mismatch"
     CROSS_FACTOR_SCOPE_MISMATCH = "cross_factor_scope_mismatch"
@@ -633,6 +643,14 @@ _WARNING_DESCRIPTIONS.update(
         "non-events; confirm that zero encodes the intended event contract. "
         "Events are frequent, so read event-study inference cautiously and "
         "inspect clustering / overlap diagnostics.",
+        WarningCode.FACTOR_SCOPE_UNIDENTIFIABLE: "The inspected factor column "
+        "has no finite cell on any period, so FactorScope cannot be observed. "
+        "Scope detection reads finite cells only — null, NaN and ±inf are "
+        "missing observations, not distinct factor values — and a period with "
+        "none is ignored. With every period ignored, routing falls back to the "
+        "unrestricted FactorScope.INDIVIDUAL instead of asserting a COMMON "
+        "broadcast structure no observation supports. Read it as a missing "
+        "factor column: every sample floor is violated at n_pairs=0.",
         WarningCode.CROSS_FACTOR_DENSITY_MISMATCH: "Factor columns carry inconsistent FactorDensity (dense and sparse mixed).",
         WarningCode.CROSS_FACTOR_SCOPE_MISMATCH: "Factor columns carry inconsistent FactorScope (individual and common mixed).",
         WarningCode.SINGLE_ASSET_EVENT_DATA: "Single-asset event-shaped data (TIMESERIES + SPARSE, n_assets=1): "

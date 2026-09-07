@@ -1178,7 +1178,7 @@ def _detect_factor_cell(
     data: _pl.DataFrame, factor_col: str
 ) -> tuple[FactorScope, FactorDensity, DataStructure]:
     temp = data.select("date", "asset_id", _pl.col(factor_col).alias("factor"))
-    scope, _ = _detect_scope(temp)
+    scope, _, _ = _detect_scope(temp)
     density, _, _ = _detect_density(temp)
     return scope, density, _detect_structure(data)
 
