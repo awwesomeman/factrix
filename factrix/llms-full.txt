@@ -439,11 +439,20 @@ def compare(
     *,
     metrics: list[str],
     sort_by: str | None = None,
-    descending: bool = True,
+    descending: bool | None = None,
+    rank_method: Literal["min", "dense", "ordinal"] = "min",
 ) -> pl.DataFrame:
 ```
 
 Renders a wide leaderboard `pl.DataFrame` stacking metric values and p-values side-by-side.
+`rank_method` is tie-aware by default: equal `sort_by` values share one rank
+(`min`), and row order is fixed by `factor` / `forward_periods` / params
+tiebreakers rather than by input order. `descending=None` resolves the direction
+from the column — p-value, identity and params columns ascending, `ic` / `ic_ir`
+/ spread / `net_spread` / `breakeven_cost` descending, `rank_turnover` /
+`notional_turnover` ascending — and raises for any other metric label, so a
+lower-is-better key cannot inherit a higher-is-better sort. Null / NaN sort
+values place last in both directions and carry a null rank.
 
 ---
 
