@@ -26,6 +26,31 @@ title: factrix.metrics.event_horizon
     the default factrix presentation; downstream consumers should not
     re-cumulate the pre-event leg.
 
+!!! info "Three quantities, one curve"
+    `per_offset[k]` reports an **abnormal** return, never a raw one, and the
+    metric's headline `value` is a third quantity again. Keeping them apart
+    is the difference between reading event alpha and reading the drift the
+    asset had anyway.
+
+    | Quantity | What it is | Where it appears |
+    |---|---|---|
+    | Raw cumulative return | The formula in the table above, sign-adjusted, with nothing subtracted | Not published; recover it as `mean + benchmark` |
+    | Abnormal (excess) return | Raw return minus that offset's `benchmark` | `per_offset[k]["mean"]`, and every dispersion key beside it |
+    | Leakage score | Mean of the absolute abnormal returns over the *negative* offsets | the metric's `value` |
+
+    The `benchmark` is the panel's unconditional return **over the same
+    horizon as the offset it is subtracted from**: `baseline_bar_return` for
+    offsets at or below zero, and `(1 + baseline_bar_return)**k - 1` for
+    offset $k > 0$, which is a $k$-period return. Subtracting one period of
+    drift from a $k$-period return leaves roughly $k - 1$ periods of it in
+    the answer, and on a panel that merely trends that residue reads as event
+    alpha. On a pure-drift panel every offset now prices to zero.
+
+    `baseline_bar_return` is formed as one mean per asset, pooled with equal
+    weight, and `n_assets_in_baseline` reports how many assets entered it.
+    Pooling every period observation instead would let a long-history name
+    outvote a short one on a ragged panel.
+
 !!! warning "Descriptive only — no p-value is produced"
     `event_around_return` runs no hypothesis test: `p_value` is `None`, and
     `per_offset[k]` carries `{mean, median, p25, p75, hit_rate, n}` — the
