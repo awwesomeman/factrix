@@ -11,6 +11,7 @@ from factrix._errors import IncompatibleInferenceError
 from factrix._stats import _p_value_from_t
 from factrix.inference import NEWEY_WEST
 from factrix.inference.series_mean import HANSEN_HODRICK
+from factrix.metrics._helpers import _lag_within_asset
 from factrix.metrics.quantile import (
     compute_spread_series,
     quantile_spread,
@@ -255,6 +256,36 @@ class TestQuantileSpreadVW:
         # Default lag drops exactly the first sampled row per asset on
         # the balanced panel — strict shrinkage of the effective window.
         assert default.metadata["n_periods"] < explicit_off.metadata["n_periods"]
+
+    @pytest.mark.parametrize("strides", [[1], [1, 17]])
+    def test_weight_lag_uses_the_sampled_period_grid(self, strides):
+        """A ragged asset cannot borrow a weight from two periods earlier."""
+        dates = [datetime(2024, 1, 1)]
+        for i in range(1, 8):
+            step = strides[(i - 1) % len(strides)]
+            dates.append(dates[-1] + timedelta(days=step))
+        panel = pl.DataFrame(
+            [
+                {
+                    "date": date,
+                    "asset_id": asset,
+                    "grid_period": period,
+                    "market_cap": float(1000 * (period + 1)),
+                }
+                for period, date in enumerate(dates)
+                for asset in ("A", "B")
+                if (asset, period) != ("B", 3)
+            ]
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+        lagged = _lag_within_asset(panel, "market_cap")
+
+        assert lagged.filter(
+            (pl.col("asset_id") == "B") & (pl.col("grid_period") == 4)
+        ).is_empty()
+        assert lagged.filter(
+            (pl.col("asset_id") == "B") & (pl.col("grid_period") == 5)
+        )["market_cap"].item() == 5000.0
 
     def test_missing_weight_col(self):
         df = pl.DataFrame(

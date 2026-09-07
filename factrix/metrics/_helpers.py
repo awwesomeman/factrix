@@ -1919,17 +1919,24 @@ def _lag_within_asset(
 ) -> pl.DataFrame:
     """Replace ``col`` with its per-asset lag; drop rows where the lag is null.
 
-    Common post-sampling pattern: after ``_sample_non_overlapping`` sorts
-    the panel to the rebalance schedule, we want each row's ``col`` to
-    carry the value observed one sampled period earlier on the same
-    asset (weight[t-1], rank[t-1], ...). Single helper so the whole
-    codebase lags the same way — sort by (asset, date), shift within
-    asset, drop the first row per asset.
+    A period is a position on ``data``'s distinct-date grid, not an asset's
+    row position. The helper therefore densifies only the ``(asset, date,
+    value)`` projection before shifting. If an asset is absent at the exact
+    prior grid period, its current row has no lag and is dropped instead of
+    reaching across the hole to a stale observation.
     """
-    return (
-        data.sort([by, "date"])
+    dense_lag = (
+        data.select(by).unique()
+        .join(data.select("date").unique(), how="cross")
+        .join(data.select(by, "date", col), on=[by, "date"], how="left")
+        .sort([by, "date"])
         .with_columns(pl.col(col).shift(periods).over(by).alias(col))
+    )
+    return (
+        data.drop(col)
+        .join(dense_lag, on=[by, "date"], how="left")
         .drop_nulls([col])
+        .sort([by, "date"])
     )
 
 

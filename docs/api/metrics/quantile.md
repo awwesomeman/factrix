@@ -51,6 +51,10 @@ title: factrix.metrics.quantile
     diagnostics as its equal-weighted sibling, so the comparison is
     like-for-like rather than one leg being quietly less guarded.
 
+    The lag is one period on the sampled panel's distinct-date grid, within
+    each asset. If an asset is absent at the exact preceding grid period, its
+    current row has no lag and drops; an older stale weight is not substituted.
+
 -   __Per-bucket mean returns for monotonicity charts__
 
     ---
