@@ -912,6 +912,30 @@ class TestCostAlgebraDomain:
                 estimated_cost_bps=30.0,
             )
 
+    @pytest.mark.parametrize("bad", [True, False, "0.5"])
+    def test_gross_spread_rejects_coercible_non_numeric_scalars(self, bad):
+        with pytest.raises(UserInputError, match="gross_spread"):
+            breakeven_cost(bad, turnover=0.2)  # type: ignore[arg-type]
+
+    @pytest.mark.parametrize("bad", [True, False, "0.5"])
+    def test_turnover_rejects_coercible_non_numeric_scalars(self, bad):
+        with pytest.raises(UserInputError, match="turnover"):
+            breakeven_cost(0.001, turnover=bad)  # type: ignore[arg-type]
+
+    @pytest.mark.parametrize("bad", [True, False, "30"])
+    def test_cost_rejects_coercible_non_numeric_scalars(self, bad):
+        with pytest.raises(UserInputError, match="estimated_cost_bps"):
+            net_spread(  # type: ignore[arg-type]
+                0.001,
+                turnover=0.2,
+                estimated_cost_bps=bad,
+            )
+
+    def test_plain_float_metric_results_remain_valid_cost_inputs(self):
+        spread = MetricResult(value=0.001, metadata={"n_groups": 5})
+        turnover = MetricResult(value=0.2, metadata={"n_groups": 5})
+        assert breakeven_cost(spread, turnover=turnover).value == pytest.approx(62.5)
+
     def test_a_metric_result_carrying_an_out_of_domain_value_is_rejected(self):
         """An *available* result is held to the same domain as a bare float."""
         turnover = MetricResult(value=1.4, metadata={"n_groups": 5})

@@ -29,7 +29,7 @@ Notes:
 from __future__ import annotations
 
 import math
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import polars as pl
@@ -57,6 +57,7 @@ from factrix.metrics._helpers import (
     _assign_quantile_groups,
     _enforce_min_floor,
     _finite_expr,
+    _is_finite_number,
     _median_universe_size,
     _sample_non_overlapping,
     _short_circuit_output,
@@ -824,19 +825,22 @@ def _propagate_unavailable(
     )
 
 
-def _validate_finite(value: float, *, func_name: str, field: str, detail: str) -> None:
-    """Reject a non-finite scalar before it reaches the cost algebra."""
-    if not math.isfinite(value):
+def _validate_finite(
+    value: object, *, func_name: str, field: str, detail: str
+) -> float:
+    """Return a finite real scalar; reject coercible non-numeric inputs."""
+    if not _is_finite_number(value):
         raise UserInputError(
             func_name=func_name,
             field=field,
             value=value,
-            expected=f"a finite float. {detail}",
+            expected=f"a finite real number (bool and strings rejected). {detail}",
             docs_path=_DOCS_TRADABILITY,
         )
+    return float(cast(int | float, value))
 
 
-def _validate_turnover(value: float, *, func_name: str) -> None:
+def _validate_turnover(value: object, *, func_name: str) -> float:
     """``turnover`` is the one-way per-leg replaced fraction, so it is in [0, 1].
 
     ``notional_turnover`` reports ``0.5 * sum |w_t - w_{t-1}|`` averaged over
@@ -846,35 +850,40 @@ def _validate_turnover(value: float, *, func_name: str) -> None:
     ``+inf`` and ``net_spread`` used to *raise* the alpha it was meant to
     charge — and a value above 1 prices trades the book cannot make.
     """
-    if not math.isfinite(value) or not 0.0 <= value <= 1.0:
+    if not _is_finite_number(value) or not 0.0 <= float(
+        cast(int | float, value)
+    ) <= 1.0:
         raise UserInputError(
             func_name=func_name,
             field="turnover",
             value=value,
             expected=(
-                "a finite fraction inside [0, 1]. It is the one-way per-leg "
+                "a finite real number inside [0, 1] (bool and strings "
+                "rejected). It is the one-way per-leg "
                 "notional replaced per rebalance (0.5 * sum |dw|, top/bottom "
                 "averaged) that notional_turnover reports; rank_turnover's "
                 "value lives in [0, 2] and does not belong here."
             ),
             docs_path=_DOCS_TRADABILITY,
         )
+    return float(cast(int | float, value))
 
 
-def _validate_estimated_cost_bps(value: float, *, func_name: str) -> None:
+def _validate_estimated_cost_bps(value: object, *, func_name: str) -> float:
     """``estimated_cost_bps`` is a one-way cost, so it is finite and >= 0."""
-    if not math.isfinite(value) or value < 0.0:
+    if not _is_finite_number(value) or float(cast(int | float, value)) < 0.0:
         raise UserInputError(
             func_name=func_name,
             field="estimated_cost_bps",
             value=value,
             expected=(
-                "a finite bps cost >= 0. It is the one-way (per-trade) cost "
-                "of a single buy or sell; a negative cost would make trading "
-                "a source of return."
+                "a finite real bps cost >= 0 (bool and strings rejected). It "
+                "is the one-way (per-trade) cost of a single buy or sell; a "
+                "negative cost would make trading a source of return."
             ),
             docs_path=_DOCS_TRADABILITY,
         )
+    return float(cast(int | float, value))
 
 
 def _unpack_cost_inputs(
@@ -883,7 +892,6 @@ def _unpack_cost_inputs(
     holding_periods: int,
     *,
     func_name: str,
-    estimated_cost_bps: float | None = None,
 ) -> tuple[float, float, dict[str, Any]] | MetricResult:
     """Resolve the two cost inputs, police their domain, and pair-check them.
 
@@ -905,8 +913,8 @@ def _unpack_cost_inputs(
        the one reported.
     2. **Domain validation.** Whatever survives — a bare scalar or an
        *available* result's ``value``, held to the same bounds either way —
-       must be a finite spread, a turnover inside ``[0, 1]``, and a finite
-       non-negative ``estimated_cost_bps``.
+       must be a finite spread and a turnover inside ``[0, 1]``. The
+       ``net_spread`` boundary validates its own cost before calling here.
     3. **Pairing check.** The ``n_groups`` cross-check.
 
     Returns:
@@ -932,14 +940,14 @@ def _unpack_cost_inputs(
             holding_periods=holding_periods,
         )
 
-    spread_value = float(
+    spread_raw = (
         gross_spread.value if isinstance(gross_spread, MetricResult) else gross_spread
     )
-    turnover_value = float(
+    turnover_raw = (
         turnover.value if isinstance(turnover, MetricResult) else turnover
     )
-    _validate_finite(
-        spread_value,
+    spread_value = _validate_finite(
+        spread_raw,
         func_name=func_name,
         field="gross_spread",
         detail=(
@@ -948,9 +956,7 @@ def _unpack_cost_inputs(
             "priced, but a non-finite bare scalar has no reading."
         ),
     )
-    _validate_turnover(turnover_value, func_name=func_name)
-    if estimated_cost_bps is not None:
-        _validate_estimated_cost_bps(estimated_cost_bps, func_name=func_name)
+    turnover_value = _validate_turnover(turnover_raw, func_name=func_name)
 
     checked: dict[str, Any] = {}
     spread_meta = (
@@ -1399,12 +1405,15 @@ def net_spread(
             ),
             docs_path=_DOCS_TRADABILITY,
         )
+    estimated_cost_bps = _validate_estimated_cost_bps(
+        estimated_cost_bps,
+        func_name="net_spread",
+    )
     resolved = _unpack_cost_inputs(
         gross_spread,
         turnover,
         holding_periods,
         func_name="net_spread",
-        estimated_cost_bps=estimated_cost_bps,
     )
     if isinstance(resolved, MetricResult):
         return resolved
