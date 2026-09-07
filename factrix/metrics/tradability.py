@@ -557,7 +557,12 @@ def notional_turnover(
         Metadata: ``n_rebalances``, ``n_groups``, ``overlap_periods`` (the
         panel's stamp, unchanged), ``rebalance_lag`` (the stride actually
         sampled at), ``mean_top_turnover`` / ``mean_bottom_turnover`` (each
-        leg's mean replaced fraction — ``value`` is their mean),
+        leg's mean replaced fraction, each over the rebalances where that leg
+        exists on both dates), ``n_top_rebalances`` /
+        ``n_bottom_rebalances`` (those per-leg sample sizes). ``value`` is the
+        per-date mean of the two legs over the joint ``n_rebalances`` sample;
+        it equals the arithmetic mean of the two published leg means only when
+        their samples coincide.
         ``mean_tail_size`` (per-date average of ``(|Q_top| + |Q_bot|)/2`` at
         ``t``, the *current* leg sizes — the turnover denominator is
         ``max(|Q(t)|, |Q(t-1)|)``, so the two coincide only while the legs do
@@ -598,9 +603,11 @@ def notional_turnover(
         joiner) with a one-way cost per trade. Summing the legs here
         instead would double-count against those coefficients.
 
-        A rebalance is skipped when *either* date leaves *either* leg empty:
-        the difference between two weight vectors needs both portfolios to
-        exist, and there is no book to resize into or out of nothing.
+        A leg's churn is undefined when that leg is empty on either date, but
+        this does not discard the other leg's well-defined churn. The headline
+        long-short ``value`` requires both legs and reports its joint sample as
+        ``n_rebalances``; the per-leg means report their own sample sizes as
+        ``n_top_rebalances`` and ``n_bottom_rebalances``.
 
     References:
         [Novy-Marx-Velikov (2016)][novy-marx-velikov-2016], "A Taxonomy of
@@ -695,14 +702,13 @@ def notional_turnover(
         leg_sizes.join(date_map, on="date")
         .join(prev_leg_sizes, on="prev_date")
         .join(overlaps, on="date")
-        # Both books must exist for a weight change to be defined: a rebalance
-        # into or out of an empty leg is not a turnover, it is the absence of
-        # one of the two portfolios the difference is taken between.
-        .filter(
-            (pl.col("n_top") > 0)
-            & (pl.col("n_bot") > 0)
-            & (pl.col("n_top_prev") > 0)
-            & (pl.col("n_bot_prev") > 0)
+        .with_columns(
+            ((pl.col("n_top") > 0) & (pl.col("n_top_prev") > 0)).alias(
+                "top_defined"
+            ),
+            ((pl.col("n_bot") > 0) & (pl.col("n_bot_prev") > 0)).alias(
+                "bot_defined"
+            ),
         )
         # WHY max: for an equal-weight leg of ``k`` names now and ``j`` before
         # with ``m`` survivors, ``0.5 * Σ|w_t − w_{t−1}|`` evaluates in closed
@@ -715,20 +721,27 @@ def notional_turnover(
             pl.max_horizontal("n_top", "n_top_prev").alias("n_top_book"),
             pl.max_horizontal("n_bot", "n_bot_prev").alias("n_bot_book"),
         )
-        # Each leg's replaced fraction is kept on its own: the long-short
-        # ``value`` is their mean, but a long-only top-quantile book pays only
-        # the top leg's churn, and the two can differ materially.
         .with_columns(
-            (1 - pl.col("n_top_kept") / pl.col("n_top_book")).alias("top_turnover"),
-            (1 - pl.col("n_bot_kept") / pl.col("n_bot_book")).alias("bot_turnover"),
+            pl.when(pl.col("top_defined"))
+            .then(1 - pl.col("n_top_kept") / pl.col("n_top_book"))
+            .alias("top_turnover"),
+            pl.when(pl.col("bot_defined"))
+            .then(1 - pl.col("n_bot_kept") / pl.col("n_bot_book"))
+            .alias("bot_turnover"),
         )
+        # The headline is a long-short quantity, so it requires both legs.
+        # Per-leg diagnostics remain defined on their own samples instead of
+        # losing a valid rebalance when only the opposite book is empty.
         .with_columns(
-            ((pl.col("top_turnover") + pl.col("bot_turnover")) / 2).alias("turnover")
+            pl.when(pl.col("top_defined") & pl.col("bot_defined"))
+            .then((pl.col("top_turnover") + pl.col("bot_turnover")) / 2)
+            .alias("turnover")
         )
         .sort("date")
     )
 
-    if per_date.is_empty():
+    joint_rebalances = per_date.filter(pl.col("turnover").is_not_null())
+    if joint_rebalances.is_empty():
         # Name the binding axis. The overwhelmingly common cause is a
         # cross-section too thin to fill ``n_groups`` buckets (the default
         # ``n_groups=10`` empties every date on an allocation-sized universe),
@@ -749,24 +762,28 @@ def notional_turnover(
             descriptive=True,
         )
 
-    turnover_arr = per_date["turnover"].to_numpy()
+    turnover_arr = joint_rebalances["turnover"].to_numpy()
     mean_turnover = float(np.mean(turnover_arr))
     mean_top_turnover = float(per_date["top_turnover"].mean())  # type: ignore[arg-type]
     mean_bottom_turnover = float(per_date["bot_turnover"].mean())  # type: ignore[arg-type]
+    n_top_rebalances = per_date["top_turnover"].drop_nulls().len()
+    n_bottom_rebalances = per_date["bot_turnover"].drop_nulls().len()
     tail_pct = 1.0 / n_groups
 
-    mean_top_tail_size = float(per_date["n_top"].mean())  # type: ignore[arg-type]
-    mean_bottom_tail_size = float(per_date["n_bot"].mean())  # type: ignore[arg-type]
+    mean_top_tail_size = float(joint_rebalances["n_top"].mean())  # type: ignore[arg-type]
+    mean_bottom_tail_size = float(joint_rebalances["n_bot"].mean())  # type: ignore[arg-type]
     mean_tail_size = (mean_top_tail_size + mean_bottom_tail_size) / 2
     return MetricResult(
         value=mean_turnover,
         # Rebalances — one per adjacent-period transition, not (date, asset)
         # pairs; the axis is periods.
-        n_obs=int(per_date.height),
+        n_obs=int(joint_rebalances.height),
         n_obs_axis="periods",
         warning_codes=tuple(warning_codes),
         metadata={
-            "n_rebalances": int(per_date.height),
+            "n_rebalances": int(joint_rebalances.height),
+            "n_top_rebalances": n_top_rebalances,
+            "n_bottom_rebalances": n_bottom_rebalances,
             "n_groups": n_groups,
             "overlap_periods": overlap_periods,
             "rebalance_lag": lag,

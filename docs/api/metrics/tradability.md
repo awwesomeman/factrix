@@ -114,9 +114,13 @@ not two approximations of each other.
     departed name and double the survivor: $\tau = 0.5$, where the $1 - m/k$
     reading was $0$.
 
-    A rebalance is skipped when *either* date leaves *either* leg empty: a
-    weight change needs both portfolios to exist. `metadata["n_rebalances"]`
-    counts the rebalances actually priced, and `mean_tail_size` /
+    A leg's churn is skipped only when that leg is empty on either date. Its
+    valid sample is reported as `metadata["n_top_rebalances"]` or
+    `metadata["n_bottom_rebalances"]`; an empty opposite leg does not erase a
+    well-defined long-only diagnostic. The headline long-short `value` still
+    needs both legs and `metadata["n_rebalances"]` counts that joint sample.
+    Consequently, `value` equals the arithmetic mean of the two published
+    per-leg means only when their samples coincide. `mean_tail_size` /
     `mean_top_tail_size` / `mean_bottom_tail_size` report the **current** leg
     sizes at $t$ — they equal the turnover denominator only while the legs do
     not shrink.

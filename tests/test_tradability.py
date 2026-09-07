@@ -810,6 +810,21 @@ class TestChangingUniverseNotionalTurnover:
         )
         assert out.value == pytest.approx(0.0)
 
+    def test_each_leg_keeps_rebalances_when_only_the_other_leg_is_empty(self):
+        """A thin top book does not erase well-defined bottom-book churn."""
+        full = {asset: float(i) for i, asset in enumerate("ABCDEFGHIJ")}
+        members = [full.copy() for _ in range(21)]
+        members[10] = {"C": 2.0}
+
+        out = self._run(members, n_groups=5)
+
+        assert out.value == pytest.approx(0.0)
+        assert out.metadata["mean_top_turnover"] == pytest.approx(0.0)
+        assert out.metadata["mean_bottom_turnover"] == pytest.approx(0.1)
+        assert out.metadata["n_rebalances"] == 18
+        assert out.metadata["n_top_rebalances"] == 18
+        assert out.metadata["n_bottom_rebalances"] == 20
+
     def test_delisted_holding_is_no_longer_missed(self):
         """A top-leg name delists and is not replaced.
 
