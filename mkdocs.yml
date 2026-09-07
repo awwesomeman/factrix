@@ -236,6 +236,7 @@ nav:
               - trend: api/metrics/trend.md
               - oos_decay: api/metrics/oos_decay.md
       - Supporting modules:
+          - inference: api/inference.md
           - stats: api/stats.md
           - datasets: api/datasets.md
           - preprocess: api/preprocess.md

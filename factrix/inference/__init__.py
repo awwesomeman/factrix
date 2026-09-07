@@ -9,6 +9,10 @@ metric accept?" is answered per-metric (e.g. ``ic`` accepts
 
 The namespace is scoped to the **series-mean** family
 (``compute(data, *, value_col, overlap_periods, alternative="two-sided")``).
+Every call returns an ``InferenceResult`` whose ``alternative`` field records
+the validated tail passed to the statistical kernel alongside its ``p_value``;
+direct callers therefore do not need external call-site state to interpret the
+reported probability.
 Slice / panel methods
 keep their multivariate compute in ``factrix.slicing`` until they move
 onto the same ``metric(inference=...)`` path; they are deliberately not

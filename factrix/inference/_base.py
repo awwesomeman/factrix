@@ -20,6 +20,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
+from factrix._types import PValueAlternative
+
 if TYPE_CHECKING:
     from factrix._codes import WarningCode
 
@@ -47,7 +49,8 @@ class InferenceResult:
     """Harmonized return shape for an ``Inference.compute`` call.
 
     ``stat`` / ``p_value`` are the test statistic and its requested-tail p-value;
-    they feed a ``MetricResult`` directly. ``metadata`` is a flat
+    ``alternative`` names that tail on the same result, and all three feed a
+    ``MetricResult`` directly. ``metadata`` is a flat
     ``str -> Any`` map (non-overlapping emits ``stride`` / sample counts;
     Newey-West emits ``newey_west_lags``). ``warnings`` carries soft-floor /
     kernel-clamp signals.
@@ -55,6 +58,7 @@ class InferenceResult:
 
     stat: float
     p_value: float
+    alternative: PValueAlternative
     metadata: Mapping[str, Any]
     warnings: frozenset[WarningCode]
     # Point estimate and sample size of the series the test actually ran on.
