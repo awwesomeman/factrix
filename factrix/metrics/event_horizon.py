@@ -177,12 +177,15 @@ def event_around_return(
 
     Returns:
         MetricResult with per-offset stats and audit counts in metadata.
-        Every ``per_offset[k]`` includes ``eligible``, ``computed``,
+        Every published ``per_offset[k]`` includes ``eligible``, ``computed``,
         ``censored``, and ``censor_reasons``; ``n`` remains an alias for the
-        computed count. When price data is
-        unavailable or the unconditional baseline cannot be computed from
-        valid positive prices, returns a short-circuit MetricResult
-        (``value=NaN``) so all metrics share a single return contract.
+        computed count. When price data is unavailable, the censor audit
+        explains why no path was computed. When the unconditional baseline
+        cannot be computed from valid positive prices, the whole curve is
+        withdrawn and ``per_offset`` is empty rather than publishing counts
+        from the discarded raw-path computation. Both cases return a
+        short-circuit MetricResult (``value=NaN``) so all metrics share a
+        single return contract.
 
     Notes:
         For each offset ``k``: ``mean, median, p25, p75, hit_rate``
@@ -311,7 +314,11 @@ def event_around_return(
             n_invalid_prices=n_invalid_prices,
             baseline_bar_return=None,
             n_assets_in_baseline=n_assets_in_baseline,
-            per_offset=per_offset,
+            # The raw paths ran, so n_events remains reportable, but no
+            # per-offset curve survived the invalid baseline. Publishing its
+            # intermediate counts under the final curve key makes discarded
+            # work look like a partially available result.
+            per_offset={},
         )
 
     pre_leakage_vals: list[float] = []
