@@ -62,6 +62,7 @@ from factrix.inference.series_mean import _persistent_array_beyond_horizon
 from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
+    _degenerate_metric_output,
     _degenerate_test_fields,
     _enforce_min_floor,
     _finite_expr,
@@ -511,6 +512,28 @@ def _cluster_codes(clusters: np.ndarray) -> tuple[np.ndarray, int]:
 _MIN_DK_PERIODS_HARD: int = 3
 
 
+def _pooled_beta_withheld_inference(
+    slope: float,
+    n_obs: int,
+    metadata: dict[str, object],
+) -> MetricResult:
+    """Keep an identified pooled slope when only its inference is unavailable."""
+    warning_codes: list[str] = []
+    stat, p_value, alternative = _degenerate_test_fields(
+        float("nan"), float("nan"), "two-sided", metadata, warning_codes
+    )
+    return MetricResult(
+        value=slope,
+        p_value=p_value,
+        alternative=alternative,
+        n_obs=n_obs,
+        n_obs_axis="pairs",
+        stat=stat,
+        metadata=metadata,
+        warning_codes=tuple(warning_codes),
+    )
+
+
 def _pooled_beta_driscoll_kraay(
     data: pl.DataFrame,
     X: np.ndarray,
@@ -557,11 +580,22 @@ def _pooled_beta_driscoll_kraay(
         cov, n_periods, lags_used = _dk_cov(X, resid, period_ids, lags=resolved_lags)
         dk_meta = {"n_periods": n_periods, "driscoll_kraay_lags": lags_used}
     except np.linalg.LinAlgError:
-        return _short_circuit_output(
-            "pooled_beta",
-            "singular_pooled_design_matrix",
-            n_obs=n_obs,
-            n_obs_axis="pairs",
+        return _pooled_beta_withheld_inference(
+            slope,
+            n_obs,
+            {
+                "stat_type": "t",
+                "h0": "β=0",
+                "method": f"Pooled OLS + Driscoll-Kraay (1998) SE ({cluster_col})",
+                "se_method": "driscoll_kraay",
+                "n_periods": n_periods,
+                "driscoll_kraay_lags": resolved_lags,
+                "hac_scale": hac_scale,
+                "hac_dof": hac_dof,
+                "overlap_periods": overlap_periods,
+                "overlap_adjustment_applied": True,
+                "variance_status": "singular_pooled_design_matrix",
+            },
         )
 
     n_periods = int(dk_meta["n_periods"])
@@ -707,10 +741,13 @@ def pooled_beta(
     Short-circuits to ``value=NaN`` / ``stat=None`` / $p=1.0$ when
     ``n_obs < 10`` (no regression), when the effective $G < 3$ (clustered SE
     undefined), or, on the DK path, when fewer than 3 distinct periods leave
-    the cross-sectional HAC undefined. The slope computed before an SE floor
-    fails is not exposed as the headline value: without a valid covariance
-    estimate, downstream aggregation cannot distinguish it from a fully
-    inferential pooled beta.
+    the cross-sectional HAC undefined. A rank-deficient pooled design instead
+    reports the degenerate non-test shape: neither the slope nor its test is
+    identified, so ``value=NaN`` and ``stat`` / ``p_value`` / ``alternative``
+    are ``None`` with ``DEGENERATE_VARIANCE``. If a full-rank fit identified
+    the slope but the requested covariance subsequently fails, the slope stays
+    available while only those three test fields are withheld under the same
+    warning code.
 
     Args:
         data: Panel containing the regression columns and cluster keys.
@@ -876,18 +913,35 @@ def pooled_beta(
 
     X = np.column_stack([np.ones(n_obs), x])
     try:
-        beta, _, _, _ = np.linalg.lstsq(X, y, rcond=None)
+        beta, _, design_rank, _ = np.linalg.lstsq(X, y, rcond=None)
     except np.linalg.LinAlgError:
-        return _short_circuit_output(
-            "pooled_beta",
-            "singular_pooled_design_matrix",
+        return _degenerate_metric_output(
             n_obs=n_obs,
             n_obs_axis="pairs",
+            alternative_requested="two-sided",
+            variance_status="pooled_design_solver_failure",
+        )
+
+    k = X.shape[1]
+    if design_rank < k:
+        # With an intercept and a constant factor the minimum-norm coefficient
+        # returned by ``lstsq`` is only one arbitrary decomposition of the
+        # fitted constant. It changes when the factor's constant scale changes,
+        # so neither that coefficient nor a test of it is identified.
+        rank_metadata: dict[str, object] = {
+            "variance_status": "singular_pooled_design_matrix",
+            "design_rank": int(design_rank),
+            "n_parameters": k,
+        }
+        return _degenerate_metric_output(
+            n_obs=n_obs,
+            n_obs_axis="pairs",
+            alternative_requested="two-sided",
+            **rank_metadata,
         )
 
     slope = float(beta[1])
     resid = y - X @ beta
-    k = X.shape[1]
 
     if driscoll_kraay:
         return _pooled_beta_driscoll_kraay(
@@ -968,15 +1022,21 @@ def pooled_beta(
         with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
             xtx_inv = np.linalg.inv(X.T @ X)
     except np.linalg.LinAlgError:
-        # Same convention: a singular design admits no t, and ``stat=0.0``
-        # read as a computed zero rather than a refusal.
-        return MetricResult(
-            value=slope,
-            n_obs=n_obs,
-            n_obs_axis="pairs",
-            stat=None,
-            metadata={"signal_status": "degenerate_variance"},
-            warning_codes=(WarningCode.DEGENERATE_VARIANCE.value,),
+        singular_metadata: dict[str, object] = {
+            "stat_type": "t",
+            "h0": "β=0",
+            "method": method_desc,
+            "overlap_periods": overlap_periods,
+            "overlap_adjustment_applied": False,
+            "variance_status": "singular_pooled_design_matrix",
+            **cluster_metadata,
+        }
+        if n_non_finite_dropped:
+            singular_metadata["dropped_pairs"] = n_non_finite_dropped
+        return _pooled_beta_withheld_inference(
+            slope,
+            n_obs,
+            singular_metadata,
         )
 
     with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
