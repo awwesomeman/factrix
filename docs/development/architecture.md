@@ -684,8 +684,10 @@ per-asset OLS R_i = α_i + β_i·F over all n_periods dates   (time-series step)
 
 Failure modes:
 
-- per-asset `n_periods < MIN_COMMON_BETA_PERIODS_HARD = 20` → asset dropped.
-- `n_assets < MIN_ASSETS_WARN = 30` → `WarningCode.FEW_ASSETS` (still runs; severity scales with `n_assets`).
+- per-asset `n_periods < MIN_COMMON_BETA_PERIODS_HARD = 20`, no finite
+  `(factor, return)` pair, or factor time-variance `<= EPSILON` → asset dropped.
+- surviving `n_assets < MIN_ASSETS_WARN = 30` → `WarningCode.FEW_ASSETS`
+  (still runs; severity scales with the producer output, not the raw universe).
 - `n_assets = 1` → no asset cross-section to aggregate the per-asset βs
   over. The cell declares `cell.structure = PANEL`, so `evaluate` raises
   `IncompatibleAxisError` under `strict=True` (NaN + `structure_mismatch`

@@ -50,7 +50,12 @@ from factrix._codes import WarningCode, cross_section_tier
 from factrix._data_input import _STAMP_COLUMNS, _coerce_data
 from factrix._metric_index import MetricSpec, public_specs
 from factrix._results import Warning
-from factrix._types import MIN_IC_ASSETS_HARD, MIN_IC_ASSETS_WARN
+from factrix._types import (
+    EPSILON,
+    MIN_COMMON_BETA_PERIODS_HARD,
+    MIN_IC_ASSETS_HARD,
+    MIN_IC_ASSETS_WARN,
+)
 from factrix.metrics._helpers import _finite_expr
 from factrix.metrics._primitives._fm_betas import (
     MIN_FM_ASSETS_HARD,
@@ -331,6 +336,13 @@ class _FMStage1Profile:
     n_periods: int
     min_assets_per_period: int
     max_assets_per_period: int
+
+
+@dataclass(frozen=True, slots=True)
+class _CommonBetaStage1Profile:
+    """Pre-flight asset count after ``compute_common_betas`` filters."""
+
+    n_assets: int
 
 
 def _default_constructible(metric: Any) -> bool:
@@ -766,6 +778,8 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
     coverage gates a metric it does so through the stage-one profile, which
     is computed per column (a column whose IC cross-sections survive on 20
     periods is blocked at ``ic``'s 50-period floor while its sibling is not).
+    Common-beta consumers likewise apply their asset floor to the per-asset
+    regressions surviving ``compute_common_betas``, not the raw universe.
 
     Args:
         data: Long-format factor data with the canonical columns.
@@ -931,6 +945,15 @@ def _inspect_factor(
     sign_one_sided = _factor_sign_is_one_sided(data, col)
     ic_stage1_profile = _compute_ic_stage1_profile(data, col)
     fm_stage1_profile = _compute_fm_stage1_profile(data, col)
+    common_beta_stage1_profile = (
+        _compute_common_beta_stage1_profile(data, col)
+        if (
+            scope is FactorScope.COMMON
+            and density is FactorDensity.DENSE
+            and structure is DataStructure.PANEL
+        )
+        else None
+    )
 
     metrics = [
         _evaluate_applicability(
@@ -940,6 +963,7 @@ def _inspect_factor(
             sign_one_sided,
             ic_stage1_profile=ic_stage1_profile,
             fm_stage1_profile=fm_stage1_profile,
+            common_beta_stage1_profile=common_beta_stage1_profile,
             available_columns=available_columns,
         )
         for _, spec in public_specs()
@@ -1057,6 +1081,7 @@ def _evaluate_applicability(
     factor_sign_one_sided: bool = False,
     ic_stage1_profile: _ICStage1Profile | None = None,
     fm_stage1_profile: _FMStage1Profile | None = None,
+    common_beta_stage1_profile: _CommonBetaStage1Profile | None = None,
     available_columns: frozenset[str] = frozenset(),
 ) -> MetricApplicability:
     from factrix.metrics._registry import REGISTRY
@@ -1065,6 +1090,7 @@ def _evaluate_applicability(
     warnings: list[Warning] = []
     uses_compute_ic = _requires_compute_ic(spec)
     uses_compute_fm_betas = _requires_compute_fm_betas(spec)
+    uses_compute_common_betas = _requires_compute_common_betas(spec)
 
     if not spec.cell.matches(
         properties.scope, properties.density, properties.structure
@@ -1201,6 +1227,16 @@ def _evaluate_applicability(
                     )
                 )
 
+    if uses_compute_common_betas and common_beta_stage1_profile is not None:
+        # These consumers apply their asset-axis floor to the per-asset rows
+        # emitted by compute_common_betas, not to the raw panel universe.
+        # Mirror the producer's complete-pair, history and factor-variation
+        # filters so pre-flight and run time count the same sample.
+        threshold_properties = replace(
+            threshold_properties,
+            n_assets=common_beta_stage1_profile.n_assets,
+        )
+
     floor = spec.sample_threshold
     for av in floor.iter_verdicts(threshold_properties):
         if skip_period_floor and av.axis == "periods":
@@ -1213,7 +1249,7 @@ def _evaluate_applicability(
             # on the global MIN_ASSETS_WARN constant — so it can be None here
             # even though the axis verdict is DEGRADED.
             if av.axis == "assets":
-                code = cross_section_tier(properties.n_assets)
+                code = cross_section_tier(av.n)
                 if code is not None:
                     warnings.append(
                         Warning(code=code, source=spec.name, message=code.description)
@@ -1262,6 +1298,16 @@ def _requires_compute_fm_betas(spec: MetricSpec) -> bool:
         getattr(producer, "__name__", "") == "compute_fm_betas"
         and getattr(producer, "__module__", "")
         == "factrix.metrics._primitives._fm_betas"
+        for producer in spec.requires.values()
+    )
+
+
+def _requires_compute_common_betas(spec: MetricSpec) -> bool:
+    """True when a metric consumes ``compute_common_betas`` per-asset rows."""
+    return any(
+        getattr(producer, "__name__", "") == "compute_common_betas"
+        and getattr(producer, "__module__", "")
+        == "factrix.metrics._primitives._common_betas"
         for producer in spec.requires.values()
     )
 
@@ -1336,6 +1382,31 @@ def _compute_fm_stage1_profile(data: Any, factor_col: str) -> _FMStage1Profile |
         ),
         max_assets_per_period=0 if max_assets is None else int(max_assets),
     )
+
+
+def _compute_common_beta_stage1_profile(
+    data: Any, factor_col: str
+) -> _CommonBetaStage1Profile | None:
+    """Mirror ``compute_common_betas``'s per-asset eligibility filters."""
+    if "forward_return" not in data.columns:
+        return None
+    if data.is_empty():
+        return _CommonBetaStage1Profile(n_assets=0)
+
+    valid_pair = _finite_expr(factor_col) & _finite_expr("forward_return")
+    per_asset = (
+        data.filter(valid_pair)
+        .group_by("asset_id")
+        .agg(
+            pl.len().alias("n_periods"),
+            pl.col(factor_col).var().alias("factor_var"),
+        )
+    )
+    survivors = per_asset.filter(
+        (pl.col("n_periods") >= MIN_COMMON_BETA_PERIODS_HARD)
+        & (pl.col("factor_var") > EPSILON)
+    )
+    return _CommonBetaStage1Profile(n_assets=survivors.height)
 
 
 def _data_level_warnings(properties: DataProperties) -> list[Warning]:

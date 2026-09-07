@@ -51,8 +51,14 @@ _NO_DEFAULT_INSTANCE = frozenset({"breakeven_cost", "net_spread"})
 _PROJECTION_GAP = frozenset({"quantile_spread_vw"})
 
 
-def _panel(n_assets: int, n_periods: int, forward_periods: int) -> pl.DataFrame:
-    """Dense individual-factor panel carrying every optional schema column.
+def _panel(
+    n_assets: int,
+    n_periods: int,
+    forward_periods: int,
+    *,
+    common_factor: bool = False,
+) -> pl.DataFrame:
+    """Dense individual- or common-factor panel with optional schema columns.
 
     ``market_cap`` is present so a weight-consuming metric fails (or not) on
     sample shape rather than on a missing column — the sweep tests the shape
@@ -61,6 +67,8 @@ def _panel(n_assets: int, n_periods: int, forward_periods: int) -> pl.DataFrame:
     raw = fx.datasets.make_cs_panel(
         n_assets=n_assets, n_dates=n_periods, rng=17
     ).with_columns(pl.lit(1.0e9).alias("market_cap"))
+    if common_factor:
+        raw = raw.with_columns(pl.col("factor").first().over("date"))
     return compute_forward_return(raw, forward_periods=forward_periods)
 
 
@@ -105,10 +113,14 @@ def _is_out_of_scope(reason: object) -> bool:
 
 
 @pytest.mark.parametrize("n_assets,n_periods,forward_periods", _shapes())
+@pytest.mark.parametrize("common_factor", [False, True], ids=["individual", "common"])
 def test_inspect_verdict_matches_evaluate_outcome(
-    n_assets: int, n_periods: int, forward_periods: int
+    n_assets: int,
+    n_periods: int,
+    forward_periods: int,
+    common_factor: bool,
 ) -> None:
-    panel = _panel(n_assets, n_periods, forward_periods)
+    panel = _panel(n_assets, n_periods, forward_periods, common_factor=common_factor)
     usable = _verdicts(panel)
 
     disagreements: list[str] = []
@@ -128,18 +140,23 @@ def test_inspect_verdict_matches_evaluate_outcome(
                 f"reason={out.metadata.get('reason')!r}"
             )
     assert not disagreements, (
+        f"scope={'common' if common_factor else 'individual'} "
         f"N={n_assets} T={n_periods} h={forward_periods}: " + "; ".join(disagreements)
     )
 
 
 @pytest.mark.parametrize("n_assets,n_periods,forward_periods", _shapes())
+@pytest.mark.parametrize("common_factor", [False, True], ids=["individual", "common"])
 def test_strict_raises_exactly_when_inspect_says_unusable(
-    n_assets: int, n_periods: int, forward_periods: int
+    n_assets: int,
+    n_periods: int,
+    forward_periods: int,
+    common_factor: bool,
 ) -> None:
     """``strict=True`` must refuse precisely the shapes pre-flight calls
     unusable, and the refusal must be the documented exception type carrying a
     legal axis token."""
-    panel = _panel(n_assets, n_periods, forward_periods)
+    panel = _panel(n_assets, n_periods, forward_periods, common_factor=common_factor)
     usable = _verdicts(panel)
     legal_axes = {"periods", "assets", "events", "pairs", "asset_pairs"}
 
@@ -166,8 +183,85 @@ def test_strict_raises_exactly_when_inspect_says_unusable(
         if raised is None and not usable[name]:
             disagreements.append(f"{name}: pre-flight unusable but strict ran")
     assert not disagreements, (
+        f"scope={'common' if common_factor else 'individual'} "
         f"N={n_assets} T={n_periods} h={forward_periods}: " + "; ".join(disagreements)
     )
+
+
+def test_common_beta_preflight_uses_assets_surviving_the_producer() -> None:
+    """The discovery bridge must not advertise a zero-variance beta sample."""
+    raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120, rng=17)
+    panel = compute_forward_return(
+        raw.with_columns(pl.col("factor").mean().over("date").alias("macro")),
+        forward_periods=5,
+    )
+
+    info = fx.inspect_data(panel, factor_cols=["macro"])
+    beta_consumers = {
+        "common_beta",
+        "common_beta_profile",
+        "common_beta_r_squared",
+        "common_beta_sign_consistency",
+    }
+
+    assert info.properties.scope is fx.FactorScope.COMMON
+    assert beta_consumers <= set(info.unusable.names)
+    assert all(
+        any("n_assets=0" in blocker for blocker in verdict.blockers)
+        for verdict in info.unusable
+        if verdict.name in beta_consumers
+    )
+    out = fx.evaluate(
+        panel,
+        metrics=info.usable.to_metrics_dict(),
+        factor_cols=["macro"],
+        forward_periods=5,
+    )
+    assert beta_consumers.isdisjoint(out["macro"].metrics)
+
+
+def test_common_beta_preflight_keeps_time_varying_broadcast_factor() -> None:
+    """COMMON broadcasting alone must not make per-asset regressions unusable."""
+    panel = _panel(20, 120, 5, common_factor=True)
+    info = fx.inspect_data(panel, factor_cols=["factor"])
+    beta_consumers = {
+        "common_beta_profile",
+        "common_beta_r_squared",
+        "common_beta_sign_consistency",
+    }
+
+    assert beta_consumers <= set(info.usable.names)
+    out = fx.evaluate(
+        panel,
+        metrics={name: REGISTRY[name]() for name in beta_consumers},
+        factor_cols=["factor"],
+        forward_periods=5,
+    )
+    assert all(out["factor"].metrics[name].is_applicable for name in beta_consumers)
+
+
+def test_common_beta_preflight_warns_on_surviving_asset_count() -> None:
+    """Warn tiers use producer survivors, not the wider raw universe."""
+    raw = fx.datasets.make_cs_panel(n_assets=40, n_dates=120, rng=17)
+    retained = raw["asset_id"].unique().sort().head(5).to_list()
+    panel = compute_forward_return(
+        raw.with_columns(
+            pl.col("factor").first().over("date").alias("macro")
+        ).with_columns(
+            pl.when(pl.col("asset_id").is_in(retained))
+            .then(pl.col("macro"))
+            .otherwise(None)
+            .alias("macro")
+        ),
+        forward_periods=5,
+    )
+
+    info = fx.inspect_data(panel, factor_cols=["macro"])
+    verdict = next(m for m in info.metrics if m.name == "common_beta")
+
+    assert verdict.usable
+    assert verdict in info.degraded
+    assert [warning.code for warning in verdict.warnings] == [fx.WarningCode.FEW_ASSETS]
 
 
 @pytest.mark.parametrize("n_assets,n_periods,forward_periods", _shapes())
