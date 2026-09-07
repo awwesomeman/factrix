@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 import polars as pl
 
 from factrix._codes import WarningCode, _emit_warning, _validate_expected_warnings_arg
-from factrix._data_input import _read_horizon_stamps
+from factrix._data_input import DataInput, _read_horizon_stamps
 from factrix._results import Warning
 from factrix.slicing._primitive import _slice_by
 
@@ -35,6 +35,7 @@ def by_slice(
     *,
     by: str,
     factor_col: str,
+    price_data: DataInput | None = None,
     forward_periods: int | None = None,
     overlap_periods: int | None = None,
     strict: bool = True,
@@ -80,6 +81,14 @@ def by_slice(
             (``pl.concat_str([...]).alias("...")``).
         factor_col: The factor column to evaluate. Single-factor by
             design — multi-factor / multi-metric batching is the job of
+            :func:`factrix.evaluate`.
+        price_data: Optional complete ``date, asset_id, price`` panel,
+            forwarded unchanged to every per-slice ``evaluate`` call. The
+            slice's ``data`` rows remain the sole owner of event eligibility
+            and the forward-return sample; this side panel only supplies the
+            complete price grid for event offsets and excursion windows.
+            Consequently, ``offsets=`` and ``window=`` count periods on this
+            price grid when it is supplied, just as under
             :func:`factrix.evaluate`.
         forward_periods: The data's return horizon, forwarded to
             ``evaluate`` on every per-slice call. Normally omitted — it is
@@ -166,6 +175,7 @@ def by_slice(
     for key, sub_df in sliced.items():
         bundle = factrix.evaluate(
             sub_df,
+            price_data=price_data,
             metrics={label: metric},
             factor_cols=[factor_col],
             forward_periods=forward_periods,

@@ -94,6 +94,60 @@ def test_evaluate_routes_full_price_data_and_reports_offset_audit() -> None:
     assert result.n_obs == 6
 
 
+def test_by_slice_routes_full_price_data_without_expanding_event_sample() -> None:
+    n_dates = 100
+    raw = _event_panel(n_assets=12, n_dates=n_dates)
+    raw = raw.hstack(
+        pl.DataFrame(
+            {
+                "cohort": [
+                    cohort for cohort in ("first", "second") for _ in range(6 * n_dates)
+                ]
+            }
+        )
+    )
+    panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
+
+    truncated = fx.by_slice(
+        panel,
+        event_around_return(offsets=[24]),
+        by="cohort",
+        factor_col="factor",
+        strict=False,
+    )
+    restored = fx.by_slice(
+        panel,
+        event_around_return(offsets=[24]),
+        by="cohort",
+        factor_col="factor",
+        price_data=raw,
+        strict=False,
+    )
+
+    for cohort in ("first", "second"):
+        truncated_audit = (
+            truncated[cohort].metrics["event_around_return"].metadata["per_offset"][24]
+        )
+        restored_metric = restored[cohort].metrics["event_around_return"]
+        restored_audit = restored_metric.metadata["per_offset"][24]
+        direct_metric = fx.evaluate(
+            panel.filter(pl.col("cohort") == cohort).drop("cohort"),
+            price_data=raw,
+            metrics={"path": event_around_return(offsets=[24])},
+            factor_cols=["factor"],
+            strict=False,
+        )["factor"].metrics["path"]
+
+        assert truncated_audit["computed"] == 0
+        assert restored_audit == direct_metric.metadata["per_offset"][24]
+        assert restored_audit["eligible"] == 6
+        assert restored_audit["computed"] == 6
+        assert restored_audit["censored"] == 0
+        assert restored_metric.n_obs == 6
+        assert restored[cohort].n_assets == 6
+        assert restored[cohort].n_periods == panel["date"].n_unique()
+
+
 def test_mfe_mae_uses_full_price_data_without_entering_return_sample() -> None:
     raw = _event_panel()
     panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)

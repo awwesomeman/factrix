@@ -18,7 +18,7 @@ market-cap tier, ADV bucket all share the same dispatcher.
 
 ## Argument contract
 
-`by_slice(data, metric, *, by, factor_col, forward_periods=None, overlap_periods=None, strict=True, expected_warnings=())`:
+`by_slice(data, metric, *, by, factor_col, price_data=None, forward_periods=None, overlap_periods=None, strict=True, expected_warnings=())`:
 
 - `data` — a raw long-format panel, the **same input contract as
   `evaluate`** (`date, asset_id, <factor_col>, forward_return`), with the
@@ -29,6 +29,28 @@ market-cap tier, ADV bucket all share the same dispatcher.
 - `by` — the partition column.
 - `factor_col` — the single factor to evaluate (multi-factor batching is
   the job of `evaluate`).
+- `price_data` — an optional complete `(date, asset_id, price)` panel,
+  forwarded to every slice for event offsets and excursion windows. The
+  sliced `data` panel still owns event eligibility and the forward-return
+  sample, so price-only rows never enter return metrics or sample floors.
+
+When `price_data` is supplied, `offsets=` and `window=` count periods on its
+price grid, not on the (possibly coarser or tail-truncated) evaluation grid.
+This is the same period-unit contract as
+[`evaluate`](evaluate.md#offsets-and-windows-are-counted-on-the-grid-that-supplies-them).
+For example, preserve a tail needed by an event offset without putting that
+tail back into the return sample:
+
+```python title="Illustrative"
+per_sector = by_slice(
+    panel,
+    event_around_return(offsets=[24]),
+    by="sector",
+    factor_col="event_factor",
+    price_data=raw,
+    strict=False,
+)
+```
 
 The producer→consumer DAG runs **per slice**, so DAG-consumer metrics
 (`ic`, `caar`, `fm_beta`, …) work with no pre-computation — exactly as
