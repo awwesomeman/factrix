@@ -100,7 +100,7 @@ for res in results:
 
 ## 3. Apply BHY
 
-The input list is the family. `bhy` runs one Benjamini-Yekutieli step-up over all results and returns a dict of `BhyResult` containers keyed by metric label. Each `BhyResult` exposes `.survivors`, `.adj_p`, `.q`, `.expand_over`, and `.n_tests` for audit.
+The input list is the family. `bhy` runs one Benjamini-Yekutieli step-up over all results and returns a dict of `BhyResult` containers keyed by metric label. Each `BhyResult` exposes `.survivors`, `.adj_p`, `.q`, `.expand_over`, `.family_size`, and `.family` for audit.
 
 ```python
 bhy_ic = fx.multi_factor.bhy(results, metrics=["ic"], q=0.05)["ic"]

@@ -229,11 +229,15 @@ def oos_decay(
               ``"insufficient_oos_periods"``
 
     Notes:
-        For multi-fraction sweeps, call ``oos_decay`` per fraction and
-        aggregate on the caller side::
-
-            results = {f: oos_decay(series, is_ratio=f) for f in (0.6, 0.7, 0.8)}
-            median = statistics.median(r.value for r in results.values())
+        **One call is one split.** A regime change landing near the cut point
+        can reverse this gate, so for a fraction-robust read use
+        :func:`oos_decay_splits`, which runs this same primitive over a set of
+        fractions the caller declares up front, purges the overlapping
+        in-sample tail, and reports one aggregate verdict plus every
+        individual split. A caller-side loop over ``is_ratio`` does neither:
+        the overlapping-horizon leakage at each boundary stays unpurged, and
+        the rule that turns the per-split ratios into one verdict is never
+        declared.
 
         Descriptive only — no ``p_value`` is emitted.
 
@@ -486,7 +490,9 @@ def _run_one_split(
     """Run the primitive at one cut point with the purge gap applied.
 
     *clean* carries one finite observation per period, sorted by date, so
-    ``int(n * fraction)`` is a period index on the distinct-date grid. The
+    ``int(n * fraction)`` is a period index on the retained distinct-date
+    grid — the series' own grid after the non-finite drop, which is also the
+    grid the purge below is counted on. The
     purge drops the ``purge_periods`` periods immediately **before** that
     index — the in-sample tail whose forward-return windows reach into the
     out-of-sample side — and the primitive is then called on the surviving
@@ -636,8 +642,17 @@ def oos_decay_splits(
         ``n_sign_flips`` rather than by corrupting the number.
 
         **Purge.** ``forward_periods`` periods are dropped off the end of
-        each in-sample window, counted on the panel's distinct-date grid
-        (never calendar time). A value stamped at period ``t`` built from a
+        each in-sample window, counted on the series' own distinct-date grid
+        **after** the non-finite drop (never calendar time) — the same grid
+        the split index is taken on. Dropping observations only removes
+        periods from that grid, so the resulting gap spans **at least**
+        ``forward_periods`` periods of the producing panel's grid, and more
+        wherever the band it covers had missing values: on a 104-period
+        series with 4 non-finite observations inside the band,
+        ``forward_periods=5`` leaves a gap of 10 panel periods. Purging wider
+        than the horizon is safe — it only removes in-sample observations —
+        where purging narrower would leave the leakage the gap exists for.
+        A value stamped at period ``t`` built from a
         ``forward_periods``-period forward return is realised over
         ``(t, t + forward_periods]``, so without the gap the last in-sample
         observations are partly realised inside the out-of-sample window —

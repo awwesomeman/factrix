@@ -76,6 +76,11 @@ title: factrix.metrics.event_horizon
     Any observed non-finite or non-positive `price` invalidates that baseline,
     so the metric returns `value=NaN`, an empty `per_offset` mapping, and
     `WarningCode.METRIC_UNAVAILABLE` with `reason="invalid_price_data"`.
+    A baseline that no valid price could form at all takes the same branch —
+    empty `per_offset`, same warning — under `reason="no_finite_baseline_returns"`
+    (no asset yielded a finite single-period return, e.g. a panel whose prices
+    never fall on two adjacent periods); `n_invalid_prices` is `0` there, which
+    is what separates the two.
     Raw paths may already have been formed before the baseline check, so
     `n_events` / `n_obs` still report the distinct events that computation
     actually used. Their per-offset computed/censored counts are deliberately

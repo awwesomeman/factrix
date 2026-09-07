@@ -512,7 +512,10 @@ Pre/post-event return profile; descriptive.
   non-positive price instead withdraws the entire curve with
   `reason=invalid_price_data`, an empty `per_offset` mapping, and
   `WarningCode.METRIC_UNAVAILABLE`; `n_invalid_prices` reports the offending
-  row count. `n_events` / `n_obs` still report the events used by the raw-path
+  row count. A baseline that no valid price could form takes the same branch —
+  same empty `per_offset` and same warning — under
+  `reason=no_finite_baseline_returns` with `n_invalid_prices=0`. `n_events` /
+  `n_obs` still report the events used by the raw-path
   computation, but its per-offset counts are withheld because that curve was
   discarded. Null prices remain valid missing data on a ragged panel.
 

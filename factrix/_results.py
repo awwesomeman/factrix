@@ -43,7 +43,8 @@ class MetricResult:
             single integer count is not meaningful (e.g. multi-window
             CAAR series).
         n_obs_axis: Sample dimension ``n_obs`` counts along — one of
-            ``"periods"`` / ``"events"`` / ``"pairs"`` / ``"assets"``.
+            ``"periods"`` / ``"events"`` / ``"pairs"`` / ``"asset_pairs"`` /
+            ``"assets"``.
             A bare count is uninterpretable without its axis (a
             Fama-MacBeth ``n_obs`` is periods; a pooled-OLS one is
             ``(date, asset)`` pairs), so producers stamp the axis
@@ -309,7 +310,7 @@ class EvaluationResult:
         | ``alternative`` | str \| null | ``MetricResult.alternative`` |
         | ``stat`` | f64 \| null | ``MetricResult.stat`` |
         | ``n_obs`` | i64 \| null | ``MetricResult.n_obs`` — estimator effective sample size |
-        | ``n_obs_axis`` | str \| null | ``MetricResult.n_obs_axis`` — axis ``n_obs`` counts along (``periods`` / ``events`` / ``pairs`` / ``assets``) |
+        | ``n_obs_axis`` | str \| null | ``MetricResult.n_obs_axis`` — axis ``n_obs`` counts along (``periods`` / ``events`` / ``pairs`` / ``asset_pairs`` / ``assets``) |
         | ``is_applicable`` | bool | false for ``strict=False`` short-circuits |
         | ``reason`` | str \| null | short-circuit reason when not applicable |
         | ``warning_codes`` | list[str] | per-metric warning codes — bundle records sourced on this metric, unioned (de-duplicated, first-seen order) with ``MetricResult.warning_codes`` |
