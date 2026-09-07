@@ -176,10 +176,22 @@ def _detect_scope(raw: Any) -> tuple[FactorScope, str, int]:
         ``(scope, reason, n_identified_periods)`` where ``n_identified_periods``
         is the number of periods that carried a finite cell — the sample the
         decision was actually read from, not the panel's period count.
+
+        **Exception:** the ``n_assets <= 1`` short circuit below reads no cell
+        at all — the scope axis is trivially COMMON at one asset, whatever the
+        cells hold — so it has no identified-period count to report and
+        returns the panel's period count instead. Nothing consumes the number
+        there: :func:`_scope_unidentifiable_warning` fires only on the
+        unidentifiable ``INDIVIDUAL`` fallback, which this branch never takes.
     """
     n_assets = int(raw["asset_id"].n_unique())
     n_periods = int(raw["date"].n_unique())
     if n_assets <= 1:
+        # Documented exception to the third element's contract: this branch
+        # reads no cell, so it has no identified-period count and returns
+        # ``n_periods`` — not "periods that carried a finite cell". Safe
+        # because the only consumer, ``_scope_unidentifiable_warning``,
+        # excludes ``n_assets <= 1`` outright.
         return (
             FactorScope.COMMON,
             f"n_assets = {n_assets}: scope axis trivially COMMON at n_assets == 1",

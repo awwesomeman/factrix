@@ -22,8 +22,8 @@ screen = fx.multi_factor.partial_conjunction_across_metrics(
 )
 
 screen.to_frame()
-# factor | pc_p | adj_p | survived | active
-#        | n_tests | n_passed_uncorr
+# factor | pc_p | adj_p | survived | eligible
+#        | family_size | n_passed_uncorr
 ```
 
 This differs from [`bhy_across_metrics`](bhy-across-metrics.md): pooled BHY

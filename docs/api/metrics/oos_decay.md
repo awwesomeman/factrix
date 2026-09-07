@@ -117,10 +117,16 @@ number.
 $(t,\, t + \texttt{forward\_periods}]$, so the last in-sample observations
 are partly realised inside the out-of-sample window. `oos_decay_splits`
 drops `forward_periods` periods off the end of each in-sample window —
-counted on the panel's distinct-date grid, never calendar time — which is
-the purge of Lopez de Prado (2018). The gap comes off the **in-sample** side
-only: the out-of-sample window is the thing being validated and is never
-shortened to protect the window it is validated against.
+counted on the series' own distinct-date grid *after* the non-finite drop,
+never calendar time — which is the purge of Lopez de Prado (2018). Because
+that drop only removes periods, the resulting gap spans **at least**
+`forward_periods` periods of the producing panel's grid (a 104-period series
+with 4 non-finite observations inside the band gives a 10-panel-period gap at
+`forward_periods=5`). Purging wider than the horizon is safe; purging
+narrower would leave the leakage the gap exists for. The gap comes off the
+**in-sample** side only: the out-of-sample window is the thing being
+validated and is never shortened to protect the window it is validated
+against.
 
 ```python title="Illustrative"
 from factrix.metrics import oos_decay_splits
