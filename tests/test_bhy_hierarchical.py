@@ -61,7 +61,7 @@ def test_singleton_group_warns():
         + _grouped({"b": 0.5}, "g2", "ic")
         + _grouped({"c": 0.5, "d": 0.5}, "g3", "ic")
     )
-    with pytest.warns(RuntimeWarning, match="single result"):
+    with pytest.warns(RuntimeWarning, match="family size 1"):
         bhy_hierarchical(results, metrics=["ic"], group="family", q=0.5)
 
 

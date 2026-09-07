@@ -126,7 +126,7 @@ def test_hierarchical_matches_bhy_on_the_same_degenerate_family():
         _shortage("b_dead", params={"family": "value"}),
         _shortage("c", params={"family": "carry"}),
     ]
-    with pytest.warns(RuntimeWarning, match="single result"):
+    with pytest.warns(RuntimeWarning, match="family size 1"):
         out = bhy_hierarchical(
             results,
             metrics=["ic"],

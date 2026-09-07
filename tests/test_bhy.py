@@ -298,7 +298,7 @@ def test_singleton_buckets_warn():
         make_result(factor="f1", p=0.001, metric="ic", params={"region": "US"}),
         make_result(factor="f2", p=0.001, metric="ic", params={"region": "EU"}),
     ]
-    with pytest.warns(RuntimeWarning, match="single result"):
+    with pytest.warns(RuntimeWarning, match="family size 1"):
         bhy(results, metrics=["ic"], expand_over=("region",), q=0.5)
 
 

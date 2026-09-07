@@ -53,8 +53,8 @@ The returned dictionary maps each mainstream metric label to a `BhyResult` conta
 | `adj_p` | `np.ndarray` | Adjusted p-value for the survivors, aligned with `survivors` (derived). |
 | `q` | `float` | The nominal target FDR you passed. |
 | `expand_over` | `tuple[str, ...]` | `()` for a single family; `("regime_id",)` etc. otherwise. |
-| `family_size` | `Mapping[tuple, int]` | `{(): N}` or `{bucket_key: m_per_bucket}` — the `m` each step-up ran on. Under `inactive_policy="count"` that includes inactive candidates at an inert `p = 1`. |
-| `family` | `FamilyAccounting` | Declared / computed / inactive / adjusted candidate counts and the policy that produced them (see [inactive candidates](multi-factor.md#inactive-candidates)). |
+| `family_size` | `Mapping[tuple, int]` | `{(): N}` or `{bucket_key: m_per_bucket}` — the `m` each step-up ran on. This includes declared-unsubmitted candidates and, under `inactive_policy="count"`, submitted inactive candidates at an inert `p = 1`. |
+| `family` | `FamilyAccounting` | Declared / computed / inactive / unsubmitted / adjusted candidate counts and the policy that produced them (see [declared family size](multi-factor.md#declared-family-size)). |
 
 Call `result.to_frame()` for a `factor | adj_p | survived` DataFrame over
 **all** tested factors — so a screen of N factors passing 2 still shows how
@@ -75,6 +75,7 @@ when buckets are declared.
 |-------|---------|---------|
 | `metrics` | (required) | `list[str]` of metric labels to run the FDR screen for. |
 | `expand_over` | `()` | Params keys whose distinct value tuples split the input into independent step-ups. Names must live in `EvaluationResult.params` (except for the built-in `"forward_periods"`). Naming a `metadata` key is rejected — bookkeeping does not define a family. |
+| `family_size` | `None` | Complete family size per bucket. A scalar applies to every bucket; a mapping keyed by `expand_over` tuples declares heterogeneous sizes. Must not be smaller than the submitted count. See [declared family size](multi-factor.md#declared-family-size). |
 | `q` | `0.05` | Nominal false discovery rate target. The Benjamini–Yekutieli $c(m)$ correction is applied internally — pass the level you actually want; do not pre-divide. |
 | `inactive_policy` | `"count"` | Whether a candidate that never ran a test still counts toward `m`. `"count"` keeps it at an inert `p = 1`; `"exclude"` drops it, which is valid only under an independent or pre-specified activity filter. See [inactive candidates](multi-factor.md#inactive-candidates). |
 

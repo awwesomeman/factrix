@@ -161,8 +161,8 @@ per metric — the same `_FdrResultBase` shape as `bhy`'s
 | `pc_p_all` | Raw PC $p$-value (pre-BHY), aligned with `entries` |
 | `survivors` / `adj_p` | Surviving subset and its adjusted p-value (derived from `adj_p_all <= q`) |
 | `min_pass` | The $k$ you passed |
-| `family_size` | Keyed by the identity tuple — `factor`, then `forward_periods` and `params` items not named by `expand_over` → the k-of-m denominator $m$ for that identity |
-| `family` | Declared / computed / inactive / adjusted condition counts and the `inactive_policy` used |
+| `family_size` | Keyed by the identity tuple — `factor`, then `forward_periods` and `params` items not named by `expand_over` → the k-of-m denominator $m$ for that identity, including declared-unsubmitted conditions |
+| `family` | Declared / computed / inactive / unsubmitted / adjusted condition counts and the `inactive_policy` used |
 | `n_passed_uncorr_all` | Per-identity count of family conditions with raw $p \le q$ (an inert condition enters at $p = 1$ and never counts as a pass) — the same `<=` rejection rule every screen uses — aligned with `entries`. Descriptive — flags borderline (`n_passed_uncorr_all == min_pass`) and data-gap cases at a glance. **Cutoff is your `q`**, so the count moves with `q` — using it to override `adj_p` survivor selection is the anti-shopping failure mode this function exists to prevent. |
 
 `to_frame()` gives a `factor | adj_p | survived` DataFrame over every tested

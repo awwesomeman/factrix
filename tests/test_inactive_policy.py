@@ -145,6 +145,7 @@ def test_repr_shows_the_family_counts_and_the_policy(policy):
 
     token = (
         f"family(declared=10, computed=1, inactive=9, "
+        f"unsubmitted=0, "
         f"adjusted={adjusted}, policy={policy!r})"
     )
     assert token in repr(out)
@@ -219,7 +220,7 @@ def test_bucketed_family_counts_inactive_candidates_in_their_own_bucket():
     assert counted.family_size == {("US",): 2, ("EU",): 2}
     assert counted.family.n_tests_adjusted == 4
 
-    with pytest.warns(RuntimeWarning, match="single result"):
+    with pytest.warns(RuntimeWarning, match="family size 1"):
         excluded = bhy(
             results,
             metrics=["ic"],
