@@ -339,13 +339,38 @@ def rank_turnover(
         pl.len().over("date").alias("n_curr"),
     ).sort("asset_id", "date")
 
-    # Lag-within-asset avoids a self-join on (prev_date, asset_id):
-    # rank_prev at date_k is this asset's rank at the previous *sampled*
-    # date, which is the prior row in each asset's sorted group.
-    paired = ranked.with_columns(
-        pl.col("rank_curr").shift(1).over("asset_id").alias("rank_prev"),
-        pl.col("n_curr").shift(1).over("asset_id").alias("n_prev"),
-    ).drop_nulls(["rank_prev"])
+    # Pair on the sampled *period grid*, not on each asset's own rows.
+    # ``shift(1).over("asset_id")`` reaches back to the asset's previous
+    # surviving row, which on a ragged panel is more than ``lag`` periods
+    # away: the asset is then compared against a rank it held two or more
+    # periods earlier while every other name is compared one period back,
+    # so ``rebalance_lag`` is not the stride actually applied to it. A
+    # factor that reverses each period reads as a name that never moved,
+    # and ``n_obs`` is unchanged, so nothing announces the substitution.
+    # ``notional_turnover`` already pairs this way; one date_map keeps the
+    # two members of this family counting the same quantity.
+    # ``_sample_non_overlapping`` already strided the grid by ``lag``, so
+    # adjacent *sampled* periods are one rebalance apart: the map shifts by
+    # one on this grid, not by ``lag`` again.
+    sampled_dates = ranked["date"].unique().sort()
+    date_map = pl.DataFrame(
+        {"date": sampled_dates[1:], "prev_date": sampled_dates[:-1]}
+    )
+    previous = ranked.select(
+        pl.col("date").alias("prev_date"),
+        "asset_id",
+        pl.col("rank_curr").alias("rank_prev"),
+        pl.col("n_curr").alias("n_prev"),
+    )
+    # An inner join drops the rebalances an asset cannot form — absent at
+    # the previous sampled period, it has no prior rank to move from. That
+    # is the same row set ``drop_nulls(["rank_prev"])`` kept before, minus
+    # the pairs that were reaching across a hole.
+    paired = (
+        ranked.join(date_map, on="date", how="inner")
+        .join(previous, on=["prev_date", "asset_id"], how="inner")
+        .sort("asset_id", "date")
+    )
 
     if quantile is not None:
         in_tail = (
