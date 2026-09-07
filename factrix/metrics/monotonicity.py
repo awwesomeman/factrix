@@ -290,6 +290,12 @@ def monotonicity(
         signed mean still tells the useful story that the factor sorts returns
         but flips sign across dates.
 
+        The secondary signed-Spearman t-test remains two-sided: it asks whether
+        the mean signed correlation differs from zero in either direction. Its
+        ``signed_spearman_alternative`` metadata labels that tail explicitly,
+        because the headline is a different, one-sided MR hypothesis whose
+        ``alternative="greater"`` must not be borrowed for this p-value.
+
         **Deviation from the paper.** Patton-Timmermann bootstrap the raw
         (unstudentised) differences, which is what runs here. Their studentised
         variant is not implemented.
@@ -464,6 +470,7 @@ def monotonicity(
         mean_mono = float(np.mean(mono_arr))
         std_mono = float(np.std(mono_arr, ddof=DDOF))
         t_signed = _calc_t_stat(mean_mono, std_mono, len(mono_arr))
+        signed_spearman_alternative: Literal["two-sided"] = "two-sided"
         metadata: dict[str, object] = {
             "method": (
                 "Patton-Timmermann (2010) MR test; stationary-bootstrap "
@@ -474,7 +481,12 @@ def monotonicity(
             "mean_abs_spearman": avg_mono,
             "mean_signed": mean_mono,
             "signed_spearman_t": t_signed,
-            "signed_spearman_p_value": _p_value_from_t(t_signed, len(mono_arr)),
+            "signed_spearman_p_value": _p_value_from_t(
+                t_signed,
+                len(mono_arr),
+                signed_spearman_alternative,
+            ),
+            "signed_spearman_alternative": signed_spearman_alternative,
             "n_valid_periods": len(mono_arr),
             "n_groups": n_groups,
             "tie_ratio": tie_ratios[f],
