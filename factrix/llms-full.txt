@@ -274,6 +274,7 @@ Typed pre-flight introspection that combines axis detection with a per-metric us
   - `unusable` (`MetricApplicabilityGroup` / `Tier.UNUSABLE`): Metrics that will short-circuit to NaN.
 - The usability tier classification is determined using the metric's `SampleThreshold`.
 - `.to_metrics_dict()` on a group returns the `{label: instance}` dictionary that `evaluate(metrics=...)` expects.
+- `DataInspection.factors: dict[str, FactorInspection]` carries one result per inspected column — `evaluate`'s own granularity. Each `FactorInspection` has `factor` (the column name), its own `properties`, `metrics`, `warnings` and the same `usable` / `degraded` / `unusable` partitions; nothing in it is inherited from a sibling column. `properties` / `metrics` on `DataInspection` are the concise aggregate and describe the FIRST inspected column (they are exactly `factors[<first column>]`), so single-factor callers never touch the mapping. A `cross_factor_*_mismatch` warning names the basis column and the columns that disagree with it. `n_periods` / `n_assets` are panel-level on every `FactorInspection`; per-column coverage gates metrics through the per-column stage-one profile instead.
 - The verdict reads each metric's **default-configuration** floor. For the floor a configured instance gates on at run time, use `sample_requirements`.
 
 ---
