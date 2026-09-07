@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import itertools
+
 import pytest
 from factrix._compare import compare
 from factrix._errors import UserInputError
@@ -257,6 +259,37 @@ def test_rank_is_invariant_to_input_order(method, order):
     assert df["factor"].to_list() == ["a", "b", "c"]
     expected = {"min": [1, 1, 3], "dense": [1, 1, 2], "ordinal": [1, 2, 3]}[method]
     assert df["rank"].to_list() == expected
+
+
+def test_ordinal_rank_is_invariant_for_list_valued_params():
+    make_spec("ic")
+    windows = ((1, 2), (3, 4), (5, 6), (7, 8))
+    orderings = set()
+    for order in itertools.permutations(windows):
+        results = [
+            make_result(
+                factor="same",
+                p=0.1,
+                metric="ic",
+                value=0.05,
+                params={"window": list(window)},
+            )
+            for window in order
+        ]
+        board = compare(
+            results,
+            metrics=["ic"],
+            sort_by="ic_p_value",
+            rank_method="ordinal",
+        )
+        orderings.add(tuple(tuple(value) for value in board["window"].to_list()))
+        assert board["rank"].to_list() == [1, 2, 3, 4]
+
+    assert orderings == {windows}
+
+    by_window = compare(results, metrics=["ic"], sort_by="window")
+    sorted_windows = tuple(tuple(value) for value in by_window["window"].to_list())
+    assert sorted_windows == windows
 
 
 def test_unknown_rank_method_raises():

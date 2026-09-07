@@ -109,10 +109,12 @@ def compare(
       :class:`UserInputError`. Pass ``descending`` explicitly there.
 
     Row order and ties: rows are sorted on ``sort_by``, then on ``factor``
-    and ``forward_periods`` ascending, then on any params column of a
-    sortable dtype. The output therefore does not depend on the order of
-    ``results``. Rows equal on every one of those columns are
-    indistinguishable and keep input order among themselves.
+    and ``forward_periods`` ascending, then on params and output columns.
+    Columns Polars cannot sort natively use a canonical, type-tagged string
+    only as an internal ordering key; their returned values are untouched.
+    The output therefore does not depend on the order of ``results``. Rows
+    equal on every one of those columns are indistinguishable and keep input
+    order among themselves.
 
     Missing values: a ``null`` or ``NaN`` ``sort_by`` value sorts **last**
     in both directions and carries a ``null`` rank under every
@@ -248,32 +250,93 @@ def _resolve_descending(
     return False
 
 
-def _sortable_tiebreaks(data: pl.DataFrame, sort_by: str) -> list[str]:
-    """Return the deterministic secondary sort keys, in application order."""
+def _is_natively_sortable(dtype: pl.DataType) -> bool:
+    """Whether Polars can use ``dtype`` directly as a leaderboard key."""
+    return (
+        dtype.is_numeric()
+        or dtype.is_temporal()
+        or dtype in (pl.Boolean, pl.String)
+    )
+
+
+def _canonical_sort_value(value: object) -> str | None:
+    """Return a stable, type-preserving ordering token for a nested value."""
+    if value is None:
+        return None
+    if isinstance(value, pl.Series):
+        value = value.to_list()
+    type_name = f"{type(value).__module__}.{type(value).__qualname__}"
+    if isinstance(value, Mapping):
+        items = sorted(
+            (
+                _canonical_sort_value(key) or "builtins.NoneType:None",
+                _canonical_sort_value(item) or "builtins.NoneType:None",
+            )
+            for key, item in value.items()
+        )
+        return f"{type_name}:{items!r}"
+    if isinstance(value, list | tuple):
+        items = [
+            _canonical_sort_value(item) or "builtins.NoneType:None" for item in value
+        ]
+        return f"{type_name}:{items!r}"
+    if isinstance(value, set | frozenset):
+        items = sorted(
+            _canonical_sort_value(item) or "builtins.NoneType:None" for item in value
+        )
+        return f"{type_name}:{items!r}"
+    return f"{type_name}:{value!r}"
+
+
+def _deterministic_tiebreaks(
+    data: pl.DataFrame, sort_by: str
+) -> tuple[pl.DataFrame, list[str], list[str]]:
+    """Attach canonical keys where needed and return all secondary keys."""
     keys = [c for c in _IDENTITY_COLS if c != sort_by]
+    hidden: list[str] = []
     for name, dtype in data.schema.items():
         if name in _IDENTITY_COLS or name == sort_by:
             continue
-        if (
-            dtype.is_numeric()
-            or dtype.is_temporal()
-            or dtype in (pl.Boolean, pl.String)
-        ):
+        if _is_natively_sortable(dtype):
             keys.append(name)
-    return keys
+            continue
+        hidden_name = _unused_column_name(
+            [*data.columns, *hidden], f"__factrix_tiebreak_{len(hidden)}"
+        )
+        data = data.with_columns(
+            pl.Series(
+                hidden_name,
+                [_canonical_sort_value(value) for value in data[name].to_list()],
+                dtype=pl.String,
+            )
+        )
+        keys.append(hidden_name)
+        hidden.append(hidden_name)
+    return data, keys, hidden
 
 
 def _rank(
     data: pl.DataFrame, *, sort_by: str, descending: bool, rank_method: RankMethod
 ) -> pl.DataFrame:
     """Sort ``data`` on ``sort_by`` and attach the ``rank`` column."""
+    data, tiebreaks, hidden_tiebreaks = _deterministic_tiebreaks(data, sort_by)
     sort_key_name = _unused_column_name(data.columns, _SORT_KEY)
+    dtype = data.schema[sort_by]
     key = pl.col(sort_by)
-    if data.schema[sort_by] in (pl.Float32, pl.Float64):
+    if dtype in (pl.Float32, pl.Float64):
         # Fold NaN into null so "missing last" holds in both directions.
         key = pl.when(key.is_nan()).then(None).otherwise(key)
-    data = data.with_columns(key.alias(sort_key_name))
-    tiebreaks = _sortable_tiebreaks(data.drop(sort_key_name), sort_by)
+        data = data.with_columns(key.alias(sort_key_name))
+    elif _is_natively_sortable(dtype):
+        data = data.with_columns(key.alias(sort_key_name))
+    else:
+        data = data.with_columns(
+            pl.Series(
+                sort_key_name,
+                [_canonical_sort_value(value) for value in data[sort_by].to_list()],
+                dtype=pl.String,
+            )
+        )
     data = data.sort(
         [sort_key_name, *tiebreaks],
         descending=[descending, *[False] * len(tiebreaks)],
@@ -290,7 +353,7 @@ def _rank(
         .cast(pl.Int64)
         .alias("rank")
     )
-    return data.drop(sort_key_name)
+    return data.drop(sort_key_name, *hidden_tiebreaks)
 
 
 def _unused_column_name(columns: Iterable[str], preferred: str) -> str:

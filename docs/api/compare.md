@@ -57,7 +57,7 @@ The returned `pl.DataFrame` contains the following columns:
 | `metrics` | (required) | `list[str]` of metric labels to include in the leaderboard. |
 | `sort_by` | `None` | Any output column produced before ranking: `factor`, `forward_periods`, `params` keys, metric value columns such as `ic`, or p-value columns such as `ic_p_value` / `<metric_label>_p_value`. `None` keeps the original list order. |
 | `descending` | `None` | Sort direction for `sort_by`. `None` resolves it from the column under the [direction rule](#sort-direction); `True` / `False` states it outright and always wins. There is no global direction default. |
-| `rank_method` | `"min"` | How equal `sort_by` values are numbered: `"min"` (tied rows share the best rank, next rank skips: `1, 1, 3`), `"dense"` (share the rank, no gap: `1, 1, 2`), `"ordinal"` (every row numbered `1..N`). Polars' `Expr.rank` methods. |
+| `rank_method` | `"min"` | How equal `sort_by` values are numbered: `"min"` (tied rows share the best rank, next rank skips: `1, 1, 3`), `"dense"` (share the rank, no gap: `1, 1, 2`), `"ordinal"` (every row numbered `1..N`, using the deterministic [tie order](#ties-order-and-missing-values)). Polars' `Expr.rank` methods. |
 
 ### Sort direction
 
@@ -80,10 +80,12 @@ signed metrics such as `predictive_beta`, `fm_beta` and `spanning_alpha`, where
 ### Ties, order, and missing values
 
 Rows sort on `sort_by`, then on `factor` and `forward_periods` ascending, then on
-any `params` column of a sortable dtype, so the output does not depend on the
-order of the input `results`. Rows equal on every one of those columns are
-indistinguishable and keep input order among themselves; under `"min"` and
-`"dense"` they carry the same rank anyway.
+the remaining params and output columns, so the output does not depend on the
+order of the input `results`. List, struct and other columns Polars cannot sort
+natively use a canonical, type-tagged string as an internal ordering key; the
+returned column and its values stay unchanged. Rows equal on every one of those
+columns are indistinguishable and keep input order among themselves; under
+`"min"` and `"dense"` they carry the same rank anyway.
 
 A `null` or `NaN` `sort_by` value sorts **last** in both directions and carries a
 `null` rank under every `rank_method` — a row with no value has no place in the
