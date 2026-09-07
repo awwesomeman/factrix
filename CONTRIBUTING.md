@@ -14,6 +14,11 @@ python scripts/setup_dev.py   # installs the pre-commit framework hooks
 uv run pytest
 ```
 
+`--extra dev` is enough for `uv run pytest` to pass; the docs-site tests skip
+themselves, with a reason, until the `docs` extra is installed. Use
+`uv sync --frozen --all-extras` (what CI runs) to make the docs and pandas
+checks run rather than skip, and `uv run pytest -rs` to see every skip reason.
+
 ## Development cycle
 
 ```bash
@@ -28,7 +33,8 @@ gh pr create
 ## Before opening a PR
 
 - Keep the change scoped and include tests for new metrics, result fields, or API parameters.
-- Run `uv run pytest` locally.
+- Run `uv run pytest` locally, on an `--all-extras` environment so no check
+  silently skips.
 - Use `cz commit` for Conventional Commits.
 - Do not append commit signature trailers unless a future DCO policy explicitly
   requires them.

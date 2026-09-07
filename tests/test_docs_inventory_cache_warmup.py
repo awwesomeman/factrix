@@ -11,6 +11,7 @@ non-fatal so ``mkdocstrings`` reports whatever it finds in its own terms.
 
 from __future__ import annotations
 
+import importlib.metadata
 import pathlib
 import re
 import urllib.error
@@ -28,6 +29,30 @@ from scripts.mkdocs_hooks.warm_inventory_cache import (
 # the module there rather than dragging mkdocs into the declared floor.
 yaml = pytest.importorskip("yaml", reason="docs extra not installed")
 pytest.importorskip("mkdocstrings", reason="docs extra not installed")
+
+
+def _theme_installed() -> bool:
+    """Is the theme ``mkdocs.yml`` names resolvable by ``load_config``?
+
+    ``mkdocstrings`` requires ``mkdocs`` but not ``mkdocs-material``, so an
+    environment can import both and still abort ``load_config`` with
+    ``Unrecognised theme name: 'material'``. Only the two tests below resolve
+    the real config; the rest of the module exercises the hook and must keep
+    running. Report the missing distribution rather than the aborted build.
+    """
+    try:
+        importlib.metadata.version("mkdocs-material")
+    except importlib.metadata.PackageNotFoundError:
+        return False
+    return True
+
+
+#: Resolving ``mkdocs.yml`` needs the theme it declares; ``--extra docs``
+#: installs it.
+requires_theme = pytest.mark.skipif(
+    not _theme_installed(),
+    reason="resolving mkdocs.yml requires mkdocs-material from the docs extra",
+)
 
 MKDOCS_YML = pathlib.Path("mkdocs.yml")
 
@@ -185,6 +210,7 @@ def test_warm_up_is_not_itself_fatal(downloader, capsys) -> None:
     assert "unavailable" in capsys.readouterr().out
 
 
+@requires_theme
 def test_config_walk_finds_the_urls_mkdocs_actually_resolves() -> None:
     """The walk must fail loudly, not return ``[]``.
 
@@ -209,6 +235,7 @@ def test_config_walk_finds_the_urls_mkdocs_actually_resolves() -> None:
     assert set(found) == set(declared)
 
 
+@requires_theme
 def test_config_walk_is_not_silently_empty_on_a_renamed_key() -> None:
     """Renaming the key must change the result, so the pin above has teeth."""
     from mkdocs.config import load_config
