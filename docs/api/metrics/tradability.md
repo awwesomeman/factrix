@@ -14,8 +14,9 @@ title: factrix.metrics.tradability
 <hr>
 
 !!! warning "Two flavours of turnover — do not mix them"
-    `notional_turnover` is the Novy-Marx & Velikov (2016) $\tau$:
-    fraction of top-and-bottom quantile members replaced per rebalance.
+    `notional_turnover` is the Novy-Marx & Velikov (2016) $\tau$: the
+    fraction of each top/bottom quantile leg's notional traded per
+    rebalance, averaged over the two legs.
     This is the quantity whose units are compatible with `breakeven_cost`
     and `net_spread`. `rank_turnover` is `1 - mean(rank autocorrelation)`,
     a *rank-stability diagnostic* over the full cross-section — mid-rank
@@ -75,6 +76,50 @@ title: factrix.metrics.tradability
     stay consistent.
 
 </div>
+
+## The turnover convention
+
+`notional_turnover` reports **one-way** turnover on each equal-weight leg,
+
+$$
+\tau_{\text{leg}}(t) = \tfrac{1}{2} \sum_{i} \bigl| w_t(i) - w_{t-1}(i) \bigr| ,
+\qquad
+w_t(i) = \frac{\mathbb{1}\left[i \in Q(t)\right]}{\left|Q(t)\right|} ,
+$$
+
+the sum running over the **union** of the leg's prior and current holdings. An
+unchanged book gives 0 and a full rotation gives 1; `value` is the average of
+the top and bottom legs, which is why the cost helpers multiply it back up by
+$4\tau$ (2 legs $\times$ 2 trades). Halve a two-way (round-trip) turnover quote
+before comparing it to this number, exactly as for `estimated_cost_bps`.
+
+Writing $k = |Q(t)|$, $j = |Q(t-1)|$ and $m = |Q(t) \cap Q(t-1)|$, that sum has
+the exact closed form
+
+$$
+\tau_{\text{leg}}(t) = 1 - \frac{m}{\max(j,\, k)} ,
+$$
+
+because the survivors' resizing term $m \cdot |1/k - 1/j|$ cancels against the
+smaller side's entries or exits. The metric evaluates this form, so the
+membership definition and the weight-change definition are the same statement,
+not two approximations of each other.
+
+!!! warning "A shrinking leg books its liquidations"
+    Denominating by today's leg size $k$ alone counts only the buys. That is
+    the same number whenever the leg grows or holds its size, and it
+    understates a leg that **shrinks** — a holding delisted, a narrowing
+    universe, a thinner bucket. A four-name universe cut to two, with both
+    survivors keeping their leg, forces each equal-weight leg to sell the
+    departed name and double the survivor: $\tau = 0.5$, where the $1 - m/k$
+    reading was $0$.
+
+    A rebalance is skipped when *either* date leaves *either* leg empty: a
+    weight change needs both portfolios to exist. `metadata["n_rebalances"]`
+    counts the rebalances actually priced, and `mean_tail_size` /
+    `mean_top_tail_size` / `mean_bottom_tail_size` report the **current** leg
+    sizes at $t$ — they equal the turnover denominator only while the legs do
+    not shrink.
 
 ## Four period counts, four questions
 

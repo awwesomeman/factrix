@@ -6,8 +6,11 @@ Two flavours of turnover co-exist here, measuring different things:
   diagnostic; responds to mid-rank reshuffling. **Not** a notional
   trading-fraction and should **not** be fed into ``breakeven_cost`` /
   ``net_spread``.
-- ``notional_turnover()`` — fraction of top-and-bottom quantile members
-  replaced per rebalance. Matches [Novy-Marx-Velikov (2016)][novy-marx-velikov-2016] τ; this is
+- ``notional_turnover()`` — one-way ``0.5 × Σ|Δw|`` on the equal-weight
+  top-and-bottom quantile legs, i.e. the fraction of each leg's notional
+  traded per rebalance, averaged over the two legs. Members that leave the
+  universe count on the sell side, so a shrinking universe books its
+  liquidations. Matches [Novy-Marx-Velikov (2016)][novy-marx-velikov-2016] τ; this is
   the quantity that drives bps trading cost for an equal-weight Q1/Qn
   long-short portfolio.
 
@@ -450,15 +453,25 @@ def notional_turnover(
     [Novy-Marx-Velikov (2016)][novy-marx-velikov-2016] τ = fraction of
     portfolio value replaced per rebalance.
 
-    Per-rebalance turnover is the mean of two one-sided overlap losses::
+    **Convention: one-way turnover on the equal-weight leg.** Each leg's
+    per-rebalance turnover is ``0.5 × Σ_i |w_t(i) − w_{t-1}(i)|`` over the
+    **union** of the leg's prior and current holdings, with ``w`` the
+    equal weight ``1 / |Q(t)|`` on members and ``0`` elsewhere. This is the
+    standard one-way (half-sum) convention: a full rotation costs ``1``, an
+    unchanged book ``0``. The two legs are averaged, not summed::
 
-        top_churn = 1 - |Q_top_t ∩ Q_top_{t-1}| / |Q_top_t|
-        bot_churn = 1 - |Q_bot_t ∩ Q_bot_{t-1}| / |Q_bot_t|
+        top_churn = 1 - |Q_top_t ∩ Q_top_{t-1}| / max(|Q_top_t|, |Q_top_{t-1}|)
+        bot_churn = 1 - |Q_bot_t ∩ Q_bot_{t-1}| / max(|Q_bot_t|, |Q_bot_{t-1}|)
         turnover  = (top_churn + bot_churn) / 2
 
-    ``(k − m) / k`` for ``k`` names in today's tail and ``m`` carry-overs
-    equals the fraction of that leg that must be traded under equal
-    weighting. Averaging the two legs (rather than summing) is what makes
+    The closed form is exact, not an approximation: for ``k`` names in
+    today's leg, ``j`` in the prior leg and ``m`` carried over, the
+    survivors' resizing term ``m·|1/k − 1/j|`` cancels against the smaller
+    side's entries or exits, leaving ``1 − m / max(j, k)``. A leg that grows
+    or holds its size reproduces the plain ``(k − m) / k``; a leg that
+    **shrinks** — a name delisted, or the universe itself narrowing — prices
+    the liquidation and the survivors' resizing that ``(k − m) / k`` misses
+    entirely. Averaging the two legs (rather than summing) is what makes
     τ a **per-leg** replaced fraction, which is the input
     ``breakeven_cost`` / ``net_spread`` expect: they multiply it back up
     by ``4`` (2 legs × 2 trades per replacement).
@@ -516,10 +529,12 @@ def notional_turnover(
         panel's stamp, unchanged), ``rebalance_lag`` (the stride actually
         sampled at), ``mean_top_turnover`` / ``mean_bottom_turnover`` (each
         leg's mean replaced fraction — ``value`` is their mean),
-        ``mean_tail_size`` (per-date average of ``(|Q_top| + |Q_bot|)/2``;
-        ≠ ``n_assets / n_groups`` signals unbalanced buckets from ties or a
-        short universe) with its per-leg split ``mean_top_tail_size`` /
-        ``mean_bottom_tail_size``, ``method``.
+        ``mean_tail_size`` (per-date average of ``(|Q_top| + |Q_bot|)/2`` at
+        ``t``, the *current* leg sizes — the turnover denominator is
+        ``max(|Q(t)|, |Q(t-1)|)``, so the two coincide only while the legs do
+        not shrink; ≠ ``n_assets / n_groups`` signals unbalanced buckets from
+        ties or a short universe) with its per-leg split
+        ``mean_top_tail_size`` / ``mean_bottom_tail_size``, ``method``.
 
         **Long-only reading.** ``mean_top_turnover`` is the membership churn
         of the equal-weight top-quantile book on its own — the matched
@@ -532,12 +547,20 @@ def notional_turnover(
         book's — and do not mix the two readings.
 
     Notes:
-        Per rebalance date ``t``::
+        Per rebalance date ``t``, with ``k`` = ``|Q(t)|``, ``j`` =
+        ``|Q(t-1)|`` and ``m`` = ``|Q(t) ∩ Q(t-1)|`` for each leg::
 
-            top_churn = 1 - |Q_top(t) ∩ Q_top(t-1)| / |Q_top(t)|
-            bot_churn = 1 - |Q_bot(t) ∩ Q_bot(t-1)| / |Q_bot(t)|
+            churn_t    = 0.5 * Σ_i |w_t(i) - w_{t-1}(i)| = 1 - m / max(j, k)
             turnover_t = (top_churn + bot_churn) / 2
-            value = mean_t turnover_t
+            value      = mean_t turnover_t
+
+        The sum runs over the **union** of the two holdings, so a name held
+        at ``t-1`` and gone at ``t`` — dropped from the leg, or delisted out
+        of the universe altogether — books its liquidation, and the
+        survivors' resizing is booked with it. Denominating by ``|Q(t)|``
+        alone counts only the buys, which is the same number whenever the leg
+        does not shrink and understates a shrinking leg (a four-name universe
+        narrowing to two, survivors unchanged, reads 0 against a true 0.5).
 
         factrix averages the two legs (rather than summing) so that ``value``
         is a **per-leg** replaced fraction in [0, 1]. The consumers restore
@@ -545,9 +568,10 @@ def notional_turnover(
         ``4 × turnover`` = 2 legs × 2 trades (sell the leaver, buy the
         joiner) with a one-way cost per trade. Summing the legs here
         instead would double-count against those coefficients.
-        Names dropped from ``Q_top(t-1)`` / ``Q_bot(t-1)`` by
-        delisting before ``t`` are silently missed on the sell side — a
-        real portfolio would still book that liquidation cost.
+
+        A rebalance is skipped when *either* date leaves *either* leg empty:
+        the difference between two weight vectors needs both portfolios to
+        exist, and there is no book to resize into or out of nothing.
 
     References:
         [Novy-Marx-Velikov (2016)][novy-marx-velikov-2016], "A Taxonomy of
@@ -619,21 +643,55 @@ def notional_turnover(
         )
     )
 
+    # Leg sizes are read off each date's *own* cross-section, not off the
+    # paired frame: a name held at t-1 and absent from the universe at t never
+    # enters the left join, so counting only today's rows would lose both the
+    # liquidation and the survivors' resizing. See the ``max`` denominator
+    # below (#1053).
+    leg_sizes = grouped.group_by("date").agg(
+        pl.col("is_top").sum().alias("n_top"),
+        pl.col("is_bot").sum().alias("n_bot"),
+    )
+    prev_leg_sizes = leg_sizes.select(
+        pl.col("date").alias("prev_date"),
+        pl.col("n_top").alias("n_top_prev"),
+        pl.col("n_bot").alias("n_bot_prev"),
+    )
+    overlaps = paired.group_by("date").agg(
+        (pl.col("is_top") & pl.col("was_top")).sum().alias("n_top_kept"),
+        (pl.col("is_bot") & pl.col("was_bot")).sum().alias("n_bot_kept"),
+    )
+
     per_date = (
-        paired.group_by("date")
-        .agg(
-            pl.col("is_top").sum().alias("n_top"),
-            (pl.col("is_top") & pl.col("was_top")).sum().alias("n_top_kept"),
-            pl.col("is_bot").sum().alias("n_bot"),
-            (pl.col("is_bot") & pl.col("was_bot")).sum().alias("n_bot_kept"),
+        leg_sizes.join(date_map, on="date")
+        .join(prev_leg_sizes, on="prev_date")
+        .join(overlaps, on="date")
+        # Both books must exist for a weight change to be defined: a rebalance
+        # into or out of an empty leg is not a turnover, it is the absence of
+        # one of the two portfolios the difference is taken between.
+        .filter(
+            (pl.col("n_top") > 0)
+            & (pl.col("n_bot") > 0)
+            & (pl.col("n_top_prev") > 0)
+            & (pl.col("n_bot_prev") > 0)
         )
-        .filter((pl.col("n_top") > 0) & (pl.col("n_bot") > 0))
+        # WHY max: for an equal-weight leg of ``k`` names now and ``j`` before
+        # with ``m`` survivors, ``0.5 * Σ|w_t − w_{t−1}|`` evaluates in closed
+        # form to ``1 − m / max(j, k)`` — the survivors' resizing term
+        # ``m·|1/k − 1/j|`` exactly cancels against the smaller side's
+        # entries/exits. Today's ``k`` alone is right only while the leg does
+        # not shrink; ``max`` is what makes a shrinking leg price its
+        # liquidations.
+        .with_columns(
+            pl.max_horizontal("n_top", "n_top_prev").alias("n_top_book"),
+            pl.max_horizontal("n_bot", "n_bot_prev").alias("n_bot_book"),
+        )
         # Each leg's replaced fraction is kept on its own: the long-short
         # ``value`` is their mean, but a long-only top-quantile book pays only
         # the top leg's churn, and the two can differ materially.
         .with_columns(
-            (1 - pl.col("n_top_kept") / pl.col("n_top")).alias("top_turnover"),
-            (1 - pl.col("n_bot_kept") / pl.col("n_bot")).alias("bot_turnover"),
+            (1 - pl.col("n_top_kept") / pl.col("n_top_book")).alias("top_turnover"),
+            (1 - pl.col("n_bot_kept") / pl.col("n_bot_book")).alias("bot_turnover"),
         )
         .with_columns(
             ((pl.col("top_turnover") + pl.col("bot_turnover")) / 2).alias("turnover")
@@ -689,8 +747,9 @@ def notional_turnover(
             "mean_top_tail_size": mean_top_tail_size,
             "mean_bottom_tail_size": mean_bottom_tail_size,
             "method": (
-                f"one-sided overlap on top/bottom {tail_pct:.0%} "
-                f"quantile, top/bot averaged"
+                f"one-way 0.5*sum|dw| on top/bottom {tail_pct:.0%} quantile "
+                f"(1 - overlap / max(prior, current) leg size), "
+                f"top/bot averaged"
             ),
         },
     )
@@ -878,8 +937,9 @@ def breakeven_cost(
         solve ``net = 0``):
 
         1. ``turnover`` τ from ``notional_turnover`` is the mean **per-leg**
-           fraction of the portfolio replaced per rebalance — the two legs
-           are averaged, not summed.
+           one-way ``0.5 × Σ|Δw|`` fraction of the portfolio replaced per
+           rebalance — the two legs are averaged, not summed, and holdings
+           that left the universe count on the sell side.
         2. Replacing a fraction τ of a leg is a sell of the leaver plus a
            buy of the joiner: **2τ** of traded notional per leg.
         3. A $1 long / $1 short spread holds two legs: **4τ** of traded
@@ -1046,9 +1106,11 @@ def net_spread(
         **Where the 4 comes from.** Each step of the accounting, in order:
 
         1. **Turnover definition.** τ from ``notional_turnover`` is the
-           mean **per-leg** fraction of the portfolio replaced per
-           rebalance — ``(top_churn + bot_churn) / 2``, an average of the
-           two legs, not their sum.
+           mean **per-leg** one-way ``0.5 × Σ|Δw|`` fraction of the
+           portfolio replaced per rebalance —
+           ``(top_churn + bot_churn) / 2``, an average of the two legs, not
+           their sum, and taken over the union of prior and current
+           holdings so a shrinking leg books its liquidations.
         2. **Trades per rebalance.** Replacing a fraction τ of a leg means
            selling the names that left and buying the names that joined:
            two trades, not one.
