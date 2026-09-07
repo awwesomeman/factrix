@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from typing import TypedDict
+
 import numpy as np
+import numpy.typing as npt
 import polars as pl
 
 from factrix._axis import (
@@ -11,9 +14,170 @@ from factrix._axis import (
     OutputShape,
     SpecRole,
 )
+from factrix._data_input import DataInput, _coerce_price_data
 from factrix._metric_index import cell
 from factrix._types import EPSILON
 from factrix.metrics._decorators import metric
+
+
+class EventOffsetAuditEntry(TypedDict):
+    eligible: int
+    computed: int
+    censored: int
+    censor_reasons: dict[str, int]
+
+
+type EventOffsetAudit = dict[int, EventOffsetAuditEntry]
+
+
+def _empty_event_returns(date_dtype: pl.DataType) -> pl.DataFrame:
+    return pl.DataFrame(
+        schema={
+            "offset": pl.Int32,
+            "date": date_dtype,
+            "asset_id": pl.String,
+            "signed_return": pl.Float64,
+            "sign": pl.Float64,
+        }
+    )
+
+
+def _record_censor(audit: EventOffsetAudit, offset: int, reason: str) -> None:
+    entry = audit[offset]
+    entry["censored"] += 1
+    reasons = entry["censor_reasons"]
+    reasons[reason] = reasons.get(reason, 0) + 1
+
+
+def _compute_event_returns_with_audit(
+    data: pl.DataFrame,
+    *,
+    price_data: pl.DataFrame | None,
+    offsets: list[int],
+    factor_col: str,
+    price_col: str,
+) -> tuple[pl.DataFrame, EventOffsetAudit]:
+    """Compute valid event-offset rows and account for every omitted row."""
+    date_dtype = data.schema["date"]
+    sorted_events = data.sort(["asset_id", "date"]).filter(pl.col(factor_col) != 0)
+    audit: EventOffsetAudit = {
+        offset: {
+            "eligible": sorted_events.height,
+            "computed": 0,
+            "censored": 0,
+            "censor_reasons": {},
+        }
+        for offset in offsets
+    }
+    if sorted_events.is_empty():
+        return _empty_event_returns(date_dtype), audit
+
+    paths = data if price_data is None else price_data
+    if price_col not in paths.columns:
+        for offset in offsets:
+            audit[offset]["censored"] = sorted_events.height
+            audit[offset]["censor_reasons"] = {
+                "missing_price_column": sorted_events.height
+            }
+        return _empty_event_returns(date_dtype), audit
+
+    sorted_paths = paths.sort(["asset_id", "date"])
+    grid_idx = {
+        date: index
+        for index, date in enumerate(sorted_paths["date"].unique().sort().to_list())
+    }
+    n_grid = len(grid_idx)
+    event_assets = set(sorted_events["asset_id"].unique().to_list())
+    asset_prices: dict[object, npt.NDArray[np.float64]] = {}
+    for asset_id, asset_frame in sorted_paths.partition_by(
+        "asset_id", as_dict=True, maintain_order=True
+    ).items():
+        key = asset_id[0]
+        if key not in event_assets:
+            continue
+        prices = np.full(n_grid, np.nan, dtype=np.float64)
+        positions = np.fromiter(
+            (grid_idx[date] for date in asset_frame["date"].to_list()),
+            dtype=np.int64,
+            count=asset_frame.height,
+        )
+        prices[positions] = asset_frame[price_col].to_numpy().astype(np.float64)
+        asset_prices[key] = prices
+
+    rows: list[dict[str, object]] = []
+    for row in sorted_events.iter_rows(named=True):
+        asset_id = row["asset_id"]
+        event_date = row["date"]
+        direction = np.sign(row[factor_col])
+        idx = grid_idx.get(event_date)
+        event_prices = asset_prices.get(asset_id)
+
+        for offset in offsets:
+            reason: str | None = None
+            if idx is None:
+                reason = "event_date_not_on_price_grid"
+            elif event_prices is None:
+                reason = "asset_not_in_price_data"
+            elif offset > 0:
+                entry_idx = idx + 1
+                exit_idx = idx + 1 + offset
+                if entry_idx >= n_grid or exit_idx >= n_grid:
+                    reason = "offset_out_of_bounds"
+                else:
+                    entry_price = event_prices[entry_idx]
+                    exit_price = event_prices[exit_idx]
+                    if not np.isfinite(entry_price):
+                        reason = "missing_entry_price"
+                    elif entry_price < EPSILON:
+                        reason = "invalid_entry_price"
+                    elif not np.isfinite(exit_price):
+                        reason = "missing_exit_price"
+                    else:
+                        signed_return = float(
+                            direction * (exit_price / entry_price - 1)
+                        )
+            else:
+                bar_idx = idx + offset
+                previous_idx = bar_idx - 1
+                if bar_idx < 0 or previous_idx < 0 or bar_idx >= n_grid:
+                    reason = "offset_out_of_bounds"
+                else:
+                    bar_price = event_prices[bar_idx]
+                    previous_price = event_prices[previous_idx]
+                    if not np.isfinite(previous_price):
+                        reason = "missing_previous_price"
+                    elif previous_price < EPSILON:
+                        reason = "invalid_previous_price"
+                    elif not np.isfinite(bar_price):
+                        reason = "missing_offset_price"
+                    else:
+                        signed_return = float(
+                            direction * (bar_price / previous_price - 1)
+                        )
+
+            if reason is not None:
+                _record_censor(audit, offset, reason)
+                continue
+            audit[offset]["computed"] += 1
+            rows.append(
+                {
+                    "offset": offset,
+                    "date": event_date,
+                    "asset_id": asset_id,
+                    "signed_return": signed_return,
+                    "sign": float(direction),
+                }
+            )
+
+    if not rows:
+        return _empty_event_returns(date_dtype), audit
+    return (
+        pl.DataFrame(rows).with_columns(
+            pl.col("offset").cast(pl.Int32),
+            pl.col("date").cast(date_dtype),
+        ),
+        audit,
+    )
 
 
 @metric(
@@ -28,6 +192,7 @@ from factrix.metrics._decorators import metric
 def compute_event_returns(
     data: pl.DataFrame,
     *,
+    price_data: DataInput | None = None,
     offsets: list[int] | None = None,
     factor_col: str = "factor",
     price_col: str = "price",
@@ -85,102 +250,34 @@ def compute_event_returns(
     panel's drift, in :func:`~factrix.metrics.event_horizon.event_around_return`)
     can sign the baseline the same way instead of subtracting ``+mu`` from a
     return that carries ``-mu``.
+
+    Args:
+        data: Evaluation panel owning event dates and factor values.
+        price_data: Optional complete ``date, asset_id, price`` panel. When
+            supplied, offsets walk this price grid while events still come
+            only from ``data``. This preserves tail and between-evaluation-date
+            prices removed by ``compute_forward_return``.
+        offsets: Period-grid offsets to compute.
+        factor_col: Event factor column on ``data``.
+        price_col: Price column on the selected price panel.
+
+    Returns:
+        One row per computed event-offset pair. Censored pairs remain omitted
+        from this low-level table; :func:`event_around_return` reports their
+        eligible, computed, censored, and reason counts per offset.
     """
-    if offsets is None:
-        offsets = [-6, -3, -1, 1, 6, 12, 24]
-
-    date_dtype = data.schema["date"]
-    empty_schema = {
-        "offset": pl.Int32,
-        "date": date_dtype,
-        "asset_id": pl.String,
-        "signed_return": pl.Float64,
-        "sign": pl.Float64,
-    }
-
-    if price_col not in data.columns:
-        return pl.DataFrame(schema=empty_schema)  # type: ignore[arg-type]
-
-    sorted_df = data.sort(["asset_id", "date"])
-    events = sorted_df.filter(pl.col(factor_col) != 0)
-
-    if len(events) == 0:
-        return pl.DataFrame(schema=empty_schema)  # type: ignore[arg-type]
-
-    # Offsets are counted on the panel's distinct-date grid, not on the asset's
-    # own rows: an asset missing periods that others have would otherwise step
-    # over the hole as though it were one period, so its "k periods after the
-    # event" price would sit further out on the grid than every other name's.
-    # Each asset's prices are laid onto the full grid, absent periods carrying
-    # NaN, and an offset that lands on one is skipped like a missing bar.
-    grid_idx = {d: i for i, d in enumerate(sorted_df["date"].unique().sort().to_list())}
-    n_grid = len(grid_idx)
-    event_assets = set(events["asset_id"].unique().to_list())
-    asset_prices: dict[str, np.ndarray] = {}
-    for aid in event_assets:
-        adf = sorted_df.filter(pl.col("asset_id") == aid)
-        prices = np.full(n_grid, np.nan, dtype=np.float64)
-        positions = np.fromiter(
-            (grid_idx[d] for d in adf["date"].to_list()),
-            dtype=np.int64,
-            count=adf.height,
-        )
-        prices[positions] = adf[price_col].to_numpy().astype(np.float64)
-        asset_prices[aid] = prices
-
-    rows: list[dict] = []
-    for row in events.iter_rows(named=True):
-        aid = row["asset_id"]
-        edate = row["date"]
-        direction = np.sign(row[factor_col])
-
-        prices = asset_prices[aid]
-        idx = grid_idx.get(edate)
-        if idx is None:
-            continue
-
-        for k in offsets:
-            if k > 0:
-                entry_idx = idx + 1
-                exit_idx = idx + 1 + k
-                if entry_idx >= n_grid or exit_idx >= n_grid:
-                    continue
-                entry_p = prices[entry_idx]
-                exit_p = prices[exit_idx]
-                if not np.isfinite(entry_p) or not np.isfinite(exit_p):
-                    continue
-                if entry_p < EPSILON:
-                    continue
-                raw_ret = exit_p / entry_p - 1
-                signed_ret = float(direction * raw_ret)
-            else:
-                bar_idx = idx + k
-                prev_idx = bar_idx - 1
-                if bar_idx < 0 or prev_idx < 0 or bar_idx >= n_grid:
-                    continue
-                bar_p = prices[bar_idx]
-                prev_p = prices[prev_idx]
-                if not np.isfinite(bar_p) or not np.isfinite(prev_p):
-                    continue
-                if prev_p < EPSILON:
-                    continue
-                raw_ret = bar_p / prev_p - 1
-                signed_ret = float(direction * raw_ret)
-
-            rows.append(
-                {
-                    "offset": k,
-                    "date": edate,
-                    "asset_id": aid,
-                    "signed_return": signed_ret,
-                    "sign": float(direction),
-                }
-            )
-
-    if not rows:
-        return pl.DataFrame(schema=empty_schema)  # type: ignore[arg-type]
-
-    return pl.DataFrame(rows).with_columns(
-        pl.col("offset").cast(pl.Int32),
-        pl.col("date").cast(date_dtype),
+    resolved_offsets = [-6, -3, -1, 1, 6, 12, 24] if offsets is None else offsets
+    resolved_prices = _coerce_price_data(
+        price_data,
+        data=data,
+        func_name="compute_event_returns",
+        price_col=price_col,
     )
+    returns, _ = _compute_event_returns_with_audit(
+        data,
+        price_data=resolved_prices,
+        offsets=resolved_offsets,
+        factor_col=factor_col,
+        price_col=price_col,
+    )
+    return returns

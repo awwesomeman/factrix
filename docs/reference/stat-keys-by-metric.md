@@ -489,6 +489,11 @@ is `clustering_hhi`).
 
 Pre/post-event return profile; descriptive.
 
+- *censor audit*: `n_events_eligible` counts events selected from the
+  evaluation grid before path availability is checked. Every `per_offset`
+  member reports `eligible`, `computed`, `censored`, and `censor_reasons`;
+  its `n` remains an alias for `computed`.
+
 - *descriptive*: `n_events` (distinct `(date, asset)` events behind the
   curve — also `n_obs`, axis `events`; one event contributes one row per
   offset, so this is not the row count), `per_offset` (dict
@@ -502,7 +507,7 @@ Pre/post-event return profile; descriptive.
   negative offset cleared the 5-event floor — `0.0` there was the *best*
   possible score for a quantity never computed. An observed non-finite or
   non-positive price instead withdraws the entire curve with
-  `reason=invalid_price_data`, `per_offset={}`, and
+  `reason=invalid_price_data`, audited `per_offset` entries, and
   `WarningCode.METRIC_UNAVAILABLE`; `n_invalid_prices` reports the offending
   row count. Null prices remain valid missing data on a ragged panel.
 - `p_value` is `None` — no hypothesis test runs, and no offset carries a
@@ -730,6 +735,9 @@ Descriptive; no test.
 - *descriptive* (conditional, when σ-normalised inputs available):
   `mfe_z_p50`, `mae_z_p25`, `mfe_mae_ratio_z`, `mfe_mae_ratio_z_status`,
   `n_events_z`.
+- *censor audit*: `n_events_eligible`, `n_events_computed`,
+  `n_events_censored`, and `censor_reasons`. Only computed paths enter the
+  summary and its sample floor; `n_events` aliases `n_events_computed`.
 - `p_value` is `None` — descriptive metric, no hypothesis test.
 ### `oos` (`factrix.metrics.oos_decay`)
 

@@ -81,7 +81,7 @@ CaseFactory = Callable[[], MetricResult]
                     mae=pl.Float64,
                 )
             ),
-            "no_price_data",
+            "no_events",
             UserInputError,
             id="mfe_mae",
         ),

@@ -87,6 +87,12 @@ long for the panel, or price data leaves no finite forward returns after
 filtering, the function raises [`UserInputError`](errors.md) instead of
 returning an empty panel.
 
+The returned rows are the **forward-return sample**, not a complete price
+history. Event offsets and MFE/MAE windows may need the dropped tail even when
+their event row remains in the sample. Preserve the raw panel and pass it as
+`evaluate(panel, price_data=raw, ...)`; see
+[Full price data for event paths](evaluate.md#full-price-data-for-event-paths).
+
 `winsorize_forward_return` clips `forward_return` by per-date quantiles.
 Its bounds must satisfy `0 <= lower <= upper <= 1`; invalid ordering,
 out-of-range values, non-numeric values, and `bool` bounds raise

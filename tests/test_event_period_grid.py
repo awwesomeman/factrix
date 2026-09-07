@@ -354,12 +354,15 @@ class TestRaggedExcursionWindow:
         # A dense name on the same panel is untouched.
         assert out.filter(pl.col("asset_id") == "A").height == 1
 
-    def test_excursion_entirely_inside_the_hole_yields_no_event(self) -> None:
+    def test_excursion_entirely_inside_the_hole_is_censored(self) -> None:
         # Event at period 59, hole 60-79, window 10: every period of the
         # excursion is missing for B, so there is no excursion to report.
         panel = _panel(gap=(60, 80), event_at=59)
         out = compute_mfe_mae(panel, window=10)
-        assert out.filter(pl.col("asset_id") == "B").height == 0
+        censored = out.filter(pl.col("asset_id") == "B")
+        assert censored.height == 1
+        assert censored["path_status"][0] == "censored"
+        assert censored["censor_reason"][0] == "missing_path_prices"
         assert out.filter(pl.col("asset_id") == "A").height == 1
 
 

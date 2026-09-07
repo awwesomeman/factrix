@@ -17,6 +17,84 @@ title: factrix.evaluate
 
 <hr>
 
+## Full price data for event paths
+
+`compute_forward_return` returns the evaluation panel: it removes rows whose
+forward return cannot be formed and, with `dates=`, keeps only the chosen
+evaluation dates. Those rows are the correct sample for return metrics, but
+they are not a complete price path. A later event offset or MFE/MAE window can
+need prices from the removed tail or from dates between evaluations.
+
+Keep the three grids separate by passing the original panel as `price_data`:
+
+```python
+import factrix as fx
+
+raw = fx.datasets.make_event_panel(n_assets=50, n_dates=400, rng=7)
+panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
+
+result = fx.evaluate(
+    panel,
+    price_data=raw,
+    metrics={
+        "path": fx.metrics.event_around_return(offsets=[-1, 6, 12, 24]),
+        "excursion": fx.metrics.mfe_mae(),
+    },
+    factor_cols=["factor"],
+    strict=False,
+)["factor"]
+```
+
+| Input/grid | Owns | Never contributes to |
+|---|---|---|
+| `price_data` price grid | Complete per-asset prices used by offsets, excursion windows, and the event baseline | Forward-return samples, sample floors, or factor routing |
+| `data` evaluation grid | Eligible event dates and the rows selected by `dates=` | Prices outside the returned panel |
+| Finite `data.forward_return` rows | Return estimates and their effective sample | Extending an event price path |
+
+`price_data` must contain unique `(date, asset_id)` keys plus `price`; its key
+dtypes must exactly match `data`. Extra columns are ignored, so the event and
+factor authority cannot silently move to the side panel. If `price_data` is
+omitted, event paths continue to use `data.price`.
+
+### Offsets and windows are counted on the grid that supplies them
+
+`offsets=` and `window=` are counts of periods on the price grid the path walk
+reads. Without `price_data` that grid is `data`'s own distinct dates; with
+`price_data` it is the price panel's. When the two grids differ, the same
+argument therefore spans a different amount of the sample, and the excursion or
+offset it measures changes with it.
+
+Measured on a panel whose evaluation grid keeps every tenth period of the price
+grid, `mfe_mae(window=3)`:
+
+| Grid the walk read | Median MFE |
+|---|---|
+| `data` evaluation grid (no `price_data`) | 0.1272 |
+| `price_data` price grid | 0.0120 |
+
+Three evaluation periods reach ten times further than three price periods, so
+the coarser grid reports the larger excursion. Neither number is wrong; they
+answer different questions. State the grid you mean, and scale `window=` and
+`offsets=` to it.
+
+### Behaviour change (pre-1.0)
+
+This is **not** an additive API. `evaluate_horizons` owns the raw panel and now
+forwards it as `price_data` on every call, so an existing `evaluate_horizons`
+run that includes `event_around_return` or `mfe_mae` changes value: event paths
+gain the tail and the between-evaluation periods that were previously
+unreachable, and offsets and windows are re-based onto the raw grid as above.
+Return-only metrics are unaffected.
+
+Migrate by deciding which grid each event-path argument counts on:
+
+- `evaluate_horizons` callers: re-read `offsets=` and `window=` against the raw
+  panel's grid. Where the evaluation grid was the intended unit, pass the
+  already-preprocessed panel to `evaluate` instead.
+- `evaluate` callers who preprocess returns themselves: retain `raw` and add
+  `price_data=raw` to get the complete paths; no change is needed for
+  return-only metrics.
+
 ## `forward_periods=` and `overlap_periods=`
 
 Both are properties of the data, normally read from the stamps

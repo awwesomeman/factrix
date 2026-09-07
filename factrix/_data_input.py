@@ -23,7 +23,7 @@ polars throughout) and avoids hiding the pd → pl copy inside every
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, Literal
 
 import polars as pl
 import polars.selectors as cs
@@ -384,6 +384,27 @@ def _resolve_horizons(
 
 _DOCS_DATA_SCHEMA = "api/data-schema"
 
+# Which panel a structural guard is running on. Both panels carry the same
+# (date, asset_id) contract; they differ in what a breach of it does next.
+PanelRole = Literal["data", "price_data"]
+
+_DUPLICATE_KEY_EXPECTED: dict[PanelRole, str] = {
+    "data": (
+        "one row per (date, asset_id). The forward return shifts by "
+        "row position within an asset, so a duplicate makes the "
+        "'next period' the same date's twin and fabricates a 0.0 "
+        "return. De-duplicate first, e.g. "
+        "data.unique(subset=['date', 'asset_id'], keep='first')"
+    ),
+    "price_data": (
+        "one row per (date, asset_id) in price_data. A period holding two "
+        "prices leaves the event offset and the excursion walk unable to say "
+        "which one the event entered at, and the duplicate also shifts every "
+        "later period of that asset off the price grid. De-duplicate first, "
+        "e.g. price_data.unique(subset=['date', 'asset_id'], keep='first')"
+    ),
+}
+
 
 def _validate_panel_key_columns(data: object, *, func_name: str) -> None:
     """Reject a direct raw-panel metric call whose frame lacks the key columns.
@@ -455,7 +476,7 @@ def _validate_named_columns(
 
 
 def _normalize_panel(
-    data: pl.DataFrame, *, func_name: str = "evaluate"
+    data: pl.DataFrame, *, func_name: str = "evaluate", role: PanelRole = "data"
 ) -> pl.DataFrame:
     """Enforce the panel's structural contract once, at the boundary.
 
@@ -487,6 +508,13 @@ def _normalize_panel(
     changed here — the shift-based producers sort themselves, and reordering
     every caller's frame at the gate would be a surprise that buys nothing.
 
+    ``role`` names which panel is being normalised. The guards are the
+    same for both, but the *consequence* a duplicate key has is not: the
+    evaluation panel fabricates a forward return, while a price panel
+    leaves the excursion walk unable to say which of two prices the
+    event entered at. A message that states the wrong consequence sends
+    the reader to the wrong column.
+
     Raises:
         UserInputError: ``date`` is not a temporal dtype, or ``(date,
             asset_id)`` is not unique.
@@ -515,15 +543,9 @@ def _normalize_panel(
         if n_duplicated:
             raise UserInputError(
                 func_name=func_name,
-                field="(date, asset_id)",
+                field="(date, asset_id)" if role == "data" else "price_data",
                 value=f"{n_duplicated} duplicated row(s) of {data.height}",
-                expected=(
-                    "one row per (date, asset_id). The forward return shifts by "
-                    "row position within an asset, so a duplicate makes the "
-                    "'next period' the same date's twin and fabricates a 0.0 "
-                    "return. De-duplicate first, e.g. "
-                    "data.unique(subset=['date', 'asset_id'], keep='first')"
-                ),
+                expected=_DUPLICATE_KEY_EXPECTED[role],
                 docs_path=_DOCS_DATA_SCHEMA,
             )
 
@@ -541,7 +563,9 @@ def _is_pandas_dataframe(obj: object) -> bool:
     return type(obj).__module__.split(".", 1)[0] == "pandas"
 
 
-def _coerce_data(data: DataInput, *, func_name: str = "evaluate") -> pl.DataFrame:
+def _coerce_data(
+    data: DataInput, *, func_name: str = "evaluate", role: PanelRole = "data"
+) -> pl.DataFrame:
     """Coerce ``DataInput`` to eager ``pl.DataFrame`` and normalise it.
 
     ``pl.LazyFrame`` is collected immediately. ``pd.DataFrame`` is
@@ -550,9 +574,9 @@ def _coerce_data(data: DataInput, *, func_name: str = "evaluate") -> pl.DataFram
     the single structural gate every public entry point shares.
     """
     if isinstance(data, pl.DataFrame):
-        return _normalize_panel(data, func_name=func_name)
+        return _normalize_panel(data, func_name=func_name, role=role)
     if isinstance(data, pl.LazyFrame):
-        return _normalize_panel(data.collect(), func_name=func_name)
+        return _normalize_panel(data.collect(), func_name=func_name, role=role)
     if _is_pandas_dataframe(data):
         raise TypeError(
             "data must be pl.DataFrame or pl.LazyFrame; got pandas DataFrame. "
@@ -562,3 +586,56 @@ def _coerce_data(data: DataInput, *, func_name: str = "evaluate") -> pl.DataFram
     raise TypeError(
         f"data must be pl.DataFrame or pl.LazyFrame; got {type(data).__name__}."
     )
+
+
+def _coerce_price_data(
+    price_data: DataInput | None,
+    *,
+    data: pl.DataFrame,
+    func_name: str = "evaluate",
+    price_col: str = "price",
+) -> pl.DataFrame | None:
+    """Validate an optional full price panel against an evaluation panel.
+
+    ``data`` owns events and the forward-return sample; ``price_data`` owns
+    only the complete price grid used by path metrics. Keeping the inputs
+    separate prevents price-only tail rows from entering return metrics while
+    still making those rows available to event offsets and excursion windows.
+    """
+    if price_data is None:
+        return None
+
+    prices = _coerce_data(price_data, func_name=func_name, role="price_data")
+    required = ("date", "asset_id", price_col)
+    missing = [column for column in required if column not in prices.columns]
+    if missing:
+        raise UserInputError(
+            func_name=func_name,
+            field="price_data",
+            value=list(prices.columns),
+            expected=(
+                "a full price panel containing date, asset_id, and "
+                f"{price_col!r}; "
+                f"missing {missing!r}"
+            ),
+            docs_path=_DOCS_DATA_SCHEMA,
+        )
+
+    for column in ("date", "asset_id"):
+        data_dtype = data.schema[column]
+        price_dtype = prices.schema[column]
+        if price_dtype != data_dtype:
+            raise UserInputError(
+                func_name=func_name,
+                field=f"price_data.{column}",
+                value=str(price_dtype),
+                expected=(
+                    f"the same dtype as data.{column} ({data_dtype}) so event "
+                    "keys align exactly; cast the price panel explicitly"
+                ),
+                docs_path=_DOCS_DATA_SCHEMA,
+            )
+
+    # Extra columns, including factor values, have no authority on this path.
+    # Projecting here makes that ownership structural rather than conventional.
+    return prices.select(required)

@@ -46,8 +46,15 @@ title: factrix.metrics.mfe_mae
 
 ## Windows are counted on the panel's period grid
 
-`window` and `estimation_window` are counts of periods on the panel's own
-distinct-date grid, not counts of an asset's rows. Each event asset is laid
+`window` and `estimation_window` are counts of periods on the grid of the
+panel the walk reads, not counts of an asset's rows. Without `price_data` that
+is the evaluation panel's own distinct-date grid; with `price_data` it is the
+price panel's, so the same `window=` spans a different amount of the sample
+whenever the two grids differ. Measured on a panel whose evaluation grid keeps
+every tenth period of the price grid, `window=3` gives a median MFE of 0.1272
+read on the evaluation grid and 0.0120 read on the price grid. Both are
+correct for the grid they were counted on; scale `window=` to the grid you are
+passing. Each event asset is laid
 onto the full grid before the excursion is walked, so on a ragged panel — an
 asset missing periods the other names have — the excursion spans exactly
 `window` grid periods and the missing periods count as missing observations
@@ -62,6 +69,38 @@ missing periods carries fewer observations inside them than the rest, so its
 with `evaluate(..., expected_warnings=("ragged_period_grid",))` to silence the
 echo — the code is still recorded — or reindex the panel onto a common grid
 before calling.
+
+## Complete price paths and censored events
+
+When the evaluation panel came from `compute_forward_return`, pass the raw
+panel as `evaluate(..., price_data=raw)` (or as `price_data=` on the direct
+`compute_mfe_mae` call). Event eligibility stays on the evaluation panel;
+excursion and estimation windows walk the full price grid, and are counted in
+periods of that grid.
+
+`evaluate_horizons` forwards its raw panel automatically, so an existing
+`evaluate_horizons` run that includes `mfe_mae` changes value: the excursion
+reaches periods it could not previously see, and `window=` is re-based onto the
+raw grid. See
+[Offsets and windows are counted on the grid that supplies them](../evaluate.md#offsets-and-windows-are-counted-on-the-grid-that-supplies-them).
+
+A panel that carries no event at all short-circuits with
+`reason="no_events"`; a panel with events but no price column reports
+`reason="no_price_data"` alongside one `missing_price_column` censored row per
+event. The two conditions never share a reason.
+
+`compute_mfe_mae` now retains one row per eligible event. Computable rows carry
+`path_status="computed"`; rows with no usable path carry null excursions,
+`path_status="censored"`, and a `censor_reason`. The aggregate metadata reports
+`n_events_eligible`, `n_events_computed`, `n_events_censored`, and reason
+counts. To reproduce the pre-0.33 valid-only table, filter explicitly:
+
+```python title="Illustrative"
+computed = per_event.filter(pl.col("path_status") == "computed")
+```
+
+This row-retention change is a pre-1.0 MINOR-level contract change; pin 0.32.x
+if downstream code assumes every producer row has finite excursions.
 
 ## Choosing a function
 

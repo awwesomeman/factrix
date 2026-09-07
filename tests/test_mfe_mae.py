@@ -111,9 +111,11 @@ class TestComputeMfeMae:
             (finite["mae"] / scale).to_numpy(),
         )
 
-    def test_no_price_returns_empty(self, no_price_data):
+    def test_no_price_returns_censored_events(self, no_price_data):
         result = compute_mfe_mae(no_price_data, window=10)
-        assert result.is_empty()
+        assert result.height == no_price_data.filter(pl.col("factor") != 0).height
+        assert result["path_status"].unique().to_list() == ["censored"]
+        assert result["censor_reason"].unique().to_list() == ["missing_price_column"]
 
     def test_no_events_returns_empty(self):
         df = pl.DataFrame(
@@ -214,8 +216,65 @@ class TestMfeMae:
         )
         result = mfe_mae(empty)
         assert math.isnan(result.value)
-        assert result.metadata["reason"] == "no_price_data"
+        assert result.metadata["reason"] == "no_events"
         assert result.metadata["n_events"] == 0
+
+    def test_zero_events_and_missing_prices_are_distinct_reasons(self):
+        """An empty producer frame means no events, never absent prices.
+
+        ``compute_mfe_mae`` keeps one censored row per event when the
+        price column is absent, so the empty frame is reachable only
+        when the panel carried no event at all. The two conditions need
+        two reasons: a reader who sees ``no_price_data`` goes looking
+        for a price column that is, in this branch, already there.
+        """
+        dates = [datetime(2020, 1, 1) + timedelta(days=i) for i in range(6)]
+        priced_without_events = pl.DataFrame(
+            {
+                "date": pl.Series(dates, dtype=pl.Datetime("ms")),
+                "asset_id": ["A"] * 6,
+                "factor": [0.0] * 6,
+                "price": [100.0 + i for i in range(6)],
+            }
+        )
+        events_without_price = pl.DataFrame(
+            {
+                "date": pl.Series(dates, dtype=pl.Datetime("ms")),
+                "asset_id": ["A"] * 6,
+                "factor": [0.0, 1.0, 0.0, 1.0, 0.0, 0.0],
+            }
+        )
+
+        no_events = mfe_mae(compute_mfe_mae(priced_without_events, window=3))
+        no_prices = mfe_mae(compute_mfe_mae(events_without_price, window=3))
+
+        assert (no_events.metadata["reason"], no_prices.metadata["reason"]) == (
+            "no_events",
+            "no_price_data",
+        )
+        assert no_events.metadata["n_events_eligible"] == 0
+        assert no_prices.metadata["n_events_eligible"] == 2
+
+    def test_frame_without_censor_reason_falls_back_to_non_finite(self):
+        """A hand-built producer frame carries no ``censor_reason``.
+
+        Pinning test: this passes on the unchanged codebase. It fixes
+        the fallback's reachability against silent drift, because every
+        in-tree producer path stamps the column and only a frame a
+        caller assembled by hand can reach the branch.
+        """
+        dates = [datetime(2020, 1, 1) + timedelta(days=i) for i in range(3)]
+        hand_built = pl.DataFrame(
+            {
+                "date": pl.Series(dates, dtype=pl.Datetime("ms")),
+                "asset_id": ["A", "B", "C"],
+                "mfe": [float("nan"), float("nan"), float("nan")],
+                "mae": [float("nan"), float("nan"), float("nan")],
+            }
+        )
+        result = mfe_mae(hand_built)
+        assert result.metadata["censor_reasons"] == {"non_finite_excursion": 3}
+        assert result.metadata["reason"] == "no_complete_event_paths"
 
 
 # ---------------------------------------------------------------------------
