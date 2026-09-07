@@ -1964,6 +1964,23 @@ def _validate_choice(
         )
 
 
+def _is_finite_number(value: object) -> bool:
+    """``value`` is a real, finite number — bool, NaN and ±inf excluded.
+
+    The shared type guard every numeric-knob validator applies before it
+    compares. A bool is an int to Python and a string is not a number at all;
+    both would otherwise reach the comparison and either pass (``True`` is 1)
+    or raise a bare ``TypeError`` instead of the library's own diagnostic.
+    NaN fails every comparison and ±inf passes any one-sided bound, so a
+    range check alone is not enough to catch either.
+    """
+    return (
+        not isinstance(value, bool)
+        and isinstance(value, int | float)
+        and math.isfinite(value)
+    )
+
+
 def _validate_open_unit_interval(
     value: float,
     *,
@@ -1979,17 +1996,39 @@ def _validate_open_unit_interval(
     """
     from factrix._errors import UserInputError
 
-    # A bool is an int to Python and a string is not a number at all; both
-    # would otherwise reach the comparison and either pass (``True`` is 1) or
-    # raise a bare TypeError instead of the library's own diagnostic. NaN
-    # fails every comparison, so it lands here too.
-    numeric = not isinstance(value, bool) and isinstance(value, int | float)
-    if not numeric or not 0.0 < float(value) < 1.0:
+    if not _is_finite_number(value) or not 0.0 < float(value) < 1.0:
         raise UserInputError(
             func_name=func_name,
             field=field,
             value=value,
             expected=f"a fraction strictly inside (0, 1). {detail}",
+            docs_path=docs_path,
+        )
+
+
+def _validate_half_open_unit_interval(
+    value: object,
+    *,
+    func_name: str,
+    field: str,
+    detail: str,
+    docs_path: str,
+) -> None:
+    """Reject a fraction knob outside the half-open interval ``(0, 1]``.
+
+    The twin of :func:`_validate_open_unit_interval` for a knob whose upper
+    endpoint is a legal request rather than a degeneracy — a *retention*
+    fraction, where ``1`` means "keep all of it" and only ``0`` (keep nothing,
+    so the comparison it gates can never fail) is meaningless.
+    """
+    from factrix._errors import UserInputError
+
+    if not _is_finite_number(value) or not 0.0 < float(value) <= 1.0:  # type: ignore[arg-type]
+        raise UserInputError(
+            func_name=func_name,
+            field=field,
+            value=value,
+            expected=f"a fraction inside (0, 1]. {detail}",
             docs_path=docs_path,
         )
 
