@@ -36,6 +36,9 @@ title: factrix.metrics.monotonicity
     metadata, not the headline — $\mathbb{E}|\rho| > 0$ under $H_0$ by
     Jensen, so mean $|\rho|$ has an `n_groups`-dependent noise floor
     (0.67 / 0.42 / 0.27 at $K = 3 / 5 / 10$) that reads like evidence.
+    The accompanying `signed_spearman_p_value` is explicitly two-sided and
+    reports `signed_spearman_alternative="two-sided"`; it is separate from
+    the headline MR test's one-sided `alternative="greater"`.
 
 </div>
 

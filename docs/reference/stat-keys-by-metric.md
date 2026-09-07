@@ -573,8 +573,11 @@ frequency on the same panels is 5.0% / 5.0% / 4.0% at a nominal 5%.
   [Resampling knobs](statistical-methods.md#resampling-knobs)).
 - *descriptive Spearman shape*: `mean_abs_spearman` (magnitude, ≥ 0),
   `mean_signed` (direction consistency), `signed_spearman_t`,
-  `signed_spearman_p_value`. A high magnitude with a near-zero signed mean
-  still says the factor sorts returns but flips sign across dates.
+  `signed_spearman_p_value`, and `signed_spearman_alternative` (always
+  `"two-sided"`). This secondary test asks whether mean signed Spearman differs
+  from zero in either direction; it does not use the distinct headline MR
+  test's one-sided `alternative="greater"`. A high magnitude with a near-zero
+  signed mean still says the factor sorts returns but flips sign across dates.
 - *descriptive*: `n_valid_periods`, `n_groups`, `tie_ratio`, `tie_policy`.
 - `warning_codes` (conditional): `HIGH_TIE_RATIO` under
   `tie_policy="ordinal"`, `FEW_ASSETS` when the median per-period

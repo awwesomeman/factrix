@@ -5,6 +5,7 @@ import math
 import factrix as fx
 import pytest
 from factrix._codes import WarningCode
+from factrix._stats import _p_value_from_t
 from factrix.metrics.monotonicity import monotonicity
 
 
@@ -91,6 +92,37 @@ class TestComputeMonotonicity:
         assert result.value > 0
         assert result.p_value == pytest.approx(1 / 200)
         assert result.metadata["mr_direction"] == "decreasing"
+
+    def test_signed_spearman_secondary_p_labels_its_two_sided_tail(self, noisy_panel):
+        result = monotonicity(
+            noisy_panel,
+            overlap_periods=1,
+            n_groups=5,
+            n_resamples=199,
+            rng=0,
+        )["factor"]
+        metadata = result.metadata
+        signed_alternative = metadata["signed_spearman_alternative"]
+
+        assert result.alternative == "greater"
+        assert signed_alternative == "two-sided"
+        assert metadata["signed_spearman_p_value"] == pytest.approx(
+            _p_value_from_t(
+                metadata["signed_spearman_t"],
+                metadata["n_valid_periods"],
+                signed_alternative,
+            )
+        )
+        assert metadata["signed_spearman_p_value"] == pytest.approx(
+            2
+            * _p_value_from_t(
+                metadata["signed_spearman_t"],
+                metadata["n_valid_periods"],
+                result.alternative,
+            ),
+            rel=1e-12,
+            abs=0.0,
+        )
 
     def test_insufficient_periods(self):
         from datetime import datetime

@@ -205,6 +205,7 @@ class NonOverlapping:
         return InferenceResult(
             stat=t_stat,
             p_value=p_value,
+            alternative=alternative,
             estimate=float(sampled.mean()) if n_sampled else None,
             n_obs=n_sampled,
             metadata={
@@ -314,6 +315,7 @@ class NeweyWest:
         return InferenceResult(
             stat=t_stat,
             p_value=p_value,
+            alternative=alternative,
             metadata={
                 "newey_west_lags": newey_west_lags,
                 "hac_dof": _har_dof(n, newey_west_lags, overlap_periods)
@@ -400,6 +402,7 @@ class HansenHodrick:
         return InferenceResult(
             stat=t_stat,
             p_value=p_value,
+            alternative=alternative,
             metadata={"kernel": "rectangular", "variance_clamped": clamped},
             warnings=warnings,
             estimate=float(vals.mean()) if n else None,
@@ -548,6 +551,7 @@ class StationaryBootstrap:
         return InferenceResult(
             stat=float(vals.mean()) if n else float("nan"),
             p_value=p_value,
+            alternative=alternative,
             metadata=dict(boot_metadata),
             warnings=warnings,
             estimate=float(vals.mean()) if n else None,

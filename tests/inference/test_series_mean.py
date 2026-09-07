@@ -125,7 +125,12 @@ class TestNonOverlapping:
 
 @pytest.mark.parametrize(
     "member",
-    [NON_OVERLAPPING, NEWEY_WEST, StationaryBootstrap(n_resamples=199, rng=0)],
+    [
+        NON_OVERLAPPING,
+        NEWEY_WEST,
+        HansenHodrick(),
+        StationaryBootstrap(n_resamples=199, rng=0),
+    ],
 )
 @pytest.mark.parametrize("sign", [1.0, -1.0])
 def test_series_mean_members_honor_predeclared_tail(member, sign: float) -> None:
@@ -144,6 +149,47 @@ def test_series_mean_members_honor_predeclared_tail(member, sign: float) -> None
     favored = "greater" if sign > 0 else "less"
     opposed = "less" if sign > 0 else "greater"
     assert p[favored] < p["two-sided"] < p[opposed]
+
+
+@pytest.mark.parametrize(
+    "member",
+    [
+        NON_OVERLAPPING,
+        NEWEY_WEST,
+        HansenHodrick(),
+        StationaryBootstrap(n_resamples=199, rng=0),
+    ],
+)
+@pytest.mark.parametrize("alternative", ["two-sided", "greater", "less"])
+def test_series_mean_result_labels_the_tail_used_in_arithmetic(
+    member, alternative
+) -> None:
+    values = np.linspace(-0.1, 0.5, 80) + 0.2
+    result = member.compute(
+        _series_df(values),
+        value_col="ic",
+        overlap_periods=1,
+        alternative=alternative,
+    )
+
+    if isinstance(member, StationaryBootstrap):
+        expected_p, _ = _block_bootstrap_diff_p(
+            values,
+            n_resamples=member.n_resamples,
+            overlap_periods=1,
+            alternative=alternative,
+            rng=0,
+        )
+    else:
+        expected_p = _p_value_from_t(
+            result.stat,
+            result.n_obs,
+            alternative,
+            dof=result.metadata.get("hac_dof"),
+        )
+
+    assert result.p_value == pytest.approx(expected_p)
+    assert result.alternative == alternative
 
 
 @pytest.mark.parametrize(
