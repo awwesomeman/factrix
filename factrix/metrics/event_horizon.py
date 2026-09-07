@@ -60,24 +60,36 @@ _EH_CELL = cell(None, FactorDensity.SPARSE, structure=None)
 
 def _unconditional_bar_return(
     data: pl.DataFrame, price_col: str
-) -> tuple[float | None, int]:
-    """Mean single-bar return across the whole panel, per asset then pooled.
+) -> tuple[float | None, int, int]:
+    """Mean single-period return, per asset and then equally weighted.
 
-    The pre-event offsets are single-bar returns, so an asset that drifts up
-    0.1% a bar has pre-event means of 0.1% with no information leakage at all.
-    Subtracting this baseline makes the leakage score measure what its name
-    says. Returns ``None`` when it cannot be computed. A non-finite or
-    non-positive observed price invalidates the baseline rather than being
-    silently dropped: otherwise a contaminated denominator can manufacture
-    an infinite baseline and a finite-looking hit rate.
+    An asset that drifts up 0.1% a period has offset means of 0.1% with no
+    information leakage at all. Subtracting this baseline makes the leakage
+    score measure what its name says. Returns ``None`` when it cannot be
+    computed. A non-finite or non-positive observed price invalidates the
+    baseline rather than being silently dropped: otherwise a contaminated
+    denominator can manufacture an infinite baseline and a finite-looking hit
+    rate.
 
-    The bar is one step on the panel's period grid, matching the offsets it is
-    subtracted from: on a ragged panel a step across an asset's missing periods
-    is not a one-period return and drops out rather than inflating the
-    baseline.
+    The period is one step on the panel's period grid, matching the offsets
+    the baseline is subtracted from: on a ragged panel a step across an
+    asset's missing periods is not a one-period return and drops out rather
+    than inflating the baseline.
+
+    **Weighting.** Each asset contributes one mean, and the means are pooled
+    with equal weight. Pooling every period observation directly instead lets
+    an asset with a long history outvote a short one, so on a ragged panel the
+    baseline drifts toward the longest name rather than describing the panel;
+    the events being scored are not weighted that way either. The returned
+    count is the number of assets that actually entered the mean, so a reader
+    can tell how the weighting was formed.
+
+    Returns:
+        The baseline, the count of invalid observed prices, and the number of
+        assets behind the baseline.
     """
     if price_col not in data.columns or "asset_id" not in data.columns:
-        return None, 0
+        return None, 0, 0
 
     price = pl.col(price_col).cast(pl.Float64, strict=False)
     invalid_price = pl.col(price_col).is_not_null() & (
@@ -85,15 +97,40 @@ def _unconditional_bar_return(
     )
     n_invalid_prices = data.filter(invalid_price).height
     if n_invalid_prices:
-        return None, n_invalid_prices
+        return None, n_invalid_prices, 0
 
     dense, _ = _densify_on_period_grid(data)
-    rets = dense.with_columns(
-        (pl.col(price_col) / pl.col(price_col).shift(1).over("asset_id") - 1).alias(
-            "_bar_ret"
+    per_asset = (
+        dense.with_columns(
+            (pl.col(price_col) / pl.col(price_col).shift(1).over("asset_id") - 1).alias(
+                "_bar_ret"
+            )
         )
-    ).filter(_finite_expr("_bar_ret"))["_bar_ret"]
-    return (float(rets.mean()), 0) if len(rets) else (None, 0)  # type: ignore[arg-type]
+        .filter(_finite_expr("_bar_ret"))
+        .group_by("asset_id")
+        .agg(pl.col("_bar_ret").mean().alias("_asset_mean"))
+    )
+    if per_asset.is_empty():
+        return None, 0, 0
+    return float(per_asset["_asset_mean"].mean()), 0, per_asset.height  # type: ignore[arg-type]
+
+
+def _horizon_benchmark(baseline: float, offset: int) -> float:
+    """The baseline compounded over the periods ``offset`` actually spans.
+
+    Offset ``k > 0`` is a simple return from ``t+1`` to ``t+1+k``, i.e. a
+    ratio of two prices ``k`` periods apart, so its benchmark is the same
+    ratio built from the mean single-period return: ``(1 + mu)**k - 1``.
+    Subtracting one period of ``mu`` from it left roughly ``k - 1`` periods
+    of drift in the answer, which reads as event alpha on a panel that
+    merely trends.
+
+    Offsets at or below zero are single-period returns and keep the
+    single-period benchmark.
+    """
+    if offset <= 0:
+        return baseline
+    return float((1.0 + baseline) ** offset - 1.0)
 
 
 @metric(
@@ -256,7 +293,9 @@ def event_around_return(
     # whole baseline; dropping only its affected return would silently change
     # the estimand and still publish a finite-looking hit rate.
     path_data = data if resolved_prices is None else resolved_prices
-    baseline, n_invalid_prices = _unconditional_bar_return(path_data, price_col)
+    baseline, n_invalid_prices, n_assets_in_baseline = _unconditional_bar_return(
+        path_data, price_col
+    )
     if baseline is None:
         reason = (
             "invalid_price_data" if n_invalid_prices else "no_finite_baseline_returns"
@@ -271,6 +310,7 @@ def event_around_return(
             n_events_eligible=n_events_eligible,
             n_invalid_prices=n_invalid_prices,
             baseline_bar_return=None,
+            n_assets_in_baseline=n_assets_in_baseline,
             per_offset=per_offset,
         )
 
@@ -284,16 +324,23 @@ def event_around_return(
             continue
 
         arr = subset["signed_return"].to_numpy()
-        # Excess over the unconditional bar return: a trending asset's bars are
-        # non-zero on average whether or not an event is coming, and that drift
-        # entered the leakage score directly. The return is signed, so the
-        # baseline is signed the same way: a short event's bar carries -mu,
-        # and subtracting +mu from it scored the drift twice over.
-        excess = arr - baseline * subset["sign"].to_numpy()
+        # Excess over the unconditional return *of this offset's own horizon*:
+        # a trending asset's periods are non-zero on average whether or not an
+        # event is coming, and that drift entered the leakage score directly.
+        # The return is signed, so the benchmark is signed the same way: a
+        # short event's period carries -mu, and subtracting +mu from it scored
+        # the drift twice over.
+        benchmark = _horizon_benchmark(baseline, k)
+        excess = arr - benchmark * subset["sign"].to_numpy()
         mean_v = float(np.mean(excess))
         se = float(np.std(excess, ddof=DDOF) / np.sqrt(n)) if n > 1 else float("nan")
         per_offset[k] = {
             **offset_audit[k],
+            # The benchmark this offset was actually measured against, not the
+            # single-period baseline it was built from: the two differ at every
+            # positive offset, and a reader checking the arithmetic needs the
+            # quantity that was subtracted.
+            "benchmark": benchmark,
             "mean": mean_v,
             "se": se,
             # The scale the score has to be read against: |mean| of a true null
@@ -347,6 +394,10 @@ def event_around_return(
             "n_events_eligible": n_events_eligible,
             "per_offset": per_offset,
             "baseline_bar_return": baseline,
+            # How the baseline was weighted: one mean per asset, pooled
+            # equally. Reading the number without the count cannot tell a
+            # panel-wide drift from one long name's.
+            "n_assets_in_baseline": n_assets_in_baseline,
             # The null scale of the headline: E|x̄| ≈ 0.8 σ/√n > 0 under no
             # leakage at all, so the score shrinks as events accumulate and
             # cannot be read against a fixed "should be ~0" target.

@@ -497,10 +497,12 @@ Pre/post-event return profile; descriptive.
 - *descriptive*: `n_events` (distinct `(date, asset)` events behind the
   curve — also `n_obs`, axis `events`; one event contributes one row per
   offset, so this is not the row count), `per_offset` (dict
-  `offset → {mean, se, t, median, p25, p75, hit_rate, n}`, all measured as
-  **excess over** `baseline_bar_return`), `baseline_bar_return` (the panel's
-  unconditional mean single-bar return, subtracted so a trending asset does
-  not read as leaky), `leakage_null_scale` (`≈ 0.8 × mean se` — what the
+  `offset → {benchmark, mean, se, t, median, p25, p75, hit_rate, n}`, all
+  measured as **excess over that offset's own** `benchmark`),
+  `baseline_bar_return` (the panel's unconditional mean single-*period*
+  return, subtracted so a trending asset does not read as leaky),
+  `n_assets_in_baseline` (assets behind that mean — one mean per asset,
+  pooled with equal weight), `leakage_null_scale` (`≈ 0.8 × mean se` — what the
   headline is worth under *no* leakage, since `E|x̄| > 0` always and shrinks
   as events accumulate). `reason` is set to
   `no_pre_event_offset_with_enough_events` and `value` is `NaN` when no
@@ -510,6 +512,13 @@ Pre/post-event return profile; descriptive.
   `reason=invalid_price_data`, audited `per_offset` entries, and
   `WarningCode.METRIC_UNAVAILABLE`; `n_invalid_prices` reports the offending
   row count. Null prices remain valid missing data on a ragged panel.
+
+- *benchmark horizon*: offset `k > 0` is a simple return from `t+1` to
+  `t+1+k`, so its `benchmark` is `(1 + baseline_bar_return)**k - 1` — the
+  baseline compounded over the periods that offset actually spans. Offsets at
+  or below zero are single-period returns and keep `baseline_bar_return`
+  itself. Each `per_offset` member publishes the `benchmark` subtracted from
+  it, so the arithmetic can be reproduced from the metadata alone.
 - `p_value` is `None` — no hypothesis test runs, and no offset carries a
   `p`: the headline `value` is the pre-event leakage score and per-horizon
   `hit_rate` is a raw fraction of positive signed returns. Offsets overlap
