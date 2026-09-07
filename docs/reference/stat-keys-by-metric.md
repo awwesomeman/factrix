@@ -1126,10 +1126,12 @@ inference.
 
 - *descriptive*: `n_rebalances`, `n_groups`, `overlap_periods`,
   `rebalance_lag`, `mean_top_turnover`, `mean_bottom_turnover`
-  (each leg's mean replaced fraction; `value` is their mean —
+  (each leg's mean one-way replaced fraction, `0.5 * sum |w_t - w_{t-1}|` =
+  `1 - overlap / max(prior, current) leg size`; `value` is their mean —
   `mean_top_turnover` is the matched proxy for an equal-weight top-quantile
   long-only book), `mean_tail_size`, `mean_top_tail_size`,
-  `mean_bottom_tail_size`.
+  `mean_bottom_tail_size` (the **current** leg sizes at `t`, which equal the
+  turnover denominator only while the legs do not shrink).
 
 Both turnover metrics report two strides. `overlap_periods` is the panel's
 evaluation-grid overlap stamp — an inference quantity, injected, never a user

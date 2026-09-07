@@ -1,11 +1,14 @@
 """Tests for factrix.metrics.tradability."""
 
+import itertools
 import math
+import random
 from datetime import datetime, timedelta
 from typing import ClassVar
 
 import polars as pl
 import pytest
+from factrix._codes import WarningCode
 from factrix._errors import UserInputError
 from factrix._types import DEFAULT_FORWARD_PERIODS, DEFAULT_N_GROUPS
 from factrix.metrics.tradability import (
@@ -682,3 +685,167 @@ class TestLegLevelNotionalTurnover:
         )
         assert static.metadata["mean_top_turnover"] == pytest.approx(0.0)
         assert static.metadata["mean_bottom_turnover"] == pytest.approx(0.0)
+
+
+class TestChangingUniverseNotionalTurnover:
+    """#1053 — prior-only, current-only and surviving holdings all enter.
+
+    The pre-fix denominator was today's leg size alone, so a leg that
+    *shrank* between rebalances reported no cost for the holding it had to
+    liquidate nor for the resizing of the survivors.
+    """
+
+    @staticmethod
+    def _uneven_panel(members: list[dict[str, float]]) -> pl.DataFrame:
+        """Panel whose membership may differ from one date to the next."""
+        rows = [
+            {
+                "date": datetime(2024, 1, 1) + timedelta(days=t),
+                "asset_id": a,
+                "factor": f,
+            }
+            for t, cross_section in enumerate(members)
+            for a, f in cross_section.items()
+        ]
+        return pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+    @staticmethod
+    def _reference_leg_turnover(
+        data: pl.DataFrame, n_groups: int
+    ) -> tuple[list[float], list[float]]:
+        """One-way ``0.5 * sum |w_t - w_{t-1}|`` per leg, computed elementwise.
+
+        Deliberately independent of the metric's aggregation: it re-uses only
+        the bucketing primitive and then walks the equal weights by hand.
+        """
+        from factrix.metrics._helpers import _assign_quantile_groups
+
+        grouped = _assign_quantile_groups(data, "factor", n_groups)
+        by_date: dict[object, tuple[set[str], set[str]]] = {}
+        for date in grouped["date"].unique().sort().to_list():
+            rows = grouped.filter(pl.col("date") == date)
+            top = set(
+                rows.filter(pl.col("_group") == n_groups - 1)["asset_id"].to_list()
+            )
+            bot = set(rows.filter(pl.col("_group") == 0)["asset_id"].to_list())
+            by_date[date] = (top, bot)
+
+        dates = list(by_date)
+        top_series: list[float] = []
+        bot_series: list[float] = []
+        for prev_date, date in itertools.pairwise(dates):
+            for leg, series in zip(range(2), (top_series, bot_series), strict=True):
+                prev_leg = by_date[prev_date][leg]
+                cur_leg = by_date[date][leg]
+                if not prev_leg or not cur_leg:
+                    continue
+                one_way = 0.5 * sum(
+                    abs(
+                        (1.0 / len(cur_leg) if a in cur_leg else 0.0)
+                        - (1.0 / len(prev_leg) if a in prev_leg else 0.0)
+                    )
+                    for a in prev_leg | cur_leg
+                )
+                series.append(one_way)
+        return top_series, bot_series
+
+    def _run(self, members: list[dict[str, float]], n_groups: int = 2):
+        data = self._uneven_panel(members)
+        return notional_turnover(
+            data,
+            n_groups=n_groups,
+            overlap_periods=1,
+            expected_warnings=(WarningCode.THIN_QUANTILE_GROUPS.value,),
+        )
+
+    def test_shrinking_universe_prices_the_liquidation(self):
+        """Four names down to two, both survivors keeping their leg.
+
+        At ``t-1`` each equal-weight leg holds two names at 1/2; at ``t`` it
+        holds one at 1. The book must sell the departed name and double the
+        survivor: ``0.5 * (|1 - 1/2| + |0 - 1/2|) = 0.5`` per leg. The
+        pre-fix ``1 - n_kept / n_current`` reported 0.
+        """
+        out = self._run(
+            [
+                {"A": 1.0, "B": 2.0, "C": 3.0, "D": 4.0},
+                {"A": 1.0, "D": 4.0},
+            ]
+        )
+        assert out.metadata["mean_top_turnover"] == pytest.approx(0.5)
+        assert out.metadata["mean_bottom_turnover"] == pytest.approx(0.5)
+        assert out.value == pytest.approx(0.5)
+
+    def test_growing_universe_matches_the_weight_change_convention(self):
+        """Two names up to six; each leg buys into two new holdings."""
+        out = self._run(
+            [
+                {"A": 1.0, "D": 4.0},
+                {"A": 1.0, "B": 2.0, "C": 3.0, "D": 4.0, "E": 5.0, "F": 6.0},
+            ]
+        )
+        # Top leg at t-1 = {D} at weight 1; at t = {D, E, F} at 1/3 each.
+        assert out.metadata["mean_top_turnover"] == pytest.approx(2 / 3)
+        assert out.metadata["mean_bottom_turnover"] == pytest.approx(2 / 3)
+
+    def test_full_rotation_of_a_shrinking_universe(self):
+        """No survivor in either leg → one-way turnover 1 despite the shrink."""
+        out = self._run(
+            [
+                {"A": 1.0, "B": 2.0, "C": 3.0, "D": 4.0},
+                {"E": 1.0, "F": 4.0},
+            ]
+        )
+        assert out.value == pytest.approx(1.0)
+
+    def test_unchanged_universe_is_untouched(self):
+        """A fixed universe with fixed tails still reports zero turnover."""
+        out = self._run(
+            [
+                {"A": 1.0, "B": 2.0, "C": 3.0, "D": 4.0},
+                {"A": 1.0, "B": 2.0, "C": 3.0, "D": 4.0},
+                {"A": 1.0, "B": 2.0, "C": 3.0, "D": 4.0},
+            ]
+        )
+        assert out.value == pytest.approx(0.0)
+
+    def test_delisted_holding_is_no_longer_missed(self):
+        """A top-leg name delists and is not replaced.
+
+        Top leg ``{C, D}`` at 1/2 each becomes ``{C}`` at 1, so half the
+        leg's notional turns over. Counting only today's members gave
+        ``1 - 1/1 = 0``.
+        """
+        out = self._run(
+            [
+                {"A": 1.0, "B": 2.0, "C": 3.0, "D": 4.0},
+                {"A": 1.0, "C": 3.0},
+            ]
+        )
+        assert out.metadata["mean_top_turnover"] == pytest.approx(0.5)
+
+    @pytest.mark.parametrize("seed", range(12))
+    def test_matches_the_elementwise_weight_change_reference(self, seed):
+        """Property: each leg's mean equals ``0.5 * sum |w_t - w_{t-1}|``."""
+        rng = random.Random(seed)
+        pool = [chr(ord("A") + i) for i in range(8)]
+        members = []
+        for _ in range(6):
+            names = rng.sample(pool, rng.randint(4, 8))
+            members.append({a: float(rng.randint(0, 50)) for a in names})
+
+        data = self._uneven_panel(members)
+        out = notional_turnover(
+            data,
+            n_groups=2,
+            overlap_periods=1,
+            expected_warnings=(WarningCode.THIN_QUANTILE_GROUPS.value,),
+        )
+        top_ref, bot_ref = self._reference_leg_turnover(data, 2)
+        assert out.metadata["mean_top_turnover"] == pytest.approx(
+            sum(top_ref) / len(top_ref)
+        )
+        assert out.metadata["mean_bottom_turnover"] == pytest.approx(
+            sum(bot_ref) / len(bot_ref)
+        )
+        assert 0.0 <= out.value <= 1.0
