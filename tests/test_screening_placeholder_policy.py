@@ -1,8 +1,10 @@
-"""One placeholder policy shared by every screening verb.
+"""The ``inactive_policy="exclude"`` branch, shared by every screening verb.
 
 A placeholder cell — a data-shortage short-circuit or a
-``degenerate_variance`` result — never ran a test, so it is not a hypothesis:
-it leaves every family before any adjustment, whichever verb screens it.
+``degenerate_variance`` result — never ran a test. Under the opt-in
+``inactive_policy="exclude"`` it leaves every family before any adjustment,
+whichever verb screens it; the default ``"count"`` branch is pinned in
+``test_inactive_policy.py``.
 """
 
 from __future__ import annotations
@@ -69,12 +71,13 @@ def test_bhy_excludes_placeholders_and_reports_the_count():
     out = bhy(
         [_real("a", 0.01), _real("b", 0.5), _shortage("c"), _degenerate("d")],
         metrics=["ic"],
+        inactive_policy="exclude",
     )["ic"]
 
     np.testing.assert_allclose(out.adj_p_all[:2], EXPECTED_ADJ)
     assert np.isnan(out.adj_p_all[2:]).all()
-    assert out.n_tests == {(): 2}
-    assert out.n_hypotheses_inactive == 2
+    assert out.family_size == {(): 2}
+    assert out.family.n_inactive == 2
 
 
 def test_partial_conjunction_matches_bhy_on_the_same_degenerate_family():
@@ -93,14 +96,18 @@ def test_partial_conjunction_matches_bhy_on_the_same_degenerate_family():
         _degenerate("c", params={"region": "EU"}),
     ]
     out = partial_conjunction(
-        results, metrics=["ic"], min_pass=2, expand_over=("region",)
+        results,
+        metrics=["ic"],
+        min_pass=2,
+        expand_over=("region",),
+        inactive_policy="exclude",
     )["ic"]
 
     np.testing.assert_allclose(out.pc_p_all[:2], [0.01, 0.5])
     np.testing.assert_allclose(out.adj_p_all[:2], EXPECTED_ADJ)
     assert np.isnan(out.adj_p_all[2])
-    assert out.n_tests[("c", 5)] == 0
-    assert out.n_hypotheses_inactive == 2
+    assert out.family_size[("c", 5)] == 0
+    assert out.family.n_inactive == 2
 
 
 def test_hierarchical_matches_bhy_on_the_same_degenerate_family():
@@ -120,14 +127,20 @@ def test_hierarchical_matches_bhy_on_the_same_degenerate_family():
         _shortage("c", params={"family": "carry"}),
     ]
     with pytest.warns(RuntimeWarning, match="single result"):
-        out = bhy_hierarchical(results, metrics=["ic"], group="family", q=0.8)["ic"]
+        out = bhy_hierarchical(
+            results,
+            metrics=["ic"],
+            group="family",
+            q=0.8,
+            inactive_policy="exclude",
+        )["ic"]
 
     np.testing.assert_allclose(out.adj_p_all[0], EXPECTED_ADJ[0])
     np.testing.assert_allclose(out.adj_p_all[2], EXPECTED_ADJ[1])
     assert np.isnan(out.adj_p_all[[1, 3, 4]]).all()
     # The all-placeholder group leaves G entirely.
-    assert set(out.n_tests) == {("momentum",), ("value",)}
-    assert out.n_hypotheses_inactive == 3
+    assert set(out.family_size) == {("momentum",), ("value",)}
+    assert out.family.n_inactive == 3
 
 
 @pytest.mark.parametrize(
@@ -142,7 +155,9 @@ def test_a_placeholder_costs_the_real_hypotheses_nothing(verb):
         dead = [_shortage("d"), _degenerate("e")]
 
         def run(results):
-            return bhy(results, metrics=["ic"])["ic"].adj_p_all[:3]
+            return bhy(results, metrics=["ic"], inactive_policy="exclude")[
+                "ic"
+            ].adj_p_all[:3]
 
     elif verb == "partial_conjunction":
         live = [
@@ -157,7 +172,11 @@ def test_a_placeholder_costs_the_real_hypotheses_nothing(verb):
 
         def run(results):
             out = partial_conjunction(
-                results, metrics=["ic"], min_pass=2, expand_over=("region",)
+                results,
+                metrics=["ic"],
+                min_pass=2,
+                expand_over=("region",),
+                inactive_policy="exclude",
             )["ic"]
             return out.adj_p_all[:3]
 
@@ -174,7 +193,13 @@ def test_a_placeholder_costs_the_real_hypotheses_nothing(verb):
         ]
 
         def run(results):
-            out = bhy_hierarchical(results, metrics=["ic"], group="family", q=0.05)
+            out = bhy_hierarchical(
+                results,
+                metrics=["ic"],
+                group="family",
+                q=0.05,
+                inactive_policy="exclude",
+            )
             return out["ic"].adj_p_all[:4]
 
     np.testing.assert_allclose(run(live), run(live + dead))
@@ -204,17 +229,17 @@ def test_cross_metric_verbs_report_the_same_inactive_count():
     ]
     metrics = ["ic", "beta", "spread"]
 
-    flat = bhy_across_metrics(results, metrics=metrics)
+    flat = bhy_across_metrics(results, metrics=metrics, inactive_policy="exclude")
     factor_level = partial_conjunction_across_metrics(
-        results, metrics=metrics, min_pass=2, q=0.05
+        results, metrics=metrics, min_pass=2, q=0.05, inactive_policy="exclude"
     )
 
-    assert flat.n_hypotheses_inactive == 1
-    assert factor_level.n_hypotheses_inactive == 1
+    assert flat.family.n_inactive == 1
+    assert factor_level.family.n_inactive == 1
     assert np.isnan(flat.adj_p_all[2])
     # m drops to the two real endpoints: p_PC = (2 - 2 + 1) * p_(2) = 0.02.
     assert factor_level.pc_p_all[0] == pytest.approx(0.02)
-    assert factor_level.n_tests[("a", 5)] == 2
+    assert factor_level.family_size[("a", 5)] == 2
 
 
 def test_n_passed_uncorr_counts_the_boundary_like_every_rejection_rule():
@@ -225,7 +250,12 @@ def test_n_passed_uncorr_counts_the_boundary_like_every_rejection_rule():
         _real("a", 0.05, params={"region": "EU"}),
     ]
     out = partial_conjunction(
-        results, metrics=["ic"], min_pass=2, expand_over=("region",), q=0.05
+        results,
+        metrics=["ic"],
+        min_pass=2,
+        expand_over=("region",),
+        q=0.05,
+        inactive_policy="exclude",
     )["ic"]
     assert out.n_passed_uncorr_all.tolist() == [2]
 

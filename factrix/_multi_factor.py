@@ -15,6 +15,11 @@ partitions the family; ``metadata`` never touches either.
 ``bhy_across_metrics`` extends that identity with a metric label;
 ``partial_conjunction_across_metrics`` treats the declared labels as a fixed
 k-of-m condition axis and returns factor-level identities.
+
+Whether a candidate that never ran a test still counts toward ``m`` is one
+shared, explicit declaration — the ``inactive_policy`` kwarg on every verb,
+defaulting to the conservative ``"count"``. See :data:`InactivePolicy` and
+:class:`FamilyAccounting`.
 """
 
 from __future__ import annotations
@@ -25,7 +30,7 @@ from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from numbers import Integral, Real
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, get_args
 
 import numpy as np
 import polars as pl
@@ -46,6 +51,117 @@ from factrix.stats.multiple_testing import (
 
 if TYPE_CHECKING:
     from factrix._results import EvaluationResult
+
+
+InactivePolicy = Literal["count", "exclude"]
+"""How an inactive candidate participates in its multiple-testing family.
+
+An *inactive* candidate is a metric cell that never ran a test: a
+data-shortage short-circuit (``reason`` starting ``insufficient_``) or a
+``degenerate_variance`` result (observations but no dispersion, so no
+statistic exists). See :func:`_is_inactive_hypothesis`.
+
+``"count"`` (the default on every screening verb)
+    The declared candidate family is the family. An inactive candidate
+    stays in it and participates as an inert ``p = 1``: it can never be
+    rejected, and because BHY is monotone in the p-vector an inert
+    ``p = 1`` can only raise — never lower — another candidate's adjusted
+    p. The FDR statement then needs no assumption about *why* a candidate
+    came back inactive.
+
+``"exclude"``
+    Inactive candidates leave the family before adjustment, so ``m``
+    (and ``G``, and a ``k``-of-``m`` denominator) counts only candidates
+    that produced a statistic. This is the sharper screen, and it is
+    valid **only if the caller can assert the activity filter is
+    independent of the p-values or was pre-specified** — that whether a
+    candidate had enough observations, or any dispersion, does not depend
+    on the effect being tested. Missingness and degeneracy are commonly
+    factor- and data-dependent, so this is an assertion the caller makes,
+    not one factrix can check.
+"""
+
+_INACTIVE_POLICIES: tuple[str, ...] = get_args(InactivePolicy)
+
+
+def _validate_inactive_policy(value: Any, *, func_name: str) -> InactivePolicy:
+    """Shared validator for the ``inactive_policy`` kwarg."""
+    if value not in _INACTIVE_POLICIES:
+        raise UserInputError(
+            func_name=func_name,
+            field="inactive_policy",
+            value=value,
+            expected=(
+                "'count' (default — every declared candidate stays in m, "
+                "inactive ones participate as an inert p = 1) or 'exclude' "
+                "(inactive candidates leave m; valid only when the activity "
+                "filter is independent of the p-values or pre-specified)"
+            ),
+            candidates=list(_INACTIVE_POLICIES),
+            docs_path="api/multi-factor#inactive-candidates",
+        )
+    return value
+
+
+@dataclass(frozen=True, slots=True)
+class FamilyAccounting:
+    """Candidate-to-family bookkeeping for one screening call.
+
+    Reports what the call actually did, not what it was asked for: the four
+    counts below are read off the family the adjustment ran on. They are
+    call-wide totals — when ``expand_over`` splits the input into several
+    step-ups, or a partial conjunction runs per identity, the counts sum
+    across those sub-families.
+
+    Attributes:
+        policy: The ``inactive_policy`` the call ran under. See
+            :data:`InactivePolicy`.
+        n_candidates_declared: Candidate cells submitted to this screen —
+            the declared family before any activity filtering.
+        n_tests_computed: Candidates that produced a test statistic
+            (``n_candidates_declared - n_inactive``).
+        n_inactive: Candidates that never ran a test (data-shortage
+            short-circuit or ``degenerate_variance``).
+        n_tests_adjusted: Candidates that actually entered an adjustment.
+            Equals ``n_candidates_declared`` under ``policy="count"`` and
+            ``n_tests_computed`` under ``policy="exclude"``, except where a
+            verb drops a whole sub-family for a reason of its own — a
+            partial-conjunction identity left with fewer than ``min_pass``
+            conditions contributes none of its cells.
+    """
+
+    policy: InactivePolicy
+    n_candidates_declared: int
+    n_tests_computed: int
+    n_inactive: int
+    n_tests_adjusted: int
+
+    def __str__(self) -> str:
+        return (
+            f"family(declared={self.n_candidates_declared}, "
+            f"computed={self.n_tests_computed}, inactive={self.n_inactive}, "
+            f"adjusted={self.n_tests_adjusted}, policy={self.policy!r})"
+        )
+
+
+def _family_accounting(
+    *,
+    policy: InactivePolicy,
+    declared: int,
+    computed: int,
+    adjusted: int,
+) -> FamilyAccounting:
+    """Build one :class:`FamilyAccounting`, deriving ``n_inactive``.
+
+    Every verb goes through here so the four counts cannot disagree:
+    ``n_inactive`` is ``declared - computed`` by construction rather than
+    a separately maintained tally. Fields are passed positionally on
+    purpose — spelling ``n_tests_adjusted=`` as a keyword would collide
+    with the ``*_adjusted`` stage-flag grammar that
+    ``tests/stats/test_short_circuit_flag_polarity.py`` audits, and this
+    is a count, not a boolean stage flag.
+    """
+    return FamilyAccounting(policy, declared, computed, declared - computed, adjusted)
 
 
 def _validate_metric_list(value: Any, *, func_name: str, field: str) -> list[str]:
@@ -231,6 +347,7 @@ class _ScreenResultMixin:
     entries: Sequence[Any]
     adj_p_all: np.ndarray
     q: float
+    family: FamilyAccounting
 
     @property
     def _survived(self) -> np.ndarray:
@@ -260,8 +377,12 @@ class _ScreenResultMixin:
     def _rows(self) -> tuple[tuple[str, ...], list[tuple[str, ...]]]:
         raise NotImplementedError
 
+    def _caption(self) -> str:
+        """``_header`` plus the family accounting every screen discloses."""
+        return f"{self._header()}, {self.family}"
+
     def __repr__(self) -> str:
-        head = f"{type(self).__name__}({self._header()})"
+        head = f"{type(self).__name__}({self._caption()})"
         if not self.survivors:
             return head
         headers, rows = self._rows()
@@ -269,7 +390,7 @@ class _ScreenResultMixin:
 
     def _repr_html_(self) -> str:
         headers, rows = self._rows()
-        return _render_html(f"{type(self).__name__} ({self._header()})", headers, rows)
+        return _render_html(f"{type(self).__name__} ({self._caption()})", headers, rows)
 
 
 @dataclass(frozen=True, slots=True, repr=False)
@@ -285,23 +406,25 @@ class _FdrResultBase(_ScreenResultMixin):
             also the key under which the record is returned.
         entries: Every tested :class:`EvaluationResult`, in input order.
         adj_p_all: BHY-adjusted p-value aligned with ``entries``; ``NaN``
-            for an entry dropped before the family formed (data shortage).
+            for an entry that did not enter any adjustment family.
         q: Nominal FDR target; must satisfy ``0 < q < 1``.
-        n_tests: Per-bucket / per-identity family size keyed by tuple,
-            counting real hypotheses only.
-        n_hypotheses_inactive: Placeholder cells excluded from every family
-            before adjustment — a data-shortage short-circuit or a
-            ``degenerate_variance`` result never ran a test, so it is not a
-            hypothesis and does not enter ``m`` (or ``G``). Reported by every
-            screening verb under this one key.
+        family_size: Per-bucket / per-identity size of the family the
+            adjustment ran on, keyed by tuple — ``m``. Under
+            ``inactive_policy="count"`` that includes the inactive
+            candidates participating at ``p = 1``; under
+            ``"exclude"`` it counts computed tests only. Named for the
+            quantity it is: not every member is a test that ran.
+        family: :class:`FamilyAccounting` — declared / computed / inactive
+            / adjusted counts and the ``inactive_policy`` the call ran
+            under. Reported by every screening verb under this one key.
     """
 
     metric_name: str
     entries: list[EvaluationResult]
     adj_p_all: np.ndarray
     q: float
-    n_tests: Mapping[tuple[Any, ...], int]
-    n_hypotheses_inactive: int
+    family_size: Mapping[tuple[Any, ...], int]
+    family: FamilyAccounting
 
     def to_frame(self) -> pl.DataFrame:
         """Every tested factor with its adjusted p-value and survive flag.
@@ -324,8 +447,8 @@ class BhyResult(_FdrResultBase):
     """Result of one BHY step-up for one metric.
 
     Shares ``metric_name`` / ``entries`` / ``adj_p_all`` / ``q`` /
-    ``n_tests`` with :class:`_FdrResultBase`. ``adj_p_all`` is bucket-local;
-    ``n_tests`` is keyed by ``expand_over_values`` tuple (``()`` for
+    ``family_size`` with :class:`_FdrResultBase`. ``adj_p_all`` is bucket-local;
+    ``family_size`` is keyed by ``expand_over_values`` tuple (``()`` for
     single-bucket).
 
     Attributes:
@@ -393,8 +516,8 @@ class CrossMetricBhyResult(_ScreenResultMixin):
     q: float
     metrics: tuple[str, ...]
     expand_over: tuple[str, ...]
-    n_tests: Mapping[tuple[Any, ...], int]
-    n_hypotheses_inactive: int
+    family_size: Mapping[tuple[Any, ...], int]
+    family: FamilyAccounting
 
     def to_frame(self) -> pl.DataFrame:
         """Return every tested cell, including inactive and eliminated rows."""
@@ -450,23 +573,25 @@ class PartialConjunctionResult(_FdrResultBase):
     """Per-identity partial-conjunction survivors for one metric.
 
     Shares ``metric_name`` / ``entries`` / ``adj_p_all`` / ``q`` /
-    ``n_tests`` with :class:`_FdrResultBase`. ``entries`` is one
+    ``family_size`` with :class:`_FdrResultBase`. ``entries`` is one
     representative :class:`EvaluationResult` per identity; ``adj_p_all`` is
     the BHY-adjusted PC p-value (``NaN`` for an identity left with fewer
-    than ``min_pass`` real conditions, which never enters the family);
-    ``n_tests`` is the count of *real* conditions per identity — ``m`` in
-    the k-of-m claim — keyed by the identifier with the ``expand_over`` components
-    stripped (``factor``, then ``forward_periods`` and ``params`` items not
-    named by ``expand_over``).
+    than ``min_pass`` conditions, which never enters the family);
+    ``family_size`` is ``m`` in the k-of-m claim per identity — every
+    declared condition under ``inactive_policy="count"``, the computed
+    ones only under ``"exclude"`` — keyed by the identifier with the
+    ``expand_over`` components stripped (``factor``, then
+    ``forward_periods`` and ``params`` items not named by ``expand_over``).
 
     Attributes:
         pc_p_all: Raw PC p-value aligned with ``entries``.
         expand_over: ``params`` keys defining the condition axis.
         min_pass: ``k`` in the ``k`` of ``m`` partial conjunction test.
-        n_passed_uncorr_all: Per-identity count of real conditions whose
+        n_passed_uncorr_all: Per-identity count of family conditions whose
             raw p-value is at or below ``q`` — the same ``<=`` rejection
             rule every other screen uses (descriptive — not used in
-            inference), aligned with ``entries``.
+            inference), aligned with ``entries``. An inactive condition
+            enters at ``p = 1`` and so never counts as a pass.
     """
 
     pc_p_all: np.ndarray
@@ -486,7 +611,7 @@ class PartialConjunctionResult(_FdrResultBase):
             "factor",
             "pc_p",
             "adj_p",
-            "n_tests",
+            "family_size",
             "n_passed_uncorr",
         )
         rows: list[tuple[str, ...]] = [
@@ -495,7 +620,7 @@ class PartialConjunctionResult(_FdrResultBase):
                 f"{float(pc):.4g}",
                 f"{float(adj):.4g}",
                 str(
-                    self.n_tests.get(
+                    self.family_size.get(
                         _hypothesis_identity(r, exclude=self.expand_over), 0
                     )
                 ),
@@ -525,10 +650,10 @@ class CrossMetricPartialConjunctionResult(_ScreenResultMixin):
     q: float
     metrics: tuple[str, ...]
     min_pass: int
-    n_tests: Mapping[tuple[Any, ...], int]
+    family_size: Mapping[tuple[Any, ...], int]
     n_identities: int
     n_passed_uncorr_all: np.ndarray
-    n_hypotheses_inactive: int
+    family: FamilyAccounting
 
     def to_frame(self) -> pl.DataFrame:
         """Return one row per factor identity, including ineligible rows."""
@@ -539,10 +664,11 @@ class CrossMetricPartialConjunctionResult(_ScreenResultMixin):
                 "pc_p": self.pc_p_all,
                 "adj_p": self.adj_p_all,
                 "survived": self._survived,
-                "active": [
-                    self.n_tests[identity] >= self.min_pass for identity in identities
+                "eligible": [
+                    self.family_size[identity] >= self.min_pass
+                    for identity in identities
                 ],
-                "n_tests": [self.n_tests[identity] for identity in identities],
+                "family_size": [self.family_size[identity] for identity in identities],
                 "n_passed_uncorr": self.n_passed_uncorr_all,
             }
         )
@@ -559,7 +685,7 @@ class CrossMetricPartialConjunctionResult(_ScreenResultMixin):
             "factor",
             "pc_p",
             "adj_p",
-            "n_tests",
+            "family_size",
             "n_passed_uncorr",
         )
         rows: list[tuple[str, ...]] = [
@@ -567,7 +693,7 @@ class CrossMetricPartialConjunctionResult(_ScreenResultMixin):
                 entry.factor,
                 f"{float(pc):.4g}",
                 f"{float(adj):.4g}",
-                str(self.n_tests[identity]),
+                str(self.family_size[identity]),
                 str(int(n_passed)),
             )
             for entry, identity, pc, adj, n_passed, ok in zip(
@@ -589,23 +715,24 @@ class HierarchicalBhyResult(_FdrResultBase):
     """Two-stage hierarchical BHY survivors for one metric.
 
     Shares ``metric_name`` / ``entries`` / ``adj_p_all`` / ``q`` /
-    ``n_tests`` with :class:`_FdrResultBase`. ``adj_p_all`` is
+    ``family_size`` with :class:`_FdrResultBase`. ``adj_p_all`` is
     ``max(outer_adj_p[group], min(1, inner_adj_p[i] · G / R))`` aligned
     with ``entries`` so ``entry[i] survives iff adj_p_all[i] <= q`` — at
     the ``q`` the screen ran at, since ``R`` (groups selected by the outer
     layer) depends on it; ``q`` is shared by both
-    layers; ``n_tests`` is the per-group inner family size keyed by
-    ``(group_value,)`` — covering every group holding a real hypothesis,
-    not just the survivors, so ``G`` is ``len(n_tests)``. Placeholder
-    members, and groups made up entirely of them, are absent from the
-    family and carry ``NaN``.
+    layers; ``family_size`` is the per-group inner family size keyed by
+    ``(group_value,)`` — covering every group that entered the outer
+    layer, not just the survivors, so ``G`` is ``len(family_size)``.
+    Under ``inactive_policy="count"`` that is every declared group; under
+    ``"exclude"`` inactive members leave their inner family and a group
+    with none left is absent from ``family_size`` and carries ``NaN``.
 
     Attributes:
         group: ``params`` key naming the group axis.
         n_selected_groups: ``R`` — groups the outer layer passed at ``q``.
             Reported because the inner level is ``q · R / G`` and ``R`` is
             the one term in it not otherwise recoverable from this result
-            (``G`` is ``len(n_tests)``), so without it the adjusted
+            (``G`` is ``len(family_size)``), so without it the adjusted
             p-values cannot be reproduced by hand. ``0`` means no group
             passed and nothing survives.
     """
@@ -617,7 +744,7 @@ class HierarchicalBhyResult(_FdrResultBase):
         return (
             f"metric={self.metric_name}, n={len(self.survivors)}, "
             f"q={self.q:g}, group={self.group!r}, "
-            f"selected_groups={self.n_selected_groups}/{len(self.n_tests)}"
+            f"selected_groups={self.n_selected_groups}/{len(self.family_size)}"
         )
 
     def _rows(self) -> tuple[tuple[str, ...], list[tuple[str, ...]]]:
@@ -645,6 +772,7 @@ def bhy(
     metrics: list[str],
     expand_over: tuple[str, ...] = (),
     q: float = 0.05,
+    inactive_policy: InactivePolicy = "count",
 ) -> dict[str, BhyResult]:
     """Benjamini-Hochberg-Yekutieli step-up FDR, one screen per metric.
 
@@ -670,12 +798,21 @@ def bhy(
             other keys are looked up on ``result.params``.
         q: Nominal FDR target. Must satisfy ``0 < q < 1``.
             Default ``0.05``.
+        inactive_policy: Whether an inactive candidate — a data-shortage
+            short-circuit or a ``degenerate_variance`` result — stays in
+            the family. ``"count"`` (default) keeps it at an inert
+            ``p = 1``, so ``m`` is the declared candidate count and the
+            FDR statement needs no assumption about why the candidate
+            came back inactive. ``"exclude"`` drops it from ``m``; that
+            is valid only if the activity filter is independent of the
+            p-values or was pre-specified. See :data:`InactivePolicy`.
 
     Returns:
         ``dict[str, BhyResult]`` keyed by ``label``.
 
     Raises:
         UserInputError: ``metrics`` not a non-empty ``list[str]``;
+            ``inactive_policy`` not ``'count'`` or ``'exclude'``;
             duplicate ``(factor, forward_periods, *params)``
             identifier; ``expand_over`` key missing from a result's
             ``params`` or naming ``'factor'``; metric absent from a result's
@@ -689,6 +826,7 @@ def bhy(
     """
     metric_list = _validate_metric_list(metrics, func_name="bhy", field="metrics")
     q_target = _validate_q(q, func_name="bhy")
+    policy = _validate_inactive_policy(inactive_policy, func_name="bhy")
     _require_non_empty_results(results, func_name="bhy")
     expand_over_tuple = tuple(expand_over)
 
@@ -702,27 +840,27 @@ def bhy(
     out: dict[str, BhyResult] = {}
     for spec in metric_list:
         entries = _attach_p_values(partition, func_name="bhy", metric=spec)
-        active_idx, n_inactive = _active_entries(entries, metric=spec)
-        active_set = set(active_idx)
-        active_buckets: dict[tuple[Any, ...], list[int]] = {
-            bucket_key: [i for i in ix if i in active_set]
+        split = _split_family(entries, policy=policy, metric=spec)
+        inactive_set = split.inactive_set
+        family_idx = set(split.family)
+        family_buckets: dict[tuple[Any, ...], list[int]] = {
+            bucket_key: [i for i in ix if i in family_idx]
             for bucket_key, ix in buckets.items()
         }
-        active_buckets = {k: ix for k, ix in active_buckets.items() if ix}
-        n_tests = {bucket_key: len(ix) for bucket_key, ix in active_buckets.items()}
-        singleton = sum(1 for ix in active_buckets.values() if len(ix) == 1)
-        if singleton and len(active_buckets) > 1:
+        family_buckets = {k: ix for k, ix in family_buckets.items() if ix}
+        family_size = {bucket_key: len(ix) for bucket_key, ix in family_buckets.items()}
+        singleton = sum(1 for ix in family_buckets.values() if len(ix) == 1)
+        if singleton and len(family_buckets) > 1:
             warnings.warn(
-                f"bhy: {singleton} of {len(active_buckets)} expand_over buckets "
+                f"bhy: {singleton} of {len(family_buckets)} expand_over buckets "
                 "contain a single result — BHY on n=1 is identical to a "
                 "raw threshold and provides no FDR correction.",
                 RuntimeWarning,
                 stacklevel=2,
             )
         adj_p_all = np.full(len(entries), np.nan, dtype=np.float64)
-        for ix in active_buckets.values():
-            p_array = np.array([entries[i].p_value for i in ix], dtype=np.float64)
-            adj_p_all[ix] = bhy_adjusted_p(p_array)
+        for ix in family_buckets.values():
+            adj_p_all[ix] = bhy_adjusted_p(_family_p_values(entries, ix, inactive_set))
 
         out[spec] = BhyResult(
             metric_name=spec,
@@ -730,8 +868,13 @@ def bhy(
             adj_p_all=adj_p_all,
             q=q_target,
             expand_over=expand_over_tuple,
-            n_tests=n_tests,
-            n_hypotheses_inactive=n_inactive,
+            family_size=family_size,
+            family=_family_accounting(
+                policy=policy,
+                declared=len(entries),
+                computed=len(split.active),
+                adjusted=sum(family_size.values()),
+            ),
         )
     return out
 
@@ -744,10 +887,14 @@ def _is_inactive_hypothesis(result: EvaluationResult, metric: str) -> bool:
     result had the observations but no dispersion, so no statistic exists
     (see ``factrix.metrics._helpers._degenerate_test_fields``); its
     ``p_value`` is ``None`` and ``_resolve_p_value`` substitutes an inert
-    1.0. Neither is a hypothesis that was genuinely on the table, so both
-    stay out of every screening family — counting them would inflate every
-    other factor's adjusted p, penalising the real hypotheses for tests
-    that never ran.
+    1.0. Neither ran a test, so neither can be rejected.
+
+    What that costs the rest of the family is the caller's declaration, not
+    this predicate's: see :data:`InactivePolicy`. Under the default
+    ``"count"`` an inactive candidate stays in ``m`` at ``p = 1``, which
+    can only raise the other candidates' adjusted p-values; under
+    ``"exclude"`` it leaves ``m`` entirely, which is sharper but assumes
+    the activity filter is independent of the p-values or pre-specified.
     """
     out = result.metrics[metric]
     reason = out.metadata.get("reason")
@@ -756,38 +903,81 @@ def _is_inactive_hypothesis(result: EvaluationResult, metric: str) -> bool:
     return WarningCode.DEGENERATE_VARIANCE.value in out.warning_codes
 
 
-def _active_entries(
+@dataclass(frozen=True, slots=True)
+class _FamilySplit:
+    """Positions into a candidate list, split by activity and by policy.
+
+    ``family`` is what the adjustment runs on: every candidate under
+    ``policy="count"``, only ``active`` under ``policy="exclude"``. Both
+    lists are in input order.
+    """
+
+    policy: InactivePolicy
+    family: list[int]
+    active: list[int]
+    inactive: list[int]
+
+    @property
+    def inactive_set(self) -> frozenset[int]:
+        return frozenset(self.inactive)
+
+
+def _split_family(
     entries: Sequence[Any],
     *,
+    policy: InactivePolicy,
     metric: str | None = None,
-) -> tuple[list[int], int]:
-    """Split a candidate family into real hypotheses and placeholders.
+) -> _FamilySplit:
+    """Split a candidate family into real hypotheses and inactive cells.
 
-    One policy for every screening verb: a placeholder (see
-    :func:`_is_inactive_hypothesis`) is not a hypothesis, so it never joins
-    a family, never enters ``m`` (or ``G``), and never reaches an
-    adjustment. The same degenerate input therefore yields the same
-    adjusted p for the surviving hypotheses whichever verb screens it.
+    One policy for every screening verb, so the same input answers the same
+    way whichever verb screens it. Under ``policy="count"`` (the default)
+    every declared candidate stays in the family and an inactive one
+    participates as an inert ``p = 1`` — see :func:`_family_p_values`. Under
+    ``policy="exclude"`` an inactive candidate leaves the family before any
+    adjustment, so it never enters ``m`` (or ``G``, or a ``k``-of-``m``
+    denominator); that is the sharper screen and is valid only under an
+    independent or pre-specified activity filter.
 
     Args:
         entries: Family entries. Each exposes ``result``; a
             :class:`MetricHypothesis` also carries its own ``metric_name``.
+        policy: See :data:`InactivePolicy`.
         metric: Metric label for entries that do not carry one.
 
     Returns:
-        ``(active_indices, n_inactive)`` — positions into ``entries`` that
-        are real hypotheses, in input order, and how many were dropped.
+        A :class:`_FamilySplit` over positions into ``entries``.
     """
     active: list[int] = []
-    n_inactive = 0
+    inactive: list[int] = []
     for idx, entry in enumerate(entries):
         label = getattr(entry, "metric_name", metric)
         assert label is not None
         if _is_inactive_hypothesis(entry.result, label):
-            n_inactive += 1
+            inactive.append(idx)
         else:
             active.append(idx)
-    return active, n_inactive
+    family = list(range(len(entries))) if policy == "count" else active
+    return _FamilySplit(policy=policy, family=family, active=active, inactive=inactive)
+
+
+def _family_p_values(
+    entries: Sequence[Any],
+    indices: Sequence[int],
+    inactive: frozenset[int],
+) -> np.ndarray:
+    """P-values for ``indices``, with inactive members forced to an inert 1.0.
+
+    An inactive candidate has no statistic, so the value that enters the
+    adjustment is the placeholder the policy names — 1.0 — never whatever
+    the short-circuit happened to leave on the record. Reporting the
+    quantity that ran means substituting it here, once, rather than relying
+    on each producer to have written 1.0.
+    """
+    return np.array(
+        [1.0 if i in inactive else entries[i].p_value for i in indices],
+        dtype=np.float64,
+    )
 
 
 def _normalize_metric_hypotheses(
@@ -829,6 +1019,7 @@ def bhy_across_metrics(
     metrics: list[str],
     expand_over: tuple[str, ...] = (),
     q: float = 0.05,
+    inactive_policy: InactivePolicy = "count",
 ) -> CrossMetricBhyResult:
     """Pool factor x metric hypotheses into one BHY FDR family.
 
@@ -844,16 +1035,22 @@ def bhy_across_metrics(
             into separately reported families. Metrics stay pooled inside each
             bucket.
         q: Nominal FDR target in the open interval ``(0, 1)``.
+        inactive_policy: ``"count"`` (default) keeps an inactive cell in
+            the pooled family at an inert ``p = 1``; ``"exclude"`` drops
+            it from ``m`` under an independent or pre-specified activity
+            filter. See :data:`InactivePolicy`.
 
     Returns:
         A :class:`CrossMetricBhyResult` containing every submitted cell.
 
     Raises:
-        UserInputError: Inputs do not define a valid, traceable family or any
-            non-short-circuited metric cell has an invalid p-value.
+        UserInputError: Inputs do not define a valid, traceable family, any
+            non-short-circuited metric cell has an invalid p-value, or
+            ``inactive_policy`` is not ``'count'`` / ``'exclude'``.
     """
     metric_list = _validate_cross_metric_list(metrics, func_name="bhy_across_metrics")
     q_target = _validate_q(q, func_name="bhy_across_metrics")
+    policy = _validate_inactive_policy(inactive_policy, func_name="bhy_across_metrics")
     _require_non_empty_results(results, func_name="bhy_across_metrics")
     expand_over_tuple = tuple(expand_over)
     _warn_on_mixed_horizons(
@@ -868,12 +1065,12 @@ def bhy_across_metrics(
         func_name="bhy_across_metrics",
         expand_over=expand_over_tuple,
     )
-    active_idx, n_inactive = _active_entries(entries)
+    split = _split_family(entries, policy=policy)
     buckets: dict[tuple[Any, ...], list[int]] = defaultdict(list)
-    for idx in active_idx:
+    for idx in split.family:
         buckets[entries[idx].expand_over_values].append(idx)
 
-    n_tests = {bucket_key: len(ix) for bucket_key, ix in buckets.items()}
+    family_size = {bucket_key: len(ix) for bucket_key, ix in buckets.items()}
     singleton = sum(1 for ix in buckets.values() if len(ix) == 1)
     if singleton and len(buckets) > 1:
         warnings.warn(
@@ -884,10 +1081,10 @@ def bhy_across_metrics(
             stacklevel=2,
         )
 
+    inactive_set = split.inactive_set
     adj_p_all = np.full(len(entries), np.nan, dtype=np.float64)
     for ix in buckets.values():
-        p_array = np.array([entries[i].p_value for i in ix], dtype=np.float64)
-        adj_p_all[ix] = bhy_adjusted_p(p_array)
+        adj_p_all[ix] = bhy_adjusted_p(_family_p_values(entries, ix, inactive_set))
 
     return CrossMetricBhyResult(
         entries=entries,
@@ -895,8 +1092,13 @@ def bhy_across_metrics(
         q=q_target,
         metrics=tuple(metric_list),
         expand_over=expand_over_tuple,
-        n_tests=n_tests,
-        n_hypotheses_inactive=n_inactive,
+        family_size=family_size,
+        family=_family_accounting(
+            policy=policy,
+            declared=len(entries),
+            computed=len(split.active),
+            adjusted=sum(family_size.values()),
+        ),
     )
 
 
@@ -908,6 +1110,7 @@ def partial_conjunction(
     expand_over: tuple[str, ...],
     n_conditions: int | None = None,
     q: float = 0.05,
+    inactive_policy: InactivePolicy = "count",
 ) -> dict[str, PartialConjunctionResult]:
     """Partial-conjunction screening: identities significant in
     ``min_pass`` of ``m`` conditions, one screen per metric.
@@ -930,11 +1133,12 @@ def partial_conjunction(
     therefore a selection effect the outer BHY step-up does not correct —
     the k-of-m claim is part of the hypothesis, not a knob to tune.
 
-    Placeholder conditions (a data-shortage short-circuit or a
-    ``degenerate_variance`` result) are not conditions: they leave ``m``
-    rather than entering it at ``p = 1``, exactly as in :func:`bhy`. An
-    identity left with fewer than ``min_pass`` real conditions stays in the
-    audit output with ``NaN`` and never enters the outer BHY family.
+    Inactive conditions (a data-shortage short-circuit or a
+    ``degenerate_variance`` result) are governed by ``inactive_policy``,
+    exactly as in :func:`bhy`. Under the default ``"count"`` they stay in
+    ``m`` at an inert ``p = 1``; under ``"exclude"`` they leave ``m``, and
+    an identity left with fewer than ``min_pass`` real conditions stays in
+    the audit output with ``NaN`` and never enters the outer BHY family.
 
     Args:
         results: :class:`EvaluationResult` records. The aggregation
@@ -954,6 +1158,10 @@ def partial_conjunction(
             to have exactly that many conditions.
         q: Nominal FDR target for the BHY step-up over PC p-values. Must
             satisfy ``0 < q < 1``.
+        inactive_policy: ``"count"`` (default) keeps an inactive condition
+            in the ``k``-of-``m`` denominator at an inert ``p = 1``;
+            ``"exclude"`` drops it from ``m`` under an independent or
+            pre-specified activity filter. See :data:`InactivePolicy`.
 
     Returns:
         ``dict[str, PartialConjunctionResult]`` keyed by
@@ -961,6 +1169,7 @@ def partial_conjunction(
 
     Raises:
         UserInputError: ``min_pass < 2``; ``expand_over`` empty;
+            ``inactive_policy`` not ``'count'`` / ``'exclude'``;
             ``n_conditions < min_pass``; condition-count mismatch;
             identity with fewer than ``min_pass`` conditions; any
             ``_resolve_family`` invariant failure.
@@ -969,6 +1178,7 @@ def partial_conjunction(
         metrics, func_name="partial_conjunction", field="metrics"
     )
     q_target = _validate_q(q, func_name="partial_conjunction")
+    policy = _validate_inactive_policy(inactive_policy, func_name="partial_conjunction")
     _require_non_empty_results(results, func_name="partial_conjunction")
 
     if min_pass < 2:
@@ -1029,6 +1239,7 @@ def partial_conjunction(
             expand_over=expand_over_tuple,
             n_conditions=n_conditions,
             q=q_target,
+            policy=policy,
         )
     return out
 
@@ -1041,6 +1252,7 @@ def _partial_conjunction_one(
     expand_over: tuple[str, ...],
     n_conditions: int | None,
     q: float,
+    policy: InactivePolicy,
 ) -> PartialConjunctionResult:
     entries = _resolve_family(
         results,
@@ -1062,7 +1274,9 @@ def _partial_conjunction_one(
     n_tests_per_id: dict[tuple[Any, ...], int] = {}
     rep_results: list[EvaluationResult] = []
     eligible: list[int] = []
-    n_inactive = 0
+    n_computed = 0
+    n_declared = 0
+    n_adjusted = 0
 
     for i, identity in enumerate(identities_ordered):
         group = entries_by_identity[identity]
@@ -1096,18 +1310,21 @@ def _partial_conjunction_one(
                 docs_path="api/partial-conjunction#validation-summary",
             )
 
-        active_idx, group_inactive = _active_entries(group, metric=metric)
-        n_inactive += group_inactive
-        ps = np.array([group[j].p_value for j in active_idx], dtype=np.float64)
-        # One placeholder policy: an inactive condition is not a condition, so
-        # it leaves both the k-of-m denominator and the raw pass count. An
+        # One inactive policy, shared with bhy(): under "count" an inactive
+        # condition stays in the k-of-m denominator at an inert p = 1 (it can
+        # never be one of the k passes); under "exclude" it leaves m, and an
         # identity left with fewer than ``min_pass`` real conditions cannot
         # support the claim and stays out of the outer BHY family.
-        n_tests_per_id[identity] = len(active_idx)
+        split = _split_family(group, policy=policy, metric=metric)
+        n_computed += len(split.active)
+        n_declared += len(group)
+        ps = _family_p_values(group, split.family, split.inactive_set)
+        n_tests_per_id[identity] = len(split.family)
         n_passed_arr[i] = int(np.sum(ps <= q))
-        if len(active_idx) >= min_pass:
+        if len(split.family) >= min_pass:
             pc_p_arr[i] = partial_conjunction_p(ps, min_pass=min_pass)
             eligible.append(i)
+            n_adjusted += len(split.family)
         rep_results.append(group[0].result)
 
     if n_conditions is None:
@@ -1135,9 +1352,14 @@ def _partial_conjunction_one(
         q=q,
         expand_over=expand_over,
         min_pass=min_pass,
-        n_tests=n_tests_per_id,
+        family_size=n_tests_per_id,
         n_passed_uncorr_all=n_passed_arr,
-        n_hypotheses_inactive=n_inactive,
+        family=_family_accounting(
+            policy=policy,
+            declared=n_declared,
+            computed=n_computed,
+            adjusted=n_adjusted,
+        ),
     )
 
 
@@ -1147,15 +1369,17 @@ def partial_conjunction_across_metrics(
     metrics: list[str],
     min_pass: int,
     q: float = 0.05,
+    inactive_policy: InactivePolicy = "count",
 ) -> CrossMetricPartialConjunctionResult:
     """Test whether each factor identity passes at least k of m metrics.
 
     Metric labels are the predeclared condition axis. For each result, the
     Bonferroni-style partial-conjunction p-value is computed across the fixed
-    ``m`` real endpoints, then BHY runs across factor identities.
-    Placeholder endpoints (a data-shortage short-circuit or a
-    ``degenerate_variance`` result) never ran a test, so they leave ``m``
-    instead of entering it at ``p = 1``; identities with fewer than
+    ``m`` endpoints, then BHY runs across factor identities. Inactive
+    endpoints (a data-shortage short-circuit or a ``degenerate_variance``
+    result) are governed by ``inactive_policy``: under the default
+    ``"count"`` they stay in ``m`` at an inert ``p = 1``; under
+    ``"exclude"`` they leave ``m``, and identities with fewer than
     ``min_pass`` real endpoints remain in the audit output but do not enter
     the outer BHY family. ``min_pass`` must be declared before the p-values
     are seen — ``(m - k + 1) * p_((k))`` is not monotone in ``k``.
@@ -1168,6 +1392,10 @@ def partial_conjunction_across_metrics(
             Must satisfy ``2 <= min_pass <= len(metrics)``. Declared before
             the p-values are seen.
         q: Nominal FDR target for BHY across factor identities.
+        inactive_policy: ``"count"`` (default) keeps an inactive endpoint
+            in the ``k``-of-``m`` denominator at an inert ``p = 1``;
+            ``"exclude"`` drops it from ``m`` under an independent or
+            pre-specified activity filter. See :data:`InactivePolicy`.
 
     Returns:
         A :class:`CrossMetricPartialConjunctionResult` with factor-level
@@ -1207,6 +1435,9 @@ def partial_conjunction_across_metrics(
         )
 
     q_target = _validate_q(q, func_name="partial_conjunction_across_metrics")
+    policy = _validate_inactive_policy(
+        inactive_policy, func_name="partial_conjunction_across_metrics"
+    )
     _require_non_empty_results(results, func_name="partial_conjunction_across_metrics")
     _warn_on_mixed_horizons(
         results,
@@ -1222,28 +1453,27 @@ def partial_conjunction_across_metrics(
 
     m = len(metric_list)
     identifiers = [_hypothesis_identity(result) for result in results]
-    n_tests: dict[tuple[Any, ...], int] = {}
+    family_size: dict[tuple[Any, ...], int] = {}
     pc_p_all = np.full(len(results), np.nan, dtype=np.float64)
     n_passed = np.zeros(len(results), dtype=np.int64)
     eligible: list[int] = []
-    n_inactive = 0
+    n_computed = 0
+    n_adjusted = 0
 
     for idx, identity in enumerate(identifiers):
         conditions = hypotheses[idx * m : (idx + 1) * m]
-        # One placeholder policy: an inactive endpoint is not an endpoint. It
-        # leaves the k-of-m denominator instead of entering it at p=1.0, so
-        # the same degenerate cell costs the same here as under bhy().
-        active_idx, identity_inactive = _active_entries(conditions)
-        n_inactive += identity_inactive
-        n_tests[identity] = len(active_idx)
-        p_values = np.array(
-            [conditions[j].p_value for j in active_idx], dtype=np.float64
-        )
+        # One inactive policy, shared with bhy(): the same inactive cell costs
+        # the same here as it does under a flat screen.
+        split = _split_family(conditions, policy=policy)
+        n_computed += len(split.active)
+        family_size[identity] = len(split.family)
+        p_values = _family_p_values(conditions, split.family, split.inactive_set)
         n_passed[idx] = int(np.sum(p_values <= q_target))
-        if len(active_idx) < min_pass_int:
+        if len(split.family) < min_pass_int:
             continue
         pc_p_all[idx] = partial_conjunction_p(p_values, min_pass=min_pass_int)
         eligible.append(idx)
+        n_adjusted += len(split.family)
 
     adj_p_all = np.full(len(results), np.nan, dtype=np.float64)
     if eligible:
@@ -1257,10 +1487,15 @@ def partial_conjunction_across_metrics(
         q=q_target,
         metrics=tuple(metric_list),
         min_pass=min_pass_int,
-        n_tests=n_tests,
+        family_size=family_size,
         n_identities=len(eligible),
         n_passed_uncorr_all=n_passed,
-        n_hypotheses_inactive=n_inactive,
+        family=_family_accounting(
+            policy=policy,
+            declared=len(hypotheses),
+            computed=n_computed,
+            adjusted=n_adjusted,
+        ),
     )
 
 
@@ -1270,6 +1505,7 @@ def bhy_hierarchical(
     metrics: list[str],
     group: str,
     q: float = 0.05,
+    inactive_policy: InactivePolicy = "count",
 ) -> dict[str, HierarchicalBhyResult]:
     """Two-layer hierarchical BHY screen with selective inference, one per metric.
 
@@ -1339,16 +1575,23 @@ def bhy_hierarchical(
         group: Single key naming the group axis.
         q: Nominal FDR target. The outer layer runs at ``q``; the inner
             layer at the selective ``q · R / G``. Must satisfy
-            ``0 < q < 1``. ``G`` counts only groups holding at least one
-            real hypothesis: placeholder members leave their inner family,
-            and a group with none of them leaves the outer layer instead of
-            entering it at a Simes p of 1.0.
+            ``0 < q < 1``.
+        inactive_policy: What ``G`` and the inner families count. Under
+            ``"count"`` (default) every declared group is a group: an
+            inactive member stays in its inner family at an inert
+            ``p = 1``, and a group made up entirely of inactive members
+            enters the outer layer at a Simes p of 1.0, so ``G`` is the
+            declared group count. Under ``"exclude"`` inactive members
+            leave their inner family and a group with none left leaves
+            ``G``; valid only under an independent or pre-specified
+            activity filter. See :data:`InactivePolicy`.
 
     Returns:
         ``dict[str, HierarchicalBhyResult]`` keyed by ``label``.
 
     Raises:
         UserInputError: ``group == 'factor'`` (it is the identifier);
+            ``inactive_policy`` not ``'count'`` / ``'exclude'``;
             only one distinct group value in the input (call ``bhy``
             instead); every result is its own group at ``n >= 3``;
             duplicate ``(factor, forward_periods, *params)`` identifier; any
@@ -1363,11 +1606,14 @@ def bhy_hierarchical(
         metrics, func_name="bhy_hierarchical", field="metrics"
     )
     q_target = _validate_q(q, func_name="bhy_hierarchical")
+    policy = _validate_inactive_policy(inactive_policy, func_name="bhy_hierarchical")
     _require_non_empty_results(results, func_name="bhy_hierarchical")
 
     out: dict[str, HierarchicalBhyResult] = {}
     for spec in metric_list:
-        out[spec] = _bhy_hierarchical_one(results, metric=spec, group=group, q=q_target)
+        out[spec] = _bhy_hierarchical_one(
+            results, metric=spec, group=group, q=q_target, policy=policy
+        )
     return out
 
 
@@ -1377,6 +1623,7 @@ def _bhy_hierarchical_one(
     metric: str,
     group: str,
     q: float,
+    policy: InactivePolicy,
 ) -> HierarchicalBhyResult:
     entries = _resolve_family(
         results,
@@ -1424,13 +1671,15 @@ def _bhy_hierarchical_one(
             docs_path="api/bhy-hierarchical#validation-summary",
         )
 
-    # One placeholder policy: a placeholder is not a hypothesis, so it joins
-    # neither an inner family nor G. A group with no real member drops out of
-    # the outer layer entirely rather than entering it at a Simes p of 1.0.
-    active_idx, n_inactive = _active_entries(entries, metric=metric)
-    active_set = set(active_idx)
+    # One inactive policy, shared with bhy(). Under "count" every declared
+    # group stays in G and an all-inactive group enters the outer layer at a
+    # Simes p of 1.0; under "exclude" inactive members leave their inner
+    # family and a group with none left drops out of G entirely.
+    split = _split_family(entries, policy=policy, metric=metric)
+    inactive_set = split.inactive_set
+    family_idx = set(split.family)
     buckets = {
-        gkey: [i for i in ix if i in active_set] for gkey, ix in submitted.items()
+        gkey: [i for i in ix if i in family_idx] for gkey, ix in submitted.items()
     }
     group_keys_ordered = [gkey for gkey in declared_keys if buckets[gkey]]
     n_groups = len(group_keys_ordered)
@@ -1444,8 +1693,13 @@ def _bhy_hierarchical_one(
             adj_p_all=adj_p_all,
             q=q,
             group=group,
-            n_tests={},
-            n_hypotheses_inactive=n_inactive,
+            family_size={},
+            family=_family_accounting(
+                policy=policy,
+                declared=len(entries),
+                computed=len(split.active),
+                adjusted=0,
+            ),
         )
 
     singletons = sum(1 for gkey in group_keys_ordered if len(buckets[gkey]) == 1)
@@ -1462,13 +1716,13 @@ def _bhy_hierarchical_one(
 
     group_simes = np.empty(n_groups, dtype=np.float64)
     inner_adjs: list[np.ndarray] = []
-    n_tests: dict[tuple[Any, ...], int] = {}
+    family_size: dict[tuple[Any, ...], int] = {}
     for g_idx, gkey in enumerate(group_keys_ordered):
         member_idxs = buckets[gkey]
-        member_p = np.array([entries[i].p_value for i in member_idxs], dtype=np.float64)
+        member_p = _family_p_values(entries, member_idxs, inactive_set)
         group_simes[g_idx] = simes_p(member_p)
         inner_adjs.append(bhy_adjusted_p(member_p))
-        n_tests[(gkey,)] = len(member_idxs)
+        family_size[(gkey,)] = len(member_idxs)
 
     outer_adj = bhy_adjusted_p(group_simes)
 
@@ -1493,8 +1747,13 @@ def _bhy_hierarchical_one(
         adj_p_all=adj_p_all,
         q=q,
         group=group,
-        n_tests=n_tests,
-        n_hypotheses_inactive=n_inactive,
+        family_size=family_size,
+        family=_family_accounting(
+            policy=policy,
+            declared=len(entries),
+            computed=len(split.active),
+            adjusted=sum(family_size.values()),
+        ),
     )
 
 

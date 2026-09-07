@@ -33,9 +33,10 @@ title: factrix.multi_factor.bhy
 
     ---
 
-    `BhyResult.expand_over` / `BhyResult.n_tests` / `BhyResult.q`
-    record the family declared and the `m` fed into each bucket's
-    step-up, so the FDR claim is self-contained in the return object.
+    `BhyResult.expand_over` / `BhyResult.family_size` / `BhyResult.q` /
+    `BhyResult.family` record the family declared, the `m` fed into each
+    bucket's step-up, and how many candidates never ran a test, so the
+    FDR claim is self-contained in the return object.
 
 </div>
 
@@ -47,13 +48,13 @@ The returned dictionary maps each mainstream metric label to a `BhyResult` conta
 |---|---|---|
 | `metric_name` | `str` | Name of the metric driving the screen. |
 | `entries` | `list[EvaluationResult]` | Every tested factor, input order — survivors and eliminated alike. |
-| `adj_p_all` | `np.ndarray` | Bucket-local Benjamini-Hochberg-Yekutieli (BHY)-adjusted p-value, index-aligned with `entries`; `NaN` for an entry dropped before the family formed. |
+| `adj_p_all` | `np.ndarray` | Bucket-local Benjamini-Hochberg-Yekutieli (BHY)-adjusted p-value, index-aligned with `entries`; `NaN` for an entry that did not enter any adjustment family. |
 | `survivors` | `list[EvaluationResult]` | Surviving subset (derived: `adj_p_all <= q`). |
 | `adj_p` | `np.ndarray` | Adjusted p-value for the survivors, aligned with `survivors` (derived). |
 | `q` | `float` | The nominal target FDR you passed. |
 | `expand_over` | `tuple[str, ...]` | `()` for a single family; `("regime_id",)` etc. otherwise. |
-| `n_tests` | `Mapping[tuple, int]` | `{(): N}` or `{bucket_key: m_per_bucket}`, counting real hypotheses only. |
-| `n_hypotheses_inactive` | `int` | Placeholder cells excluded from every family before adjustment (see [the module-level policy](multi-factor.md#placeholder-hypotheses)). |
+| `family_size` | `Mapping[tuple, int]` | `{(): N}` or `{bucket_key: m_per_bucket}` — the `m` each step-up ran on. Under `inactive_policy="count"` that includes inactive candidates at an inert `p = 1`. |
+| `family` | `FamilyAccounting` | Declared / computed / inactive / adjusted candidate counts and the policy that produced them (see [inactive candidates](multi-factor.md#inactive-candidates)). |
 
 Call `result.to_frame()` for a `factor | adj_p | survived` DataFrame over
 **all** tested factors — so a screen of N factors passing 2 still shows how
@@ -75,6 +76,7 @@ when buckets are declared.
 | `metrics` | (required) | `list[str]` of metric labels to run the FDR screen for. |
 | `expand_over` | `()` | Params keys whose distinct value tuples split the input into independent step-ups. Names must live in `EvaluationResult.params` (except for the built-in `"forward_periods"`). Naming a `metadata` key is rejected — bookkeeping does not define a family. |
 | `q` | `0.05` | Nominal false discovery rate target. The Benjamini–Yekutieli $c(m)$ correction is applied internally — pass the level you actually want; do not pre-divide. |
+| `inactive_policy` | `"count"` | Whether a candidate that never ran a test still counts toward `m`. `"count"` keeps it at an inert `p = 1`; `"exclude"` drops it, which is valid only under an independent or pre-specified activity filter. See [inactive candidates](multi-factor.md#inactive-candidates). |
 
 ### Identity vs partition (anti-shopping defense)
 

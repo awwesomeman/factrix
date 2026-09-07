@@ -58,7 +58,7 @@ def test_computes_metric_k_of_m_then_bhy_across_factor_identities():
     np.testing.assert_allclose(out.pc_p_all, [0.004, 0.4])
     assert [entry.factor for entry in out.survivors] == ["strong"]
     assert out.n_identities == 2
-    assert set(out.n_tests.values()) == {3}
+    assert set(out.family_size.values()) == {3}
     assert len(out.hypotheses) == 6
 
 
@@ -87,18 +87,19 @@ def test_insufficient_endpoint_leaves_m_and_ineligible_factor_is_audited():
         metrics=["ic", "beta", "spread"],
         min_pass=2,
         q=0.5,
+        inactive_policy="exclude",
     )
     frame = out.to_frame()
 
-    # One placeholder policy: the insufficient endpoint is not an endpoint, so
+    # Under the opt-in filter the insufficient endpoint is not an endpoint, so
     # m = 2 real conditions and p_PC = (2 - 2 + 1) * p_(2) = 0.002. Keeping it
-    # at p=1.0 with m=3 would have doubled that to 0.004.
+    # at p=1.0 with m=3 — the default — doubles that to 0.004.
     assert out.pc_p_all[0] == pytest.approx(0.002)
     assert np.isnan(out.pc_p_all[1])
     assert out.n_identities == 1
-    assert out.n_hypotheses_inactive == 3
-    assert frame["active"].to_list() == [True, False]
-    assert frame["n_tests"].to_list() == [2, 1]
+    assert out.family.n_inactive == 3
+    assert frame["eligible"].to_list() == [True, False]
+    assert frame["family_size"].to_list() == [2, 1]
 
 
 def test_to_frame_reports_factor_level_contract():
@@ -113,8 +114,8 @@ def test_to_frame_reports_factor_level_contract():
         "pc_p",
         "adj_p",
         "survived",
-        "active",
-        "n_tests",
+        "eligible",
+        "family_size",
         "n_passed_uncorr",
     ]
 
