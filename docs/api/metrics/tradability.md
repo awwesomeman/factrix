@@ -204,28 +204,17 @@ spacing than the return horizon.
     Breakeven is 250 bps at 20 underlying periods and 25 bps at overlap 2 —
     a 10x error that flips the sign of the net spread.
 
-### Migration — the `holding_periods` rename
+[](){ #migration--the-holding_periods-rename }
+### Migrating to `holding_periods`
 
-`breakeven_cost` and `net_spread` take `holding_periods=`. The keyword was
-`forward_periods=` up to `v0.22.0` and `overlap_periods=` in `v0.23.0`; there
-is no deprecation shim, so a call using either older name raises `TypeError`.
-
-- **From `forward_periods=`** — pass the same number as `holding_periods=`.
-  The unit is unchanged: underlying return periods between rebalances.
-- **From `overlap_periods=`** — pass the rebalance interval in underlying
-  return periods, *not* the panel's derived evaluation-grid overlap. On a full
-  grid the two coincide and the number is the same; on a panel built with
-  `compute_forward_return(..., dates=)` they differ, and substituting the
-  derived overlap is exactly the unit error above.
-- **The stride pairing check is gone.** `breakeven_cost` / `net_spread` used
-  to reject a call whose keyword disagreed with the upstream producer's
-  `overlap_periods`. That check compared two different units once the
-  evaluation grid could differ from the horizon, so it is removed;
-  `holding_periods` is recorded in metadata instead. The `n_groups` bucketing
-  check is unchanged.
-- **`rank_turnover` / `notional_turnover` are unaffected by the rename.** They
-  keep the injected `overlap_periods` as their default stride and gain the
-  optional `rebalance_lag=`.
+`breakeven_cost` and `net_spread` now take `holding_periods=`; the former
+`forward_periods=` and `overlap_periods=` keywords raise `TypeError`. Pass the
+rebalance interval in underlying return periods. Do not substitute the panel's
+derived `overlap_periods` on a coarse evaluation grid, where the units differ.
+This rename does not affect `rank_turnover` or `notional_turnover`. They
+stride at the injected `overlap_periods` by default; `rebalance_lag` is an
+optional override, and the resolved value is reported as
+`metadata["rebalance_lag"]`.
 
 ## Choosing a function
 

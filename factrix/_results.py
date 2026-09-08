@@ -35,8 +35,9 @@ class MetricResult:
 
     Attributes:
         value: Raw metric value.
-        p_value: P-value for the metric's hypothesis test. ``None`` for
-            descriptive metrics that carry no formal test.
+        p_value: Reported p-value for the metric's hypothesis test. ``None``
+            when no test result is available, including descriptive metrics
+            and tests whose statistic is withheld.
         alternative: Alternative-hypothesis direction used to construct
             ``p_value``. Present exactly when ``p_value`` is present.
         n_obs: Effective sample size the estimator actually used
