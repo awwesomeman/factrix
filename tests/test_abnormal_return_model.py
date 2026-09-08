@@ -74,9 +74,8 @@ def _supplied_abnormal_panel() -> pl.DataFrame:
             is_event = date_index >= 20 and date_index % 3 == 0
             magnitude = 1.0 + (date_index % 5) / 4.0
             direction = -1.0 if (date_index + asset_index) % 4 == 0 else 1.0
-            abnormal_return = (
-                0.003 * np.sin(date_index / 3.0 + asset_index)
-                + 0.001 * ((date_index % 7) - 3)
+            abnormal_return = 0.003 * np.sin(date_index / 3.0 + asset_index) + 0.001 * (
+                (date_index % 7) - 3
             )
             rows.append(
                 {

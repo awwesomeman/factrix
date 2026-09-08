@@ -48,8 +48,8 @@ from factrix._types import (
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _attach_abnormal_return,
-    _degenerate_test_fields,
     _deflate_for_within_date_clustering,
+    _degenerate_test_fields,
     _enforce_min_floor,
     _event_sample_threshold,
     _event_signal_is_discrete,
@@ -445,8 +445,7 @@ def event_hit_rate(
     if p0 in (0.0, 1.0):
         metadata.pop("stat_type", None)
         metadata["method"] = (
-            "generalised sign test withheld: zero null variance "
-            "(Cowan 1992 null)"
+            "generalised sign test withheld: zero null variance (Cowan 1992 null)"
         )
         stat, p, alternative = _degenerate_test_fields(
             float("nan"),
