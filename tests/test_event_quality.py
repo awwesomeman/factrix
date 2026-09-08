@@ -175,9 +175,9 @@ class TestNonFiniteSignBaseRateRows:
         assert dirty.metadata["sign_base_rate_up"] == pytest.approx(
             missing.metadata["sign_base_rate_up"]
         )
-        assert dirty.metadata["n_base_rate_rows"] == missing.metadata[
-            "n_base_rate_rows"
-        ]
+        assert (
+            dirty.metadata["n_base_rate_rows"] == missing.metadata["n_base_rate_rows"]
+        )
 
 
 class TestEventHitRateAlwaysExact:
