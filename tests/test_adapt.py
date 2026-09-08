@@ -86,7 +86,7 @@ class TestCanonicalRenames:
                 date="trade_date",
                 asset_id="ticker",
                 price="close_adj",
-                open="close_adj",
+                open="high_adj",
             )
 
     @pytest.mark.parametrize("lazy", [False, True])
