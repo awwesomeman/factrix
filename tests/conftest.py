@@ -105,6 +105,7 @@ def make_result(
         p_value=p,
         alternative=None if p is None else "two-sided",
         n_obs=100,
+        n_obs_axis="periods",
         name=metric,
         metadata=output_metadata,
         warning_codes=warning_codes,

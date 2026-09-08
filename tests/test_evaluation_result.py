@@ -7,6 +7,7 @@ import json
 from collections.abc import Mapping
 from types import MappingProxyType
 
+import numpy as np
 import polars as pl
 import pytest
 from factrix import (
@@ -24,6 +25,7 @@ def _sample_group() -> Mapping[str, MetricResult]:
         p_value=0.012,
         alternative="two-sided",
         n_obs=100,
+        n_obs_axis="periods",
         stat=2.5,
         metadata={"p_value": 0.012},
         name="ic",
@@ -31,6 +33,7 @@ def _sample_group() -> Mapping[str, MetricResult]:
     ic_ir_out = MetricResult(
         value=0.42,
         n_obs=100,
+        n_obs_axis="periods",
         name="ic_ir",
     )
     return MappingProxyType({"ic": ic_out, "ic_ir": ic_ir_out})
@@ -146,8 +149,12 @@ class TestEvaluationResultToFrame:
             r.to_frame()
 
     def test_n_obs_carries_per_metric_sample_size(self):
-        ic_out = MetricResult(value=0.05, n_obs=114, name="ic")
-        spread_out = MetricResult(value=0.01, n_obs=23, name="spread")
+        ic_out = MetricResult(
+            value=0.05, n_obs=114, n_obs_axis="periods", name="ic"
+        )
+        spread_out = MetricResult(
+            value=0.01, n_obs=23, n_obs_axis="periods", name="spread"
+        )
         g = MappingProxyType({"ic": ic_out, "spread": spread_out})
         df = _sample_result(g).to_frame()
         assert df.filter(pl.col("metric_name") == "ic")["n_obs"][0] == 114
@@ -241,7 +248,64 @@ class TestEvaluationResultToDict:
         assert d["metrics"]["ic"]["stat"] is None
         assert d["metrics"]["ic"]["p_value"] is None
         assert d["metrics"]["ic"]["metadata"]["se"] is None
-        json.dumps(d)
+        json.dumps(d, allow_nan=False)
+
+    def test_nested_payload_is_recursively_json_safe(self):
+        metric = MetricResult(
+            value=np.float64(0.1),
+            metadata={
+                "diagnostics": {
+                    "se": np.float32(float("inf")),
+                    "curve": [np.float64(1.5), float("nan")],
+                    "flags": (np.bool_(True), np.int64(3)),
+                }
+            },
+            name="ic",
+        )
+        result = dataclasses.replace(
+            _sample_result(MappingProxyType({"ic": metric})),
+            params={"window": (np.int64(5), np.float32(float("nan")))},
+            metadata={"diagnostics": {"scale": np.float64(float("inf"))}},
+        )
+
+        payload = result.to_dict()
+
+        assert payload["params"]["window"] == [5, None]
+        assert payload["metadata"]["diagnostics"]["scale"] is None
+        diagnostics = payload["metrics"]["ic"]["metadata"]["diagnostics"]
+        assert diagnostics == {
+            "se": None,
+            "curve": [1.5, None],
+            "flags": [True, 3],
+        }
+        json.dumps(payload, allow_nan=False)
+
+    @pytest.mark.parametrize(
+        ("metadata", "path"),
+        [
+            ({"diagnostics": {"bad": object()}}, "metadata['diagnostics']['bad']"),
+            ({"bad_keys": {1: "value"}}, "metadata['bad_keys'].keys()"),
+        ],
+    )
+    def test_unsupported_nested_value_has_structured_path(self, metadata, path):
+        result = dataclasses.replace(_sample_result(_sample_group()), metadata=metadata)
+
+        with pytest.raises(ValueError) as excinfo:
+            result.to_dict()
+
+        assert excinfo.value.field == path
+
+    def test_cyclic_container_has_structured_path(self):
+        cycle: list[object] = []
+        cycle.append(cycle)
+        result = dataclasses.replace(
+            _sample_result(_sample_group()), metadata={"cycle": cycle}
+        )
+
+        with pytest.raises(ValueError, match="acyclic") as excinfo:
+            result.to_dict()
+
+        assert excinfo.value.field == "metadata['cycle'][0]"
 
 
 class TestMetricResultPValueContract:
@@ -310,12 +374,64 @@ class TestMetricResultFieldContract:
         out = MetricResult(value=0.0, p_value=0.5, alternative=alternative)
         assert out.alternative == alternative
 
-    def test_rejects_negative_n_obs(self):
-        with pytest.raises(ValueError, match="a non-negative count"):
-            MetricResult(value=0.0, n_obs=-1)
+    @pytest.mark.parametrize(
+        "n_obs",
+        [
+            True,
+            False,
+            np.bool_(True),
+            -1,
+            2.5,
+            np.float32(2.5),
+            "2",
+            float("nan"),
+            float("inf"),
+            object(),
+        ],
+    )
+    def test_rejects_invalid_n_obs(self, n_obs):
+        with pytest.raises(ValueError, match="non-negative whole-number count"):
+            MetricResult(value=0.0, n_obs=n_obs, n_obs_axis="periods")
+
+    @pytest.mark.parametrize("n_obs", [0, 2, 2.0, np.int64(2), np.float64(2.0)])
+    def test_accepts_non_negative_whole_number_n_obs(self, n_obs):
+        out = MetricResult(value=float("nan"), n_obs=n_obs, n_obs_axis="events")
+        assert out.n_obs == int(n_obs)
+        assert type(out.n_obs) is int
 
     def test_accepts_zero_n_obs(self):
-        assert MetricResult(value=float("nan"), n_obs=0).n_obs == 0
+        assert (
+            MetricResult(value=float("nan"), n_obs=0, n_obs_axis="events").n_obs == 0
+        )
+
+    @pytest.mark.parametrize(
+        ("n_obs", "n_obs_axis"), [(1, None), (None, "periods")]
+    )
+    def test_rejects_unpaired_n_obs_contract(self, n_obs, n_obs_axis):
+        with pytest.raises(
+            ValueError, match="supplied together, or both None"
+        ) as excinfo:
+            MetricResult(value=0.0, n_obs=n_obs, n_obs_axis=n_obs_axis)
+
+        assert excinfo.value.field == "n_obs/n_obs_axis"
+
+    @pytest.mark.parametrize("n_obs_axis", ["widgets", 1, ["periods"]])
+    def test_rejects_unknown_n_obs_axis(self, n_obs_axis):
+        with pytest.raises(ValueError, match="unknown n_obs_axis") as excinfo:
+            MetricResult(
+                value=0.0,
+                n_obs=2,
+                n_obs_axis=n_obs_axis,  # type: ignore[arg-type]
+            )
+
+        assert excinfo.value.field == "n_obs_axis"
+        assert set(excinfo.value.candidates) == {
+            "periods",
+            "events",
+            "pairs",
+            "asset_pairs",
+            "assets",
+        }
 
     @pytest.mark.parametrize("p_value", [True, False])
     def test_rejects_bool_p_value(self, p_value: bool):
@@ -367,12 +483,14 @@ class TestToFrameMetadataExport:
         spread = MetricResult(
             value=0.001,
             n_obs=80,
+            n_obs_axis="periods",
             name="quantile_spread",
             metadata={"n_groups": 2, "mean_tail_size": 3.0, "legs": [0.1, -0.2]},
         )
         turnover = MetricResult(
             value=0.25,
             n_obs=79,
+            n_obs_axis="periods",
             name="notional_turnover",
             metadata={"n_groups": 2, "rebalance_lag": 1, "mean_tail_size": 3.0},
         )

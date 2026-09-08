@@ -24,6 +24,7 @@ def _output(name: str, p: float) -> MetricResult:
         p_value=p,
         alternative="two-sided",
         n_obs=100,
+        n_obs_axis="periods",
         name=name,
         metadata={"p_value": p},
     )

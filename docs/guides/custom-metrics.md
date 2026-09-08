@@ -64,12 +64,18 @@ def custom_trimmed_ic(
     
     return MetricResult(
         value=mean_val,
+        n_obs=len(trimmed),
+        n_obs_axis="periods",
         metadata={
             "n_periods": n,
             "trim_ratio": trim_ratio,
         }
     )
 ```
+
+`n_obs` and `n_obs_axis` form one contract. A custom metric that reports an
+effective sample count must also identify its unit with one of the supported
+sample-axis tokens; omit both fields when one integer count is not meaningful.
 
 Now you can evaluate your custom metric:
 

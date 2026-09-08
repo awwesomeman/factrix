@@ -67,7 +67,9 @@ The same insufficient-sample condition surfaces differently depending on `strict
 
 - `evaluate(..., strict=True)` (default): raises [`InsufficientSampleError`](../api/errors.md#factrix.InsufficientSampleError) carrying `.axis` (the binding axis), `.actual` / `.required` (counts on that axis) and `.shortfalls` (one entry per failing metric). A missing input column or config raises `UserInputError` instead — the reason vocabulary splits `insufficient_*` from `no_*`.
 - `evaluate(..., strict=False)`: keeps inapplicable metrics as `NaN` values with warnings in the returned `EvaluationResult`.
-- Standalone metric callable (e.g. [`quantile_spread`](../api/metrics/quantile.md)): returns a short-circuit `MetricResult(value=NaN, metadata={"reason": ..., "n_obs": ...})`.
+- Standalone metric callable (e.g. [`quantile_spread`](../api/metrics/quantile.md)):
+  returns a short-circuit
+  `MetricResult(value=NaN, n_obs=..., n_obs_axis="periods", metadata={"reason": ...})`.
 
 ## Aggregation order
 

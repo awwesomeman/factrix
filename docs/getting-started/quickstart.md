@@ -87,7 +87,7 @@ the enclosing result's warnings. A small p-value is not sufficient evidence
 when the result also reports a persistence, overlap, clustering, or thin-sample
 warning.
 
-`EvaluationResult.to_dict()` returns the complete result as a flat,
+`EvaluationResult.to_dict()` returns the complete result as a nested,
 JSON-friendly mapping. See [Reading results](../guides/reading-results.md) for
 the field-by-field contract, [Warning codes](../reference/warning-codes.md) for
 trigger conditions, and [Errors](../api/errors.md) for strict-mode failures.

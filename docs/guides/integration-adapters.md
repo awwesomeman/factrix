@@ -139,7 +139,10 @@ names.
 For end-to-end reproducibility, the caller must also stamp identifiers factrix
 cannot infer, such as a dataset content hash, data vintage, application commit,
 and research-plan ID, into `EvaluationResult.metadata` before logging. The
-nested artifact preserves that mapping unchanged.
+nested artifact preserves its structure while normalizing supported values to
+JSON-native scalars and containers. Unsupported values fail with a path-aware
+`UserInputError`, so validate the artifact before submitting it to an external
+tracker.
 
 If a Plotly recipe produces `fig`, MLflow can store it without changing the
 factrix adapter:

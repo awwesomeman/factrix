@@ -24,6 +24,7 @@ def _with_extra(factor: str, ic_value: float, sharpe_value: float):
                 p_value=0.2,
                 alternative="two-sided",
                 n_obs=100,
+                n_obs_axis="periods",
                 name="sharpe",
                 metadata={"p_value": 0.2},
             )
