@@ -24,9 +24,12 @@ data, construct factors, or compute returns.
 
 `adapt` preserves Polars eager/lazy inputs, converts pandas input to Polars,
 and leaves unrelated columns such as factors, industries, market caps, or
-regime labels unchanged. Optional `fill_forward` is a raw-OHLCV convenience:
-it maps non-finite numeric values to null and forward-fills per asset before
-forward returns are computed.
+regime labels unchanged. It never fills observations. `compute_forward_return`
+maps non-finite numeric values to null at its ingestion gate and drops rows
+whose required entry or exit price is unavailable. A missing price must not be
+forward-filled: doing so invents a tradable level and changes the effective
+holding period. Repair genuine source errors upstream under an explicit column
+and staleness policy.
 
 ::: factrix.adapt.adapt
 

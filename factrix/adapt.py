@@ -13,6 +13,10 @@ Optional OHLCV canonicals (renamed when a source column is provided):
 Other columns (market_cap, industry, etc.) pass through unchanged;
 factrix does not prescribe names for those.
 
+``adapt`` never imputes observations. In particular, it does not
+forward-fill prices; repair genuine feed errors upstream under an
+explicit column and staleness policy.
+
 Usage::
 
     from factrix.adapt import adapt
@@ -33,7 +37,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import polars as pl
-import polars.selectors as cs
 
 from factrix._data_input import _is_pandas_dataframe
 
@@ -69,12 +72,11 @@ def adapt(
     high: str | None = None,
     low: str | None = None,
     volume: str | None = None,
-    fill_forward: bool = False,
 ) -> pl.DataFrame | pl.LazyFrame:
     """Rename user columns to factrix canonical names.
 
     Type-preserving for polars inputs: a ``pl.LazyFrame`` stays lazy
-    (rename / cast / fill happen inside the lazy chain, no implicit
+    (rename / cast happen inside the lazy chain, no implicit
     ``.collect()``), a ``pl.DataFrame`` stays eager. ``pd.DataFrame``
     is converted to ``pl.DataFrame`` (pandas has no lazy equivalent).
     Only renames columns that differ from the canonical name; all other
@@ -100,12 +102,6 @@ def adapt(
             Not read by factrix; passed through for downstream use.
         volume: User's traded-volume column name. Renamed to ``volume``.
             Not read by factrix; passed through for downstream use.
-        fill_forward: If True, map every non-finite value (NaN and
-            ±inf) to null, then forward-fill all numeric columns per
-            asset. Useful for raw OHLCV data that may contain sporadic
-            missing or non-finite values. Mapping ±inf is deliberate:
-            inf is not null, so it would otherwise survive the tail
-            drop in ``compute_forward_return`` and leak into return math.
 
     Returns:
         Same polars type as input (``pl.DataFrame`` → ``pl.DataFrame``,
@@ -115,7 +111,9 @@ def adapt(
     Raises:
         TypeError: If *data* is none of ``pl.DataFrame``, ``pl.LazyFrame``,
             ``pd.DataFrame``.
-        ValueError: If any specified source column does not exist.
+        ValueError: If any specified source column does not exist, one
+            source is assigned to multiple canonical names, or a rename
+            would overwrite an existing canonical column.
     """
     data = _to_polars(data)
     schema = data.collect_schema()
@@ -130,14 +128,34 @@ def adapt(
         ("low", low),
         ("volume", volume),
     ]
-    mapping: dict[str, str] = {}
+    source_targets: dict[str, list[str]] = {}
     for canonical, source in renames:
-        if source is None or source == canonical:
+        if source is None:
             continue
         if source not in columns:
             raise ValueError(
                 f"adapt: column '{source}' not found. Available: {columns}"
             )
+        source_targets.setdefault(source, []).append(canonical)
+
+    ambiguous = {
+        source: targets
+        for source, targets in source_targets.items()
+        if len(targets) > 1
+    }
+    if ambiguous:
+        conflicts = "; ".join(
+            f"'{source}' -> {targets!r}" for source, targets in ambiguous.items()
+        )
+        raise ValueError(
+            "adapt: each source column may map to only one canonical name. "
+            f"Conflicting mappings: {conflicts}"
+        )
+
+    mapping: dict[str, str] = {}
+    for canonical, source in renames:
+        if source is None or source == canonical:
+            continue
         if canonical in columns:
             raise ValueError(
                 f"adapt: cannot rename '{source}' → '{canonical}' because '{canonical}' already exists in the DataFrame. Drop or rename the existing '{canonical}' column first."
@@ -154,18 +172,5 @@ def adapt(
     # library is TZ-agnostic and trusts the caller's precision choice.
     if schema.get(date) == pl.Date:
         data = data.with_columns(pl.col("date").cast(pl.Datetime("ms")))
-
-    if fill_forward:
-        # Map every non-finite value (NaN and ±inf) to null in one pass, then
-        # forward-fill per asset. fill_nan alone leaves ±inf untouched, and inf
-        # survives the downstream is_not_null() drop in compute_forward_return,
-        # leaking into return math (e.g. a zero entry price yields inf return).
-        data = (
-            data.sort(["asset_id", "date"])
-            .with_columns(
-                pl.when(cs.numeric().is_finite()).then(cs.numeric()).otherwise(None)
-            )
-            .with_columns(cs.numeric().forward_fill().over("asset_id"))
-        )
 
     return data
