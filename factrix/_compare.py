@@ -252,11 +252,7 @@ def _resolve_descending(
 
 def _is_natively_sortable(dtype: pl.DataType) -> bool:
     """Whether Polars can use ``dtype`` directly as a leaderboard key."""
-    return (
-        dtype.is_numeric()
-        or dtype.is_temporal()
-        or dtype in (pl.Boolean, pl.String)
-    )
+    return dtype.is_numeric() or dtype.is_temporal() or dtype in (pl.Boolean, pl.String)
 
 
 def _canonical_sort_value(value: object) -> str | None:
