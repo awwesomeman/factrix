@@ -283,9 +283,12 @@ class TestQuantileSpreadVW:
         assert lagged.filter(
             (pl.col("asset_id") == "B") & (pl.col("grid_period") == 4)
         ).is_empty()
-        assert lagged.filter(
-            (pl.col("asset_id") == "B") & (pl.col("grid_period") == 5)
-        )["market_cap"].item() == 5000.0
+        assert (
+            lagged.filter((pl.col("asset_id") == "B") & (pl.col("grid_period") == 5))[
+                "market_cap"
+            ].item()
+            == 5000.0
+        )
 
     def test_missing_weight_col(self):
         df = pl.DataFrame(

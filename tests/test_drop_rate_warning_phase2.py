@@ -140,8 +140,14 @@ class TestSpreadTools:
         # (not null) — the ratio used to come back as a NaN spread that
         # ``drop_nulls`` kept, so drop_rate read 0.0 while a NaN sat in the
         # tested sample. An empty leg is now null: dropped, and counted.
+        # Keep this schema test focused on empty quantile legs. With lagged
+        # weights, a name entering after a thin date correctly has no prior
+        # period weight, so this deliberately ragged fixture becomes thin on
+        # every date and short-circuits before the drop-stat surface.
         with pytest.warns(UserWarning, match="of periods dropped"):
-            result = quantile_spread_vw(_spread_panel(), overlap_periods=1)
+            result = quantile_spread_vw(
+                _spread_panel(), overlap_periods=1, lag_weights=False
+            )
         assert set(DROP_STAT_KEYS) <= set(result.metadata)
         assert result.metadata["drop_rate"] == pytest.approx(0.5, abs=0.02)
         assert "NaN" in result.metadata["drop_reason"]

@@ -703,12 +703,8 @@ def notional_turnover(
         .join(prev_leg_sizes, on="prev_date")
         .join(overlaps, on="date")
         .with_columns(
-            ((pl.col("n_top") > 0) & (pl.col("n_top_prev") > 0)).alias(
-                "top_defined"
-            ),
-            ((pl.col("n_bot") > 0) & (pl.col("n_bot_prev") > 0)).alias(
-                "bot_defined"
-            ),
+            ((pl.col("n_top") > 0) & (pl.col("n_top_prev") > 0)).alias("top_defined"),
+            ((pl.col("n_bot") > 0) & (pl.col("n_bot_prev") > 0)).alias("bot_defined"),
         )
         # WHY max: for an equal-weight leg of ``k`` names now and ``j`` before
         # with ``m`` survivors, ``0.5 * Σ|w_t − w_{t−1}|`` evaluates in closed

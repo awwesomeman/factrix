@@ -1926,7 +1926,8 @@ def _lag_within_asset(
     reaching across the hole to a stale observation.
     """
     dense_lag = (
-        data.select(by).unique()
+        data.select(by)
+        .unique()
         .join(data.select("date").unique(), how="cross")
         .join(data.select(by, "date", col), on=[by, "date"], how="left")
         .sort([by, "date"])
