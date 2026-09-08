@@ -31,6 +31,8 @@ from factrix.metrics._helpers import (
     _degenerate_test_fields,
     _enforce_min_floor,
     _event_sample_threshold,
+    _finite_expr,
+    _finite_values,
     _is_sparse_magnitude_weighted,
     _sample_events_non_overlapping,
     _scaled_min_periods,
@@ -222,11 +224,11 @@ def corrado_rank(
     sparse_magnitude_weighted = _is_sparse_magnitude_weighted(data, factor_col)
 
     # Rank only the finite returns. Ranking `return_col` directly is wrong
-    # twice over: a null return produces a null rank, which propagates into
-    # that period's mean and turns the event-period SD into NaN, handing
-    # _calc_t_stat a NaN (NaN z, NaN p); and a
-    # float NaN is not a null to polars, so it ranks as the *largest* value
-    # in the asset and is quietly kept as a genuine top-decile observation.
+    # twice over: a non-finite return can produce a null or extreme rank, which
+    # propagates into that period's mean and turns the event-period SD into
+    # NaN, handing _calc_t_stat a NaN (NaN z, NaN p); and a float NaN is not a
+    # null to Polars, so it ranks as the *largest* value. Infinities are
+    # likewise kept as genuine extremes without an explicit finite predicate.
     # Masking to null first makes both cases explicit and excludable, and
     # `count()` (non-null count) then supplies the correct T for the
     # rank / (T + 1) normalisation.
@@ -240,7 +242,7 @@ def corrado_rank(
         factor_col=factor_col,
     )
     ar_col = "_abnormal_return"
-    finite_return = pl.col(ar_col).is_not_null() & pl.col(ar_col).is_not_nan()
+    finite_return = _finite_expr(ar_col)
     ranked = data.with_columns(
         pl.when(finite_return).then(pl.col(ar_col)).alias("_finite_return")
     ).with_columns(
@@ -260,13 +262,8 @@ def corrado_rank(
     # (so its abnormal return, and therefore its rank, does not exist). The
     # second is a sample-design fact — the same one bmp_z reports as
     # n_dropped_no_vol — not a data-quality one.
-    raw_finite = (
-        pl.col(return_col).is_not_null()
-        & pl.col(return_col).is_not_nan()
-        & pl.col(factor_col).is_not_null()
-        & pl.col(factor_col).is_not_nan()
-    )
-    rank_finite = pl.col("_rank_u").is_not_null() & pl.col("_rank_u").is_not_nan()
+    raw_finite = _finite_expr(return_col) & _finite_expr(factor_col)
+    rank_finite = _finite_expr("_rank_u")
     events = all_events.filter(raw_finite & rank_finite)
     n_events = len(events)
     n_events_dropped_non_finite = all_events.filter(~raw_finite).height
@@ -322,7 +319,7 @@ def corrado_rank(
     n_event_periods = len(u_bar)
     events_per_period = per_period["_k"].to_numpy()
 
-    n_pairs_total = int(ranked["_rank_u"].drop_nulls().drop_nans().len())
+    n_pairs_total = len(_finite_values(ranked["_rank_u"]))
 
     # The period series carries the test, so the floor moves onto periods:
     # 396 events spread over 3 periods estimate the time-series SD from 3
