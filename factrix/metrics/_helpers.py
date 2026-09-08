@@ -2482,28 +2482,35 @@ def _surface_drop_stats(
         warning_codes.append(code)
 
 
+#: Canonical explanation for a period removed before a series is collapsed.
+#: Keep it beside :func:`_surface_null_drop`, which is the sole owner of this
+#: SERIES→SCALAR diagnostic.
+SERIES_NON_FINITE_DROP_REASON = (
+    "null, NaN, or infinite value observations in the series"
+)
+
+
 def _surface_null_drop(
     *,
     n_periods_in: int,
     n_periods_out: int,
-    drop_reason: str,
     metric_name: str,
     metadata: dict[str, Any],
     warning_codes: list[str],
     expected_warnings: tuple[str, ...] = (),
 ) -> None:
-    """Record a SERIES→SCALAR consumer's own null-drop with the shared schema.
+    """Record a SERIES→SCALAR consumer's non-finite drop with the shared schema.
 
     The Phase-2 counterpart to :func:`_surface_drop_stats`: where a PANEL→SERIES
     primitive records the drop on a carrier column, a time-indexed (period-axis)
-    consumer that collapses its value series to a scalar via ``drop_nulls`` knows
+    consumer that filters its value series before collapsing it to a scalar knows
     both counts locally — ``n_periods_in`` is the series length entering the
-    drop, ``n_periods_out`` the count of finite observations that survive. Merges
+    filter, ``n_periods_out`` the count of finite observations that survive. Merges
     the five keys into *metadata* and, when ``drop_rate`` clears the threshold,
     emits one aggregate ``UserWarning`` and appends the code to *warning_codes*.
     Call only on the success path so a short-circuit defers to its own reason.
 
-    Scoped to the period axis: every current SERIES→SCALAR null-drop site is
+    Scoped to the period axis: every current SERIES→SCALAR finite-filter site is
     time-indexed. The carrier path (:func:`_surface_drop_stats`) already carries
     an ``axis`` for the cross-section; a future EVENT-axis null-drop would
     generalise this signature then.
@@ -2512,7 +2519,7 @@ def _surface_null_drop(
         axis="periods",
         n_in=n_periods_in,
         n_out=n_periods_out,
-        drop_reason=drop_reason,
+        drop_reason=SERIES_NON_FINITE_DROP_REASON,
     )
     metadata.update(stats)
     code = _warn_if_high_drop_rate(

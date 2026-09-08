@@ -382,7 +382,6 @@ def oos_decay(
     _surface_null_drop(
         n_periods_in=sorted_series.height,
         n_periods_out=n,
-        drop_reason="null / NaN / +-inf value observations in the series",
         metric_name="oos_decay",
         metadata=metadata,
         warning_codes=warning_codes,
@@ -747,7 +746,6 @@ def oos_decay_splits(
     _surface_null_drop(
         n_periods_in=series.height,
         n_periods_out=n,
-        drop_reason="null / NaN / +-inf value observations in the series",
         metric_name="oos_decay_splits",
         metadata=metadata,
         warning_codes=warning_codes,
