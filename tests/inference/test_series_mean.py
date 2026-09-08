@@ -345,15 +345,54 @@ class TestStationaryBootstrap:
         ) == NEWEY_WEST.min_input_periods(5)
 
 
-class TestCleanSeriesDropsNaN:
-    def test_nan_dropped_alongside_null(self) -> None:
+class TestCleanSeriesDropsNonFinite:
+    def test_nan_and_infinities_are_dropped_alongside_null(self) -> None:
         from factrix.inference.series_mean import _clean_series
 
-        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(5)]
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(7)]
         df = pl.DataFrame(
-            {"date": dates, "v": [1.0, float("nan"), None, 2.0, 3.0]}
+            {
+                "date": dates,
+                "v": [
+                    1.0,
+                    float("nan"),
+                    None,
+                    float("inf"),
+                    2.0,
+                    -float("inf"),
+                    3.0,
+                ],
+            }
         ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         assert _clean_series(df, "v").to_list() == [1.0, 2.0, 3.0]
+
+    @pytest.mark.parametrize(
+        "member",
+        [
+            NON_OVERLAPPING,
+            NEWEY_WEST,
+            HansenHodrick(),
+            StationaryBootstrap(n_resamples=199, rng=0),
+        ],
+    )
+    def test_every_member_matches_explicitly_finite_input(self, member) -> None:
+        finite = np.random.default_rng(23).normal(0.05, 0.1, 80).tolist()
+        values = [
+            *finite[:20],
+            float("nan"),
+            float("inf"),
+            -float("inf"),
+            *finite[20:],
+        ]
+        dirty = _series_df(np.asarray(values))
+        clean = dirty.filter(pl.col("ic").is_finite())
+
+        actual = member.compute(dirty, value_col="ic", overlap_periods=1)
+        expected = member.compute(clean, value_col="ic", overlap_periods=1)
+
+        assert actual.n_obs == expected.n_obs == 80
+        assert actual.stat == pytest.approx(expected.stat)
+        assert actual.p_value == pytest.approx(expected.p_value)
 
 
 class TestPersistenceScreen:

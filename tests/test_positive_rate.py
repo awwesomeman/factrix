@@ -83,16 +83,18 @@ class TestComputePositiveRate:
         assert "serial_correlation_detected" in declared.warning_codes
 
 
-class TestNaNHandling:
-    def test_nan_is_dropped_not_counted_as_miss(self):
-        """A float NaN is not a null for polars ``drop_nulls``; it would count
-        as a non-hit in ``value > 0`` and bias the rate toward 0."""
+class TestNonFiniteHandling:
+    def test_non_finite_values_are_dropped_not_counted_as_directions(self):
+        """NaN and infinities are missing observations, not hits or misses."""
         base = [0.01] * 30
-        dirty = _make_series(base + [float("nan")] * 10)
+        dirty = _make_series(base + [float("nan"), float("inf"), -float("inf")] * 4)
         clean = _make_series(base)
         r_dirty = positive_rate(dirty, overlap_periods=1)
         r_clean = positive_rate(clean, overlap_periods=1)
         assert r_dirty.value == r_clean.value == 1.0
         assert r_dirty.n_obs == r_clean.n_obs == 30
         assert r_dirty.p_value == pytest.approx(r_clean.p_value)
-        assert r_dirty.metadata["dropped_periods"] == 10
+        assert r_dirty.metadata["dropped_periods"] == 12
+        assert r_dirty.metadata["drop_reason"] == (
+            "null / NaN / infinite value observations in the series"
+        )

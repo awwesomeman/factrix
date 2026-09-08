@@ -648,41 +648,49 @@ class TestICDispatch:
         assert r.n_obs == 40
 
 
-class TestICNaNRobustness:
-    """A hand-built IC series carrying float NaN (not null) must be treated
-    like a missing observation by every consumer, never as a value."""
+class TestICNonFiniteRobustness:
+    """Non-finite values in a hand-built IC series are missing observations."""
 
     @staticmethod
-    def _series_with_nan(n: int = 60, every: int = 5) -> pl.DataFrame:
+    def _series_with_nonfinite(n: int = 60, every: int = 5) -> pl.DataFrame:
         rng = np.random.default_rng(0)
         vals = list(rng.normal(0.05, 0.1, n))
-        for i in range(0, n, every):
-            vals[i] = float("nan")
+        replacements = (float("nan"), float("inf"), -float("inf"))
+        for index, i in enumerate(range(0, n, every)):
+            vals[i] = replacements[index % len(replacements)]
         dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n)]
-        return pl.DataFrame({"date": dates, "ic": vals}).with_columns(
-            pl.col("date").cast(pl.Datetime("ms"))
-        )
+        finite = [math.isfinite(value) for value in vals]
+        return pl.DataFrame(
+            {
+                "date": dates,
+                "ic": vals,
+                "n_assets": [20 if usable else 1 for usable in finite],
+                "tie_ratio": [0.1 if usable else 0.9 for usable in finite],
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
     @pytest.mark.parametrize(
         "inference",
         [NonOverlapping(), NeweyWest(), StationaryBootstrap()],
         ids=["non_overlapping", "newey_west", "stationary_bootstrap"],
     )
-    def test_ic_matches_nan_free_series(self, inference):
-        dirty = self._series_with_nan()
-        clean = dirty.filter(pl.col("ic").is_not_nan())
+    def test_ic_matches_finite_series(self, inference):
+        dirty = self._series_with_nonfinite()
+        clean = dirty.filter(pl.col("ic").is_finite())
         r_dirty = ic(dirty, overlap_periods=1, inference=inference)
         r_clean = ic(clean, overlap_periods=1, inference=inference)
         assert math.isfinite(r_dirty.value)
         assert r_dirty.value == pytest.approx(r_clean.value)
         assert r_dirty.n_obs == r_clean.n_obs == clean.height
+        assert r_dirty.metadata["min_assets_per_period"] == 20
+        assert r_dirty.metadata["tie_ratio"] == pytest.approx(0.1)
         if not isinstance(inference, StationaryBootstrap):
             # bootstrap draws a fresh seed per call; the others are deterministic
             assert r_dirty.p_value == pytest.approx(r_clean.p_value)
 
-    def test_ic_ir_matches_nan_free_series(self):
-        dirty = self._series_with_nan()
-        clean = dirty.filter(pl.col("ic").is_not_nan())
+    def test_ic_ir_matches_finite_series(self):
+        dirty = self._series_with_nonfinite()
+        clean = dirty.filter(pl.col("ic").is_finite())
         r_dirty, r_clean = ic_ir(dirty), ic_ir(clean)
         assert math.isfinite(r_dirty.value)
         assert r_dirty.value == pytest.approx(r_clean.value)

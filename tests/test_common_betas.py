@@ -20,6 +20,7 @@ from factrix.metrics._primitives._common_betas import compute_common_betas
 from factrix.metrics.common_beta import (
     common_beta,
     common_beta_profile,
+    common_beta_r_squared,
     common_beta_sign_consistency,
     compute_rolling_common_beta,
 )
@@ -527,6 +528,30 @@ class TestCommonBetasNonFinite:
         assert result.n_obs == 3
         assert result.stat != 0.0
         assert result.p_value < 1.0
+
+    def test_common_beta_consumers_drop_infinite_values(self):
+        df = pl.DataFrame(
+            {
+                "asset_id": ["A", "B", "C", "D", "E"],
+                "beta": [1.0, float("inf"), 1.2, -float("inf"), 0.8],
+                "alpha": [0.0] * 5,
+                "t_stat": [3.0, None, 3.0, None, 3.0],
+                "r_squared": [0.4, float("inf"), 0.5, -float("inf"), 0.6],
+                "n_periods": [50] * 5,
+            }
+        )
+
+        aggregate = common_beta(df)
+        profile = common_beta_profile(df)
+        r_squared = common_beta_r_squared(df)
+        sign = common_beta_sign_consistency(df)
+
+        assert aggregate.n_obs == profile.n_obs == sign.n_obs == 3
+        assert aggregate.value == pytest.approx(1.0)
+        assert profile.metadata["abs_beta_mean"] == pytest.approx(1.0)
+        assert r_squared.n_obs == 3
+        assert r_squared.value == pytest.approx(0.5)
+        assert sign.value == pytest.approx(1.0)
 
     def test_sign_consistency_and_profile_drop_nan_betas(self):
         df = pl.DataFrame(

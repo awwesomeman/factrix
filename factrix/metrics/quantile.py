@@ -408,8 +408,9 @@ def _quantile_spread_from_series(
             n_groups=n_groups,
         )
     if n_strided == 0:
-        # Every sampled date lost its spread to a null / NaN bucket mean; there
-        # is nothing to average, so refuse rather than emit ``mean([]) = nan``.
+        # Every sampled date lost its spread to a null / non-finite bucket
+        # mean; there is nothing to average, so refuse rather than emit
+        # ``mean([]) = nan``.
         return _short_circuit_output(
             "quantile_spread",
             "insufficient_portfolio_periods",
@@ -501,7 +502,7 @@ def _quantile_spread_from_series(
     _surface_null_drop(
         n_periods_in=series.height,
         n_periods_out=n_strided,
-        drop_reason="null / NaN value observations in the series",
+        drop_reason="null / NaN / infinite value observations in the series",
         metric_name="quantile_spread",
         metadata=metadata,
         warning_codes=warning_codes,
@@ -916,7 +917,7 @@ def quantile_spread_vw(
     _surface_null_drop(
         n_periods_in=vw_series.height,
         n_periods_out=n,
-        drop_reason="null / NaN value observations in the series",
+        drop_reason="null / NaN / infinite value observations in the series",
         metric_name="quantile_spread_vw",
         metadata=metadata,
         warning_codes=warning_codes,

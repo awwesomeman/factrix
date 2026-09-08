@@ -49,6 +49,7 @@ from factrix.metrics._helpers import (
     _degenerate_test_fields,
     _enforce_min_floor,
     _finite_expr,
+    _finite_values,
     _short_circuit_output,
     _surface_drop_stats,
     _warn_below_floor,
@@ -260,11 +261,11 @@ def common_beta(
         >>> result.name == ""
         True
     """
-    # ``drop_nans`` as well as ``drop_nulls``: polars keeps float NaN, and a NaN
-    # beta reaching ``_calc_t_stat`` yields a NaN t — which now withholds the
-    # test as ``degenerate_variance``, mislabelling missing data as a
-    # dispersion-free sample.
-    betas = common_betas_df["beta"].drop_nulls().drop_nans().to_numpy()
+    # A hand-built frame may contain NaN or ±Inf even though the canonical
+    # producer emits finite betas. Letting either reach ``_calc_t_stat``
+    # withholds the test as ``degenerate_variance`` and mislabels missing data
+    # as a dispersion-free sample.
+    betas = _finite_values(common_betas_df["beta"]).to_numpy()
     n = len(betas)
 
     sc = _enforce_min_floor(
@@ -448,7 +449,7 @@ def common_beta_profile(
             descriptive=True,
         )
 
-    betas = common_betas_df["beta"].drop_nulls().drop_nans().to_numpy()
+    betas = _finite_values(common_betas_df["beta"]).to_numpy()
     n = len(betas)
     sc = _enforce_min_floor(
         common_beta_profile,
@@ -568,7 +569,7 @@ def common_beta_r_squared(
         >>> result.name == ""
         True
     """
-    r2_vals = common_betas_df["r_squared"].drop_nulls().drop_nans().to_numpy()
+    r2_vals = _finite_values(common_betas_df["r_squared"]).to_numpy()
     n = len(r2_vals)
 
     sc = _enforce_min_floor(
@@ -831,7 +832,7 @@ def common_beta_sign_consistency(
         >>> result.name == ""
         True
     """
-    betas = common_betas_df["beta"].drop_nulls().drop_nans().to_numpy()
+    betas = _finite_values(common_betas_df["beta"]).to_numpy()
     n = len(betas)
     sc = _enforce_min_floor(
         common_beta_sign_consistency,

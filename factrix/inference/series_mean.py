@@ -6,8 +6,8 @@ one date-aware input contract::
 
     compute(data, *, value_col, overlap_periods, alternative="two-sided") -> InferenceResult
 
-``compute`` owns date-sort + null-drop (callers pass the raw per-period
-DataFrame). ``NonOverlapping`` strides the cleaned series at
+``compute`` owns date-sort + finite-value filtering (callers pass the raw
+per-period DataFrame). ``NonOverlapping`` strides the cleaned series at
 ``overlap_periods`` (sub-sampling away the MA(h-1) overlap), while
 ``NeweyWest`` / ``HansenHodrick`` keep every observation and correct the
 SE via a HAC kernel. ``StationaryBootstrap`` also keeps every observation
@@ -52,17 +52,21 @@ if TYPE_CHECKING:
 
 
 def _clean_series(data: pl.DataFrame, value_col: str) -> pl.Series:
-    """Date-sorted values of ``value_col`` with nulls *and* NaNs dropped.
+    """Date-sorted finite values of ``value_col``.
 
     Order is fixed (sort → drop) so the stride / HAC lag math sees a
     time-coherent series regardless of caller row order. Sorting is mean-
     and OLS-invariant but load-bearing for the autocovariance terms.
-    polars ``drop_nulls`` keeps float NaN, and a single NaN would poison the
-    mean, the HAC variance and the bootstrap centring, so it is dropped too.
+    Polars ``drop_nulls`` keeps non-finite float values, and one NaN or ±Inf
+    would poison the mean, HAC variance, or bootstrap centring. Keep only
+    finite observations so every member reports the sample it actually tests.
     """
-    if data["date"].is_sorted():
-        return data[value_col].drop_nulls().drop_nans()
-    return data.sort("date").get_column(value_col).drop_nulls().drop_nans()
+    values = (
+        data[value_col]
+        if data["date"].is_sorted()
+        else data.sort("date").get_column(value_col)
+    )
+    return values.filter(values.is_finite())
 
 
 def _persistent_sample(values: np.ndarray) -> bool:

@@ -54,6 +54,8 @@ from factrix.metrics._helpers import (
     _degenerate_test_fields,
     _emit_inference_warnings,
     _enforce_min_floor,
+    _finite_expr,
+    _finite_values,
     _read_drop_stats,
     _short_circuit_output,
     _surface_drop_stats,
@@ -98,7 +100,7 @@ def _median_tie_ratio(ic_df: pl.DataFrame) -> float:
     """Median of the per-period ``tie_ratio`` column, or ``nan`` if absent/empty."""
     if "tie_ratio" not in ic_df.columns:
         return float("nan")
-    med = ic_df["tie_ratio"].median()
+    med = ic_df.filter(_finite_expr("ic"))["tie_ratio"].median()
     return float("nan") if med is None else float(med)  # type: ignore[arg-type]
 
 
@@ -153,7 +155,7 @@ def _min_ic_assets(ic_df: pl.DataFrame) -> int | None:
     """Minimum surviving per-period valid-pair asset count, if available."""
     if "n_assets" not in ic_df.columns or ic_df.is_empty():
         return None
-    min_assets = ic_df["n_assets"].min()
+    min_assets = ic_df.filter(_finite_expr("ic"))["n_assets"].min()
     return None if min_assets is None else cast(int, min_assets)
 
 
@@ -329,7 +331,7 @@ def ic(
     )
     # Mean is order-invariant; the inference method owns date-ordering for
     # its stride / lag math.
-    ic_vals = ic_df["ic"].drop_nulls().drop_nans()
+    ic_vals = _finite_values(ic_df["ic"])
     n = len(ic_vals)
     raw_min = inference.min_input_periods(overlap_periods)
     if n < raw_min:
@@ -500,7 +502,7 @@ def ic_ir(
     median_tie = _warn_if_high_ic_tie_ratio(
         ic_df, "ic_ir", warning_codes, expected_warnings=expected_warnings
     )
-    ic_vals = ic_df["ic"].drop_nulls().drop_nans()
+    ic_vals = _finite_values(ic_df["ic"])
     n = len(ic_vals)
     sc = _enforce_min_floor(ic_ir, "ic_ir", n, "insufficient_ic_periods")
     if sc is not None:
