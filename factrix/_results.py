@@ -11,7 +11,7 @@ import contextlib
 import html
 import math
 from collections.abc import Hashable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields, is_dataclass
 from typing import Any, NoReturn, get_args
 
 import numpy as np
@@ -443,10 +443,11 @@ class EvaluationResult:
         - ``warnings``: list of ``{code, source, message, expected}``
         - ``plan``
 
-        Nested mappings (with string keys), lists, and tuples are normalized
-        recursively. Python and numpy scalars become JSON-native scalars;
-        non-finite floats become ``None``. Unsupported values raise a
-        path-aware :class:`UserInputError`.
+        Nested mappings, dataclass instances, lists, and tuples are normalized
+        recursively. Mapping keys accepted by the standard JSON encoder are
+        converted to strings; Python and numpy values become JSON-native
+        scalars; non-finite floats become ``None``. Unsupported values raise
+        a path-aware :class:`UserInputError`.
         """
         scope, density, structure = self.cell
         payload = {
@@ -782,6 +783,24 @@ def _json_safe(value: object, *, path: str, seen: set[int] | None = None) -> Any
     if isinstance(value, str):
         return str(value)
 
+    if is_dataclass(value) and not isinstance(value, type):
+        active = set() if seen is None else seen
+        object_id = id(value)
+        if object_id in active:
+            _raise_json_value_error(path, value, "an acyclic supported container")
+        active.add(object_id)
+        try:
+            return {
+                item.name: _json_safe(
+                    getattr(value, item.name),
+                    path=f"{path}[{item.name!r}]" if path else item.name,
+                    seen=active,
+                )
+                for item in fields(value)
+            }
+        finally:
+            active.remove(object_id)
+
     if isinstance(value, Mapping | list | tuple):
         active = set() if seen is None else seen
         object_id = id(value)
@@ -792,13 +811,7 @@ def _json_safe(value: object, *, path: str, seen: set[int] | None = None) -> Any
             if isinstance(value, Mapping):
                 normalized: dict[str, Any] = {}
                 for key, item in value.items():
-                    if not isinstance(key, str):
-                        _raise_json_value_error(
-                            f"{path}.keys()" if path else "keys()",
-                            key,
-                            "string mapping keys",
-                        )
-                    normalized_key = str(key)
+                    normalized_key = _json_mapping_key(key, path=path)
                     item_path = (
                         f"{path}[{normalized_key!r}]" if path else normalized_key
                     )
@@ -817,9 +830,28 @@ def _json_safe(value: object, *, path: str, seen: set[int] | None = None) -> Any
         path,
         value,
         (
-            "a JSON-compatible scalar, a numpy scalar, a string-keyed "
+            "a JSON-compatible scalar, a numpy scalar, a dataclass instance, "
             "mapping, list, or tuple"
         ),
+    )
+
+
+def _json_mapping_key(key: object, *, path: str) -> str:
+    """Normalize a mapping key using the standard JSON encoder's policy."""
+    if isinstance(key, str):
+        return str(key)
+    if key is None:
+        return "null"
+    if isinstance(key, bool):
+        return "true" if key else "false"
+    if isinstance(key, int):
+        return str(key)
+    if isinstance(key, float) and math.isfinite(key):
+        return str(key)
+    _raise_json_value_error(
+        f"{path}.keys()" if path else "keys()",
+        key,
+        "a string, int, finite float, bool, or None mapping key",
     )
 
 

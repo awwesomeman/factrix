@@ -72,12 +72,15 @@ The fixed schema is the cross-metric contract; estimator-specific definitions (a
 Converts the complete result into a JSON-native nested dictionary. JSON scalar
 values (`None`, `bool`, `int`, `float`, and `str`) and their numpy scalar
 equivalents are normalized recursively, with `NaN` and `Inf` becoming `None`.
-String-keyed mappings, lists, and tuples are supported at every depth; tuples
-become JSON arrays. This policy applies equally to bundle `metadata`, metric
-`metadata`, `params`, and the rest of the payload, so the result can be
-serialized strictly with `json.dumps(result.to_dict(), allow_nan=False)`.
+Mappings, dataclass instances, lists, and tuples are supported at every depth;
+dataclasses become mappings of their declared fields and tuples become JSON
+arrays. Mapping keys follow the standard JSON encoder: strings, integers,
+finite floats, booleans, and `None` become JSON object keys. This policy applies
+equally to bundle `metadata`, metric `metadata`, `params`, and the rest of the
+payload, so the result can be serialized strictly with
+`json.dumps(result.to_dict(), allow_nan=False)`.
 
-Sets, non-string mapping keys, custom objects, cyclic containers, and other
+Sets, unsupported mapping keys, custom objects, cyclic containers, and other
 unsupported values raise `UserInputError`. Its structured `field` identifies
 the exact payload path (for example, `metadata['diagnostics']['model']`) so the
 invalid bookkeeping value can be corrected before it reaches a JSON encoder.

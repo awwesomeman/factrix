@@ -17,6 +17,7 @@ from factrix import (
     WarningCode,
 )
 from factrix._axis import DataStructure, FactorDensity, FactorScope
+from factrix.metrics.spanning import SpanningResult
 
 
 def _sample_group() -> Mapping[str, MetricResult]:
@@ -278,11 +279,69 @@ class TestEvaluationResultToDict:
         }
         json.dumps(payload, allow_nan=False)
 
+    def test_dataclass_metadata_is_recursively_json_safe(self):
+        selection = SpanningResult(
+            factor_name="quality",
+            alpha=np.float64(0.03),
+            t_stat=np.float64(float("nan")),
+            selected=True,
+        )
+        metric = MetricResult(
+            value=1.0,
+            metadata={"selected_factors": [selection]},
+            name="greedy_forward_selection",
+        )
+
+        payload = _sample_result(
+            MappingProxyType({"greedy_forward_selection": metric})
+        ).to_dict()
+
+        assert payload["metrics"]["greedy_forward_selection"]["metadata"] == {
+            "selected_factors": [
+                {
+                    "factor_name": "quality",
+                    "alpha": 0.03,
+                    "t_stat": None,
+                    "selected": True,
+                }
+            ]
+        }
+        json.dumps(payload, allow_nan=False)
+
+    def test_json_scalar_mapping_keys_are_normalized(self):
+        metric = MetricResult(
+            value=0.1,
+            metadata={
+                "per_offset": {
+                    -1: {"mean": np.float64(0.01)},
+                    2.5: {"mean": np.float64(float("inf"))},
+                    True: {"mean": 0.02},
+                    None: {"mean": 0.03},
+                }
+            },
+            name="event_around_return",
+        )
+
+        payload = _sample_result(
+            MappingProxyType({"event_around_return": metric})
+        ).to_dict()
+
+        assert payload["metrics"]["event_around_return"]["metadata"][
+            "per_offset"
+        ] == {
+            "-1": {"mean": 0.01},
+            "2.5": {"mean": None},
+            "true": {"mean": 0.02},
+            "null": {"mean": 0.03},
+        }
+        json.dumps(payload, allow_nan=False)
+
     @pytest.mark.parametrize(
         ("metadata", "path"),
         [
             ({"diagnostics": {"bad": object()}}, "metadata['diagnostics']['bad']"),
-            ({"bad_keys": {1: "value"}}, "metadata['bad_keys'].keys()"),
+            ({"bad_keys": {(1, 2): "value"}}, "metadata['bad_keys'].keys()"),
+            ({"bad_keys": {float("inf"): "value"}}, "metadata['bad_keys'].keys()"),
         ],
     )
     def test_unsupported_nested_value_has_structured_path(self, metadata, path):
