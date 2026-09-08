@@ -99,9 +99,7 @@ def test_to_frame_preserves_identity_for_same_factor_sweeps():
     ]
 
     with pytest.warns(RuntimeWarning, match="bhy_across_metrics"):
-        frame = bhy_across_metrics(
-            results, metrics=["ic", "spread"], q=0.5
-        ).to_frame()
+        frame = bhy_across_metrics(results, metrics=["ic", "spread"], q=0.5).to_frame()
 
     identities = frame.select("factor", "forward_periods", "universe").unique(
         maintain_order=True

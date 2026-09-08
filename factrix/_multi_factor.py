@@ -506,12 +506,7 @@ def _screen_identity_columns(
     """
     excluded = set(exclude_params)
     param_keys = sorted(
-        {
-            key
-            for entry in entries
-            for key in entry.params
-            if key not in excluded
-        }
+        {key for entry in entries for key in entry.params if key not in excluded}
     )
     reserved = {"factor", "forward_periods", *fixed_columns}
     collisions = sorted(set(param_keys) & reserved)
@@ -532,10 +527,7 @@ def _screen_identity_columns(
     if "forward_periods" not in excluded:
         columns["forward_periods"] = [entry.forward_periods for entry in entries]
     columns.update(
-        {
-            key: [entry.params.get(key) for entry in entries]
-            for key in param_keys
-        }
+        {key: [entry.params.get(key) for entry in entries] for key in param_keys}
     )
     return columns
 
