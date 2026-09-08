@@ -57,6 +57,7 @@ _DOCS_DIRECT_COMPUTE = "api/inference#direct-compute-result"
 
 def _validate_series_input(
     data: pl.DataFrame,
+    value_col: object,
     overlap_periods: object,
     *,
     func_name: str,
@@ -87,6 +88,26 @@ def _validate_series_input(
             field="date",
             value=None,
             expected="a non-null Date or Datetime column named 'date'",
+            docs_path=_DOCS_DIRECT_COMPUTE,
+        )
+    if not isinstance(value_col, str) or value_col not in data.columns:
+        raise UserInputError(
+            func_name=func_name,
+            field="value_col",
+            value=value_col,
+            candidates=data.columns,
+            docs_path=_DOCS_DIRECT_COMPUTE,
+        )
+    value_dtype = data.schema[value_col]
+    if not value_dtype.is_numeric():
+        raise UserInputError(
+            func_name=func_name,
+            field="value_col",
+            value=f"{value_col!r} has dtype {value_dtype}",
+            expected=(
+                "a numeric column. Encode categorical/string values or cast "
+                "numeric strings before calling compute"
+            ),
             docs_path=_DOCS_DIRECT_COMPUTE,
         )
     date_dtype = data.schema["date"]
@@ -135,12 +156,16 @@ def _clean_series(data: pl.DataFrame, value_col: str) -> pl.Series:
     Polars ``drop_nulls`` keeps non-finite float values, and one NaN or ±Inf
     would poison the mean, HAC variance, or bootstrap centring. Keep only
     finite observations so every member reports the sample it actually tests.
+    The public validator rejects non-numeric columns; the cast here normalizes
+    accepted numeric dtypes before the finite-value filter, matching the metric
+    series helper.
     """
     values = (
         data[value_col]
         if data["date"].is_sorted()
         else data.sort("date").get_column(value_col)
     )
+    values = values.cast(pl.Float64, strict=False)
     return values.filter(values.is_finite())
 
 
@@ -246,7 +271,9 @@ class NonOverlapping:
         from factrix._stats.core import _validate_p_value_alternative
         from factrix.metrics._helpers import _sample_non_overlapping
 
-        _validate_series_input(data, overlap_periods, func_name=type(self).__name__)
+        _validate_series_input(
+            data, value_col, overlap_periods, func_name=type(self).__name__
+        )
         _validate_p_value_alternative(alternative, func_name=type(self).__name__)
         # Stride on the *calendar* (every h-th unique date) before dropping
         # non-finite rows, so a dropped observation cannot shift the sampling
@@ -361,7 +388,9 @@ class NeweyWest:
         )
         from factrix._stats.core import _validate_p_value_alternative
 
-        _validate_series_input(data, overlap_periods, func_name=type(self).__name__)
+        _validate_series_input(
+            data, value_col, overlap_periods, func_name=type(self).__name__
+        )
         _validate_p_value_alternative(alternative, func_name=type(self).__name__)
         vals = _clean_series(data, value_col).to_numpy()
         n = len(vals)
@@ -453,7 +482,9 @@ class HansenHodrick:
         from factrix._stats import _hansen_hodrick_t_test
         from factrix._stats.core import _validate_p_value_alternative
 
-        _validate_series_input(data, overlap_periods, func_name=type(self).__name__)
+        _validate_series_input(
+            data, value_col, overlap_periods, func_name=type(self).__name__
+        )
         _validate_p_value_alternative(alternative, func_name=type(self).__name__)
         vals = _clean_series(data, value_col).to_numpy()
         n = len(vals)
@@ -602,7 +633,9 @@ class StationaryBootstrap:
         from factrix._stats.bootstrap import _block_bootstrap_diff_p
         from factrix._stats.core import _validate_p_value_alternative
 
-        _validate_series_input(data, overlap_periods, func_name=type(self).__name__)
+        _validate_series_input(
+            data, value_col, overlap_periods, func_name=type(self).__name__
+        )
         _validate_p_value_alternative(alternative, func_name=type(self).__name__)
         vals = _clean_series(data, value_col).to_numpy()
         n = len(vals)

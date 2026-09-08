@@ -80,6 +80,35 @@ class TestProtocolIdentity:
     ],
 )
 class TestSeriesInputContract:
+    def test_rejects_missing_value_column(self, member) -> None:
+        with pytest.raises(UserInputError) as exc_info:
+            member.compute(
+                _series_df(np.arange(20.0)),
+                value_col="icc",
+                overlap_periods=1,
+            )
+
+        error = exc_info.value
+        assert error.func_name == type(member).__name__
+        assert error.field == "value_col"
+        assert error.value == "icc"
+        assert error.candidates == ("date", "ic")
+        assert error.suggestions == ("ic",)
+
+    def test_rejects_non_numeric_value_column(self, member) -> None:
+        data = _series_df(np.arange(20.0)).with_columns(
+            pl.lit("category").alias("label")
+        )
+
+        with pytest.raises(UserInputError) as exc_info:
+            member.compute(data, value_col="label", overlap_periods=1)
+
+        error = exc_info.value
+        assert error.func_name == type(member).__name__
+        assert error.field == "value_col"
+        assert error.value == "'label' has dtype String"
+        assert "numeric column" in str(error)
+
     def test_rejects_duplicate_dates(self, member) -> None:
         data = _series_df(np.arange(20.0))
         data = pl.concat([data, data.head(1)])
