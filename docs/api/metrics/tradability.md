@@ -211,8 +211,10 @@ spacing than the return horizon.
 `forward_periods=` and `overlap_periods=` keywords raise `TypeError`. Pass the
 rebalance interval in underlying return periods. Do not substitute the panel's
 derived `overlap_periods` on a coarse evaluation grid, where the units differ.
-This rename does not affect `rank_turnover` or `notional_turnover`, whose stride
-is controlled by `rebalance_lag`.
+This rename does not affect `rank_turnover` or `notional_turnover`. They
+stride at the injected `overlap_periods` by default; `rebalance_lag` is an
+optional override, and the resolved value is reported as
+`metadata["rebalance_lag"]`.
 
 ## Choosing a function
 

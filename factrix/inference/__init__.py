@@ -16,8 +16,10 @@ Passing a method outside a metric's allowlist raises
 standalone comparisons. Its rectangular kernel has no positive-semidefinite
 guarantee, so no registered metric admits it.
 
-See [Statistical methods](../reference/statistical-methods.md#nw-hac) for
-selection guidance and the
+See [Inference selection](../development/architecture.md#inference-selection)
+for why the union is closed and what the per-metric allowlist records,
+[Statistical methods](../reference/statistical-methods.md#nw-hac) for selection
+guidance, and the
 [calibration reference](../reference/inference-calibration.md) for measured
 regimes and known limits.
 """

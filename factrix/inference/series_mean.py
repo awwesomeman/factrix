@@ -305,8 +305,10 @@ class NeweyWest:
     The bandwidth uses the [LLSW (2018)][llsw-2018] ``1.3·√T`` rule, floored
     at ``3(h - 1)`` and capped at ``T/3``. The variance is scaled by
     ``T/(T - L - 1)``, and the statistic uses effective degrees of freedom
-    bounded by ``T/h - 1``. These values are resolved from the input sample
-    and returned in metadata; there is no lag parameter on this class.
+    bounded by ``T/h - 1``. All three are derived from the input sample, so
+    this class carries no lag parameter; the resolved bandwidth and degrees of
+    freedom are reported as ``metadata["newey_west_lags"]`` and
+    ``metadata["hac_dof"]``.
 
     This method retains observations that ``NonOverlapping`` drops, but it is
     not uniformly more powerful or better calibrated. Persistence that remains

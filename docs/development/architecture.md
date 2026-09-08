@@ -594,17 +594,51 @@ step with `(cross-section step)` or `(time-series step)` inline:
 Unqualified `per-event` is **not** used — always written as `per-event-period`
 to keep the regime unambiguous.
 
+[](){ #inference-selection }
 ### Inference selection (`inference=`)
 
 Only the series-mean family (`ic`, `quantile_spread`, `quantile_spread_vw`,
-`k_spread`) takes a
-selectable `inference=`; every other metric carries a fixed estimator by
-its statistical shape, so the absence of the knob is by design. The
-`factrix.inference` module docstring is the SSOT for the full rule — the
-per-family rationale, the closed-union policy, and why `HansenHodrick` is
-research-only — kept in `factrix.inference.series_mean` for standalone
-comparison studies, admitted to no metric's union and not exported from
-`factrix.inference`.
+`k_spread`) takes a selectable `inference=`; every other metric carries a
+fixed estimator by its statistical shape, so the absence of the knob is by
+design. This section is the SSOT for that rule; the `factrix.inference`
+module docstring carries the navigation summary and links here.
+
+The knob is offered only where the headline test is "average an overlapping
+per-date series and test `mean != 0`", because there the choice between
+non-overlap sub-sampling and a HAC SE genuinely changes the standard error and
+is the caller's to make. Elsewhere the estimator follows the metric's shape:
+event-study metrics use Brown-Warner / standardized-AR on the event axis; the
+`fm_beta` family builds its Fama-MacBeth / Driscoll-Kraay SE into the
+estimator; `common_beta` carries its own per-asset time-series SE;
+`directional_hit_rate` (Pesaran-Timmermann) and `positive_rate` (binomial) have
+a fixed distribution and no SE to choose; `oos_decay` and `concentration` are
+descriptive and run no headline test; `trend` and `common_asymmetry` pair a
+magnitude with an estimator-specific p-value.
+
+`inference=` is typed as a closed union of named members, never an open
+`Inference` Protocol a caller can implement. An unvetted user-supplied SE
+estimator — wrong-axis HAC, mis-calibrated bandwidth — would silently emit
+invalid p-values, so each curated member instead ships a calibrated
+`min_input_periods` and a vetted `compute`. The `Inference` Protocol in
+`inference/_base.py` constrains member identity rather than inviting external
+implementations, and the union grows only when a member is validated for that
+metric family.
+
+The per-metric `applicable_inference` frozenset is a vetting record, not a
+dispatch table. Every `inference=`-bearing metric dispatches polymorphically
+and could in principle run any series-mean member; the set records which
+members have been *measured on that metric's series*. The IC series and the
+long-short spread series have different distributions, so each carries its own
+size table in [inference calibration](../reference/inference-calibration.md)
+and each admits a member only on the strength of it.
+
+`HansenHodrick` is a complete series-mean member that no metric's union
+admits: its rectangular kernel has no PSD guarantee and can clamp a negative
+variance (`WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE`), so the vetted HAC is
+`NeweyWest`'s PSD-guaranteed Bartlett kernel. It stays importable from
+`factrix.inference.series_mean` for standalone comparison studies and is not
+re-exported from `factrix.inference`, because a name there reads as "pass this
+to a metric" and every such call raises `IncompatibleInferenceError`.
 
 ### `individual_continuous(IC)` — cross-section first
 
