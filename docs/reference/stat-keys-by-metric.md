@@ -379,7 +379,7 @@ asset pairs are not treated as independent Bernoulli trials.
 - *descriptive*: `method`, `n_pairs`, `n_raw_pairs`, `n_periods`,
   `n_correct_pairs`, `n_incorrect_pairs`, `factor_tie_pairs`,
   `return_tie_pairs`, `both_tie_pairs`, `dropped_pairs`,
-  `dropped_rows_null`, `pooled_accuracy`, `mean_per_date_accuracy`,
+  `n_dropped_non_finite`, `pooled_accuracy`, `mean_per_date_accuracy`,
   `mean_pairs_per_period`, `min_pairs_per_period`, `max_pairs_per_period`,
   `tie_epsilon`.
 - *warning*: `WarningCode.FEW_ORDERING_PAIRS` when comparable pairs sit below
