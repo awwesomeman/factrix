@@ -55,6 +55,15 @@ title: factrix.metrics.quantile
     each asset. If an asset is absent at the exact preceding grid period, its
     current row has no lag and drops; an older stale weight is not substituted.
 
+    A stale weight carried across the hole would be look-ahead-free too, but
+    it is a longer, asset-dependent lag; one grid period keeps the weight lag
+    equal to the rebalance stride and matches `rank_turnover`. The cost is
+    rows: an asset absent at period *t* also loses *t+1*, so a ragged panel
+    whose thin periods alternate with full ones can drop most of its sample
+    and short-circuit as `metric_unavailable`. Read `drop_rate` and
+    `max_assets_per_date` to see what survived, or pass `lag_weights=False`
+    when the weights are already lagged.
+
 -   __Per-bucket mean returns for monotonicity charts__
 
     ---
