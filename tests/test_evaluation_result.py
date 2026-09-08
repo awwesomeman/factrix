@@ -149,9 +149,7 @@ class TestEvaluationResultToFrame:
             r.to_frame()
 
     def test_n_obs_carries_per_metric_sample_size(self):
-        ic_out = MetricResult(
-            value=0.05, n_obs=114, n_obs_axis="periods", name="ic"
-        )
+        ic_out = MetricResult(value=0.05, n_obs=114, n_obs_axis="periods", name="ic")
         spread_out = MetricResult(
             value=0.01, n_obs=23, n_obs_axis="periods", name="spread"
         )
@@ -400,13 +398,9 @@ class TestMetricResultFieldContract:
         assert type(out.n_obs) is int
 
     def test_accepts_zero_n_obs(self):
-        assert (
-            MetricResult(value=float("nan"), n_obs=0, n_obs_axis="events").n_obs == 0
-        )
+        assert MetricResult(value=float("nan"), n_obs=0, n_obs_axis="events").n_obs == 0
 
-    @pytest.mark.parametrize(
-        ("n_obs", "n_obs_axis"), [(1, None), (None, "periods")]
-    )
+    @pytest.mark.parametrize(("n_obs", "n_obs_axis"), [(1, None), (None, "periods")])
     def test_rejects_unpaired_n_obs_contract(self, n_obs, n_obs_axis):
         with pytest.raises(
             ValueError, match="supplied together, or both None"

@@ -150,8 +150,7 @@ class MetricResult:
             # same count even when a producer supplied a numpy scalar.
             object.__setattr__(self, "n_obs", count)
         if self.n_obs_axis is not None and (
-            not isinstance(self.n_obs_axis, str)
-            or self.n_obs_axis not in _SAMPLE_AXES
+            not isinstance(self.n_obs_axis, str) or self.n_obs_axis not in _SAMPLE_AXES
         ):
             raise UserInputError(
                 func_name="MetricResult",
