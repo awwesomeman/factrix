@@ -333,8 +333,7 @@ def monotonicity(
         for factor_col in cols
     }
     asset_warnings = {
-        factor_col: cross_section_tier(median_assets[factor_col])
-        for factor_col in cols
+        factor_col: cross_section_tier(median_assets[factor_col]) for factor_col in cols
     }
     thin_groups: dict[str, bool] = {}
     for factor_col in cols:

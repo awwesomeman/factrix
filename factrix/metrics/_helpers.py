@@ -2616,9 +2616,9 @@ def _median_finite_cross_section(data: pl.DataFrame, factor_col: str) -> int:
     """
     if data.is_empty():
         return 0
-    per_period = data.group_by("date").agg(
-        _finite_expr(factor_col).sum().alias("_n")
-    )["_n"]
+    per_period = data.group_by("date").agg(_finite_expr(factor_col).sum().alias("_n"))[
+        "_n"
+    ]
     median = per_period.median()
     return 0 if median is None else int(median)  # type: ignore[arg-type]
 
@@ -2687,8 +2687,7 @@ def _is_thin_quantile_groups(
     if n_groups <= 0:
         return False
     return (
-        _median_finite_cross_section(sampled, factor_col) // n_groups
-        < MIN_GROUP_ASSETS
+        _median_finite_cross_section(sampled, factor_col) // n_groups < MIN_GROUP_ASSETS
     )
 
 

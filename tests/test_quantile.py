@@ -38,8 +38,7 @@ def _factor_specific_breadth_panel(n_dates: int = 40) -> pl.DataFrame:
                         else None
                     ),
                     "factor_full": float((asset_index + date_index) % 30),
-                    "forward_return": 0.001
-                    * ((2 * asset_index + date_index) % 11),
+                    "forward_return": 0.001 * ((2 * asset_index + date_index) % 11),
                     "market_cap": 1e6 * (asset_index + 1),
                 }
             )
@@ -124,10 +123,7 @@ class TestFactorSpecificQuantileBreadth:
             rebalance_lag=1,
         )
 
-        assert (
-            result.metadata["reason"]
-            == "insufficient_assets_for_quantile_groups"
-        )
+        assert result.metadata["reason"] == "insufficient_assets_for_quantile_groups"
         assert result.metadata["median_cross_section"] == 30
         assert WarningCode.THIN_QUANTILE_GROUPS.value not in result.warning_codes
 
@@ -149,8 +145,7 @@ class TestNonFiniteDegeneracyClassification:
                         "date": date,
                         "asset_id": f"A{asset_index}",
                         "factor": factor,
-                        "forward_return": 0.001
-                        * ((asset_index + 2 * date_index) % 9),
+                        "forward_return": 0.001 * ((asset_index + 2 * date_index) % 9),
                         "market_cap": 1e6 * (asset_index + 1),
                     }
                 )
@@ -160,17 +155,13 @@ class TestNonFiniteDegeneracyClassification:
     def _replace_first_factor(panel: pl.DataFrame, value: float) -> pl.DataFrame:
         first_date = panel["date"].min()
         return panel.with_columns(
-            pl.when(
-                (pl.col("date") == first_date) & (pl.col("asset_id") == "A0")
-            )
+            pl.when((pl.col("date") == first_date) & (pl.col("asset_id") == "A0"))
             .then(value)
             .otherwise(pl.col("factor"))
             .alias("factor")
         )
 
-    @pytest.mark.parametrize(
-        "non_finite", [float("nan"), float("inf"), -float("inf")]
-    )
+    @pytest.mark.parametrize("non_finite", [float("nan"), float("inf"), -float("inf")])
     def test_excluded_factor_value_does_not_create_variation(self, non_finite):
         panel = self._constant_panel()
         dirty_panel = self._replace_first_factor(panel, non_finite)
