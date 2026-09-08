@@ -50,8 +50,10 @@ def _warn_calls(tree: ast.AST) -> list[ast.Call]:
 
 def _warning_category(call: ast.Call) -> str | None:
     """Return the explicit warning category named by a direct warn call."""
-    category = call.args[1] if len(call.args) > 1 else next(
-        (kw.value for kw in call.keywords if kw.arg == "category"), None
+    category = (
+        call.args[1]
+        if len(call.args) > 1
+        else next((kw.value for kw in call.keywords if kw.arg == "category"), None)
     )
     return category.id if isinstance(category, ast.Name) else None
 

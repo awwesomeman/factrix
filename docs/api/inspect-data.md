@@ -13,6 +13,8 @@ title: factrix.inspect_data
 evaluation when a regime is intentional:
 
 ```python
+import factrix as fx
+
 info = fx.inspect_data(
     panel,
     expected_warnings=("few_assets", "unreliable_se_short_periods"),
