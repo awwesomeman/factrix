@@ -10,7 +10,9 @@ This guide covers the observability features in `factrix` that help you debug ex
 
 ### Logger Namespaces
 
-All logger namespaces are prefixed with `factrix.` (for example, `factrix` + `.dag`):
+<!-- factrix-doc-non-symbol: factrix.dag -->
+
+All logger namespaces are prefixed with `factrix.` (for example, `factrix.dag`):
 
 | Logger Name (prefixed with `factrix.`) | Level | Purpose / Description |
 | :--- | :--- | :--- |
@@ -30,7 +32,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 # Enable detailed DAG executor tracing
-logging.getLogger("factrix" + ".dag").setLevel(logging.DEBUG)
+logging.getLogger("factrix.dag").setLevel(logging.DEBUG)
 ```
 
 ---

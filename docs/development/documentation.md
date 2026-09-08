@@ -107,6 +107,21 @@ so CI syntax-compiles the cell without pretending to execute the unavailable
 dependency. The tag does not prevent a reader from running the code cell in the
 notebook.
 
+The symbol-reference check also scans raw page text for `factrix.*` and `fx.*`
+chains. When a literal uses that namespace for a non-symbol value, such as a
+logger name or experiment-tracker key, declare the exact token once on the
+page and then write the value naturally:
+
+```text
+<!-- factrix-doc-non-symbol: factrix.dag -->
+```
+
+The declaration is page-scoped and exempts only that complete chain. It does
+not skip a prefix, line, or code fence, so every other reference remains
+checked. Because raw text has no use-site semantics, the guard cannot
+distinguish another occurrence of the same exact spelling elsewhere on that
+page; use the declaration only for values that never name a Python symbol.
+
 ## Writing style
 
 - Lead with the reader's outcome or the contract, then explain why.

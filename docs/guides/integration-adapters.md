@@ -21,6 +21,12 @@ test environment intentionally does not install this optional backend. CI
 syntax-compiles them, but only a caller-provisioned MLflow environment can
 exercise tracking-server side effects.
 
+<!-- factrix-doc-non-symbol: factrix.cell.scope -->
+<!-- factrix-doc-non-symbol: factrix.cell.density -->
+<!-- factrix-doc-non-symbol: factrix.cell.structure -->
+<!-- factrix-doc-non-symbol: factrix.warning_codes -->
+<!-- factrix-doc-non-symbol: factrix.unexpected_warning_codes -->
+
 ## Log one `EvaluationResult` to MLflow
 
 An auditable run needs more than the headline metric. The adapter below logs:
@@ -53,7 +59,6 @@ def _warning_record(warning):
 def log_evaluation(result):
     scope, density, structure = result.cell
     experiment = f"factrix.{scope.value}.{density.value}.{structure.value}"
-    tag_namespace = "factrix"
     mlflow.set_experiment(experiment)
 
     with mlflow.start_run(run_name=f"{result.factor}.h{result.forward_periods}"):
@@ -86,13 +91,13 @@ def log_evaluation(result):
         unexpected = [_warning_record(w) for w in result.unexpected_warnings]
         mlflow.set_tags(
             {
-                f"{tag_namespace}.cell.scope": scope.value,
-                f"{tag_namespace}.cell.density": density.value,
-                f"{tag_namespace}.cell.structure": structure.value,
-                f"{tag_namespace}.warning_codes": json.dumps(
+                "factrix.cell.scope": scope.value,
+                "factrix.cell.density": density.value,
+                "factrix.cell.structure": structure.value,
+                "factrix.warning_codes": json.dumps(
                     [w["code"] for w in all_warnings]
                 ),
-                f"{tag_namespace}.unexpected_warning_codes": json.dumps(
+                "factrix.unexpected_warning_codes": json.dumps(
                     [w["code"] for w in unexpected]
                 ),
                 **axis_tags,
