@@ -6,7 +6,9 @@ from datetime import datetime
 
 import polars as pl
 import pytest
+
 from factrix.adapt import adapt
+from factrix.preprocess import compute_forward_return
 
 
 def _raw_panel() -> pl.DataFrame:
@@ -88,6 +90,41 @@ class TestCanonicalRenames:
                 open="close_adj",
             )
 
+    @pytest.mark.parametrize("lazy", [False, True])
+    def test_duplicate_source_mapping_raises(self, lazy):
+        data = _raw_panel()
+        data = data.lazy() if lazy else data
+
+        with pytest.raises(ValueError) as exc_info:
+            adapt(
+                data,
+                date="trade_date",
+                asset_id="ticker",
+                price="close_adj",
+                open="close_adj",
+            )
+
+        message = str(exc_info.value)
+        assert "close_adj" in message
+        assert "price" in message
+        assert "open" in message
+
+    def test_duplicate_source_mapping_includes_canonical_noop(self):
+        data = _raw_panel().rename({"close_adj": "price"})
+
+        with pytest.raises(ValueError) as exc_info:
+            adapt(
+                data,
+                date="trade_date",
+                asset_id="ticker",
+                price="price",
+                open="price",
+            )
+
+        message = str(exc_info.value)
+        assert "price" in message
+        assert "open" in message
+
 
 class TestDateDtypePromotion:
     """`adapt()` promotes pl.Date → pl.Datetime("ms") losslessly; other
@@ -155,43 +192,6 @@ class TestTypePreservation:
         assert isinstance(out, pl.LazyFrame)
         assert out.collect().schema["date"] == pl.Datetime("ms")
 
-    def test_lazyframe_fill_forward_stays_lazy(self):
-        lf = _raw_panel().lazy()
-        out = adapt(
-            lf,
-            date="trade_date",
-            asset_id="ticker",
-            price="close_adj",
-            fill_forward=True,
-        )
-        assert isinstance(out, pl.LazyFrame)
-        assert out.collect().height == 2
-
-    def test_fill_forward_maps_nan_and_inf_to_null_then_ffills(self):
-        raw = pl.DataFrame(
-            {
-                "trade_date": [
-                    datetime(2024, 1, 1),
-                    datetime(2024, 1, 2),
-                    datetime(2024, 1, 3),
-                    datetime(2024, 1, 4),
-                ],
-                "ticker": ["A", "A", "A", "A"],
-                "close_adj": [100.0, float("nan"), float("inf"), 103.0],
-            }
-        )
-        out = adapt(
-            raw,
-            date="trade_date",
-            asset_id="ticker",
-            price="close_adj",
-            fill_forward=True,
-        )
-        # nan (row 1) and inf (row 2) both become null, then forward-fill from
-        # the last finite value (100.0) carries through both gaps.
-        assert out["price"].to_list() == [100.0, 100.0, 100.0, 103.0]
-        assert out["price"].null_count() == 0
-
     def test_pandas_input_returns_dataframe(self):
         pd = pytest.importorskip("pandas")
         pdf = pd.DataFrame(
@@ -210,3 +210,45 @@ class TestTypePreservation:
             TypeError, match=r"pl\.DataFrame, pl\.LazyFrame, or pd\.DataFrame"
         ):
             adapt([{"a": 1}], date="a", asset_id="a", price="a")
+
+
+class TestMissingPrices:
+    @pytest.mark.parametrize("lazy", [False, True])
+    def test_missing_price_stays_unavailable_for_forward_return(self, lazy):
+        raw = pl.DataFrame(
+            {
+                "trade_date": [
+                    datetime(2024, 1, 1),
+                    datetime(2024, 1, 2),
+                    datetime(2024, 1, 3),
+                    datetime(2024, 1, 4),
+                    datetime(2024, 1, 5),
+                    datetime(2024, 1, 6),
+                ],
+                "ticker": ["A"] * 6,
+                "close_adj": [100.0, 101.0, None, 103.0, 104.0, 105.0],
+            }
+        )
+        data = raw.lazy() if lazy else raw
+        adapted = adapt(
+            data,
+            date="trade_date",
+            asset_id="ticker",
+            price="close_adj",
+        )
+        if isinstance(adapted, pl.LazyFrame):
+            adapted = adapted.collect()
+
+        assert adapted["price"].to_list() == [
+            100.0,
+            101.0,
+            None,
+            103.0,
+            104.0,
+            105.0,
+        ]
+        out = compute_forward_return(adapted, forward_periods=1)
+        assert out["date"].to_list() == [
+            datetime(2024, 1, 3),
+            datetime(2024, 1, 4),
+        ]

@@ -47,8 +47,7 @@ See [Concepts](concepts.md) for what each axis means.
 The smoke test uses synthetic data that already carries factrix's
 canonical column names (`date`, `asset_id`, `price`). Real-world panels
 rarely do, so `adapt` is the **first** step of the pipeline — it renames
-your columns to the canonical names (and optionally cleans non-finite
-values), *before* `compute_forward_return`:
+your columns to the canonical names *before* `compute_forward_return`:
 
 ```python title="Illustrative"
 import factrix as fx
@@ -58,16 +57,19 @@ from factrix.preprocess import compute_forward_return
 raw = adapt(
     your_df,
     date="trade_date", asset_id="ticker", price="close_adj",
-    fill_forward=True,   # map NaN/±inf → null, then forward-fill per asset
 )
 data = compute_forward_return(raw, forward_periods=5)
 results = fx.evaluate(data, metrics={"ic": fx.metrics.ic()}, factor_cols=["factor"])
 ```
 
 So the full pipeline is **`adapt` → `compute_forward_return` →
-`evaluate`**. `fill_forward` is opt-in: leave it `False` (default) if
-your panel is already clean, or set it `True` for raw OHLCV that may
-contain sporadic missing or non-finite values.
+`evaluate`**. `adapt` only performs schema adaptation (column renaming,
+Polars `Date` promotion, and pandas-to-Polars conversion); it never imputes
+observations. During return construction, `compute_forward_return` maps
+non-finite prices to missing and drops rows whose required entry or exit is
+unavailable. Do not forward-fill a price: that would invent a tradable level.
+Repair a genuine feed error at the source under an explicit column and
+staleness policy.
 
 ---
 
