@@ -111,9 +111,7 @@ portfolio_grid = pl.DataFrame(
 )
 
 panel = (
-    raw_wide.filter(
-        pl.col("month").is_between(START_MONTH, END_MONTH, closed="both")
-    )
+    raw_wide.filter(pl.col("month").is_between(START_MONTH, END_MONTH, closed="both"))
     .unpivot(
         on=portfolio_names,
         index="month",
@@ -128,9 +126,7 @@ panel = (
         .alias("date"),
         (pl.col("return_pct") / 100.0).alias("forward_return"),
         pl.col("bm_rank").cast(pl.Float64).alias("value_score"),
-        (6 - pl.col("size_rank"))
-        .cast(pl.Float64)
-        .alias("small_size_score"),
+        (6 - pl.col("size_rank")).cast(pl.Float64).alias("small_size_score"),
     )
     .select(
         "date",
@@ -196,12 +192,8 @@ for factor, result in results.items():
 The family contains exactly the two axes chosen before looking at their p-values. `q=0.05` is the nominal false discovery rate target supplied to BHY; it is not a measured result. `adj_p_all` (and the `adj_p` column from `to_frame`) contains the adjusted values, including candidates that did not survive.
 
 ```python title="Illustrative"
-screen = fx.multi_factor.bhy(
-    list(results.values()), metrics=["ic"], q=0.05
-)["ic"]
-audit = summary.join(
-    screen.to_frame(), on=["factor", "forward_periods"], how="left"
-)
+screen = fx.multi_factor.bhy(list(results.values()), metrics=["ic"], q=0.05)["ic"]
+audit = summary.join(screen.to_frame(), on=["factor", "forward_periods"], how="left")
 print(audit)
 print("survivors:", [result.factor for result in screen.survivors])
 print("survivor adj_p:", screen.adj_p)
@@ -218,9 +210,7 @@ import plotly.express as px
 ic_by_factor = compute_ic(panel, factor_cols=tuple(factor_cols))
 ic_path = pl.concat(
     [
-        frame.select("date", "ic").with_columns(
-            pl.lit(factor).alias("factor")
-        )
+        frame.select("date", "ic").with_columns(pl.lit(factor).alias("factor"))
         for factor, frame in ic_by_factor.items()
     ]
 )
