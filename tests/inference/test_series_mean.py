@@ -331,6 +331,14 @@ class TestStationaryBootstrap:
         )
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS in result.warnings
 
+    @pytest.mark.parametrize("n", [2, 4, 8, 9, 12])
+    def test_constant_small_samples_reach_the_degenerate_fallback(self, n) -> None:
+        result = STATIONARY_BOOTSTRAP.compute(
+            _series_df(np.full(n, 2.0)), value_col="ic", overlap_periods=1
+        )
+        assert result.metadata["studentized"] is False
+        assert WarningCode.DEGENERATE_VARIANCE in result.warnings
+
     def test_min_input_periods_matches_newey_west(self) -> None:
         assert STATIONARY_BOOTSTRAP.min_input_periods(
             5
