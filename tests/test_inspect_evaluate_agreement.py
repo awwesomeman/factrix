@@ -59,11 +59,14 @@ _NO_DEFAULT_INSTANCE = frozenset({"breakeven_cost", "net_spread"})
 _PROJECTION_GAP = frozenset({"quantile_spread_vw"})
 
 # The zero-variance COMMON shape exists specifically to exercise the
-# producer-survivor bridge fixed in #1074. Other metrics have data-content
-# contracts outside SampleThreshold: common_quantile_spread requires enough
-# distinct historical values, while directional_hit_rate keeps a point
-# estimate but withholds its test on a one-sided signal. Sweeping those here
-# would turn this sample-shape invariant into a different contract.
+# producer-survivor bridge fixed in #1074, so the sweep runs on the metrics
+# whose upstream asset survival is that bridge. Two other metrics disagree on
+# this shape for reasons outside SampleThreshold, and both are filed rather
+# than accepted: common_quantile_spread is pre-flighted usable but refused at
+# run time as insufficient_factor_variation (#1115), and directional_hit_rate
+# is pre-flighted unusable but runs (#1116). Measured on this branch with the
+# narrowing below removed: 60/60 zero-variance cells fail, and those two are
+# the only disagreeing metrics. Re-widen this set when #1115 and #1116 close.
 _COMMON_BETA_CONSUMERS = frozenset(
     {
         "common_beta",
