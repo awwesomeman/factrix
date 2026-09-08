@@ -4,6 +4,8 @@ title: Guides
 
 Step-by-step guides for common factrix workflows:
 
+- **Copy-ready Plotly charts built from factrix producer frames** — [Plotting recipes](plotting-recipes.md)
+- **Logging complete, auditable EvaluationResult records to MLflow** — [Integration adapters](integration-adapters.md)
 - **Raw data to a four-column factrix panel (sort order, frequency alignment, missing data)** — [Preparing data](preparing-data.md)
 - **Picking the right metric for your research question** — [Choosing a metric](choosing-metric.md)
 - **Data structure dispatch (PANEL ↔ TIMESERIES) and the `n_assets == 1` special path** — [Panel vs timeseries](panel-timeseries.md)
