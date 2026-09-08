@@ -810,6 +810,21 @@ class TestChangingUniverseNotionalTurnover:
         )
         assert out.value == pytest.approx(0.0)
 
+    def test_each_leg_keeps_rebalances_when_only_the_other_leg_is_empty(self):
+        """A thin top book does not erase well-defined bottom-book churn."""
+        full = {asset: float(i) for i, asset in enumerate("ABCDEFGHIJ")}
+        members = [full.copy() for _ in range(21)]
+        members[10] = {"C": 2.0}
+
+        out = self._run(members, n_groups=5)
+
+        assert out.value == pytest.approx(0.0)
+        assert out.metadata["mean_top_turnover"] == pytest.approx(0.0)
+        assert out.metadata["mean_bottom_turnover"] == pytest.approx(0.1)
+        assert out.metadata["n_rebalances"] == 18
+        assert out.metadata["n_top_rebalances"] == 18
+        assert out.metadata["n_bottom_rebalances"] == 20
+
     def test_delisted_holding_is_no_longer_missed(self):
         """A top-leg name delists and is not replaced.
 
@@ -893,6 +908,48 @@ class TestCostAlgebraDomain:
     def test_negative_or_non_finite_cost_is_rejected(self, bad):
         with pytest.raises(UserInputError, match="estimated_cost_bps"):
             net_spread(0.001, turnover=0.2, estimated_cost_bps=bad)
+
+    def test_none_cost_is_rejected_at_the_public_boundary(self):
+        """A user's ``None`` is an invalid cost, not an internal sentinel."""
+        with pytest.raises(UserInputError, match="estimated_cost_bps"):
+            net_spread(  # type: ignore[arg-type]
+                0.001,
+                turnover=0.2,
+                estimated_cost_bps=None,
+            )
+
+    def test_breakeven_cost_has_no_estimated_cost_input(self):
+        """The sibling without a cost argument keeps that API boundary."""
+        with pytest.raises(TypeError, match="estimated_cost_bps"):
+            breakeven_cost(  # type: ignore[call-arg]
+                0.001,
+                turnover=0.2,
+                estimated_cost_bps=30.0,
+            )
+
+    @pytest.mark.parametrize("bad", [True, False, "0.5"])
+    def test_gross_spread_rejects_coercible_non_numeric_scalars(self, bad):
+        with pytest.raises(UserInputError, match="gross_spread"):
+            breakeven_cost(bad, turnover=0.2)  # type: ignore[arg-type]
+
+    @pytest.mark.parametrize("bad", [True, False, "0.5"])
+    def test_turnover_rejects_coercible_non_numeric_scalars(self, bad):
+        with pytest.raises(UserInputError, match="turnover"):
+            breakeven_cost(0.001, turnover=bad)  # type: ignore[arg-type]
+
+    @pytest.mark.parametrize("bad", [True, False, "30"])
+    def test_cost_rejects_coercible_non_numeric_scalars(self, bad):
+        with pytest.raises(UserInputError, match="estimated_cost_bps"):
+            net_spread(  # type: ignore[arg-type]
+                0.001,
+                turnover=0.2,
+                estimated_cost_bps=bad,
+            )
+
+    def test_plain_float_metric_results_remain_valid_cost_inputs(self):
+        spread = MetricResult(value=0.001, metadata={"n_groups": 5})
+        turnover = MetricResult(value=0.2, metadata={"n_groups": 5})
+        assert breakeven_cost(spread, turnover=turnover).value == pytest.approx(62.5)
 
     def test_a_metric_result_carrying_an_out_of_domain_value_is_rejected(self):
         """An *available* result is held to the same domain as a bare float."""

@@ -29,7 +29,7 @@ Notes:
 from __future__ import annotations
 
 import math
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import polars as pl
@@ -57,6 +57,7 @@ from factrix.metrics._helpers import (
     _assign_quantile_groups,
     _enforce_min_floor,
     _finite_expr,
+    _is_finite_number,
     _median_universe_size,
     _sample_non_overlapping,
     _short_circuit_output,
@@ -556,7 +557,12 @@ def notional_turnover(
         Metadata: ``n_rebalances``, ``n_groups``, ``overlap_periods`` (the
         panel's stamp, unchanged), ``rebalance_lag`` (the stride actually
         sampled at), ``mean_top_turnover`` / ``mean_bottom_turnover`` (each
-        leg's mean replaced fraction — ``value`` is their mean),
+        leg's mean replaced fraction, each over the rebalances where that leg
+        exists on both dates), ``n_top_rebalances`` /
+        ``n_bottom_rebalances`` (those per-leg sample sizes). ``value`` is the
+        per-date mean of the two legs over the joint ``n_rebalances`` sample;
+        it equals the arithmetic mean of the two published leg means only when
+        their samples coincide.
         ``mean_tail_size`` (per-date average of ``(|Q_top| + |Q_bot|)/2`` at
         ``t``, the *current* leg sizes — the turnover denominator is
         ``max(|Q(t)|, |Q(t-1)|)``, so the two coincide only while the legs do
@@ -597,9 +603,11 @@ def notional_turnover(
         joiner) with a one-way cost per trade. Summing the legs here
         instead would double-count against those coefficients.
 
-        A rebalance is skipped when *either* date leaves *either* leg empty:
-        the difference between two weight vectors needs both portfolios to
-        exist, and there is no book to resize into or out of nothing.
+        A leg's churn is undefined when that leg is empty on either date, but
+        this does not discard the other leg's well-defined churn. The headline
+        long-short ``value`` requires both legs and reports its joint sample as
+        ``n_rebalances``; the per-leg means report their own sample sizes as
+        ``n_top_rebalances`` and ``n_bottom_rebalances``.
 
     References:
         [Novy-Marx-Velikov (2016)][novy-marx-velikov-2016], "A Taxonomy of
@@ -694,14 +702,9 @@ def notional_turnover(
         leg_sizes.join(date_map, on="date")
         .join(prev_leg_sizes, on="prev_date")
         .join(overlaps, on="date")
-        # Both books must exist for a weight change to be defined: a rebalance
-        # into or out of an empty leg is not a turnover, it is the absence of
-        # one of the two portfolios the difference is taken between.
-        .filter(
-            (pl.col("n_top") > 0)
-            & (pl.col("n_bot") > 0)
-            & (pl.col("n_top_prev") > 0)
-            & (pl.col("n_bot_prev") > 0)
+        .with_columns(
+            ((pl.col("n_top") > 0) & (pl.col("n_top_prev") > 0)).alias("top_defined"),
+            ((pl.col("n_bot") > 0) & (pl.col("n_bot_prev") > 0)).alias("bot_defined"),
         )
         # WHY max: for an equal-weight leg of ``k`` names now and ``j`` before
         # with ``m`` survivors, ``0.5 * Σ|w_t − w_{t−1}|`` evaluates in closed
@@ -714,20 +717,27 @@ def notional_turnover(
             pl.max_horizontal("n_top", "n_top_prev").alias("n_top_book"),
             pl.max_horizontal("n_bot", "n_bot_prev").alias("n_bot_book"),
         )
-        # Each leg's replaced fraction is kept on its own: the long-short
-        # ``value`` is their mean, but a long-only top-quantile book pays only
-        # the top leg's churn, and the two can differ materially.
         .with_columns(
-            (1 - pl.col("n_top_kept") / pl.col("n_top_book")).alias("top_turnover"),
-            (1 - pl.col("n_bot_kept") / pl.col("n_bot_book")).alias("bot_turnover"),
+            pl.when(pl.col("top_defined"))
+            .then(1 - pl.col("n_top_kept") / pl.col("n_top_book"))
+            .alias("top_turnover"),
+            pl.when(pl.col("bot_defined"))
+            .then(1 - pl.col("n_bot_kept") / pl.col("n_bot_book"))
+            .alias("bot_turnover"),
         )
+        # The headline is a long-short quantity, so it requires both legs.
+        # Per-leg diagnostics remain defined on their own samples instead of
+        # losing a valid rebalance when only the opposite book is empty.
         .with_columns(
-            ((pl.col("top_turnover") + pl.col("bot_turnover")) / 2).alias("turnover")
+            pl.when(pl.col("top_defined") & pl.col("bot_defined"))
+            .then((pl.col("top_turnover") + pl.col("bot_turnover")) / 2)
+            .alias("turnover")
         )
         .sort("date")
     )
 
-    if per_date.is_empty():
+    joint_rebalances = per_date.filter(pl.col("turnover").is_not_null())
+    if joint_rebalances.is_empty():
         # Name the binding axis. The overwhelmingly common cause is a
         # cross-section too thin to fill ``n_groups`` buckets (the default
         # ``n_groups=10`` empties every date on an allocation-sized universe),
@@ -748,24 +758,28 @@ def notional_turnover(
             descriptive=True,
         )
 
-    turnover_arr = per_date["turnover"].to_numpy()
+    turnover_arr = joint_rebalances["turnover"].to_numpy()
     mean_turnover = float(np.mean(turnover_arr))
     mean_top_turnover = float(per_date["top_turnover"].mean())  # type: ignore[arg-type]
     mean_bottom_turnover = float(per_date["bot_turnover"].mean())  # type: ignore[arg-type]
+    n_top_rebalances = per_date["top_turnover"].drop_nulls().len()
+    n_bottom_rebalances = per_date["bot_turnover"].drop_nulls().len()
     tail_pct = 1.0 / n_groups
 
-    mean_top_tail_size = float(per_date["n_top"].mean())  # type: ignore[arg-type]
-    mean_bottom_tail_size = float(per_date["n_bot"].mean())  # type: ignore[arg-type]
+    mean_top_tail_size = float(joint_rebalances["n_top"].mean())  # type: ignore[arg-type]
+    mean_bottom_tail_size = float(joint_rebalances["n_bot"].mean())  # type: ignore[arg-type]
     mean_tail_size = (mean_top_tail_size + mean_bottom_tail_size) / 2
     return MetricResult(
         value=mean_turnover,
         # Rebalances — one per adjacent-period transition, not (date, asset)
         # pairs; the axis is periods.
-        n_obs=int(per_date.height),
+        n_obs=int(joint_rebalances.height),
         n_obs_axis="periods",
         warning_codes=tuple(warning_codes),
         metadata={
-            "n_rebalances": int(per_date.height),
+            "n_rebalances": int(joint_rebalances.height),
+            "n_top_rebalances": n_top_rebalances,
+            "n_bottom_rebalances": n_bottom_rebalances,
             "n_groups": n_groups,
             "overlap_periods": overlap_periods,
             "rebalance_lag": lag,
@@ -824,19 +838,22 @@ def _propagate_unavailable(
     )
 
 
-def _validate_finite(value: float, *, func_name: str, field: str, detail: str) -> None:
-    """Reject a non-finite scalar before it reaches the cost algebra."""
-    if not math.isfinite(value):
+def _validate_finite(
+    value: object, *, func_name: str, field: str, detail: str
+) -> float:
+    """Return a finite real scalar; reject coercible non-numeric inputs."""
+    if not _is_finite_number(value):
         raise UserInputError(
             func_name=func_name,
             field=field,
             value=value,
-            expected=f"a finite float. {detail}",
+            expected=f"a finite real number (bool and strings rejected). {detail}",
             docs_path=_DOCS_TRADABILITY,
         )
+    return float(cast(int | float, value))
 
 
-def _validate_turnover(value: float, *, func_name: str) -> None:
+def _validate_turnover(value: object, *, func_name: str) -> float:
     """``turnover`` is the one-way per-leg replaced fraction, so it is in [0, 1].
 
     ``notional_turnover`` reports ``0.5 * sum |w_t - w_{t-1}|`` averaged over
@@ -846,35 +863,39 @@ def _validate_turnover(value: float, *, func_name: str) -> None:
     ``+inf`` and ``net_spread`` used to *raise* the alpha it was meant to
     charge — and a value above 1 prices trades the book cannot make.
     """
-    if not math.isfinite(value) or not 0.0 <= value <= 1.0:
+    numeric = float(cast(int | float, value)) if _is_finite_number(value) else None
+    if numeric is None or not 0.0 <= numeric <= 1.0:
         raise UserInputError(
             func_name=func_name,
             field="turnover",
             value=value,
             expected=(
-                "a finite fraction inside [0, 1]. It is the one-way per-leg "
+                "a finite real number inside [0, 1] (bool and strings "
+                "rejected). It is the one-way per-leg "
                 "notional replaced per rebalance (0.5 * sum |dw|, top/bottom "
                 "averaged) that notional_turnover reports; rank_turnover's "
                 "value lives in [0, 2] and does not belong here."
             ),
             docs_path=_DOCS_TRADABILITY,
         )
+    return numeric
 
 
-def _validate_estimated_cost_bps(value: float, *, func_name: str) -> None:
+def _validate_estimated_cost_bps(value: object, *, func_name: str) -> float:
     """``estimated_cost_bps`` is a one-way cost, so it is finite and >= 0."""
-    if not math.isfinite(value) or value < 0.0:
+    if not _is_finite_number(value) or float(cast(int | float, value)) < 0.0:
         raise UserInputError(
             func_name=func_name,
             field="estimated_cost_bps",
             value=value,
             expected=(
-                "a finite bps cost >= 0. It is the one-way (per-trade) cost "
-                "of a single buy or sell; a negative cost would make trading "
-                "a source of return."
+                "a finite real bps cost >= 0 (bool and strings rejected). It "
+                "is the one-way (per-trade) cost of a single buy or sell; a "
+                "negative cost would make trading a source of return."
             ),
             docs_path=_DOCS_TRADABILITY,
         )
+    return float(cast(int | float, value))
 
 
 def _unpack_cost_inputs(
@@ -883,7 +904,6 @@ def _unpack_cost_inputs(
     holding_periods: int,
     *,
     func_name: str,
-    estimated_cost_bps: float | None = None,
 ) -> tuple[float, float, dict[str, Any]] | MetricResult:
     """Resolve the two cost inputs, police their domain, and pair-check them.
 
@@ -905,8 +925,8 @@ def _unpack_cost_inputs(
        the one reported.
     2. **Domain validation.** Whatever survives — a bare scalar or an
        *available* result's ``value``, held to the same bounds either way —
-       must be a finite spread, a turnover inside ``[0, 1]``, and a finite
-       non-negative ``estimated_cost_bps``.
+       must be a finite spread and a turnover inside ``[0, 1]``. The
+       ``net_spread`` boundary validates its own cost before calling here.
     3. **Pairing check.** The ``n_groups`` cross-check.
 
     Returns:
@@ -932,14 +952,12 @@ def _unpack_cost_inputs(
             holding_periods=holding_periods,
         )
 
-    spread_value = float(
+    spread_raw = (
         gross_spread.value if isinstance(gross_spread, MetricResult) else gross_spread
     )
-    turnover_value = float(
-        turnover.value if isinstance(turnover, MetricResult) else turnover
-    )
-    _validate_finite(
-        spread_value,
+    turnover_raw = turnover.value if isinstance(turnover, MetricResult) else turnover
+    spread_value = _validate_finite(
+        spread_raw,
         func_name=func_name,
         field="gross_spread",
         detail=(
@@ -948,9 +966,7 @@ def _unpack_cost_inputs(
             "priced, but a non-finite bare scalar has no reading."
         ),
     )
-    _validate_turnover(turnover_value, func_name=func_name)
-    if estimated_cost_bps is not None:
-        _validate_estimated_cost_bps(estimated_cost_bps, func_name=func_name)
+    turnover_value = _validate_turnover(turnover_raw, func_name=func_name)
 
     checked: dict[str, Any] = {}
     spread_meta = (
@@ -1388,12 +1404,26 @@ def net_spread(
         >>> result.name == ""
         True
     """
+    if estimated_cost_bps is None:
+        raise UserInputError(
+            func_name="net_spread",
+            field="estimated_cost_bps",
+            value=None,
+            expected=(
+                "a finite bps cost >= 0. None is not a default sentinel; "
+                "omit the argument to use the 30 bps default."
+            ),
+            docs_path=_DOCS_TRADABILITY,
+        )
+    estimated_cost_bps = _validate_estimated_cost_bps(
+        estimated_cost_bps,
+        func_name="net_spread",
+    )
     resolved = _unpack_cost_inputs(
         gross_spread,
         turnover,
         holding_periods,
         func_name="net_spread",
-        estimated_cost_bps=estimated_cost_bps,
     )
     if isinstance(resolved, MetricResult):
         return resolved

@@ -95,6 +95,57 @@ jobs:
       - name: Run pytest
         run: uv run --python 3.12 pytest -rs
 
+  docs-no-theme:
+    name: pytest (docs machinery, no theme)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.8.x"
+          enable-cache: true
+
+      # This intentionally constructs the one dependency boundary no declared
+      # extra represents: mkdocstrings is importable but mkdocs-material is
+      # absent. It proves the false direction of ``requires_theme``; the
+      # all-extras matrix above proves the two marked tests run with the theme.
+      - name: Install docs machinery without the theme
+        shell: bash
+        run: |
+          uv sync --frozen --python 3.12 --extra dev
+          uv pip install --python .venv \
+            "mkdocstrings==1.0.4" "mkdocstrings-python==2.0.3"
+          .venv/bin/python - <<'PY'
+          import importlib.metadata
+          import importlib.util
+
+          assert importlib.util.find_spec("mkdocstrings") is not None
+          try:
+              importlib.metadata.version("mkdocs-material")
+          except importlib.metadata.PackageNotFoundError:
+              pass
+          else:
+              raise AssertionError("mkdocs-material must be absent in this CI cell")
+          PY
+
+      - name: Assert the requires_theme skips
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          output=$(uv run --python 3.12 pytest -q -rs --color=no \
+            tests/test_docs_inventory_cache_warmup.py 2>&1)
+          status=$?
+          set -e
+          printf '%s\n' "$output"
+          test "$status" -eq 0
+          grep -Fq "19 passed, 2 skipped" <<<"$output"
+          reason="resolving mkdocs.yml requires mkdocs-material from the docs extra"
+          grep -Fq "$reason" <<<"$output"
+
   floor:
     name: pytest (declared dependency floor, no pandas, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}

@@ -6,6 +6,7 @@ import math
 
 import factrix as fx
 import polars as pl
+import pytest
 from factrix._inspect import (
     DataInspection,
     DataProperties,
@@ -355,17 +356,23 @@ class TestDeclaredPeriodsFloorsVisible:
         assert da.usable is True
         assert da.warnings == []
 
-    def test_directional_hit_rate_blocks_one_sided_factor_sign(self):
+    def test_directional_hit_rate_advises_on_a_one_sided_factor_sign(self):
+        # The run keeps the hit rate and withholds the test, so pre-flight
+        # advises rather than refuses (#1116); it used to blocker this shape
+        # while strict=True ran it.
         raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=80)
         data = raw.with_columns((pl.col("factor").abs() + 0.1).alias("factor"))
 
         info = inspect_data(data)
         da = _by_name(info, "directional_hit_rate")
 
-        assert da.usable is False
-        assert da in info.unusable
-        assert any("one-sided directional signal" in b for b in da.blockers)
-        assert any("degenerate_variance" in b for b in da.blockers)
+        assert da.usable is True
+        assert da not in info.unusable
+        assert da.blockers == []
+        advisory = next(
+            w for w in da.warnings if w.code is fx.WarningCode.DEGENERATE_VARIANCE
+        )
+        assert "one-sided directional signal" in advisory.message
 
     def test_top_concentration_declares_periods_floors(self):
         from factrix._types import (
@@ -1232,16 +1239,12 @@ def _zero_variance_common_panel(n_assets: int = 20, n_dates: int = 120) -> pl.Da
     )
 
 
-def _verdict(info: DataInspection, name: str) -> MetricApplicability:
-    return next(m for m in info.metrics if m.name == name)
-
-
 class TestCommonQuantileFactorVariation:
     """Pre-flight applies the distinct-value gate the metric applies (#1115)."""
 
     def test_zero_variance_common_factor_is_unusable(self):
         info = inspect_data(_zero_variance_common_panel())
-        verdict = _verdict(info, "common_quantile_spread")
+        verdict = _by_name(info, "common_quantile_spread")
         assert not verdict.usable
         blocker = next(
             b for b in verdict.blockers if "insufficient_factor_variation" in b
@@ -1253,7 +1256,7 @@ class TestCommonQuantileFactorVariation:
 
     def test_verdict_matches_the_run_on_a_zero_variance_common_factor(self):
         panel = _zero_variance_common_panel()
-        assert not _verdict(inspect_data(panel), "common_quantile_spread").usable
+        assert not _by_name(inspect_data(panel), "common_quantile_spread").usable
         out = fx.metrics.common_quantile.common_quantile_spread(panel)
         assert out.metadata["reason"] == "insufficient_factor_variation"
 
@@ -1264,5 +1267,94 @@ class TestCommonQuantileFactorVariation:
             raw.drop("factor").join(one_per_date, on="date").sort("date", "asset_id"),
             forward_periods=5,
         )
-        verdict = _verdict(inspect_data(panel), "common_quantile_spread")
+        verdict = _by_name(inspect_data(panel), "common_quantile_spread")
         assert verdict.usable, verdict.blockers
+
+    def test_period_floor_uses_the_aggregated_series(self):
+        raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=20, rng=17)
+        one_per_date = raw.group_by("date").agg(pl.col("factor").first())
+        panel = compute_forward_return(
+            raw.drop("factor").join(one_per_date, on="date").sort("date", "asset_id"),
+            forward_periods=1,
+        )
+        usable_dates = panel["date"].unique().sort().head(2)
+        panel = panel.with_columns(
+            pl.when(pl.col("date").is_in(usable_dates.implode()))
+            .then(pl.col("forward_return"))
+            .otherwise(None)
+            .alias("forward_return")
+        )
+
+        verdict = _by_name(inspect_data(panel), "common_quantile_spread")
+        assert any(
+            "n_periods=2 < min_periods=3" in blocker
+            for blocker in verdict.blockers
+        )
+        out = fx.metrics.common_quantile.common_quantile_spread(panel)
+        assert out.metadata["reason"] == "insufficient_portfolio_periods"
+
+
+def _one_sided_sign_panel(
+    n_assets: int = 20, n_dates: int = 120, *, side: float = 1.0
+) -> pl.DataFrame:
+    """Panel whose factor has one non-zero sign, so sign(factor) never varies."""
+    raw = fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=n_dates, rng=17)
+    return compute_forward_return(
+        raw.with_columns(((pl.col("factor").abs() + 1.0) * side).alias("factor")),
+        forward_periods=5,
+    )
+
+
+class TestDirectionalHitRateOneSidedSignal:
+    """Pre-flight reports the outcome the run produces, not a short-circuit (#1116)."""
+
+    @pytest.mark.parametrize("side", [1.0, -1.0])
+    def test_one_sided_signal_is_usable_with_an_advisory(self, side: float):
+        verdict = _by_name(
+            inspect_data(_one_sided_sign_panel(side=side)), "directional_hit_rate"
+        )
+        assert verdict.usable, verdict.blockers
+        advisory = next(
+            w for w in verdict.warnings if w.code is fx.WarningCode.DEGENERATE_VARIANCE
+        )
+        assert "one-sided directional signal" in advisory.message
+        assert "sole predicted sign" in advisory.message
+        assert "unconditional positive-return rate" not in advisory.message
+
+    @pytest.mark.parametrize("side", [1.0, -1.0])
+    def test_the_run_returns_a_hit_rate_with_that_warning(self, side: float):
+        panel = _one_sided_sign_panel(side=side)
+        assert _by_name(inspect_data(panel), "directional_hit_rate").usable
+        from factrix.metrics.directional_hit_rate import directional_hit_rate
+
+        out = directional_hit_rate(panel, overlap_periods=5)
+        assert out.metadata.get("reason") is None
+        assert "degenerate_variance" in out.warning_codes
+        assert out.value == pytest.approx(out.metadata["p_correct"])
+
+    @pytest.mark.parametrize("nonfinite", [math.nan, -math.inf])
+    def test_nonfinite_cells_do_not_manufacture_a_second_sign(
+        self, nonfinite: float
+    ):
+        panel = _one_sided_sign_panel().with_columns(
+            pl.when(pl.int_range(0, pl.len()) == 0)
+            .then(pl.lit(nonfinite))
+            .otherwise(pl.col("factor"))
+            .alias("factor")
+        )
+        verdict = _by_name(inspect_data(panel), "directional_hit_rate")
+        assert any(
+            warning.code is fx.WarningCode.DEGENERATE_VARIANCE
+            for warning in verdict.warnings
+        )
+
+    def test_a_two_sided_signal_carries_no_advisory(self):
+        panel = compute_forward_return(
+            fx.datasets.make_cs_panel(n_assets=20, n_dates=120, rng=17),
+            forward_periods=5,
+        )
+        verdict = _by_name(inspect_data(panel), "directional_hit_rate")
+        assert verdict.usable, verdict.blockers
+        assert not [
+            w for w in verdict.warnings if w.code is fx.WarningCode.DEGENERATE_VARIANCE
+        ]

@@ -363,8 +363,10 @@ Pesaran-Timmermann `z` statistic (`stat_type="z"`), tested one-sided.
 - *descriptive* (conditional, adjustment applied): `stat_uncorrected`
   (the raw `S_n` before the cross-sectional-correlation deflation).
 - *degenerate*: one-signed predictions or realisations that collapse the
-  Pesaran-Timmermann variance return `value=NaN` with
-  `WarningCode.DEGENERATE_VARIANCE` and no test.
+  Pesaran-Timmermann variance keep the descriptive hit rate in `value`, set
+  `stat=None` / `p_value=None`, and report
+  `WarningCode.DEGENERATE_VARIANCE`. `inspect_data()` classifies a visibly
+  one-sided factor as degraded under the same advisory contract.
 
 ### `directional_pair_accuracy` (`factrix.metrics.directional_pair_accuracy`)
 
@@ -1195,10 +1197,14 @@ inference.
 
 #### `notional_turnover`
 
-- *descriptive*: `n_rebalances`, `n_groups`, `overlap_periods`,
-  `rebalance_lag`, `mean_top_turnover`, `mean_bottom_turnover`
+- *descriptive*: `n_rebalances` (joint long-short sample),
+  `n_top_rebalances`, `n_bottom_rebalances` (per-leg samples), `n_groups`,
+  `overlap_periods`, `rebalance_lag`, `mean_top_turnover`,
+  `mean_bottom_turnover`
   (each leg's mean one-way replaced fraction, `0.5 * sum |w_t - w_{t-1}|` =
-  `1 - overlap / max(prior, current) leg size`; `value` is their mean —
+  `1 - overlap / max(prior, current) leg size`; `value` is their per-date mean
+  on the joint sample and need not equal the arithmetic mean of published leg
+  means when one leg has additional valid rebalances —
   `mean_top_turnover` is the matched proxy for an equal-weight top-quantile
   long-only book), `mean_tail_size`, `mean_top_tail_size`,
   `mean_bottom_tail_size` (the **current** leg sizes at `t`, which equal the

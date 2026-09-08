@@ -2,9 +2,10 @@
 
 ``inspect_data`` sells a per-metric usability verdict; ``evaluate`` then
 either produces a value or refuses. The two read the same
-:class:`~factrix._metric_index.SampleThreshold`, so a disagreement is a bug
-in one of them — and a silent one, because a caller who pre-filters on
-``inspect_data(...).usable`` never sees the metric fail.
+:class:`~factrix._metric_index.SampleThreshold` and pre-flightable content
+gates, so a disagreement is a bug in one of them — and a silent one, because
+a caller who pre-filters on ``inspect_data(...).usable`` never sees the metric
+fail.
 
 The sweep is deliberately shape-driven: small universes (N as low as 5) are
 the regime where the equity-calibrated defaults break, and short windows
@@ -21,6 +22,7 @@ from __future__ import annotations
 
 import math
 import warnings
+from typing import Literal
 
 import factrix as fx
 import polars as pl
@@ -37,6 +39,13 @@ _N_ASSETS = (5, 8, 12, 20, 40)
 _N_PERIODS = (60, 120, 240)
 _HORIZONS = (1, 5)
 
+_FactorShape = Literal["individual", "common_time_varying", "common_zero_variance"]
+_FACTOR_SHAPES: tuple[_FactorShape, ...] = (
+    "individual",
+    "common_time_varying",
+    "common_zero_variance",
+)
+
 # Metrics whose default constructor needs a positional argument (scalar
 # helpers such as breakeven_cost / net_spread take an upstream value, not a
 # panel) — there is no default instance to pre-flight.
@@ -50,25 +59,28 @@ _NO_DEFAULT_INSTANCE = frozenset({"breakeven_cost", "net_spread"})
 # not mistaken for an untested metric.
 _PROJECTION_GAP = frozenset({"quantile_spread_vw"})
 
-
 def _panel(
     n_assets: int,
     n_periods: int,
     forward_periods: int,
     *,
-    common_factor: bool = False,
+    factor_shape: _FactorShape = "individual",
 ) -> pl.DataFrame:
-    """Dense individual- or common-factor panel with optional schema columns.
+    """Dense panel spanning individual and both common-factor regressions.
 
     ``market_cap`` is present so a weight-consuming metric fails (or not) on
     sample shape rather than on a missing column — the sweep tests the shape
-    gate.
+    gate. The time-varying common control keeps stage-1 factor variation; the
+    zero-variance shape forces every per-asset regression to drop, which is
+    the producer/pre-flight disagreement the COMMON sweep must detect.
     """
     raw = fx.datasets.make_cs_panel(
         n_assets=n_assets, n_dates=n_periods, rng=17
     ).with_columns(pl.lit(1.0e9).alias("market_cap"))
-    if common_factor:
+    if factor_shape == "common_time_varying":
         raw = raw.with_columns(pl.col("factor").first().over("date"))
+    elif factor_shape == "common_zero_variance":
+        raw = raw.with_columns(pl.lit(1.0).alias("factor"))
     return compute_forward_return(raw, forward_periods=forward_periods)
 
 
@@ -76,10 +88,16 @@ def _shapes() -> list[tuple[int, int, int]]:
     return [(n, t, h) for n in _N_ASSETS for t in _N_PERIODS for h in _HORIZONS]
 
 
-def _metric_names() -> list[str]:
-    """Public ``role=METRIC`` specs — the ones ``inspect_data`` verdicts and
+def _metric_names(_factor_shape: _FactorShape) -> list[str]:
+    """Return the metrics belonging to this sample-shape invariant.
+
+    Public ``role=METRIC`` specs are what ``inspect_data`` verdicts and
     ``evaluate`` accepts directly (PIPELINE producers are pulled via
-    ``requires=`` and cannot be evaluated on their own)."""
+    ``requires=`` and cannot be evaluated on their own). Every factor shape
+    uses that full inventory: the zero-variance COMMON cells cover both the
+    producer-survivor sample gate and the content contracts aligned in #1115
+    and #1116.
+    """
     return sorted({spec.name for _, spec in public_specs()} - _NO_DEFAULT_INSTANCE)
 
 
@@ -104,27 +122,26 @@ def _verdicts(panel: pl.DataFrame) -> dict[str, bool]:
 def _is_out_of_scope(reason: object) -> bool:
     """True for a short-circuit outside what ``SampleThreshold`` models.
 
-    Pre-flight is a **shape** gate. A ``no_*`` reason (missing input column or
-    config) is a schema gate and a ``not_applicable*`` reason is the
-    type-routing verdict; neither is a sample-size claim, so neither can
-    disagree with a sample-size verdict.
+    A ``no_*`` reason (missing input column or config) is a schema gate and a
+    ``not_applicable*`` reason is the type-routing verdict; neither belongs to
+    the shared sample/content contract exercised here.
     """
     return isinstance(reason, str) and reason.startswith(("no_", "not_applicable"))
 
 
 @pytest.mark.parametrize("n_assets,n_periods,forward_periods", _shapes())
-@pytest.mark.parametrize("common_factor", [False, True], ids=["individual", "common"])
+@pytest.mark.parametrize("factor_shape", _FACTOR_SHAPES)
 def test_inspect_verdict_matches_evaluate_outcome(
     n_assets: int,
     n_periods: int,
     forward_periods: int,
-    common_factor: bool,
+    factor_shape: _FactorShape,
 ) -> None:
-    panel = _panel(n_assets, n_periods, forward_periods, common_factor=common_factor)
+    panel = _panel(n_assets, n_periods, forward_periods, factor_shape=factor_shape)
     usable = _verdicts(panel)
 
     disagreements: list[str] = []
-    for name in _metric_names():
+    for name in _metric_names(factor_shape):
         if name not in usable:
             continue  # not a public METRIC spec (pipeline producer)
         try:
@@ -140,28 +157,28 @@ def test_inspect_verdict_matches_evaluate_outcome(
                 f"reason={out.metadata.get('reason')!r}"
             )
     assert not disagreements, (
-        f"scope={'common' if common_factor else 'individual'} "
+        f"shape={factor_shape} "
         f"N={n_assets} T={n_periods} h={forward_periods}: " + "; ".join(disagreements)
     )
 
 
 @pytest.mark.parametrize("n_assets,n_periods,forward_periods", _shapes())
-@pytest.mark.parametrize("common_factor", [False, True], ids=["individual", "common"])
+@pytest.mark.parametrize("factor_shape", _FACTOR_SHAPES)
 def test_strict_raises_exactly_when_inspect_says_unusable(
     n_assets: int,
     n_periods: int,
     forward_periods: int,
-    common_factor: bool,
+    factor_shape: _FactorShape,
 ) -> None:
     """``strict=True`` must refuse precisely the shapes pre-flight calls
     unusable, and the refusal must be the documented exception type carrying a
     legal axis token."""
-    panel = _panel(n_assets, n_periods, forward_periods, common_factor=common_factor)
+    panel = _panel(n_assets, n_periods, forward_periods, factor_shape=factor_shape)
     usable = _verdicts(panel)
     legal_axes = {"periods", "assets", "events", "pairs", "asset_pairs"}
 
     disagreements: list[str] = []
-    for name in _metric_names():
+    for name in _metric_names(factor_shape):
         if name not in usable:
             continue
         raised: str | None = None
@@ -183,7 +200,7 @@ def test_strict_raises_exactly_when_inspect_says_unusable(
         if raised is None and not usable[name]:
             disagreements.append(f"{name}: pre-flight unusable but strict ran")
     assert not disagreements, (
-        f"scope={'common' if common_factor else 'individual'} "
+        f"shape={factor_shape} "
         f"N={n_assets} T={n_periods} h={forward_periods}: " + "; ".join(disagreements)
     )
 
@@ -221,8 +238,12 @@ def test_common_beta_preflight_uses_assets_surviving_the_producer() -> None:
 
 
 def test_common_beta_preflight_keeps_time_varying_broadcast_factor() -> None:
-    """COMMON broadcasting alone must not make per-asset regressions unusable."""
-    panel = _panel(20, 120, 5, common_factor=True)
+    """Control: COMMON broadcasting alone keeps regressions usable.
+
+    This passes before the #1074 fix by design; it pins the valid neighbouring
+    regime while the zero-variance sweep cells provide regression force.
+    """
+    panel = _panel(20, 120, 5, factor_shape="common_time_varying")
     info = fx.inspect_data(panel, factor_cols=["factor"])
     beta_consumers = {
         "common_beta_profile",
@@ -279,7 +300,7 @@ def test_no_silent_nan_and_p_value_is_never_a_sentinel(
        that never ran as a clean result.
     """
     panel = _panel(n_assets, n_periods, forward_periods)
-    for name in _metric_names():
+    for name in _metric_names("individual"):
         try:
             out = _run(panel, name, strict=False)
         except fx.IncompatibleAxisError:

@@ -46,11 +46,10 @@ title: factrix.metrics.directional_hit_rate
     its sign before testing). Observations are sub-sampled at stride
     `overlap_periods` so overlapping forward-return windows do not
     inflate the statistic; degenerate samples (one-signed predictions or
-    realisations) return `NaN` with `DEGENERATE_VARIANCE` and no hypothesis
-    test. `inspect_data()` also blocks
-    obviously one-sided factor signs up front, so bulk discovery does not
-    advertise `directional_hit_rate` as clean when runtime would find a
-    degenerate directional variance.
+    realisations) keep the descriptive hit rate in `value`, return
+    `stat=None` / `p_value=None`, and report `DEGENERATE_VARIANCE`.
+    `inspect_data()` mirrors that contract by classifying an obviously
+    one-sided factor as degraded rather than unusable.
 
 </div>
 

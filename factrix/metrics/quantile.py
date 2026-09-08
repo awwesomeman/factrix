@@ -637,9 +637,11 @@ def quantile_spread_vw(
     \end{aligned}
     $$
 
-    Weights are **lagged by one sampled period per asset** by default
+    Weights are **lagged by one period on the sampled panel grid** by default
     (``lag_weights=True``): a portfolio rebalanced at date t uses the
-    market-cap observed at the previous rebalance, not at t. Pairing
+    market-cap observed at the previous rebalance, not at t. An asset absent
+    at that exact prior grid period has no usable lag at t; factrix does not
+    reach across the gap to an older row. Pairing
     contemporaneous ``market_cap[t]`` with ``forward_return[t→t+h]`` is
     a classic look-ahead trap — market cap measured on date t embeds
     news that the t→t+h return has not yet realized.
@@ -665,9 +667,10 @@ def quantile_spread_vw(
             MA(h-1) overlap in a HAC SE.
         alternative: Requested tail for the headline mean-spread test; fix a
             one-sided direction before inspecting the evaluated sample.
-        lag_weights: When True (default), shift ``weight_col`` by 1
-            period per asset (on the non-overlap-sampled frame) before
-            weighting. When False, use weights as supplied.
+        lag_weights: When True (default), shift ``weight_col`` by 1 period on
+            the non-overlap-sampled frame's distinct-date grid, within asset,
+            before weighting. A row missing its exact prior-grid observation
+            drops. When False, use weights as supplied.
 
     Returns:
         MetricResult with per-period mean VW spread, t-stat, and p-value.
@@ -682,8 +685,18 @@ def quantile_spread_vw(
             spread[t] = vw_top[t] - vw_bot[t]
             value = mean_t spread[t];  t = sqrt(n) * value / std(spread)
 
-        factrix lags weights by one **sampled** period per asset by default
-        (not one raw bar) so the lag aligns with the rebalance stride. Under
+        factrix lags weights by one **sampled grid** period within asset by
+        default (not one raw row) so the lag aligns with the rebalance stride.
+        A ragged asset does not borrow a stale weight from two or more grid
+        periods earlier: that weight is look-ahead-free but carries a longer,
+        asset-dependent lag, and the grid rule keeps the lag equal to the
+        rebalance stride for every asset. On a ragged panel this costs rows —
+        an asset absent at period t also loses t+1. Successful results expose
+        the surviving breadth as ``median_cross_section``; an insufficient-
+        assets short-circuit exposes ``max_assets_per_date``. ``drop_rate``
+        instead counts period-level spreads lost after bucketing, not rows
+        removed by the lag. Pass ``lag_weights=False`` when the supplied
+        weights are already lagged. Under
         ``inference=NEWEY_WEST`` there is no stride — every date is its own
         rebalance — so the lag is one bar there, and the first date drops out
         for want of a lagged weight;

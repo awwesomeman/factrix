@@ -98,7 +98,9 @@ def directional_hit_rate(
         cross-sectional correlation on a panel — see Notes), one-sided
         p-value. ``metadata["kolari_pynnonen_applied"]`` records whether
         the deflation fired and ``stat_uncorrected`` carries the raw
-        ``S_n`` when it did.
+        ``S_n`` when it did. When the PT variance is degenerate, the
+        descriptive hit rate remains in ``value`` while ``stat`` and
+        ``p_value`` are ``None`` and ``DEGENERATE_VARIANCE`` is reported.
 
     Notes:
         On the non-overlapping subsample, drop observations where either
@@ -144,12 +146,19 @@ def directional_hit_rate(
         *negatively* related to forward returns scores poorly here — flip
         its sign before testing. Degenerate samples (all predictions or
         all realisations one-signed, or a non-positive variance estimate)
-        short-circuit: $P_*$ is then 1 and the statistic is undefined. This
+        keep the hit rate and withhold the test: ``value`` is still
+        $\hat P$ — on a one-sided signal that is the unconditional
+        realised-direction rate, a defined number but not a *directional*
+        one — while ``stat`` and ``p_value`` are null under
+        ``WarningCode.DEGENERATE_VARIANCE``. The metric does **not**
+        short-circuit to ``metric_unavailable`` there, and
+        :func:`~factrix.inspect_data` reports the shape as usable carrying
+        that same advisory rather than as a blocker (#1116). This
         is why ``return_col`` must be sign-symmetric around zero — a
         risk-adjusted return (e.g. ``forward_return / forward_realized_vol``)
         qualifies, but an always-positive magnitude target (realised
         volatility, turnover) collapses ``P_*`` to 1 and hits this
-        short-circuit; use :func:`~factrix.metrics.ic.ic` or
+        degenerate-test path; use :func:`~factrix.metrics.ic.ic` or
         :func:`~factrix.metrics.monotonicity.monotonicity` for those instead.
 
         The sample floor is on the **pairs** axis — the $n$ pooled
@@ -261,8 +270,9 @@ def directional_hit_rate(
         "p_up_real": p_y,
     }
 
-    # Degenerate: one-signed predictions or realisations collapse P* to 1
-    # and drive var_s to (numerically) zero or below — S_n is undefined.
+    # Degenerate: one-signed predictions or realisations drive var_s to
+    # (numerically) zero or below. The hit rate remains descriptive, while
+    # S_n and its p-value are undefined and therefore withheld.
     if var_s <= 0.0:
         stat, p, alternative = _degenerate_test_fields(
             float("nan"), float("nan"), "greater", metadata, warning_codes

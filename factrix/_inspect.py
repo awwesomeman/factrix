@@ -1,6 +1,6 @@
 """``fx.inspect_data`` — typed data introspection with per-metric verdict.
 
-Two-stage applicability model:
+Applicability model:
 
 1. **Cell match** — ``(scope, density, structure)`` axes on
    :class:`MetricSpec.cell` must agree with the inspected data's
@@ -13,6 +13,9 @@ Two-stage applicability model:
    (``min_*``) or runs with a documented bias warning (``warn_*``).
    :func:`inspect_data` evaluates these against
    :class:`DataProperties`.
+3. **Content contract** — pre-flightable run-time gates such as factor
+   cardinality and directional sign support are mirrored as blockers or
+   degraded advisories according to whether the point estimate survives.
 
 Each public spec receives one :class:`MetricApplicability` verdict
 exposing ``usable`` / ``warnings`` / ``blockers``. The flat
@@ -233,8 +236,9 @@ def _detect_scope(raw: Any) -> tuple[FactorScope, str, int]:
 def _factor_sign_is_one_sided(raw: Any, factor_col: str) -> bool:
     """True when non-zero factor signs contain exactly one side."""
     signs = (
-        raw.select(pl.col(factor_col).sign().alias("_sign"))
-        .filter(pl.col("_sign").is_not_null() & (pl.col("_sign") != 0))
+        raw.filter(_finite_expr(factor_col))
+        .select(pl.col(factor_col).sign().alias("_sign"))
+        .filter(pl.col("_sign") != 0)
         .select(pl.col("_sign").n_unique())
         .item()
     )
@@ -318,16 +322,17 @@ class MetricApplicability:
             ``spec.name``), surfaced directly so callers can key on it
             without reaching through :attr:`spec`.
         spec: The :class:`MetricSpec` being evaluated.
-        usable: ``True`` iff the metric passes cell match AND every
-            ``min_*`` floor on its :class:`SampleThreshold`. ``warn_*``
-            violations do NOT flip ``usable`` to ``False`` — they
-            attach a degraded :class:`Warning` to :attr:`warnings`.
-        warnings: ``warn_*``-tier diagnostics (the metric will run
-            but its inference is degraded). Empty when no warning
-            threshold applies.
+        usable: ``True`` iff the metric passes cell match, every ``min_*``
+            floor on its :class:`SampleThreshold`, and any content gate that
+            runtime can pre-flight. ``warn_*`` violations and content states
+            that preserve a point estimate do NOT flip ``usable`` to
+            ``False`` — they attach a degraded :class:`Warning` to
+            :attr:`warnings`.
+        warnings: ``warn_*``-tier and content diagnostics (the metric will run
+            but its inference is degraded). Empty when no advisory applies.
         blockers: Concrete reasons the metric is unusable
-            (cell mismatch, ``min_*`` floor violation). Empty when
-            ``usable`` is True.
+            (cell mismatch, ``min_*`` floor violation, or a content gate that
+            prevents a point estimate). Empty when ``usable`` is True.
     """
 
     metric: type[MetricBase]
@@ -367,6 +372,7 @@ class _CommonBetaStage1Profile:
 class _CommonQuantileStage1Profile:
     """Pre-flight distinct per-period factor values on the aggregated series."""
 
+    n_periods: int
     n_distinct: int
 
 
@@ -464,11 +470,12 @@ class _MetricPartitionView:
     def degraded(self) -> MetricApplicabilityGroup:
         """Applicable metrics that run but with degraded inference.
 
-        ``usable=True`` yet at least one ``warn_*``-tier
-        :class:`Warning` attached (e.g. NW HAC SE unreliable at short
-        ``n_periods``). They produce a value, but the caller should
-        read the warnings before trusting the inference. Disjoint from
-        :attr:`usable` and :attr:`unusable`.
+        ``usable=True`` yet at least one :class:`Warning` is attached (e.g. NW
+        HAC SE unreliable at short ``n_periods``, or a content state that
+        preserves the point estimate while withholding inference). They
+        produce a value, but the caller should read the warnings before
+        trusting the inference. Disjoint from :attr:`usable` and
+        :attr:`unusable`.
         """
         return MetricApplicabilityGroup(
             m for m in self.metrics if m.usable and m.warnings
@@ -478,10 +485,10 @@ class _MetricPartitionView:
     def unusable(self) -> MetricApplicabilityGroup:
         """Metrics that cannot run on this data.
 
-        ``usable=False`` — blocked by cell mismatch or a ``min_*``
-        floor violation; :attr:`MetricApplicability.blockers` carries
-        the concrete reasons. Disjoint from :attr:`usable` and
-        :attr:`degraded`.
+        ``usable=False`` — blocked by cell mismatch or a ``min_*`` floor
+        violation, or by a pre-flightable content gate that prevents a point
+        estimate; :attr:`MetricApplicability.blockers` carries the concrete
+        reasons. Disjoint from :attr:`usable` and :attr:`degraded`.
         """
         return MetricApplicabilityGroup(m for m in self.metrics if not m.usable)
 
@@ -768,11 +775,16 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
     ``evaluate`` dispatches through the same detector, so pre-flight scope
     and the cell a run is routed to cannot disagree.
 
-    A third, content-based gate beyond cell and sample shape: a metric
-    declaring ``requires_continuous_magnitude`` (e.g. ``event_ic``) is
-    blocked on a discrete ±k signal (``|factor|`` constant across events,
-    such as a ternary ``{-1, 0, +1}`` indicator), matching its run-time
-    ``not_applicable_discrete_signal`` short-circuit.
+    Content-based gates beyond cell and sample shape follow the run-time
+    contract. A metric declaring ``requires_continuous_magnitude`` (e.g.
+    ``event_ic``) is blocked on a discrete ±k signal (``|factor|`` constant
+    across events, such as a ternary ``{-1, 0, +1}`` indicator), matching its
+    run-time ``not_applicable_discrete_signal`` short-circuit. For a COMMON
+    factor, ``common_quantile_spread`` is blocked when its usable per-date
+    history has fewer than ``2 * n_groups`` distinct values. A one-sided
+    factor leaves ``directional_hit_rate``'s point estimate defined but its
+    test degenerate, so that state is reported as a degraded
+    ``DEGENERATE_VARIANCE`` advisory rather than as an unusable metric.
 
     Multi-factor input is inspected **per column**, the granularity
     :func:`factrix.evaluate` dispatches at: :attr:`DataInspection.factors`
@@ -1172,12 +1184,27 @@ def _evaluate_applicability(
         )
 
     if spec.name == "directional_hit_rate" and factor_sign_one_sided:
-        blockers.append(
-            "one-sided directional signal: sign(factor) has only one non-zero "
-            "side, so directional_hit_rate would return degenerate_variance "
-            "at run time; center, threshold, "
-            "or encode a true two-sided directional signal before using this "
-            "metric"
+        # Advisory, not a blocker: the run does not short-circuit here. It
+        # returns the hit rate — which on a one-sided signal is the
+        # unconditional realised-direction rate — and withholds the PT test
+        # under DEGENERATE_VARIANCE, so pre-flight reports that same outcome
+        # rather than promising a refusal the run never performs (#1116).
+        warnings.append(
+            Warning(
+                code=WarningCode.DEGENERATE_VARIANCE,
+                source=spec.name,
+                message=(
+                    "one-sided directional signal: sign(factor) has only one "
+                    "non-zero side, so P* collapses to the realised frequency "
+                    "of that same sign and the Pesaran-Timmermann variance is "
+                    "zero. The metric returns the hit rate — the unconditional "
+                    "rate of returns matching the sole predicted sign, not a "
+                    "directional discrimination rate — with stat=None / "
+                    "p_value=None under degenerate_variance. Center, threshold, "
+                    "or encode a true two-sided directional signal to obtain "
+                    "a test."
+                ),
+            )
         )
 
     if (
@@ -1288,6 +1315,18 @@ def _evaluate_applicability(
         threshold_properties = replace(
             threshold_properties,
             n_assets=common_beta_stage1_profile.n_assets,
+        )
+
+    if (
+        spec.name in _HISTORICAL_QUANTILE_METRICS
+        and common_quantile_stage1_profile is not None
+    ):
+        # Runtime applies its period floor after the same finite per-date
+        # aggregation used by the distinct-value gate. Raw calendar dates can
+        # include tail or missing-return rows that never reach the metric.
+        threshold_properties = replace(
+            threshold_properties,
+            n_periods=common_quantile_stage1_profile.n_periods,
         )
 
     floor = spec.sample_threshold
@@ -1469,10 +1508,13 @@ def _compute_common_quantile_stage1_profile(
     if "forward_return" not in data.columns:
         return None
     if data.is_empty():
-        return _CommonQuantileStage1Profile(n_distinct=0)
+        return _CommonQuantileStage1Profile(n_periods=0, n_distinct=0)
 
     per_date = _aggregate_to_per_date(data, factor_col=factor_col)
-    return _CommonQuantileStage1Profile(n_distinct=int(per_date["_f"].n_unique()))
+    return _CommonQuantileStage1Profile(
+        n_periods=per_date.height,
+        n_distinct=int(per_date["_f"].n_unique()),
+    )
 
 
 def _default_n_groups(name: str) -> int:

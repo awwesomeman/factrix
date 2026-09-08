@@ -114,9 +114,13 @@ not two approximations of each other.
     departed name and double the survivor: $\tau = 0.5$, where the $1 - m/k$
     reading was $0$.
 
-    A rebalance is skipped when *either* date leaves *either* leg empty: a
-    weight change needs both portfolios to exist. `metadata["n_rebalances"]`
-    counts the rebalances actually priced, and `mean_tail_size` /
+    A leg's churn is skipped only when that leg is empty on either date. Its
+    valid sample is reported as `metadata["n_top_rebalances"]` or
+    `metadata["n_bottom_rebalances"]`; an empty opposite leg does not erase a
+    well-defined long-only diagnostic. The headline long-short `value` still
+    needs both legs and `metadata["n_rebalances"]` counts that joint sample.
+    Consequently, `value` equals the arithmetic mean of the two published
+    per-leg means only when their samples coincide. `mean_tail_size` /
     `mean_top_tail_size` / `mean_bottom_tail_size` report the **current** leg
     sizes at $t$ — they equal the turnover denominator only while the legs do
     not shrink.
@@ -129,9 +133,9 @@ float through the formula.
 
 | Input | Domain | Why |
 |---|---|---|
-| `gross_spread` | finite | A non-finite spread has no reading as a per-period return. |
-| `turnover` | finite, $0 \le \tau \le 1$ | The one-way per-leg replaced fraction above. `rank_turnover` lives in $[0, 2]$ and does not belong here. |
-| `estimated_cost_bps` | finite, $\ge 0$ | A one-way per-trade cost. A negative cost would make trading a source of return. |
+| `gross_spread` | finite real numeric scalar; `bool` / strings rejected | A non-finite spread has no reading as a per-period return. |
+| `turnover` | finite real numeric scalar, $0 \le \tau \le 1$; `bool` / strings rejected | The one-way per-leg replaced fraction above. `rank_turnover` lives in $[0, 2]$ and does not belong here. |
+| `estimated_cost_bps` | finite real numeric scalar, $\ge 0$; `None`, `bool` and strings rejected | A one-way per-trade cost. Omit the argument to use `net_spread`'s 30 bps default; `None` is not a default sentinel. A negative cost would make trading a source of return. |
 | `holding_periods` | integer $\ge 1$ | A rebalance interval in underlying return periods. |
 
 A violation raises `UserInputError`, with the same bounds applied to a bare
