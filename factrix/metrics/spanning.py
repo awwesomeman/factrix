@@ -48,6 +48,7 @@ from factrix.metrics._helpers import (
     _degenerate_test_fields,
     _emit_scalar_har_warnings,
     _enforce_min_floor,
+    _finite_expr,
     _short_circuit_output,
 )
 from factrix.metrics.quantile import compute_spread_series
@@ -137,8 +138,9 @@ def _align_spread_series(
 ) -> tuple[pl.DataFrame, dict[str, np.ndarray]]:
     """Align multiple spread series to common dates with finite spreads.
 
-    Only dates where ALL series carry a finite (non-null, non-NaN) spread are
-    kept. This avoids biasing the regression by filling missing data with zeros.
+    Only dates where ALL series carry a finite (non-null, non-NaN, non-infinite)
+    spread are kept. This avoids biasing the regression by filling missing data
+    with zeros.
 
     Every returned array is materialised by sorting the per-series join result
     on ``date``, so position ``i`` of every array is the value observed on
@@ -181,11 +183,7 @@ def _align_spread_series(
                 ),
                 docs_path="api/metrics/spanning",
             )
-        valid = (
-            data.filter(pl.col("spread").is_not_null() & pl.col("spread").is_not_nan())
-            .select("date")
-            .unique()
-        )
+        valid = data.filter(_finite_expr("spread")).select("date").unique()
         if all_dates is None:
             all_dates = valid
         else:

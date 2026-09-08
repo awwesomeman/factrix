@@ -459,30 +459,82 @@ class TestAlignSpreadSeriesRegressions:
         with pytest.raises(ValueError, match="distinct periods"):
             spanning_alpha(cand, base_spreads={"base": dup_base})
 
-    def test_nan_spread_dropped_not_propagated(self):
+    @pytest.mark.parametrize("bad", [None, float("nan"), float("inf"), float("-inf")])
+    def test_non_finite_spread_dropped_from_base(self, bad):
         base, cand = self._linked_pair()
-        nan_base = base.with_columns(
+        dirty_base = base.with_columns(
             pl.when(pl.int_range(pl.len()) == 5)
-            .then(float("nan"))
+            .then(bad)
             .otherwise(pl.col("spread"))
             .alias("spread")
         )
-        res = spanning_alpha(cand, base_spreads={"base": nan_base})
+        res = spanning_alpha(cand, base_spreads={"base": dirty_base})
         assert np.isfinite(res.value)
         assert np.isfinite(res.stat)
         assert res.n_obs == len(base) - 1
 
-    def test_nan_spread_dropped_in_candidate(self):
+    @pytest.mark.parametrize("bad", [None, float("nan"), float("inf"), float("-inf")])
+    def test_non_finite_spread_dropped_from_candidate(self, bad):
         base, cand = self._linked_pair()
-        nan_cand = cand.with_columns(
+        dirty_cand = cand.with_columns(
             pl.when(pl.int_range(pl.len()) == 3)
-            .then(float("nan"))
+            .then(bad)
             .otherwise(pl.col("spread"))
             .alias("spread")
         )
-        res = spanning_alpha(nan_cand, base_spreads={"base": base})
+        res = spanning_alpha(dirty_cand, base_spreads={"base": base})
         assert np.isfinite(res.value)
         assert res.n_obs == cand.height - 1
+
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+    @pytest.mark.parametrize("target", ["candidate", "base"])
+    def test_non_finite_matches_explicit_missing_value(self, bad, target):
+        base, cand = self._linked_pair()
+
+        def replace(frame, value):
+            return frame.with_columns(
+                pl.when(pl.int_range(pl.len()) == 7)
+                .then(value)
+                .otherwise(pl.col("spread"))
+                .alias("spread")
+            )
+
+        dirty_cand = replace(cand, bad) if target == "candidate" else cand
+        dirty_base = replace(base, bad) if target == "base" else base
+        missing_cand = replace(cand, None) if target == "candidate" else cand
+        missing_base = replace(base, None) if target == "base" else base
+
+        dirty = spanning_alpha(dirty_cand, base_spreads={"base": dirty_base})
+        missing = spanning_alpha(missing_cand, base_spreads={"base": missing_base})
+
+        assert dirty.value == pytest.approx(missing.value)
+        assert dirty.stat == pytest.approx(missing.stat)
+        assert dirty.p_value == pytest.approx(missing.p_value)
+        assert dirty.n_obs == missing.n_obs
+
+    @pytest.mark.parametrize("target", ["candidate", "base"])
+    def test_greedy_selection_drops_infinite_spread(self, target):
+        base, cand = self._linked_pair()
+
+        def poison(frame):
+            return frame.with_columns(
+                pl.when(pl.int_range(pl.len()) == 11)
+                .then(float("inf"))
+                .otherwise(pl.col("spread"))
+                .alias("spread")
+            )
+
+        dirty_cand = poison(cand) if target == "candidate" else cand
+        dirty_base = poison(base) if target == "base" else base
+        result = greedy_forward_selection(
+            {"cand": dirty_cand},
+            base_spreads={"base": dirty_base},
+            suppress_snooping_warning=True,
+        )
+
+        assert all(
+            np.isfinite(item.alpha) for item in result.metadata["all_candidates"]
+        )
 
 
 class TestOlsAlphaFiniteContract:
