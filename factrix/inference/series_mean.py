@@ -11,8 +11,9 @@ per-period DataFrame). ``NonOverlapping`` strides the cleaned series at
 ``overlap_periods`` (sub-sampling away the MA(h-1) overlap), while
 ``NeweyWest`` / ``HansenHodrick`` keep every observation and correct the
 SE via a HAC kernel. ``StationaryBootstrap`` also keeps every observation
-but replaces the analytic SE with a block-bootstrap empirical p, for
-series too short or non-normal for a HAC t-test to be trusted. The
+but replaces the analytic SE with a block-bootstrap empirical p as a second
+read for an adequately long, stationary series with distributional doubt; it
+is not a short-sample or strong-persistence remedy. The
 lag / bandwidth / block length is derived from the compute-time sample,
 so the dataclasses take no *statistical* constructor knobs;
 ``StationaryBootstrap`` carries the two resampling knobs (``n_resamples``
