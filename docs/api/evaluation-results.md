@@ -126,16 +126,17 @@ units, and sharing one label made a stacked table unreadable.
 `MetricResult` represents the outcome of a single metric calculation. Its primary fields are:
 
 - **`value`** (`float`): The calculated numeric output of the metric.
-- **`p_value`** (`float` | `None`): The calibrated statistical p-value. It must be finite and in `[0, 1]`.
+- **`p_value`** (`float` | `None`): The reported p-value for the metric's
+  hypothesis test. When present, it is finite and in `[0, 1]`. A valid number
+  does not by itself establish calibration: read `warning_codes` and the
+  [calibration limits](../reference/inference-calibration.md) before using it
+  for a decision.
 - **`alternative`** (`str` | `None`): The corresponding alternative hypothesis (`two-sided`, `greater`, or `less`). `p_value` and `alternative` must either both be present or both be `None`.
     > [!IMPORTANT]
     > `p_value` is the canonical field for metric p-values.
 - **`stat`** (`float` | `None`): The test statistic (e.g. t-statistic, z-statistic).
-- **`n_obs`** (`int` | `None`): Effective sample size the estimator used in
-  this specific metric calculation. Runtime construction accepts non-negative,
-  integer-valued Python or numpy real scalars and normalizes them to a Python
-  `int`; booleans, fractional values, strings, negative values, and non-finite
-  values raise `UserInputError`.
+- **`n_obs`** (`int` | `None`): Non-negative effective sample size used by the
+  estimator. Its unit is carried by `n_obs_axis`.
 - **`n_obs_axis`** (`str` | `None`): Sample dimension `n_obs` counts along —
   see [Sample axes](#sample-axes). It must be one of the documented sample-axis
   tokens. `n_obs` and `n_obs_axis` are an atomic pair: both are present, or both

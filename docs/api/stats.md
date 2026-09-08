@@ -29,11 +29,12 @@ The selection-only estimator classes under `factrix.stats`:
 - **`stationary_bootstrap_resamples(values, n_resamples, ...)`**: Politis-Romano (1994) bootstrap resamples. An aligned `(T, m)` per-period statistic matrix is resampled with common row indices and returns `(B, T, m)`, preserving cross-hypothesis dependence for Romano-Wolf; separate per-column calls do not.
 - **`bootstrap_mean_ci(values, *, n_resamples, ci, ...)`**: Stationary-bootstrap CI for a statistic.
 
-Holm and BHY consume already calibrated p-values, so a declared family may
-contain a documented mix of `two-sided`, `greater`, and `less` alternatives;
-the procedures do not reinterpret tails. Factrix intentionally provides no
-generic one-sided-to-two-sided conversion because that conversion depends on
-the null distribution and producer contract.
+Holm and BHY adjust p-values as supplied; they neither validate nor repair
+producer calibration. The caller must decide whether warning-coded results are
+suitable for the declared family. A family may contain a documented mix of
+`two-sided`, `greater`, and `less` alternatives because the procedures do not
+reinterpret tails. Factrix provides no generic tail-conversion helper because
+that conversion depends on the producer's null distribution and contract.
 
 `romano_wolf_adjusted_p` remains an expert primitive: the caller must provide
 the complete joint, H0-centred, correctly studentized `(B, m)` matrix. Factrix

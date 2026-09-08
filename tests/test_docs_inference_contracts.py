@@ -8,6 +8,9 @@ SPANNING_SOURCE = Path("factrix/metrics/spanning.py")
 SPANNING_DOCS = Path("docs/api/metrics/spanning.md")
 PREDICTIVE_DOCS = Path("docs/api/metrics/predictive_beta.md")
 CALIBRATION_DOCS = Path("docs/reference/inference-calibration.md")
+RESULT_DOCS = Path("docs/api/evaluation-results.md")
+STATS_DOCS = Path("docs/api/stats.md")
+LLMS_FULL = Path("factrix/llms-full.txt")
 
 
 def test_spanning_docs_delegate_to_the_scalar_har_contract() -> None:
@@ -43,3 +46,14 @@ def test_serial_correlation_gloss_matches_persistence_calibration() -> None:
     assert f"{newey_west} (NW)" in gloss
     assert f"{bootstrap} (bootstrap)" in gloss
     assert f"{plain_t} (plain t)" in gloss
+
+
+def test_result_and_multiplicity_docs_do_not_overpromise_calibration() -> None:
+    result_docs = RESULT_DOCS.read_text(encoding="utf-8")
+    stats_docs = STATS_DOCS.read_text(encoding="utf-8")
+    llms_full = LLMS_FULL.read_text(encoding="utf-8")
+
+    assert "The calibrated statistical p-value" not in result_docs
+    assert "A valid number\n  does not by itself establish calibration" in result_docs
+    assert "neither validate nor repair\nproducer calibration" in stats_docs
+    assert "A finite value does not establish calibration" in llms_full

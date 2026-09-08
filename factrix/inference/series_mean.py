@@ -299,37 +299,20 @@ class NonOverlapping:
 
 @dataclass(frozen=True, slots=True)
 class NeweyWest:
-    """Newey-West (1987) HAC SE inference: t-test on the full series with a Bartlett-kernel HAC variance.
+    """Newey-West HAC t-test on the full series with a Bartlett kernel.
 
-    Keeps every observation and absorbs the autocorrelation induced by
-    overlapping ``overlap_periods``-period returns through HAC standard
-    errors rather than dropping samples. Bandwidth is the
-    [LLSW (2018)][llsw-2018] HAR rule ``1.3·√T`` floored at ``3(h - 1)``
-    and capped at ``T/3``; the SE carries the ``T/(T - L - 1)``
-    finite-sample scale and the t is read against effective df
-    ``min(1.5·T/L - 1, T/h - 1)`` rather than ``T - 1``. All three are
-    derived from the compute-time sample, so the dataclass carries no
-    lag knob. See ``factrix._stats.hac._newey_west_t_test`` for the
-    measured size table.
+    The bandwidth uses the [LLSW (2018)][llsw-2018] ``1.3·√T`` rule, floored
+    at ``3(h - 1)`` and capped at ``T/3``. The variance is scaled by
+    ``T/(T - L - 1)``, and the statistic uses effective degrees of freedom
+    bounded by ``T/h - 1``. These values are resolved from the input sample
+    and returned in metadata; there is no lag parameter on this class.
 
-    Not a strict upgrade over ``NonOverlapping``. ``NonOverlapping`` is
-    calibrated in every overlapping cell measured (4.5–5.4%) at the cost
-    of ``h-1`` of every ``h`` observations; ``NeweyWest`` keeps the whole
-    sample and measures 3.9–7.3% across ``T ∈ {60, 120, 240, 500} ×
-    h ∈ {1, 5, 21}``. Prefer ``NeweyWest`` when the per-period series is
-    itself autocorrelated — striding at ``h = 1`` does nothing for that,
-    and on AR(0.6) input the plain t-test underneath ``NonOverlapping``
-    rejects 32% where ``NeweyWest`` measures 5.4–8.1% — or when ``h`` is
-    long relative to ``T`` (measured power at ``h = 21``: .410 vs .297 at
-    ``T = 60``, .558 vs .528 at ``T = 120``). On an iid or purely
-    overlap-driven series ``NonOverlapping`` has equal or better power
-    and tighter size: at ``h = 1`` ``NeweyWest`` loses 7–13pp of power
-    because ``L = 1.3√T`` spends degrees of freedom on autocorrelation
-    that is not there, and at ``h ≥ 5`` the two are level (.628 vs .636
-    at ``T = 60``) or ``NonOverlapping`` wins from ``T = 240`` up.
-    Neither is calibrated when the series strided at ``overlap_periods``
-    is still above ``PERSISTENT_SERIES_AUTOCORR`` — the regime
-    ``_persistent_beyond_horizon`` screens for.
+    This method retains observations that ``NonOverlapping`` drops, but it is
+    not uniformly more powerful or better calibrated. Persistence that remains
+    after striding at ``overlap_periods`` raises
+    ``WarningCode.SERIAL_CORRELATION_DETECTED``. See the statistical-methods
+    and inference-calibration references for selection guidance and measured
+    limits.
     """
 
     test: ClassVar[str] = "t"
@@ -498,72 +481,23 @@ class StationaryBootstrap:
 
     Resamples geometric-length blocks ([Politis-Romano 1994][politis-romano-1994])
     from the series, centred under $H_0: \mathbb{E}[x] = 0$, and reports the
-    empirical p on a **studentized (bootstrap-t) root**. The default compares
-    absolute roots; a predeclared one-sided alternative compares signed roots.
-    In either case, $\widehat{se}$ is the batch-means
-    block SE at the resolved block length (Davison-Hinkley ``+1``
-    smoothing). No normality or asymptotic-variance assumption, unlike
-    ``NeweyWest`` / ``HansenHodrick``: appropriate when the series is short
-    relative to its dependence horizon or heavy-tailed / skewed enough that
-    a HAC t-test is unreliable.
+    empirical p-value from a studentized bootstrap-t root. Block length is
+    selected automatically per [Politis-White (2004)][politis-white-2004] and
+    cannot be shorter than ``overlap_periods``. This is a second read for an
+    adequately long, stationary series with distributional doubt; it is not a
+    short-sample or strong-persistence remedy.
 
-    Block length resolves automatically per
-    [Politis-White (2004)][politis-white-2004], **floored at
-    ``overlap_periods``**: the plug-in has to rediscover the dependence
-    horizon from a short noisy sample and systematically under-shoots it
-    (measured mean ``L`` of 7.95 against a needed 21 at T=60, h=21, for a
-    41.7% rejection rate at a nominal 5%). The resolved seed is reported in
-    ``metadata`` so an unseeded run is still reproducible after the fact.
-
-    Size on an overlapping MA(h-1) null at nominal 5% (300 sims per
-    cell, B=499), before = no horizon floor and an unstudentized root:
-
-    | T   | h  | before | after |
-    |-----|----|--------|-------|
-    | 30  | 5  | 0.247  | 0.110 |
-    | 60  | 5  | 0.172  | 0.077 |
-    | 120 | 5  | —      | 0.060 |
-    | 60  | 21 | 0.417  | 0.083 |
-    | 120 | 21 | 0.277  | 0.073 |
-    | 240 | 21 | —      | 0.093 |
-
-    On an AR(1) null (h=1, 400 sims, B=999): 0.075 / 0.152 / 0.265 at
-    n=30 for phi = 0 / 0.5 / 0.8, and 0.048 / 0.050 / 0.050 at n=500.
-    Short and strongly persistent is the worst cell and carries
-    ``SERIAL_CORRELATION_DETECTED``.
-
-    The root is studentized by a batch-means SE at the resolved block
-    length. A sample with no usable dispersion admits no such SE, and the
-    kernel falls back to the raw-mean root; that switch is reported as
-    ``metadata["studentized"] = False`` *and* as
-    ``WarningCode.DEGENERATE_VARIANCE``, never silently.
-
-    Delegates to ``factrix._stats.bootstrap._block_bootstrap_diff_p``, the
-    library's single studentized block-bootstrap empirical-p kernel, so the
-    convention is one implementation, not a parallel one.
+    Metadata records the resolved block length, seed, usable resample count,
+    and Monte Carlo standard error. If studentization is impossible, the method
+    uses a raw-mean root and raises ``WarningCode.DEGENERATE_VARIANCE``. See the
+    inference-calibration reference for measured limits.
 
     Args:
-        n_resamples: ``B``, the number of bootstrap resamples the empirical
-            p is drawn from. Must be at least
-            ``BOOTSTRAP_RESAMPLES_FLOOR`` — the shared floor every factrix
-            entry point reporting an inference from resamples enforces.
-            The default 999 is [Politis-White (2004)][politis-white-2004]'s
-            recommendation for two-sided 5% work; the Monte-Carlo cost of a
-            lower ``B`` is reported as ``metadata["p_value_mc_se"]``.
+        n_resamples: Number of bootstrap draws. Must be at least
+            ``BOOTSTRAP_RESAMPLES_FLOOR``; defaults to 999.
         rng: An ``int``, ``None``, or a ``numpy.random.Generator``.
-            ``None`` draws from system entropy and reports the resolved
-            seed in ``metadata["seed"]``, so a run stays reproducible after
-            the fact.
-
-            A ``Generator`` is a stream the caller owns: the member is
-            frozen, but each ``compute`` call *advances* that stream, so
-            two calls on one instance draw different resamples and give
-            different p-values. That is the ``Generator`` semantics numpy
-            and scipy share, and it is the point of the type — a nested or
-            large-scale simulation runs off one stream. ``metadata["seed"]``
-            is then ``None``: only the caller can reproduce the draw. Pass
-            an ``int`` (or ``None``) whenever a single run must be
-            reproducible from its own metadata.
+            ``None`` resolves and reports a seed. A ``Generator`` is advanced
+            in place and reports no seed because the caller owns the stream.
     """
 
     n_resamples: int = 999

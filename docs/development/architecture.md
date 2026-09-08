@@ -787,11 +787,11 @@ horizons. It must not reconstruct a different estimand silently from scalar
 `EvaluationResult` fields; that higher-level workflow remains separate from
 the adjusted-p primitive.
 
-Closed-form Holm/BHY procedures accept calibrated p-values and therefore do
-not require every hypothesis in a family to share the same alternative. The
-producer owns calibration and records `alternative`; the family layer neither
-converts tails nor infers them from statistic signs. There is intentionally no
-generic one-sided-to-two-sided helper.
+Closed-form Holm/BHY procedures adjust p-values as supplied; they neither
+validate nor repair producer calibration. They do not require every hypothesis
+in a family to share the same alternative. The producer records `alternative`,
+and the family layer neither converts tails nor infers them from statistic
+signs. There is intentionally no generic tail-conversion helper.
 
 `EvaluationResult`-based multiple-testing functions share partitioning and
 p-value resolution in `factrix/_family.py`. Single-metric procedures use

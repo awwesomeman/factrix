@@ -396,9 +396,11 @@ returning `(B, T, m)`. This preserves joint dependence before the caller
 centres and studentizes each bootstrap statistic for
 `romano_wolf_adjusted_p`; separate calls per column are not equivalent.
 
-Holm and BHY consume calibrated p-values and may combine documented one- and
-two-sided alternatives; they do not reinterpret tails. There is no generic
-tail-conversion helper. Factrix also does not expose a high-level
+Holm and BHY adjust p-values as supplied; they do not validate calibration or
+reinterpret tails. Callers must decide whether warning-coded results belong in
+the declared family. Documented one- and two-sided alternatives may be
+combined, and there is no generic tail-conversion helper. Factrix also does not
+expose a high-level
 `multi_factor.romano_wolf` or panel-aware bootstrap workflow: callers of the
 low-level primitive must supply the complete joint, H0-centred, correctly
 studentized `(B, m)` matrix.
@@ -621,7 +623,9 @@ Flat warning representation containing:
 
 Dataclass for a single metric's output:
 - `value`: Raw scalar result.
-- `p_value`: Calibrated p-value for the metric's hypothesis test, or `None` for descriptive outputs.
+- `p_value`: Reported p-value for the metric's hypothesis test, or `None` when
+  no test result is available. A finite value does not establish calibration;
+  read `warning_codes` and the calibration reference.
 - `alternative`: Tested tail (`two-sided`, `greater`, or `less`), present exactly when `p_value` is present.
 - `n_obs`: Effective sample size the estimator actually used (single source of truth for sample size).
 - `n_obs_axis`: The sample dimension `n_obs` counts along, or `None`. One of `periods` (dates, or adjacent-period transitions for `rank_turnover` / `notional_turnover`), `assets`, `events`, `pairs` (pooled `(date, asset)` observations — `pooled_beta`, `directional_hit_rate`), `asset_pairs` (within-period asset couples — `directional_pair_accuracy`). `pairs` and `asset_pairs` are separate tokens because the counts differ by ~an order of magnitude on the same panel.

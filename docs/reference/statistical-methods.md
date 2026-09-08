@@ -37,8 +37,9 @@ the requested method in response to a warning.
 These metrics also accept `alternative="two-sided"`, `"greater"`, or `"less"`.
 Keep the default while discovering a factor. Use a one-sided tail only when its
 direction was fixed independently and before inspecting the evaluated sample;
-factrix never infers a tail from the observed sign. Holm and BHY consume the
-resulting calibrated p-values as supplied and do not reinterpret their tails.
+factrix never infers a tail from the observed sign. Holm and BHY adjust the
+resulting p-values as supplied: they do not reinterpret tails, validate
+producer calibration, or repair a warning-coded inference regime.
 [](){ #non-overlap-default }
 
 ### Newey-West bandwidth families
