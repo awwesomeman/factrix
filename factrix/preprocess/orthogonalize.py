@@ -129,9 +129,13 @@ def orthogonalize_factor(
             restore the old behaviour of fitting anything that is
             arithmetically solvable.
         restandardize: Rescale the residual to the per-date dispersion of the
-            input factor. ``False`` (default) returns the raw residual, whose
-            scale is ``sqrt(1 - R²)`` times the input — and since R² varies by
-            date, so does the output scale. Rank metrics are unaffected; any
+            input factor on the same finite rows used to fit that date's
+            regression. Rows excluded because the factor or any base value is
+            non-finite, or because no matching base row exists, contribute to
+            neither scale estimate. ``False`` (default) returns the raw
+            residual, whose scale is
+            ``sqrt(1 - R²)`` times the input — and since R² varies by date, so
+            does the output scale. Rank metrics are unaffected; any
             magnitude-based use (weights ``w ~ f``, a spread in factor units)
             is otherwise quietly running on a time-varying scale.
 
@@ -316,7 +320,6 @@ def orthogonalize_factor(
             try:
                 beta, _, _, sv = np.linalg.lstsq(X_fit, y_fit, rcond=None)
                 residual_fit = y_fit - X_fit @ beta
-                residual[finite] = residual_fit
                 # WHY: lstsq does not raise on a rank-deficient design — it
                 # returns the minimum-norm solution — so the residual is exact
                 # but the betas are an arbitrary point in the solution space
@@ -342,6 +345,21 @@ def orthogonalize_factor(
                     if df_resid > 0
                     else float("nan")
                 )
+                if restandardize:
+                    # WHY: both dispersions must come from the exact OLS fit
+                    # sample. Computing the pre scale over the assembled
+                    # result lets an excluded NaN poison the whole date and
+                    # lets a finite-y / non-finite-X row change the scale even
+                    # though it did not participate in the regression.
+                    pre_std = float(np.std(y_fit, ddof=1))
+                    post_std = float(np.std(residual_fit, ddof=1))
+                    if (
+                        np.isfinite(pre_std)
+                        and np.isfinite(post_std)
+                        and post_std > EPSILON
+                    ):
+                        residual_fit = residual_fit * pre_std / post_std
+                residual[finite] = residual_fit
                 n_rows_orthogonalized += n_finite
             except np.linalg.LinAlgError:
                 dt = chunk["date"][0]
@@ -383,20 +401,6 @@ def orthogonalize_factor(
         )
         .drop("_residual", "_orthogonalized")
     )
-
-    if restandardize:
-        # The raw residual's scale is sqrt(1 - R2) times the input's, and R2
-        # varies by date, so the output scale varies by date too. Rescale each
-        # regressed date's residual back to the pre-orthogonalisation
-        # dispersion; skipped dates already carry the original values.
-        pre_std = pl.col("factor_pre_ortho").std(ddof=1).over("date")
-        post_std = pl.col(factor_col).std(ddof=1).over("date")
-        result = result.with_columns(
-            pl.when(post_std > EPSILON)
-            .then(pl.col(factor_col) * pre_std / post_std)
-            .otherwise(pl.col(factor_col))
-            .alias(factor_col)
-        )
 
     n_total = len(factor_df)
     n_ortho = n_rows_orthogonalized
