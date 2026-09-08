@@ -142,7 +142,7 @@ Min sample*. `MIN_*` constants resolve to values in the
 
 | Metric | Sample axis | Min sample |
 |---|---|---|
-| [`directional_hit_rate`][factrix.metrics.directional_hit_rate.directional_hit_rate] | pooled `(date, asset)` signs | non-overlapping obs `≥ MIN_DIRECTIONAL_PAIRS_HARD`; warn if below `MIN_DIRECTIONAL_PAIRS_WARN` |
+| [`directional_hit_rate`][factrix.metrics.directional_hit_rate.directional_hit_rate] | pooled `(date, asset)` signs | non-overlapping obs `≥ MIN_DIRECTIONAL_PAIRS_HARD`; warn if below `MIN_DIRECTIONAL_PAIRS_WARN` ; a one-sided `sign(factor)` is usable with a `degenerate_variance` advisory — the hit rate is kept, the PT test withheld |
 
 ## Sample-size constants
 [](){ #sample-size-constants }
