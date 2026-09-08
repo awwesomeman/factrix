@@ -51,6 +51,22 @@ title: factrix.metrics.quantile
     diagnostics as its equal-weighted sibling, so the comparison is
     like-for-like rather than one leg being quietly less guarded.
 
+    The lag is one period on the sampled panel's distinct-date grid, within
+    each asset. If an asset is absent at the exact preceding grid period, its
+    current row has no lag and drops; an older stale weight is not substituted.
+
+    A stale weight carried across the hole would be look-ahead-free too, but
+    it is a longer, asset-dependent lag; one grid period keeps the weight lag
+    equal to the rebalance stride and matches `rank_turnover`. The cost is
+    rows: an asset absent at period *t* also loses *t+1*, so a ragged panel
+    whose thin periods alternate with full ones can drop most of its sample
+    and short-circuit as `metric_unavailable`. A successful result reports the
+    post-lag breadth as `median_cross_section`; an insufficient-assets
+    short-circuit reports `max_assets_per_date`. `drop_rate` is narrower: it
+    counts period-level spread values lost after bucketing, not asset rows
+    removed by the lag. Pass `lag_weights=False` when the weights are already
+    lagged.
+
 -   __Per-bucket mean returns for monotonicity charts__
 
     ---
