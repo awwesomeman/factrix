@@ -96,7 +96,16 @@ do not mark stale code illustrative merely to bypass validation.
 
 Notebook examples are the source of truth for multi-step tutorials. Keep short
 single-call examples in docstrings or API pages and link to the notebook for a
-complete workflow.
+complete workflow. When a notebook code cell depends on network access,
+caller-owned data, or an optional backend, add the Jupyter cell tag
+`illustrative`. The renderer then emits
+````markdown
+```python title="Illustrative"
+```
+````
+so CI syntax-compiles the cell without pretending to execute the unavailable
+dependency. The tag does not prevent a reader from running the code cell in the
+notebook.
 
 ## Writing style
 

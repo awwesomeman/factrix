@@ -165,6 +165,7 @@ nav:
           - Custom metrics: guides/custom-metrics.md
       - Examples:
           - Overview: examples/index.md
+          - Real value-anomaly replication: examples/value_anomaly_replication.md
           - Multi-factor screening: examples/multi_factor_screening.md
           - Stock factor evaluation: examples/stock_factor_evaluation.md
       - Methods and reference:

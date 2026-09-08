@@ -3,10 +3,26 @@
 from __future__ import annotations
 
 from scripts.mkdocs_hooks.render_example_notebooks import (
+    _render_code_cell,
     iter_example_notebooks,
     output_path_for,
     render_notebook,
 )
+
+
+def test_illustrative_notebook_tag_marks_rendered_fence() -> None:
+    """Tagged code cells retain the docs execution boundary after rendering."""
+    cell = {
+        "cell_type": "code",
+        "metadata": {"tags": ["illustrative"]},
+        "source": ["print('caller-owned backend')\n"],
+        "outputs": [],
+    }
+    expected = """```python title="Illustrative"
+print('caller-owned backend')
+```"""
+
+    assert _render_code_cell(cell).startswith(expected)
 
 
 def test_generated_example_docs_match_notebook_sources() -> None:

@@ -114,7 +114,13 @@ def _render_code_cell(cell: Mapping[str, Any]) -> str:
     source = _cell_text(cell).rstrip()
     parts: list[str] = []
     if source:
-        parts.append(f"```python\n{source}\n```\n\n")
+        info = "python"
+        metadata = cell.get("metadata")
+        if isinstance(metadata, Mapping):
+            tags = metadata.get("tags")
+            if isinstance(tags, list) and "illustrative" in tags:
+                info = 'python title="Illustrative"'
+        parts.append(f"```{info}\n{source}\n```\n\n")
 
     for output in cell.get("outputs", []):
         output_text = _output_text(output).rstrip()
