@@ -68,18 +68,18 @@ if TYPE_CHECKING:
 _SPARSITY_THRESHOLD: float = 0.5
 _LOW_CARDINALITY_DENSE_UNIQUE_MAX: int = 5
 _REQUIRED_OPTIONAL_COLUMNS: dict[str, str] = {"quantile_spread_vw": "market_cap"}
-
-# Metrics that cut the per-period factor *history* into quantile buckets and
-# short-circuit ``insufficient_factor_variation`` when it carries fewer than
-# ``n_groups * 2`` distinct values. The gate is a data-content check the
-# ``SampleThreshold`` axes cannot express, so pre-flight mirrors it by name.
-_HISTORICAL_QUANTILE_METRICS = frozenset({"common_quantile_spread"})
 """Metrics gated on an optional schema column: metric name to declared column.
 
 ``evaluate`` projects the panel to the declared names before a metric's kwargs
 are known, so a configurable override (``weight_col=``) only works on a direct
 call.
 """
+
+# Metrics that cut the per-period factor *history* into quantile buckets and
+# short-circuit ``insufficient_factor_variation`` when it carries fewer than
+# ``n_groups * 2`` distinct values. The gate is a data-content check the
+# ``SampleThreshold`` axes cannot express, so pre-flight mirrors it by name.
+_HISTORICAL_QUANTILE_METRICS = frozenset({"common_quantile_spread"})
 
 _INSPECT_RESERVED: frozenset[str] = frozenset(
     {
