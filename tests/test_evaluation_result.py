@@ -326,9 +326,7 @@ class TestEvaluationResultToDict:
             MappingProxyType({"event_around_return": metric})
         ).to_dict()
 
-        assert payload["metrics"]["event_around_return"]["metadata"][
-            "per_offset"
-        ] == {
+        assert payload["metrics"]["event_around_return"]["metadata"]["per_offset"] == {
             "-1": {"mean": 0.01},
             "2.5": {"mean": None},
             "true": {"mean": 0.02},
