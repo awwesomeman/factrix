@@ -20,6 +20,7 @@ covered by its own module's tests.
 
 from __future__ import annotations
 
+import json
 import math
 import warnings
 from typing import Literal
@@ -128,6 +129,51 @@ def _is_out_of_scope(reason: object) -> bool:
     the shared sample/content contract exercised here.
     """
     return isinstance(reason, str) and reason.startswith(("no_", "not_applicable"))
+
+
+def _serialization_panels() -> dict[str, pl.DataFrame]:
+    """Representative shapes that exercise every shipped metadata family."""
+    event_raw = fx.datasets.make_event_panel(
+        n_assets=20,
+        n_dates=120,
+        event_rate=0.08,
+        rng=23,
+    )
+    return {
+        "individual_standard": _panel(20, 120, 5),
+        "individual_small": _panel(5, 60, 1),
+        "common_zero_variance": _panel(
+            20,
+            120,
+            5,
+            factor_shape="common_zero_variance",
+        ),
+        "sparse_event": compute_forward_return(event_raw, forward_periods=5),
+    }
+
+
+def test_default_metric_results_are_strictly_json_serializable() -> None:
+    """Every runnable public default metric must honour ``to_dict``'s contract."""
+    failures: list[str] = []
+    for panel_name, panel in _serialization_panels().items():
+        for name in _metric_names("individual"):
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                try:
+                    result = fx.evaluate(
+                        panel,
+                        metrics={name: REGISTRY[name]()},
+                        factor_cols=["factor"],
+                        strict=False,
+                    )["factor"]
+                except fx.IncompatibleAxisError:
+                    continue
+            try:
+                json.dumps(result.to_dict(), allow_nan=False)
+            except (TypeError, ValueError) as exc:
+                failures.append(f"{panel_name}/{name}: {exc}")
+
+    assert not failures, "; ".join(failures)
 
 
 @pytest.mark.parametrize("n_assets,n_periods,forward_periods", _shapes())

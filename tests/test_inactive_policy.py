@@ -72,6 +72,7 @@ def _output(name: str, p: float | None, *, reason: str | None = None) -> MetricR
         p_value=p,
         alternative=None if p is None else "two-sided",
         n_obs=100,
+        n_obs_axis="periods",
         name=name,
         metadata=metadata,
     )

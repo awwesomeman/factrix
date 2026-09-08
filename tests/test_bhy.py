@@ -43,6 +43,7 @@ def test_multi_primary_runs_independent_screens():
                     p_value=0.5,
                     alternative="two-sided",
                     n_obs=100,
+                    n_obs_axis="periods",
                     name="ic_ir",
                     metadata={"p_value": 0.5},
                 )

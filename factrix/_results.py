@@ -11,9 +11,10 @@ import contextlib
 import html
 import math
 from collections.abc import Hashable, Mapping, Sequence
-from dataclasses import dataclass, field
-from typing import Any, get_args
+from dataclasses import dataclass, field, fields, is_dataclass
+from typing import Any, NoReturn, get_args
 
+import numpy as np
 import polars as pl
 
 from factrix._axis import DataStructure, FactorDensity, FactorScope
@@ -25,6 +26,7 @@ from factrix._types import PValueAlternative, SampleAxis
 # a typo'd alternative would otherwise flow through to ``to_frame`` / ``to_dict``
 # and be read as a direction that was never tested.
 _ALTERNATIVES: frozenset[str] = frozenset(get_args(PValueAlternative))
+_SAMPLE_AXES: frozenset[str] = frozenset(get_args(SampleAxis))
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,7 +43,9 @@ class MetricResult:
             (e.g. number of non-overlapping IC periods, number of
             events, number of bootstrap windows). ``None`` where a
             single integer count is not meaningful (e.g. multi-window
-            CAAR series).
+            CAAR series). Non-negative integer-valued Python and numpy
+            real scalars are normalized to a Python ``int``; booleans,
+            fractional values, strings, and non-finite values are rejected.
         n_obs_axis: Sample dimension ``n_obs`` counts along — one of
             ``"periods"`` / ``"events"`` / ``"pairs"`` / ``"asset_pairs"`` /
             ``"assets"``.
@@ -117,12 +121,42 @@ class MetricResult:
                 candidates=sorted(_ALTERNATIVES),
                 docs_path="api/evaluation-results#factrix.MetricResult",
             )
-        if self.n_obs is not None and self.n_obs < 0:
+        if (self.n_obs is None) != (self.n_obs_axis is None):
             raise UserInputError(
                 func_name="MetricResult",
-                field="n_obs",
-                value=self.n_obs,
-                expected="a non-negative count",
+                field="n_obs/n_obs_axis",
+                value=(self.n_obs, self.n_obs_axis),
+                expected=(
+                    "n_obs and n_obs_axis supplied together, or both None: "
+                    "a sample count without its axis is uninterpretable"
+                ),
+                docs_path="api/evaluation-results#factrix.MetricResult",
+            )
+        if self.n_obs is not None:
+            count = _normalize_n_obs(self.n_obs)
+            if count is None:
+                raise UserInputError(
+                    func_name="MetricResult",
+                    field="n_obs",
+                    value=self.n_obs,
+                    expected=(
+                        "a non-negative whole-number count, not a bool, "
+                        "fractional number, string, or non-finite value"
+                    ),
+                    docs_path="api/evaluation-results#factrix.MetricResult",
+                )
+            # ``valid_count`` guarantees that conversion is lossless. Keep a
+            # Python int so both Polars' Int64 schema and JSON export see the
+            # same count even when a producer supplied a numpy scalar.
+            object.__setattr__(self, "n_obs", count)
+        if self.n_obs_axis is not None and (
+            not isinstance(self.n_obs_axis, str) or self.n_obs_axis not in _SAMPLE_AXES
+        ):
+            raise UserInputError(
+                func_name="MetricResult",
+                field="n_obs_axis",
+                value=self.n_obs_axis,
+                candidates=sorted(_SAMPLE_AXES),
                 docs_path="api/evaluation-results#factrix.MetricResult",
             )
         # WHY: NaN is a legitimate `stat` — an estimator that ran but could not
@@ -409,10 +443,14 @@ class EvaluationResult:
         - ``warnings``: list of ``{code, source, message, expected}``
         - ``plan``
 
-        Float ``NaN`` / ``Inf`` are emitted as ``None``.
+        Nested mappings, dataclass instances, lists, and tuples are normalized
+        recursively. Mapping keys accepted by the standard JSON encoder are
+        converted to strings; Python and numpy values become JSON-native
+        scalars; non-finite floats become ``None``. Unsupported values raise
+        a path-aware :class:`UserInputError`.
         """
         scope, density, structure = self.cell
-        return {
+        payload = {
             "factor": self.factor,
             "cell": {
                 "scope": scope.value,
@@ -424,8 +462,8 @@ class EvaluationResult:
             "n_periods": self.n_periods,
             "n_pairs": self.n_pairs,
             "n_assets": self.n_assets,
-            "params": dict(self.params),
-            "metadata": dict(self.metadata),
+            "params": self.params,
+            "metadata": self.metadata,
             "metrics": {
                 name: _metric_output_to_record(out)
                 for name, out in self.metrics.items()
@@ -441,6 +479,11 @@ class EvaluationResult:
             ],
             "plan": self.plan,
         }
+        normalized = _json_safe(payload, path="")
+        # ``payload`` is a dict and the recursive normalizer preserves mapping
+        # shape; this narrows the public return type for static checkers.
+        assert isinstance(normalized, dict)
+        return normalized
 
     def _repr_html_(self) -> str:
         scope, density, structure = self.cell
@@ -677,11 +720,29 @@ def _scalar_metadata(label: str, key: str, value: object) -> Any:
 def _float_or_none(x: object) -> float | None:
     if x is None:
         return None
+    if isinstance(x, np.integer | np.floating):
+        x = float(x)
     if isinstance(x, float) and (math.isnan(x) or math.isinf(x)):
         return None
     if isinstance(x, (int, float)):
         return float(x)
     return None
+
+
+def _normalize_n_obs(value: object) -> int | None:
+    """Normalize a non-negative whole-number scalar to ``int``."""
+    if isinstance(value, bool | np.bool_):
+        return None
+    if isinstance(value, int | np.integer):
+        count = int(value)
+    elif isinstance(value, float | np.floating):
+        number = float(value)
+        if not math.isfinite(number) or not number.is_integer():
+            return None
+        count = int(number)
+    else:
+        return None
+    return count if count >= 0 else None
 
 
 def _metric_output_to_record(out: MetricResult) -> dict[str, Any]:
@@ -694,11 +755,111 @@ def _metric_output_to_record(out: MetricResult) -> dict[str, Any]:
         "n_obs_axis": out.n_obs_axis,
         "is_applicable": out.is_applicable,
         "reason": out.reason,
-        "metadata": {k: _scrub_nonfinite(v) for k, v in out.metadata.items()},
+        "metadata": out.metadata,
     }
 
 
-def _scrub_nonfinite(v: object) -> object:
-    if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+def _json_safe(value: object, *, path: str, seen: set[int] | None = None) -> Any:
+    """Return a recursively JSON-native value or reject it at ``path``."""
+    if value is None:
         return None
-    return v
+    if isinstance(value, np.bool_):
+        return bool(value)
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, np.floating):
+        number = float(value)
+        return number if math.isfinite(number) else None
+    if isinstance(value, np.str_):
+        return str(value)
+    if isinstance(value, np.generic):
+        return _json_safe(value.item(), path=path, seen=seen)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        return int(value)
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    if isinstance(value, str):
+        return str(value)
+
+    if is_dataclass(value) and not isinstance(value, type):
+        active = set() if seen is None else seen
+        object_id = id(value)
+        if object_id in active:
+            _raise_json_value_error(path, value, "an acyclic supported container")
+        active.add(object_id)
+        try:
+            return {
+                item.name: _json_safe(
+                    getattr(value, item.name),
+                    path=f"{path}[{item.name!r}]" if path else item.name,
+                    seen=active,
+                )
+                for item in fields(value)
+            }
+        finally:
+            active.remove(object_id)
+
+    if isinstance(value, Mapping | list | tuple):
+        active = set() if seen is None else seen
+        object_id = id(value)
+        if object_id in active:
+            _raise_json_value_error(path, value, "an acyclic supported container")
+        active.add(object_id)
+        try:
+            if isinstance(value, Mapping):
+                normalized: dict[str, Any] = {}
+                for key, item in value.items():
+                    normalized_key = _json_mapping_key(key, path=path)
+                    item_path = (
+                        f"{path}[{normalized_key!r}]" if path else normalized_key
+                    )
+                    normalized[normalized_key] = _json_safe(
+                        item, path=item_path, seen=active
+                    )
+                return normalized
+            return [
+                _json_safe(item, path=f"{path}[{index}]", seen=active)
+                for index, item in enumerate(value)
+            ]
+        finally:
+            active.remove(object_id)
+
+    _raise_json_value_error(
+        path,
+        value,
+        (
+            "a JSON-compatible scalar, a numpy scalar, a dataclass instance, "
+            "mapping, list, or tuple"
+        ),
+    )
+
+
+def _json_mapping_key(key: object, *, path: str) -> str:
+    """Normalize a mapping key using the standard JSON encoder's policy."""
+    if isinstance(key, str):
+        return str(key)
+    if key is None:
+        return "null"
+    if isinstance(key, bool):
+        return "true" if key else "false"
+    if isinstance(key, int):
+        return str(key)
+    if isinstance(key, float) and math.isfinite(key):
+        return str(key)
+    _raise_json_value_error(
+        f"{path}.keys()" if path else "keys()",
+        key,
+        "a string, int, finite float, bool, or None mapping key",
+    )
+
+
+def _raise_json_value_error(path: str, value: object, expected: str) -> NoReturn:
+    raise UserInputError(
+        func_name="EvaluationResult.to_dict",
+        field=path or "payload",
+        value=value,
+        expected=expected,
+        docs_path="api/evaluation-results#to_dict",
+    )

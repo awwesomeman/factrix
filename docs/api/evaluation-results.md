@@ -69,7 +69,21 @@ The fixed schema is the cross-metric contract; estimator-specific definitions (a
     Both rows show `n_groups = 2`, so the spread and the turnover describe the same top-half / bottom-half book; the spread row's `rebalance_lag` is `null` because a spread carries no such key.
 
 ### `to_dict()`
-Converts the result into a JSON-friendly nested dictionary. It normalizes floats (e.g., `NaN` and `Inf` to `None`) so that it can be serialized directly using standard `json.dumps` without raising errors.
+Converts the complete result into a JSON-native nested dictionary. JSON scalar
+values (`None`, `bool`, `int`, `float`, and `str`) and their numpy scalar
+equivalents are normalized recursively, with `NaN` and `Inf` becoming `None`.
+Mappings, dataclass instances, lists, and tuples are supported at every depth;
+dataclasses become mappings of their declared fields and tuples become JSON
+arrays. Mapping keys follow the standard JSON encoder: strings, integers,
+finite floats, booleans, and `None` become JSON object keys. This policy applies
+equally to bundle `metadata`, metric `metadata`, `params`, and the rest of the
+payload, so the result can be serialized strictly with
+`json.dumps(result.to_dict(), allow_nan=False)`.
+
+Sets, unsupported mapping keys, custom objects, cyclic containers, and other
+unsupported values raise `UserInputError`. Its structured `field` identifies
+the exact payload path (for example, `metadata['diagnostics']['model']`) so the
+invalid bookkeeping value can be corrected before it reaches a JSON encoder.
 
 
 ---
@@ -117,8 +131,15 @@ units, and sharing one label made a stacked table unreadable.
     > [!IMPORTANT]
     > `p_value` is the canonical field for metric p-values.
 - **`stat`** (`float` | `None`): The test statistic (e.g. t-statistic, z-statistic).
-- **`n_obs`** (`int` | `None`): Effective sample size the estimator used in this specific metric calculation.
-- **`n_obs_axis`** (`str` | `None`): Sample dimension `n_obs` counts along — see [Sample axes](#sample-axes). Stamped by the producer alongside `n_obs`; `None` exactly when `n_obs` is.
+- **`n_obs`** (`int` | `None`): Effective sample size the estimator used in
+  this specific metric calculation. Runtime construction accepts non-negative,
+  integer-valued Python or numpy real scalars and normalizes them to a Python
+  `int`; booleans, fractional values, strings, negative values, and non-finite
+  values raise `UserInputError`.
+- **`n_obs_axis`** (`str` | `None`): Sample dimension `n_obs` counts along —
+  see [Sample axes](#sample-axes). It must be one of the documented sample-axis
+  tokens. `n_obs` and `n_obs_axis` are an atomic pair: both are present, or both
+  are `None`.
 - **`is_applicable`** (`bool`): `False` for `strict=False` short-circuit placeholders, so reporting code can filter them without inspecting `metadata["reason"]`.
 - **`reason`** (`str` | `None`): Stable short-circuit reason, copied from `metadata["reason"]` when present.
 - **`metadata`** (`dict`): Underlying dictionary of metric-specific metadata.
