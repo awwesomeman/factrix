@@ -6,6 +6,7 @@ import math
 
 import factrix as fx
 import polars as pl
+import pytest
 from factrix._inspect import (
     DataInspection,
     DataProperties,
@@ -355,17 +356,23 @@ class TestDeclaredPeriodsFloorsVisible:
         assert da.usable is True
         assert da.warnings == []
 
-    def test_directional_hit_rate_blocks_one_sided_factor_sign(self):
+    def test_directional_hit_rate_advises_on_a_one_sided_factor_sign(self):
+        # The run keeps the hit rate and withholds the test, so pre-flight
+        # advises rather than refuses (#1116); it used to blocker this shape
+        # while strict=True ran it.
         raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=80)
         data = raw.with_columns((pl.col("factor").abs() + 0.1).alias("factor"))
 
         info = inspect_data(data)
         da = _by_name(info, "directional_hit_rate")
 
-        assert da.usable is False
-        assert da in info.unusable
-        assert any("one-sided directional signal" in b for b in da.blockers)
-        assert any("degenerate_variance" in b for b in da.blockers)
+        assert da.usable is True
+        assert da not in info.unusable
+        assert da.blockers == []
+        advisory = next(
+            w for w in da.warnings if w.code is fx.WarningCode.DEGENERATE_VARIANCE
+        )
+        assert "one-sided directional signal" in advisory.message
 
     def test_top_concentration_declares_periods_floors(self):
         from factrix._types import (
@@ -1222,3 +1229,46 @@ class TestPerFactorInspection:
         # axes detected for that column.
         assert "<td>common</td><td>common</td><td>dense</td>" in html_out
         assert "<td>sparse</td><td>individual</td><td>sparse</td>" in html_out
+
+
+def _one_sided_sign_panel(n_assets: int = 20, n_dates: int = 120) -> pl.DataFrame:
+    """Panel whose factor has one non-zero sign, so sign(factor) never varies."""
+    raw = fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=n_dates, rng=17)
+    return compute_forward_return(
+        raw.with_columns(pl.col("factor").abs() + 1.0), forward_periods=5
+    )
+
+
+class TestDirectionalHitRateOneSidedSignal:
+    """Pre-flight reports the outcome the run produces, not a short-circuit (#1116)."""
+
+    def test_one_sided_signal_is_usable_with_an_advisory(self):
+        verdict = _by_name(
+            inspect_data(_one_sided_sign_panel()), "directional_hit_rate"
+        )
+        assert verdict.usable, verdict.blockers
+        advisory = next(
+            w for w in verdict.warnings if w.code is fx.WarningCode.DEGENERATE_VARIANCE
+        )
+        assert "one-sided directional signal" in advisory.message
+
+    def test_the_run_returns_a_hit_rate_with_that_warning(self):
+        panel = _one_sided_sign_panel()
+        assert _by_name(inspect_data(panel), "directional_hit_rate").usable
+        from factrix.metrics.directional_hit_rate import directional_hit_rate
+
+        out = directional_hit_rate(panel, overlap_periods=5)
+        assert out.metadata.get("reason") is None
+        assert "degenerate_variance" in out.warning_codes
+        assert out.value == pytest.approx(out.metadata["p_correct"])
+
+    def test_a_two_sided_signal_carries_no_advisory(self):
+        panel = compute_forward_return(
+            fx.datasets.make_cs_panel(n_assets=20, n_dates=120, rng=17),
+            forward_periods=5,
+        )
+        verdict = _by_name(inspect_data(panel), "directional_hit_rate")
+        assert verdict.usable, verdict.blockers
+        assert not [
+            w for w in verdict.warnings if w.code is fx.WarningCode.DEGENERATE_VARIANCE
+        ]

@@ -144,7 +144,14 @@ def directional_hit_rate(
         *negatively* related to forward returns scores poorly here — flip
         its sign before testing. Degenerate samples (all predictions or
         all realisations one-signed, or a non-positive variance estimate)
-        short-circuit: $P_*$ is then 1 and the statistic is undefined. This
+        keep the hit rate and withhold the test: ``value`` is still
+        $\hat P$ — on a one-sided signal that is the unconditional
+        realised-direction rate, a defined number but not a *directional*
+        one — while ``stat`` and ``p_value`` are null under
+        ``WarningCode.DEGENERATE_VARIANCE``. The metric does **not**
+        short-circuit to ``metric_unavailable`` there, and
+        :func:`~factrix.inspect_data` reports the shape as usable carrying
+        that same advisory rather than as a blocker (#1116). This
         is why ``return_col`` must be sign-symmetric around zero — a
         risk-adjusted return (e.g. ``forward_return / forward_realized_vol``)
         qualifies, but an always-positive magnitude target (realised

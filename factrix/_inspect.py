@@ -1148,12 +1148,26 @@ def _evaluate_applicability(
         )
 
     if spec.name == "directional_hit_rate" and factor_sign_one_sided:
-        blockers.append(
-            "one-sided directional signal: sign(factor) has only one non-zero "
-            "side, so directional_hit_rate would return degenerate_variance "
-            "at run time; center, threshold, "
-            "or encode a true two-sided directional signal before using this "
-            "metric"
+        # Advisory, not a blocker: the run does not short-circuit here. It
+        # returns the hit rate — which on a one-sided signal is the
+        # unconditional realised-direction rate — and withholds the PT test
+        # under DEGENERATE_VARIANCE, so pre-flight reports that same outcome
+        # rather than promising a refusal the run never performs (#1116).
+        warnings.append(
+            Warning(
+                code=WarningCode.DEGENERATE_VARIANCE,
+                source=spec.name,
+                message=(
+                    "one-sided directional signal: sign(factor) has only one "
+                    "non-zero side, so P* collapses to the realised up-rate "
+                    "and the Pesaran-Timmermann variance is zero. The metric "
+                    "returns the hit rate — the unconditional positive-return "
+                    "rate, not a directional one — with a null statistic and "
+                    "p-value under degenerate_variance. Center, threshold, or "
+                    "encode a true two-sided directional signal to obtain a "
+                    "test."
+                ),
+            )
         )
 
     # Optional-schema precondition: a metric gated on an optional column
