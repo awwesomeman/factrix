@@ -43,8 +43,8 @@ An `EvaluationResult` represents the outcome of evaluating a single factor colum
 
 | Field | Type | Notes |
 |---|---|---|
-| `n_periods` | `int` | Unique non-null dates in the factor column — the time-series depth. |
-| `n_pairs` | `int` | Non-null `(date, asset_id)` pairs — the effective cross-sectional coverage. |
+| `n_periods` | `int` | Unique dates with a finite factor observation — the time-series depth. |
+| `n_pairs` | `int` | Finite `(date, asset_id)` factor observations — the effective cross-sectional coverage. |
 | `n_assets` | `int` | Unique assets in the panel (union across dates). |
 
 ### 3. Evaluated metrics (`result.metrics`)

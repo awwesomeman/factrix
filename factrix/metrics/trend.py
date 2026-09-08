@@ -294,8 +294,8 @@ def ic_trend(
     vals = vals[np.isfinite(vals)]
     n = len(vals)
 
-    # Secondary guard: null-drop can leave the strided series below the
-    # effective floor even when the raw panel cleared the scaled gate.
+    # Secondary guard: finite filtering can leave the strided series below
+    # the effective floor even when the raw panel cleared the scaled gate.
     if n < _MIN_TREND_PERIODS:
         return _short_circuit_output(
             name,

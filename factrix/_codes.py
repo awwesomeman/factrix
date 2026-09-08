@@ -56,13 +56,11 @@ class WarningCode(StrEnum):
     # (n_assets < MIN_ASSETS_WARN); severity is read from the ``n_assets``
     # metadata rather than split across separate tier members.
     FEW_ASSETS = "few_assets"
-    # Fired by ``quantile_spread`` when the median cross-section split into
+    # Fired when the selected factor's median finite cross-section split into
     # ``n_groups`` buckets leaves fewer than MIN_GROUP_ASSETS (5) assets per
-    # bucket: each bucket mean rests on a handful of names, so the spread can be
-    # dominated by individual assets. Advisory only — the spread is still
-    # computed. Distinct from FEW_ASSETS (which keys off the absolute
-    # cross-section size): a wide panel cut into
-    # many buckets can trip this without tripping FEW_ASSETS.
+    # bucket. Advisory only — the metric is still computed. Distinct from
+    # FEW_ASSETS: a wide factor split into many buckets can trip this without
+    # tripping the absolute cross-section floor.
     THIN_QUANTILE_GROUPS = "thin_quantile_groups"
     # Fired by ``common_quantile_spread`` when the historical time-series
     # sample averages fewer than five periods per factor bucket.
@@ -193,7 +191,7 @@ class WarningCode(StrEnum):
     STRUCTURE_MISMATCH = "structure_mismatch"
 
     # Fired by inspect_data when a DENSE factor has very few distinct
-    # non-null values (e.g. {-1, +1} or small regime scores). Low cardinality
+    # finite values (e.g. {-1, +1} or small regime scores). Low cardinality
     # alone is not an event contract: sparse routing still requires an
     # explicit zero non-event state and enough zero rows to clear the sparse
     # ratio threshold. Advisory only; the factor remains DENSE.
@@ -322,7 +320,7 @@ class WarningCode(StrEnum):
     # preprocess normalizers blank them to null, ``compute_caar`` drops the
     # affected event rows. A non-finite tick is a data error, not an extreme
     # value: clipping it into a winsorization band manufactures a plausible
-    # finite number that survives every downstream drop_nulls().drop_nans().
+    # finite number that survives every downstream finite-observation filter.
     NON_FINITE_INPUT_DROPPED = "non_finite_input_dropped"
 
     # Fired by ``orthogonalize_factor`` when a per-date cross-section clears the
@@ -542,10 +540,11 @@ _WARNING_DESCRIPTIONS.update(
         "evaluate(..., expected_warnings=('few_assets',)): the record is kept "
         "and marked expected=True, and the per-run UserWarning echo stops.",
         WarningCode.THIN_QUANTILE_GROUPS: "A quantile-bucketing metric split "
-        "the median cross-section into n_groups buckets leaving fewer than "
-        "MIN_GROUP_ASSETS (5) assets per bucket; each bucket mean rests on a "
-        "handful of names, so the result can be dominated by individual assets. "
-        "Applies to quantile_spread, quantile_spread_vw, k_spread, monotonicity, "
+        "the selected factor's median finite cross-section into n_groups "
+        "buckets leaving fewer than MIN_GROUP_ASSETS (5) assets per bucket; "
+        "each bucket mean rests on a handful of names, so the result can be "
+        "dominated by individual assets. "
+        "Applies to quantile_spread, quantile_spread_vw, monotonicity, "
         "and turnover metrics that reuse those buckets. Advisory only — reduce "
         "n_groups (the warning suggests a value) or treat the result as a "
         "fragile small-cross-section diagnostic. Distinct from few_assets, which "
@@ -660,7 +659,7 @@ _WARNING_DESCRIPTIONS.update(
         "cell; under strict=False the metric short-circuits to NaN instead "
         "of executing.",
         WarningCode.LOW_CARDINALITY_DENSE_SIGNAL: "Dense factor has few distinct "
-        "non-null values but no sparse event contract. Sparse event metrics "
+        "finite values but no sparse event contract. Sparse event metrics "
         "require the {0, R} zero-value event contract and a "
         "sparse_ratio above the routing threshold; always-in-market states "
         "such as {-1, +1} stay dense and should use dense / directional metrics.",

@@ -1141,8 +1141,8 @@ def fm_beta_sign_consistency(
     Short-circuits to NaN when no finite $\beta$ observations exist.
 
     Notes:
-        Non-finite $\beta_t$ (null **or** ``NaN``) are excluded from both the
-        numerator and $n$. polars' ``drop_nulls`` keeps ``NaN``, and
+        Non-finite $\beta_t$ observations are excluded from both the numerator
+        and $n$. polars' ``drop_nulls`` keeps ``NaN``, and
         ``NaN > 0`` is ``False``, so a ``NaN`` beta used to be scored as a
         wrong-sign period *and* counted in ``n_obs`` — a double penalty for a
         period that simply has no estimate. Treating it as missing is the

@@ -247,7 +247,7 @@ Descriptive; no test.
   `total_events` (underlying events behind the portfolio),
   `n_event_periods_sampled`, `mean_caar_full` / `n_event_periods_full`
   (the full per-period series, for reference),
-  `n_event_periods_dropped_non_finite` (null / NaN `caar` periods dropped
+  `n_event_periods_dropped_non_finite` (non-finite `caar` periods dropped
   before spacing), `n_events_dropped_non_finite` (events with a non-finite
   return or factor dropped by `compute_caar`),
   `n_events_overlapping` / `n_events_sampled` (removed by, and surviving,
@@ -588,14 +588,16 @@ frequency on the same panels is 5.0% / 5.0% / 4.0% at a nominal 5%.
   from zero in either direction; it does not use the distinct headline MR
   test's one-sided `alternative="greater"`. A high magnitude with a near-zero
   signed mean still says the factor sorts returns but flips sign across dates.
-- *descriptive*: `n_valid_periods`, `n_groups`, `tie_ratio`, `tie_policy`.
+- *descriptive*: `n_valid_periods`, `n_groups`, `median_cross_section`
+  (median per-period count of finite values in this factor), `tie_ratio`,
+  `tie_policy`.
 - `warning_codes` (conditional): `HIGH_TIE_RATIO` under
-  `tie_policy="ordinal"`, `FEW_ASSETS` when the median per-period
+  `tie_policy="ordinal"`, `FEW_ASSETS` when this factor's median finite
   cross-section is below `MIN_ASSETS_WARN`, and `THIN_QUANTILE_GROUPS` when
-  fewer than `MIN_GROUP_ASSETS` names back each requested bucket.
+  fewer than `MIN_GROUP_ASSETS` finite names back each requested bucket.
 - *short-circuit*: `reason` `insufficient_assets_for_quantile_groups` reports
-  `n_obs` as the median asset count on the post-stride sample where buckets
-  are actually formed, not the raw panel universe.
+  `n_obs` as this factor's median finite count on the post-stride sample where
+  buckets are actually formed, not the raw panel universe.
 
 ### `quantile` (`factrix.metrics.quantile`)
 - `warning_codes` (conditional): `HIGH_TIE_RATIO` under `tie_policy="ordinal"`
@@ -628,7 +630,7 @@ frequency on the same panels is 5.0% / 5.0% / 4.0% at a nominal 5%.
   `stat_type` (the test actually run: `"t"` under `NonOverlapping` /
   `NeweyWest`, `"bootstrap-mean"` under `StationaryBootstrap`), `method`.
 - *descriptive*: `n_periods_in`, `n_periods_out`, `dropped_periods`,
-  `drop_rate`, `drop_reason` — the null/NaN-drop bookkeeping on the
+  `drop_rate`, `drop_reason` — the non-finite-drop bookkeeping on the
   **strided** spread series (`n_periods_in` also appears on the
   no-surviving-periods short-circuit).
 - *descriptive* (conditional, no-signal): `signal_status`
@@ -1199,6 +1201,7 @@ inference.
 
 - *descriptive*: `n_rebalances` (joint long-short sample),
   `n_top_rebalances`, `n_bottom_rebalances` (per-leg samples), `n_groups`,
+  `median_cross_section` (median per-period count of finite factor values),
   `overlap_periods`, `rebalance_lag`, `mean_top_turnover`,
   `mean_bottom_turnover`
   (each leg's mean one-way replaced fraction, `0.5 * sum |w_t - w_{t-1}|` =

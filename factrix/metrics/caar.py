@@ -194,7 +194,7 @@ def caar(
         ``metadata["n_event_periods_full"]``; use it as a descriptive
         summary only, never as the effect size for the reported $p$.
 
-        Null / NaN ``caar`` rows are dropped **before** the spacing pass.
+        Non-finite ``caar`` rows are dropped **before** the spacing pass.
         Order matters: the greedy walk keeps the first event of every
         admissible grid gap, so a null-caar date filtered afterwards
         would still have consumed its slot and blocked the next usable
@@ -832,7 +832,7 @@ def bmp_z(
     )
 
     # A usable event needs BOTH an estimation-window vol and a finite signed
-    # AR. Filtering on the vol alone let a null/NaN return_col through: the
+    # AR. Filtering on the vol alone let a non-finite return_col through: the
     # SAR became NaN, mean/std of SAR became NaN, and _calc_t_stat silently
     # returned z=0, p=1 while n_obs still advertised the full event count.
     # The shared predicate also excludes infinities, which Polars treats as

@@ -29,7 +29,7 @@ to its own :class:`FactorInspection` (axes, counts, stage-one profiles,
 warnings, verdicts), while ``properties`` / ``metrics`` stay the concise
 aggregate and describe the first inspected column.
 
-Sparse detection is zero-value based. Null factor cells mean "missing
+Sparse detection is zero-value based. Non-finite factor cells mean "missing
 factor value" and are excluded from the sparse-ratio denominator; they
 are not imputed to non-events. Callers that want missing upstream rows
 to mean "no event" should fill them to ``0`` before inspection. Callers
@@ -114,19 +114,19 @@ def _detect_density(raw: Any) -> tuple[FactorDensity, str, float]:
     """Sparsity ratio in ``factor`` >= 0.5 -> SPARSE, else DENSE.
 
     Returns ``(density, reason, sparsity)`` where ``sparsity`` is the
-    zero-ratio over non-null factor cells. The rule is intentionally
+    zero-ratio over finite factor cells. The rule is intentionally
     zero-value based: ``0`` is the explicit non-event state for sparse
-    event metrics, while null means missing and is dropped from the
-    denominator. Low-cardinality non-zero states such as ``{-1, +1}``
+    event metrics, while a non-finite value means missing and is dropped
+    from the denominator. Low-cardinality non-zero states such as ``{-1, +1}``
     or regime scores do not become sparse unless the caller encodes an
     explicit zero non-event state.
     """
-    factor = raw["factor"].drop_nulls()
+    factor = raw.filter(_finite_expr("factor"))["factor"]
     n = len(factor)
     if n == 0:
         return (
             FactorDensity.DENSE,
-            "factor column has no non-null cells: defaulting to DENSE",
+            "factor column has no finite cells: defaulting to DENSE",
             math.nan,
         )
     n_zero = int((factor == 0).sum())
@@ -280,16 +280,16 @@ class DataProperties:
         structure: Detected :class:`DataStructure` — ``TIMESERIES`` iff
             ``n_assets == 1`` (single-asset data), ``PANEL`` otherwise.
         structure_reason: Human-readable rationale for ``structure``.
-        n_assets: Unique ``asset_id`` count under any-non-null union.
-        n_periods: Unique ``date`` count under any-non-null union.
-        n_pairs: Non-null ``(date, asset_id)`` factor observation
+        n_assets: Unique ``asset_id`` count in the panel.
+        n_periods: Unique ``date`` count in the panel.
+        n_pairs: Finite ``(date, asset_id)`` factor observation
             count — the upper bound on usable sample size for any
             pair-counting metric (IC, rank-IC, FM cross-section).
             Equals ``data.height`` for a dense panel; smaller when
-            the factor column has nulls.
-        n_events: Non-zero ``factor`` observation count — the event
+            the factor column has non-finite values.
+        n_events: Finite, non-zero ``factor`` observation count — the event
             sample size for event-driven metrics (CAAR, MFE/MAE,
-            corrado-rank, event-quality). Non-null AND non-zero cells,
+            corrado-rank, event-quality). Finite AND non-zero cells,
             matching those metrics' ``factor != 0`` event filter. For a
             dense continuous factor this is ~``n_pairs`` (the event
             axis only gates SPARSE-cell metrics). ``caar`` counts event
@@ -297,7 +297,7 @@ class DataProperties:
             loose upper bound; its in-body short-circuit on event periods
             stays authoritative.
         sparse_ratio: Zero-ratio in the ``factor`` column (denominator
-            is non-null cell count). ``math.nan`` for an empty data.
+            is the finite cell count). ``math.nan`` when none is finite.
     """
 
     scope: FactorScope
@@ -1022,9 +1022,10 @@ def _inspect_factor(
     # Finite, not merely non-null: polars counts a float NaN as a present value,
     # so ``drop_nulls`` alone would report NaN factor cells as usable pairs.
     n_pairs = int(data.filter(_finite_expr(col)).height)
-    # Event sample: non-zero factor cells (nulls compare false, so excluded),
-    # matching the ``factor != 0`` filter the event-driven metrics apply.
-    n_events = int(data.filter(pl.col(col) != 0).height)
+    # Event sample: finite, non-zero factor cells, matching the event-driven
+    # metrics while keeping this internal detector robust on an unnormalised
+    # frame.
+    n_events = int(data.filter(_finite_expr(col) & (pl.col(col) != 0)).height)
     n_unique_factor = int(data.filter(_finite_expr(col))[col].n_unique())
 
     properties = DataProperties(
@@ -1690,7 +1691,7 @@ def _dense_factor_advisory_warnings(
             )
         ]
     message = (
-        f"factor column {factor_col!r} has {n_unique_factor} distinct non-null "
+        f"factor column {factor_col!r} has {n_unique_factor} distinct finite "
         f"values and is routed as DENSE because sparse routing requires "
         f"sparse_ratio >= {_SPARSITY_THRESHOLD:.2f} with explicit zero "
         f"non-event rows. Treat {{-1, +1}} / regime-score signals as dense; "

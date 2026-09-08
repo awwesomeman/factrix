@@ -309,12 +309,12 @@ def k_spread(
         short-circuit uses — that one is about whether the legs can exist
         at all.
 
-        **Non-finite observations.** Rows with a null or NaN factor or
-        return are dropped before ranking: ``rank(descending=True)`` sorts
+        **Non-finite observations.** Rows with a non-finite factor or return
+        are dropped before ranking: ``rank(descending=True)`` sorts
         NaN as the largest value, so a NaN factor would otherwise take
         rank 1 and head the long leg. Every series column collapsed to a
-        scalar is then filtered with ``drop_nulls().drop_nans()`` — one
-        NaN in the spread series would make ``_calc_t_stat`` return NaN —
+        scalar is then restricted to finite values — one NaN in the spread
+        series would make ``_calc_t_stat`` return NaN —
         withholding the test as ``degenerate_variance`` — or make the
         bootstrap raise.
 
@@ -326,8 +326,8 @@ def k_spread(
         ``metadata["n_periods_strided"]`` always carries the non-overlap
         count and ``metadata["n_periods_full"]`` the overlapping one on
         either full-series path. The ``dropped_periods`` /
-        ``n_periods_in`` / ``n_periods_out`` keys describe the null-drop
-        on the strided series.
+        ``n_periods_in`` / ``n_periods_out`` keys describe non-finite drops on
+        the strided series.
 
     References:
         [Hansen-Hodrick 1980][hansen-hodrick-1980]: overlapping-return

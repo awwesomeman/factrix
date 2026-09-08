@@ -231,8 +231,8 @@ of a unit event's magnitude at one trigger in fifty names.
 **Non-finite input.** NaN and ±Inf are blanked to **null** on output by both
 functions, not clipped into the band. A non-finite tick is a data error, not an
 extreme value; winsorizing it produced a plausible finite number that survived
-every downstream `drop_nulls().drop_nans()` and put that asset at the top of
-the date's ranking.
+downstream finite-observation filters and put that asset at the top of the
+date's ranking.
 
 `cross_sectional_zscore` names its output column after its input:
 `factor` → `factor_zscore`, `momentum` → `momentum_zscore`, so several factors

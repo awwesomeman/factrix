@@ -50,7 +50,7 @@ from factrix.metrics._helpers import (
     _assign_quantile_groups_batch,
     _enforce_scaled_floor,
     _finite_expr,
-    _median_universe_size,
+    _median_finite_cross_section,
     _sample_non_overlapping,
     _scaled_periods_threshold,
     _short_circuit_output,
@@ -301,9 +301,9 @@ def monotonicity(
         variant is not implemented.
 
         If the post-stride cross-section cannot fill ``n_groups``, the
-        short-circuit result reports ``n_obs`` as the median universe size on
-        that same non-overlapping sample. It does not report the raw-panel
-        median across periods that the buckets never use.
+        short-circuit result reports ``n_obs`` as the median finite factor
+        cross-section on that same non-overlapping sample. It does not report
+        the raw-panel median across periods that the buckets never use.
 
     Examples:
         >>> import factrix as fx
@@ -328,25 +328,36 @@ def monotonicity(
     # Sample non-overlapping once — shared across all factors on the
     # same panel (depends only on `date` + `overlap_periods`).
     filtered = _sample_non_overlapping(data, overlap_periods)
-    median_assets = _median_universe_size(filtered)
-    asset_warning = cross_section_tier(median_assets)
-    if asset_warning is not None:
-        _emit_warning(
-            asset_warning,
-            f"the median cross-section holds {median_assets} assets, below "
-            f"MIN_ASSETS_WARN={MIN_ASSETS_WARN}; each quantile bucket mean "
-            "rests on a small number of names.",
-            label="monotonicity",
+    median_assets = {
+        factor_col: _median_finite_cross_section(filtered, factor_col)
+        for factor_col in cols
+    }
+    asset_warnings = {
+        factor_col: cross_section_tier(median_assets[factor_col])
+        for factor_col in cols
+    }
+    thin_groups: dict[str, bool] = {}
+    for factor_col in cols:
+        asset_warning = asset_warnings[factor_col]
+        if asset_warning is not None:
+            _emit_warning(
+                asset_warning,
+                f"factor '{factor_col}' has a median finite cross-section "
+                f"of {median_assets[factor_col]} assets, below "
+                f"MIN_ASSETS_WARN={MIN_ASSETS_WARN}; each quantile bucket "
+                "mean rests on a small number of names.",
+                label="monotonicity",
+                expected_warnings=expected_warnings,
+                stacklevel=2,
+            )
+        thin_groups[factor_col] = _warn_thin_quantile_groups(
+            filtered,
+            factor_col,
+            n_groups,
+            metric_name="monotonicity",
             expected_warnings=expected_warnings,
             stacklevel=2,
         )
-    thin_groups = _warn_thin_quantile_groups(
-        filtered,
-        n_groups,
-        metric_name="monotonicity",
-        expected_warnings=expected_warnings,
-        stacklevel=2,
-    )
     tie_ratios = _compute_tie_ratios_batch(filtered, cols)
     # Echo per factor (the helper gates on ``expected_warnings``); the
     # predicate is kept so each factor's result carries the structured code.
@@ -397,8 +408,8 @@ def monotonicity(
     results: dict[str, MetricResult] = {}
     for i, f in enumerate(cols):
         mat = all_means[:, i * n_groups : (i + 1) * n_groups]
-        # Drop dates with any null/nan bucket mean (matches the
-        # original filter `n == n_groups` and `mono.is_not_null`).
+        # Drop dates with any non-finite bucket mean (matches the usable
+        # sample enforced by the per-bucket aggregation).
         mat = mat[np.all(np.isfinite(mat), axis=1)]
         if mat.shape[0] == 0:
             mono_arr = np.empty(0)
@@ -420,6 +431,7 @@ def monotonicity(
             overlap_periods,
             "insufficient_monotonicity_periods",
             n_groups=n_groups,
+            median_cross_section=median_assets[f],
             tie_ratio=tie_ratios[f],
             tie_policy=tie_policy,
         )
@@ -428,29 +440,29 @@ def monotonicity(
             continue
         if len(mono_arr) == 0:
             # n_raw_periods cleared the scaled floor above, yet every sampled
-            # date had a null bucket mean. Name the axis that actually binds:
+            # date had a non-finite bucket mean. Name the axis that actually
+            # binds:
             # a cross-section too thin to populate ``n_groups`` buckets empties
             # every date regardless of how many periods there are, so calling
             # that "insufficient periods" sent the reader to the wrong axis.
             # A wide-enough cross-section that still lands here was emptied by
-            # nulls (e.g. a sparse column) and reads correctly under the same
-            # reason: the buckets could not be filled.
-            short_codes = (
-                (
-                    asset_warning.value,
-                    WarningCode.THIN_QUANTILE_GROUPS.value,
-                )
-                if asset_warning is not None
-                else (WarningCode.THIN_QUANTILE_GROUPS.value,)
-            )
+            # missing values (e.g. a sparse column) and reads correctly under
+            # the same reason: the buckets could not be filled.
+            short_codes: list[str] = []
+            asset_warning = asset_warnings[f]
+            if asset_warning is not None:
+                short_codes.append(asset_warning.value)
+            if thin_groups[f]:
+                short_codes.append(WarningCode.THIN_QUANTILE_GROUPS.value)
             results[f] = _short_circuit_output(
                 "monotonicity",
                 "insufficient_assets_for_quantile_groups",
-                n_obs=median_assets,
+                n_obs=median_assets[f],
                 n_obs_axis="assets",
                 min_required=n_groups,
-                warning_codes=short_codes,
+                warning_codes=tuple(short_codes),
                 n_groups=n_groups,
+                median_cross_section=median_assets[f],
                 tie_ratio=tie_ratios[f],
                 tie_policy=tie_policy,
             )
@@ -488,6 +500,7 @@ def monotonicity(
             ),
             "signed_spearman_alternative": signed_spearman_alternative,
             "n_valid_periods": len(mono_arr),
+            "median_cross_section": median_assets[f],
             "n_groups": n_groups,
             "tie_ratio": tie_ratios[f],
             "tie_policy": tie_policy,
@@ -496,9 +509,10 @@ def monotonicity(
         warning_codes: list[str] = []
         if high_tie_ratio[f]:
             warning_codes.append(WarningCode.HIGH_TIE_RATIO.value)
+        asset_warning = asset_warnings[f]
         if asset_warning is not None:
             warning_codes.append(asset_warning.value)
-        if thin_groups:
+        if thin_groups[f]:
             warning_codes.append(WarningCode.THIN_QUANTILE_GROUPS.value)
         results[f] = MetricResult(
             p_value=p_mr,

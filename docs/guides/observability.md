@@ -109,7 +109,7 @@ For example, an 8-asset panel over 90 periods run through
 `quantile_spread(n_groups=3)` prints three of them:
 
 ```text
-compute_spread_series: Median 2 assets per group (n_assets=8, n_groups=3). ... (thin_quantile_groups; declare it in expected_warnings=)
+compute_spread_series: factor 'factor' has a median finite cross-section of 8 assets; assets per group: 2 at n_groups=3. ... (thin_quantile_groups; declare it in expected_warnings=)
 quantile_spread: the inference member tested 17 periods, below the WARN floor of 30; ... (unreliable_se_short_periods; declare it in expected_warnings=)
 quantile_spread: the median cross-section holds 8 assets, below MIN_ASSETS_WARN=30; ... (few_assets; declare it in expected_warnings=)
 ```

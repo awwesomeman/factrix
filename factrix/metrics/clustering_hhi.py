@@ -100,7 +100,7 @@ def clustering_hhi(
         $s_d = (\text{events on date } d) / \text{total}$; ranges from
         $1/D$ (uniform across $D$ event dates) to $1.0$ (all events on
         a single date). An event is a **finite non-zero** ``factor_col``
-        observation: null and NaN factors are excluded rather than counted
+        observation: non-finite factors are excluded rather than counted
         as events (a bare ``factor != 0`` predicate is True for NaN in
         polars as in numpy).
         ``n_periods_effective`` $= 1 / \mathrm{HHI}$;
@@ -130,7 +130,7 @@ def clustering_hhi(
     """
     # ``factor != 0`` is True for a float NaN, so a bare inequality would count
     # a non-finite factor as an event and inflate the date histogram. Events are
-    # the *finite* non-zero rows: a null / NaN factor is "no observation", not
+    # the *finite* non-zero rows: a non-finite factor is "no observation", not
     # "an event", so it is excluded from ``n_events`` and from the per-date
     # shares alike.
     events = data.filter(_finite_expr(factor_col) & (pl.col(factor_col) != 0))

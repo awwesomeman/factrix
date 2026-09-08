@@ -97,8 +97,8 @@ def _finite(factor_col: str) -> pl.Expr:
     NaN on a date would otherwise poison that date's median / MAD / std and
     silently take the whole cross-section out of the pipeline. Blanking
     non-finite values to null makes the per-date statistics ignore them, in
-    line with the library convention (consumers use
-    ``drop_nulls().drop_nans()``; producers never impute).
+    line with the library convention (consumers keep finite observations;
+    producers never impute).
     """
     col = pl.col(factor_col)
     return pl.when(col.is_finite()).then(col).otherwise(None)
@@ -261,7 +261,7 @@ def _warn_non_finite(data: pl.DataFrame, factor_col: str, func_name: str) -> Non
             f"{n_bad} row(s) carry NaN / +-Inf in {factor_col!r} and come back "
             "null. A non-finite tick is a data error, not an extreme value: "
             "clipping it into the band would manufacture a plausible-looking "
-            "number that survives every downstream drop_nulls().drop_nans().",
+            "number that survives every downstream finite-observation filter.",
             label=func_name,
             stacklevel=3,
         )
@@ -332,8 +332,8 @@ def mad_winsorize(
         per-date statistics *and blanked to null in the output*, matching
         :func:`cross_sectional_zscore`. Clipping them into the band (the
         previous behaviour) turned a hard data error into a plausible
-        finite extreme that survived every downstream
-        ``drop_nulls().drop_nans()`` and put the asset at the top of that
+        finite extreme that survived every downstream finite-observation
+        filter and put the asset at the top of that
         date's ranking.
 
     References:
@@ -445,10 +445,9 @@ def cross_sectional_zscore(
         A fully constant cross-section of at least that size does have a
         genuine "no spread" reading and still maps to ``0.0``.
 
-        **Nulls stay null.** Per the library convention (producers never
-        impute; consumers drop with ``drop_nulls().drop_nans()``), a null
-        input yields a null z-score, and so does a non-finite (NaN / +-Inf)
-        input.
+        **Missing values stay missing.** Per the library convention, producers
+        never impute and consumers retain finite observations. A null, NaN or
+        infinite input yields a null z-score.
 
     Examples:
         >>> import factrix as fx
