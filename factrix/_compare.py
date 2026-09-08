@@ -263,24 +263,24 @@ def _canonical_sort_value(value: object) -> str | None:
         value = value.to_list()
     type_name = f"{type(value).__module__}.{type(value).__qualname__}"
     if isinstance(value, Mapping):
-        items = sorted(
+        mapping_items = sorted(
             (
                 _canonical_sort_value(key) or "builtins.NoneType:None",
                 _canonical_sort_value(item) or "builtins.NoneType:None",
             )
             for key, item in value.items()
         )
-        return f"{type_name}:{items!r}"
+        return f"{type_name}:{mapping_items!r}"
     if isinstance(value, list | tuple):
-        items = [
+        sequence_items = [
             _canonical_sort_value(item) or "builtins.NoneType:None" for item in value
         ]
-        return f"{type_name}:{items!r}"
+        return f"{type_name}:{sequence_items!r}"
     if isinstance(value, set | frozenset):
-        items = sorted(
+        set_items = sorted(
             _canonical_sort_value(item) or "builtins.NoneType:None" for item in value
         )
-        return f"{type_name}:{items!r}"
+        return f"{type_name}:{set_items!r}"
     return f"{type_name}:{value!r}"
 
 
