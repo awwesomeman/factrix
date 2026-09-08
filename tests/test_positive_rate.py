@@ -87,9 +87,7 @@ class TestNonFiniteHandling:
     def test_non_finite_values_are_dropped_not_counted_as_directions(self):
         """NaN and infinities are missing observations, not hits or misses."""
         base = [0.01] * 30
-        dirty = _make_series(
-            base + [float("nan"), float("inf"), -float("inf")] * 4
-        )
+        dirty = _make_series(base + [float("nan"), float("inf"), -float("inf")] * 4)
         clean = _make_series(base)
         r_dirty = positive_rate(dirty, overlap_periods=1)
         r_clean = positive_rate(clean, overlap_periods=1)

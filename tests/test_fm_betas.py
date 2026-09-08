@@ -340,9 +340,7 @@ class TestNonFinitePassThrough:
             -float("inf"),
             *finite[20:],
         ]
-        dates = [
-            datetime(2024, 1, 1) + timedelta(days=i) for i in range(len(values))
-        ]
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(len(values))]
         dirty = pl.DataFrame(
             {
                 "date": dates,

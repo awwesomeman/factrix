@@ -20,6 +20,7 @@ from factrix.metrics._primitives._common_betas import compute_common_betas
 from factrix.metrics.common_beta import (
     common_beta,
     common_beta_profile,
+    common_beta_r_squared,
     common_beta_sign_consistency,
     compute_rolling_common_beta,
 )
