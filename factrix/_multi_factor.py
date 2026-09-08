@@ -490,6 +490,56 @@ class _ScreenResultMixin:
         return _render_html(f"{type(self).__name__} ({self._caption()})", headers, rows)
 
 
+def _screen_identity_columns(
+    entries: Sequence[EvaluationResult],
+    *,
+    fixed_columns: Sequence[str],
+    exclude_params: Sequence[str] = (),
+    exporter: str,
+) -> dict[str, list[Any]]:
+    """Return an unambiguous identity prefix for a screening export.
+
+    Screening families identify a hypothesis by factor, horizon, and every
+    swept parameter. Partial-conjunction exporters pass their condition axis
+    in ``exclude_params`` because those values have already been aggregated
+    into one row.
+    """
+    excluded = set(exclude_params)
+    param_keys = sorted(
+        {
+            key
+            for entry in entries
+            for key in entry.params
+            if key not in excluded
+        }
+    )
+    reserved = {"factor", "forward_periods", *fixed_columns}
+    collisions = sorted(set(param_keys) & reserved)
+    if collisions:
+        raise UserInputError(
+            func_name=exporter,
+            field="params",
+            value=collisions,
+            expected=(
+                "params key(s) that do not collide with fixed screening-export "
+                f"columns; rename them. Reserved: {sorted(reserved)}"
+            ),
+            docs_path="api/multi-factor#result-containers",
+        )
+    columns: dict[str, list[Any]] = {
+        "factor": [entry.factor for entry in entries],
+    }
+    if "forward_periods" not in excluded:
+        columns["forward_periods"] = [entry.forward_periods for entry in entries]
+    columns.update(
+        {
+            key: [entry.params.get(key) for entry in entries]
+            for key in param_keys
+        }
+    )
+    return columns
+
+
 @dataclass(frozen=True, slots=True, repr=False)
 class _FdrResultBase(_ScreenResultMixin):
     """Shared fields for the single-metric FDR survivor result trio.
@@ -527,13 +577,18 @@ class _FdrResultBase(_ScreenResultMixin):
     def to_frame(self) -> pl.DataFrame:
         """Every tested factor with its adjusted p-value and survive flag.
 
-        Columns ``factor`` / ``adj_p`` / ``survived``, one row per tested
+        Columns ``factor`` / ``forward_periods`` / sorted ``params`` keys /
+        ``adj_p`` / ``survived``, one row per tested
         factor (input order) — including the eliminated ones that
         :attr:`survivors` and :attr:`adj_p` drop.
         """
         return pl.DataFrame(
             {
-                "factor": [e.factor for e in self.entries],
+                **_screen_identity_columns(
+                    self.entries,
+                    fixed_columns=("adj_p", "survived"),
+                    exporter=f"{type(self).__name__}.to_frame",
+                ),
                 "adj_p": self.adj_p_all,
                 "survived": self._survived,
             }
@@ -619,9 +674,20 @@ class CrossMetricBhyResult(_ScreenResultMixin):
 
     def to_frame(self) -> pl.DataFrame:
         """Return every tested cell, including inactive and eliminated rows."""
+        results = [entry.result for entry in self.entries]
         return pl.DataFrame(
             {
-                "factor": [e.result.factor for e in self.entries],
+                **_screen_identity_columns(
+                    results,
+                    fixed_columns=(
+                        "metric",
+                        "p_value",
+                        "adj_p",
+                        "survived",
+                        "active",
+                    ),
+                    exporter="CrossMetricBhyResult.to_frame",
+                ),
                 "metric": [e.metric_name for e in self.entries],
                 "p_value": [e.p_value for e in self.entries],
                 "adj_p": self.adj_p_all,
@@ -697,6 +763,26 @@ class PartialConjunctionResult(_FdrResultBase):
     min_pass: int
     n_passed_uncorr_all: np.ndarray
 
+    def to_frame(self) -> pl.DataFrame:
+        """Return one row per identity after collapsing the condition axis.
+
+        ``expand_over`` parameters are deliberately absent: their values are
+        conditions combined into the row, not part of the resulting
+        hypothesis identity.
+        """
+        return pl.DataFrame(
+            {
+                **_screen_identity_columns(
+                    self.entries,
+                    fixed_columns=("adj_p", "survived"),
+                    exclude_params=self.expand_over,
+                    exporter="PartialConjunctionResult.to_frame",
+                ),
+                "adj_p": self.adj_p_all,
+                "survived": self._survived,
+            }
+        )
+
     def _header(self) -> str:
         return (
             f"metric={self.metric_name}, n={len(self.survivors)}, "
@@ -758,7 +844,18 @@ class CrossMetricPartialConjunctionResult(_ScreenResultMixin):
         identities = [_hypothesis_identity(entry) for entry in self.entries]
         return pl.DataFrame(
             {
-                "factor": [entry.factor for entry in self.entries],
+                **_screen_identity_columns(
+                    self.entries,
+                    fixed_columns=(
+                        "pc_p",
+                        "adj_p",
+                        "survived",
+                        "eligible",
+                        "family_size",
+                        "n_passed_uncorr",
+                    ),
+                    exporter="CrossMetricPartialConjunctionResult.to_frame",
+                ),
                 "pc_p": self.pc_p_all,
                 "adj_p": self.adj_p_all,
                 "survived": self._survived,

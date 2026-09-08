@@ -56,7 +56,8 @@ The returned dictionary maps each mainstream metric label to a `BhyResult` conta
 | `family_size` | `Mapping[tuple, int]` | `{(): N}` or `{bucket_key: m_per_bucket}` — the `m` each step-up ran on. This includes declared-unsubmitted candidates and, under `inactive_policy="count"`, submitted inactive candidates at an inert `p = 1`. |
 | `family` | `FamilyAccounting` | Declared / computed / inactive / unsubmitted / adjusted candidate counts and the policy that produced them (see [declared family size](multi-factor.md#declared-family-size)). |
 
-Call `result.to_frame()` for a `factor | adj_p | survived` DataFrame over
+Call `result.to_frame()` for a
+`factor | forward_periods | <sorted params> | adj_p | survived` DataFrame over
 **all** tested factors — so a screen of N factors passing 2 still shows how
 far the eliminated N-2 sat from the threshold, rather than discarding them.
 

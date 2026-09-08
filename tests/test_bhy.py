@@ -118,6 +118,60 @@ def test_to_frame_keeps_eliminated_factors_adj_p():
     assert len(out.adj_p) == 2
 
 
+def test_to_frame_preserves_horizon_and_sorted_param_identity():
+    make_spec("ic")
+    results = [
+        make_result(
+            factor="mom",
+            p=0.01,
+            metric="ic",
+            forward_periods=1,
+            params={"timeframe": "1h"},
+        ),
+        make_result(
+            factor="mom",
+            p=0.02,
+            metric="ic",
+            forward_periods=5,
+            params={"universe": "TW100"},
+        ),
+    ]
+
+    frame = bhy(results, metrics=["ic"], q=0.5)["ic"].to_frame()
+
+    assert frame.columns == [
+        "factor",
+        "forward_periods",
+        "timeframe",
+        "universe",
+        "adj_p",
+        "survived",
+    ]
+    assert frame.select(
+        "factor", "forward_periods", "timeframe", "universe"
+    ).rows() == [
+        ("mom", 1, "1h", None),
+        ("mom", 5, None, "TW100"),
+    ]
+
+
+def test_to_frame_rejects_param_that_shadows_screening_column():
+    make_spec("ic")
+    result = make_result(
+        factor="mom",
+        p=0.01,
+        metric="ic",
+        params={"adj_p": "caller-label"},
+    )
+    screen = bhy([result], metrics=["ic"], q=0.5)["ic"]
+
+    with pytest.raises(UserInputError, match="fixed screening-export") as excinfo:
+        screen.to_frame()
+
+    assert excinfo.value.func_name == "BhyResult.to_frame"
+    assert excinfo.value.field == "params"
+
+
 def test_insufficient_short_circuits_are_dropped_under_exclude():
     make_spec("ic")
     valid = make_result(factor="valid", p=0.01, metric="ic")

@@ -120,6 +120,10 @@ metric — the `_FdrResultBase` shape (`entries` / `survivors` / `adj_p` /
 
 Per-survivor group label: `survivor.params[result.group]`.
 
+`to_frame()` exports `factor | forward_periods | <sorted params> | adj_p |
+survived` for every input hypothesis, not only survivors. The group parameter
+is therefore retained alongside every other swept knob.
+
 ::: factrix.multi_factor.HierarchicalBhyResult
     options:
       show_root_toc_entry: false

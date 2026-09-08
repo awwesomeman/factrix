@@ -133,6 +133,21 @@ The per-bucket / per-identity mapping beside it is named `family_size`, not
       show_root_toc_entry: false
       heading_level: 3
 
+## Result containers
+
+Every screening `to_frame()` starts with the complete identity of the row:
+`factor`, `forward_periods`, then every `params` key in sorted order. The
+procedure-specific audit columns follow. This keeps same-named factors at
+different horizons or parameter settings distinct when frames are stacked or
+joined to `EvaluationResult.to_frame()`.
+
+For `partial_conjunction`, components named by `expand_over` are conditions
+already combined into the row, so they are intentionally omitted from the
+exported identity. Other parameter keys remain; `forward_periods` remains
+unless it is itself the condition axis. If a retained parameter key shadows a
+fixed export column such as `adj_p`, `metric`, or `family_size`, `to_frame()`
+raises `UserInputError` rather than overwriting either value.
+
 ## See also
 
 <div class="grid cards" markdown>

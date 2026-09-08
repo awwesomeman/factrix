@@ -22,7 +22,9 @@ screen = fx.multi_factor.bhy_across_metrics(
 
 screen.family_size   # {(): n_results * 2} under the default policy
 screen.family        # declared / computed / inactive / unsubmitted / adjusted + policy
-screen.to_frame()    # factor | metric | p_value | adj_p | survived | active
+screen.to_frame()
+# factor | forward_periods | <sorted params> | metric
+#        | p_value | adj_p | survived | active
 ```
 
 The survivor unit is one `(EvaluationResult, metric label)` hypothesis. Taking
@@ -44,6 +46,9 @@ For the claim that a factor works on at least `k` predeclared endpoints, use
   candidates](multi-factor.md#inactive-candidates).
 - Other missing or invalid p-values raise rather than silently changing the
   family.
+- `to_frame()` preserves the underlying result identity (`factor`, horizon,
+  and sorted `params`) before the metric-level audit columns, so repeated
+  factor names remain traceable across sweeps.
 
 ## Result fields
 

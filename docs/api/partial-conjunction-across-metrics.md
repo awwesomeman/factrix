@@ -22,8 +22,8 @@ screen = fx.multi_factor.partial_conjunction_across_metrics(
 )
 
 screen.to_frame()
-# factor | pc_p | adj_p | survived | eligible
-#        | family_size | n_passed_uncorr
+# factor | forward_periods | <sorted params> | pc_p | adj_p
+#        | survived | eligible | family_size | n_passed_uncorr
 ```
 
 This differs from [`bhy_across_metrics`](bhy-across-metrics.md): pooled BHY
@@ -66,6 +66,9 @@ not implement `min_pass=1` any-metric promotion.
 | `family_size` | The k-of-m denominator `m` per identity, including declared-unsubmitted endpoints |
 | `family` | Declared / computed / inactive / unsubmitted / adjusted endpoint counts and the `inactive_policy` used |
 | `n_identities` | Identities entering the outer BHY family |
+
+The frame's identity prefix is complete: same-named factors at different
+horizons or parameter settings remain separate rows.
 
 ::: factrix.multi_factor.CrossMetricPartialConjunctionResult
     options:

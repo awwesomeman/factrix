@@ -111,12 +111,43 @@ def test_to_frame_reports_factor_level_contract():
     )
     assert out.to_frame().columns == [
         "factor",
+        "forward_periods",
         "pc_p",
         "adj_p",
         "survived",
         "eligible",
         "family_size",
         "n_passed_uncorr",
+    ]
+
+
+def test_to_frame_preserves_identity_for_same_factor_sweeps():
+    results = [
+        _result(
+            "mom",
+            (0.001, 0.002, 0.8),
+            forward_periods=1,
+            params={"universe": "TW50"},
+        ),
+        _result(
+            "mom",
+            (0.003, 0.004, 0.9),
+            forward_periods=5,
+            params={"universe": "TW100"},
+        ),
+    ]
+
+    with pytest.warns(RuntimeWarning, match="partial_conjunction_across_metrics"):
+        frame = partial_conjunction_across_metrics(
+            results,
+            metrics=["ic", "beta", "spread"],
+            min_pass=2,
+            q=0.5,
+        ).to_frame()
+
+    assert frame.select("factor", "forward_periods", "universe").rows() == [
+        ("mom", 1, "TW50"),
+        ("mom", 5, "TW100"),
     ]
 
 

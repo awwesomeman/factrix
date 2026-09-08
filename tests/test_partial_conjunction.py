@@ -205,3 +205,63 @@ def test_pc_mixed_horizons_outside_condition_axis_stay_distinct():
     )
     assert len(out["ic"].family_size) == 2
     assert set(out["ic"].family_size.values()) == {2}
+
+
+def test_to_frame_preserves_aggregate_identity_not_condition_value():
+    make_spec("ic")
+    results = [
+        make_result(
+            factor="mom",
+            p=0.001,
+            metric="ic",
+            forward_periods=forward_periods,
+            params={"region": region, "timeframe": timeframe},
+        )
+        for forward_periods, timeframe in ((1, "1h"), (5, "1d"))
+        for region in ("US", "EU")
+    ]
+
+    frame = partial_conjunction(
+        results,
+        metrics=["ic"],
+        min_pass=2,
+        expand_over=("region",),
+        q=0.5,
+    )["ic"].to_frame()
+
+    assert frame.columns == [
+        "factor",
+        "forward_periods",
+        "timeframe",
+        "adj_p",
+        "survived",
+    ]
+    assert "region" not in frame.columns
+    assert frame.select("factor", "forward_periods", "timeframe").rows() == [
+        ("mom", 1, "1h"),
+        ("mom", 5, "1d"),
+    ]
+
+
+def test_to_frame_omits_forward_periods_when_it_is_the_condition_axis():
+    make_spec("ic")
+    results = [
+        make_result(
+            factor="mom",
+            p=0.001,
+            metric="ic",
+            forward_periods=forward_periods,
+            params={"timeframe": "1d"},
+        )
+        for forward_periods in (1, 5)
+    ]
+
+    frame = partial_conjunction(
+        results,
+        metrics=["ic"],
+        min_pass=2,
+        expand_over=("forward_periods",),
+        q=0.5,
+    )["ic"].to_frame()
+
+    assert frame.columns == ["factor", "timeframe", "adj_p", "survived"]
