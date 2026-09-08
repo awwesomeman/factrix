@@ -863,9 +863,10 @@ def _validate_turnover(value: object, *, func_name: str) -> float:
     ``+inf`` and ``net_spread`` used to *raise* the alpha it was meant to
     charge — and a value above 1 prices trades the book cannot make.
     """
-    if not _is_finite_number(value) or not 0.0 <= float(
-        cast(int | float, value)
-    ) <= 1.0:
+    if (
+        not _is_finite_number(value)
+        or not 0.0 <= float(cast(int | float, value)) <= 1.0
+    ):
         raise UserInputError(
             func_name=func_name,
             field="turnover",
@@ -956,9 +957,7 @@ def _unpack_cost_inputs(
     spread_raw = (
         gross_spread.value if isinstance(gross_spread, MetricResult) else gross_spread
     )
-    turnover_raw = (
-        turnover.value if isinstance(turnover, MetricResult) else turnover
-    )
+    turnover_raw = turnover.value if isinstance(turnover, MetricResult) else turnover
     spread_value = _validate_finite(
         spread_raw,
         func_name=func_name,
