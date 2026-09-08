@@ -5,8 +5,8 @@ restriction on an OLS fit, so they resolve their HAC reference through
 ``_resolve_scalar_wald_hac`` (the scalar HAR recipe) rather than through the
 ``max(auto_bartlett(T), h - 1)`` rule the K-restriction Wald paths keep.
 
-On the common-factor null of ``inference-calibration`` (300
-replications, seed ``20260830 + rep``) the change measures, at a nominal 5%:
+On the original common-factor design measurement (300 replications, seed
+``20260830 + rep``) the change measured, at a nominal 5%:
 
 | metric | phi | T, h | narrow rule | shipped rule |
 |---|---|---|---|---|
@@ -20,6 +20,9 @@ a cut replication count, so the bounds characterise rather than pin. On that
 narrower null at ``T = 120, h = 5``, 1000 replications from the same seed
 stream measure ``common_asymmetry`` at 15.3% under the narrow rule against
 8.7% shipped, and ``common_quantile_spread`` at 5.4% shipped.
+The current 50-asset persistent-null measurement and warning-screen hit rates
+are recorded in ``reference/inference-calibration``; this cheaper test does
+not regenerate or bound that panel cell.
 """
 
 from __future__ import annotations
