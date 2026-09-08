@@ -6,7 +6,6 @@ from datetime import datetime
 
 import polars as pl
 import pytest
-
 from factrix.adapt import adapt
 from factrix.preprocess import compute_forward_return
 
