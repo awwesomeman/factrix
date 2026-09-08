@@ -1222,3 +1222,47 @@ class TestPerFactorInspection:
         # axes detected for that column.
         assert "<td>common</td><td>common</td><td>dense</td>" in html_out
         assert "<td>sparse</td><td>individual</td><td>sparse</td>" in html_out
+
+
+def _zero_variance_common_panel(n_assets: int = 20, n_dates: int = 120) -> pl.DataFrame:
+    """COMMON-scope panel whose broadcast factor never moves in the time series."""
+    raw = fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=n_dates, rng=17)
+    return compute_forward_return(
+        raw.with_columns(pl.lit(1.0).alias("factor")), forward_periods=5
+    )
+
+
+def _verdict(info: DataInspection, name: str) -> MetricApplicability:
+    return next(m for m in info.metrics if m.name == name)
+
+
+class TestCommonQuantileFactorVariation:
+    """Pre-flight applies the distinct-value gate the metric applies (#1115)."""
+
+    def test_zero_variance_common_factor_is_unusable(self):
+        info = inspect_data(_zero_variance_common_panel())
+        verdict = _verdict(info, "common_quantile_spread")
+        assert not verdict.usable
+        blocker = next(
+            b for b in verdict.blockers if "insufficient_factor_variation" in b
+        )
+        # One token, not two `in` checks: the count and the bound it is
+        # compared against have to travel together for the message to be
+        # reproducible by a reader.
+        assert "n_distinct=1 < n_groups * 2 = 10" in blocker
+
+    def test_verdict_matches_the_run_on_a_zero_variance_common_factor(self):
+        panel = _zero_variance_common_panel()
+        assert not _verdict(inspect_data(panel), "common_quantile_spread").usable
+        out = fx.metrics.common_quantile.common_quantile_spread(panel)
+        assert out.metadata["reason"] == "insufficient_factor_variation"
+
+    def test_a_varying_common_factor_stays_usable(self):
+        raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120, rng=17)
+        one_per_date = raw.group_by("date").agg(pl.col("factor").first())
+        panel = compute_forward_return(
+            raw.drop("factor").join(one_per_date, on="date").sort("date", "asset_id"),
+            forward_periods=5,
+        )
+        verdict = _verdict(inspect_data(panel), "common_quantile_spread")
+        assert verdict.usable, verdict.blockers

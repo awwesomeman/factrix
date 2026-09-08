@@ -114,7 +114,7 @@ Min sample*. `MIN_*` constants resolve to values in the
 | [`common_beta_profile`][factrix.metrics.common_beta.common_beta_profile] | surviving `n_assets` | `n_assets >= 1` after `compute_common_betas` filters |
 | [`common_beta_r_squared`][factrix.metrics.common_beta.common_beta_r_squared] | surviving `n_assets` | `n_assets >= 1` after `compute_common_betas` filters |
 | [`common_beta_sign_consistency`][factrix.metrics.common_beta.common_beta_sign_consistency] | surviving `n_assets` | `n_assets >= 2` after `compute_common_betas` filters |
-| [`common_quantile_spread`][factrix.metrics.common_quantile.common_quantile_spread] | `T` | `T ≥ MIN_PORTFOLIO_PERIODS_HARD`; factor `n_unique ≥ n_groups × 2` |
+| [`common_quantile_spread`][factrix.metrics.common_quantile.common_quantile_spread] | `T` | `T ≥ MIN_PORTFOLIO_PERIODS_HARD`; factor `n_unique ≥ n_groups × 2` (both applied by pre-flight) |
 | [`common_asymmetry`][factrix.metrics.common_asymmetry.common_asymmetry] | `T` | factor has both signs; each side `n_unique ≥ 2` for method B |
 
 ### Single-asset dense — Cell: Timeseries × Continuous

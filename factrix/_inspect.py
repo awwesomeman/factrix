@@ -56,7 +56,7 @@ from factrix._types import (
     MIN_IC_ASSETS_HARD,
     MIN_IC_ASSETS_WARN,
 )
-from factrix.metrics._helpers import _finite_expr
+from factrix.metrics._helpers import _aggregate_to_per_date, _finite_expr
 from factrix.metrics._primitives._fm_betas import (
     MIN_FM_ASSETS_HARD,
     MIN_FM_ASSETS_WARN,
@@ -68,6 +68,12 @@ if TYPE_CHECKING:
 _SPARSITY_THRESHOLD: float = 0.5
 _LOW_CARDINALITY_DENSE_UNIQUE_MAX: int = 5
 _REQUIRED_OPTIONAL_COLUMNS: dict[str, str] = {"quantile_spread_vw": "market_cap"}
+
+# Metrics that cut the per-period factor *history* into quantile buckets and
+# short-circuit ``insufficient_factor_variation`` when it carries fewer than
+# ``n_groups * 2`` distinct values. The gate is a data-content check the
+# ``SampleThreshold`` axes cannot express, so pre-flight mirrors it by name.
+_HISTORICAL_QUANTILE_METRICS = frozenset({"common_quantile_spread"})
 """Metrics gated on an optional schema column: metric name to declared column.
 
 ``evaluate`` projects the panel to the declared names before a metric's kwargs
@@ -355,6 +361,13 @@ class _CommonBetaStage1Profile:
     """Pre-flight asset count after ``compute_common_betas`` filters."""
 
     n_assets: int
+
+
+@dataclass(frozen=True, slots=True)
+class _CommonQuantileStage1Profile:
+    """Pre-flight distinct per-period factor values on the aggregated series."""
+
+    n_distinct: int
 
 
 def _default_constructible(metric: Any) -> bool:
@@ -966,6 +979,15 @@ def _inspect_factor(
         )
         else None
     )
+    common_quantile_stage1_profile = (
+        _compute_common_quantile_stage1_profile(data, col)
+        if (
+            scope is FactorScope.COMMON
+            and density is FactorDensity.DENSE
+            and structure is DataStructure.PANEL
+        )
+        else None
+    )
 
     metrics = [
         _evaluate_applicability(
@@ -976,6 +998,7 @@ def _inspect_factor(
             ic_stage1_profile=ic_stage1_profile,
             fm_stage1_profile=fm_stage1_profile,
             common_beta_stage1_profile=common_beta_stage1_profile,
+            common_quantile_stage1_profile=common_quantile_stage1_profile,
             available_columns=available_columns,
         )
         for _, spec in public_specs()
@@ -1094,6 +1117,7 @@ def _evaluate_applicability(
     ic_stage1_profile: _ICStage1Profile | None = None,
     fm_stage1_profile: _FMStage1Profile | None = None,
     common_beta_stage1_profile: _CommonBetaStage1Profile | None = None,
+    common_quantile_stage1_profile: _CommonQuantileStage1Profile | None = None,
     available_columns: frozenset[str] = frozenset(),
 ) -> MetricApplicability:
     from factrix.metrics._registry import REGISTRY
@@ -1155,6 +1179,23 @@ def _evaluate_applicability(
             "or encode a true two-sided directional signal before using this "
             "metric"
         )
+
+    if (
+        spec.name in _HISTORICAL_QUANTILE_METRICS
+        and common_quantile_stage1_profile is not None
+    ):
+        n_groups = _default_n_groups(spec.name)
+        bound = n_groups * 2
+        n_distinct = common_quantile_stage1_profile.n_distinct
+        if n_distinct < bound:
+            blockers.append(
+                f"insufficient factor variation: n_distinct={n_distinct} < "
+                f"n_groups * 2 = {bound}: the per-period factor history cannot "
+                f"sustain {n_groups} quantile cuts, so {spec.name} "
+                "short-circuits insufficient_factor_variation at run time; "
+                "reduce n_groups, or for binary / sparse signals use "
+                "factrix.metrics.event_quality.*"
+            )
 
     # Optional-schema precondition: a metric gated on an optional column
     # short-circuits at run time when the panel lacks it, so reporting it
@@ -1419,6 +1460,30 @@ def _compute_common_beta_stage1_profile(
         & (pl.col("factor_var") > EPSILON)
     )
     return _CommonBetaStage1Profile(n_assets=survivors.height)
+
+
+def _compute_common_quantile_stage1_profile(
+    data: Any, factor_col: str
+) -> _CommonQuantileStage1Profile | None:
+    """Mirror the per-date aggregation the historical quantile cut reads."""
+    if "forward_return" not in data.columns:
+        return None
+    if data.is_empty():
+        return _CommonQuantileStage1Profile(n_distinct=0)
+
+    per_date = _aggregate_to_per_date(data, factor_col=factor_col)
+    return _CommonQuantileStage1Profile(n_distinct=int(per_date["_f"].n_unique()))
+
+
+def _default_n_groups(name: str) -> int:
+    """Read ``n_groups`` off the metric's default instance, not a constant.
+
+    Pre-flight answers for the instance ``to_metrics_dict()`` would build, so
+    the bound it reports has to come from the same default the run would use.
+    """
+    from factrix.metrics._registry import REGISTRY
+
+    return int(REGISTRY[name]().n_groups)  # type: ignore[attr-defined]
 
 
 def _data_level_warnings(properties: DataProperties) -> list[Warning]:

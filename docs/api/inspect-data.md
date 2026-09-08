@@ -150,7 +150,11 @@ IC cross-sections survive on 20 periods is blocked at `ic`'s 50-period floor
 while its sibling in the same panel is not. The same rule applies to
 time-series-first common betas: their `n_assets` floors use only the per-asset
 regressions that survive `compute_common_betas`' complete-pair, minimum-history,
-and factor-variation filters, rather than the raw panel universe.
+and factor-variation filters, rather than the raw panel universe. A
+metric whose run-time gate is data content rather than sample shape is
+mirrored the same way: `common_quantile_spread` is reported unusable when the
+per-period factor history carries fewer than `n_groups * 2` distinct values,
+the comparison it short-circuits `insufficient_factor_variation` on.
 
 ::: factrix.DataInspection
 
