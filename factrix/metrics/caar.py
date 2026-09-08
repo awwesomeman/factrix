@@ -757,6 +757,7 @@ def bmp_z(
         estimation_window=estimation_window,
         overlap_periods=overlap_periods,
         factor_col=factor_col,
+        func_name="bmp_z",
     )
 
     # The volatility window is a count of panel periods too, so it is measured

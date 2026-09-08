@@ -18,6 +18,7 @@ from factrix.metrics._helpers import (
     _attach_abnormal_return,
     _finite_expr,
     _is_sparse_magnitude_weighted,
+    _pick_event_return_col,
     _ragged_event_grid_message,
 )
 
@@ -90,9 +91,10 @@ def compute_caar(
             sparse or clustered events, so the ordinal is what makes the
             forward-return overlap window measurable downstream.
         n_events_dropped_non_finite: total number of event rows removed
-            before aggregation because ``return_col`` or ``factor_col``
-            was null / NaN. Broadcast as a constant on every row (the
-            count is a whole-frame diagnostic, not a per-period one: a date
+            before aggregation because the selected return source or
+            ``factor_col`` was non-finite. Broadcast as a constant on every
+            row (the count is a whole-frame diagnostic, not a per-period one:
+            a date
             whose events were *all* non-finite leaves the output entirely,
             so a per-period column could not carry it). Consumers surface it
             as ``metadata["n_events_dropped_non_finite"]``.
@@ -108,14 +110,14 @@ def compute_caar(
 
     Non-finite handling:
         polars' ``mean`` propagates float ``NaN`` (it only skips nulls), so a
-        single NaN ``return_col`` on one event used to poison that whole
+        single NaN return on one event used to poison that whole
         date's ``caar`` — and a NaN caar then reaches ``_calc_t_stat``
         downstream, which returns NaN and makes the metric withhold its test
         as ``degenerate_variance``, mislabelling missing data as
         degeneracy. Event rows are therefore
-        filtered to finite ``return_col`` **and** finite ``factor_col``
-        before the ``group_by`` (this is the producer boundary that the
-        project convention makes responsible for dropping non-finite values),
+        filtered to a finite selected return source **and** finite
+        ``factor_col`` before the ``group_by`` (this is the producer boundary
+        that the project convention makes responsible for dropping non-finite values),
         the surviving per-period mean is taken over finite events only, and the
         dropped count is both reported on the frame and warned about. Note
         ``factor_col`` needs its own guard: ``NaN != 0`` evaluates to *True*
@@ -145,6 +147,7 @@ def compute_caar(
         estimation_window=estimation_window,
         overlap_periods=overlap_periods,
         factor_col=factor_col,
+        func_name="compute_caar",
     )
     return_scale = (
         "supplied_abnormal_return"
@@ -159,7 +162,8 @@ def compute_caar(
     # Two reasons an event leaves the sample, kept apart: a hole in the input
     # columns (a data-quality fact) versus an asset with too little history for
     # the estimation-window mean (a sample-design fact).
-    raw_finite = _finite_expr(return_col) & _finite_expr(factor_col)
+    selected_return_col = _pick_event_return_col(data, return_col)
+    raw_finite = _finite_expr(selected_return_col) & _finite_expr(factor_col)
     ar_finite = _finite_expr("_abnormal_return")
     n_dropped = events.filter(~raw_finite).height
     n_dropped_no_window = events.filter(raw_finite & ~ar_finite).height
@@ -168,7 +172,8 @@ def compute_caar(
         _emit_warning(
             WarningCode.NON_FINITE_INPUT_DROPPED,
             f"dropped {n_dropped} of {n_events_in} event rows with "
-            f"a non-finite '{return_col}' or '{factor_col}' before aggregating. "
+            f"a non-finite '{selected_return_col}' or '{factor_col}' before "
+            f"aggregating. "
             f"Each per-period caar is the mean over the surviving finite events; "
             f"the count is reported as the 'n_events_dropped_non_finite' column.",
             label="compute_caar",
