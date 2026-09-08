@@ -75,6 +75,24 @@ def test_strong_group_survives_dead_group_does_not():
     assert surviving == {"hit_1", "hit_2"}
 
 
+def test_to_frame_preserves_group_and_horizon_identity():
+    make_spec("ic")
+    results = _grouped({"mom_1": 0.001, "mom_2": 0.002}, "momentum", "ic")
+    results += _grouped({"val_1": 0.003, "val_2": 0.004}, "value", "ic")
+
+    frame = bhy_hierarchical(results, metrics=["ic"], group="family", q=0.5)[
+        "ic"
+    ].to_frame()
+
+    assert frame.columns == [
+        "factor",
+        "forward_periods",
+        "family",
+        "adj_p",
+        "survived",
+    ]
+
+
 def test_empty_input_raises():
     make_spec("ic")
     with pytest.raises(UserInputError, match="non-empty list\\[EvaluationResult\\]"):

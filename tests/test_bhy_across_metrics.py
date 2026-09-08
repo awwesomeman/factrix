@@ -77,6 +77,7 @@ def test_to_frame_keeps_raw_p_metric_and_survival_identity():
     frame = out.to_frame()
     assert frame.columns == [
         "factor",
+        "forward_periods",
         "metric",
         "p_value",
         "adj_p",
@@ -85,6 +86,25 @@ def test_to_frame_keeps_raw_p_metric_and_survival_identity():
     ]
     assert frame.height == 4
     assert frame["metric"].to_list() == ["ic", "spread", "ic", "spread"]
+
+
+def test_to_frame_preserves_identity_for_same_factor_sweeps():
+    results = [
+        _two_metric_result(
+            "mom", 0.01, 0.02, forward_periods=1, params={"universe": "TW50"}
+        ),
+        _two_metric_result(
+            "mom", 0.03, 0.04, forward_periods=5, params={"universe": "TW100"}
+        ),
+    ]
+
+    with pytest.warns(RuntimeWarning, match="bhy_across_metrics"):
+        frame = bhy_across_metrics(results, metrics=["ic", "spread"], q=0.5).to_frame()
+
+    identities = frame.select("factor", "forward_periods", "universe").unique(
+        maintain_order=True
+    )
+    assert identities.rows() == [("mom", 1, "TW50"), ("mom", 5, "TW100")]
 
 
 def test_insufficient_cell_stays_auditable_but_not_active():

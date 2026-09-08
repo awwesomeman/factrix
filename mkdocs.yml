@@ -155,6 +155,8 @@ nav:
           - Preparing data: guides/preparing-data.md
           - Choosing a metric: guides/choosing-metric.md
           - Reading results: guides/reading-results.md
+          - Plotting recipes: guides/plotting-recipes.md
+          - Integration adapters: guides/integration-adapters.md
           - Validating allocation signals: guides/validating-allocation-signals.md
           - Observability: guides/observability.md
           - Large-scale evaluation: guides/large-scale-evaluation.md
@@ -163,6 +165,7 @@ nav:
           - Custom metrics: guides/custom-metrics.md
       - Examples:
           - Overview: examples/index.md
+          - Real value-anomaly replication: examples/value_anomaly_replication.md
           - Multi-factor screening: examples/multi_factor_screening.md
           - Stock factor evaluation: examples/stock_factor_evaluation.md
       - Methods and reference:

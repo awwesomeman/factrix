@@ -18,8 +18,8 @@ title: factrix.metrics.event_horizon
     | $k$ | Anchor | Formula | Sign-adjusted |
     |---|---|---|---|
     | $k > 0$ (post-event) | Cumulative from $t+1$ entry | `price[t+1+k] / price[t+1] − 1` | Yes — multiplied by `sign(factor)`. The reading is signal *quality*. |
-    | $k < 0$ (pre-event) | Single bar at offset | `price[t+k] / price[t+k−1] − 1` | **No** — the reading is *leakage*, where the bar's directional response matters independent of the eventual signal sign. |
-    | $k = 0$ (corner) | Single bar at event | `price[t] / price[t−1] − 1` | No — falls into the pre-event branch. Pass with care; the event-day bar is usually contaminated by the announcement itself. |
+    | $k < 0$ (pre-event) | Single bar at offset | `price[t+k] / price[t+k−1] − 1` | Yes — multiplied by `sign(factor)`, so directional leakage does not cancel across long and short events. |
+    | $k = 0$ (corner) | Single bar at event | `price[t] / price[t−1] − 1` | Yes — multiplied by `sign(factor)`. Pass with care; the event-day bar is usually contaminated by the announcement itself. |
 
     The pre/post asymmetry is intentional. Mixing the two conventions
     on a single chart (post-event cumulative + pre-event single-bar) is

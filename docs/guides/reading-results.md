@@ -94,6 +94,13 @@ FDR screening functions under `fx.multi_factor` (like `bhy()`) return a dictiona
 | `family_size` | `Mapping[tuple, int]` | Family size per bucket — the `m` each step-up ran on. |
 | `family` | `FamilyAccounting` | Declared / computed / inactive / unsubmitted / adjusted candidate counts and the `inactive_policy` used. |
 
+For durable exports, use the container's `to_frame()`. Every screen starts the
+frame with `factor`, `forward_periods`, and sorted `params` columns before its
+procedure-specific p-values and audit flags. A partial-conjunction condition
+named by `expand_over` is the exception: it was combined into the resulting
+hypothesis, so that condition component is omitted while every other identity
+field remains. This also applies when `forward_periods` is the condition axis.
+
 ---
 
 ## Native HTML Display

@@ -165,8 +165,13 @@ per metric — the same `_FdrResultBase` shape as `bhy`'s
 | `family` | Declared / computed / inactive / unsubmitted / adjusted condition counts and the `inactive_policy` used |
 | `n_passed_uncorr_all` | Per-identity count of family conditions with raw $p \le q$ (an inert condition enters at $p = 1$ and never counts as a pass) — the same `<=` rejection rule every screen uses — aligned with `entries`. Descriptive — flags borderline (`n_passed_uncorr_all == min_pass`) and data-gap cases at a glance. **Cutoff is your `q`**, so the count moves with `q` — using it to override `adj_p` survivor selection is the anti-shopping failure mode this function exists to prevent. |
 
-`to_frame()` gives a `factor | adj_p | survived` DataFrame over every tested
-identity, eliminated ones included.
+`to_frame()` gives a
+`factor | forward_periods | <sorted non-condition params> | adj_p | survived`
+DataFrame over every tested identity, eliminated ones included. Keys named by
+`expand_over` are omitted because they are the conditions already combined
+into the row; all other swept knobs remain part of its identity. When
+`forward_periods` is itself the condition axis, it is omitted for the same
+reason instead of exposing one arbitrary representative horizon.
 
 ::: factrix.multi_factor.PartialConjunctionResult
     options:
