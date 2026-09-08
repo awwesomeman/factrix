@@ -42,7 +42,7 @@ class TestPolitisWhiteBlockLength:
         # n=3 < 4 → practical fallback, capped at the admissible maximum.
         L = _politis_white_block_length(np.array([1.0, 2.0, 3.0]))
         expected = min(max(1.0, 1.75 * 3 ** (1.0 / 3.0)), _max_block_length(3))
-        assert L == pytest.approx(expected)
+        assert pytest.approx(expected) == L
 
     def test_fallback_on_zero_variance(self):
         L = _politis_white_block_length(np.zeros(100))
