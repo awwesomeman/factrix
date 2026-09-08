@@ -15,6 +15,7 @@ evaluation when a regime is intentional:
 ```python
 import factrix as fx
 
+panel = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
 info = fx.inspect_data(
     panel,
     expected_warnings=("few_assets", "unreliable_se_short_periods"),
