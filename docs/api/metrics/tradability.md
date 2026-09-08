@@ -204,6 +204,7 @@ spacing than the return horizon.
     Breakeven is 250 bps at 20 underlying periods and 25 bps at overlap 2 —
     a 10x error that flips the sign of the net spread.
 
+[](){ #migration--the-holding_periods-rename }
 ### Migrating to `holding_periods`
 
 `breakeven_cost` and `net_spread` now take `holding_periods=`; the former
