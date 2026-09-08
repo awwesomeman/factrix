@@ -58,7 +58,7 @@ from factrix.metrics._helpers import (
     _enforce_min_floor,
     _finite_expr,
     _is_finite_number,
-    _median_universe_size,
+    _median_finite_cross_section,
     _sample_non_overlapping,
     _short_circuit_output,
     _validate_n_groups,
@@ -554,9 +554,11 @@ def notional_turnover(
     Returns:
         MetricResult with ``value`` = mean per-rebalance turnover ∈ [0, 1].
         ``0`` = identical tail sets every rebalance; ``1`` = full rotation.
-        Metadata: ``n_rebalances``, ``n_groups``, ``overlap_periods`` (the
-        panel's stamp, unchanged), ``rebalance_lag`` (the stride actually
-        sampled at), ``mean_top_turnover`` / ``mean_bottom_turnover`` (each
+        Metadata: ``n_rebalances``, ``n_groups``, ``median_cross_section``
+        (the median per-period count of finite factor values),
+        ``overlap_periods`` (the panel's stamp, unchanged), ``rebalance_lag``
+        (the stride actually sampled at), ``mean_top_turnover`` /
+        ``mean_bottom_turnover`` (each
         leg's mean replaced fraction, each over the rebalances where that leg
         exists on both dates), ``n_top_rebalances`` /
         ``n_bottom_rebalances`` (those per-leg sample sizes). ``value`` is the
@@ -642,9 +644,11 @@ def notional_turnover(
     # same threshold and on the same bucketing: turnover measured on buckets
     # holding a couple of names each is dominated by individual assets, and
     # this metric was the one bucketing consumer that reported clean there.
+    median_assets = _median_finite_cross_section(data, factor_col)
     warning_codes: list[str] = []
     if _warn_thin_quantile_groups(
         data,
+        factor_col,
         n_groups,
         metric_name="notional_turnover",
         expected_warnings=expected_warnings,
@@ -743,18 +747,19 @@ def notional_turnover(
         # ``n_groups=10`` empties every date on an allocation-sized universe),
         # so report the assets axis and the floor that was missed rather than a
         # generic "no pairs". A wide-enough panel that still lands here had
-        # every date emptied by nulls, and the same reason reads correctly.
-        median_assets = _median_universe_size(data)
+        # every date emptied by missing values, and the same reason reads
+        # correctly.
         return _short_circuit_output(
             "notional_turnover",
             "insufficient_assets_for_quantile_groups",
             n_obs=median_assets,
             n_obs_axis="assets",
             min_required=n_groups,
-            warning_codes=(WarningCode.THIN_QUANTILE_GROUPS.value,),
+            warning_codes=tuple(warning_codes),
             overlap_periods=overlap_periods,
             rebalance_lag=lag,
             n_groups=n_groups,
+            median_cross_section=median_assets,
             descriptive=True,
         )
 
@@ -781,6 +786,7 @@ def notional_turnover(
             "n_top_rebalances": n_top_rebalances,
             "n_bottom_rebalances": n_bottom_rebalances,
             "n_groups": n_groups,
+            "median_cross_section": median_assets,
             "overlap_periods": overlap_periods,
             "rebalance_lag": lag,
             "mean_top_turnover": mean_top_turnover,

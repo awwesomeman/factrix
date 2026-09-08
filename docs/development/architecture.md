@@ -351,12 +351,12 @@ the value.
 **Effective-sample single source.** The count a metric *gates* on
 (`min_<axis>`), *reports* (`n_obs` / `n_<axis>`), and records in *drop-stats*
 must be the one the statistic is actually *estimated* on — the complete
-observations after pairwise null-drop, not the raw row count. `forward_return`
-is null-clean before it reaches a metric, but factor nulls are not dropped
-upstream and are normal in real research, so a cross-sectional reduction counts
-the **valid `(factor, return)` cross-section per period**: `compute_fm_betas`
+observations after pairwise finite-value filtering, not the raw row count.
+Missing factor values are normal in real research, so a cross-sectional
+reduction counts the **finite `(factor, return)` cross-section per period**:
+`compute_fm_betas`
 (`MIN_FM_ASSETS_HARD`) and `compute_ic` (`MIN_IC_ASSETS_HARD`) both gate on that
-pairwise-complete count, dropping a date with many names but a factor defined
+finite-pair count, dropping a date with many names but a factor defined
 for few rather than leaking a high-variance estimate. Counting null-padded rows
 would let the gate, the report, and the estimate silently disagree.
 

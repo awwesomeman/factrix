@@ -105,7 +105,7 @@ def compute_group_returns(
     )
 
     return (
-        # Unbucketed names (null / NaN factor → null ``_group``) would otherwise
+        # Unbucketed names (non-finite factor → null ``_group``) would otherwise
         # surface as an extra ``group=None`` row that no downstream consumer
         # expects: monotonicity would read it as a bucket, plots as a category.
         # Non-finite returns are neutralised to null so the bucket mean is a

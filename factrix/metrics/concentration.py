@@ -181,7 +181,7 @@ def top_concentration(
         (n=10, q=0.2 selects 3 names; n=100 selects 21), because the
         boundary rank itself satisfies the inequality. factrix takes the
         strict count so the bucket size matches the requested fraction at
-        every $n$. Null and NaN factor values are excluded from $n_t$ and
+        every $n$. Non-finite factor values are excluded from $n_t$ and
         can never be selected; counting them (``pl.len()``) would shrink
         every bucket on a partially missing date and empty it outright
         once more than $1 - q_{\mathrm{top}}$ of the names are missing.
@@ -264,7 +264,7 @@ def top_concentration(
     else:
         weighted = q1.with_columns(pl.col(factor_col).abs().alias("_raw_weight"))
 
-    # A null / NaN weight (``alpha_contribution`` on a name with no realised
+    # A non-finite weight (``alpha_contribution`` on a name with no realised
     # return) contributes nothing to the HHI numerator but would still be
     # counted by ``pl.len()`` in ``n_top`` — biasing the eff_n / n_top
     # diversification ratio downward. Drop such names from BOTH sides and

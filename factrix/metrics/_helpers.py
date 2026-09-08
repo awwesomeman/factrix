@@ -583,14 +583,15 @@ def _all_dates_degenerate(panel: pl.DataFrame, factor_col: str) -> bool:
     and under average tie-breaking every name shares a bucket so the
     top/bottom legs are empty. Spread metrics test this per period — all
     dates degenerate — and short-circuit to an explicit no-signal result
-    (:func:`_no_signal_zero_variance`) instead of ranking. Nulls are
-    excluded so an all-null date counts as degenerate, not as variation.
+    (:func:`_no_signal_zero_variance`) instead of ranking. Non-finite values
+    are excluded so a date with no finite factor counts as degenerate, not as
+    variation.
     """
     return bool(
         panel.group_by("date")
         .agg(
             pl.col(factor_col)
-            .filter(pl.col(factor_col).is_not_null())
+            .filter(_finite_expr(factor_col))
             .n_unique()
             .alias("_n_unique")
         )
@@ -2195,7 +2196,7 @@ def _assign_quantile_groups(
         data.with_columns(
             rank_expr,
             # Denominator is the per-period *finite* factor count, not the row
-            # count: a null / NaN factor gets a null rank (it never lands in a
+            # count: a non-finite factor gets a null rank (it never lands in a
             # bucket), so counting it would shrink every quantile width and
             # leave the top bucket unreachable (max rank / n_assets < 1).
             finite.sum().over("date").alias("_n"),
@@ -2237,8 +2238,8 @@ def _assign_quantile_groups_batch(
         .alias(f"_rank__{f}")
         for f in factor_cols
     ]
-    # Per-period *finite* count is per factor: each factor may null / NaN out a
-    # different set of assets, and a null-inclusive denominator would shrink the
+    # Per-period *finite* count is per factor: each factor may exclude a
+    # different set of assets, and a row-count denominator would shrink the
     # quantile widths and leave the top bucket unreachable (see
     # :func:`_assign_quantile_groups`).
     n_exprs = [
@@ -2368,7 +2369,7 @@ def _make_drop_stats(
     """Build the canonical five-key drop-stat dict from in/out counts on ``axis``.
 
     Single source of truth for the schema, shared by the carrier
-    (:func:`_attach_drop_stats`) and the SERIES→SCALAR consumer null-drop
+    (:func:`_attach_drop_stats`) and the SERIES→SCALAR finite-observation drop
     (:func:`_surface_null_drop`). The three count keys carry the ``axis`` token
     (see :func:`_drop_stat_keys`). ``drop_rate`` is 0.0 when nothing entered.
     """
@@ -2532,7 +2533,7 @@ def _surface_null_drop(
 
     Scoped to the period axis: every current SERIES→SCALAR finite-filter site is
     time-indexed. The carrier path (:func:`_surface_drop_stats`) already carries
-    an ``axis`` for the cross-section; a future EVENT-axis null-drop would
+    an ``axis`` for the cross-section; a future EVENT-axis finite filter would
     generalise this signature then.
     """
     stats = _make_drop_stats(
@@ -2626,17 +2627,25 @@ def _event_signal_is_discrete(
 MIN_GROUP_ASSETS = 5
 
 
-def _median_universe_size(data: pl.DataFrame) -> int:
-    """Median number of unique assets per period."""
-    return int(
-        data.group_by("date")
-        .agg(pl.col("asset_id").n_unique().alias("n"))["n"]
-        .median()  # type: ignore[arg-type]
-    )
+def _median_finite_cross_section(data: pl.DataFrame, factor_col: str) -> int:
+    """Median per-period count of finite values in ``factor_col``.
+
+    This is the cross-section quantile assignment can actually rank. It is
+    factor-specific so batch metrics do not share a breadth decision across
+    columns with different missingness.
+    """
+    if data.is_empty():
+        return 0
+    per_period = data.group_by("date").agg(_finite_expr(factor_col).sum().alias("_n"))[
+        "_n"
+    ]
+    median = per_period.median()
+    return 0 if median is None else int(median)  # type: ignore[arg-type]
 
 
 def _warn_thin_quantile_groups(
     sampled: pl.DataFrame,
+    factor_col: str,
     n_groups: int,
     *,
     metric_name: str,
@@ -2656,9 +2665,9 @@ def _warn_thin_quantile_groups(
     ``evaluate``): a declared code stops only the echo. The return value is
     unchanged, so the consumer still attaches the structured twin.
     """
-    if not _is_thin_quantile_groups(sampled, n_groups):
+    if not _is_thin_quantile_groups(sampled, factor_col, n_groups):
         return False
-    median_n = _median_universe_size(sampled)
+    median_n = _median_finite_cross_section(sampled, factor_col)
     per_group = median_n // n_groups if n_groups > 0 else 0
     if n_groups > 2:
         # Coarsest split keeping ~5 assets per group (floored at the
@@ -2675,8 +2684,10 @@ def _warn_thin_quantile_groups(
         )
     _emit_warning(
         WarningCode.THIN_QUANTILE_GROUPS,
-        f"Median {per_group} assets per group (n_assets={median_n}, "
-        f"n_groups={n_groups}). Bucket statistics may be dominated by "
+        f"factor '{factor_col}' has a median finite cross-section of "
+        f"{median_n} assets; assets per group: {per_group} at "
+        f"n_groups={n_groups}. "
+        f"Bucket statistics may be dominated by "
         f"individual assets. {guidance}",
         label=metric_name,
         expected_warnings=expected_warnings,
@@ -2685,17 +2696,19 @@ def _warn_thin_quantile_groups(
     return True
 
 
-def _is_thin_quantile_groups(sampled: pl.DataFrame, n_groups: int) -> bool:
-    """True when the median cross-section split into ``n_groups`` buckets leaves
-    fewer than :data:`MIN_GROUP_ASSETS` assets per bucket.
+def _is_thin_quantile_groups(
+    sampled: pl.DataFrame, factor_col: str, n_groups: int
+) -> bool:
+    """True when this factor's finite median cross-section makes thin buckets.
 
-    Single source for the thin-group condition shared by the spread primitive's
-    advisory ``warnings.warn`` and the consumer's structured
-    ``WarningCode.THIN_QUANTILE_GROUPS`` (dual-channel, same threshold).
+    A bucket is thin when it has fewer than :data:`MIN_GROUP_ASSETS` assets.
+    This is the single source for the advisory and structured warning channels.
     """
     if n_groups <= 0:
         return False
-    return _median_universe_size(sampled) // n_groups < MIN_GROUP_ASSETS
+    return (
+        _median_finite_cross_section(sampled, factor_col) // n_groups < MIN_GROUP_ASSETS
+    )
 
 
 def _signed_car(

@@ -261,10 +261,10 @@ class EvaluationResult:
             because the same horizon evaluated on two grids is one hypothesis
             estimated twice, not two hypotheses.
         n_periods: Number of unique dates in the factor panel where
-            the factor column is non-null. A panel structural property —
+            the factor column is finite. A panel structural property —
             independent of any individual metric's estimator.
-        n_pairs: Number of non-null ``(date, asset_id)`` pairs in the
-            factor panel. A panel structural property.
+        n_pairs: Number of finite ``(date, asset_id)`` factor observations
+            in the factor panel. A panel structural property.
         n_assets: Unique assets in the panel (cell-invariant;
             ``1`` is legal for TIMESERIES).
         metrics: Read-only ``label -> MetricResult`` mapping carrying

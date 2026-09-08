@@ -101,9 +101,9 @@ def compute_spread_series(
         spread series free of MA(h-1) autocorrelation so downstream
         non-overlap t-tests are valid without heteroskedasticity-and-autocorrelation-consistent (HAC).
 
-        **Non-finite handling.** A NaN ``return_col`` value is treated as
+        **Non-finite handling.** A non-finite ``return_col`` value is treated as
         missing (polars ``mean`` propagates NaN, so one bad print would
-        otherwise NaN out the bucket mean and the spread); a null or NaN
+        otherwise NaN out the bucket mean and the spread); a non-finite
         factor lands in no bucket and is excluded from ``_n_assets`` /
         ``_n_unique`` **and** ``universe_return``, so both the diagnostics
         and the benchmark the long / short legs are measured against
@@ -126,12 +126,14 @@ def compute_spread_series(
 
     sampled = _sample_non_overlapping(data, overlap_periods)
 
-    _warn_thin_quantile_groups(
-        sampled,
-        n_groups,
-        metric_name="compute_spread_series",
-        expected_warnings=expected_warnings,
-    )
+    for factor_col in cols:
+        _warn_thin_quantile_groups(
+            sampled,
+            factor_col,
+            n_groups,
+            metric_name="compute_spread_series",
+            expected_warnings=expected_warnings,
+        )
 
     # Neutralise non-finite returns at the producer boundary: polars ``mean``
     # propagates float NaN, so one NaN return would turn a whole bucket mean —

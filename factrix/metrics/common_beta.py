@@ -541,7 +541,7 @@ def common_beta_r_squared(
     weak or noisy to drive individual-asset returns even when its
     cross-asset mean $\beta$ looks nonzero.
 
-    Short-circuits to NaN when no assets have a non-null $R^2$.
+    Short-circuits to NaN when no assets have a finite $R^2$.
 
     Notes:
         ``value`` $= \mathrm{mean}_i R^2_i$ and ``median_r_squared``

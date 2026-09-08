@@ -1,6 +1,7 @@
 """Tests for factrix.metrics.quantile."""
 
 import math
+import warnings
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -11,12 +12,196 @@ from factrix._errors import IncompatibleInferenceError
 from factrix._stats import _p_value_from_t
 from factrix.inference import NEWEY_WEST
 from factrix.inference.series_mean import HANSEN_HODRICK
-from factrix.metrics._helpers import _lag_within_asset
+from factrix.metrics._helpers import _all_dates_degenerate, _lag_within_asset
+from factrix.metrics.monotonicity import monotonicity
 from factrix.metrics.quantile import (
     compute_spread_series,
     quantile_spread,
     quantile_spread_vw,
 )
+from factrix.metrics.tradability import notional_turnover
+
+
+def _factor_specific_breadth_panel(n_dates: int = 40) -> pl.DataFrame:
+    """Thirty names per date, but only five finite values in ``factor``."""
+    rows = []
+    for date_index in range(n_dates):
+        date = datetime(2024, 1, 1) + timedelta(days=date_index)
+        for asset_index in range(30):
+            rows.append(
+                {
+                    "date": date,
+                    "asset_id": f"A{asset_index}",
+                    "factor": (
+                        float((asset_index + date_index) % 5)
+                        if asset_index < 5
+                        else None
+                    ),
+                    "factor_full": float((asset_index + date_index) % 30),
+                    "forward_return": 0.001 * ((2 * asset_index + date_index) % 11),
+                    "market_cap": 1e6 * (asset_index + 1),
+                }
+            )
+    return pl.DataFrame(rows)
+
+
+class TestFactorSpecificQuantileBreadth:
+    def test_batch_spread_warnings_follow_each_finite_factor_sample(self):
+        panel = _factor_specific_breadth_panel()
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            results = quantile_spread(
+                panel,
+                overlap_periods=1,
+                n_groups=5,
+                factor_cols=("factor", "factor_full"),
+            )
+
+        thin = results["factor"]
+        full = results["factor_full"]
+        assert thin.metadata["median_cross_section"] == 5
+        assert full.metadata["median_cross_section"] == 30
+        assert WarningCode.THIN_QUANTILE_GROUPS.value in thin.warning_codes
+        assert WarningCode.FEW_ASSETS.value in thin.warning_codes
+        assert WarningCode.THIN_QUANTILE_GROUPS.value not in full.warning_codes
+        assert WarningCode.FEW_ASSETS.value not in full.warning_codes
+        messages = [str(item.message) for item in caught]
+        assert any(
+            "factor 'factor' has a median finite cross-section of 5 assets; "
+            "assets per group: 1" in message
+            for message in messages
+        )
+        assert not any("factor 'factor_full'" in message for message in messages)
+
+    def test_other_bucket_consumers_share_the_finite_breadth(self):
+        panel = _factor_specific_breadth_panel()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            vw = quantile_spread_vw(
+                panel, overlap_periods=1, n_groups=5, lag_weights=False
+            )
+            mono = monotonicity(
+                panel,
+                overlap_periods=1,
+                n_groups=5,
+                factor_cols=("factor", "factor_full"),
+                n_resamples=199,
+                rng=0,
+            )
+            turnover = notional_turnover(
+                panel, overlap_periods=1, n_groups=5, rebalance_lag=1
+            )
+
+        assert vw.metadata["median_cross_section"] == 5
+        assert WarningCode.THIN_QUANTILE_GROUPS.value in vw.warning_codes
+        assert mono["factor"].metadata["median_cross_section"] == 5
+        assert mono["factor_full"].metadata["median_cross_section"] == 30
+        assert WarningCode.THIN_QUANTILE_GROUPS.value in mono["factor"].warning_codes
+        assert (
+            WarningCode.THIN_QUANTILE_GROUPS.value
+            not in mono["factor_full"].warning_codes
+        )
+        assert turnover.metadata["median_cross_section"] == 5
+        assert WarningCode.THIN_QUANTILE_GROUPS.value in turnover.warning_codes
+
+    def test_turnover_short_circuit_does_not_manufacture_thin_code(self):
+        panel = _factor_specific_breadth_panel(n_dates=41)
+        dates = panel["date"].unique().sort().to_list()
+        missing_dates = dates[1::2]
+        alternating = panel.with_columns(
+            pl.when(pl.col("date").is_in(missing_dates))
+            .then(None)
+            .otherwise(pl.col("factor_full"))
+            .alias("factor_full")
+        )
+
+        result = notional_turnover(
+            alternating,
+            factor_col="factor_full",
+            overlap_periods=1,
+            n_groups=5,
+            rebalance_lag=1,
+        )
+
+        assert result.metadata["reason"] == "insufficient_assets_for_quantile_groups"
+        assert result.metadata["median_cross_section"] == 30
+        assert WarningCode.THIN_QUANTILE_GROUPS.value not in result.warning_codes
+
+
+class TestNonFiniteDegeneracyClassification:
+    @staticmethod
+    def _constant_panel(*, one_varying_date: bool = False) -> pl.DataFrame:
+        rows = []
+        for date_index in range(30):
+            date = datetime(2024, 1, 1) + timedelta(days=date_index)
+            for asset_index in range(12):
+                factor = (
+                    float(asset_index + 1)
+                    if one_varying_date and date_index == 29
+                    else 1.0
+                )
+                rows.append(
+                    {
+                        "date": date,
+                        "asset_id": f"A{asset_index}",
+                        "factor": factor,
+                        "forward_return": 0.001 * ((asset_index + 2 * date_index) % 9),
+                        "market_cap": 1e6 * (asset_index + 1),
+                    }
+                )
+        return pl.DataFrame(rows)
+
+    @staticmethod
+    def _replace_first_factor(panel: pl.DataFrame, value: float) -> pl.DataFrame:
+        first_date = panel["date"].min()
+        return panel.with_columns(
+            pl.when((pl.col("date") == first_date) & (pl.col("asset_id") == "A0"))
+            .then(value)
+            .otherwise(pl.col("factor"))
+            .alias("factor")
+        )
+
+    @pytest.mark.parametrize("non_finite", [float("nan"), float("inf"), -float("inf")])
+    def test_excluded_factor_value_does_not_create_variation(self, non_finite):
+        panel = self._constant_panel()
+        dirty_panel = self._replace_first_factor(panel, non_finite)
+        assert _all_dates_degenerate(dirty_panel, "factor")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            clean = quantile_spread_vw(
+                panel, overlap_periods=1, n_groups=5, lag_weights=False
+            )
+            dirty = quantile_spread_vw(
+                dirty_panel,
+                overlap_periods=1,
+                n_groups=5,
+                lag_weights=False,
+            )
+
+        assert dirty.value == clean.value == 0.0
+        assert dirty.stat == clean.stat == 0.0
+        assert dirty.p_value == clean.p_value == 1.0
+        assert dirty.metadata["signal_status"] == clean.metadata["signal_status"]
+
+    def test_genuine_finite_variation_still_prevents_no_signal_classification(self):
+        panel = self._constant_panel(one_varying_date=True)
+        dirty_panel = self._replace_first_factor(panel, float("nan"))
+        assert not _all_dates_degenerate(dirty_panel, "factor")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            clean = quantile_spread_vw(
+                panel, overlap_periods=1, n_groups=5, lag_weights=False
+            )
+            dirty = quantile_spread_vw(
+                dirty_panel,
+                overlap_periods=1,
+                n_groups=5,
+                lag_weights=False,
+            )
+
+        assert "signal_status" not in clean.metadata
+        assert "signal_status" not in dirty.metadata
+        assert dirty.value == pytest.approx(clean.value)
 
 
 class TestQuantileSpreadSeries:

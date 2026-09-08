@@ -162,8 +162,8 @@ def positive_rate(
     # become a hit or miss merely because the comparison itself returns bool.
     vals = _finite_values(sampled[value_col])
     n = len(vals)
-    # Secondary degeneracy guard: null-drop can leave the sampled series below
-    # the effective floor even when the raw panel cleared it; the binomial
+    # Secondary degeneracy guard: finite filtering can leave the sampled series
+    # below the effective floor even when the raw panel cleared it; the binomial
     # divides by ``n``, so refuse rather than divide a near-empty sample.
     if n < MIN_SERIES_PERIODS_HARD:
         return _short_circuit_output(

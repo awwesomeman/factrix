@@ -58,6 +58,7 @@ from factrix.metrics._helpers import (
     _finite_values,
     _is_thin_quantile_groups,
     _lag_within_asset,
+    _median_finite_cross_section,
     _no_signal_zero_variance,
     _sample_non_overlapping,
     _scaled_periods_threshold,
@@ -104,25 +105,6 @@ _PORTFOLIO_PERIODS_FLOOR = _scaled_periods_threshold(MIN_PORTFOLIO_PERIODS_HARD)
 applicable_inference: frozenset[NonOverlapping | NeweyWest | StationaryBootstrap] = (
     frozenset({NON_OVERLAPPING, NEWEY_WEST, STATIONARY_BOOTSTRAP})
 )
-
-
-def _median_finite_cross_section(panel: pl.DataFrame, factor_col: str) -> int:
-    """Median per-period count of finite ``factor_col`` values.
-
-    The size of the cross-section that is actually ranked on a typical date
-    — not ``asset_id.n_unique()`` over the whole panel, which counts every
-    name that ever appeared. The ``FEW_ASSETS`` advisory keys on this: how
-    many names back a single date's bucket mean is a per-period quantity, so a
-    12-name-per-period universe that rotated through 200 tickers over the
-    sample is thin, not wide.
-    """
-    if panel.is_empty():
-        return 0
-    per_period = panel.group_by("date").agg(_finite_expr(factor_col).sum().alias("_n"))[
-        "_n"
-    ]
-    med = per_period.median()
-    return 0 if med is None else int(med)  # type: ignore[arg-type]
 
 
 def _excess_leg_test(arr: np.ndarray) -> tuple[float, float, float]:
@@ -254,12 +236,11 @@ def quantile_spread(
           (``NEWEY_WEST`` / ``STATIONARY_BOOTSTRAP`` paths only).
         - ``metadata["dropped_periods"]`` / ``n_periods_in`` /
           ``n_periods_out``:
-          the null- and NaN-drop bookkeeping on the **strided** series.
+          the non-finite-drop bookkeeping on the **strided** series.
 
         **Non-finite observations.** Every series column consumed here is
-        filtered with ``drop_nulls().drop_nans()``: polars' ``drop_nulls``
-        keeps float NaN, and one NaN in the spread would make the t-path
-        report ``degenerate_variance`` (mislabelling missing data as a
+        restricted to finite values. One NaN in the spread would make the
+        t-path report ``degenerate_variance`` (mislabelling missing data as a
         dispersion-free sample) or raise in the bootstrap path.
 
         **Thin cross-sections** are judged by the median *per-period* count
@@ -495,7 +476,7 @@ def _quantile_spread_from_series(
         warning_codes.append(WarningCode.HIGH_TIE_RATIO.value)
     # Structured twin of the spread primitive's thin-group advisory: surface the
     # same condition on warning_codes so result-only inspection sees it.
-    if _is_thin_quantile_groups(sampled, n_groups):
+    if _is_thin_quantile_groups(sampled, factor_col, n_groups):
         warning_codes.append(WarningCode.THIN_QUANTILE_GROUPS.value)
     # Drop stats describe the strided series this consumer collapsed, whatever
     # sample the headline test ended up running on.
@@ -773,6 +754,7 @@ def quantile_spread_vw(
     # whose legs hold a single name each.
     _warn_thin_quantile_groups(
         sampled,
+        factor_col,
         n_groups,
         metric_name="quantile_spread_vw",
         expected_warnings=expected_warnings,
@@ -909,7 +891,7 @@ def quantile_spread_vw(
     if high_tie_ratio:
         warning_codes.append(WarningCode.HIGH_TIE_RATIO.value)
     # Structured twin of the thin-bucket advisory raised above.
-    if _is_thin_quantile_groups(sampled, n_groups):
+    if _is_thin_quantile_groups(sampled, factor_col, n_groups):
         warning_codes.append(WarningCode.THIN_QUANTILE_GROUPS.value)
     # Drop stats describe the strided series this consumer collapsed, whatever
     # sample the headline test ended up running on.
