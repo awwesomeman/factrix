@@ -112,6 +112,9 @@ def compare(
     and ``forward_periods`` ascending, then on params and output columns.
     Columns Polars cannot sort natively use a canonical, type-tagged string
     only as an internal ordering key; their returned values are untouched.
+    That key orders lexicographically on the string, not on the value's own
+    semantics — ``[10, 2]`` sorts before ``[2, 1]`` — so read such an order
+    as stable, not as meaningful.
     The output therefore does not depend on the order of ``results``. Rows
     equal on every one of those columns are indistinguishable and keep input
     order among themselves.
