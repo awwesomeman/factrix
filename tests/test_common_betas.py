@@ -377,6 +377,28 @@ class TestCommonBetaFewAssets:
         assert WarningCode.FEW_ASSETS.value in result.warning_codes
         assert result.n_obs == n_assets
 
+    def test_few_assets_warning_uses_iid_fallback_df(self):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", UserWarning)
+            common_beta(self._betas(4))
+        few_assets = [w for w in caught if "(few_assets;" in str(w.message)]
+        assert len(few_assets) == 1
+        assert "runs on df=3" in str(few_assets[0].message)
+
+    def test_few_assets_warning_uses_calendar_time_df(self):
+        frame = self._betas(4).with_columns(
+            pl.lit(1.0).alias("ew_portfolio_beta"),
+            pl.lit(0.0004).alias("ew_portfolio_beta_var"),
+            pl.lit(75).alias("ew_portfolio_periods"),
+        )
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", UserWarning)
+            result = common_beta(frame)
+        few_assets = [w for w in caught if "(few_assets;" in str(w.message)]
+        assert result.metadata["dof"] == 73
+        assert len(few_assets) == 1
+        assert "runs on df=73" in str(few_assets[0].message)
+
     def test_wide_cross_section_is_clean(self):
         with warnings.catch_warnings():
             warnings.simplefilter("error", UserWarning)

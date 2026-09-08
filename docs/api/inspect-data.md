@@ -6,6 +6,29 @@ title: factrix.inspect_data
 
 <hr>
 
+## Warning declarations
+
+`inspect_data` surfaces every pre-flight advisory both as a structured
+`Warning` record and as a framed `UserWarning`. Use the same declaration as an
+evaluation when a regime is intentional:
+
+```python
+import factrix as fx
+
+panel = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
+info = fx.inspect_data(
+    panel,
+    expected_warnings=("few_assets", "unreliable_se_short_periods"),
+)
+```
+
+The records remain in `info.warnings`, `info.factors[col].warnings`, and each
+metric verdict's `warnings`, marked with `expected=True`; only their stderr
+echoes stop. Unknown codes are rejected so a typo cannot silently suppress
+nothing.
+
+<hr>
+
 ## Usability Tiers
 
 `inspect_data` partitions public metrics into three distinct groups based on the inspected data shape and the metric's declarative `sample_threshold`:
