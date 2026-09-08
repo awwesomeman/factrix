@@ -66,6 +66,7 @@ from factrix.metrics._helpers import (
     _degenerate_test_fields,
     _enforce_min_floor,
     _finite_expr,
+    _finite_values,
     _short_circuit_output,
     _surface_drop_stats,
     _warn_below_floor,
@@ -103,7 +104,7 @@ def _min_fm_assets(beta_df: pl.DataFrame) -> int | None:
     """Minimum per-period FM cross-section size carried by ``compute_fm_betas``."""
     if "n_assets" not in beta_df.columns:
         return None
-    min_assets = beta_df["n_assets"].min()
+    min_assets = beta_df.filter(_finite_expr("beta"))["n_assets"].min()
     return None if min_assets is None else cast(int, min_assets)
 
 
@@ -329,7 +330,10 @@ def fm_beta(
                 docs_path=_DOCS_FM_BETA,
             )
 
-    betas = beta_df["beta"].drop_nulls().to_numpy()
+    # A hand-built beta table can carry NaN or ±Inf even though the canonical
+    # producer never emits them. They are missing estimates, not periods: use
+    # the same finite sample for the mean, HAC test, persistence screen and n.
+    betas = _finite_values(beta_df["beta"]).to_numpy()
     n = len(betas)
 
     sc = _enforce_min_floor(fm_beta, "fm_beta", n, "insufficient_fm_periods")
@@ -1172,10 +1176,9 @@ def fm_beta_sign_consistency(
         >>> result.name == ""
         True
     """
-    # ``drop_nans`` as well as ``drop_nulls``: a NaN beta is neither positive
-    # nor negative, so it would silently be counted as a wrong-sign period AND
-    # inflate ``n_obs``, biasing the ratio downwards.
-    betas = beta_df["beta"].drop_nulls().drop_nans().to_numpy()
+    # A non-finite beta has no direction. Counting +Inf as a hit, -Inf as a
+    # miss, or NaN as a wrong-sign period would also inflate ``n_obs``.
+    betas = _finite_values(beta_df["beta"]).to_numpy()
     n = len(betas)
     sc = _enforce_min_floor(
         fm_beta_sign_consistency,

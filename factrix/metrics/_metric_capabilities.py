@@ -44,15 +44,16 @@ def per_date_series_rename(source_col: str) -> PerDateSeries:
     a ``(date, source_col)`` per-date frame.
 
     Returns a callable that projects ``date`` plus ``source_col``
-    aliased to ``value`` and drops null rows. Metrics whose per-date
-    series needs computation (binary cast, cross-section aggregation,
+    aliased to ``value`` and drops null or non-finite rows. Metrics whose
+    per-date series needs computation (binary cast, cross-section aggregation,
     etc.) define their own ``per_date_series`` instead.
     """
 
     def _per_date(data: pl.DataFrame) -> pl.DataFrame:
-        return data.select(
-            [pl.col("date"), pl.col(source_col).alias("value")]
-        ).drop_nulls()
+        value = pl.col(source_col).cast(pl.Float64, strict=False)
+        return data.select(pl.col("date"), value.alias("value")).filter(
+            pl.col("value").is_finite()
+        )
 
     return _per_date
 

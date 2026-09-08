@@ -33,6 +33,8 @@ from factrix._types import (
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _enforce_scaled_floor,
+    _finite_expr,
+    _finite_values,
     _resolve_series_value_col,
     _sample_non_overlapping,
     _scaled_periods_threshold,
@@ -62,12 +64,10 @@ def per_date_series(series: pl.DataFrame) -> pl.DataFrame:
     ``slice_pairwise_test`` / ``slice_joint_test`` via
     ``factrix.metrics._metric_capabilities.resolve_per_date_series``.
     """
-    return series.select(
-        [
-            pl.col("date"),
-            (pl.col("ic") > 0).cast(pl.Float64).alias("value"),
-        ]
-    ).drop_nulls()
+    return series.filter(_finite_expr("ic")).select(
+        pl.col("date"),
+        (pl.col("ic") > 0).cast(pl.Float64).alias("value"),
+    )
 
 
 @metric(
@@ -158,9 +158,9 @@ def positive_rate(
         return sc
 
     sampled = _sample_non_overlapping(series, overlap_periods)
-    # polars ``drop_nulls`` keeps float NaN; a NaN would count as a non-hit in
-    # ``vals > 0`` and bias the rate toward 0, so drop it alongside nulls.
-    vals = sampled[value_col].drop_nulls().drop_nans()
+    # Only finite observations have a direction. In particular, ±Inf must not
+    # become a hit or miss merely because the comparison itself returns bool.
+    vals = _finite_values(sampled[value_col])
     n = len(vals)
     # Secondary degeneracy guard: null-drop can leave the sampled series below
     # the effective floor even when the raw panel cleared it; the binomial
@@ -191,16 +191,13 @@ def positive_rate(
     _surface_null_drop(
         n_periods_in=len(sampled),
         n_periods_out=n,
-        drop_reason="null / NaN value observations in the series",
+        drop_reason="null / non-finite value observations in the series",
         metric_name="positive_rate",
         metadata=metadata,
         warning_codes=warning_codes,
         expected_warnings=expected_warnings,
     )
-    hit_series = sampled.filter(
-        pl.col(value_col).is_not_null() & pl.col(value_col).is_not_nan()
-    ).select("date", (pl.col(value_col) > 0).cast(pl.Float64).alias("_hit"))
-    hit_autocorr = _lag1_autocorr(hit_series["_hit"].to_numpy())
+    hit_autocorr = _lag1_autocorr((vals > 0).cast(pl.Float64).to_numpy())
     if hit_autocorr > POSITIVE_RATE_HIT_AUTOCORR:
         _emit_warning(
             WarningCode.SERIAL_CORRELATION_DETECTED,

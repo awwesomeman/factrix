@@ -309,19 +309,58 @@ class TestNonFinitePassThrough:
         assert result.n_obs == poisoned.height - 1
 
     def test_sign_consistency_ignores_nan_betas(self):
-        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(5)]
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(7)]
         beta_df = pl.DataFrame(
             {
                 "date": dates,
-                "beta": [1.0, 2.0, float("nan"), 3.0, 4.0],
-                "n_assets": [10, 10, 10, 10, 10],
+                "beta": [
+                    1.0,
+                    2.0,
+                    float("nan"),
+                    float("inf"),
+                    -float("inf"),
+                    3.0,
+                    4.0,
+                ],
+                "n_assets": [10] * 7,
             }
         ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = fm_beta_sign_consistency(beta_df, expected_sign=1)
-        # Old code: NaN > 0 is False -> counted as a wrong-sign period AND in
-        # n_obs, giving 4/5 = 0.8 instead of 4/4 = 1.0.
+        # Non-finite values are missing estimates, not directional evidence.
         assert result.value == pytest.approx(1.0)
         assert result.n_obs == 4
+
+    def test_fm_beta_matches_the_explicitly_finite_series(self):
+        rng = np.random.default_rng(17)
+        finite = rng.normal(0.01, 0.05, 80).tolist()
+        values = [
+            *finite[:20],
+            float("nan"),
+            float("inf"),
+            -float("inf"),
+            *finite[20:],
+        ]
+        dates = [
+            datetime(2024, 1, 1) + timedelta(days=i) for i in range(len(values))
+        ]
+        dirty = pl.DataFrame(
+            {
+                "date": dates,
+                "beta": values,
+                "n_assets": [20] * 20 + [1, 1, 1] + [20] * 60,
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        clean = dirty.filter(pl.col("beta").is_finite())
+
+        actual = fm_beta(dirty, overlap_periods=1)
+        expected = fm_beta(clean, overlap_periods=1)
+
+        assert actual.n_obs == expected.n_obs == 80
+        assert actual.value == pytest.approx(expected.value)
+        assert actual.stat == pytest.approx(expected.stat)
+        assert actual.p_value == pytest.approx(expected.p_value)
+        assert actual.metadata["min_assets_per_period"] == 20
+        assert WarningCode.FEW_ASSETS.value not in actual.warning_codes
 
 
 class TestClusterMeatSegmentSum:
