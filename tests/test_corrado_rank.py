@@ -136,25 +136,25 @@ class TestNonFiniteReturns:
         assert result.stat > 0
         assert result.p_value < 0.05
 
-    def test_nan_return_is_not_ranked_as_the_largest_value(self):
-        # polars ranks float NaN as the largest value, so an unmasked NaN
-        # silently entered the sample as a top-rank observation and shifted
-        # every other rank down by one.
-        nan_result = corrado_rank(self._panel_with_hole(float("nan")))
+    @pytest.mark.parametrize("hole", [float("nan"), float("inf"), float("-inf")])
+    def test_non_finite_return_is_not_ranked(self, hole):
+        # Polars treats infinities as numeric and ranks NaN as the largest
+        # value, so every non-finite form must be masked before ranking.
+        dirty_result = corrado_rank(self._panel_with_hole(hole))
         null_result = corrado_rank(self._panel_with_hole(None))
-        assert nan_result.stat == pytest.approx(null_result.stat)
-        assert nan_result.value == pytest.approx(null_result.value)
+        assert dirty_result.stat == pytest.approx(null_result.stat)
+        assert dirty_result.value == pytest.approx(null_result.value)
         # The non-finite cell is excluded from the ranked sample, which is the
         # abnormal-return series: it starts once the estimation mean exists
         # (min_samples=20 plus the overlap_periods lag of 5), so 300 - 24 cells
         # would remain and the hole removes one more.
-        assert nan_result.metadata["n_pairs_total"] == 275
+        assert dirty_result.metadata["n_pairs_total"] == 275
         assert (
-            nan_result.metadata["n_pairs_total"]
+            dirty_result.metadata["n_pairs_total"]
             == null_result.metadata["n_pairs_total"]
         )
 
-    @pytest.mark.parametrize("hole", [float("nan"), None])
+    @pytest.mark.parametrize("hole", [None, float("nan"), float("inf"), float("-inf")])
     def test_non_finite_event_row_is_dropped_and_counted(self, hole):
         rng = np.random.default_rng(3)
         n = 300
@@ -172,9 +172,10 @@ class TestNonFiniteReturns:
         assert result.n_obs == len(event_idx) - 1
         assert np.isfinite(result.stat)
 
-    def test_nan_factor_survives_the_event_filter_and_is_dropped(self):
-        # `NaN != 0` is True in polars, so a NaN factor reaches the event
-        # sample and sign(NaN) would poison u_event.
+    @pytest.mark.parametrize("hole", [float("nan"), float("inf"), float("-inf")])
+    def test_non_finite_factor_is_dropped(self, hole):
+        # Every non-finite factor is outside the usable event sample; in
+        # particular, NaN/Inf compare non-zero and would otherwise survive.
         rng = np.random.default_rng(5)
         n = 300
         returns = rng.normal(size=n)
@@ -182,7 +183,7 @@ class TestNonFiniteReturns:
         event_idx = np.arange(70, n, 20)
         factor[event_idx] = 1.0
         returns[event_idx] = _tail_returns(rng, 1.0, len(event_idx))
-        factor[1] = float("nan")
+        factor[1] = hole
 
         result = corrado_rank(_panel(returns, factor))
 

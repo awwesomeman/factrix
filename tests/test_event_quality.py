@@ -87,7 +87,7 @@ def _event_panel(returns: list, factors: list | None = None) -> pl.DataFrame:
     )
 
 
-@pytest.mark.parametrize("hole", [float("nan"), None])
+@pytest.mark.parametrize("hole", [None, float("nan"), float("inf"), float("-inf")])
 class TestNonFiniteEventsDropped:
     """Every event-quality metric must exclude non-finite events from the
     sample its headline / stat / p_value / n_obs describe."""
@@ -137,19 +137,47 @@ class TestNonFiniteEventsDropped:
 
 
 class TestNonFiniteFactorDropped:
-    def test_nan_factor_survives_the_event_filter_and_is_dropped(self):
-        # `NaN != 0` is True in polars, so a NaN factor reaches the event
-        # sample and sign(NaN) poisons signed_car.
+    @pytest.mark.parametrize("hole", [float("nan"), float("inf"), float("-inf")])
+    def test_non_finite_factor_is_dropped(self, hole):
+        # Non-finite factors compare non-zero and would otherwise reach the
+        # event sample and poison signed_car.
         result = event_hit_rate(
             _event_panel(
                 [0.01, 0.02, 0.03, 0.04, 0.05],
-                [1.0, 1.0, 1.0, 1.0, float("nan")],
+                [1.0, 1.0, 1.0, 1.0, hole],
             ),
             overlap_periods=1,
         )
         assert result.value == pytest.approx(1.0)
         assert result.n_obs == 4
         assert result.metadata["n_events_dropped_non_finite"] == 1
+
+
+class TestNonFiniteSignBaseRateRows:
+    @pytest.mark.parametrize("hole", [float("nan"), float("inf"), float("-inf")])
+    def test_non_finite_non_event_matches_explicitly_missing_row(self, hole):
+        panel = _event_panel([0.01, -0.02, 0.03, -0.04, 0.05])
+        target_date = panel.filter(pl.col("factor") == 0)["date"].max()
+
+        def replace(value):
+            return panel.with_columns(
+                pl.when(pl.col("date") == target_date)
+                .then(pl.lit(value))
+                .otherwise(pl.col("forward_return"))
+                .alias("forward_return")
+            )
+
+        dirty = event_hit_rate(replace(hole), overlap_periods=1)
+        missing = event_hit_rate(replace(None), overlap_periods=1)
+
+        assert dirty.value == pytest.approx(missing.value)
+        assert dirty.p_value == pytest.approx(missing.p_value)
+        assert dirty.metadata["sign_base_rate_up"] == pytest.approx(
+            missing.metadata["sign_base_rate_up"]
+        )
+        assert dirty.metadata["n_base_rate_rows"] == missing.metadata[
+            "n_base_rate_rows"
+        ]
 
 
 class TestEventHitRateAlwaysExact:

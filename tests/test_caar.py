@@ -858,7 +858,7 @@ def _caar_series(
 
 
 class TestComputeCaarNonFinite:
-    """A single NaN/null return must not poison its date's caar mean."""
+    """A single non-finite return must not poison its date's caar mean."""
 
     def _two_event_date(self, bad: float | None) -> pl.DataFrame:
         # One date, two events: one good return, one non-finite.
@@ -873,7 +873,7 @@ class TestComputeCaarNonFinite:
             ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         )
 
-    @pytest.mark.parametrize("bad", [float("nan"), None])
+    @pytest.mark.parametrize("bad", [None, float("nan"), float("inf"), float("-inf")])
     def test_non_finite_return_does_not_poison_date_mean(self, bad):
         with pytest.warns(UserWarning, match="non-finite"):
             out = compute_caar(self._two_event_date(bad)).sort("date")
@@ -884,15 +884,16 @@ class TestComputeCaarNonFinite:
         assert out["n_events"][1] == 2
         assert out["n_events_dropped_non_finite"][0] == 1
 
-    def test_nan_factor_is_dropped(self):
-        # NaN != 0 is True in polars, so a NaN factor survives the event
-        # filter and would make signed_car NaN.
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+    def test_non_finite_factor_is_dropped(self, bad):
+        # Non-finite factors compare non-zero and would otherwise survive the
+        # event filter and poison the magnitude-weighted signed CAR.
         df = with_estimation_window(
             pl.DataFrame(
                 {
                     "date": [datetime(2020, 1, 1)] * 2,
                     "asset_id": ["A", "B"],
-                    "factor": [1.0, float("nan")],
+                    "factor": [1.0, bad],
                     "forward_return": [0.02, 0.03],
                 }
             ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
@@ -945,7 +946,7 @@ class TestCaarSameSampleContract:
         )
         assert result.p_value == pytest.approx(_p_value_from_t(result.stat, len(kept)))
 
-    @pytest.mark.parametrize("bad", [float("nan"), None])
+    @pytest.mark.parametrize("bad", [None, float("nan"), float("inf"), float("-inf")])
     def test_non_finite_caar_dropped_before_spacing(self, bad):
         # Ordinals 0..19; the bad row sits at ordinal 0. With fp=2 the greedy
         # walk keeps 0,2,4,... If the drop happened *after* spacing, ordinal 0
@@ -988,7 +989,7 @@ class TestCaarSameSampleContract:
 
 
 class TestBmpZNonFiniteReturns:
-    def _poison_one_event(self, panel: pl.DataFrame) -> pl.DataFrame:
+    def _poison_one_event(self, panel: pl.DataFrame, bad: float | None) -> pl.DataFrame:
         # Take a late event so its estimation window is populated — an
         # early-history event would be dropped for "no vol" instead and the
         # non-finite-return branch would never be exercised.
@@ -999,16 +1000,19 @@ class TestBmpZNonFiniteReturns:
                 (pl.col("date") == pl.lit(target["date"]).cast(panel.schema["date"]))
                 & (pl.col("asset_id") == target["asset_id"])
             )
-            .then(pl.lit(float("nan")))
+            .then(pl.lit(bad))
             .otherwise(pl.col("forward_return"))
             .alias("forward_return")
         )
 
-    def test_non_finite_return_excluded_from_the_test(self, strong_signal):
+    @pytest.mark.parametrize("bad", [None, float("nan"), float("inf"), float("-inf")])
+    def test_non_finite_return_excluded_from_the_test(self, strong_signal, bad):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
             clean = bmp_z(strong_signal, overlap_periods=5)
-            result = bmp_z(self._poison_one_event(strong_signal), overlap_periods=5)
+            result = bmp_z(
+                self._poison_one_event(strong_signal, bad), overlap_periods=5
+            )
 
         # Old behaviour: NaN SAR -> mean/std NaN -> z=0, p=1 at full n_obs.
         assert math.isfinite(result.stat)

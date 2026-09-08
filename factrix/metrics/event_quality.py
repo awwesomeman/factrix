@@ -138,16 +138,8 @@ def _finite_events(
     # too little history for the estimation-window mean. The second is a
     # sample-design fact (the same one bmp_z reports as n_dropped_no_vol), not
     # a data-quality one.
-    raw_finite = (
-        pl.col(return_col).is_not_null()
-        & pl.col(return_col).is_not_nan()
-        & pl.col(factor_col).is_not_null()
-        & pl.col(factor_col).is_not_nan()
-    )
-    ar_finite = (
-        pl.col("_abnormal_return").is_not_null()
-        & pl.col("_abnormal_return").is_not_nan()
-    )
+    raw_finite = _finite_expr(return_col) & _finite_expr(factor_col)
+    ar_finite = _finite_expr("_abnormal_return")
     n_dropped_non_finite = events.filter(~raw_finite).height
     n_dropped_no_estimation_window = events.filter(raw_finite & ~ar_finite).height
     events = events.filter(raw_finite & ar_finite)
@@ -182,9 +174,7 @@ def _sign_base_rate(adjusted: pl.DataFrame, factor_col: str) -> dict:
     share of events on each side (see ``sign_base_rate`` there).
     """
     non_events = adjusted.filter(
-        (pl.col(factor_col) == 0)
-        & pl.col("_abnormal_return").is_not_null()
-        & pl.col("_abnormal_return").is_not_nan()
+        (pl.col(factor_col) == 0) & _finite_expr("_abnormal_return")
     )
     if non_events.height < _MIN_BASE_RATE_ROWS:
         return {

@@ -72,6 +72,7 @@ from factrix.metrics._helpers import (
     _enforce_scaled_floor,
     _estimate_within_date_icc,
     _event_sample_threshold,
+    _finite_expr,
     _is_sparse_magnitude_weighted,
     _kp_cluster_scale,
     _kp_deflation_scale,
@@ -293,8 +294,8 @@ def caar(
     """
     # Drop non-finite caar dates up front so every downstream step — the
     # floor check, the spacing pass, the headline mean and the t-test — sees
-    # the same usable sample. polars' drop_nulls does not remove float NaN,
-    # hence the paired drop_nans (project convention for SERIES consumers).
+    # the same usable sample. The shared predicate excludes null, NaN and
+    # infinities, which Polars otherwise treats as ordinary numeric values.
     n_event_periods_full = caar_df.height
     return_scale = (
         str(caar_df["return_scale"][0])
@@ -306,7 +307,7 @@ def caar(
         if caar_df.height and "event_weighting" in caar_df.columns
         else "unspecified"
     )
-    caar_df = caar_df.filter(pl.col("caar").is_not_null() & pl.col("caar").is_not_nan())
+    caar_df = caar_df.filter(_finite_expr("caar"))
     vals = caar_df["caar"]
     n = len(vals)
     # Total underlying events behind the event-period portfolio. compute_caar
@@ -370,7 +371,7 @@ def caar(
         caar_df = caar_df.with_columns(
             (pl.col("date").rank(method="dense") - 1).alias("date_ordinal")
         )
-    # caar_df is already free of null/NaN caar (filtered above), so the
+    # caar_df is already free of non-finite caar (filtered above), so the
     # spacing pass allocates its slots to usable dates only.
     sampled_df = _sample_event_spaced(caar_df, overlap_periods)
     sampled = sampled_df["caar"]
@@ -834,14 +835,10 @@ def bmp_z(
     # AR. Filtering on the vol alone let a null/NaN return_col through: the
     # SAR became NaN, mean/std of SAR became NaN, and _calc_t_stat silently
     # returned z=0, p=1 while n_obs still advertised the full event count.
-    # is_not_nan() is required alongside is_not_null() because polars treats
-    # float NaN as a value, not a null.
-    vol_ok = (
-        pl.col("_est_vol").is_not_null()
-        & pl.col("_est_vol").is_not_nan()
-        & (pl.col("_est_vol") > EPSILON)
-    )
-    ar_ok = pl.col("_signed_ar").is_not_null() & pl.col("_signed_ar").is_not_nan()
+    # The shared predicate also excludes infinities, which Polars treats as
+    # ordinary numeric values.
+    vol_ok = _finite_expr("_est_vol") & (pl.col("_est_vol") > EPSILON)
+    ar_ok = _finite_expr("_signed_ar")
 
     n_dropped_no_vol = events.filter(~vol_ok).height
     # Counted on the vol-ok subset so the two reasons partition the drops

@@ -16,6 +16,7 @@ from factrix._types import DEFAULT_FORWARD_PERIODS, EPSILON
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _attach_abnormal_return,
+    _finite_expr,
     _is_sparse_magnitude_weighted,
     _ragged_event_grid_message,
 )
@@ -158,16 +159,8 @@ def compute_caar(
     # Two reasons an event leaves the sample, kept apart: a hole in the input
     # columns (a data-quality fact) versus an asset with too little history for
     # the estimation-window mean (a sample-design fact).
-    raw_finite = (
-        pl.col(return_col).is_not_null()
-        & pl.col(return_col).is_not_nan()
-        & pl.col(factor_col).is_not_null()
-        & pl.col(factor_col).is_not_nan()
-    )
-    ar_finite = (
-        pl.col("_abnormal_return").is_not_null()
-        & pl.col("_abnormal_return").is_not_nan()
-    )
+    raw_finite = _finite_expr(return_col) & _finite_expr(factor_col)
+    ar_finite = _finite_expr("_abnormal_return")
     n_dropped = events.filter(~raw_finite).height
     n_dropped_no_window = events.filter(raw_finite & ~ar_finite).height
     events = events.filter(raw_finite & ar_finite)
