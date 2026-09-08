@@ -1,4 +1,6 @@
 version: 2
+# Keep `labels` unset: Dependabot creates and applies its managed
+# `dependencies` and ecosystem labels when custom overrides are absent.
 updates:
   - package-ecosystem: github-actions
     directory: /
@@ -10,9 +12,6 @@ updates:
     commit-message:
       prefix: "ci"
       include: scope
-    labels:
-      - dependencies
-      - github-actions
 
   - package-ecosystem: pip
     directory: /
@@ -26,6 +25,3 @@ updates:
     commit-message:
       prefix: "build"
       include: scope
-    labels:
-      - dependencies
-      - python
