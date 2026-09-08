@@ -36,7 +36,7 @@ than repeated throughout the method guide.
 | `NON_OVERLAPPING` mean, including `ic`, `caar`, and spread metrics | 4.5–5.4% on measured overlap nulls | Removes mechanical overlap; does not remove persistence beyond the stride |
 | `predictive_beta`, `h=1` | 4.3–5.5% at regressor persistence `ρ=0`; 6.2–8.3% in the strongest measured Stambaugh cells | Amihud-Hurvich path is characterised at one-period horizons |
 | `predictive_beta`, `h>1` | **7.5–14.5%** | Known oversized overlapping-regression HAC regime |
-| Rank-one `common_*` contrasts | 3.3–8.0% on non-persistent common-factor nulls; 7.3–16.3% on persistent input | Scalar reference fixes the ordinary overlap case; persistence remains a warning regime |
+| Rank-one `common_*` contrasts | 3.3–8.0% on non-persistent common-factor nulls; 10.5–19.5% in the re-measured persistent `N=50, T=60, h=5, φ=0.9` cell (600 draws) | Scalar reference fixes the ordinary overlap case; persistence remains an oversized, incompletely detected warning regime |
 | `spanning_alpha` rank-one contrast | 5.7–11.7% on the measured overlapping-sum spread null | Uses the scalar reference, but the upper measured cells remain mildly oversized |
 | Date-disjoint joint period slice tests | 8–9% analytic and 10–15% bootstrap for `K=5` on 50–90 periods per slice | Known short-slice over-rejection; prefer pairwise contrasts |
 | Date-disjoint pairwise period bootstrap | 4.0–7.0% on the MA(`h-1`) grid; 5.5–6.5% family-wise rejection on iid `K=3,5` panels | Uses overlap-floored blocks and a genuine two-sample bootstrap-t root |
@@ -63,10 +63,19 @@ left the two common-factor metrics 10–34% oversized at `h > 1`. Moving the
 bandwidth, finite-sample scale, and reference together to the scalar recipe
 put every non-persistent common-factor cell at or below 8.0%.
 
-The correction is not a persistence cure. At `T=60, h=5`, a common factor
-with `φ=0.9` still produced 13.0% and 16.3% rejection rates for the two
-metrics. `serial_correlation_detected` identifies that regime. Increasing a
-raw lag override does not repair the reference.
+The correction is not a persistence cure. The persistent cell was re-measured
+at a nominal 5% with one AR(0.9) factor broadcast to 50 assets and forward
+returns formed as independent overlapping `h=5` sums of iid shocks. Over 600
+replications (`seed = 20260907 + rep`), at `T=60` the rejection rates were
+10.5% ± 1.3 percentage points for `common_asymmetry` and 19.5% ± 1.6
+percentage points for `common_quantile_spread`. This is a measured cell, not a
+ceiling for other persistent null constructions.
+
+`serial_correlation_detected` is a partial diagnostic rather than a complete
+classifier for that regime. On the same `N=50, h=5, φ=0.9` construction it
+fired on 57.8% of draws at `T=60` and 79.2% at `T=120`; absence of the warning
+therefore does not establish calibrated inference. Increasing a raw lag
+override does not repair the reference.
 
 ### Shanken correction on `fm_beta`
 

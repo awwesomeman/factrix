@@ -221,11 +221,16 @@ def _resolve_scalar_wald_hac(
     than a lag count.
 
     What it does not fix: a per-period factor that stays persistent *beyond*
-    the overlap horizon. At ``phi = 0.9`` the two metrics still measure
-    13.0% / 16.3% at ``T = 60, h = 5``, converging to 6.0% / 7.7% by
-    ``T = 240``. That regime is flagged
-    (:attr:`~factrix._codes.WarningCode.SERIAL_CORRELATION_DETECTED`)
-    rather than corrected — see ``reference/inference-calibration``.
+    the overlap horizon. Re-measured at a nominal 5% with one AR(0.9) factor
+    broadcast to 50 assets and independent overlapping ``h = 5`` sums of iid
+    return shocks (600 replications, ``seed = 20260907 + rep``), at ``T = 60``
+    ``common_asymmetry`` rejected 10.5% ± 1.3 percentage points and
+    ``common_quantile_spread`` rejected 19.5% ± 1.6 percentage points.
+    :attr:`~factrix._codes.WarningCode.SERIAL_CORRELATION_DETECTED` fired on
+    only 57.8% of those draws, rising to 79.2% at ``T = 120`` on the same
+    ``N = 50, h = 5, phi = 0.9`` construction. The screen is therefore a
+    partial diagnostic, not a bound or a complete classifier — see
+    ``reference/inference-calibration``.
     """
     resolved = _resolve_har_lags(n, lags, overlap_periods)
     remaining = n - resolved - 1
