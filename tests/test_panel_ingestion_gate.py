@@ -63,7 +63,7 @@ class TestDateDtypeContract:
 
 class TestKeyUniqueness:
     def test_duplicate_keys_are_rejected(self):
-        """A duplicate makes the 'next period' the same date's twin."""
+        """A duplicate makes the keyed asset-period observation ambiguous."""
         clean = _panel([100.0, 101.0, 102.0, 103.0])
         dup = pl.concat([clean, clean])
         with pytest.raises(UserInputError, match=r"\(date, asset_id\)"):
@@ -71,8 +71,7 @@ class TestKeyUniqueness:
         with pytest.raises(UserInputError, match=r"\(date, asset_id\)"):
             compute_forward_return(dup, forward_periods=1)
 
-    def test_duplicates_used_to_fabricate_zero_returns(self):
-        """Half the surviving panel was 0.0 returns, silently."""
+    def test_unique_keys_form_unambiguous_return_pairs(self):
         clean = _panel([100.0, 101.0, 102.0, 103.0])
         out = compute_forward_return(clean, forward_periods=1)
         assert 0.0 not in out["forward_return"].to_list()

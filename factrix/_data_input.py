@@ -211,6 +211,32 @@ _DOCS_OVERLAP_PERIODS = "api/evaluate#forward_periods-and-overlap_periods"
 _DOCS_FORWARD_PERIODS = "api/evaluate#forward_periods-and-overlap_periods"
 
 
+def _validate_forward_periods(
+    declared: object,
+    *,
+    func_name: str,
+    docs_path: str = _DOCS_FORWARD_PERIODS,
+) -> int:
+    """Type/range-check a caller-declared return horizon."""
+    if not isinstance(declared, int) or isinstance(declared, bool):
+        raise UserInputError(
+            func_name=func_name,
+            field="forward_periods",
+            value=declared,
+            expected="a positive int count of periods, e.g. 5",
+            docs_path=docs_path,
+        )
+    if declared <= 0:
+        raise UserInputError(
+            func_name=func_name,
+            field="forward_periods",
+            value=declared,
+            expected="a positive int count of periods (> 0)",
+            docs_path=docs_path,
+        )
+    return declared
+
+
 def _validate_overlap_periods(declared: object, *, func_name: str) -> int:
     """Type/range-check a caller-declared evaluation-grid overlap.
 
@@ -254,6 +280,8 @@ def _resolve_forward_periods_from_stamp(
     data's overlap, not a per-metric knob). A declaration that disagrees with
     the stamp is rejected rather than silently resolved.
     """
+    if declared is not None:
+        declared = _validate_forward_periods(declared, func_name=func_name)
     if stamp is not None:
         if declared is not None and declared != stamp:
             raise UserInputError(
@@ -390,17 +418,15 @@ PanelRole = Literal["data", "price_data"]
 
 _DUPLICATE_KEY_EXPECTED: dict[PanelRole, str] = {
     "data": (
-        "one row per (date, asset_id). The forward return shifts by "
-        "row position within an asset, so a duplicate makes the "
-        "'next period' the same date's twin and fabricates a 0.0 "
-        "return. De-duplicate first, e.g. "
+        "one row per (date, asset_id). A duplicate makes that observation "
+        "ambiguous and can fan out keyed joins or double-count an asset in "
+        "downstream statistics. De-duplicate first, e.g. "
         "data.unique(subset=['date', 'asset_id'], keep='first')"
     ),
     "price_data": (
         "one row per (date, asset_id) in price_data. A period holding two "
         "prices leaves the event offset and the excursion walk unable to say "
-        "which one the event entered at, and the duplicate also shifts every "
-        "later period of that asset off the price grid. De-duplicate first, "
+        "which one the event entered at. De-duplicate first, "
         "e.g. price_data.unique(subset=['date', 'asset_id'], keep='first')"
     ),
 }
@@ -490,12 +516,10 @@ def _normalize_panel(
        dangerous — it passes every test and every demo. With ``MM/DD/YYYY`` the
        panel is silently reordered and every forward return is computed against
        the wrong neighbour.
-    2. **``(date, asset_id)`` must be unique.** The forward return is a
-       positional ``shift`` within an asset, so a duplicated row makes the
-       "next period" that same date's twin and manufactures a 0.0 return: a
-       four-row panel concatenated with itself came back half fabricated zeros,
-       with no error and no warning. A duplicated feed is an ordinary ingestion
-       accident, and it biases every downstream mean toward zero.
+    2. **``(date, asset_id)`` must be unique.** A duplicated key makes one
+       asset-period observation ambiguous. It can fan out keyed price lookups
+       while computing returns or double-count the asset in downstream
+       cross-sectional statistics, so no aggregation rule is guessed.
     3. **Non-finite numerics become null.** NaN and ±Inf are structurally
        unrepresentable downstream, which retires the whole class rather than
        patching instances of it — polars ranks NaN as larger than every real
@@ -505,15 +529,15 @@ def _normalize_panel(
 
     ``_finite_expr`` stays in place as defence in depth; it remains correct and
     free once inputs are pre-normalised. Row order is deliberately **not**
-    changed here — the shift-based producers sort themselves, and reordering
+    changed here — time-indexed producers sort themselves, and reordering
     every caller's frame at the gate would be a surprise that buys nothing.
 
     ``role`` names which panel is being normalised. The guards are the
-    same for both, but the *consequence* a duplicate key has is not: the
-    evaluation panel fabricates a forward return, while a price panel
-    leaves the excursion walk unable to say which of two prices the
-    event entered at. A message that states the wrong consequence sends
-    the reader to the wrong column.
+    same for both, but the *consequence* a duplicate key has is not: an
+    evaluation panel can double-count an asset or fan out a keyed return
+    lookup, while a price panel leaves the excursion walk unable to say which
+    of two prices the event entered at. A message that states the wrong
+    consequence sends the reader to the wrong column.
 
     Raises:
         UserInputError: ``date`` is not a temporal dtype, or ``(date,

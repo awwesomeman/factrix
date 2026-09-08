@@ -201,6 +201,19 @@ class TestForwardPeriodsContract:
         assert er.overlap_periods == 5
         assert er.metrics["ic"].metadata["overlap_periods"] == 5
 
+    @pytest.mark.parametrize("bad", [0, -1, True, False, 1.0, "5"])
+    def test_self_attached_panel_rejects_invalid_declaration(self, bad):
+        with pytest.raises(UserInputError) as exc_info:
+            fx.evaluate(
+                _unstamped(),
+                metrics={"ic": ic()},
+                factor_cols=["factor"],
+                forward_periods=bad,
+            )
+
+        assert exc_info.value.func_name == "evaluate"
+        assert exc_info.value.field == "forward_periods"
+
     def test_self_attached_panel_accepts_explicit_overlap(self):
         er = fx.evaluate(
             _unstamped(),

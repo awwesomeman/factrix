@@ -24,8 +24,8 @@ the boundary. Three rules are enforced, and one rewrite is applied:
 | Rule | On violation |
 |---|---|
 | `date` is `Date` or `Datetime` | `UserInputError` — a `String` date sorts lexicographically and silently reorders any non-ISO format; parse it first (`pl.col("date").str.to_date(fmt)`). |
-| `(date, asset_id)` is unique | `UserInputError` — a duplicate makes the "next period" the same date's twin and fabricates a `0.0` forward return. |
-| Per-asset period grids agree | `ragged_period_grid` warning — an asset missing periods pairs `t+1` with `t+1+h` on *its own* grid, so its horizon differs from the others'. |
+| `(date, asset_id)` is unique | `UserInputError` — a duplicate makes one asset-period observation ambiguous and can fan out keyed joins or double-count that asset downstream. |
+| Per-asset period grids agree | `ragged_period_grid` warning — horizons stay on the shared panel grid; an asset missing the required entry or exit period has no return for that pair. |
 | Non-finite float cells | `NaN` and `±inf` in every **float** column are rewritten to `null` (integer, boolean, `Decimal` and string columns are untouched). A `+inf` `price` therefore becomes a gap rather than a fabricated `-100 %` return; a `NaN` factor cell is a missing value like `null`. |
 
 The normalisation is idempotent and cheap (≈0.15 s on 3 M rows), so

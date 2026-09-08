@@ -29,7 +29,7 @@ def _validate_forward_periods(forward_periods: object) -> int:
             func_name="compute_forward_return",
             field="forward_periods",
             value=forward_periods,
-            expected="a positive int row horizon, e.g. 5",
+            expected="a positive int count of panel periods, e.g. 5",
             docs_path=_DOCS_FORWARD_RETURN,
         )
     if forward_periods <= 0:
@@ -37,7 +37,7 @@ def _validate_forward_periods(forward_periods: object) -> int:
             func_name="compute_forward_return",
             field="forward_periods",
             value=forward_periods,
-            expected="a positive int row horizon (> 0)",
+            expected="a positive int count of panel periods (> 0)",
             docs_path=_DOCS_FORWARD_RETURN,
         )
     return forward_periods
@@ -482,8 +482,8 @@ def compute_forward_return(
 
     # One structural gate: temporal ``date``, unique ``(date, asset_id)``, and
     # non-finite numerics blanked to null *before* any arithmetic. A duplicated
-    # key made the "next period" the same date's twin and manufactured a 0.0
-    # return; a +Inf denominator made ``finite / inf = 0`` and manufactured a
+    # key makes the keyed entry/exit price lookup ambiguous and can fan out the
+    # joins; a +Inf denominator made ``finite / inf = 0`` and manufactured a
     # finite -100% return that an output-side is_finite() filter cannot catch.
     data = _normalize_panel(data, func_name="compute_forward_return")
 
