@@ -32,6 +32,7 @@ from factrix._types import (
 )
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
+    _finite_expr,
     _sample_non_overlapping,
     _short_circuit_output,
 )
@@ -64,7 +65,7 @@ def directional_pair_accuracy(
     """Pairwise ordering accuracy for small allocation universes.
 
     For each non-overlapping date, compare every pair of assets with
-    pairwise-complete ``factor_col`` and ``return_col`` values. A pair is
+    finite ``factor_col`` and ``return_col`` values. A pair is
     correct when the asset with the higher factor value also has the higher
     forward return. Factor ties and return ties are excluded from the accuracy
     denominator and counted in metadata.
@@ -107,7 +108,7 @@ def directional_pair_accuracy(
         "asset_id",
         pl.col(factor_col).alias("_factor"),
         pl.col(return_col).alias("_return"),
-    ).filter(pl.col("_factor").is_not_null() & pl.col("_return").is_not_null())
+    ).filter(_finite_expr("_factor") & _finite_expr("_return"))
 
     per_date_accuracy: list[float] = []
     pairs_per_period: list[int] = []
@@ -166,7 +167,7 @@ def directional_pair_accuracy(
             return_tie_pairs=return_tie_pairs,
             both_tie_pairs=both_tie_pairs,
             dropped_pairs=n_raw_pairs - n_usable_pairs,
-            dropped_rows_null=rows_in - paired.height,
+            n_dropped_non_finite=rows_in - paired.height,
         )
 
     warning_codes: list[str] = []
@@ -200,7 +201,7 @@ def directional_pair_accuracy(
         "return_tie_pairs": return_tie_pairs,
         "both_tie_pairs": both_tie_pairs,
         "dropped_pairs": n_raw_pairs - n_usable_pairs,
-        "dropped_rows_null": rows_in - paired.height,
+        "n_dropped_non_finite": rows_in - paired.height,
         "pooled_accuracy": float(pooled_accuracy),
         "mean_per_date_accuracy": mean_per_date_accuracy,
         "mean_pairs_per_period": mean_pairs,

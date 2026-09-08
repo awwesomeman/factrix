@@ -499,7 +499,6 @@ def k_spread(
     _surface_null_drop(
         n_periods_in=series.height,
         n_periods_out=n_strided,
-        drop_reason="null / NaN / infinite value observations in the series",
         metric_name="k_spread",
         metadata=metadata,
         warning_codes=warning_codes,

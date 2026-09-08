@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 
 import polars as pl
 import pytest
+from factrix.metrics._helpers import SERIES_NON_FINITE_DROP_REASON
 from factrix.metrics.positive_rate import positive_rate
 
 
@@ -95,6 +96,4 @@ class TestNonFiniteHandling:
         assert r_dirty.n_obs == r_clean.n_obs == 30
         assert r_dirty.p_value == pytest.approx(r_clean.p_value)
         assert r_dirty.metadata["dropped_periods"] == 12
-        assert r_dirty.metadata["drop_reason"] == (
-            "null / NaN / infinite value observations in the series"
-        )
+        assert r_dirty.metadata["drop_reason"] == SERIES_NON_FINITE_DROP_REASON

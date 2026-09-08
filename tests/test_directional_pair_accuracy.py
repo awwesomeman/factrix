@@ -78,7 +78,7 @@ class TestDirectionalPairAccuracy:
         assert result.metadata["pooled_accuracy"] == pytest.approx(10 / 55)
         assert result.metadata["mean_per_date_accuracy"] == pytest.approx(10 / 11)
 
-    def test_ties_and_nulls_are_excluded_and_counted(self):
+    def test_ties_and_non_finite_rows_are_excluded_and_counted(self):
         data = _panel(
             [
                 [
@@ -100,7 +100,37 @@ class TestDirectionalPairAccuracy:
         assert result.metadata["factor_tie_pairs"] == 1
         assert result.metadata["return_tie_pairs"] == 1
         assert result.metadata["dropped_pairs"] == 2
-        assert result.metadata["dropped_rows_null"] == 1
+        assert result.metadata["n_dropped_non_finite"] == 1
+
+    @pytest.mark.parametrize("column", ["factor", "forward_return"])
+    @pytest.mark.parametrize(
+        "bad",
+        [None, float("nan"), float("inf"), -float("inf")],
+        ids=["null", "nan", "positive-infinity", "negative-infinity"],
+    )
+    def test_non_finite_row_matches_deleted_reference(self, column, bad):
+        data = _panel(
+            [
+                [(1.0, 1.0), (2.0, 2.0), (3.0, 3.0), (4.0, 4.0), (5.0, 5.0)]
+                for _ in range(8)
+            ]
+        )
+        target = (pl.col("date") == date(2024, 1, 1)) & (pl.col("asset_id") == "A0")
+        dirty = data.with_columns(
+            pl.when(target)
+            .then(pl.lit(bad, dtype=pl.Float64))
+            .otherwise(pl.col(column))
+            .alias(column)
+        )
+        reference = data.filter(~target)
+
+        result = directional_pair_accuracy(dirty, overlap_periods=1)
+        expected = directional_pair_accuracy(reference, overlap_periods=1)
+
+        assert result.value == pytest.approx(expected.value)
+        assert result.n_obs == expected.n_obs == 76
+        assert result.metadata["n_dropped_non_finite"] == 1
+        assert expected.metadata["n_dropped_non_finite"] == 0
 
     def test_insufficient_comparable_pairs_short_circuits_on_pairs_axis(self):
         data = _panel([[(1.0, 1.0), (2.0, 2.0)]])

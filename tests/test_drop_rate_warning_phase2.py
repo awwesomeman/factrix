@@ -1,8 +1,8 @@
-"""Aggregate drop-rate warning — Phase 2 (SERIES→SCALAR null-drops).
+"""Aggregate drop-rate warning — Phase 2 (SERIES→SCALAR finite-value drops).
 
 Period-axis SERIES→SCALAR consumers drop null / non-finite observations from
 their value series before collapsing to a scalar, shrinking the effective
-sample. Each now records the same canonical five-key schema (via
+sample. Each records the same canonical five-key schema (via
 ``_surface_null_drop``) into ``MetricResult.metadata`` and emits one aggregate
 ``UserWarning`` + ``WarningCode.EXCESSIVE_PERIOD_DROPS`` when the null-drop rate
 clears ``DROP_RATE_WARN_THRESHOLD``.
@@ -24,7 +24,11 @@ import numpy as np
 import polars as pl
 import pytest
 from factrix._codes import WarningCode
-from factrix.metrics._helpers import DROP_RATE_WARN_THRESHOLD, DROP_STAT_KEYS
+from factrix.metrics._helpers import (
+    DROP_RATE_WARN_THRESHOLD,
+    DROP_STAT_KEYS,
+    SERIES_NON_FINITE_DROP_REASON,
+)
 from factrix.metrics.k_spread import k_spread
 from factrix.metrics.oos_decay import oos_decay
 from factrix.metrics.positive_rate import positive_rate
@@ -85,6 +89,7 @@ class TestICSeriesTools:
         assert EXCESSIVE in result.warning_codes
         assert result.metadata["drop_rate"] > DROP_RATE_WARN_THRESHOLD
         assert set(DROP_STAT_KEYS) <= set(result.metadata)
+        assert result.metadata["drop_reason"] == SERIES_NON_FINITE_DROP_REASON
 
     @pytest.mark.parametrize(
         ("fn", "name"),
@@ -132,7 +137,7 @@ class TestSpreadTools:
             result = quantile_spread(_spread_panel(), overlap_periods=1)["factor"]
         assert EXCESSIVE in result.warning_codes
         assert result.metadata["drop_rate"] == pytest.approx(0.5, abs=0.02)
-        assert "NaN" in result.metadata["drop_reason"]
+        assert result.metadata["drop_reason"] == SERIES_NON_FINITE_DROP_REASON
 
     def test_quantile_spread_vw_records_schema(self):
         # Thin dates leave the top bucket empty. The weighted mean's
@@ -150,7 +155,7 @@ class TestSpreadTools:
             )
         assert set(DROP_STAT_KEYS) <= set(result.metadata)
         assert result.metadata["drop_rate"] == pytest.approx(0.5, abs=0.02)
-        assert "NaN" in result.metadata["drop_reason"]
+        assert result.metadata["drop_reason"] == SERIES_NON_FINITE_DROP_REASON
         # ... and the surviving sample is finite, so the headline is real.
         assert math.isfinite(result.value)
         assert result.n_obs == result.metadata["n_periods_out"]

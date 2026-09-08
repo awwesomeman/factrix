@@ -23,14 +23,14 @@ title: factrix.metrics.directional_pair_accuracy
     the universe has roughly 5-20 names and quantile buckets or fixed-K
     spreads are too lumpy to describe the ordering signal cleanly.
 
--   __Ties and nulls are explicit__
+-   __Ties and non-finite values are explicit__
 
     ---
 
     Factor ties and return ties are excluded from the comparable-pair
-    denominator and counted in metadata. Null factor/return rows are dropped
-    before pair construction. Read `metadata["n_pairs"]`,
-    `factor_tie_pairs`, `return_tie_pairs`, and `dropped_rows_null` before
+    denominator and counted in metadata. Null, NaN, and infinite factor/return
+    rows are dropped before pair construction. Read `metadata["n_pairs"]`,
+    `factor_tie_pairs`, `return_tie_pairs`, and `n_dropped_non_finite` before
     treating the headline accuracy as stable.
 
 -   __Descriptive by design__

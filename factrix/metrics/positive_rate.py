@@ -191,7 +191,6 @@ def positive_rate(
     _surface_null_drop(
         n_periods_in=len(sampled),
         n_periods_out=n,
-        drop_reason="null / NaN / infinite value observations in the series",
         metric_name="positive_rate",
         metadata=metadata,
         warning_codes=warning_codes,

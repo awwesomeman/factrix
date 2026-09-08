@@ -384,7 +384,6 @@ def ic_trend(
     _surface_null_drop(
         n_periods_in=n_raw_in,
         n_periods_out=n_raw,
-        drop_reason="null or non-finite value observations in the series",
         metric_name=name,
         metadata=metadata,
         warning_codes=warning_codes,
