@@ -363,8 +363,10 @@ Pesaran-Timmermann `z` statistic (`stat_type="z"`), tested one-sided.
 - *descriptive* (conditional, adjustment applied): `stat_uncorrected`
   (the raw `S_n` before the cross-sectional-correlation deflation).
 - *degenerate*: one-signed predictions or realisations that collapse the
-  Pesaran-Timmermann variance return `value=NaN` with
-  `WarningCode.DEGENERATE_VARIANCE` and no test.
+  Pesaran-Timmermann variance keep the descriptive hit rate in `value`, set
+  `stat=None` / `p_value=None`, and report
+  `WarningCode.DEGENERATE_VARIANCE`. `inspect_data()` classifies a visibly
+  one-sided factor as degraded under the same advisory contract.
 
 ### `directional_pair_accuracy` (`factrix.metrics.directional_pair_accuracy`)
 

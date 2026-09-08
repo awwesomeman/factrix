@@ -114,7 +114,7 @@ Min sample*. `MIN_*` constants resolve to values in the
 | [`common_beta_profile`][factrix.metrics.common_beta.common_beta_profile] | surviving `n_assets` | `n_assets >= 1` after `compute_common_betas` filters |
 | [`common_beta_r_squared`][factrix.metrics.common_beta.common_beta_r_squared] | surviving `n_assets` | `n_assets >= 1` after `compute_common_betas` filters |
 | [`common_beta_sign_consistency`][factrix.metrics.common_beta.common_beta_sign_consistency] | surviving `n_assets` | `n_assets >= 2` after `compute_common_betas` filters |
-| [`common_quantile_spread`][factrix.metrics.common_quantile.common_quantile_spread] | `T` | `T ≥ MIN_PORTFOLIO_PERIODS_HARD`; factor `n_unique ≥ n_groups × 2` |
+| [`common_quantile_spread`][factrix.metrics.common_quantile.common_quantile_spread] | `T` | `T ≥ MIN_PORTFOLIO_PERIODS_HARD`; factor `n_unique ≥ n_groups × 2` (both applied by pre-flight) |
 | [`common_asymmetry`][factrix.metrics.common_asymmetry.common_asymmetry] | `T` | factor has both signs; each side `n_unique ≥ 2` for method B |
 
 ### Single-asset dense — Cell: Timeseries × Continuous
@@ -142,7 +142,7 @@ Min sample*. `MIN_*` constants resolve to values in the
 
 | Metric | Sample axis | Min sample |
 |---|---|---|
-| [`directional_hit_rate`][factrix.metrics.directional_hit_rate.directional_hit_rate] | pooled `(date, asset)` signs | non-overlapping obs `≥ MIN_DIRECTIONAL_PAIRS_HARD`; warn if below `MIN_DIRECTIONAL_PAIRS_WARN` ; a one-sided `sign(factor)` is usable with a `degenerate_variance` advisory — the hit rate is kept, the PT test withheld |
+| [`directional_hit_rate`][factrix.metrics.directional_hit_rate.directional_hit_rate] | pooled `(date, asset)` signs | non-overlapping obs `≥ MIN_DIRECTIONAL_PAIRS_HARD`; warn if below `MIN_DIRECTIONAL_PAIRS_WARN`; a one-sided `sign(factor)` is usable with a `degenerate_variance` advisory — the hit rate is kept, the PT test withheld |
 
 ## Sample-size constants
 [](){ #sample-size-constants }

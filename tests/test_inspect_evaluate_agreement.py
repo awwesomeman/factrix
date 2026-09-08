@@ -2,9 +2,10 @@
 
 ``inspect_data`` sells a per-metric usability verdict; ``evaluate`` then
 either produces a value or refuses. The two read the same
-:class:`~factrix._metric_index.SampleThreshold`, so a disagreement is a bug
-in one of them — and a silent one, because a caller who pre-filters on
-``inspect_data(...).usable`` never sees the metric fail.
+:class:`~factrix._metric_index.SampleThreshold` and pre-flightable content
+gates, so a disagreement is a bug in one of them — and a silent one, because
+a caller who pre-filters on ``inspect_data(...).usable`` never sees the metric
+fail.
 
 The sweep is deliberately shape-driven: small universes (N as low as 5) are
 the regime where the equity-calibrated defaults break, and short windows
@@ -58,24 +59,6 @@ _NO_DEFAULT_INSTANCE = frozenset({"breakeven_cost", "net_spread"})
 # not mistaken for an untested metric.
 _PROJECTION_GAP = frozenset({"quantile_spread_vw"})
 
-# The zero-variance COMMON shape exists specifically to exercise the
-# producer-survivor bridge fixed in #1074, so the sweep runs on the metrics
-# whose upstream asset survival is that bridge. Two other metrics disagree on
-# this shape for reasons outside SampleThreshold, and both are filed rather
-# than accepted: common_quantile_spread is pre-flighted usable but refused at
-# run time as insufficient_factor_variation (#1115), and directional_hit_rate
-# is pre-flighted unusable but runs (#1116). Measured on this branch with the
-# narrowing below removed: 60/60 zero-variance cells fail, and those two are
-# the only disagreeing metrics. Re-widen this set when #1115 and #1116 close.
-_COMMON_BETA_CONSUMERS = frozenset(
-    {
-        "common_beta",
-        "common_beta_profile",
-        "common_beta_r_squared",
-        "common_beta_sign_consistency",
-    }
-)
-
 
 def _panel(
     n_assets: int,
@@ -106,19 +89,17 @@ def _shapes() -> list[tuple[int, int, int]]:
     return [(n, t, h) for n in _N_ASSETS for t in _N_PERIODS for h in _HORIZONS]
 
 
-def _metric_names(factor_shape: _FactorShape) -> list[str]:
+def _metric_names(_factor_shape: _FactorShape) -> list[str]:
     """Return the metrics belonging to this sample-shape invariant.
 
     Public ``role=METRIC`` specs are what ``inspect_data`` verdicts and
     ``evaluate`` accepts directly (PIPELINE producers are pulled via
-    ``requires=`` and cannot be evaluated on their own). The zero-variance
-    COMMON regression narrows that set to the consumers whose upstream asset
-    survival is the sample shape under test.
+    ``requires=`` and cannot be evaluated on their own). Every factor shape
+    uses that full inventory: the zero-variance COMMON cells cover both the
+    producer-survivor sample gate and the content contracts aligned in #1115
+    and #1116.
     """
-    names = {spec.name for _, spec in public_specs()} - _NO_DEFAULT_INSTANCE
-    if factor_shape == "common_zero_variance":
-        names &= _COMMON_BETA_CONSUMERS
-    return sorted(names)
+    return sorted({spec.name for _, spec in public_specs()} - _NO_DEFAULT_INSTANCE)
 
 
 def _run(panel: pl.DataFrame, name: str, *, strict: bool):
@@ -142,10 +123,9 @@ def _verdicts(panel: pl.DataFrame) -> dict[str, bool]:
 def _is_out_of_scope(reason: object) -> bool:
     """True for a short-circuit outside what ``SampleThreshold`` models.
 
-    Pre-flight is a **shape** gate. A ``no_*`` reason (missing input column or
-    config) is a schema gate and a ``not_applicable*`` reason is the
-    type-routing verdict; neither is a sample-size claim, so neither can
-    disagree with a sample-size verdict.
+    A ``no_*`` reason (missing input column or config) is a schema gate and a
+    ``not_applicable*`` reason is the type-routing verdict; neither belongs to
+    the shared sample/content contract exercised here.
     """
     return isinstance(reason, str) and reason.startswith(("no_", "not_applicable"))
 
