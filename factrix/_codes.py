@@ -514,8 +514,12 @@ _WARNING_DESCRIPTIONS.update(
         "switching inference member does not fix it. The single-restriction "
         "regression contrasts (common_asymmetry, common_quantile_spread) run "
         "the same screen on their per-period FACTOR: their HAC reference is "
-        "calibrated on a non-persistent common factor (3.3-8.0% across T x h) "
-        "and measures 13.0-16.3% on an AR(0.9) one at T=60, h=5.",
+        "calibrated on a non-persistent common factor (3.3-8.0% across T x h). "
+        "Under the documented AR(0.9), N=50, T=60, h=5 null, 600 draws "
+        "measured 10.5% +/- 1.3 percentage points for common_asymmetry and "
+        "19.5% +/- 1.6 percentage points for common_quantile_spread. These "
+        "are per-metric measured cells, not ceilings; see "
+        "reference/inference-calibration.",
         WarningCode.FEW_ASSETS: "Cross-section asset count is below the "
         "relevant WARN floor (panel-wide MIN_ASSETS_WARN=30, per-period "
         "MIN_IC_ASSETS_WARN=10, or per-period MIN_FM_ASSETS_WARN=10). The "
