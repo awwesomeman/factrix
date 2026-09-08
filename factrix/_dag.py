@@ -407,6 +407,7 @@ class DagExecutor:
                 out = metric_outputs[key]
                 outputs[label] = out
                 reason = out.metadata.get("reason")
+                short_circuit_code: WarningCode | None = None
                 if isinstance(reason, str) and math.isnan(out.value):
                     # A genuine upstream-propagated skip carries
                     # reason=="upstream_unavailable" (set by
@@ -433,6 +434,12 @@ class DagExecutor:
                     )
                 for code in out.warning_codes:
                     warning_code = WarningCode(code)
+                    if warning_code is short_circuit_code:
+                        # The detailed short-circuit record above already
+                        # carries the same code plus the actionable reason.
+                        # Do not add a second generic-description record for
+                        # the same unavailable metric.
+                        continue
                     warnings.append(
                         Warning(
                             code=warning_code,

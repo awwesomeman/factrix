@@ -46,7 +46,12 @@ from typing import TYPE_CHECKING, Any
 import polars as pl
 
 from factrix._axis import DataStructure, FactorDensity, FactorScope, InputShape, Tier
-from factrix._codes import WarningCode, cross_section_tier
+from factrix._codes import (
+    WarningCode,
+    _emit_warning,
+    _validate_expected_warnings_arg,
+    cross_section_tier,
+)
 from factrix._data_input import _STAMP_COLUMNS, _coerce_data
 from factrix._metric_index import MetricSpec, public_specs
 from factrix._results import Warning
@@ -506,6 +511,7 @@ class _MetricPartitionView:
                             "code": w.code.value,
                             "source": w.source,
                             "message": w.message,
+                            "expected": w.expected,
                         }
                         for w in m.warnings
                     ],
@@ -518,6 +524,7 @@ class _MetricPartitionView:
                     "code": w.code.value,
                     "source": w.source,
                     "message": w.message,
+                    "expected": w.expected,
                 }
                 for w in self.warnings
             ],
@@ -621,7 +628,8 @@ class DataInspection(_MetricPartitionView):
         - ``metrics``: list of per-spec dicts
           ``{name, cell, usable, warnings, blockers}`` — same row
           shape suits ``pl.from_dicts`` for cross-data audit.
-        - ``warnings``: data-level ``[{code, source, message}, ...]``.
+        - ``warnings``: data-level
+          ``[{code, source, message, expected}, ...]``.
         - ``factors``: ``{column name: FactorInspection.to_dict()}`` in
           inspected order — the same four keys per column, plus ``factor``.
           ``factors[<first column>]`` restates the four keys above.
@@ -686,13 +694,14 @@ class DataInspection(_MetricPartitionView):
         if self.warnings:
             w_rows = "".join(
                 f"<tr><td>{html.escape(w.code.value)}</td>"
+                f"<td>{'yes' if w.expected else ''}</td>"
                 f"<td>{html.escape(w.message)}</td></tr>"
                 for w in self.warnings
             )
             warnings_block = (
                 "<details open><summary>data-level warnings "
                 f"({len(self.warnings)})</summary>"
-                "<table><thead><tr><th>code</th><th>message</th>"
+                "<table><thead><tr><th>code</th><th>expected</th><th>message</th>"
                 "</tr></thead>"
                 f"<tbody>{w_rows}</tbody></table></details>"
             )
@@ -729,7 +738,61 @@ class DataInspection(_MetricPartitionView):
         )
 
 
-def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataInspection:
+def _surface_inspection_warning(
+    warning: Warning,
+    *,
+    fallback_label: str,
+    expected_warnings: tuple[str, ...],
+) -> Warning:
+    """Echo one pre-flight record and stamp the caller's declaration."""
+    _emit_warning(
+        warning.code,
+        warning.message,
+        label=warning.source or fallback_label,
+        expected_warnings=expected_warnings,
+        stacklevel=4,
+    )
+    return replace(
+        warning,
+        expected=warning.code.value in expected_warnings,
+    )
+
+
+def _surface_factor_inspection(
+    inspection: FactorInspection, *, expected_warnings: tuple[str, ...]
+) -> FactorInspection:
+    """Surface and mark every data- and metric-level warning for one factor."""
+    data_warnings = [
+        _surface_inspection_warning(
+            warning,
+            fallback_label=f"inspect_data[{inspection.factor}]",
+            expected_warnings=expected_warnings,
+        )
+        for warning in inspection.warnings
+    ]
+    metrics = [
+        replace(
+            metric,
+            warnings=[
+                _surface_inspection_warning(
+                    warning,
+                    fallback_label=metric.name,
+                    expected_warnings=expected_warnings,
+                )
+                for warning in metric.warnings
+            ],
+        )
+        for metric in inspection.metrics
+    ]
+    return replace(inspection, metrics=metrics, warnings=data_warnings)
+
+
+def inspect_data(
+    data: Any,
+    factor_cols: Sequence[str] | None = None,
+    *,
+    expected_warnings: tuple[str, ...] = (),
+) -> DataInspection:
     """Inspect data and return typed dispatch-axis + per-metric verdict.
 
     Pre-flight introspection: typed detection plus, for every
@@ -801,6 +864,9 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
         factor_cols: Optional list of factor columns to check. When
             ``None`` (default), auto-detects all columns except the
             reserved columns as factor candidates.
+        expected_warnings: :class:`~factrix.WarningCode` values declaring
+            known pre-flight regimes. Matching records remain present with
+            ``expected=True``; only their ``UserWarning`` echoes stop.
 
     Returns:
         :class:`DataInspection`.
@@ -824,6 +890,11 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
         >>> "ic" in info.factors["macro"].unusable.names
         True
     """
+    expected = _validate_expected_warnings_arg(
+        expected_warnings,
+        func_name="inspect_data",
+        docs_path="api/inspect-data#factrix.inspect_data",
+    )
     if isinstance(factor_cols, str):
         raise TypeError(
             f"factor_cols must be a list of column names, not a str; "
@@ -859,21 +930,31 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
     # aggregate view (properties / metrics / the tier partitions) is the first
     # column's, which is the whole panel for single-factor input.
     factors = {
-        col: _inspect_factor(
-            data,
-            col,
-            structure=structure,
-            structure_reason=structure_reason,
-            n_assets=n_assets,
-            n_periods=n_periods,
-            available_columns=available_columns,
+        col: _surface_factor_inspection(
+            _inspect_factor(
+                data,
+                col,
+                structure=structure,
+                structure_reason=structure_reason,
+                n_assets=n_assets,
+                n_periods=n_periods,
+                available_columns=available_columns,
+            ),
+            expected_warnings=expected,
         )
         for col in cols
     }
     first = factors[first_col]
 
     data_warnings = list(first.warnings)
-    data_warnings.extend(_cross_factor_warnings(factors, first_col=first_col))
+    data_warnings.extend(
+        _surface_inspection_warning(
+            warning,
+            fallback_label="inspect_data",
+            expected_warnings=expected,
+        )
+        for warning in _cross_factor_warnings(factors, first_col=first_col)
+    )
 
     return DataInspection(
         properties=first.properties,

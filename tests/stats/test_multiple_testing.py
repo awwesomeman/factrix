@@ -507,6 +507,21 @@ class TestRomanoWolfResampleGuards:
             out = romano_wolf_adjusted_p([5.0, 0.1], [[0.0, 0.0]])
         assert out.tolist() == [0.5, 0.5]
 
+    def test_resolution_warning_is_coded_and_declarable(self):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            romano_wolf_adjusted_p([5.0, 0.1], [[0.0, 0.0]])
+        assert len(caught) == 1
+        assert "(romano_wolf_few_resamples;" in str(caught[0].message)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            romano_wolf_adjusted_p(
+                [5.0, 0.1],
+                [[0.0, 0.0]],
+                expected_warnings=("romano_wolf_few_resamples",),
+            )
+
     def test_silent_at_a_usable_resample_count(self):
         rng = np.random.default_rng(0)
         with warnings.catch_warnings():
@@ -523,6 +538,23 @@ class TestRomanoWolfResampleGuards:
                 [2.5, 1.0, 0.2], rng.standard_normal((999, 3)) + 3.0
             )
         assert (out > 0.9).all()
+
+    def test_uncentred_warning_is_coded_and_declarable(self):
+        rng = np.random.default_rng(0)
+        bootstrap = rng.standard_normal((999, 3)) + 3.0
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            romano_wolf_adjusted_p([2.5, 1.0, 0.2], bootstrap)
+        assert len(caught) == 1
+        assert "(romano_wolf_uncentred_bootstrap;" in str(caught[0].message)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            romano_wolf_adjusted_p(
+                [2.5, 1.0, 0.2],
+                bootstrap,
+                expected_warnings=("romano_wolf_uncentred_bootstrap",),
+            )
 
     def test_still_rejects_an_empty_bootstrap(self):
         with pytest.raises(ValueError, match="at least 1 resample"):

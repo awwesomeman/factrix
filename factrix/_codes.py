@@ -149,6 +149,18 @@ class WarningCode(StrEnum):
     # make it severely oversized, so the estimator switch must be visible.
     COMMON_BETA_IID_FALLBACK = "common_beta_iid_fallback"
 
+    # Fired by ``romano_wolf_adjusted_p`` when the caller-supplied joint
+    # bootstrap looks materially off-centre relative to its columnwise
+    # dispersion. Romano-Wolf requires a null-centred bootstrap; centring is
+    # the caller's job and cannot be repaired from the adjusted p-values.
+    ROMANO_WOLF_UNCENTRED_BOOTSTRAP = "romano_wolf_uncentred_bootstrap"
+
+    # Fired by ``romano_wolf_adjusted_p`` when the joint bootstrap contains
+    # fewer than 99 resamples. The procedure remains well-defined for small
+    # deterministic reference examples, but its 1 / (B + 1) p-value grid has
+    # too little resolution for ordinary inference.
+    ROMANO_WOLF_FEW_RESAMPLES = "romano_wolf_few_resamples"
+
     # Fired by ``bmp_z`` when no ``price`` column is present and the
     # estimation-window volatility falls back to the per-asset rolling std of
     # ``forward_return``. Because forward_return[t] looks ahead to [t+1, t+1+h],
@@ -608,6 +620,17 @@ _WARNING_DESCRIPTIONS.update(
         "Betas with a shared residual component are not independent draws; "
         "use compute_common_betas(panel) for the calibrated calendar-time SE "
         "or treat this p-value as an unadjusted reference.",
+        WarningCode.ROMANO_WOLF_UNCENTRED_BOOTSTRAP: "romano_wolf_adjusted_p "
+        "received bootstrap-statistic columns whose absolute mean exceeds "
+        "one columnwise standard deviation. Romano-Wolf requires joint null-"
+        "centred, consistently studentized draws; centring is the caller's "
+        "job, and adjusted p-values from an uncentred reference distribution "
+        "cannot be repaired after the fact.",
+        WarningCode.ROMANO_WOLF_FEW_RESAMPLES: "romano_wolf_adjusted_p received "
+        "fewer than 99 joint bootstrap resamples. The algorithm remains "
+        "defined for deterministic reference checks, but the empirical "
+        "p-value grid has resolution 1 / (B + 1); use at least 999 resamples "
+        "for ordinary two-sided 5% work.",
         WarningCode.BMP_RETURN_VOL_FALLBACK: "bmp_z ran without a price column: the "
         "estimation-window volatility falls back to the per-asset rolling std of "
         "forward_return, lagged by overlap_periods so it ends before the event's "

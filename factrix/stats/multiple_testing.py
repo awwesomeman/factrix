@@ -51,12 +51,16 @@ References:
 from __future__ import annotations
 
 import functools
-import warnings
 from numbers import Integral
 
 import numpy as np
 import numpy.typing as npt
 
+from factrix._codes import (
+    WarningCode,
+    _emit_warning,
+    _validate_expected_warnings_arg,
+)
 from factrix._errors import UserInputError
 
 
@@ -331,12 +335,14 @@ _MIN_ROMANO_WOLF_RESAMPLES: int = 99
 #: The threshold is a heuristic, not a test with a size: one sample sd of
 #: off-centring is well beyond anything a correctly centred null bootstrap
 #: produces, but a legitimately skewed null distribution can sit above it and
-#: an offset of just under 1 sd slips through. It fires a ``warnings.warn``
+#: an offset of just under 1 sd slips through. The advisory is emitted
 #: only — nothing downstream branches on it.
 _UNCENTRED_BOOTSTRAP_RATIO: float = 1.0
 
 
-def _warn_if_uncentred(bootstrap: np.ndarray) -> None:
+def _warn_if_uncentred(
+    bootstrap: np.ndarray, *, expected_warnings: tuple[str, ...]
+) -> None:
     """Warn when the bootstrap columns are far from centred under the null."""
     if bootstrap.shape[0] < 2:
         return
@@ -347,14 +353,16 @@ def _warn_if_uncentred(bootstrap: np.ndarray) -> None:
         np.isfinite(ratio) & (ratio > _UNCENTRED_BOOTSTRAP_RATIO)
     )
     if offenders.size:
-        warnings.warn(
-            f"romano_wolf_adjusted_p: bootstrap_statistics columns "
-            f"{offenders.tolist()} have |mean| / sd above "
-            f"{_UNCENTRED_BOOTSTRAP_RATIO}, which usually means they were not "
-            f"centred under the null. Centring is the caller's job (see this "
-            f"function's docstring); an uncentred bootstrap yields adjusted "
-            f"p-values that are not recoverable from the output.",
-            UserWarning,
+        _emit_warning(
+            WarningCode.ROMANO_WOLF_UNCENTRED_BOOTSTRAP,
+            f"bootstrap_statistics columns {offenders.tolist()} have "
+            f"|mean| / sd above {_UNCENTRED_BOOTSTRAP_RATIO}, which usually "
+            f"means they were not centred under the null. Centring is the "
+            f"caller's job (see this function's docstring); an uncentred "
+            f"bootstrap yields adjusted p-values that are not recoverable "
+            f"from the output.",
+            label="romano_wolf_adjusted_p",
+            expected_warnings=expected_warnings,
             stacklevel=3,
         )
 
@@ -364,6 +372,7 @@ def romano_wolf_adjusted_p(
     bootstrap_statistics: npt.ArrayLike,
     *,
     one_sided: bool = False,
+    expected_warnings: tuple[str, ...] = (),
 ) -> np.ndarray:
     """[Romano-Wolf (2005)][romano-wolf-2005] step-down max-t adjusted p-values.
 
@@ -393,6 +402,9 @@ def romano_wolf_adjusted_p(
             ``statistics``.
         one_sided: ``True`` for the positive-tail alternative or ``False``
             (default) for a two-sided absolute-value test.
+        expected_warnings: :class:`~factrix.WarningCode` values declaring a
+            known bootstrap regime. Declared advisories remain method facts;
+            only their ``UserWarning`` echo is suppressed.
 
     Returns:
         Adjusted p-values in input order as a NumPy array, each in ``[0, 1]``.
@@ -405,6 +417,11 @@ def romano_wolf_adjusted_p(
           of Adjusted P-Values for Resampling-Based Stepdown Multiple
           Testing." Statistics & Probability Letters, 113, 38-40.
     """
+    expected = _validate_expected_warnings_arg(
+        expected_warnings,
+        func_name="romano_wolf_adjusted_p",
+        docs_path=_stats_docs_path("romano_wolf_adjusted_p"),
+    )
     if not isinstance(one_sided, bool):
         raise UserInputError(
             func_name="romano_wolf_adjusted_p",
@@ -465,17 +482,19 @@ def romano_wolf_adjusted_p(
         # right input for a deterministic step-down reference check, and the
         # procedure is still well defined. It just has no usable resolution
         # for real work.
-        warnings.warn(
-            f"romano_wolf_adjusted_p: B={bootstrap.shape[0]} resamples is "
+        _emit_warning(
+            WarningCode.ROMANO_WOLF_FEW_RESAMPLES,
+            f"B={bootstrap.shape[0]} resamples is "
             f"below {_MIN_ROMANO_WOLF_RESAMPLES}. The adjusted p has "
             f"resolution 1/(B+1), so every hypothesis lands on the same "
             f"handful of values - at B=1, statistics [5.0, 0.1] both adjust "
             f"to 0.5. Politis-White (2004) recommend >= 999 for two-sided 5% "
             f"work.",
-            UserWarning,
+            label="romano_wolf_adjusted_p",
+            expected_warnings=expected,
             stacklevel=2,
         )
-    _warn_if_uncentred(bootstrap)
+    _warn_if_uncentred(bootstrap, expected_warnings=expected)
 
     if one_sided:
         observed_use = observed

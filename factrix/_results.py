@@ -187,7 +187,9 @@ class Warning:
             bundle-level diagnostics.
         message: Human-readable detail.
         expected: ``True`` when the caller declared this code as the
-            study's design via ``evaluate(..., expected_warnings=(...,))``.
+            study's design via ``evaluate(..., expected_warnings=(...,))`` or
+            the pre-flight design via ``inspect_data(...,
+            expected_warnings=(...,))``.
             The record is never dropped — the flag says "acknowledged",
             not "absent" — so human-facing channels (stderr echo, repr
             emphasis) can go quiet while the audit trail stays complete.

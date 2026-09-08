@@ -74,7 +74,11 @@ from factrix._axis import (  # DataStructure used by the structure pre-flight; r
     InputShape,
     Tier,
 )
-from factrix._codes import WarningCode, _validate_expected_warnings_arg
+from factrix._codes import (
+    WarningCode,
+    _emit_warning,
+    _validate_expected_warnings_arg,
+)
 from factrix._compare import compare
 from factrix._dag import CycleError, DagExecutor, _Node
 from factrix._data_input import (
@@ -985,6 +989,17 @@ def _enforce_strict(label_outputs: "dict[str, MetricResult]") -> None:
         )
 
 
+_ASSEMBLY_ECHO_CODES = frozenset(
+    {
+        WarningCode.METRIC_UNAVAILABLE,
+        WarningCode.UPSTREAM_UNAVAILABLE,
+        WarningCode.STRUCTURE_MISMATCH,
+        WarningCode.FREQUENT_EVENT_SIGNAL,
+    }
+)
+"""Warnings created while assembling an evaluation, not inside a metric."""
+
+
 def _relabel_result(
     result: EvaluationResult,
     label_to_node: dict[str, str],
@@ -1041,6 +1056,15 @@ def _relabel_result(
     ]
     warnings.extend(mismatch_warnings)
     warnings.extend(compatibility_warnings)
+    for warning in warnings:
+        if warning.code in _ASSEMBLY_ECHO_CODES:
+            _emit_warning(
+                warning.code,
+                warning.message,
+                label=warning.source or "evaluate",
+                expected_warnings=expected_warnings,
+                stacklevel=3,
+            )
     if expected_warnings:
         warnings = [
             _dataclasses.replace(w, expected=True)

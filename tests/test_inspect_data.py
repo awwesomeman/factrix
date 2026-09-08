@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import math
+import warnings
 
 import factrix as fx
 import polars as pl
+import pytest
 from factrix._inspect import (
     DataInspection,
     DataProperties,
@@ -585,6 +587,39 @@ class TestTierPartition:
 
 
 class TestDataLevelWarnings:
+    def test_preflight_warnings_echo_and_can_be_declared(self):
+        panel = fx.datasets.make_cs_panel(n_assets=5, n_dates=25)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", UserWarning)
+            plain = inspect_data(panel)
+
+        records = [
+            *plain.warnings,
+            *(warning for metric in plain.metrics for warning in metric.warnings),
+        ]
+        assert records
+        messages = [str(warning.message) for warning in caught]
+        for code in {warning.code.value for warning in records}:
+            assert any(f"({code};" in message for message in messages), code
+
+        declared = tuple(code.value for code in fx.WarningCode)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            quiet = inspect_data(panel, expected_warnings=declared)
+        quiet_records = [
+            *quiet.warnings,
+            *(warning for metric in quiet.metrics for warning in metric.warnings),
+        ]
+        assert quiet_records
+        assert all(warning.expected for warning in quiet_records)
+
+    def test_expected_warnings_rejects_an_unknown_code(self):
+        with pytest.raises(ValueError, match="expected_warnings"):
+            inspect_data(
+                fx.datasets.make_cs_panel(n_assets=5, n_dates=25),
+                expected_warnings=("few_asset",),
+            )
+
     def test_thin_data_short_n_periods_emits_data_warning(self):
         info = inspect_data(_single_asset_data(n_dates=25))
         codes = [w.code.value for w in info.warnings]

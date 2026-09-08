@@ -119,6 +119,9 @@ every metric — marks a code as the study's design. Marked, never dropped: the
 `Warning` record stays on the result with `expected=True`, and only the echo
 stops.
 
+`inspect_data(..., expected_warnings=(...))` uses the same declaration for
+pre-flight data-level and per-metric advisories.
+
 ```python
 from factrix.metrics import quantile_spread
 
@@ -130,9 +133,26 @@ results = fx.evaluate(
 )
 ```
 
-Codes attached alongside a NaN short-circuit (`metric_unavailable`,
-`upstream_unavailable`) are records only: the metric did not run, the reason
-is in `MetricResult.metadata["reason"]`, and the result's repr carries it.
+Codes assembled after execution (`metric_unavailable`, `upstream_unavailable`,
+`structure_mismatch`, and `frequent_event_signal`) follow the same rule: the
+record stays on the result and an undeclared code is echoed. For unavailable
+metrics, the specific cause remains in `MetricResult.metadata["reason"]`.
+
+### Deliberate non-`WarningCode` diagnostics
+
+`expected_warnings` covers structured, result-bearing `UserWarning`
+advisories. Two deliberately different diagnostics remain outside it:
+
+* `greedy_forward_selection` always warns that post-selection t-statistics are
+  invalid. This is an unconditional method caveat on a descriptive helper,
+  not a detected result regime; its dedicated
+  `suppress_snooping_warning=True` keyword is the explicit acknowledgement.
+* The `RuntimeWarning` messages from `multi_factor` describe how a whole
+  multiple-testing family was constructed (singleton buckets, heterogeneous
+  condition counts, or mixed horizons). Those functions return family-level
+  correction objects rather than an `EvaluationResult` that could own a
+  `Warning` record. Resolve the family design; if it is intentional, use
+  Python's standard `warnings` filtering for that call.
 
 ---
 
