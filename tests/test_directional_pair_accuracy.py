@@ -115,9 +115,7 @@ class TestDirectionalPairAccuracy:
                 for _ in range(8)
             ]
         )
-        target = (pl.col("date") == date(2024, 1, 1)) & (
-            pl.col("asset_id") == "A0"
-        )
+        target = (pl.col("date") == date(2024, 1, 1)) & (pl.col("asset_id") == "A0")
         dirty = data.with_columns(
             pl.when(target)
             .then(pl.lit(bad, dtype=pl.Float64))
