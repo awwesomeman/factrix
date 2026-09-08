@@ -38,9 +38,7 @@ _N_ASSETS = (5, 8, 12, 20, 40)
 _N_PERIODS = (60, 120, 240)
 _HORIZONS = (1, 5)
 
-_FactorShape = Literal[
-    "individual", "common_time_varying", "common_zero_variance"
-]
+_FactorShape = Literal["individual", "common_time_varying", "common_zero_variance"]
 _FACTOR_SHAPES: tuple[_FactorShape, ...] = (
     "individual",
     "common_time_varying",
@@ -59,6 +57,21 @@ _NO_DEFAULT_INSTANCE = frozenset({"breakeven_cost", "net_spread"})
 # already excluded by the ``no_*`` rule below; named here so the exclusion is
 # not mistaken for an untested metric.
 _PROJECTION_GAP = frozenset({"quantile_spread_vw"})
+
+# The zero-variance COMMON shape exists specifically to exercise the
+# producer-survivor bridge fixed in #1074. Other metrics have data-content
+# contracts outside SampleThreshold: common_quantile_spread requires enough
+# distinct historical values, while directional_hit_rate keeps a point
+# estimate but withholds its test on a one-sided signal. Sweeping those here
+# would turn this sample-shape invariant into a different contract.
+_COMMON_BETA_CONSUMERS = frozenset(
+    {
+        "common_beta",
+        "common_beta_profile",
+        "common_beta_r_squared",
+        "common_beta_sign_consistency",
+    }
+)
 
 
 def _panel(
@@ -90,11 +103,19 @@ def _shapes() -> list[tuple[int, int, int]]:
     return [(n, t, h) for n in _N_ASSETS for t in _N_PERIODS for h in _HORIZONS]
 
 
-def _metric_names() -> list[str]:
-    """Public ``role=METRIC`` specs — the ones ``inspect_data`` verdicts and
+def _metric_names(factor_shape: _FactorShape) -> list[str]:
+    """Return the metrics belonging to this sample-shape invariant.
+
+    Public ``role=METRIC`` specs are what ``inspect_data`` verdicts and
     ``evaluate`` accepts directly (PIPELINE producers are pulled via
-    ``requires=`` and cannot be evaluated on their own)."""
-    return sorted({spec.name for _, spec in public_specs()} - _NO_DEFAULT_INSTANCE)
+    ``requires=`` and cannot be evaluated on their own). The zero-variance
+    COMMON regression narrows that set to the consumers whose upstream asset
+    survival is the sample shape under test.
+    """
+    names = {spec.name for _, spec in public_specs()} - _NO_DEFAULT_INSTANCE
+    if factor_shape == "common_zero_variance":
+        names &= _COMMON_BETA_CONSUMERS
+    return sorted(names)
 
 
 def _run(panel: pl.DataFrame, name: str, *, strict: bool):
@@ -138,7 +159,7 @@ def test_inspect_verdict_matches_evaluate_outcome(
     usable = _verdicts(panel)
 
     disagreements: list[str] = []
-    for name in _metric_names():
+    for name in _metric_names(factor_shape):
         if name not in usable:
             continue  # not a public METRIC spec (pipeline producer)
         try:
@@ -175,7 +196,7 @@ def test_strict_raises_exactly_when_inspect_says_unusable(
     legal_axes = {"periods", "assets", "events", "pairs", "asset_pairs"}
 
     disagreements: list[str] = []
-    for name in _metric_names():
+    for name in _metric_names(factor_shape):
         if name not in usable:
             continue
         raised: str | None = None
@@ -297,7 +318,7 @@ def test_no_silent_nan_and_p_value_is_never_a_sentinel(
        that never ran as a clean result.
     """
     panel = _panel(n_assets, n_periods, forward_periods)
-    for name in _metric_names():
+    for name in _metric_names("individual"):
         try:
             out = _run(panel, name, strict=False)
         except fx.IncompatibleAxisError:
