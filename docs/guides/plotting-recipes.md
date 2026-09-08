@@ -16,6 +16,11 @@ wrapper is needed:
 python -m pip install "plotly>=6"
 ```
 
+The Python fences are marked `Illustrative` because the factrix documentation
+test environment intentionally does not install this optional backend. They
+are still complete snippets once Plotly is present; CI syntax-compiles them but
+does not claim to render the figures.
+
 Every example uses a synthetic factrix dataset and keeps the full period grid.
 Consequently, `compute_forward_return(..., forward_periods=h)` stamps
 `overlap_periods == h`. If you pass a coarser `dates=` evaluation grid, use the
@@ -31,7 +36,7 @@ is a sum of correlations, not a compounded strategy return.
 **Callable and columns.** `compute_ic()` returns a dictionary keyed by factor.
 Each frame contains `date`, `ic`, `tie_ratio`, `n_assets`, and `_drop_stats`.
 
-```python
+```python title="Illustrative"
 import factrix as fx
 import plotly.express as px
 import polars as pl
@@ -76,7 +81,7 @@ each frame contains `date`, `spread`, `top_return`, `bottom_return`, and
 `universe_return`. Both functions assign the buckets, so plotting code must not
 rebucket the panel.
 
-```python
+```python title="Illustrative"
 import factrix as fx
 import plotly.express as px
 from factrix.metrics.quantile import compute_group_returns, compute_spread_series
@@ -122,7 +127,7 @@ negative offsets are single-bar returns. Both sides are already
 direction-adjusted and benchmark-adjusted. Do not sign or accumulate them
 again.
 
-```python
+```python title="Illustrative"
 import factrix as fx
 import plotly.express as px
 import polars as pl
@@ -161,7 +166,7 @@ horizon or parameter-sweep identity.
 `p_value`; a screening result's `to_frame()` supplies `adj_p` and `survived`.
 Both start with `factor`, `forward_periods`, and sorted `params` columns.
 
-```python
+```python title="Illustrative"
 import factrix as fx
 import plotly.express as px
 import polars as pl
