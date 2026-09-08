@@ -691,9 +691,12 @@ def quantile_spread_vw(
         periods earlier: that weight is look-ahead-free but carries a longer,
         asset-dependent lag, and the grid rule keeps the lag equal to the
         rebalance stride for every asset. On a ragged panel this costs rows —
-        an asset absent at period t also loses t+1 — so check ``drop_rate``
-        and ``max_assets_per_date``, or pass ``lag_weights=False`` when the
-        supplied weights are already lagged. Under
+        an asset absent at period t also loses t+1. Successful results expose
+        the surviving breadth as ``median_cross_section``; an insufficient-
+        assets short-circuit exposes ``max_assets_per_date``. ``drop_rate``
+        instead counts period-level spreads lost after bucketing, not rows
+        removed by the lag. Pass ``lag_weights=False`` when the supplied
+        weights are already lagged. Under
         ``inference=NEWEY_WEST`` there is no stride — every date is its own
         rebalance — so the lag is one bar there, and the first date drops out
         for want of a lagged weight;

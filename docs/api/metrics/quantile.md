@@ -60,9 +60,12 @@ title: factrix.metrics.quantile
     equal to the rebalance stride and matches `rank_turnover`. The cost is
     rows: an asset absent at period *t* also loses *t+1*, so a ragged panel
     whose thin periods alternate with full ones can drop most of its sample
-    and short-circuit as `metric_unavailable`. Read `drop_rate` and
-    `max_assets_per_date` to see what survived, or pass `lag_weights=False`
-    when the weights are already lagged.
+    and short-circuit as `metric_unavailable`. A successful result reports the
+    post-lag breadth as `median_cross_section`; an insufficient-assets
+    short-circuit reports `max_assets_per_date`. `drop_rate` is narrower: it
+    counts period-level spread values lost after bucketing, not asset rows
+    removed by the lag. Pass `lag_weights=False` when the weights are already
+    lagged.
 
 -   __Per-bucket mean returns for monotonicity charts__
 
