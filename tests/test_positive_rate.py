@@ -96,5 +96,5 @@ class TestNonFiniteHandling:
         assert r_dirty.p_value == pytest.approx(r_clean.p_value)
         assert r_dirty.metadata["dropped_periods"] == 12
         assert r_dirty.metadata["drop_reason"] == (
-            "null / non-finite value observations in the series"
+            "null / NaN / infinite value observations in the series"
         )

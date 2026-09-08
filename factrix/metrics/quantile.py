@@ -502,7 +502,7 @@ def _quantile_spread_from_series(
     _surface_null_drop(
         n_periods_in=series.height,
         n_periods_out=n_strided,
-        drop_reason="null / non-finite value observations in the series",
+        drop_reason="null / NaN / infinite value observations in the series",
         metric_name="quantile_spread",
         metadata=metadata,
         warning_codes=warning_codes,
@@ -917,7 +917,7 @@ def quantile_spread_vw(
     _surface_null_drop(
         n_periods_in=vw_series.height,
         n_periods_out=n,
-        drop_reason="null / non-finite value observations in the series",
+        drop_reason="null / NaN / infinite value observations in the series",
         metric_name="quantile_spread_vw",
         metadata=metadata,
         warning_codes=warning_codes,
