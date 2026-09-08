@@ -1287,8 +1287,7 @@ class TestCommonQuantileFactorVariation:
 
         verdict = _by_name(inspect_data(panel), "common_quantile_spread")
         assert any(
-            "n_periods=2 < min_periods=3" in blocker
-            for blocker in verdict.blockers
+            "n_periods=2 < min_periods=3" in blocker for blocker in verdict.blockers
         )
         out = fx.metrics.common_quantile.common_quantile_spread(panel)
         assert out.metadata["reason"] == "insufficient_portfolio_periods"
@@ -1333,9 +1332,7 @@ class TestDirectionalHitRateOneSidedSignal:
         assert out.value == pytest.approx(out.metadata["p_correct"])
 
     @pytest.mark.parametrize("nonfinite", [math.nan, -math.inf])
-    def test_nonfinite_cells_do_not_manufacture_a_second_sign(
-        self, nonfinite: float
-    ):
+    def test_nonfinite_cells_do_not_manufacture_a_second_sign(self, nonfinite: float):
         panel = _one_sided_sign_panel().with_columns(
             pl.when(pl.int_range(0, pl.len()) == 0)
             .then(pl.lit(nonfinite))

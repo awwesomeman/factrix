@@ -59,6 +59,7 @@ _NO_DEFAULT_INSTANCE = frozenset({"breakeven_cost", "net_spread"})
 # not mistaken for an untested metric.
 _PROJECTION_GAP = frozenset({"quantile_spread_vw"})
 
+
 def _panel(
     n_assets: int,
     n_periods: int,
