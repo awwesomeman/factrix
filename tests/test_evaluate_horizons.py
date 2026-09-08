@@ -148,7 +148,19 @@ class TestStrictForwarded:
 
 class TestForwardPeriodsValidation:
     @pytest.mark.parametrize(
-        "bad", [[], 5, (5, 10), [5, 5], [5, -1], [5, 0], [5.0], ["a"]]
+        "bad",
+        [
+            [],
+            5,
+            (5, 10),
+            [5, 5],
+            [5, -1],
+            [5, 0],
+            [True],
+            [False],
+            [5.0],
+            ["a"],
+        ],
     )
     def test_rejects_bad_forward_periods(self, bad):
         with pytest.raises(UserInputError):

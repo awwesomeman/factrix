@@ -47,10 +47,10 @@ left to individual producers and therefore missed by whichever path forgot it:
   and every demo. With `MM/DD/YYYY` the panel is silently reordered and every
   forward return is paired with the wrong neighbour. Parse first, e.g.
   `pl.col("date").str.to_datetime("%m/%d/%Y")`.
-- **`(date, asset_id)` must be unique.** A duplicated row makes an asset's
-  "next period" that same date's twin, so `price / price - 1 = 0`: a four-row
-  panel concatenated with itself came back half fabricated zeros, biasing every
-  downstream mean toward zero with no error and no warning.
+- **`(date, asset_id)` must be unique.** Entry and exit prices are looked up by
+  `(asset_id, period_index)`. A duplicated key makes that lookup ambiguous and
+  can fan out the joins, so factrix rejects it instead of guessing which price
+  represents the asset-period.
 - **NaN and ±Inf become `null`.** Applied to *inputs*, not to computed outputs.
   This makes the whole class structurally unrepresentable downstream rather
   than patching instances of it: polars ranks NaN as larger than every real

@@ -89,6 +89,7 @@ from factrix._data_input import (
     _coerce_price_data,
     _resolve_horizons,
     _resolve_overlap_periods,
+    _validate_forward_periods,
     _validate_overlap_periods,
 )
 from factrix._errors import (
@@ -458,7 +459,7 @@ def evaluate_horizons(
             evaluated at every horizon; the flat result has one entry per
             ``(factor, horizon)``.
         forward_periods: The horizons to sweep, as a non-empty ``list[int]``
-            of distinct positive row counts (e.g. ``[5, 20, 60]``).
+            of distinct positive panel-period counts (e.g. ``[5, 20, 60]``).
             Duplicates are rejected — they would yield a duplicate
             ``(factor, forward_periods)`` identity that ``compare`` / ``bhy``
             reject downstream.
@@ -545,14 +546,11 @@ def _validate_forward_periods_sweep(forward_periods: object) -> list[int]:
             docs_path=_DOCS_FORWARD_PERIODS_SWEEP,
         )
     for h in forward_periods:
-        if not isinstance(h, int) or h <= 0:
-            raise UserInputError(
-                func_name="evaluate_horizons",
-                field="forward_periods",
-                value=h,
-                expected="every horizon to be a positive int (row count)",
-                docs_path=_DOCS_FORWARD_PERIODS_SWEEP,
-            )
+        _validate_forward_periods(
+            h,
+            func_name="evaluate_horizons",
+            docs_path=_DOCS_FORWARD_PERIODS_SWEEP,
+        )
     if len(set(forward_periods)) != len(forward_periods):
         raise UserInputError(
             func_name="evaluate_horizons",
