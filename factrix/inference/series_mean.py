@@ -160,6 +160,8 @@ def _clean_series(data: pl.DataFrame, value_col: str) -> pl.Series:
     accepted numeric dtypes before the finite-value filter, matching the metric
     series helper.
     """
+    import polars as pl
+
     values = (
         data[value_col]
         if data["date"].is_sorted()
