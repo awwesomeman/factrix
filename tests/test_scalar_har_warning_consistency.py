@@ -160,7 +160,9 @@ def test_scalar_har_consumers_share_the_bandwidth_warning_policy(
     assert all(_has_bandwidth_warning(result) is expected for result in results)
 
     series_result = NeweyWest().compute(
-        pl.DataFrame({"date": np.arange(n), "value": returns}),
+        pl.DataFrame({"date": np.arange(n), "value": returns}).with_columns(
+            pl.col("date").cast(pl.Date)
+        ),
         value_col="value",
         overlap_periods=overlap_periods,
     )
