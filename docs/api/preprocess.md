@@ -269,7 +269,10 @@ designs are caught too; deficient dates are excluded from `mean_betas` and raise
 input's, and R² varies by date, so the output scale varies by date. Rank-based
 metrics are unaffected; any magnitude-based use is otherwise quietly on a
 time-varying scale. Pass `restandardize=True` to rescale each date's residual
-back to the input's per-date dispersion.
+back to the input's per-date dispersion. Both dispersions use exactly the
+finite rows fitted by that date's regression; a row excluded for a non-finite
+factor or base value, or because it has no matching base row, affects neither
+scale estimate.
 
 ::: factrix.preprocess.orthogonalize_factor
 

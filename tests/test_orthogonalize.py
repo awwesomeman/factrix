@@ -362,3 +362,120 @@ class TestRestandardize:
         np.testing.assert_allclose(
             per_date["post"].to_numpy(), per_date["pre"].to_numpy(), rtol=1e-9
         )
+
+    def test_non_finite_factor_does_not_poison_fitted_peers(self) -> None:
+        factor_df, base_df = _make_ortho_data(n_dates=2, n_assets=20)
+        first_date = factor_df["date"][0]
+        dirty = factor_df.with_columns(
+            pl.when((pl.col("date") == first_date) & (pl.col("asset_id") == "A0"))
+            .then(float("nan"))
+            .otherwise(pl.col("factor"))
+            .alias("factor")
+        )
+
+        out = orthogonalize_factor(dirty, base_df, restandardize=True)
+        fitted = out.data.filter(
+            (pl.col("date") == first_date) & (pl.col("asset_id") != "A0")
+        )
+        excluded = out.data.filter(
+            (pl.col("date") == first_date) & (pl.col("asset_id") == "A0")
+        )
+
+        assert excluded["factor"][0] is None
+        assert fitted["factor"].is_finite().all()
+        assert float(fitted["factor"].std(ddof=1)) == pytest.approx(
+            float(fitted["factor_pre_ortho"].std(ddof=1)), rel=1e-9
+        )
+        assert out.n_rows_non_finite == 1
+        assert out.n_dates_skipped == 0
+
+    @pytest.mark.parametrize(
+        "bad_base",
+        [None, float("inf")],
+        ids=["null", "infinity"],
+    )
+    def test_excluded_base_row_affects_neither_scale(
+        self, bad_base: float | None
+    ) -> None:
+        factor_df, base_df = _make_ortho_data(n_dates=2, n_assets=20)
+        first_date = factor_df["date"][0]
+        factor_df = factor_df.with_columns(
+            pl.when((pl.col("date") == first_date) & (pl.col("asset_id") == "A0"))
+            .then(1_000_000.0)
+            .otherwise(pl.col("factor"))
+            .alias("factor")
+        )
+        dirty_base = base_df.with_columns(
+            pl.when((pl.col("date") == first_date) & (pl.col("asset_id") == "A0"))
+            .then(bad_base)
+            .otherwise(pl.col("size"))
+            .alias("size")
+        )
+
+        out = orthogonalize_factor(factor_df, dirty_base, restandardize=True)
+        fitted = out.data.filter(
+            (pl.col("date") == first_date) & (pl.col("asset_id") != "A0")
+        )
+        excluded = out.data.filter(
+            (pl.col("date") == first_date) & (pl.col("asset_id") == "A0")
+        )
+
+        assert excluded["factor"][0] is None
+        assert fitted["factor"].is_finite().all()
+        assert float(fitted["factor"].std(ddof=1)) == pytest.approx(
+            float(fitted["factor_pre_ortho"].std(ddof=1)), rel=1e-9
+        )
+        assert out.n_rows_non_finite == 1
+        assert out.coverage == pytest.approx(1 - 1 / factor_df.height)
+
+    def test_missing_base_key_affects_neither_scale(self) -> None:
+        factor_df, base_df = _make_ortho_data(n_dates=2, n_assets=20)
+        first_date = factor_df["date"][0]
+        missing_key = (pl.col("date") == first_date) & (pl.col("asset_id") == "A0")
+        factor_df = factor_df.with_columns(
+            pl.when(missing_key)
+            .then(1_000_000.0)
+            .otherwise(pl.col("factor"))
+            .alias("factor")
+        )
+        incomplete_base = base_df.filter(~missing_key)
+
+        out = orthogonalize_factor(factor_df, incomplete_base, restandardize=True)
+        fitted = out.data.filter(
+            (pl.col("date") == first_date) & (pl.col("asset_id") != "A0")
+        )
+        unmatched = out.data.filter(missing_key)
+
+        assert unmatched["factor"][0] == 1_000_000.0
+        assert fitted["factor"].is_finite().all()
+        assert float(fitted["factor"].std(ddof=1)) == pytest.approx(
+            float(fitted["factor_pre_ortho"].std(ddof=1)), rel=1e-9
+        )
+        assert out.n_rows_non_finite == 0
+        assert out.coverage == pytest.approx(1 - 1 / factor_df.height)
+
+    def test_skipped_date_stays_unchanged(self) -> None:
+        factor_df, base_df = _make_ortho_data(n_dates=2, n_assets=4)
+        first_date = factor_df["date"][0]
+        dirty = factor_df.with_columns(
+            pl.when((pl.col("date") == first_date) & (pl.col("asset_id") == "A0"))
+            .then(float("nan"))
+            .otherwise(pl.col("factor"))
+            .alias("factor")
+        )
+
+        with pytest.warns(UserWarning, match="insufficient_regression_df"):
+            out = orthogonalize_factor(
+                dirty,
+                base_df,
+                min_residual_df=1,
+                restandardize=True,
+            )
+
+        kept = out.data.filter(pl.col("date") == first_date).sort("asset_id")
+        original = dirty.filter(pl.col("date") == first_date).sort("asset_id")
+        np.testing.assert_array_equal(
+            kept["factor"].to_numpy(), original["factor"].to_numpy()
+        )
+        assert out.n_dates_skipped == 1
+        assert out.n_dates_insufficient_df == 1
