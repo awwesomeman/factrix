@@ -14,8 +14,8 @@ Metrics:
 
 Notes:
     **Pipeline.** Per-event scalar (hit / information coefficient (IC) / skew / density) computed
-    on `signed_car`, then cross-event aggregation; binomial inference
-    for hit rate, nonparametric for IC / skewness, descriptive
+    on `signed_car`, then cross-event aggregation; generalised sign inference
+    for hit rate, rank-based inference for IC, and descriptive summaries
     elsewhere.
 
     **Windows are counted in panel periods.** The estimation window behind
@@ -48,11 +48,13 @@ from factrix._types import (
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _attach_abnormal_return,
+    _degenerate_test_fields,
     _deflate_for_within_date_clustering,
     _enforce_min_floor,
     _event_sample_threshold,
     _event_signal_is_discrete,
     _finite_expr,
+    _pick_event_return_col,
     _sample_events_non_overlapping,
     _scaled_min_periods,
     _short_circuit_output,
@@ -91,6 +93,7 @@ def _finite_events(
     factor_col: str,
     return_col: str,
     *,
+    metric_name: str,
     estimation_window: int = 60,
     overlap_periods: int = DEFAULT_FORWARD_PERIODS,
 ) -> tuple[pl.DataFrame, int, dict]:
@@ -131,6 +134,7 @@ def _finite_events(
         estimation_window=estimation_window,
         overlap_periods=overlap_periods,
         factor_col=factor_col,
+        func_name=metric_name,
     )
     events = adjusted.filter(pl.col(factor_col) != 0)
     # Two reasons an event leaves the sample, reported separately because they
@@ -138,7 +142,8 @@ def _finite_events(
     # too little history for the estimation-window mean. The second is a
     # sample-design fact (the same one bmp_z reports as n_dropped_no_vol), not
     # a data-quality one.
-    raw_finite = _finite_expr(return_col) & _finite_expr(factor_col)
+    selected_return_col = _pick_event_return_col(data, return_col)
+    raw_finite = _finite_expr(selected_return_col) & _finite_expr(factor_col)
     ar_finite = _finite_expr("_abnormal_return")
     n_dropped_non_finite = events.filter(~raw_finite).height
     n_dropped_no_estimation_window = events.filter(raw_finite & ~ar_finite).height
@@ -277,27 +282,26 @@ def event_hit_rate(
     sample_threshold) rather than a constant.
 
     Args:
-        data: Panel with event density and forward return.
+        data: Panel with event density and either a supplied
+            ``abnormal_return`` or the raw ``return_col`` used to estimate it.
 
     Returns:
-        MetricResult with value=hit rate, stat=hit count (the exact
-        binomial test statistic).
+        MetricResult with value=hit rate. ``stat`` is the hit count for the
+        exact test, a z statistic when same-period clustering is adjusted,
+        and ``None`` when the null variance is zero.
 
     Notes:
         ``hits = sum_i 1{signed_car_i > 0}``, ``rate = hits / N``.
-        Two-sided **exact** binomial test against ``H0: p = 0.5``
-        (``scipy.stats.binomtest``) at every sample size.
+        The two-sided generalised sign test uses the Cowan (1992) null
+        described below. It is exact (``scipy.stats.binomtest``) when no
+        material same-period dependence is detected, with ``stat`` equal to
+        the hit count. When the clustering adjustment applies, ``stat`` is
+        the deflated normal z instead. A boundary null probability of zero or
+        one has zero Bernoulli variance: the hit-rate point estimate is kept,
+        while ``stat``, ``p_value`` and ``alternative`` are withheld under the
+        standard ``degenerate_variance`` contract.
 
-        factrix uses the exact test unconditionally rather than switching
-        to the normal approximation ``z = (hits - N/2) / (sqrt(N)/2)`` on
-        large samples. The approximation is the mainstream shortcut and is
-        cheaper, but it is anti-conservative in the tails — precisely where
-        the p-value is read — and the exact test costs nothing at
-        event-study sample sizes. ``stat`` is therefore always the raw hit
-        count (``stat_type="binomial_hits"``); no Gaussian z is published,
-        so an exact p can never be paired with an approximate statistic.
-
-        Events whose ``return_col`` or ``factor_col`` is null / NaN are
+        Events whose selected return source or ``factor_col`` is non-finite are
         dropped before counting (see :func:`_finite_events`) and reported
         as ``metadata["n_events_dropped_non_finite"]``. Previously such an
         event failed ``signed_car > 0`` and was scored as a **miss**, which
@@ -358,9 +362,10 @@ def event_hit_rate(
         :func:`~factrix.metrics._helpers._attach_abnormal_return` for why
         neither window choice nor the market-adjusted branch removes it.
 
-        ``return_col`` must be sign-symmetric around zero — ``signed_car =
-        return_col * sign(factor_col)``, so an always-positive magnitude
-        target (realised volatility, turnover) collapses ``sign(signed_car)``
+        The selected abnormal-return series must be sign-symmetric around zero
+        — ``signed_car = abnormal_return * sign(factor_col)`` — so an
+        always-positive magnitude target (realised volatility, turnover)
+        collapses ``sign(signed_car)``
         to ``sign(factor_col)`` and silently turns the hit rate into a count
         of positive-factor events, with no error raised. Use
         :func:`~factrix.metrics.ic.ic` or
@@ -383,6 +388,7 @@ def event_hit_rate(
         data,
         factor_col,
         return_col,
+        metric_name="event_hit_rate",
         estimation_window=estimation_window,
         overlap_periods=overlap_periods,
     )
@@ -431,6 +437,34 @@ def event_hit_rate(
     p0 = w_plus * p_up + (1.0 - w_plus) * (1.0 - p_up)
     metadata["sign_base_rate"] = p0
     metadata["h0"] = f"p={p0:.4f}"
+
+    # A Cowan null at either boundary has zero Bernoulli variance. There is no
+    # finite standardised statistic to cluster-adjust, and replacing the zero
+    # denominator with an epsilon would invent a scale. Preserve the observed
+    # rate but use the repo-wide zero-variance shape for the hypothesis test.
+    if p0 in (0.0, 1.0):
+        metadata.pop("stat_type", None)
+        metadata["method"] = (
+            "generalised sign test withheld: zero null variance "
+            "(Cowan 1992 null)"
+        )
+        stat, p, alternative = _degenerate_test_fields(
+            float("nan"),
+            float("nan"),
+            "two-sided",
+            metadata,
+            warning_codes,
+        )
+        return MetricResult(
+            p_value=p,
+            alternative=alternative,
+            value=rate,
+            n_obs=n,
+            n_obs_axis="events",
+            stat=stat,
+            metadata=metadata,
+            warning_codes=tuple(warning_codes),
+        )
 
     # Same-period events share that period's shock, so they are not separate
     # binomial trials. Deflate the standardised hit count by the design effect
@@ -526,7 +560,7 @@ def event_ic(
         is undefined without magnitude variation, distinct from "too few
         events".
 
-        Events with a null / NaN ``return_col`` or ``factor_col`` are
+        Events with a non-finite selected return source or ``factor_col`` are
         dropped before the correlation (``scipy.stats.spearmanr`` would
         otherwise return NaN for both ρ and p, and a NaN p raises out of
         ``MetricResult``); the count is reported as
@@ -550,6 +584,7 @@ def event_ic(
         data,
         factor_col,
         return_col,
+        metric_name="event_ic",
         estimation_window=estimation_window,
         overlap_periods=overlap_periods,
     )
@@ -698,7 +733,7 @@ def profit_factor(
         both gains and losses are zero, the ratio is undefined and the
         metric returns ``NaN`` with ``metadata["profit_factor_status"]``.
 
-        Events with a non-finite ``return_col`` / ``factor_col`` are
+        Events with a non-finite selected return source or ``factor_col`` are
         dropped up front and counted in
         ``metadata["n_events_dropped_non_finite"]``. They were already
         absent from both sums (``NaN > 0`` and ``NaN < 0`` are both
@@ -722,6 +757,7 @@ def profit_factor(
         data,
         factor_col,
         return_col,
+        metric_name="profit_factor",
         estimation_window=estimation_window,
         overlap_periods=overlap_periods,
     )
@@ -852,7 +888,7 @@ def event_skewness(
         which are calibrated on both. The full size table is in
         ``docs/reference/inference-calibration.md``.
 
-        Events with a non-finite ``return_col`` / ``factor_col`` are
+        Events with a non-finite selected return source or ``factor_col`` are
         dropped before the moments are taken and counted in
         ``metadata["n_events_dropped_non_finite"]``. A single NaN used to
         make ``skew`` NaN, and a NaN ``p_value`` raised ``ValueError``
@@ -877,6 +913,7 @@ def event_skewness(
         data,
         factor_col,
         return_col,
+        metric_name="event_skewness",
         estimation_window=estimation_window,
         overlap_periods=overlap_periods,
     )

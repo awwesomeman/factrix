@@ -16,14 +16,13 @@ title: factrix.metrics.event_quality
 
 !!! info "Event-study contracts"
     These metrics use the **sign-only** form
-    $\text{signed\_car} = \text{forward\_return} \times \text{sign}(\text{factor})$
+    $\text{signed\_car} = \text{abnormal\_return} \times \text{sign}(\text{factor})$
     — distinct from `caar`'s magnitude-weighted
-    $\text{forward\_return} \times \text{factor}$. See the
+    $\text{abnormal\_return} \times \text{factor}$. See the
     [abnormal-return table](../../reference/metric-applicability.md#abnormal-return-definition-per-metric)
     for the full per-metric contract and the
     [confounded-event note](../../reference/metric-applicability.md#confounded-event-handling)
-    for how the binomial / Spearman nulls behave under within-asset
-    event clustering.
+    for the event-axis spacing and same-period dependence rules.
 
 ## Use cases
 
@@ -33,10 +32,11 @@ title: factrix.metrics.event_quality
 
     ---
 
-    Fraction of events whose `signed_car` is positive, with a two-sided
-    binomial test against $H_0: p = 0.5$ — exact
-    (`scipy.stats.binomtest`) at every $n$; `stat` is the hit count.
-    Headline statistic for "is the sign right more often than chance".
+    Fraction of events whose `signed_car` is positive. The Cowan (1992)
+    generalised sign null is estimated from non-event abnormal returns.
+    `stat` is the hit count for the exact test and a z statistic when a
+    material same-period clustering adjustment applies. A zero-variance
+    boundary null keeps the hit rate but withholds the test fields.
 
 -   __Magnitude → magnitude__
 
@@ -103,16 +103,15 @@ title: factrix.metrics.event_quality
     panel = compute_forward_return(raw, forward_periods=5)
 
     hit = event_hit_rate(panel)
-    print(hit.value, hit.stat, hit.p_value)
-    # 0.564  3.81  1.4e-04   (approximate)
+    assert 0.0 <= hit.value <= 1.0
+    assert hit.n_obs > 0
+    assert hit.stat is not None and hit.p_value is not None
 
     sk = event_skewness(panel)
-    print(sk.value, sk.stat, sk.p_value)
-    # 0.42  None  None   (approximate value; descriptive, no test)
+    assert sk.stat is None and sk.p_value is None
 
     pf = profit_factor(panel)
-    print(pf.value, pf.metadata["n_wins"], pf.metadata["n_losses"])
-    # 1.34  1131  864
+    assert pf.metadata["n_wins"] + pf.metadata["n_losses"] <= pf.n_obs
     ```
 
 ## See also

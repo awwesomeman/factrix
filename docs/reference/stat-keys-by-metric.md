@@ -392,7 +392,8 @@ asset pairs are not treated as independent Bernoulli trials.
 
 #### `event_hit_rate`
 
-Same shape as `positive_rate` (exact binomial, `stat` = hit count).
+The point estimate is always the hit rate. The test fields depend on the
+estimated null and same-period dependence.
 
 - *primary*: `p_value` — a generalised sign test (Cowan 1992): the null is
   `sign_base_rate`, the frequency with which a *signed* hit happens on the
@@ -403,7 +404,11 @@ Same shape as `positive_rate` (exact binomial, `stat` = hit count).
   when events do not share periods, clustered normal on the hit indicator when
   they do (`stat_type` switches from `binomial_hits` to `z`, `method` names
   which ran, and `EVENT_CLUSTERING_ADJUSTED` is the record of the switch).
-  `h0` carries the null actually tested.
+  `h0` carries the null actually tested. At `sign_base_rate` 0 or 1 the null
+  variance is zero: `stat`, `p_value` and `alternative` are `None`,
+  `signal_status="degenerate_zero_variance"`, and `DEGENERATE_VARIANCE` is
+  recorded. `stat_type` and clustering diagnostics are absent because no
+  statistic is formed.
 - *descriptive*: `sign_base_rate`, `sign_base_rate_up`,
   `sign_base_rate_source` (`non_event_rows`, or `assumed_symmetric` when
   there are too few non-event rows to estimate it), `n_base_rate_rows`.

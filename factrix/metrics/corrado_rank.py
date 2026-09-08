@@ -34,6 +34,7 @@ from factrix.metrics._helpers import (
     _finite_expr,
     _finite_values,
     _is_sparse_magnitude_weighted,
+    _pick_event_return_col,
     _sample_events_non_overlapping,
     _scaled_min_periods,
     _short_circuit_output,
@@ -99,8 +100,9 @@ def corrado_rank(
         $p$ — mirroring :func:`~factrix.metrics.directional_hit_rate.directional_hit_rate`.
 
     Args:
-        data: Full panel with ``date, asset_id, factor, forward_return``.
-            Must include non-event rows for ranking.
+        data: Full panel with ``date``, ``asset_id``, ``factor`` and either
+            ``abnormal_return`` or ``return_col``. Must include non-event rows
+            for ranking.
         overlap_periods: Forward-return horizon, injected by ``evaluate`` from
             the panel metadata; standalone calls may pass it directly. Sets the
             minimum calendar gap between two kept events on one asset, so the
@@ -151,8 +153,8 @@ def corrado_rank(
         over the event-period series itself, whose scale matches the
         numerator by construction.
 
-        **Non-finite returns.** Ranks are formed over the finite
-        ``return_col`` values only (per asset), and $T$ in the
+        **Non-finite returns.** Ranks are formed over the finite selected
+        abnormal-return values only (per asset), and $T$ in the
         $\mathrm{rank}/(T+1)$ normalisation is the count of those finite
         values — so a gap in the return series shifts neither the ranks of
         its neighbours nor the uniform scaling. Non-finite event rows (and
@@ -223,8 +225,8 @@ def corrado_rank(
     """
     sparse_magnitude_weighted = _is_sparse_magnitude_weighted(data, factor_col)
 
-    # Rank only the finite returns. Ranking `return_col` directly is wrong
-    # twice over: a non-finite return can produce a null or extreme rank, which
+    # Rank only the finite returns. Ranking the selected source directly is
+    # wrong twice over: a non-finite return can produce a null or extreme rank, which
     # propagates into that period's mean and turns the event-period SD into
     # NaN, handing _calc_t_stat a NaN (NaN z, NaN p); and a float NaN is not a
     # null to Polars, so it ranks as the *largest* value. Infinities are
@@ -240,6 +242,7 @@ def corrado_rank(
         estimation_window=estimation_window,
         overlap_periods=overlap_periods,
         factor_col=factor_col,
+        func_name="corrado_rank",
     )
     ar_col = "_abnormal_return"
     finite_return = _finite_expr(ar_col)
@@ -262,7 +265,8 @@ def corrado_rank(
     # (so its abnormal return, and therefore its rank, does not exist). The
     # second is a sample-design fact — the same one bmp_z reports as
     # n_dropped_no_vol — not a data-quality one.
-    raw_finite = _finite_expr(return_col) & _finite_expr(factor_col)
+    selected_return_col = _pick_event_return_col(data, return_col)
+    raw_finite = _finite_expr(selected_return_col) & _finite_expr(factor_col)
     rank_finite = _finite_expr("_rank_u")
     events = all_events.filter(raw_finite & rank_finite)
     n_events = len(events)

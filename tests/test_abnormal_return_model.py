@@ -15,10 +15,16 @@ from datetime import datetime, timedelta
 import numpy as np
 import polars as pl
 import pytest
+from factrix._errors import UserInputError
 from factrix.metrics._helpers import _attach_abnormal_return
 from factrix.metrics.caar import bmp_z, caar, compute_caar
 from factrix.metrics.corrado_rank import corrado_rank
-from factrix.metrics.event_quality import event_hit_rate
+from factrix.metrics.event_quality import (
+    event_hit_rate,
+    event_ic,
+    event_skewness,
+    profit_factor,
+)
 
 _H = 5
 
@@ -57,6 +63,30 @@ def _drift_panel(
                 }
             )
     return pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+
+def _supplied_abnormal_panel() -> pl.DataFrame:
+    """Panel whose only usable event-return source is ``abnormal_return``."""
+    rows = []
+    dates = [datetime(2020, 1, 1) + timedelta(days=i) for i in range(120)]
+    for asset_index, asset_id in enumerate(("A", "B")):
+        for date_index, date in enumerate(dates):
+            is_event = date_index >= 20 and date_index % 3 == 0
+            magnitude = 1.0 + (date_index % 5) / 4.0
+            direction = -1.0 if (date_index + asset_index) % 4 == 0 else 1.0
+            abnormal_return = (
+                0.003 * np.sin(date_index / 3.0 + asset_index)
+                + 0.001 * ((date_index % 7) - 3)
+            )
+            rows.append(
+                {
+                    "date": date,
+                    "asset_id": asset_id,
+                    "factor": direction * magnitude if is_event else 0.0,
+                    "abnormal_return": float(abnormal_return),
+                }
+            )
+    return pl.DataFrame(rows)
 
 
 class TestAttachAbnormalReturn:
@@ -154,6 +184,13 @@ class TestAttachAbnormalReturn:
             out["abnormal_return"].to_numpy()
         )
 
+    def test_missing_return_sources_raise_the_project_input_error(self):
+        panel = _supplied_abnormal_panel().drop("abnormal_return")
+        with pytest.raises(UserInputError, match="return_col") as excinfo:
+            _attach_abnormal_return(panel, func_name="event_hit_rate")
+        assert excinfo.value.func_name == "event_hit_rate"
+        assert excinfo.value.docs_url.endswith("/api/data-schema")
+
     def test_one_nan_does_not_blank_the_whole_window(self):
         # polars propagates float NaN through a rolling aggregate; masking it to
         # null first keeps the next estimation_window events computable.
@@ -220,3 +257,74 @@ class TestDriftIsNotEventAlpha:
             if p is not None and p < 0.05:
                 rejected += 1
         assert rejected / reps >= 0.33
+
+
+class TestSuppliedAbnormalReturnContract:
+    """Every event consumer must honour the source selected by the model."""
+
+    @staticmethod
+    def _quality_results(panel: pl.DataFrame):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            return {
+                "corrado_rank": corrado_rank(panel, overlap_periods=1),
+                "event_hit_rate": event_hit_rate(panel, overlap_periods=1),
+                "event_ic": event_ic(panel, overlap_periods=1),
+                "profit_factor": profit_factor(panel, overlap_periods=1),
+                "event_skewness": event_skewness(panel, overlap_periods=1),
+            }
+
+    def test_abnormal_only_panel_runs_without_naming_a_raw_return(self):
+        panel = _supplied_abnormal_panel()
+        series = compute_caar(panel, overlap_periods=1)
+        assert series.height > 0
+        assert set(series["abnormal_return_model"]) == {"market_adjusted_supplied"}
+
+        for result in self._quality_results(panel).values():
+            assert result.n_obs > 0
+            assert result.metadata["abnormal_return_model"] == (
+                "market_adjusted_supplied"
+            )
+
+    def test_non_finite_unused_raw_return_does_not_discard_valid_events(self):
+        panel = _supplied_abnormal_panel()
+        dirty = panel.with_columns(
+            pl.when(pl.col("factor") != 0)
+            .then(float("inf"))
+            .otherwise(float("nan"))
+            .alias("forward_return")
+        )
+
+        clean_series = compute_caar(panel, overlap_periods=1)
+        dirty_series = compute_caar(dirty, overlap_periods=1)
+        assert dirty_series["caar"].to_list() == pytest.approx(
+            clean_series["caar"].to_list()
+        )
+        assert set(dirty_series["n_events_dropped_non_finite"]) == {0}
+
+        clean_results = self._quality_results(panel)
+        dirty_results = self._quality_results(dirty)
+        for name, clean in clean_results.items():
+            dirty_result = dirty_results[name]
+            assert dirty_result.n_obs == clean.n_obs
+            assert dirty_result.value == pytest.approx(clean.value)
+            assert dirty_result.metadata["n_events_dropped_non_finite"] == 0
+
+    @pytest.mark.parametrize(
+        "metric",
+        [
+            compute_caar,
+            corrado_rank,
+            event_hit_rate,
+            event_ic,
+            profit_factor,
+            event_skewness,
+        ],
+    )
+    def test_public_consumers_raise_user_input_error_without_a_return_source(
+        self, metric
+    ):
+        panel = _supplied_abnormal_panel().drop("abnormal_return")
+        with pytest.raises(UserInputError, match="return_col") as excinfo:
+            metric(panel, overlap_periods=1)
+        assert excinfo.value.func_name == metric.__name__

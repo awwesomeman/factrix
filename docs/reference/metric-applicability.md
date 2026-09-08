@@ -313,14 +313,16 @@ metric instantiates the abnormal-return primitive differently:
 
 | Metric | Per-row primitive | Why this form |
 |---|---|---|
-| [`caar`][factrix.metrics.caar.caar], [`bmp_z`][factrix.metrics.caar.bmp_z] | `signed_car = forward_return × factor` (magnitude preserved) | Generalises MacKinlay's signed CAAR to continuous factors (Sefcik-Thompson 1986 lineage); on `factor ∈ {0, ±1}` it reduces to the textbook signed CAAR. |
-| [`event_hit_rate`][factrix.metrics.event_quality.event_hit_rate], [`event_ic`][factrix.metrics.event_quality.event_ic], [`profit_factor`][factrix.metrics.event_quality.profit_factor], [`event_skewness`][factrix.metrics.event_quality.event_skewness] | `signed_car = forward_return × sign(factor)` (sign-only) | These metrics measure direction quality independent of factor magnitude; magnitude-weighting would conflate "direction was right" with "magnitude was big". |
-| [`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank] | `signed_rank = uniform_rank(forward_return) × sign(factor)` | Corrado (1989) ranks the raw return distribution, then direction-adjusts the rank. The sign-adjustment is on the rank, not the return. |
+| [`caar`][factrix.metrics.caar.caar] | `signed_car = abnormal_return × factor` (magnitude preserved) | Generalises signed CAAR to continuous factors; unit-magnitude events reduce to the sign-only form. |
+| [`bmp_z`][factrix.metrics.caar.bmp_z] | `signed_ar = abnormal_return × sign(factor)`, standardised by pre-event volatility | BMP tests directional standardised abnormal returns; factor magnitude does not scale the statistic. |
+| [`event_hit_rate`][factrix.metrics.event_quality.event_hit_rate], [`event_ic`][factrix.metrics.event_quality.event_ic], [`profit_factor`][factrix.metrics.event_quality.profit_factor], [`event_skewness`][factrix.metrics.event_quality.event_skewness] | `signed_car = abnormal_return × sign(factor)` (sign-only) | These metrics measure direction quality independent of factor magnitude. `event_ic` uses `abs(factor)` separately as its predictor. |
+| [`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank] | `signed_rank = uniform_rank(abnormal_return) × sign(factor)` | Corrado ranks each asset's abnormal-return distribution, then direction-adjusts the event rank. |
 | [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | Post-event (k > 0): `sign(factor) × cumulative_return`; pre-event (k < 0): `sign(factor) × single_bar_return` | Asymmetric on purpose: post-event reads cumulative signal *quality*, while pre-event localizes directional leakage to one bar without re-accumulating it. |
 
-The shared function "abnormal return" therefore covers four different
-estimators. Use the table above when comparing factrix output to
-literature numbers.
+For the first four rows, a supplied `abnormal_return` column is used as-is.
+Otherwise factrix subtracts the asset's pre-event estimation-window mean from
+`return_col`. `event_around_return` is a separate price-path diagnostic with a
+per-asset bar-return baseline.
 
 ### CAR vs BHAR
 
@@ -356,36 +358,32 @@ Conventions:
 - **Alignment**: ends one period before the event period; gap-before
   -event of zero (no skip period). Users running a skip-period
   convention must pre-shift the panel.
-- **Overlap exclusion**: factrix's primitives do **not** drop
-  pre-event windows that overlap an earlier event for the same asset.
-  In practice this means contaminated estimation windows for clustered
-  events; use `clustering_hhi` to gauge severity and consider
-  pre-filtering the panel for tightly clustered names.
+- **Estimation-window contamination**: event-sample spacing does not remove
+  earlier realised event returns from a later event's estimation window.
+  `estimation_window_event_share` measures this contamination.
 - **Forward-return horizon**: the event window is `overlap_periods`
   periods; the estimation window is the **pre-event** sample, so the
   horizon does not affect estimation-window length.
 
 ### Confounded-event handling
 
-When two events for the same `asset_id` fall within each other's
-forward window, factrix's procedures **do not deduplicate or skip**
-the inner event. The chosen mitigation depends on the metric:
+Event procedures distinguish two dependence axes: overlapping forward windows
+within one asset, and multiple assets firing in the same period. The handling
+depends on the estimand:
 
-| Metric | Behaviour under within-asset overlap |
+| Metric | Dependence handling |
 |---|---|
-| [`caar`][factrix.metrics.caar.caar] | Per-event-period CS-mean is computed first, then a non-overlap subsample keeps event periods at least `overlap_periods` periods apart before the t-test. This avoids overlap-induced dependence while preserving the event-only mean; dense zero-fill and NW HAC are not used on this path. Within-asset clustering can still make event rows dependent, so read the vanilla t-test cautiously when event calendars are crowded. |
-| [`bmp_z`][factrix.metrics.caar.bmp_z] | The Kolari-Pynnönen adjustment (on by default; `kolari_pynnonen_adjust=False` for unadjusted BMP) corrects the BMP statistic for cross-sectional dependence on the same event period — measured 19.7% → 4.7% size at 4 events per period over 30 periods, 38.7% → 3.7% at 10, identity at 1 (h = 1, 20 assets, 300 draws). It does **not** correct same-asset event clustering, and it cannot manufacture independent periods: with 4 events per period the adjusted test's residual tracks the number of distinct event periods (4 / 8 / 15 / 30: 14.3% / 10.0% / 7.3% / 4.7%; at 10 per period 8 / 15 / 30: 9.0% / 8.7% / 3.7%), clearing by ~30 periods, so when events share periods `FEW_EVENTS` fires on `n_event_periods < MIN_EVENTS_WARN`, not on the event count. |
-| [`event_hit_rate`][factrix.metrics.event_quality.event_hit_rate], [`event_ic`][factrix.metrics.event_quality.event_ic] | Each event row is counted independently; same-asset overlapping events double-contribute to the binomial / Spearman statistic. The null implicitly assumes independence — under heavy clustering the variance is understated. |
-| [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | Same: each `(asset, event_date)` row is independent in the binomial null at every offset. Adjacent-offset hit rates are also serially correlated within the same event (k=6 and k=12 share the t+1 entry price), which the binomial null does not adjust for. |
-| [`clustering_hhi`][factrix.metrics.clustering_hhi.clustering_hhi] | Quantifies cross-sectional concentration on event periods only. Does not detect within-asset temporal clustering — pair with `signal_density` for the asset-axis view. |
+| [`caar`][factrix.metrics.caar.caar] | `compute_caar` first averages same-period events. `caar` then keeps globally spaced event periods at least `overlap_periods` grid periods apart before its t-test. |
+| [`bmp_z`][factrix.metrics.caar.bmp_z] | Events are spaced per asset first. The default Kolari-Pynnönen adjustment then deflates material same-period cross-asset dependence; `EVENT_CLUSTERING_ADJUSTED` records when it applies. |
+| [`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank] | Events are spaced per asset, then same-period signed ranks are averaged into one event-period observation. Inference runs on the event-period series. |
+| [`event_hit_rate`][factrix.metrics.event_quality.event_hit_rate], [`event_ic`][factrix.metrics.event_quality.event_ic] | Events are spaced per asset. Material same-period dependence deflates the hit-indicator or rank-score statistic. |
+| [`event_skewness`][factrix.metrics.event_quality.event_skewness] | Events are spaced per asset for a comparable event sample. The result is descriptive and has no pooled test. |
+| [`profit_factor`][factrix.metrics.event_quality.profit_factor] | All finite event rows contribute to the descriptive gross gain/loss ratio; no independence claim or test is attached. |
+| [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | Each eligible event contributes to the descriptive offset profile. Per-offset `t` is a standardised mean diagnostic, not a hypothesis-test field; no binomial null is used. |
+| [`clustering_hhi`][factrix.metrics.clustering_hhi.clustering_hhi] | Describes concentration across event periods. Pair it with `signal_density` for the within-asset frequency view. |
 
-Operationally: trust `caar` *p*-values when `clustering_hhi`
-Herfindahl-Hirschman index (HHI) is low and `signal_density` shows events well-spaced per asset;
-otherwise downweight the parametric *p* and lean on `corrado_rank`
-or external block-bootstrap. `corrado_rank` earns that recommendation:
-it averages same-period events into one observation and takes the SD over
-the event-period series, so within-period correlation lands in the
-denominator rather than being ignored. The price is degrees of freedom —
-clustered events buy no extra sample, so `n_obs` counts periods, and a
-factor firing on only a few periods short-circuits rather than reporting a
-`z` estimated from a handful of points.
+Use `n_events_overlapping`, `n_events_sampled`,
+`EVENT_CLUSTERING_ADJUSTED`, `clustering_hhi` and `signal_density` to audit the
+effective event sample. When the remaining dependence is material, treat
+borderline parametric p-values cautiously or use a study-specific resampling
+design.

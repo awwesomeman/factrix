@@ -30,7 +30,7 @@ import numpy as np
 import polars as pl
 
 from factrix._codes import WarningCode, _emit_warning, cross_section_tier
-from factrix._errors import IncompatibleInferenceError
+from factrix._errors import IncompatibleInferenceError, UserInputError
 
 if TYPE_CHECKING:
     from factrix.inference import (
@@ -1166,16 +1166,18 @@ def _deflate_for_within_date_clustering(
     return stat * scale
 
 
-def _pick_event_return_col(data: pl.DataFrame) -> str:
+def _pick_event_return_col(
+    data: pl.DataFrame, return_col: str = "forward_return"
+) -> str:
     """Return the preferred return column for event analysis.
 
     ``abnormal_return`` (cross-sectionally de-meaned return) is preferred
-    when present; ``forward_return`` is the fallback for single-asset
-    panels where de-meaning is undefined. Centralized here so event metrics
-    and single-asset sparse diagnostics agree on the same choice — diverging
-    would silently route the same factor through different series.
+    when present; the caller's ``return_col`` is the fallback for panels
+    where a supplied abnormal return is unavailable. Centralized here so
+    event metrics and their finiteness diagnostics agree on the same source —
+    diverging would silently route the same factor through different series.
     """
-    return "abnormal_return" if "abnormal_return" in data.columns else "forward_return"
+    return "abnormal_return" if "abnormal_return" in data.columns else return_col
 
 
 def _densify_on_period_grid(
@@ -1326,6 +1328,7 @@ def _attach_abnormal_return(
     price_col: str = "price",
     factor_col: str = "factor",
     out_col: str = "_abnormal_return",
+    func_name: str = "_attach_abnormal_return",
 ) -> tuple[pl.DataFrame, dict[str, Any]]:
     r"""Attach the event family's abnormal return $AR_{it} = R_{it} - E[R_{it}]$.
 
@@ -1410,6 +1413,7 @@ def _attach_abnormal_return(
         factor_col: Event column (``!= 0`` marks an event), read only for
             the ``estimation_window_event_share`` diagnostic.
         out_col: Name of the attached abnormal-return column.
+        func_name: Public caller named in an invalid-input diagnostic.
 
     Returns:
         ``(frame, diagnostics)`` — the frame with ``out_col`` attached (sorted
@@ -1470,14 +1474,30 @@ def _attach_abnormal_return(
         not switch models on the share; the code is advisory, and the honest
         reading of a flagged p-value is an upper bound.
     """
+    selected_return_col = _pick_event_return_col(data, return_col)
+    if selected_return_col not in data.columns:
+        raise UserInputError(
+            func_name=func_name,
+            field="return_col",
+            value=return_col,
+            expected=(
+                f"a '{return_col}' column, or a supplied 'abnormal_return' "
+                f"column; available columns are {data.columns!r}"
+            ),
+            docs_path="api/data-schema",
+        )
+
     diagnostics: dict[str, Any] = {}
-    if _pick_event_return_col(data) == "abnormal_return":
+    if selected_return_col == "abnormal_return":
         diagnostics["abnormal_return_model"] = "market_adjusted_supplied"
         diagnostics["estimation_window"] = None
         diagnostics["estimation_window_source"] = None
         diagnostics["estimation_window_lag"] = None
         diagnostics["estimation_window_event_share"] = None
-        return data.with_columns(pl.col("abnormal_return").alias(out_col)), diagnostics
+        return (
+            data.with_columns(pl.col(selected_return_col).alias(out_col)),
+            diagnostics,
+        )
 
     diagnostics["abnormal_return_model"] = "mean_adjusted"
     diagnostics["estimation_window"] = estimation_window

@@ -482,3 +482,44 @@ class TestGeneralisedSignNull:
         assert result.metadata["sign_base_rate_up"] == 0.5
         assert result.metadata["sign_base_rate"] == 0.5
         assert result.metadata["sign_base_rate_source"] == "assumed_symmetric"
+
+    @pytest.mark.parametrize("sign_base_rate_up", [0.0, 1.0])
+    @pytest.mark.parametrize("n_assets", [1, 8])
+    def test_boundary_null_withholds_the_zero_variance_test(
+        self, sign_base_rate_up, n_assets
+    ):
+        rows = []
+        dates = [datetime(2020, 1, 1) + timedelta(days=i) for i in range(100)]
+        event_dates = set(range(60, 90))
+        non_event_return = 0.01 if sign_base_rate_up == 1.0 else -0.01
+        for asset_index in range(n_assets):
+            for date_index, date in enumerate(dates):
+                is_event = date_index in event_dates
+                rows.append(
+                    {
+                        "date": date,
+                        "asset_id": f"A{asset_index}",
+                        "factor": 1.0 if is_event else 0.0,
+                        "abnormal_return": (
+                            (0.01 if date_index % 2 else -0.01)
+                            if is_event
+                            else non_event_return
+                        ),
+                    }
+                )
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            result = event_hit_rate(pl.DataFrame(rows), overlap_periods=1)
+
+        assert result.value == pytest.approx(0.5)
+        assert result.stat is None
+        assert result.p_value is None
+        assert result.alternative is None
+        assert result.metadata["sign_base_rate"] == sign_base_rate_up
+        assert result.metadata["signal_status"] == "degenerate_zero_variance"
+        assert result.metadata["alternative_requested"] == "two-sided"
+        assert "stat_type" not in result.metadata
+        assert "kolari_pynnonen_applied" not in result.metadata
+        assert WarningCode.DEGENERATE_VARIANCE.value in result.warning_codes
+        assert not any(issubclass(item.category, RuntimeWarning) for item in caught)
