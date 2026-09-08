@@ -324,7 +324,9 @@ class TestIC:
     @pytest.mark.parametrize("alternative", ["two-sided", "greater", "less"])
     def test_records_requested_alternative(self, alternative):
         values = np.linspace(-0.1, 0.4, 60)
-        df = pl.DataFrame({"date": np.arange(60), "ic": values})
+        df = pl.DataFrame({"date": np.arange(60), "ic": values}).with_columns(
+            pl.col("date").cast(pl.Date)
+        )
         result = ic(df, overlap_periods=1, alternative=alternative)
         assert result.alternative == alternative
 
@@ -336,13 +338,17 @@ class TestIC:
         ``MetricResult.alternative``, so duplicating it into ``metadata``
         would let a consumer read the key's presence as degeneracy.
         """
-        df = pl.DataFrame({"date": np.arange(3), "ic": [0.1, 0.2, 0.3]})
+        df = pl.DataFrame({"date": np.arange(3), "ic": [0.1, 0.2, 0.3]}).with_columns(
+            pl.col("date").cast(pl.Date)
+        )
         result = ic(df, overlap_periods=1, alternative="greater")
         assert result.alternative == "greater"
         assert "alternative_requested" not in result.metadata
 
     def test_degenerate_series_preserves_requested_alternative_in_metadata(self):
-        df = pl.DataFrame({"date": np.arange(40), "ic": np.full(40, 0.1)})
+        df = pl.DataFrame({"date": np.arange(40), "ic": np.full(40, 0.1)}).with_columns(
+            pl.col("date").cast(pl.Date)
+        )
         result = ic(
             df,
             overlap_periods=1,

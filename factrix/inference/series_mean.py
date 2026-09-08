@@ -36,6 +36,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
 from factrix._codes import WarningCode
+from factrix._errors import UserInputError
 from factrix._stats.bootstrap import Rng
 from factrix._stats.constants import (
     MIN_PERIODS_HARD,
@@ -49,6 +50,80 @@ from factrix.inference._base import InferenceResult
 if TYPE_CHECKING:
     import numpy as np
     import polars as pl
+
+
+_DOCS_DIRECT_COMPUTE = "api/inference#direct-compute-result"
+
+
+def _validate_series_input(
+    data: pl.DataFrame,
+    overlap_periods: object,
+    *,
+    func_name: str,
+) -> None:
+    """Validate the shared date-indexed contract at the public boundary."""
+    import polars as pl
+
+    if isinstance(overlap_periods, bool) or not isinstance(overlap_periods, int):
+        raise UserInputError(
+            func_name=func_name,
+            field="overlap_periods",
+            value=overlap_periods,
+            expected="a positive int count of periods, e.g. 5",
+            docs_path=_DOCS_DIRECT_COMPUTE,
+        )
+    if overlap_periods <= 0:
+        raise UserInputError(
+            func_name=func_name,
+            field="overlap_periods",
+            value=overlap_periods,
+            expected="a positive int count of periods (> 0)",
+            docs_path=_DOCS_DIRECT_COMPUTE,
+        )
+
+    if "date" not in data.columns:
+        raise UserInputError(
+            func_name=func_name,
+            field="date",
+            value=None,
+            expected="a non-null Date or Datetime column named 'date'",
+            docs_path=_DOCS_DIRECT_COMPUTE,
+        )
+    date_dtype = data.schema["date"]
+    if not isinstance(date_dtype, pl.Date | pl.Datetime):
+        raise UserInputError(
+            func_name=func_name,
+            field="date",
+            value=str(date_dtype),
+            expected=(
+                "a non-null Date or Datetime column; parse string dates before "
+                "calling compute"
+            ),
+            docs_path=_DOCS_DIRECT_COMPUTE,
+        )
+    if data["date"].null_count():
+        raise UserInputError(
+            func_name=func_name,
+            field="date",
+            value=f"{data['date'].null_count()} null row(s)",
+            expected="a non-null Date or Datetime column",
+            docs_path=_DOCS_DIRECT_COMPUTE,
+        )
+
+    n_dates = int(data["date"].n_unique())
+    if n_dates != data.height:
+        raise UserInputError(
+            func_name=func_name,
+            field="data",
+            value=f"{data.height} rows for {n_dates} distinct dates",
+            expected=(
+                "exactly one observation per date. Duplicate dates have no "
+                "defined order for striding or autocovariance estimation; "
+                "aggregate explicitly first, e.g. "
+                'data.group_by("date").mean().sort("date")'
+            ),
+            docs_path=_DOCS_DIRECT_COMPUTE,
+        )
 
 
 def _clean_series(data: pl.DataFrame, value_col: str) -> pl.Series:
@@ -171,6 +246,7 @@ class NonOverlapping:
         from factrix._stats.core import _validate_p_value_alternative
         from factrix.metrics._helpers import _sample_non_overlapping
 
+        _validate_series_input(data, overlap_periods, func_name=type(self).__name__)
         _validate_p_value_alternative(alternative, func_name=type(self).__name__)
         # Stride on the *calendar* (every h-th unique date) before dropping
         # non-finite rows, so a dropped observation cannot shift the sampling
@@ -285,6 +361,7 @@ class NeweyWest:
         )
         from factrix._stats.core import _validate_p_value_alternative
 
+        _validate_series_input(data, overlap_periods, func_name=type(self).__name__)
         _validate_p_value_alternative(alternative, func_name=type(self).__name__)
         vals = _clean_series(data, value_col).to_numpy()
         n = len(vals)
@@ -376,6 +453,7 @@ class HansenHodrick:
         from factrix._stats import _hansen_hodrick_t_test
         from factrix._stats.core import _validate_p_value_alternative
 
+        _validate_series_input(data, overlap_periods, func_name=type(self).__name__)
         _validate_p_value_alternative(alternative, func_name=type(self).__name__)
         vals = _clean_series(data, value_col).to_numpy()
         n = len(vals)
@@ -524,6 +602,7 @@ class StationaryBootstrap:
         from factrix._stats.bootstrap import _block_bootstrap_diff_p
         from factrix._stats.core import _validate_p_value_alternative
 
+        _validate_series_input(data, overlap_periods, func_name=type(self).__name__)
         _validate_p_value_alternative(alternative, func_name=type(self).__name__)
         vals = _clean_series(data, value_col).to_numpy()
         n = len(vals)

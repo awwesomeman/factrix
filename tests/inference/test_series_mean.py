@@ -70,6 +70,67 @@ class TestProtocolIdentity:
         assert isinstance(STATIONARY_BOOTSTRAP, StationaryBootstrap)
 
 
+@pytest.mark.parametrize(
+    "member",
+    [
+        NON_OVERLAPPING,
+        NEWEY_WEST,
+        HansenHodrick(),
+        StationaryBootstrap(n_resamples=199, rng=0),
+    ],
+)
+class TestSeriesInputContract:
+    def test_rejects_duplicate_dates(self, member) -> None:
+        data = _series_df(np.arange(20.0))
+        data = pl.concat([data, data.head(1)])
+
+        with pytest.raises(UserInputError) as exc_info:
+            member.compute(data, value_col="ic", overlap_periods=1)
+
+        assert exc_info.value.func_name == type(member).__name__
+        assert exc_info.value.field == "data"
+        assert "one observation per date" in str(exc_info.value)
+
+    @pytest.mark.parametrize("overlap_periods", [0, -1, True, False, 1.0, "5"])
+    def test_rejects_invalid_overlap_periods(self, member, overlap_periods) -> None:
+        with pytest.raises(UserInputError) as exc_info:
+            member.compute(
+                _series_df(np.arange(20.0)),
+                value_col="ic",
+                overlap_periods=overlap_periods,
+            )
+
+        assert exc_info.value.func_name == type(member).__name__
+        assert exc_info.value.field == "overlap_periods"
+
+    def test_rejects_non_temporal_dates(self, member) -> None:
+        data = _series_df(np.arange(20.0)).with_columns(
+            pl.col("date").dt.strftime("%m/%d/%Y")
+        )
+
+        with pytest.raises(UserInputError) as exc_info:
+            member.compute(data, value_col="ic", overlap_periods=1)
+
+        assert exc_info.value.func_name == type(member).__name__
+        assert exc_info.value.field == "date"
+        assert "Date or Datetime" in str(exc_info.value)
+
+    def test_rejects_null_dates(self, member) -> None:
+        data = _series_df(np.arange(20.0)).with_columns(
+            pl.when(pl.int_range(pl.len()) == 0)
+            .then(None)
+            .otherwise(pl.col("date"))
+            .alias("date")
+        )
+
+        with pytest.raises(UserInputError) as exc_info:
+            member.compute(data, value_col="ic", overlap_periods=1)
+
+        assert exc_info.value.func_name == type(member).__name__
+        assert exc_info.value.field == "date"
+        assert "non-null" in str(exc_info.value)
+
+
 def _same(a: float, b: float) -> bool:
     """Equality that treats NaN as a value (the not-computable sentinel)."""
     return (math.isnan(a) and math.isnan(b)) or a == b

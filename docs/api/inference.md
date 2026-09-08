@@ -30,6 +30,12 @@ result = NEWEY_WEST.compute(
 assert result.alternative == "greater"
 ```
 
+Direct calls require a non-null Polars `Date` or `Datetime` column named
+`date`, exactly one observation per date, and a positive integer
+`overlap_periods`. If the source contains multiple observations in one period,
+aggregate them explicitly before calling `compute`; factrix does not guess
+whether `mean`, `last`, or another reduction represents the series.
+
 `InferenceResult.p_value` is always paired with
 `InferenceResult.alternative`, which is the validated `"two-sided"`,
 `"greater"`, or `"less"` tail passed to the statistical kernel. Read these
