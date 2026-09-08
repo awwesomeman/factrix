@@ -24,6 +24,19 @@ from tests._doc_validation import (
 )
 
 
+def test_non_symbol_reference_directive_is_exact() -> None:
+    text = """
+<!-- factrix-doc-non-symbol: factrix.tracker.tag -->
+`factrix.tracker.tag` is a storage key, not a Python symbol.
+`factrix.tracker.tag.child` is not covered by the exact declaration.
+`factrix.renamed_symbol` is an undeclared API reference.
+"""
+
+    failures = {chain for chain in referenced_chains(text) if not resolves(chain)}
+
+    assert failures == {("renamed_symbol",), ("tracker", "tag", "child")}
+
+
 @pytest.mark.parametrize("path", docs_page_paths(), ids=lambda p: str(p))
 def test_page_references_resolve(path: pathlib.Path) -> None:
     text = path.read_text(encoding="utf-8")

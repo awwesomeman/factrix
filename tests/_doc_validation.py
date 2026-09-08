@@ -27,6 +27,14 @@ REF_RE = re.compile(
     r"(?<![/.:])\b(?:factrix|fx)\."
     r"([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)"
 )
+# A page-scoped, exact-token declaration for strings in the ``factrix.*``
+# namespace that are not Python symbols, such as logger names and tracker keys.
+# The declaration itself is intentionally narrow: it exempts only the captured
+# chain, not a prefix, line, or code fence.
+NON_SYMBOL_REF_RE = re.compile(
+    r"<!--\s*factrix-doc-non-symbol:\s*(?:factrix|fx)\."
+    r"([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*-->"
+)
 FROM_IMPORT_RE = re.compile(
     r"^from\s+(factrix(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s+import\s+(.+)$",
     re.MULTILINE,
@@ -126,8 +134,17 @@ def anchors(text: str) -> set[str]:
 
 
 def referenced_chains(text: str) -> set[tuple[str, ...]]:
-    """Return the set of `factrix.X.Y...` attribute chains in ``text``."""
-    return {tuple(m.group(1).split(".")) for m in REF_RE.finditer(text)}
+    """Return undeclared `factrix.X.Y...` attribute chains in ``text``.
+
+    An exact chain declared with ``factrix-doc-non-symbol`` is omitted. The
+    directive is page-scoped because this raw-text guard does not parse
+    Markdown or Python syntax.
+    """
+    declared_non_symbols = {
+        tuple(m.group(1).split(".")) for m in NON_SYMBOL_REF_RE.finditer(text)
+    }
+    references = {tuple(m.group(1).split(".")) for m in REF_RE.finditer(text)}
+    return references - declared_non_symbols
 
 
 def imports(text: str) -> list[tuple[str, str | None]]:
