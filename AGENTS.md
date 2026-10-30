@@ -94,3 +94,10 @@ Follow [Documentation conventions](docs/development/documentation.md). Keep
 what a reader needs and what will not silently go stale — the contract, the
 reason, the non-obvious constraint — and leave out process narrative and
 restated code.
+
+## Rules shared across repos
+
+Rules that are not specific to one repo live in the `AGENTS.md` of all four
+repos: quant-strategies, librae, factrix and quant-research-vault. Changing one
+here means changing the other three, each in its own language, style and
+workflow; skip a file that already has an equivalent rule.
