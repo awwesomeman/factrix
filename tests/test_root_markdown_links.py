@@ -3,10 +3,10 @@
 ``mkdocs.yml`` sets ``validation.links.not_found`` and ``.anchors`` to ``warn``,
 which ``--strict`` turns into errors, so every link inside ``docs/**`` is
 already checked by the build. The repo-root files are outside it: ``README.md``,
-``CONTRIBUTING.md``, ``CLAUDE.md`` and ``CHANGELOG.md`` are never built, so
+``CONTRIBUTING.md``, ``AGENTS.md`` and ``CHANGELOG.md`` are never built, so
 nothing notices when a target moves.
 
-``CLAUDE.md``'s two links carry anchors, which is the failure that stays
+``AGENTS.md``'s two links carry anchors, which is the failure that stays
 silent longest: renaming ``## Testing rules`` or ``## Period grid, not
 calendar`` leaves the link pointing at a file that still exists, at a section
 that no longer does.
@@ -115,7 +115,7 @@ def test_the_scan_finds_the_links_it_is_meant_to_check() -> None:
     )
 
     sources = {path.name for path, _ in links}
-    assert {"README.md", "CONTRIBUTING.md", "CLAUDE.md"} <= sources, (
+    assert {"README.md", "CONTRIBUTING.md", "AGENTS.md"} <= sources, (
         f"the scan reached only {sorted(sources)}; a file that carries "
         "relative links is no longer being read."
     )

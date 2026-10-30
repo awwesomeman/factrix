@@ -43,7 +43,6 @@ out/
 
 # AI tool local settings
 .claude/
-AGENTS.md
 # MkDocs build output
 site/
 

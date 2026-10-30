@@ -2,7 +2,7 @@
 
 A polars ``rolling_*`` window or ``shift`` counts rows within a frame; the
 event family needs a count of periods on the panel's own distinct-date grid
-(CLAUDE.md, "Period grid, not calendar"). The two agree only on a dense panel.
+(AGENTS.md, "Period grid, not calendar"). The two agree only on a dense panel.
 On a ragged one — an asset missing periods the other names have — the row form
 let a 30-period estimation window reach 50 grid periods back and let a
 ``k``-offset return step over the hole as though it were one period.
