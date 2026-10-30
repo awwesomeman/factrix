@@ -79,3 +79,18 @@ Ask what single fact would have to hold for this to be necessary, then check
 that fact directly, in the smallest script that settles it. Apply it to your
 own arguments first: the claim you are least likely to test is the one you
 needed to be true.
+
+## Start from the established method; build only what is needed
+
+For a new estimator, test or diagnostic, start from the established method in
+the statistical literature or a widely used reference implementation, and cite
+it; do not invent a variant where a standard one exists. Then fit it to the
+contracts in this file. Add no options or abstractions for needs that have not
+appeared.
+
+## Docs keep only what stays true
+
+Follow [Documentation conventions](docs/development/documentation.md). Keep
+what a reader needs and what will not silently go stale — the contract, the
+reason, the non-obvious constraint — and leave out process narrative and
+restated code.
