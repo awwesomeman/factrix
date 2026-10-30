@@ -1190,7 +1190,7 @@ def _densify_on_period_grid(
     """Reindex a panel so a row step equals one step on its own period grid.
 
     Every event-study window, lag and offset is a count of periods on the
-    panel's distinct-date grid (CLAUDE.md, "Period grid, not calendar"), but a
+    panel's distinct-date grid (AGENTS.md, "Period grid, not calendar"), but a
     polars ``rolling_*`` window or ``shift`` counts *rows within the frame*.
     The two agree only on a dense panel. On a ragged one — an asset missing
     periods the other names have — a 30-period estimation window on an asset
