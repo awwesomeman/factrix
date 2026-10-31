@@ -95,6 +95,15 @@ what a reader needs and what will not silently go stale — the contract, the
 reason, the non-obvious constraint — and leave out process narrative and
 restated code.
 
+## PR bodies are for the person deciding
+
+A person approves a PR from its body, so it must be readable in a minute: about
+15 lines, one sentence per point. State what behaviour changes and why, what
+needs judging (risks, departures from the issue, omissions that affect the
+decision), and what was run with its result. Per-behaviour specs, test lists
+and debugging history stay out: specs belong in the docs and the commit body,
+tests in the diff.
+
 ## Rules shared across repos
 
 Rules that are not specific to one repo live in the `AGENTS.md` of all four
