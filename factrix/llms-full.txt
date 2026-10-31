@@ -405,6 +405,15 @@ expose a high-level
 low-level primitive must supply the complete joint, H0-centred, correctly
 studentized `(B, m)` matrix.
 
+For a strategy kept as the best of many backtested trials,
+`factrix.stats.deflated_sharpe_ratio` returns the Bailey-López de Prado (2014)
+probability that its per-period Sharpe beats the expected maximum Sharpe of
+`n_trials` zero-skill trials, given `n_obs`, the variance of Sharpe across
+trials, skew and non-excess kurtosis. `factrix.stats.probability_of_backtest_overfitting`
+runs CSCV (Bailey et al. 2017) on a `(T, N)` trial-return matrix: the share of
+`C(S, S/2)` splits where the in-sample best trial ranks at or below the
+out-of-sample median. `n_splits` (default 16) must be even and divide `T`.
+
 ---
 
 ### `multi_factor.bhy_hierarchical`

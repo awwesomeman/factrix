@@ -29,6 +29,13 @@ The selection-only estimator classes under `factrix.stats`:
 - **`stationary_bootstrap_resamples(values, n_resamples, ...)`**: Politis-Romano (1994) bootstrap resamples. An aligned `(T, m)` per-period statistic matrix is resampled with common row indices and returns `(B, T, m)`, preserving cross-hypothesis dependence for Romano-Wolf; separate per-column calls do not.
 - **`bootstrap_mean_ci(values, *, n_resamples, ci, ...)`**: Stationary-bootstrap CI for a statistic.
 
+## Selection-bias measures
+
+For a strategy kept as the best of many backtested trials:
+
+- **`deflated_sharpe_ratio(sharpe, *, n_obs, n_trials, sharpe_variance, skew, kurtosis)`**: Bailey-López de Prado (2014) probability that the selected per-period Sharpe exceeds the expected maximum Sharpe of `n_trials` zero-skill trials. Kurtosis is on the non-excess scale.
+- **`probability_of_backtest_overfitting(trial_returns, *, n_splits=16)`**: Bailey-Borwein-López de Prado-Zhu (2017) CSCV share of splits in which the in-sample best trial of a `(T, N)` return matrix ranks at or below the out-of-sample median.
+
 Holm and BHY adjust p-values as supplied; they neither validate nor repair
 producer calibration. The caller must decide whether warning-coded results are
 suitable for the declared family. A family may contain a documented mix of

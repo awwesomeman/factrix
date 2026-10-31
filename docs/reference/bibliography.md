@@ -784,9 +784,20 @@ Non-Normality." *Journal of Portfolio Management* 40(5), 94–107.
 
 Parallel multiple-trials correction operating on the Sharpe rather
 than the p-value: deflates an observed Sharpe by the expected
-maximum under a number-of-trials null. Related literature for the
-horizon-shopping multiple-trials problem on the Sharpe axis; not an
-implemented procedure in factrix.
+maximum under a number-of-trials null, corrected for sample length,
+skewness and kurtosis. Implemented as `deflated_sharpe_ratio`.
+
+### Bailey, Borwein, López de Prado & Zhu (2017)
+[](){ #bailey-borwein-lopez-de-prado-zhu-2017 }
+
+Bailey, D. H., Borwein, J. M., López de Prado, M. & Zhu, Q. J. (2017).
+"The Probability of Backtest Overfitting." *Journal of Computational
+Finance* 20(4), 39–69.
+
+Combinatorially symmetric cross-validation (CSCV) over a trials-by-periods
+return matrix: the share of in-sample/out-of-sample splits in which the
+in-sample best trial ranks at or below the out-of-sample median.
+Implemented as `probability_of_backtest_overfitting`.
 
 ---
 
