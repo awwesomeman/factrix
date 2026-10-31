@@ -5,10 +5,10 @@ on:
     branches: [main]
     paths-ignore:
       - '**.md'
+  # No path filter on pull requests: main requires these checks, and a workflow
+  # skipped by a filter never reports one, which leaves the PR unmergeable.
   pull_request:
     branches: [main]
-    paths-ignore:
-      - '**.md'
 
 permissions:
   contents: read
