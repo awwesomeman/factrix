@@ -67,17 +67,27 @@ current change set so the audit remains signal rather than accumulated noise.
 
 ## Bump, tag, and publish
 
-Commitizen derives the bump from commits since the previous tag and updates the
-configured version locations:
+`main` only takes changes through pull requests, so the bump goes through one
+and the tag follows the merge. Commitizen derives the bump from commits since
+the previous tag and updates the configured version locations and `uv.lock`:
 
 ```bash
-uv run cz bump
-git push origin main --follow-tags
+git switch -c release/<version>
+uv run cz bump --files-only
+git commit -am "chore(release): v<version>"
+git push -u origin release/<version>
+gh pr create --fill
 ```
 
-Inspect the generated release commit and tag before pushing. The tag must point
-to the release commit on `main`; do not create a release branch solely for the
-bump.
+Inspect the release diff, then merge it. The tag must point to the release
+commit on `main`, so create it after the merge:
+
+```bash
+git switch main
+git pull --ff-only origin main
+git tag -a v<version> -m v<version>
+git push origin v<version>
+```
 
 Create the GitHub release from the pushed tag and publish the matching version
 of the docs. Release notes should lead with behavioural changes and migration
