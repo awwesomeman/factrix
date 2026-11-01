@@ -12,10 +12,16 @@ identity handle, numerics consumed by ``pooled_beta``.
 ``multiple_testing`` — BHY false-discovery plus Holm and Romano-Wolf
 family-wise error-rate adjustments across a declared search family.
 ``bootstrap`` — stationary-bootstrap resampling + CI for dependent series.
+``backtest_overfitting`` — Deflated Sharpe Ratio and the Probability of
+Backtest Overfitting for a strategy selected out of many trials.
 """
 
 from __future__ import annotations
 
+from factrix.stats.backtest_overfitting import (
+    deflated_sharpe_ratio,
+    probability_of_backtest_overfitting,
+)
 from factrix.stats.bootstrap import (
     bootstrap_mean_ci,
     stationary_bootstrap_resamples,
@@ -38,8 +44,10 @@ __all__ = [
     "bhy_adjust",
     "bhy_adjusted_p",
     "bootstrap_mean_ci",
+    "deflated_sharpe_ratio",
     "holm_adjusted_p",
     "partial_conjunction_p",
+    "probability_of_backtest_overfitting",
     "romano_wolf_adjusted_p",
     "simes_p",
     "stationary_bootstrap_resamples",
