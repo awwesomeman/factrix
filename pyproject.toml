@@ -26,7 +26,7 @@ dependencies = [
     # Upper-bounded: polars defines every number this library returns, and its
     # engine defaults (all-null sum, rank NaN placement, quantile interpolation)
     # are exactly what a major version may change. Adopt 2.x deliberately.
-    "polars>=1.38.1,<2",
+    "polars>=1.38.1,<3",
     "numpy>=2.0",
     "scipy>=1.13",
 ]
