@@ -166,14 +166,27 @@ jobs:
       # The lockfile hides the declared floor entirely; this job installs the
       # minimum engine versions from pyproject and deliberately omits the
       # ``pandas`` extra so the polars-native base install is proven to
-      # import and test without pandas or pyarrow present.
+      # import and test without pandas or pyarrow present. The engine floors
+      # are the point of the job and stay literal. The test tools are not
+      # under test, so they are read from the ``dev`` extra -- the pins
+      # Dependabot bumps -- instead of being a second copy that goes stale.
       - name: Install floor dependencies
         shell: bash
         run: |
           uv venv --python 3.12 .venv-floor
+          uv run --python .venv-floor --no-project python - > .venv-floor/test-tools.txt <<'PY'
+          import re
+          import tomllib
+
+          dev = tomllib.load(open("pyproject.toml", "rb"))["project"]["optional-dependencies"]["dev"]
+          wanted = {"pytest", "pytest-mock", "tzdata"}
+          for req in dev:
+              if re.match(r"[A-Za-z0-9._-]+", req).group().lower() in wanted:
+                  print(req)
+          PY
           uv pip install --python .venv-floor \
             "polars==1.38.1" "numpy==2.0.2" "scipy==1.13.1" \
-            "pytest==9.1.1" "pytest-mock==3.15.1" "tzdata>=2025.1" -e .
+            -r .venv-floor/test-tools.txt -e .
 
       - name: Run pytest
         shell: bash
