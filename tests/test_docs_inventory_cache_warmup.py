@@ -276,7 +276,9 @@ def test_cache_duration_matches_what_mkdocstrings_asks_for() -> None:
         "mkdocstrings no longer downloads inventories through this module; "
         "re-check what _CACHE_DURATION has to match."
     )
-    assert "datetime.timedelta(days=1)" in source, (
+    # mkdocstrings spells it ``datetime.timedelta`` or, after a plain
+    # ``from datetime import timedelta``, bare ``timedelta``; both are one day.
+    assert re.search(r"\btimedelta\(days=1\)", source), (
         "mkdocstrings' cache duration changed; _CACHE_DURATION must follow it "
         "or the warmed entry will be considered stale."
     )
