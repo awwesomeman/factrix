@@ -134,9 +134,14 @@ Run the lint stage directly with:
 uv run pre-commit run --all-files --hook-stage pre-commit
 ```
 
-When updating hook versions, run `uv run pre-commit autoupdate`. Keep the Ruff
-hook revision equal to the `ruff==` development pin in `pyproject.toml`; a test
-enforces the match.
+The Ruff hooks are `repo: local` entries that call `uv run ruff`, so Ruff's
+version is the `ruff==` development pin in `pyproject.toml` as locked by
+`uv.lock`; there is no second revision to keep in step. `pre-commit
+autoupdate` therefore has nothing to do for Ruff. Do not switch the hooks back
+to the `ruff-pre-commit` repo: Dependabot's `uv` ecosystem would bump the pin
+without its `rev`.
+The hooks need Ruff in the project environment, so a fresh clone or git
+worktree needs its own `uv sync --extra dev` first.
 
 ## Development workflow
 

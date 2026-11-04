@@ -4,28 +4,33 @@
 #
 #     uv run pre-commit install --hook-type pre-commit --hook-type commit-msg --hook-type pre-push
 #
-# Version sync rule: the ``rev`` below must match the ``ruff==`` pin in
-# ``pyproject.toml``'s ``dev`` extra. The pyproject pin is the source of
-# truth — CI, editors and ``uv run ruff`` all resolve from it. Bump both
-# together (``uv run pre-commit autoupdate`` moves ``rev`` only);
-# ``tests/test_precommit_ruff_pin.py`` fails when the two diverge.
+# Ruff runs as a local hook through ``uv run`` so its version is whatever
+# ``uv.lock`` resolves from the ``ruff==`` pin in ``pyproject.toml`` -- the
+# one place Dependabot bumps. A ``ruff-pre-commit`` repo ``rev`` would be a
+# second copy of that version that Dependabot's uv ecosystem never updates.
 repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.17.3
+  - repo: local
     hooks:
       # Both hooks gate rather than rewrite: no ``--fix`` on the check
       # hook and ``--check`` on the formatter, so a hook run never
       # mutates files under the committer's feet. Fix commands are in
-      # the failure output ruff prints. Scope is ruff's own
-      # ``types_or: [python, pyi, jupyter]`` default — .py / .ipynb.
+      # the failure output ruff prints. Scope matches ruff-pre-commit's
+      # own ``types_or`` default -- .py / .pyi / .ipynb.
       - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check --force-exclude
+        language: system
+        types_or: [python, pyi, jupyter]
+        require_serial: true
         stages: [pre-commit]
       - id: ruff-format
-        args: [--check]
+        name: ruff format --check
+        entry: uv run ruff format --check --force-exclude
+        language: system
+        types_or: [python, pyi, jupyter]
+        require_serial: true
         stages: [pre-commit]
 
-  - repo: local
-    hooks:
       - id: no-claude-coauthor-trailer
         name: "reject Co-Authored-By: Claude trailers"
         entry: scripts/hooks/commit-msg
