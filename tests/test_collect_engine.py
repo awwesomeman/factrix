@@ -89,8 +89,9 @@ def _panel(n_assets: int, n_dates: int, seed: int) -> pl.DataFrame:
 
 
 # The three producers whose output varied between identical calls on polars
-# 2.1 without the pin. The panel is sized so the streaming engine splits each
-# group across threads; on a single-threaded runner this cannot fail.
+# 2.1 without the pin. A guard, not the regression proof (the ast test above is):
+# it can fail only on polars 2 with several threads, and how often depends on
+# the thread count — at 2 threads compute_common_betas never drifted here.
 @pytest.mark.parametrize(
     "produce",
     [
