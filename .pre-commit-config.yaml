@@ -18,14 +18,14 @@ repos:
       # own ``types_or`` default -- .py / .pyi / .ipynb.
       - id: ruff-check
         name: ruff check
-        entry: uv run ruff check
+        entry: uv run ruff check --force-exclude
         language: system
         types_or: [python, pyi, jupyter]
         require_serial: true
         stages: [pre-commit]
       - id: ruff-format
         name: ruff format --check
-        entry: uv run ruff format --check
+        entry: uv run ruff format --check --force-exclude
         language: system
         types_or: [python, pyi, jupyter]
         require_serial: true

@@ -140,6 +140,8 @@ version is the `ruff==` development pin in `pyproject.toml` as locked by
 autoupdate` therefore has nothing to do for Ruff. Do not switch the hooks back
 to the `ruff-pre-commit` repo: Dependabot's `uv` ecosystem would bump the pin
 without its `rev`.
+The hooks need Ruff in the project environment, so a fresh clone or git
+worktree needs its own `uv sync --extra dev` first.
 
 ## Development workflow
 
