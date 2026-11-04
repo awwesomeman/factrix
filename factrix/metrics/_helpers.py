@@ -471,7 +471,9 @@ def _aggregate_to_per_date(
         )
         .filter(_finite_expr(factor_alias) & _finite_expr(return_alias))
         .sort("date")
-        .collect()
+        # Streaming (the lazy default from polars 2) can change the last bits of
+        # a group sum between identical calls; in-memory keeps them bit-identical.
+        .collect(engine="in-memory")
     )
 
 
