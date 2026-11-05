@@ -136,7 +136,10 @@ def compute_ic(
         .group_by("date")
         .agg(agg_exprs)
         .sort("date")
-    ).collect()
+        # Streaming (the lazy default from polars 2) can change the last bits of
+        # a group sum between identical calls; in-memory keeps them bit-identical.
+        .collect(engine="in-memory")
+    )
     n_periods_in = grouped.height
     drop_reason = (
         f"n_assets below MIN_IC_ASSETS_HARD ({MIN_IC_ASSETS_HARD}) or degenerate "

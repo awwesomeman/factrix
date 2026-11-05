@@ -297,7 +297,9 @@ def _common_betas_one(
             pl.col("n_periods").cast(pl.Int64),
         )
         .sort("asset_id")
-        .collect()
+        # Streaming (the lazy default from polars 2) can change the last bits of
+        # a group sum between identical calls; in-memory keeps them bit-identical.
+        .collect(engine="in-memory")
     )
     ew_beta, ew_var, ew_periods = _ew_portfolio_slope(
         data.filter(valid_mask), result, factor_col, return_col, overlap_periods

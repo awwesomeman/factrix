@@ -387,8 +387,14 @@ def monotonicity(
         for f in cols
         for g in range(n_groups)
     ]
+    # Streaming (the lazy default from polars 2) can change the last bits of
+    # a group sum between identical calls; in-memory keeps them bit-identical.
     group_returns_wide = (
-        grouped.lazy().group_by("date").agg(agg_exprs).sort("date").collect()
+        grouped.lazy()
+        .group_by("date")
+        .agg(agg_exprs)
+        .sort("date")
+        .collect(engine="in-memory")
     )
 
     # Stage 2: per-(factor, date) Spearman ρ between group index and

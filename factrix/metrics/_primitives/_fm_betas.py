@@ -125,7 +125,15 @@ def compute_fm_betas(
             .alias(f"_beta__{f}")
         )
 
-    wide = data.lazy().group_by("date").agg(agg_exprs).sort("date").collect()
+    # Streaming (the lazy default from polars 2) can change the last bits of
+    # a group sum between identical calls; in-memory keeps them bit-identical.
+    wide = (
+        data.lazy()
+        .group_by("date")
+        .agg(agg_exprs)
+        .sort("date")
+        .collect(engine="in-memory")
+    )
     # ``wide`` holds every date before the per-factor thinness / degeneracy
     # filter; its height is the shared pre-drop date count. ``n_periods_out``
     # differs per factor (each factor has its own ``_cnt`` and null betas).
