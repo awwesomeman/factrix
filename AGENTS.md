@@ -97,5 +97,5 @@ restated code.
 
 ## Rules shared across repos
 
-Rules common to the maintainer's four repos load from `~/projects/AGENTS.md`,
-outside this repo. This file holds only what is specific to factrix.
+Rules common to the maintainer's repos live in the maintainer's quant-platform repo (`../quant-platform/AGENTS.md` in a local checkout); read them before changing anything.
+This file holds only what is specific to factrix.
