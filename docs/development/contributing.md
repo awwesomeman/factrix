@@ -231,8 +231,8 @@ issue unless the design genuinely requires a long-lived external artifact.
 
 ## Communication and language
 
-Issues, pull requests, commit messages, changelog entries, package docstrings,
-and published docs use English. Planning archives may remain bilingual because
+Code comments, issues, pull requests, commit messages, changelog entries,
+package docstrings, and published docs use English. Planning archives may remain bilingual because
 they are excluded from the site.
 
 Small decisions belong in the PR rationale. Invariant-level changes must also

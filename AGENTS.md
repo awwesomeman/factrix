@@ -95,6 +95,13 @@ what a reader needs and what will not silently go stale — the contract, the
 reason, the non-obvious constraint — and leave out process narrative and
 restated code.
 
+## Write in English
+
+Code comments, docstrings, docs, commit messages, issues and pull requests are
+in English, even though the shared rules below are written in Chinese. The
+canonical rule is "Communication and language" in
+[docs/development/contributing.md](docs/development/contributing.md).
+
 ## Rules shared across repos
 
 Rules common to the maintainer's repos live in the maintainer's quant-platform repo (`../quant-platform/AGENTS.md` in a local checkout); read them before changing anything.
