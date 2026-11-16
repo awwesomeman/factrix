@@ -1040,6 +1040,9 @@ def signal_density(
         pl.col("date").min().alias("first"),
         pl.col("date").max().alias("last"),
     )
+    # ``group_by`` has no fixed output order and the mean below sums in row
+    # order, so pin it or identical calls differ in the last bits.
+    per_asset = per_asset.sort("asset_id")
 
     # Total bars per asset (from full panel, not just events)
     bars_per_asset = data.group_by("asset_id").agg(

@@ -116,6 +116,10 @@ def compute_group_returns(
         )
         .group_by("date", "_group")
         .agg(pl.col(return_col).mean().alias("_date_mean_return"))
+        # Few groups over many rows: polars merges per-thread partial sums in
+        # no fixed order unless the key is sorted, which drifts the mean in
+        # the last bits between identical calls.
+        .sort("_group", "date")
         .group_by("_group")
         .agg(pl.col("_date_mean_return").mean().alias("mean_return"))
         .sort("_group")
