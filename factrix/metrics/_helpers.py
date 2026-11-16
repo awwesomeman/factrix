@@ -1013,6 +1013,9 @@ def _estimate_within_date_icc(
             pl.col(value_col).var(ddof=DDOF).alias("v"),
             pl.len().alias("n"),
         )
+        # ``group_by`` has no fixed output order, and the numpy sums below are
+        # order-sensitive in the last bits.
+        .sort("date")
     )
     if per_period.height == 0:
         return None, 0.0, "no_multi_event_dates"
