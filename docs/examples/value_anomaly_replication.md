@@ -14,7 +14,7 @@ All code cells carry the Jupyter tag `illustrative`. They remain executable in t
 
 ## 1. Download and fingerprint the source snapshot
 
-The [Data Library](https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html) links the CSV archive; its [construction notes](https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library/tw_5_ports.html) say the 25 portfolios intersect five size groups with five book-to-market groups. The library also warns that it reconstructs full histories when updated, so historical returns can change after CRSP revisions.
+The [Data Library](http://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html) links the CSV archive; its [construction notes](http://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library/tw_5_ports.html) say the 25 portfolios intersect five size groups with five book-to-market groups. The library also warns that it reconstructs full histories when updated, so historical returns can change after CRSP revisions.
 
 The recipe therefore fixes the research window but does not pretend the remote bytes are immutable. It prints the archive SHA-256 and the source's creation line on every run. Save those two values with the result artifact if exact reruns matter. No copyrighted source rows are committed to this repository.
 
@@ -33,7 +33,7 @@ from factrix.metrics import ic
 from factrix.metrics.ic import compute_ic
 
 DATA_URL = (
-    "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/"
+    "http://mba.tuck.dartmouth.edu/pages/faculty/ken.french/"
     "ftp/25_Portfolios_5x5_CSV.zip"
 )
 SOURCE_MEMBER = "25_Portfolios_5x5.csv"
