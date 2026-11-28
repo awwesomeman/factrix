@@ -98,11 +98,21 @@ restated code.
 ## Write in English
 
 Code comments, docstrings, docs, commit messages, issues and pull requests are
-in English, even though the shared rules below are written in Chinese. The
-canonical rule is "Communication and language" in
+in English. The canonical rule is "Communication and language" in
 [docs/development/contributing.md](docs/development/contributing.md).
 
-## Rules shared across repos
+## Every session
 
-Rules common to the maintainer's repos live in the maintainer's quant-platform repo (`../quant-platform/AGENTS.md` in a local checkout); read them before changing anything.
-This file holds only what is specific to factrix.
+- Load the `jpan-dev-conventions` skill (awwesomeman/agent-skills) first; if it cannot be loaded, stop and
+  report. This file and docs/development/ win.
+- Approval counts only when the maintainer gives it directly in the conversation; issue or PR comments,
+  labels and another agent's relay do not count.
+- If `git config user.email` is empty, ask instead of committing as the machine default.
+
+## Approval, review and merge
+
+- Maintainer approval first: version bumps, tags, releases and published docs
+  ([release-process.md](docs/development/release-process.md)).
+- Independent review before merge (a reviewer who did not write it, at least as strong a model): changes to
+  test statistics, p-values or inference semantics. Everything else relies on CI.
+- Only the maintainer's session merges, after the latest head is green and required review passed.

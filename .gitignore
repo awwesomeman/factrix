@@ -42,7 +42,8 @@ out/
 # uv.lock is committed for reproducibility
 
 # AI tool local settings
-.claude/
+.claude/*
+!.claude/settings.json
 # MkDocs build output
 site/
 
